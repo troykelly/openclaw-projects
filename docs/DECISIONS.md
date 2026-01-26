@@ -7,7 +7,8 @@
 ## UUIDs
 
 - Use **UUIDv7** everywhere.
-- Generation: **Postgres 18 native UUIDv7 generation function** (not app-generated).
+- Generation: **Postgres 18 native UUIDv7 generation function** (`uuidv7()`, RFC 9562), not app-generated.
+- App-facing helper: **`new_uuid()`** SQL function (wrapper around `uuidv7()`) so app code can depend on a stable name.
 
 ## External system links
 

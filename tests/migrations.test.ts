@@ -20,8 +20,21 @@ function runMigrate(direction: 'up' | 'down', steps?: number): string {
     return execFileSync('migrate', args, { encoding: 'utf-8', cwd: projectRoot });
   } catch (error: unknown) {
     const e = error as { stderr?: string; stdout?: string };
-    throw new Error(`Migration failed: ${e.stderr || e.stdout}`);
+    const msg = `${e.stderr || e.stdout || ''}`.trim();
+    // migrate uses non-zero exits for some non-fatal conditions
+    if (msg.includes('no change')) {
+      return msg;
+    }
+    throw new Error(`Migration failed: ${msg || String(error)}`);
   }
+}
+
+function migrationCount(): number {
+  // Count *.up.sql files (simple and deterministic)
+  const out = execFileSync('bash', ['-lc', `ls -1 "${migrationsPath}"/*.up.sql 2>/dev/null | wc -l`], {
+    encoding: 'utf-8',
+  });
+  return parseInt(out.trim() || '0');
 }
 
 describe('Migrations', () => {
@@ -36,9 +49,9 @@ describe('Migrations', () => {
       database: 'clawdbot',
     });
 
-    // Reset migrations before tests
+    // Reset migrations before tests (best-effort)
     try {
-      runMigrate('down', 1);
+      runMigrate('down', migrationCount());
     } catch {
       // Ignore if no migrations to rollback
     }
@@ -61,16 +74,21 @@ describe('Migrations', () => {
   });
 
   it('smoke test table has UUIDv7 row', async () => {
-    const result = await pool.query('SELECT id FROM _migration_smoke_test');
+    const result = await pool.query('SELECT id::text as id FROM _migration_smoke_test');
     expect(result.rows.length).toBe(1);
 
-    const uuid = result.rows[0].id;
-    // UUIDv7 format check
+    const uuid = result.rows[0].id as string;
     expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
 
-  it('rolls back migration and removes table', async () => {
-    runMigrate('down', 1);
+  it('creates stable new_uuid() helper', async () => {
+    const result = await pool.query('SELECT new_uuid()::text as id');
+    const uuid = result.rows[0].id as string;
+    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+
+  it('rolls back migrations and removes table + helpers', async () => {
+    runMigrate('down', migrationCount());
 
     const result = await pool.query(`
       SELECT EXISTS (
@@ -79,5 +97,10 @@ describe('Migrations', () => {
       ) as exists
     `);
     expect(result.rows[0].exists).toBe(false);
+
+    const fn = await pool.query(
+      "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'new_uuid') as exists"
+    );
+    expect(fn.rows[0].exists).toBe(false);
   });
 });
