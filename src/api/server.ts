@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import { createHash, randomBytes } from 'node:crypto';
 import { createPool } from '../db.js';
+import { sendMagicLinkEmail } from '../email/magicLink.js';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -40,8 +41,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
     const loginUrl = `${baseUrl}/api/auth/consume?token=${token}`;
 
-    // In production we would send via email. For now, return it.
-    return reply.code(201).send({ ok: true, loginUrl });
+    const { delivered } = await sendMagicLinkEmail({ toEmail: email, loginUrl });
+
+    // Only return the URL when email delivery isn't configured (or in non-production).
+    // This prevents leaking a login token to whoever can see the response in production.
+    const shouldReturnUrl = !delivered && process.env.NODE_ENV !== 'production';
+
+    return reply.code(201).send({ ok: true, ...(shouldReturnUrl ? { loginUrl } : {}) });
   });
 
   app.get('/api/auth/consume', async (req, reply) => {
@@ -287,7 +293,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 </head>
 <body>
   <h1>Dashboard login</h1>
-  <p>Request a magic link (15 minutes). If email delivery isn't configured, the link will be shown here.</p>
+  <p>Request a magic link (15 minutes). Check your email for the sign-in link.</p>
 
   <div>
     <input id="email" placeholder="you@example.com" size="32" />
@@ -310,7 +316,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return;
       }
       const data = await res.json();
-      out.innerHTML = 'Login link: <a href="' + data.loginUrl + '">' + data.loginUrl + '</a>';
+      if (data.loginUrl) {
+        out.innerHTML = 'Login link: <a href="' + data.loginUrl + '">' + data.loginUrl + '</a>';
+      } else {
+        out.textContent = 'If that email exists, a login link has been sent.';
+      }
     });
   </script>
 </body>
