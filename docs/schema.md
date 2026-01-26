@@ -33,6 +33,17 @@ Adds to `work_item`:
   - `normalized_value` is maintained by a DB trigger and is globally unique per `(endpoint_type, normalized_value)`
   - `allow_privileged_actions` is **never** allowed via `phone` endpoints (DB check constraint)
 
+## External messages (Issue #10)
+
+- `external_thread`
+  - Links a contact endpoint to an external conversation/thread identifier (e.g. Twilio conversation SID, Telegram chat id)
+  - Unique per `(channel, external_thread_key)`
+- `external_message`
+  - Messages within a thread (`direction`: `inbound|outbound`)
+- `work_item_communication`
+  - Subtype table attaching an actionable communication task to a thread/message
+  - A trigger forces the parent `work_item.task_type = 'communication'`
+
 Notes:
 
 - IDs are UUIDv7 generated in Postgres via `new_uuid()`.
