@@ -1,0 +1,31 @@
+# Reference config for the VM's Traefik file-provider.
+# On the VM this lives at: /opt/traefik/dynamic.yml
+
+http:
+  routers:
+    clawdbot-hooks:
+      rule: "Host(`clawdbot.public-servers.sy3.aperim.net`) && PathPrefix(`/hooks`)"
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: cloudflare
+      service: clawdbot-gateway
+
+    clawdbot-projects:
+      rule: "Host(`clawdbot.public-servers.sy3.aperim.net`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`) || Path(`/health`))"
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: cloudflare
+      service: clawdbot-projects
+
+  services:
+    clawdbot-gateway:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:18789"
+
+    clawdbot-projects:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:3000"

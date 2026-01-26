@@ -1,0 +1,27 @@
+# Reference systemd unit for the VM.
+# Install to: /etc/systemd/system/clawdbot-projects.service
+
+[Unit]
+Description=clawdbot-projects API (serves /dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=clawdbot
+Group=clawdbot
+WorkingDirectory=/home/clawdbot/clawd/clawdbot-projects
+
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=PUBLIC_BASE_URL=https://clawdbot.public-servers.sy3.aperim.net
+
+# DB defaults are fine for local VM usage (localhost:5432, clawdbot/clawdbot).
+# Override via Environment=PGHOST=..., etc if needed.
+
+ExecStart=/home/clawdbot/.local/share/pnpm/pnpm api:dev
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
