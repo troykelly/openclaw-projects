@@ -30,9 +30,8 @@ describe('Database connection', () => {
   });
 
   it('supports UUIDv7 generation', async () => {
-    const result = await pool.query('SELECT uuidv7() as id');
-    const uuid = result.rows[0].id;
-    // UUIDv7 starts with version nibble 7
+    const result = await pool.query('SELECT uuidv7()::text as id');
+    const uuid = result.rows[0].id as string;
     expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
 });
