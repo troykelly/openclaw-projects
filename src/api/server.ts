@@ -1,4 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
+import { createHash, randomBytes } from 'node:crypto';
 import { createPool } from '../db.js';
 
 export type ProjectsApiOptions = {
@@ -8,7 +10,125 @@ export type ProjectsApiOptions = {
 export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
 
+  const sessionCookieName = 'projects_session';
+
+  app.register(cookie, {
+    // In production, set COOKIE_SECRET to enable signed cookies.
+    secret: process.env.COOKIE_SECRET,
+  });
+
   app.get('/health', async () => ({ ok: true }));
+
+  app.post('/api/auth/request-link', async (req, reply) => {
+    const body = req.body as { email?: string };
+    const email = body?.email?.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      return reply.code(400).send({ error: 'email is required' });
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const tokenSha = createHash('sha256').update(token).digest('hex');
+
+    const pool = createPool();
+    await pool.query(
+      `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+       VALUES ($1, $2, now() + interval '15 minutes')`,
+      [email, tokenSha]
+    );
+    await pool.end();
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+    const loginUrl = `${baseUrl}/api/auth/consume?token=${token}`;
+
+    // In production we would send via email. For now, return it.
+    return reply.code(201).send({ ok: true, loginUrl });
+  });
+
+  app.get('/api/auth/consume', async (req, reply) => {
+    const query = req.query as { token?: string };
+    const token = query.token;
+    if (!token) return reply.code(400).send({ error: 'token is required' });
+
+    const tokenSha = createHash('sha256').update(token).digest('hex');
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const link = await client.query(
+        `SELECT id::text as id, email
+           FROM auth_magic_link
+          WHERE token_sha256 = $1
+            AND used_at IS NULL
+            AND expires_at > now()
+          LIMIT 1`,
+        [tokenSha]
+      );
+
+      if (link.rows.length === 0) {
+        await client.query('ROLLBACK');
+        await pool.end();
+        return reply.code(400).send({ error: 'invalid or expired token' });
+      }
+
+      const { id, email } = link.rows[0] as { id: string; email: string };
+
+      await client.query(`UPDATE auth_magic_link SET used_at = now() WHERE id = $1`, [id]);
+
+      const session = await client.query(
+        `INSERT INTO auth_session (email, expires_at)
+         VALUES ($1, now() + interval '7 days')
+         RETURNING id::text as id, expires_at`,
+        [email]
+      );
+
+      const sessionId = (session.rows[0] as { id: string }).id;
+
+      await client.query('COMMIT');
+
+      reply.setCookie(sessionCookieName, sessionId, {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      const accept = req.headers.accept || '';
+      if (accept.includes('text/html')) {
+        return reply.redirect('/dashboard');
+      }
+
+      return reply.send({ ok: true });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  });
+
+  app.get('/api/me', async (req, reply) => {
+    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
+    if (!sessionId) return reply.code(401).send({ error: 'unauthorized' });
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT email
+         FROM auth_session
+        WHERE id = $1
+          AND revoked_at IS NULL
+          AND expires_at > now()`,
+      [sessionId]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) return reply.code(401).send({ error: 'unauthorized' });
+    return reply.send({ email: result.rows[0].email });
+  });
 
   app.post('/api/work-items', async (req, reply) => {
     const body = req.body as { title?: string; description?: string | null };
