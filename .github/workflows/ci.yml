@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build + start devcontainer services
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml up -d --build
+
+      - name: Install deps + run tests
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/clawdbot-projects && pnpm -s test"
+
+      - name: Shutdown
+        if: always()
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml down -v
