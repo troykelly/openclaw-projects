@@ -7,7 +7,7 @@ describe('External inbound messages -> threads -> work items', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    runMigrate('up');
+    await runMigrate('up');
     pool = createTestPool();
   });
 

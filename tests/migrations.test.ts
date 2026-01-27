@@ -1,22 +1,26 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
+import { existsSync } from 'fs';
 import { runMigrate, migrationCount } from './helpers/migrate.js';
 
 describe('Migrations', () => {
   let pool: Pool;
 
   beforeAll(async () => {
+    const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
+    const host = process.env.PGHOST || defaultHost;
+
     pool = new Pool({
-      host: 'localhost',
-      port: 5432,
-      user: 'clawdbot',
-      password: 'clawdbot',
-      database: 'clawdbot',
+      host,
+      port: parseInt(process.env.PGPORT || '5432', 10),
+      user: process.env.PGUSER || 'clawdbot',
+      password: process.env.PGPASSWORD || 'clawdbot',
+      database: process.env.PGDATABASE || 'clawdbot',
     });
 
     // Reset migrations before tests (best-effort)
     try {
-      runMigrate('down', migrationCount());
+      await runMigrate('down', migrationCount());
     } catch {
       // Ignore if no migrations to rollback
     }
@@ -27,7 +31,7 @@ describe('Migrations', () => {
   });
 
   it('applies migration and creates smoke test table', async () => {
-    runMigrate('up');
+    await runMigrate('up');
 
     const result = await pool.query(`
       SELECT EXISTS (
@@ -53,17 +57,19 @@ describe('Migrations', () => {
   });
 
   it('rolls back migrations and removes table + helpers', async () => {
-    runMigrate('down', migrationCount());
+    await runMigrate('down', migrationCount());
 
     // After dropping objects, reconnect to avoid any cached query plans
     // referencing now-dropped relations.
     await pool.end();
+    const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
+    const host = process.env.PGHOST || defaultHost;
     pool = new Pool({
-      host: 'localhost',
-      port: 5432,
-      user: 'clawdbot',
-      password: 'clawdbot',
-      database: 'clawdbot',
+      host,
+      port: parseInt(process.env.PGPORT || '5432', 10),
+      user: process.env.PGUSER || 'clawdbot',
+      password: process.env.PGPASSWORD || 'clawdbot',
+      database: process.env.PGDATABASE || 'clawdbot',
     });
 
     const result = await pool.query(`

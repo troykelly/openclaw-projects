@@ -8,7 +8,7 @@ describe('Postmark delivery for magic-link auth', () => {
   const originalEnv = { ...process.env };
 
   beforeAll(async () => {
-    runMigrate('up');
+    await runMigrate('up');
     await app.ready();
   });
 

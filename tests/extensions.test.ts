@@ -1,15 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
+import { existsSync } from 'fs';
 import { runMigrate } from './helpers/migrate.js';
 
 describe('Required Postgres extensions', () => {
   let pool: Pool;
 
-  beforeAll(() => {
-    runMigrate('up');
+  beforeAll(async () => {
+    await runMigrate('up');
+
+    const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
+
     pool = new Pool({
-      host: process.env.PGHOST || 'localhost',
-      port: parseInt(process.env.PGPORT || '5432'),
+      host: process.env.PGHOST || defaultHost,
+      port: parseInt(process.env.PGPORT || '5432', 10),
       user: process.env.PGUSER || 'clawdbot',
       password: process.env.PGPASSWORD || 'clawdbot',
       database: process.env.PGDATABASE || 'clawdbot',

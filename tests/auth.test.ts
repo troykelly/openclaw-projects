@@ -6,7 +6,7 @@ describe('Magic-link auth + sessions', () => {
   const app = buildServer();
 
   beforeAll(async () => {
-    runMigrate('up');
+    await runMigrate('up');
     await app.ready();
   });
 

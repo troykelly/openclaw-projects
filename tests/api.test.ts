@@ -9,7 +9,7 @@ describe('Backend API service', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    runMigrate('up');
+    await runMigrate('up');
     pool = createTestPool();
     await app.ready();
   });

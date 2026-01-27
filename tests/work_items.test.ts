@@ -7,7 +7,7 @@ describe('Work items core model', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    runMigrate('up');
+    await runMigrate('up');
     pool = createTestPool();
   });
 

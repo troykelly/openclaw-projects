@@ -4,14 +4,17 @@
  */
 
 import { Pool, type PoolConfig } from 'pg';
+import { existsSync } from 'fs';
 
 /**
  * Default PostgreSQL pool configuration for tests.
  * Uses environment variables with sensible local dev defaults.
  */
 export function getPoolConfig(): PoolConfig {
+  const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
+
   return {
-    host: process.env.PGHOST || 'localhost',
+    host: process.env.PGHOST || defaultHost,
     port: parseInt(process.env.PGPORT || '5432', 10),
     user: process.env.PGUSER || 'clawdbot',
     password: process.env.PGPASSWORD || 'clawdbot',

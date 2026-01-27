@@ -19,7 +19,7 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
-CREATE TABLE external_thread (
+CREATE TABLE IF NOT EXISTS external_thread (
   id uuid PRIMARY KEY DEFAULT new_uuid(),
   endpoint_id uuid NOT NULL REFERENCES contact_endpoint(id) ON DELETE CASCADE,
   channel contact_endpoint_type NOT NULL,
@@ -30,9 +30,9 @@ CREATE TABLE external_thread (
   CONSTRAINT external_thread_key_unique UNIQUE (channel, external_thread_key)
 );
 
-CREATE INDEX external_thread_endpoint_idx ON external_thread(endpoint_id);
+CREATE INDEX IF NOT EXISTS external_thread_endpoint_idx ON external_thread(endpoint_id);
 
-CREATE TABLE external_message (
+CREATE TABLE IF NOT EXISTS external_message (
   id uuid PRIMARY KEY DEFAULT new_uuid(),
   thread_id uuid NOT NULL REFERENCES external_thread(id) ON DELETE CASCADE,
   external_message_key text NOT NULL CHECK (length(trim(external_message_key)) > 0),
@@ -44,11 +44,11 @@ CREATE TABLE external_message (
   CONSTRAINT external_message_key_unique UNIQUE (thread_id, external_message_key)
 );
 
-CREATE INDEX external_message_thread_idx ON external_message(thread_id);
-CREATE INDEX external_message_received_at_idx ON external_message(received_at);
+CREATE INDEX IF NOT EXISTS external_message_thread_idx ON external_message(thread_id);
+CREATE INDEX IF NOT EXISTS external_message_received_at_idx ON external_message(received_at);
 
 -- Subtype table: a work item that represents an actionable communication
-CREATE TABLE work_item_communication (
+CREATE TABLE IF NOT EXISTS work_item_communication (
   work_item_id uuid PRIMARY KEY REFERENCES work_item(id) ON DELETE CASCADE,
   thread_id uuid NOT NULL REFERENCES external_thread(id) ON DELETE RESTRICT,
   message_id uuid REFERENCES external_message(id) ON DELETE SET NULL,
@@ -56,7 +56,7 @@ CREATE TABLE work_item_communication (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX work_item_communication_thread_idx ON work_item_communication(thread_id);
+CREATE INDEX IF NOT EXISTS work_item_communication_thread_idx ON work_item_communication(thread_id);
 
 CREATE OR REPLACE FUNCTION work_item_communication_enforce_type()
 RETURNS trigger

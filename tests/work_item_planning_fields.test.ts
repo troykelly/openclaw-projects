@@ -7,7 +7,7 @@ describe('Work item planning fields (priority/type/scheduling)', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    runMigrate('up');
+    await runMigrate('up');
     pool = createTestPool();
   });
 

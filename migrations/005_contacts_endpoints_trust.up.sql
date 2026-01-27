@@ -1,6 +1,6 @@
 -- Issue #9: Contacts + endpoints + trust model (cross-channel)
 
-CREATE TABLE contact (
+CREATE TABLE IF NOT EXISTS contact (
   id uuid PRIMARY KEY DEFAULT new_uuid(),
   display_name text NOT NULL CHECK (length(trim(display_name)) > 0),
   notes text,
@@ -40,7 +40,7 @@ AS $$
   END;
 $$;
 
-CREATE TABLE contact_endpoint (
+CREATE TABLE IF NOT EXISTS contact_endpoint (
   id uuid PRIMARY KEY DEFAULT new_uuid(),
   contact_id uuid NOT NULL REFERENCES contact(id) ON DELETE CASCADE,
   endpoint_type contact_endpoint_type NOT NULL,
@@ -61,8 +61,8 @@ CREATE TABLE contact_endpoint (
   )
 );
 
-CREATE INDEX contact_display_name_idx ON contact(display_name);
-CREATE INDEX contact_endpoint_contact_idx ON contact_endpoint(contact_id);
+CREATE INDEX IF NOT EXISTS contact_display_name_idx ON contact(display_name);
+CREATE INDEX IF NOT EXISTS contact_endpoint_contact_idx ON contact_endpoint(contact_id);
 
 CREATE OR REPLACE FUNCTION contact_endpoint_set_normalized_value()
 RETURNS trigger

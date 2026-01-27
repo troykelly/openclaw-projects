@@ -4,3 +4,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# pnpm store (should not be committed)
+.pnpm-store/
