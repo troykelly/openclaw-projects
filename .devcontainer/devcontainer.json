@@ -1,0 +1,7 @@
+{
+  "name": "clawdbot-projects",
+  "dockerComposeFile": "docker-compose.devcontainer.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/clawdbot-projects",
+  "shutdownAction": "stopCompose"
+}

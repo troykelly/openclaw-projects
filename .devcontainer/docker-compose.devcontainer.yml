@@ -1,0 +1,43 @@
+services:
+  workspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspaces/clawdbot-projects:cached
+      # Share host auth/config so Claude Code + Codex work inside the devcontainer
+      - /home/clawdbot/.claude.json:/home/clawdbot/.claude.json
+      - /home/clawdbot/.claude:/home/clawdbot/.claude
+      - /home/clawdbot/.codex:/home/clawdbot/.codex
+      # Share host-installed CLIs (claude/codex) and pnpm globals
+      - /home/clawdbot/.npm-global:/home/clawdbot/.npm-global
+      - /home/clawdbot/.local/share/pnpm:/home/clawdbot/.local/share/pnpm
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    build:
+      context: ..
+      dockerfile: docker/postgres/Dockerfile
+    environment:
+      POSTGRES_USER: clawdbot
+      POSTGRES_PASSWORD: clawdbot
+      POSTGRES_DB: clawdbot
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb,pg_cron
+      - -c
+      - cron.database_name=clawdbot
+    volumes:
+      - clawdbot_projects_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clawdbot -d clawdbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  clawdbot_projects_postgres_data:
