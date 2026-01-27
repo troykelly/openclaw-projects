@@ -109,7 +109,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (link.rows.length === 0) {
         await client.query('ROLLBACK');
-        await pool.end();
         return reply.code(400).send({ error: 'invalid or expired token' });
       }
 
