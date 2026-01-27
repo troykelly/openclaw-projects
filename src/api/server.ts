@@ -3,6 +3,14 @@ import cookie from '@fastify/cookie';
 import { createHash, randomBytes } from 'node:crypto';
 import { createPool } from '../db.js';
 import { sendMagicLinkEmail } from '../email/magicLink.js';
+import {
+  renderDashboardHome,
+  renderInbox,
+  renderLogin,
+  renderWorkItemDetail,
+  renderWorkItemNew,
+  renderWorkItemsList,
+} from './dashboard.js';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -17,6 +25,32 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // In production, set COOKIE_SECRET to enable signed cookies.
     secret: process.env.COOKIE_SECRET,
   });
+
+  async function getSessionEmail(req: any): Promise<string | null> {
+    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
+    if (!sessionId) return null;
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT email
+         FROM auth_session
+        WHERE id = $1
+          AND revoked_at IS NULL
+          AND expires_at > now()`,
+      [sessionId]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) return null;
+    return result.rows[0].email as string;
+  }
+
+  async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
+    const email = await getSessionEmail(req);
+    if (email) return email;
+    reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLogin());
+    return null;
+  }
 
   app.get('/health', async () => ({ ok: true }));
 
@@ -118,22 +152,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.get('/api/me', async (req, reply) => {
-    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
-    if (!sessionId) return reply.code(401).send({ error: 'unauthorized' });
-
-    const pool = createPool();
-    const result = await pool.query(
-      `SELECT email
-         FROM auth_session
-        WHERE id = $1
-          AND revoked_at IS NULL
-          AND expires_at > now()`,
-      [sessionId]
-    );
-    await pool.end();
-
-    if (result.rows.length === 0) return reply.code(401).send({ error: 'unauthorized' });
-    return reply.send({ email: result.rows[0].email });
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'unauthorized' });
+    return reply.send({ email });
   });
 
   app.get('/api/work-items', async (_req, reply) => {
@@ -171,167 +192,40 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.get('/dashboard', async (req, reply) => {
-    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
-    let email: string | null = null;
+    const email = await getSessionEmail(req);
+    const html = email ? renderDashboardHome({ email }) : renderLogin();
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(html);
+  });
 
-    if (sessionId) {
-      const pool = createPool();
-      const result = await pool.query(
-        `SELECT email
-           FROM auth_session
-          WHERE id = $1
-            AND revoked_at IS NULL
-            AND expires_at > now()`,
-        [sessionId]
-      );
-      await pool.end();
-      if (result.rows.length > 0) email = result.rows[0].email as string;
-    }
+  app.get('/dashboard/inbox', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderInbox({ email }));
+  });
 
-    const html = email
-      ? `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>clawdbot-projects dashboard</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; margin:24px; max-width: 980px}
-    code{background:#f2f2f2; padding:2px 4px; border-radius:4px}
-    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
-    input,button{font-size:14px; padding:8px 10px}
-    table{border-collapse:collapse; width:100%}
-    th,td{border-bottom:1px solid #eee; padding:8px; text-align:left; font-size:14px}
-  </style>
-</head>
-<body>
-  <h1>Dashboard</h1>
-  <p>Logged in as <code>${email}</code></p>
-
-  <h2>Create work item</h2>
-  <div class="row">
-    <input id="title" placeholder="Title" size="40" />
-    <input id="description" placeholder="Description (optional)" size="50" />
-    <button id="create">Create</button>
-  </div>
-
-  <h2>Recent work items</h2>
-  <table>
-    <thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Type</th><th>Created</th></tr></thead>
-    <tbody id="items"></tbody>
-  </table>
-
-  <h2>Inbox (communication tasks)</h2>
-  <table>
-    <thead><tr><th>Title</th><th>Action</th><th>Channel</th><th>Thread</th><th>Last message</th></tr></thead>
-    <tbody id="inbox"></tbody>
-  </table>
-
-  <script>
-    async function refresh() {
-      const res = await fetch('/api/work-items');
-      const data = await res.json();
-      document.getElementById('items').innerHTML = data.items.map(i =>
-        '<tr>' +
-          '<td>' + escapeHtml(i.title) + '</td>' +
-          '<td>' + i.status + '</td>' +
-          '<td>' + i.priority + '</td>' +
-          '<td>' + i.task_type + '</td>' +
-          '<td>' + new Date(i.created_at).toLocaleString() + '</td>' +
-        '</tr>'
-      ).join('');
-
-      const inboxRes = await fetch('/api/inbox');
-      const inbox = await inboxRes.json();
-      document.getElementById('inbox').innerHTML = inbox.items.map(i =>
-        '<tr>' +
-          '<td>' + escapeHtml(i.title) + '</td>' +
-          '<td>' + i.action + '</td>' +
-          '<td>' + i.channel + '</td>' +
-          '<td>' + escapeHtml(i.external_thread_key) + '</td>' +
-          '<td>' + escapeHtml(i.last_message_body || '') + '</td>' +
-        '</tr>'
-      ).join('');
-    }
-
-    function escapeHtml(s){
-      return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]));
-    }
-
-    document.getElementById('create').addEventListener('click', async () => {
-      const title = document.getElementById('title').value;
-      const description = document.getElementById('description').value;
-      const res = await fetch('/api/work-items', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, description })
-      });
-      if (!res.ok) {
-        alert('Failed: ' + (await res.text()));
-        return;
-      }
-      document.getElementById('title').value = '';
-      document.getElementById('description').value = '';
-      await refresh();
-    });
-
-    refresh();
-  </script>
-</body>
-</html>`
-      : `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>clawdbot-projects login</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; margin:24px; max-width: 720px}
-    code{background:#f2f2f2; padding:2px 4px; border-radius:4px}
-    input,button{font-size:14px; padding:8px 10px}
-  </style>
-</head>
-<body>
-  <h1>Dashboard login</h1>
-  <p>Request a magic link (15 minutes). Check your email for the sign-in link.</p>
-
-  <div>
-    <input id="email" placeholder="you@example.com" size="32" />
-    <button id="send">Request login link</button>
-  </div>
-
-  <pre id="out"></pre>
-
-  <script>
-    document.getElementById('send').addEventListener('click', async () => {
-      const email = document.getElementById('email').value;
-      const res = await fetch('/api/auth/request-link', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const out = document.getElementById('out');
-      if (!res.ok) {
-        out.textContent = 'Failed: ' + (await res.text());
-        return;
-      }
-      const data = await res.json();
-      if (data.loginUrl) {
-        out.innerHTML = 'Login link: <a href="' + data.loginUrl + '">' + data.loginUrl + '</a>';
-      } else {
-        out.textContent = 'If that email exists, a login link has been sent.';
-      }
-    });
-  </script>
-</body>
-</html>`;
-
+  app.get('/dashboard/work-items', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
     return reply
       .code(200)
       .header('content-type', 'text/html; charset=utf-8')
-      .send(html);
+      .send(renderWorkItemsList({ email }));
   });
 
+  app.get('/dashboard/work-items/new', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderWorkItemNew({ email }));
+  });
+
+  app.get('/dashboard/work-items/:id', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderWorkItemDetail({ email }));
+  });
   app.post('/api/work-items', async (req, reply) => {
     const body = req.body as { title?: string; description?: string | null };
     if (!body?.title || body.title.trim().length === 0) {
@@ -364,6 +258,149 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
     return reply.send(result.rows[0]);
+  });
+
+  app.put('/api/work-items/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      title?: string;
+      description?: string | null;
+      status?: string;
+      priority?: string;
+      taskType?: string;
+      notBefore?: string | null;
+      notAfter?: string | null;
+    };
+
+    if (!body?.title || body.title.trim().length === 0) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `UPDATE work_item
+          SET title = $2,
+              description = $3,
+              status = $4,
+              priority = $5::work_item_priority,
+              task_type = $6::work_item_task_type,
+              not_before = $7::timestamptz,
+              not_after = $8::timestamptz,
+              updated_at = now()
+        WHERE id = $1
+      RETURNING id::text as id, title, description, status, priority::text as priority, task_type::text as task_type,
+                created_at, updated_at, not_before, not_after`,
+      [
+        params.id,
+        body.title.trim(),
+        body.description ?? null,
+        body.status ?? 'open',
+        body.priority ?? 'P2',
+        body.taskType ?? 'general',
+        body.notBefore ?? null,
+        body.notAfter ?? null,
+      ]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
+  app.delete('/api/work-items/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  app.get('/api/work-items/:id/dependencies', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT wid.id::text as id,
+              wid.work_item_id::text as work_item_id,
+              wid.depends_on_work_item_id::text as depends_on_work_item_id,
+              wid.kind,
+              wi2.title as depends_on_title,
+              wid.created_at
+         FROM work_item_dependency wid
+         JOIN work_item wi2 ON wi2.id = wid.depends_on_work_item_id
+        WHERE wid.work_item_id = $1
+        ORDER BY wid.created_at DESC`,
+      [params.id]
+    );
+    await pool.end();
+    return reply.send({ items: result.rows });
+  });
+
+  app.delete('/api/work-items/:id/dependencies/:dependencyId', async (req, reply) => {
+    const params = req.params as { id: string; dependencyId: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `DELETE FROM work_item_dependency
+        WHERE id = $1
+          AND work_item_id = $2
+      RETURNING id::text as id`,
+      [params.dependencyId, params.id]
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
+  app.get('/api/work-items/:id/participants', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text as id, work_item_id::text as work_item_id, participant, role, created_at
+         FROM work_item_participant
+        WHERE work_item_id = $1
+        ORDER BY created_at DESC`,
+      [params.id]
+    );
+    await pool.end();
+    return reply.send({ items: result.rows });
+  });
+
+  app.post('/api/work-items/:id/participants', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { participant?: string; role?: string };
+    if (!body?.participant || body.participant.trim().length === 0) {
+      return reply.code(400).send({ error: 'participant is required' });
+    }
+    if (!body?.role || body.role.trim().length === 0) {
+      return reply.code(400).send({ error: 'role is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `INSERT INTO work_item_participant (work_item_id, participant, role)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (work_item_id, participant, role)
+       DO UPDATE SET participant = EXCLUDED.participant
+       RETURNING id::text as id, work_item_id::text as work_item_id, participant, role, created_at`,
+      [params.id, body.participant.trim(), body.role.trim()]
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  app.delete('/api/work-items/:id/participants/:participantId', async (req, reply) => {
+    const params = req.params as { id: string; participantId: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `DELETE FROM work_item_participant
+        WHERE id = $1
+          AND work_item_id = $2
+      RETURNING id::text as id`,
+      [params.participantId, params.id]
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
   });
 
   app.post('/api/work-items/:id/dependencies', async (req, reply) => {

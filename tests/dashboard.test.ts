@@ -19,6 +19,10 @@ describe('/dashboard UI', () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.body).toContain('Dashboard login');
+
+    const res2 = await app.inject({ method: 'GET', url: '/dashboard/work-items' });
+    expect(res2.statusCode).toBe(200);
+    expect(res2.body).toContain('Dashboard login');
   });
 
   it('shows dashboard when authenticated', async () => {
@@ -49,5 +53,37 @@ describe('/dashboard UI', () => {
     expect(dash.statusCode).toBe(200);
     expect(dash.body).toContain('Dashboard');
     expect(dash.body).toContain('Logged in as');
+
+    const list = await app.inject({
+      method: 'GET',
+      url: '/dashboard/work-items',
+      headers: { cookie: sessionCookie },
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.body).toContain('Work items');
+
+    const newPage = await app.inject({
+      method: 'GET',
+      url: '/dashboard/work-items/new',
+      headers: { cookie: sessionCookie },
+    });
+    expect(newPage.statusCode).toBe(200);
+    expect(newPage.body).toContain('New work item');
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/work-items',
+      payload: { title: 'Dash item' },
+    });
+    const { id } = created.json() as { id: string };
+
+    const item = await app.inject({
+      method: 'GET',
+      url: `/dashboard/work-items/${id}`,
+      headers: { cookie: sessionCookie },
+    });
+    expect(item.statusCode).toBe(200);
+    expect(item.body).toContain('Dependencies');
+    expect(item.body).toContain('Participants');
   });
 });
