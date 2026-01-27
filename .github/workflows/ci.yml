@@ -20,6 +20,7 @@ jobs:
 
       - name: Install deps + run tests
         run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/clawdbot-projects && pnpm install --frozen-lockfile"
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/clawdbot-projects && pnpm -s test"
 
       - name: Shutdown
