@@ -1,19 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.js';
+import { createTestPool, truncateAllTables } from './helpers/db.js';
 
 describe('Work items core model', () => {
   let pool: Pool;
 
   beforeAll(async () => {
     runMigrate('up');
-    pool = new Pool({
-      host: process.env.PGHOST || 'localhost',
-      port: parseInt(process.env.PGPORT || '5432'),
-      user: process.env.PGUSER || 'clawdbot',
-      password: process.env.PGPASSWORD || 'clawdbot',
-      database: process.env.PGDATABASE || 'clawdbot',
-    });
+    pool = createTestPool();
+  });
+
+  beforeEach(async () => {
+    await truncateAllTables(pool);
   });
 
   afterAll(async () => {
