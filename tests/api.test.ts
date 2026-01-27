@@ -1,17 +1,26 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.js';
+import { createTestPool, truncateAllTables } from './helpers/db.js';
 import { buildServer } from '../src/api/server.js';
 
 describe('Backend API service', () => {
   const app = buildServer();
+  let pool: Pool;
 
   beforeAll(async () => {
     runMigrate('up');
+    pool = createTestPool();
     await app.ready();
+  });
+
+  beforeEach(async () => {
+    await truncateAllTables(pool);
   });
 
   afterAll(async () => {
     await app.close();
+    await pool.end();
   });
 
   it('exposes /health', async () => {
