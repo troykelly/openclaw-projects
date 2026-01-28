@@ -5,13 +5,6 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspaces/clawdbot-projects:cached
-      # Share host auth/config so Claude Code + Codex work inside the devcontainer
-      - /home/clawdbot/.claude.json:/home/clawdbot/.claude.json
-      - /home/clawdbot/.claude:/home/clawdbot/.claude
-      - /home/clawdbot/.codex:/home/clawdbot/.codex
-      # Share host-installed CLIs (claude/codex) and pnpm globals
-      - /home/clawdbot/.npm-global:/home/clawdbot/.npm-global
-      - /home/clawdbot/.local/share/pnpm:/home/clawdbot/.local/share/pnpm
     command: sleep infinity
     depends_on:
       postgres:
