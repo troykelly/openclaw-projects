@@ -11,6 +11,8 @@
     "db:down": "docker compose down",
     "migrate:up": "migrate -path migrations -database \"$DATABASE_URL\" up",
     "migrate:down": "migrate -path migrations -database \"$DATABASE_URL\" down 1",
+    "migrate:status": "migrate -path migrations -database \"$DATABASE_URL\" version",
+    "migrate:down:all": "migrate -path migrations -database \"$DATABASE_URL\" down",
     "api:dev": "tsx src/api/run.ts"
   },
   "keywords": [],
