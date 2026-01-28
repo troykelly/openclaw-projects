@@ -402,6 +402,114 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
+  app.get('/api/work-items/:id/links', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text as id,
+              work_item_id::text as work_item_id,
+              provider,
+              url,
+              external_id,
+              github_owner,
+              github_repo,
+              github_kind,
+              github_number,
+              github_node_id,
+              github_project_node_id,
+              created_at
+         FROM work_item_external_link
+        WHERE work_item_id = $1
+        ORDER BY created_at DESC`,
+      [params.id]
+    );
+    await pool.end();
+    return reply.send({ items: result.rows });
+  });
+
+  app.post('/api/work-items/:id/links', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      provider?: string;
+      url?: string;
+      externalId?: string;
+      githubOwner?: string;
+      githubRepo?: string;
+      githubKind?: string;
+      githubNumber?: number;
+      githubNodeId?: string | null;
+      githubProjectNodeId?: string | null;
+    };
+
+    if (!body?.provider || body.provider.trim().length === 0) {
+      return reply.code(400).send({ error: 'provider is required' });
+    }
+    if (!body?.url || body.url.trim().length === 0) {
+      return reply.code(400).send({ error: 'url is required' });
+    }
+    if (!body?.externalId || body.externalId.trim().length === 0) {
+      return reply.code(400).send({ error: 'externalId is required' });
+    }
+
+    const provider = body.provider.trim();
+    if (provider === 'github') {
+      if (!body.githubOwner || !body.githubRepo || !body.githubKind) {
+        return reply.code(400).send({ error: 'githubOwner, githubRepo, and githubKind are required' });
+      }
+      if (body.githubKind !== 'project' && !body.githubNumber) {
+        return reply.code(400).send({ error: 'githubNumber is required for issues and PRs' });
+      }
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `INSERT INTO work_item_external_link
+        (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number, github_node_id, github_project_node_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id::text as id,
+                 work_item_id::text as work_item_id,
+                 provider,
+                 url,
+                 external_id,
+                 github_owner,
+                 github_repo,
+                 github_kind,
+                 github_number,
+                 github_node_id,
+                 github_project_node_id,
+                 created_at`,
+      [
+        params.id,
+        provider,
+        body.url.trim(),
+        body.externalId.trim(),
+        body.githubOwner?.trim() ?? null,
+        body.githubRepo?.trim() ?? null,
+        body.githubKind ?? null,
+        body.githubNumber ?? null,
+        body.githubNodeId ?? null,
+        body.githubProjectNodeId ?? null,
+      ]
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  app.delete('/api/work-items/:id/links/:linkId', async (req, reply) => {
+    const params = req.params as { id: string; linkId: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `DELETE FROM work_item_external_link
+        WHERE id = $1
+          AND work_item_id = $2
+      RETURNING id::text as id`,
+      [params.linkId, params.id]
+    );
+    await pool.end();
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.code(204).send();
+  });
+
   app.post('/api/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as { dependsOnWorkItemId?: string; kind?: string };
