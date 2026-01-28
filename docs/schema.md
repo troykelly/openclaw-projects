@@ -23,6 +23,32 @@ Adds to `work_item`:
 - `task_type` (`work_item_task_type` enum: `general|coding|admin|ops|research|meeting`)
 - `not_before` / `not_after` scheduling window with check constraint (`not_before <= not_after` when both are set)
 
+### Estimates + hierarchy (Issue #28)
+
+Adds to `work_item`:
+
+- `estimate_minutes` (int, nullable)
+- `actual_minutes` (int, nullable)
+- `work_item_kind` (`work_item_kind` enum: `project|initiative|epic|issue`, default `issue`)
+- `parent_work_item_id` (self-referential FK for hierarchy, nullable)
+
+Constraints:
+
+- `estimate_minutes` and `actual_minutes` must be between 0 and 525,600 minutes when set.
+- `parent_work_item_id` may not reference the same row.
+
+Rollup views (include descendants):
+
+- `work_item_rollup_project`
+- `work_item_rollup_initiative`
+- `work_item_rollup_epic`
+- `work_item_rollup_issue`
+
+Next-actionable query:
+
+- `work_item_next_actionable_at(as_of timestamptz)` function
+- `work_item_next_actionable` view (invokes the function with `now()`)
+
 ## Contacts (Issue #9)
 
 - `contact`
