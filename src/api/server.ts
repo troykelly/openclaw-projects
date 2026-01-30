@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import { createHash, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from '../db.js';
@@ -38,6 +39,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     decorateReply: false,
   });
 
+  const appFrontendIndexHtml = readFileSync(
+    path.join(__dirname, 'static', 'app', 'index.html'),
+    'utf8'
+  );
+
   async function getSessionEmail(req: any): Promise<string | null> {
     const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
     if (!sessionId) return null;
@@ -65,6 +71,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   app.get('/health', async () => ({ ok: true }));
+
+  // New frontend (issue #52). These routes are protected by the existing dashboard session cookie.
+  app.get('/app/work-items', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(appFrontendIndexHtml);
+  });
+
+  app.get('/app/work-items/:id', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(appFrontendIndexHtml);
+  });
 
   app.post('/api/auth/request-link', async (req, reply) => {
     const body = req.body as { email?: string };
