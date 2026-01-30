@@ -1,6 +1,9 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
+import fastifyStatic from '@fastify/static';
 import { createHash, randomBytes } from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createPool } from '../db.js';
 import { sendMagicLinkEmail } from '../email/magicLink.js';
 import {
@@ -24,6 +27,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.register(cookie, {
     // In production, set COOKIE_SECRET to enable signed cookies.
     secret: process.env.COOKIE_SECRET,
+  });
+
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, 'static'),
+    prefix: '/static/',
+    decorateReply: false,
   });
 
   async function getSessionEmail(req: any): Promise<string | null> {

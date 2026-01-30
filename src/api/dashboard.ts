@@ -2,23 +2,46 @@ type DashboardPageOptions = {
   email: string;
 };
 
-function baseCss() {
-  return `
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; margin:24px; max-width: 1100px}
-    code{background:#f2f2f2; padding:2px 4px; border-radius:4px}
-    a{color:#0b5fff; text-decoration:none}
-    a:hover{text-decoration:underline}
-    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
-    input,select,textarea,button{font-size:14px; padding:8px 10px}
-    textarea{width:100%; max-width: 900px}
-    table{border-collapse:collapse; width:100%}
-    th,td{border-bottom:1px solid #eee; padding:8px; text-align:left; font-size:14px; vertical-align:top}
-    .muted{color:#666}
-    .pill{display:inline-block; padding:2px 8px; border-radius:999px; background:#f2f2f2; font-size:12px}
-    .danger{background:#b00020; color:white; border:none}
-    .danger:hover{filter:brightness(0.95)}
-    .card{border:1px solid #eee; border-radius:10px; padding:14px; margin:12px 0}
-  `;
+type DashboardShellOptions = {
+  title: string;
+  email?: string;
+  mainHtml: string;
+};
+
+function renderShell({ title, email, mainHtml }: DashboardShellOptions): string {
+  const userBadge = email
+    ? `<div class="text-sm text-muted-foreground">Logged in as <code class="rounded bg-muted px-1.5 py-0.5">${email}</code></div>`
+    : '';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body class="min-h-screen">
+  <div data-testid="app-shell" class="min-h-screen">
+    <header class="border-b bg-background">
+      <div class="container-page flex h-14 items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <a href="/dashboard" class="font-semibold">Projects</a>
+          <nav aria-label="Primary" class="hidden gap-3 text-sm md:flex">
+            <a href="/dashboard/work-items" class="text-muted-foreground hover:text-foreground">Work items</a>
+            <a href="/dashboard/inbox" class="text-muted-foreground hover:text-foreground">Inbox</a>
+          </nav>
+        </div>
+        ${userBadge}
+      </div>
+    </header>
+
+    <main class="container-page py-6">
+      ${mainHtml}
+    </main>
+  </div>
+</body>
+</html>`;
 }
 
 function baseScript() {
@@ -35,123 +58,117 @@ function baseScript() {
 }
 
 export function renderLogin(): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>clawdbot-projects login</title>
-  <style>${baseCss()}</style>
-</head>
-<body>
-  <h1>Dashboard login</h1>
-  <p>Request a magic link (15 minutes). Check your email for the sign-in link.</p>
+  return renderShell({
+    title: 'clawdbot-projects login',
+    mainHtml: `
+      <div class="mx-auto max-w-xl">
+        <h1 class="text-2xl font-semibold tracking-tight">Dashboard login</h1>
+        <p class="mt-2 text-sm text-muted-foreground">Request a magic link (15 minutes). Check your email for the sign-in link.</p>
 
-  <div class="row">
-    <input id="email" placeholder="you@example.com" size="32" />
-    <button id="send">Request login link</button>
-  </div>
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label class="sr-only" for="email">Email</label>
+          <input id="email" placeholder="you@example.com" class="h-10 w-full rounded-md border bg-background px-3 text-sm shadow-sm" />
+          <button id="send" class="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90">Request login link</button>
+        </div>
 
-  <pre id="out"></pre>
+        <pre id="out" class="mt-4 whitespace-pre-wrap rounded-md border bg-muted p-3 text-xs text-muted-foreground"></pre>
+      </div>
 
-  <script>
-    document.getElementById('send').addEventListener('click', async () => {
-      const email = document.getElementById('email').value;
-      const res = await fetch('/api/auth/request-link', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const out = document.getElementById('out');
-      if (!res.ok) {
-        out.textContent = 'Failed: ' + (await res.text());
-        return;
-      }
-      const data = await res.json();
-      if (data.loginUrl) {
-        out.innerHTML = 'Login link: <a href="' + data.loginUrl + '">' + data.loginUrl + '</a>';
-      } else {
-        out.textContent = 'If that email exists, a login link has been sent.';
-      }
-    });
-  </script>
-</body>
-</html>`;
+      <script>
+        document.getElementById('send').addEventListener('click', async () => {
+          const email = document.getElementById('email').value;
+          const res = await fetch('/api/auth/request-link', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const out = document.getElementById('out');
+          if (!res.ok) {
+            out.textContent = 'Failed: ' + (await res.text());
+            return;
+          }
+          const data = await res.json();
+          if (data.loginUrl) {
+            out.innerHTML = 'Login link: <a class="underline" href="' + data.loginUrl + '">' + data.loginUrl + '</a>';
+          } else {
+            out.textContent = 'If that email exists, a login link has been sent.';
+          }
+        });
+      </script>
+    `,
+  });
 }
 
 export function renderDashboardHome({ email }: DashboardPageOptions): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>clawdbot-projects dashboard</title>
-  <style>${baseCss()}</style>
-</head>
-<body>
-  <h1>Dashboard</h1>
-  <p>Logged in as <code>${email}</code></p>
+  return renderShell({
+    title: 'clawdbot-projects dashboard',
+    email,
+    mainHtml: `
+      <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <p class="mt-1 text-sm text-muted-foreground">Tip: start at <a class="underline" href="/dashboard/work-items">Work items</a> to create/edit tasks, manage dependencies, and participants/watchers.</p>
 
-  <div class="card">
-    <div class="row">
-      <a href="/dashboard/work-items">Work items</a>
-      <span class="muted">|</span>
-      <a href="/dashboard/inbox">Inbox</a>
-    </div>
-  </div>
-
-  <p class="muted">Tip: start at <a href="/dashboard/work-items">Work items</a> to create/edit tasks, manage dependencies, and participants/watchers.</p>
-</body>
-</html>`;
+      <div class="mt-6 grid gap-3 sm:grid-cols-2">
+        <a class="rounded-lg border bg-background p-4 shadow-sm hover:bg-muted" href="/dashboard/work-items">
+          <div class="font-medium">Work items</div>
+          <div class="mt-1 text-sm text-muted-foreground">Create, edit, and manage tasks</div>
+        </a>
+        <a class="rounded-lg border bg-background p-4 shadow-sm hover:bg-muted" href="/dashboard/inbox">
+          <div class="font-medium">Inbox</div>
+          <div class="mt-1 text-sm text-muted-foreground">Messages linked to work items</div>
+        </a>
+      </div>
+    `,
+  });
 }
 
 export function renderInbox({ email }: DashboardPageOptions): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Inbox - clawdbot-projects</title>
-  <style>${baseCss()}</style>
-</head>
-<body>
-  <div class="row" style="justify-content:space-between">
-    <div>
-      <h1>Inbox</h1>
-      <p class="muted">Logged in as <code>${email}</code></p>
-    </div>
-    <div class="row">
-      <a href="/dashboard">Home</a>
-      <a href="/dashboard/work-items">Work items</a>
-    </div>
-  </div>
+  return renderShell({
+    title: 'Inbox - clawdbot-projects',
+    email,
+    mainHtml: `
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Inbox</h1>
+          <p class="mt-1 text-sm text-muted-foreground">Messages linked to work items.</p>
+        </div>
+      </div>
 
-  <table>
-    <thead><tr><th>Title</th><th>Action</th><th>Channel</th><th>Thread</th><th>Last message</th></tr></thead>
-    <tbody id="inbox"></tbody>
-  </table>
+      <div class="mt-6 overflow-x-auto rounded-lg border">
+        <table class="min-w-full text-sm">
+          <thead class="bg-muted text-left text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 font-medium">Title</th>
+              <th class="px-3 py-2 font-medium">Action</th>
+              <th class="px-3 py-2 font-medium">Channel</th>
+              <th class="px-3 py-2 font-medium">Thread</th>
+              <th class="px-3 py-2 font-medium">Last message</th>
+            </tr>
+          </thead>
+          <tbody id="inbox" class="divide-y"></tbody>
+        </table>
+      </div>
 
-  <script>
-    ${baseScript()}
+      <script>
+        ${baseScript()}
 
-    async function refresh() {
-      const inboxRes = await fetch('/api/inbox');
-      const inbox = await inboxRes.json();
-      document.getElementById('inbox').innerHTML = inbox.items.map(i =>
-        '<tr>' +
-          '<td><a href="/dashboard/work-items/' + i.work_item_id + '">' + escapeHtml(i.title) + '</a></td>' +
-          '<td>' + escapeHtml(i.action) + '</td>' +
-          '<td>' + escapeHtml(i.channel) + '</td>' +
-          '<td>' + escapeHtml(i.external_thread_key) + '</td>' +
-          '<td>' + escapeHtml(i.last_message_body || '') + '</td>' +
-        '</tr>'
-      ).join('');
-    }
+        async function refresh() {
+          const inboxRes = await fetch('/api/inbox');
+          const inbox = await inboxRes.json();
+          document.getElementById('inbox').innerHTML = inbox.items.map(i =>
+            '<tr>' +
+              '<td class="px-3 py-2"><a class="underline" href="/dashboard/work-items/' + i.work_item_id + '">' + escapeHtml(i.title) + '</a></td>' +
+              '<td class="px-3 py-2">' + escapeHtml(i.action) + '</td>' +
+              '<td class="px-3 py-2">' + escapeHtml(i.channel) + '</td>' +
+              '<td class="px-3 py-2">' + escapeHtml(i.external_thread_key) + '</td>' +
+              '<td class="px-3 py-2">' + escapeHtml(i.last_message_body || '') + '</td>' +
+            '</tr>'
+          ).join('');
+        }
 
-    refresh();
-  </script>
-</body>
-</html>`;
+        refresh();
+      </script>
+    `,
+  });
 }
 
 export function renderWorkItemsList({ email }: DashboardPageOptions): string {
@@ -161,9 +178,10 @@ export function renderWorkItemsList({ email }: DashboardPageOptions): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Work items - clawdbot-projects</title>
-  <style>${baseCss()}</style>
+  <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
+<body class="min-h-screen">
+  <div data-testid="app-shell" class="min-h-screen">
   <div class="row" style="justify-content:space-between">
     <div>
       <h1>Work items</h1>
@@ -200,6 +218,7 @@ export function renderWorkItemsList({ email }: DashboardPageOptions): string {
 
     refresh();
   </script>
+  </div>
 </body>
 </html>`;
 }
@@ -211,9 +230,10 @@ export function renderWorkItemNew({ email }: DashboardPageOptions): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>New work item - clawdbot-projects</title>
-  <style>${baseCss()}</style>
+  <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
+<body class="min-h-screen">
+  <div data-testid="app-shell" class="min-h-screen">
   <div class="row" style="justify-content:space-between">
     <div>
       <h1>New work item</h1>
@@ -254,6 +274,7 @@ export function renderWorkItemNew({ email }: DashboardPageOptions): string {
       window.location.href = '/dashboard/work-items/' + item.id;
     });
   </script>
+  </div>
 </body>
 </html>`;
 }
@@ -265,9 +286,10 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Work item - clawdbot-projects</title>
-  <style>${baseCss()}</style>
+  <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
+<body class="min-h-screen">
+  <div data-testid="app-shell" class="min-h-screen">
   <div class="row" style="justify-content:space-between">
     <div>
       <h1 id="heading">Work item</h1>
@@ -481,6 +503,7 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
 
     load();
   </script>
+  </div>
 </body>
 </html>`;
 }

@@ -13,6 +13,8 @@
     "migrate:down": "migrate -path migrations -database \"$DATABASE_URL\" down 1",
     "migrate:status": "migrate -path migrations -database \"$DATABASE_URL\" version",
     "migrate:down:all": "migrate -path migrations -database \"$DATABASE_URL\" down",
+    "css:build": "tailwindcss -c tailwind.config.ts -i ./src/ui/app.css -o ./src/api/static/app.css",
+    "css:watch": "tailwindcss -c tailwind.config.ts -i ./src/ui/app.css -o ./src/api/static/app.css --watch",
     "api:dev": "tsx src/api/run.ts"
   },
   "keywords": [],
@@ -21,12 +23,16 @@
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
     "@types/node": "^25.0.10",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^9.0.0",
     "@types/pg": "^8.16.0",
     "fastify": "^5.7.2",
     "pg": "^8.17.2"

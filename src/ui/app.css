@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn-style theme tokens */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4;
+  }
+
+  /* Transitional utility classes for existing dashboard markup */
+  .row {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .muted {
+    @apply text-muted-foreground;
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground;
+  }
+
+  .card {
+    @apply rounded-lg border bg-background p-4 shadow-sm;
+  }
+
+  .danger {
+    @apply rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground shadow-sm hover:opacity-90;
+  }
+}
