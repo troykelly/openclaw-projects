@@ -44,6 +44,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     'utf8'
   );
 
+  function renderAppFrontendHtml(bootstrap: unknown | null): string {
+    if (!bootstrap) return appFrontendIndexHtml;
+
+    // Embed bootstrap JSON in the HTML response so Fastify inject tests can assert on data
+    // without needing to execute client-side JS.
+    const json = JSON.stringify(bootstrap).replace(/<\//g, '<\\/');
+    const injection = `\n<script id="app-bootstrap" type="application/json">${json}</script>\n`;
+
+    if (appFrontendIndexHtml.includes('</body>')) {
+      return appFrontendIndexHtml.replace('</body>', `${injection}</body>`);
+    }
+
+    return `${appFrontendIndexHtml}${injection}`;
+  }
+
   async function getSessionEmail(req: any): Promise<string | null> {
     const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
     if (!sessionId) return null;
@@ -77,14 +92,65 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const email = await requireDashboardSession(req, reply);
     if (!email) return;
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(appFrontendIndexHtml);
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml({ route: { kind: 'work-items-list' } }));
   });
 
   app.get('/app/work-items/:id', async (req, reply) => {
     const email = await requireDashboardSession(req, reply);
     if (!email) return;
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(appFrontendIndexHtml);
+    const params = req.params as { id: string };
+
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // Some routes/tests may hit this endpoint with a non-UUID id. Avoid 500s by skipping DB lookups.
+    if (!uuidRe.test(params.id)) {
+      const bootstrap = {
+        route: { kind: 'work-item-detail', id: params.id },
+        me: { email },
+        workItem: null,
+        participants: [],
+      };
+
+      return reply
+        .code(200)
+        .header('content-type', 'text/html; charset=utf-8')
+        .send(renderAppFrontendHtml(bootstrap));
+    }
+
+    const pool = createPool();
+    const item = await pool.query(
+      `SELECT id::text as id, title
+         FROM work_item
+        WHERE id = $1`,
+      [params.id]
+    );
+
+    const participants = await pool.query(
+      `SELECT participant, role
+         FROM work_item_participant
+        WHERE work_item_id = $1
+        ORDER BY created_at DESC`,
+      [params.id]
+    );
+
+    await pool.end();
+
+    // Render the SPA shell but embed enough bootstrap data that server-side tests can assert on.
+    const bootstrap = {
+      route: { kind: 'work-item-detail', id: params.id },
+      me: { email },
+      workItem: item.rows[0] ?? null,
+      participants: participants.rows,
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
   });
 
   app.post('/api/auth/request-link', async (req, reply) => {
