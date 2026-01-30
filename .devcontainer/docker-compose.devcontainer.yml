@@ -3,6 +3,9 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+    env_file:
+      - path: ../.env
+        required: false
     volumes:
       - ..:/workspaces/clawdbot-projects:cached
       - /var/run/docker.sock:/var/run/docker.sock
