@@ -14,23 +14,23 @@ RUN apt-get update \
     postgresql-client \
     nodejs \
     npm \
-    docker.io \
+    lsb-release \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Docker Compose v2 plugin so `docker compose` works inside the devcontainer.
-# (Ubuntu packages don't always include docker-compose-plugin.)
-ARG DOCKER_COMPOSE_VERSION=v2.27.1
+# Docker CLI (outside-of-docker / docker-sock) support.
+# Install ONLY the client bits (no daemon) from Docker's official apt repo:
+# - docker-ce-cli provides `docker`
+# - docker-compose-plugin provides `docker compose`
+# - docker-buildx-plugin is commonly expected by modern compose builds
 RUN set -eux; \
-  arch="$(uname -m)"; \
-  case "$arch" in \
-    x86_64) compose_arch="x86_64" ;; \
-    aarch64|arm64) compose_arch="aarch64" ;; \
-    *) echo "Unsupported arch: $arch"; exit 1 ;; \
-  esac; \
-  mkdir -p /usr/local/lib/docker/cli-plugins; \
-  curl -fsSL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${compose_arch}" \
-    -o /usr/local/lib/docker/cli-plugins/docker-compose; \
-  chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  install -m 0755 -d /etc/apt/keyrings; \
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc; \
+  chmod a+r /etc/apt/keyrings/docker.asc; \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
+    > /etc/apt/sources.list.d/docker.list; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin docker-buildx-plugin; \
+  rm -rf /var/lib/apt/lists/*
 
 # Ensure pnpm exists even when host mounts are not present.
 RUN npm install -g pnpm
