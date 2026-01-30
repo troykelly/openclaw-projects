@@ -19,6 +19,10 @@ A Postgres-backed project + task management system intended to be used collabora
 - Backend API (TBD language)
 - Web dashboard
 
+## Operations
+
+See `ops/README.md` for the production Docker Compose deployment runbook (including Traefik wiring).
+
 ## Development rules
 
 - **Issue-driven development:** every change is tied to a GitHub issue.
