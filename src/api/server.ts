@@ -92,10 +92,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const email = await requireDashboardSession(req, reply);
     if (!email) return;
 
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text as id,
+              title,
+              status,
+              priority::text as priority,
+              task_type::text as task_type,
+              created_at,
+              updated_at
+         FROM work_item
+        ORDER BY created_at DESC
+        LIMIT 50`
+    );
+    await pool.end();
+
     return reply
       .code(200)
       .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml({ route: { kind: 'work-items-list' } }));
+      .send(
+        renderAppFrontendHtml({
+          route: { kind: 'work-items-list' },
+          me: { email },
+          workItems: result.rows,
+        })
+      );
   });
 
   app.get('/app/work-items/:id', async (req, reply) => {

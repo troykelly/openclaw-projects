@@ -28,13 +28,21 @@ function usePathname(): string {
 }
 
 function WorkItemsListPage(): React.JSX.Element {
+  const bootstrap = readBootstrap();
+
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'error'; message: string }
     | { kind: 'loaded'; items: WorkItemSummary[] }
-  >({ kind: 'loading' });
+  >(() => {
+    const items = bootstrap?.workItems;
+    if (items && items.length > 0) return { kind: 'loaded', items };
+    return { kind: 'loading' };
+  });
 
   useEffect(() => {
+    if (state.kind === 'loaded') return;
+
     let alive = true;
 
     async function run(): Promise<void> {
@@ -58,7 +66,7 @@ function WorkItemsListPage(): React.JSX.Element {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [state.kind]);
 
   return (
     <main style={{ padding: 16 }}>
@@ -95,6 +103,8 @@ function WorkItemsListPage(): React.JSX.Element {
 
 type AppBootstrap = {
   route?: { kind?: string; id?: string };
+  me?: { email?: string };
+  workItems?: WorkItemSummary[];
   workItem?: { id?: string; title?: string } | null;
   participants?: Array<{ participant?: string; role?: string }>;
 };
