@@ -35,6 +35,13 @@ BEGIN
     RAISE EXCEPTION 'initiative cannot have parent';
   END IF;
 
+  -- Epics must have an initiative parent.
+  -- Note: parent_id is ON DELETE SET NULL, so deleting an initiative with epics will be rejected
+  -- until epics are reparented or deleted.
+  IF NEW.kind = 'epic' AND NEW.parent_id IS NULL THEN
+    RAISE EXCEPTION 'epic requires initiative parent';
+  END IF;
+
   -- If parent is specified, validate parent kind.
   IF NEW.parent_id IS NOT NULL THEN
     SELECT kind INTO parent_kind FROM work_item WHERE id = NEW.parent_id;
