@@ -74,4 +74,50 @@ describe('hierarchy model (Initiative/Epic/Issue)', () => {
 
     expect(res.statusCode).toBe(400);
   });
+
+  it('supports re-parenting via PATCH /api/work-items/:id/hierarchy', async () => {
+    const initiative = await app.inject({
+      method: 'POST',
+      url: '/api/work-items',
+      payload: { title: 'Initiative 1', kind: 'initiative' },
+    });
+    const initiativeId = (initiative.json() as { id: string }).id;
+
+    const epicA = await app.inject({
+      method: 'POST',
+      url: '/api/work-items',
+      payload: { title: 'Epic A', kind: 'epic', parentId: initiativeId },
+    });
+    const epicAId = (epicA.json() as { id: string }).id;
+
+    const epicB = await app.inject({
+      method: 'POST',
+      url: '/api/work-items',
+      payload: { title: 'Epic B', kind: 'epic', parentId: initiativeId },
+    });
+    const epicBId = (epicB.json() as { id: string }).id;
+
+    const issue = await app.inject({
+      method: 'POST',
+      url: '/api/work-items',
+      payload: { title: 'Issue 1', kind: 'issue', parentId: epicAId },
+    });
+    expect(issue.statusCode).toBe(201);
+    const issueId = (issue.json() as { id: string }).id;
+
+    const moved = await app.inject({
+      method: 'PATCH',
+      url: `/api/work-items/${issueId}/hierarchy`,
+      payload: { kind: 'issue', parentId: epicBId },
+    });
+    expect(moved.statusCode).toBe(200);
+    expect((moved.json() as { parent_id: string | null }).parent_id).toBe(epicBId);
+
+    const badMove = await app.inject({
+      method: 'PATCH',
+      url: `/api/work-items/${issueId}/hierarchy`,
+      payload: { kind: 'issue', parentId: initiativeId },
+    });
+    expect(badMove.statusCode).toBe(400);
+  });
 });

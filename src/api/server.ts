@@ -258,8 +258,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/work-items', async (_req, reply) => {
     const pool = createPool();
     const result = await pool.query(
-      `SELECT id::text as id, title, status, priority::text as priority, task_type::text as task_type,
-              created_at, updated_at
+      `SELECT id::text as id,
+              title,
+              status,
+              priority::text as priority,
+              task_type::text as task_type,
+              kind,
+              parent_id::text as parent_id,
+              created_at,
+              updated_at
          FROM work_item
         ORDER BY created_at DESC
         LIMIT 50`
@@ -336,9 +343,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const kind = body.kind ?? 'issue';
-    const allowedKinds = new Set(['initiative', 'epic', 'issue']);
+    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue']);
     if (!allowedKinds.has(kind)) {
-      return reply.code(400).send({ error: 'kind must be one of initiative|epic|issue' });
+      return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue' });
     }
 
     const pool = createPool();
@@ -359,9 +366,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
       const parentKind = (parent.rows[0] as { kind: string }).kind;
 
-      if (kind === 'initiative') {
+      if (kind === 'project') {
         await pool.end();
-        return reply.code(400).send({ error: 'initiative cannot have parent' });
+        return reply.code(400).send({ error: 'project cannot have parent' });
+      }
+      if (kind === 'initiative' && parentKind !== 'project') {
+        await pool.end();
+        return reply.code(400).send({ error: 'initiative parent must be project' });
       }
       if (kind === 'epic' && parentKind !== 'initiative') {
         await pool.end();
@@ -376,25 +387,113 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.end();
         return reply.code(400).send({ error: 'epic requires parent initiative' });
       }
+      if (kind === 'issue') {
+        // issues may be top-level for backwards compatibility
+      }
     }
 
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4)
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id`,
-      [body.title.trim(), body.description ?? null, kind, parentId]
+      [body.title.trim(), body.description ?? null, kind, parentId, kind]
     );
     await pool.end();
 
     return reply.code(201).send(result.rows[0]);
   });
 
+  app.patch('/api/work-items/:id/hierarchy', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { kind?: string; parentId?: string | null };
+
+    if (!body?.kind) {
+      return reply.code(400).send({ error: 'kind is required' });
+    }
+
+    const kind = body.kind;
+    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue']);
+    if (!allowedKinds.has(kind)) {
+      return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue' });
+    }
+
+    const parentId = body.parentId ?? null;
+    const pool = createPool();
+
+    if (parentId) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(parentId)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parentId must be a UUID' });
+      }
+
+      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      if (parent.rows.length === 0) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parent not found' });
+      }
+      const parentKind = (parent.rows[0] as { kind: string }).kind;
+
+      if (kind === 'project') {
+        await pool.end();
+        return reply.code(400).send({ error: 'project cannot have parent' });
+      }
+      if (kind === 'initiative' && parentKind !== 'project') {
+        await pool.end();
+        return reply.code(400).send({ error: 'initiative parent must be project' });
+      }
+      if (kind === 'epic' && parentKind !== 'initiative') {
+        await pool.end();
+        return reply.code(400).send({ error: 'epic parent must be initiative' });
+      }
+      if (kind === 'issue' && parentKind !== 'epic') {
+        await pool.end();
+        return reply.code(400).send({ error: 'issue parent must be epic' });
+      }
+    } else {
+      if (kind === 'project') {
+        // ok
+      } else if (kind === 'initiative') {
+        // initiatives may be top-level
+      } else if (kind === 'epic') {
+        await pool.end();
+        return reply.code(400).send({ error: 'epic requires parent initiative' });
+      }
+    }
+
+    const result = await pool.query(
+      `UPDATE work_item
+          SET kind = $2,
+              parent_id = $3,
+              work_item_kind = $4::work_item_kind,
+              parent_work_item_id = $3,
+              updated_at = now()
+        WHERE id = $1
+      RETURNING id::text as id, title, description, kind, parent_id::text as parent_id`,
+      [params.id, kind, parentId, kind]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+    return reply.send(result.rows[0]);
+  });
+
   app.get('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     const result = await pool.query(
-      `SELECT id::text as id, title, description, status, priority::text as priority, task_type::text as task_type,
-              created_at, updated_at, not_before, not_after
+      `SELECT id::text as id,
+              title,
+              description,
+              status,
+              priority::text as priority,
+              task_type::text as task_type,
+              kind,
+              parent_id::text as parent_id,
+              created_at,
+              updated_at,
+              not_before,
+              not_after
          FROM work_item
         WHERE id = $1`,
       [params.id]
