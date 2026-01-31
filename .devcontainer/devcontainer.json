@@ -6,5 +6,5 @@
   "shutdownAction": "stopCompose",
   "remoteUser": "vscode",
   "postCreateCommand": "bash .devcontainer/postCreate.sh",
-  "updateRemoteUserUID": true
+  "updateRemoteUserUID": false
 }
