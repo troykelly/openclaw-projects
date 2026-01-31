@@ -913,6 +913,46 @@ app.delete('/api/work-items/:id', async (req, reply) => {
        RETURNING id::text as id, work_item_id::text as work_item_id, depends_on_work_item_id::text as depends_on_work_item_id, kind`,
       [params.id, dependsOnWorkItemId, kind]
     );
+
+    // Minimal scheduling: when establishing a precedence dependency, ensure the dependent cannot start
+    // before the latest end (or start, if no end is defined) of its blockers.
+    if (kind === 'depends_on') {
+      const latest = await pool.query(
+        `SELECT MAX(COALESCE(wi.not_after, wi.not_before)) as latest_blocker_time
+           FROM work_item_dependency wid
+           JOIN work_item wi ON wi.id = wid.depends_on_work_item_id
+          WHERE wid.work_item_id = $1
+            AND wid.kind = 'depends_on'`,
+        [params.id]
+      );
+
+      const latestBlockerTimeUnknown: unknown = (latest.rows[0] as { latest_blocker_time: unknown } | undefined)
+        ?.latest_blocker_time;
+
+      let latestBlockerTimeIso: string | null = null;
+      if (latestBlockerTimeUnknown instanceof Date) {
+        latestBlockerTimeIso = latestBlockerTimeUnknown.toISOString();
+      } else if (typeof latestBlockerTimeUnknown === 'string') {
+        const parsed = new Date(latestBlockerTimeUnknown);
+        if (!Number.isNaN(parsed.getTime())) {
+          latestBlockerTimeIso = parsed.toISOString();
+        }
+      }
+
+      if (latestBlockerTimeIso) {
+        await pool.query(
+          `UPDATE work_item
+              SET not_before = CASE
+                                WHEN not_before IS NULL OR not_before < $2::timestamptz THEN $2::timestamptz
+                                ELSE not_before
+                              END,
+                  updated_at = now()
+            WHERE id = $1`,
+          [params.id, latestBlockerTimeIso]
+        );
+      }
+    }
+
     await pool.end();
 
     return reply.code(201).send(result.rows[0]);

@@ -109,7 +109,7 @@ describe('Backend API service', () => {
 
     const deps = await app.inject({ method: 'GET', url: `/api/work-items/${bId}/dependencies` });
     expect(deps.statusCode).toBe(200);
-    expect((deps.json() as any).items.length).toBe(1);
+    expect((deps.json() as { items: unknown[] }).items.length).toBe(1);
 
     const depDel = await app.inject({
       method: 'DELETE',
@@ -127,10 +127,49 @@ describe('Backend API service', () => {
 
     const plist = await app.inject({ method: 'GET', url: `/api/work-items/${bId}/participants` });
     expect(plist.statusCode).toBe(200);
-    expect((plist.json() as any).items[0].participant).toBe('troy@example.com');
+    expect((plist.json() as { items: Array<{ participant: string }> }).items[0].participant).toBe('troy@example.com');
 
     const pdel = await app.inject({ method: 'DELETE', url: `/api/work-items/${bId}/participants/${pid}` });
     expect(pdel.statusCode).toBe(204);
+  });
+
+  it('auto-sets not_before when adding a depends_on dependency', async () => {
+    const blocker = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'Blocker' } });
+    const dependent = await app.inject({ method: 'POST', url: '/api/work-items', payload: { title: 'Dependent' } });
+
+    const blockerId = (blocker.json() as { id: string }).id;
+    const dependentId = (dependent.json() as { id: string }).id;
+
+    const blockerEnd = '2026-01-01T00:00:00.000Z';
+
+    const updatedBlocker = await app.inject({
+      method: 'PUT',
+      url: `/api/work-items/${blockerId}`,
+      payload: {
+        title: 'Blocker',
+        description: null,
+        status: 'open',
+        priority: 'P2',
+        taskType: 'general',
+        notBefore: null,
+        notAfter: blockerEnd,
+      },
+    });
+    expect(updatedBlocker.statusCode).toBe(200);
+
+    const dep = await app.inject({
+      method: 'POST',
+      url: `/api/work-items/${dependentId}/dependencies`,
+      payload: { dependsOnWorkItemId: blockerId, kind: 'depends_on' },
+    });
+    expect(dep.statusCode).toBe(201);
+
+    const fetched = await app.inject({ method: 'GET', url: `/api/work-items/${dependentId}` });
+    expect(fetched.statusCode).toBe(200);
+
+    const body = fetched.json() as { not_before: string | null };
+    expect(body.not_before).not.toBeNull();
+    expect(new Date(body.not_before as string).toISOString()).toBe(blockerEnd);
   });
 
   it('can ingest an external message (contact+endpoint+thread+message)', async () => {
