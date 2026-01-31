@@ -514,6 +514,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       taskType?: string;
       notBefore?: string | null;
       notAfter?: string | null;
+      parentId?: string | null;
     };
 
     if (!body?.title || body.title.trim().length === 0) {
@@ -521,6 +522,71 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
+
+    // Fetch current row so we can validate hierarchy semantics on parent changes.
+    const existing = await pool.query(
+      `SELECT kind, parent_id::text as parent_id
+         FROM work_item
+        WHERE id = $1`,
+      [params.id]
+    );
+
+    if (existing.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const { kind, parent_id: currentParentId } = existing.rows[0] as { kind: string; parent_id: string | null };
+
+    // If parentId is omitted, keep the current value.
+    const parentIdSpecified = Object.prototype.hasOwnProperty.call(body, 'parentId');
+    const parentId = parentIdSpecified ? (body.parentId ?? null) : currentParentId;
+
+    // Validate parentId format early so we can return 4xx rather than a DB exception.
+    if (parentId) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(parentId)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parentId must be a UUID' });
+      }
+    }
+
+    // Validate parent relationship before update for a clearer 4xx than a DB exception.
+    let parentKind: string | null = null;
+    if (parentId) {
+      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      if (parent.rows.length === 0) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parent not found' });
+      }
+      parentKind = (parent.rows[0] as { kind: string }).kind;
+    }
+
+    if (kind === 'initiative') {
+      if (parentId) {
+        await pool.end();
+        return reply.code(400).send({ error: 'initiative cannot have parent' });
+      }
+    }
+
+    if (kind === 'epic') {
+      if (!parentId) {
+        await pool.end();
+        return reply.code(400).send({ error: 'epic requires parent initiative' });
+      }
+      if (parentKind !== 'initiative') {
+        await pool.end();
+        return reply.code(400).send({ error: 'epic parent must be initiative' });
+      }
+    }
+
+    if (kind === 'issue') {
+      if (parentId && parentKind !== 'epic') {
+        await pool.end();
+        return reply.code(400).send({ error: 'issue parent must be epic' });
+      }
+    }
+
     const result = await pool.query(
       `UPDATE work_item
           SET title = $2,
@@ -530,9 +596,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               task_type = $6::work_item_task_type,
               not_before = $7::timestamptz,
               not_after = $8::timestamptz,
+              parent_id = $9,
               updated_at = now()
         WHERE id = $1
       RETURNING id::text as id, title, description, status, priority::text as priority, task_type::text as task_type,
+                kind, parent_id::text as parent_id,
                 created_at, updated_at, not_before, not_after`,
       [
         params.id,
@@ -543,15 +611,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         body.taskType ?? 'general',
         body.notBefore ?? null,
         body.notAfter ?? null,
+        parentId,
       ]
     );
     await pool.end();
 
-    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
     return reply.send(result.rows[0]);
   });
 
-  app.delete('/api/work-items/:id', async (req, reply) => {
+app.delete('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
     const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
