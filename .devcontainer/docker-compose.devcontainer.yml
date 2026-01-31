@@ -3,7 +3,6 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-    user: vscode
     env_file:
       - path: ../.env
         required: false
