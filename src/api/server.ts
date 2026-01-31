@@ -614,8 +614,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         parentId,
       ]
     );
-    await pool.end();
 
+    if (result.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    await pool.end();
     return reply.send(result.rows[0]);
   });
 
