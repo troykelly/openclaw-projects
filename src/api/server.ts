@@ -346,6 +346,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Validate parent relationship before insert for a clearer 4xx than a DB exception.
     const parentId = body.parentId ?? null;
     if (parentId) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(parentId)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parentId must be a UUID' });
+      }
+
       const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();

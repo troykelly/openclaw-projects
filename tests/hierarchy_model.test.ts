@@ -64,4 +64,14 @@ describe('hierarchy model (Initiative/Epic/Issue)', () => {
     });
     expect(badIssueParent.statusCode).toBe(400);
   });
+
+  it('returns 400 when parentId is not a UUID', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/work-items',
+      payload: { title: 'Bad parent', kind: 'issue', parentId: 'not-a-uuid' },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
 });
