@@ -325,17 +325,64 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       .send(renderWorkItemDetail({ email }));
   });
   app.post('/api/work-items', async (req, reply) => {
-    const body = req.body as { title?: string; description?: string | null };
+    const body = req.body as {
+      title?: string;
+      description?: string | null;
+      kind?: string;
+      parentId?: string | null;
+    };
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
     }
 
+    const kind = body.kind ?? 'issue';
+    const allowedKinds = new Set(['initiative', 'epic', 'issue']);
+    if (!allowedKinds.has(kind)) {
+      return reply.code(400).send({ error: 'kind must be one of initiative|epic|issue' });
+    }
+
     const pool = createPool();
+
+    // Validate parent relationship before insert for a clearer 4xx than a DB exception.
+    const parentId = body.parentId ?? null;
+    if (parentId) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRe.test(parentId)) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parentId must be a UUID' });
+      }
+
+      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      if (parent.rows.length === 0) {
+        await pool.end();
+        return reply.code(400).send({ error: 'parent not found' });
+      }
+      const parentKind = (parent.rows[0] as { kind: string }).kind;
+
+      if (kind === 'initiative') {
+        await pool.end();
+        return reply.code(400).send({ error: 'initiative cannot have parent' });
+      }
+      if (kind === 'epic' && parentKind !== 'initiative') {
+        await pool.end();
+        return reply.code(400).send({ error: 'epic parent must be initiative' });
+      }
+      if (kind === 'issue' && parentKind !== 'epic') {
+        await pool.end();
+        return reply.code(400).send({ error: 'issue parent must be epic' });
+      }
+    } else {
+      if (kind === 'epic') {
+        await pool.end();
+        return reply.code(400).send({ error: 'epic requires parent initiative' });
+      }
+    }
+
     const result = await pool.query(
-      `INSERT INTO work_item (title, description)
-       VALUES ($1, $2)
-       RETURNING id::text as id, title, description, status, priority::text as priority, task_type::text as task_type`,
-      [body.title.trim(), body.description ?? null]
+      `INSERT INTO work_item (title, description, kind, parent_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id`,
+      [body.title.trim(), body.description ?? null, kind, parentId]
     );
     await pool.end();
 
