@@ -2721,6 +2721,220 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
   });
 
+  // Work Item Reorder API (issue #104)
+  // PATCH /api/work-items/:id/reorder - Reorder work item within siblings
+  app.patch('/api/work-items/:id/reorder', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { afterId?: string | null; beforeId?: string | null };
+
+    // Validate exactly one of afterId or beforeId is provided
+    const hasAfter = Object.prototype.hasOwnProperty.call(body, 'afterId');
+    const hasBefore = Object.prototype.hasOwnProperty.call(body, 'beforeId');
+
+    if (!hasAfter && !hasBefore) {
+      return reply.code(400).send({ error: 'afterId or beforeId is required' });
+    }
+    if (hasAfter && hasBefore) {
+      return reply.code(400).send({ error: 'provide only one of afterId or beforeId' });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    // Helper to normalize sort_order when gaps run out
+    async function normalizeSort(parentId: string | null): Promise<void> {
+      await client.query(
+        `WITH ranked AS (
+           SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order) * 1000 as new_order
+           FROM work_item
+           WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+         )
+         UPDATE work_item wi
+         SET sort_order = ranked.new_order
+         FROM ranked
+         WHERE wi.id = ranked.id`,
+        [parentId]
+      );
+    }
+
+    try {
+      await client.query('BEGIN');
+
+      // Get the work item being reordered
+      const itemResult = await client.query(
+        `SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE`,
+        [params.id]
+      );
+      if (itemResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const item = itemResult.rows[0] as {
+        id: string;
+        parent_work_item_id: string | null;
+        sort_order: number;
+      };
+
+      // Determine target position
+      let targetId: string | null = null;
+      let insertPosition: 'after' | 'before' = 'after';
+
+      if (hasAfter) {
+        targetId = body.afterId ?? null;
+        insertPosition = 'after';
+      } else {
+        targetId = body.beforeId ?? null;
+        insertPosition = 'before';
+      }
+
+      // If target is null, we're moving to the edge
+      let newSortOrder: number;
+
+      if (targetId === null) {
+        // Move to edge (first or last)
+        if (insertPosition === 'after') {
+          // afterId: null means move to first position
+          const minResult = await client.query(
+            `SELECT COALESCE(MIN(sort_order), 0) - 1000 as new_order
+             FROM work_item
+             WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+               AND id != $2`,
+            [item.parent_work_item_id, params.id]
+          );
+          newSortOrder = (minResult.rows[0] as { new_order: number }).new_order;
+        } else {
+          // beforeId: null means move to last position
+          const maxResult = await client.query(
+            `SELECT COALESCE(MAX(sort_order), 0) + 1000 as new_order
+             FROM work_item
+             WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+               AND id != $2`,
+            [item.parent_work_item_id, params.id]
+          );
+          newSortOrder = (maxResult.rows[0] as { new_order: number }).new_order;
+        }
+      } else {
+        // Move relative to a specific sibling
+        const targetResult = await client.query(
+          `SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1`,
+          [targetId]
+        );
+        if (targetResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'target not found' });
+        }
+
+        const target = targetResult.rows[0] as {
+          id: string;
+          parent_work_item_id: string | null;
+          sort_order: number;
+        };
+
+        // Validate they're siblings (same parent) - handle both null parents
+        const itemParent = item.parent_work_item_id;
+        const targetParent = target.parent_work_item_id;
+        const sameParent = (itemParent === null && targetParent === null) || itemParent === targetParent;
+        if (!sameParent) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'target must be a sibling' });
+        }
+
+        if (insertPosition === 'after') {
+          // Get the next sibling's sort_order (excluding the item being moved)
+          const nextResult = await client.query(
+            `SELECT sort_order FROM work_item
+             WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+               AND sort_order > $2
+               AND id != $3
+             ORDER BY sort_order ASC
+             LIMIT 1`,
+            [target.parent_work_item_id, target.sort_order, params.id]
+          );
+
+          if (nextResult.rows.length > 0) {
+            const nextOrder = (nextResult.rows[0] as { sort_order: number }).sort_order;
+            // Place between target and next sibling
+            newSortOrder = Math.floor((target.sort_order + nextOrder) / 2);
+            // If no gap, normalize all siblings first
+            if (newSortOrder === target.sort_order || newSortOrder === nextOrder) {
+              await normalizeSort(target.parent_work_item_id);
+              // Re-fetch target order after normalization
+              const refetch = await client.query(
+                `SELECT sort_order FROM work_item WHERE id = $1`,
+                [targetId]
+              );
+              const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
+              newSortOrder = targetOrder + 500;
+            }
+          } else {
+            // No sibling after target, just go after
+            newSortOrder = target.sort_order + 1000;
+          }
+        } else {
+          // Insert before target - get the previous sibling
+          const prevResult = await client.query(
+            `SELECT sort_order FROM work_item
+             WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+               AND sort_order < $2
+               AND id != $3
+             ORDER BY sort_order DESC
+             LIMIT 1`,
+            [target.parent_work_item_id, target.sort_order, params.id]
+          );
+
+          if (prevResult.rows.length > 0) {
+            const prevOrder = (prevResult.rows[0] as { sort_order: number }).sort_order;
+            // Place between previous sibling and target
+            newSortOrder = Math.floor((prevOrder + target.sort_order) / 2);
+            // If no gap, normalize all siblings first
+            if (newSortOrder === prevOrder || newSortOrder === target.sort_order) {
+              await normalizeSort(target.parent_work_item_id);
+              // Re-fetch target order after normalization
+              const refetch = await client.query(
+                `SELECT sort_order FROM work_item WHERE id = $1`,
+                [targetId]
+              );
+              const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
+              newSortOrder = targetOrder - 500;
+            }
+          } else {
+            // No sibling before target, just go before
+            newSortOrder = target.sort_order - 1000;
+          }
+        }
+      }
+
+      // Update the item's sort_order
+      const updateResult = await client.query(
+        `UPDATE work_item SET sort_order = $2, updated_at = now()
+         WHERE id = $1
+         RETURNING id::text as id, title, status, sort_order, updated_at`,
+        [params.id, newSortOrder]
+      );
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+
+      return reply.send({
+        ok: true,
+        item: updateResult.rows[0],
+      });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw e;
+    }
+  });
+
   // Work Item Dates API (issue #113)
   // PATCH /api/work-items/:id/dates - Update work item dates
   app.patch('/api/work-items/:id/dates', async (req, reply) => {
