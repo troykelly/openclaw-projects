@@ -838,29 +838,101 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
+
+    // Get main work item
     const result = await pool.query(
-      `SELECT id::text as id,
-              title,
-              description,
-              status,
-              priority::text as priority,
-              task_type::text as task_type,
-              kind,
-              parent_id::text as parent_id,
-              created_at,
-              updated_at,
-              not_before,
-              not_after,
-              estimate_minutes,
-              actual_minutes
-         FROM work_item
-        WHERE id = $1`,
+      `SELECT wi.id::text as id,
+              wi.title,
+              wi.description,
+              wi.status,
+              wi.priority::text as priority,
+              wi.task_type::text as task_type,
+              wi.kind,
+              wi.parent_id::text as parent_id,
+              wi.created_at,
+              wi.updated_at,
+              wi.not_before,
+              wi.not_after,
+              wi.estimate_minutes,
+              wi.actual_minutes,
+              (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id) as children_count
+         FROM work_item wi
+        WHERE wi.id = $1`,
       [params.id]
     );
+
+    if (result.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const workItem = result.rows[0] as {
+      id: string;
+      parent_id: string | null;
+      children_count: string;
+      [key: string]: unknown;
+    };
+
+    // Get parent info if exists
+    let parent: { id: string; title: string; kind: string } | null = null;
+    const parentWorkItemId = workItem.parent_id;
+    if (parentWorkItemId) {
+      const parentResult = await pool.query(
+        `SELECT id::text as id, title, work_item_kind as kind
+         FROM work_item WHERE id = $1`,
+        [parentWorkItemId]
+      );
+      if (parentResult.rows.length > 0) {
+        parent = parentResult.rows[0] as { id: string; title: string; kind: string };
+      }
+    } else {
+      // Check parent_work_item_id as fallback
+      const parentCheck = await pool.query(
+        `SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1`,
+        [params.id]
+      );
+      const altParentId = (parentCheck.rows[0] as { parent_id: string | null })?.parent_id;
+      if (altParentId) {
+        const parentResult = await pool.query(
+          `SELECT id::text as id, title, work_item_kind as kind
+           FROM work_item WHERE id = $1`,
+          [altParentId]
+        );
+        if (parentResult.rows.length > 0) {
+          parent = parentResult.rows[0] as { id: string; title: string; kind: string };
+        }
+      }
+    }
+
+    // Get dependencies - items this blocks (other items depend on this)
+    const blocksResult = await pool.query(
+      `SELECT wi.id::text as id, wi.title
+       FROM work_item_dependency wid
+       JOIN work_item wi ON wi.id = wid.work_item_id
+       WHERE wid.depends_on_work_item_id = $1`,
+      [params.id]
+    );
+
+    // Get dependencies - items this is blocked by (this depends on others)
+    const blockedByResult = await pool.query(
+      `SELECT wi.id::text as id, wi.title
+       FROM work_item_dependency wid
+       JOIN work_item wi ON wi.id = wid.depends_on_work_item_id
+       WHERE wid.work_item_id = $1`,
+      [params.id]
+    );
+
     await pool.end();
 
-    if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
-    return reply.send(result.rows[0]);
+    return reply.send({
+      ...workItem,
+      children_count: parseInt(workItem.children_count, 10),
+      parent,
+      dependencies: {
+        blocks: blocksResult.rows,
+        blocked_by: blockedByResult.rows,
+      },
+    });
   });
 
   app.put('/api/work-items/:id', async (req, reply) => {
