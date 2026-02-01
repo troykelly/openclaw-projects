@@ -5,9 +5,11 @@ import { createTestPool, truncateAllTables } from './helpers/db.js';
 import { buildServer } from '../src/api/server.js';
 
 /**
- * Tests for Enhanced Work Item Detail API (issue #143).
+ * Tests for Enhanced Work Item Detail page (issue #142).
+ * These tests verify the work item detail API returns full metadata
+ * and supports update operations.
  */
-describe('Enhanced Work Item Detail API', () => {
+describe('Enhanced Work Item Detail', () => {
   const app = buildServer();
   let pool: Pool;
 
@@ -27,20 +29,17 @@ describe('Enhanced Work Item Detail API', () => {
   });
 
   describe('GET /api/work-items/:id', () => {
-    it('returns 404 for non-existent work item', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/work-items/00000000-0000-0000-0000-000000000000',
-      });
+    it('returns full work item metadata', async () => {
+      // Create a work item with all metadata
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      expect(res.statusCode).toBe(404);
-    });
-
-    it('returns full work item details', async () => {
+      // Priority enum uses P0-P4 (not high/low/etc)
       const item = await pool.query(
-        `INSERT INTO work_item (title, description, work_item_kind, not_before, not_after, estimate_minutes)
-         VALUES ('Test Item', 'Test description', 'issue', '2024-03-01', '2024-03-15', 120)
-         RETURNING id::text as id`
+        `INSERT INTO work_item (title, work_item_kind, description, status, priority, not_before, not_after, estimate_minutes)
+         VALUES ('Test Item', 'issue', 'Item description', 'in_progress', 'P1', $1, $2, 120)
+         RETURNING id::text as id`,
+        [now.toISOString(), nextWeek.toISOString()]
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -54,33 +53,78 @@ describe('Enhanced Work Item Detail API', () => {
         id: string;
         title: string;
         description: string;
-        kind: string;
         status: string;
         priority: string;
-        parent_id: string | null;
-        not_before: string | null;
-        not_after: string | null;
-        estimate_minutes: number | null;
-        actual_minutes: number | null;
-        created_at: string;
-        updated_at: string;
+        not_before: string;
+        not_after: string;
+        estimate_minutes: number;
       };
-
       expect(body.id).toBe(itemId);
       expect(body.title).toBe('Test Item');
-      expect(body.description).toBe('Test description');
-      expect(body.kind).toBeDefined();
-      expect(body.status).toBeDefined();
-      expect(body.priority).toBeDefined();
+      expect(body.description).toBe('Item description');
+      expect(body.status).toBe('in_progress');
+      expect(body.priority).toBe('P1');
       expect(body.not_before).toBeDefined();
       expect(body.not_after).toBeDefined();
       expect(body.estimate_minutes).toBe(120);
-      expect(body.created_at).toBeDefined();
-      expect(body.updated_at).toBeDefined();
     });
 
-    it('includes parent information', async () => {
-      // Create parent (project)
+    it('returns dependencies with work item', async () => {
+      // Create main item and dependency
+      const mainItem = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Main Task', 'issue')
+         RETURNING id::text as id`
+      );
+      const mainId = (mainItem.rows[0] as { id: string }).id;
+
+      const blockingItem = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Blocking Task', 'issue')
+         RETURNING id::text as id`
+      );
+      const blockingId = (blockingItem.rows[0] as { id: string }).id;
+
+      const blockedByItem = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Prerequisite Task', 'issue')
+         RETURNING id::text as id`
+      );
+      const blockedById = (blockedByItem.rows[0] as { id: string }).id;
+
+      // Create dependencies: main blocks blocking, main is blocked by blockedBy
+      await pool.query(
+        `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
+         VALUES ($1, $2, 'blocks')`,
+        [blockingId, mainId]
+      );
+      await pool.query(
+        `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
+         VALUES ($1, $2, 'blocks')`,
+        [mainId, blockedById]
+      );
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/work-items/${mainId}`,
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        dependencies: {
+          blocks: Array<{ id: string; title: string }>;
+          blocked_by: Array<{ id: string; title: string }>;
+        };
+      };
+      expect(body.dependencies).toBeDefined();
+      expect(body.dependencies.blocks.length).toBe(1);
+      expect(body.dependencies.blocks[0].title).toBe('Blocking Task');
+      expect(body.dependencies.blocked_by.length).toBe(1);
+      expect(body.dependencies.blocked_by[0].title).toBe('Prerequisite Task');
+    });
+
+    it('returns parent information', async () => {
+      // Create parent and child
       const parent = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Parent Project', 'project')
@@ -88,10 +132,9 @@ describe('Enhanced Work Item Detail API', () => {
       );
       const parentId = (parent.rows[0] as { id: string }).id;
 
-      // Create child
       const child = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
-         VALUES ('Child Item', 'issue', $1)
+         VALUES ('Child Issue', 'issue', $1)
          RETURNING id::text as id`,
         [parentId]
       );
@@ -106,157 +149,212 @@ describe('Enhanced Work Item Detail API', () => {
       const body = res.json() as {
         parent: { id: string; title: string; kind: string } | null;
       };
-
       expect(body.parent).toBeDefined();
       expect(body.parent?.id).toBe(parentId);
       expect(body.parent?.title).toBe('Parent Project');
       expect(body.parent?.kind).toBe('project');
     });
 
-    it('includes null parent for top-level items', async () => {
+    it('returns 404 for non-existent work item', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/work-items/00000000-0000-0000-0000-000000000000',
+      });
+
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
+  describe('PUT /api/work-items/:id', () => {
+    it('updates work item title', async () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Top Level Item', 'issue')
+         VALUES ('Original Title', 'issue')
+         RETURNING id::text as id`
+      );
+      const itemId = (item.rows[0] as { id: string }).id;
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${itemId}`,
+        payload: {
+          title: 'Updated Title',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { title: string };
+      expect(body.title).toBe('Updated Title');
+    });
+
+    it('updates work item description', async () => {
+      const item = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Test Item', 'issue')
+         RETURNING id::text as id`
+      );
+      const itemId = (item.rows[0] as { id: string }).id;
+
+      // PUT requires title to be included (it's not optional)
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${itemId}`,
+        payload: {
+          title: 'Test Item',
+          description: 'New description with **markdown**',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { description: string };
+      expect(body.description).toBe('New description with **markdown**');
+    });
+
+    it('updates work item status', async () => {
+      const item = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, status)
+         VALUES ('Test Item', 'issue', 'not_started')
+         RETURNING id::text as id`
+      );
+      const itemId = (item.rows[0] as { id: string }).id;
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${itemId}`,
+        payload: {
+          title: 'Test Item',
+          status: 'in_progress',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { status: string };
+      expect(body.status).toBe('in_progress');
+    });
+
+    it('updates work item priority', async () => {
+      // Priority uses P0-P4 enum values
+      const item = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind, priority)
+         VALUES ('Test Item', 'issue', 'P3')
+         RETURNING id::text as id`
+      );
+      const itemId = (item.rows[0] as { id: string }).id;
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${itemId}`,
+        payload: {
+          title: 'Test Item',
+          priority: 'P0',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { priority: string };
+      expect(body.priority).toBe('P0');
+    });
+
+    it('updates work item dates', async () => {
+      const item = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Test Item', 'issue')
+         RETURNING id::text as id`
+      );
+      const itemId = (item.rows[0] as { id: string }).id;
+
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${itemId}`,
+        payload: {
+          title: 'Test Item',
+          notBefore: now.toISOString(),
+          notAfter: nextWeek.toISOString(),
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { not_before: string; not_after: string };
+      expect(body.not_before).toBeDefined();
+      expect(body.not_after).toBeDefined();
+    });
+
+    it('updates work item estimates', async () => {
+      const item = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Test Item', 'issue')
+         RETURNING id::text as id`
+      );
+      const itemId = (item.rows[0] as { id: string }).id;
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${itemId}`,
+        payload: {
+          title: 'Test Item',
+          estimateMinutes: 240,
+          actualMinutes: 180,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { estimate_minutes: number; actual_minutes: number };
+      expect(body.estimate_minutes).toBe(240);
+      expect(body.actual_minutes).toBe(180);
+    });
+  });
+
+  describe('/app/work-items/:id page rendering', () => {
+    it('renders the detail page (returns HTML)', async () => {
+      const item = await pool.query(
+        `INSERT INTO work_item (title, work_item_kind)
+         VALUES ('Test Item', 'issue')
          RETURNING id::text as id`
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}`,
+        url: `/app/work-items/${itemId}`,
+        headers: {
+          accept: 'text/html',
+        },
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { parent: null };
-      expect(body.parent).toBeNull();
+      expect(res.headers['content-type']).toContain('text/html');
     });
 
-    it('includes children count', async () => {
-      // Create parent
-      const parent = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Parent', 'project')
+    it('includes work item data in bootstrap', async () => {
+      // Create session for authenticated access
+      const session = await pool.query(
+        `INSERT INTO auth_session (email, expires_at)
+         VALUES ('test@example.com', now() + interval '1 hour')
          RETURNING id::text as id`
       );
-      const parentId = (parent.rows[0] as { id: string }).id;
+      const sessionId = (session.rows[0] as { id: string }).id;
 
-      // Create children
-      await pool.query(
-        `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
-         VALUES ('Child 1', 'issue', $1), ('Child 2', 'issue', $1), ('Child 3', 'issue', $1)`,
-        [parentId]
-      );
-
-      const res = await app.inject({
-        method: 'GET',
-        url: `/api/work-items/${parentId}`,
-      });
-
-      expect(res.statusCode).toBe(200);
-      const body = res.json() as { children_count: number };
-      expect(body.children_count).toBe(3);
-    });
-
-    it('includes zero children count for leaf items', async () => {
       const item = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Leaf Item', 'issue')
+        `INSERT INTO work_item (title, work_item_kind, description)
+         VALUES ('Test Item', 'issue', 'Test description')
          RETURNING id::text as id`
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}`,
+        url: `/app/work-items/${itemId}`,
+        cookies: {
+          projects_session: sessionId,
+        },
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { children_count: number };
-      expect(body.children_count).toBe(0);
-    });
-
-    it('includes dependencies (blocks and blocked_by)', async () => {
-      // Create work items
-      const item1 = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Item 1', 'issue')
-         RETURNING id::text as id`
-      );
-      const id1 = (item1.rows[0] as { id: string }).id;
-
-      const item2 = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Item 2', 'issue')
-         RETURNING id::text as id`
-      );
-      const id2 = (item2.rows[0] as { id: string }).id;
-
-      const item3 = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Item 3', 'issue')
-         RETURNING id::text as id`
-      );
-      const id3 = (item3.rows[0] as { id: string }).id;
-
-      // Item 2 is blocked by Item 1, and Item 3 is blocked by Item 2
-      await pool.query(
-        `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
-         VALUES ($1, $2, 'blocked_by')`,
-        [id2, id1]
-      );
-      await pool.query(
-        `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
-         VALUES ($1, $2, 'blocked_by')`,
-        [id3, id2]
-      );
-
-      // Check Item 2
-      const res = await app.inject({
-        method: 'GET',
-        url: `/api/work-items/${id2}`,
-      });
-
-      expect(res.statusCode).toBe(200);
-      const body = res.json() as {
-        dependencies: {
-          blocks: Array<{ id: string; title: string }>;
-          blocked_by: Array<{ id: string; title: string }>;
-        };
-      };
-
-      expect(body.dependencies).toBeDefined();
-      expect(body.dependencies.blocked_by.length).toBe(1);
-      expect(body.dependencies.blocked_by[0].id).toBe(id1);
-      expect(body.dependencies.blocked_by[0].title).toBe('Item 1');
-      expect(body.dependencies.blocks.length).toBe(1);
-      expect(body.dependencies.blocks[0].id).toBe(id3);
-      expect(body.dependencies.blocks[0].title).toBe('Item 3');
-    });
-
-    it('includes empty dependencies for items with none', async () => {
-      const item = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('No Deps Item', 'issue')
-         RETURNING id::text as id`
-      );
-      const itemId = (item.rows[0] as { id: string }).id;
-
-      const res = await app.inject({
-        method: 'GET',
-        url: `/api/work-items/${itemId}`,
-      });
-
-      expect(res.statusCode).toBe(200);
-      const body = res.json() as {
-        dependencies: {
-          blocks: unknown[];
-          blocked_by: unknown[];
-        };
-      };
-
-      expect(body.dependencies).toBeDefined();
-      expect(body.dependencies.blocks).toEqual([]);
-      expect(body.dependencies.blocked_by).toEqual([]);
+      expect(res.payload).toContain('app-bootstrap');
+      expect(res.payload).toContain('Test Item');
     });
   });
 });

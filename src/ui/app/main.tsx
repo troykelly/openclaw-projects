@@ -18,6 +18,16 @@ import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
 
+// Detail components
+import { ItemDetail } from '@/ui/components/detail/item-detail';
+import type {
+  WorkItemDetail,
+  WorkItemStatus,
+  WorkItemPriority,
+  WorkItemKind,
+  WorkItemDependency,
+} from '@/ui/components/detail/types';
+
 // Feedback components
 import {
   Skeleton,
@@ -372,16 +382,206 @@ type ApiMemory = {
 };
 
 // Work Item Detail Page
+// API response type for work item detail
+type ApiWorkItemDetail = {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  priority: string;
+  kind: string;
+  parent_id?: string | null;
+  parent?: { id: string; title: string; kind: string } | null;
+  not_before?: string | null;
+  not_after?: string | null;
+  estimate_minutes?: number | null;
+  actual_minutes?: number | null;
+  created_at: string;
+  updated_at: string;
+  dependencies?: {
+    blocks: Array<{ id: string; title: string }>;
+    blocked_by: Array<{ id: string; title: string }>;
+  };
+};
+
+// Map API priority (P0-P4) to component priority
+function mapApiPriority(priority: string): WorkItemPriority {
+  const mapping: Record<string, WorkItemPriority> = {
+    P0: 'urgent',
+    P1: 'high',
+    P2: 'medium',
+    P3: 'low',
+    P4: 'low',
+  };
+  return mapping[priority] ?? 'medium';
+}
+
+// Map component priority back to API priority
+function mapPriorityToApi(priority: WorkItemPriority): string {
+  const mapping: Record<WorkItemPriority, string> = {
+    urgent: 'P0',
+    high: 'P1',
+    medium: 'P2',
+    low: 'P3',
+  };
+  return mapping[priority] ?? 'P2';
+}
+
 function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
   const bootstrap = readBootstrap();
-  const title = bootstrap?.workItem?.title;
   const participants = bootstrap?.participants ?? [];
+
+  // Work item state
+  const [workItem, setWorkItem] = useState<WorkItemDetail | null>(null);
+  const [itemLoading, setItemLoading] = useState(true);
+  const [itemError, setItemError] = useState<string | null>(null);
 
   // Memory state
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [memoriesLoading, setMemoriesLoading] = useState(true);
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<MemoryItem | null>(null);
+
+  // Fetch work item details
+  const fetchWorkItem = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/work-items/${props.id}`, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) {
+        setItemError('Failed to load work item');
+        return;
+      }
+      const data = (await res.json()) as ApiWorkItemDetail;
+
+      // Map dependencies to component format
+      const dependencies: WorkItemDependency[] = [];
+      if (data.dependencies?.blocks) {
+        dependencies.push(
+          ...data.dependencies.blocks.map((d) => ({
+            id: d.id,
+            title: d.title,
+            kind: 'issue' as WorkItemKind,
+            status: 'not_started' as WorkItemStatus,
+            direction: 'blocks' as const,
+          }))
+        );
+      }
+      if (data.dependencies?.blocked_by) {
+        dependencies.push(
+          ...data.dependencies.blocked_by.map((d) => ({
+            id: d.id,
+            title: d.title,
+            kind: 'issue' as WorkItemKind,
+            status: 'not_started' as WorkItemStatus,
+            direction: 'blocked_by' as const,
+          }))
+        );
+      }
+
+      setWorkItem({
+        id: data.id,
+        title: data.title,
+        kind: (data.kind as WorkItemKind) || 'issue',
+        status: (data.status as WorkItemStatus) || 'not_started',
+        priority: mapApiPriority(data.priority),
+        description: data.description || undefined,
+        parentId: data.parent_id || undefined,
+        parentTitle: data.parent?.title,
+        estimateMinutes: data.estimate_minutes || undefined,
+        actualMinutes: data.actual_minutes || undefined,
+        dueDate: data.not_after ? new Date(data.not_after) : undefined,
+        startDate: data.not_before ? new Date(data.not_before) : undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+        todos: [],
+        attachments: [],
+        dependencies,
+      });
+    } catch {
+      setItemError('Failed to load work item');
+    } finally {
+      setItemLoading(false);
+    }
+  }, [props.id]);
+
+  useEffect(() => {
+    fetchWorkItem();
+  }, [fetchWorkItem]);
+
+  // Update work item
+  const updateWorkItem = async (updates: Partial<{
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    notBefore: string | null;
+    notAfter: string | null;
+    estimateMinutes: number | null;
+    actualMinutes: number | null;
+  }>) => {
+    if (!workItem) return;
+    try {
+      const res = await fetch(`/api/work-items/${props.id}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title: updates.title ?? workItem.title,
+          ...updates,
+        }),
+      });
+      if (res.ok) {
+        fetchWorkItem();
+      }
+    } catch {
+      // Handle error
+    }
+  };
+
+  // Handle field updates
+  const handleTitleChange = (title: string) => {
+    updateWorkItem({ title });
+  };
+
+  const handleDescriptionChange = (description: string) => {
+    updateWorkItem({ description });
+  };
+
+  const handleStatusChange = (status: WorkItemStatus) => {
+    updateWorkItem({ status });
+  };
+
+  const handlePriorityChange = (priority: WorkItemPriority) => {
+    updateWorkItem({ priority: mapPriorityToApi(priority) });
+  };
+
+  const handleDueDateChange = (date: string) => {
+    updateWorkItem({ notAfter: date || null });
+  };
+
+  const handleStartDateChange = (date: string) => {
+    updateWorkItem({ notBefore: date || null });
+  };
+
+  const handleEstimateChange = (minutes: string) => {
+    const value = parseInt(minutes, 10);
+    updateWorkItem({ estimateMinutes: isNaN(value) ? null : value });
+  };
+
+  const handleActualChange = (minutes: string) => {
+    const value = parseInt(minutes, 10);
+    updateWorkItem({ actualMinutes: isNaN(value) ? null : value });
+  };
+
+  const handleParentClick = () => {
+    if (workItem?.parentId) {
+      window.location.href = `/app/work-items/${workItem.parentId}`;
+    }
+  };
+
+  const handleDependencyClick = (dep: WorkItemDependency) => {
+    window.location.href = `/app/work-items/${dep.id}`;
+  };
 
   // Fetch memories
   const fetchMemories = useCallback(async () => {
@@ -397,8 +597,8 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
           title: m.title,
           content: m.content,
           linkedItemId: props.id,
-          linkedItemTitle: title || undefined,
-          linkedItemKind: (bootstrap?.workItem?.kind || 'issue') as 'issue',
+          linkedItemTitle: workItem?.title || undefined,
+          linkedItemKind: (workItem?.kind || 'issue') as 'issue',
           createdAt: new Date(m.created_at),
           updatedAt: new Date(m.updated_at),
         }))
@@ -408,7 +608,7 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
     } finally {
       setMemoriesLoading(false);
     }
-  }, [props.id, title, bootstrap?.workItem?.kind]);
+  }, [props.id, workItem?.title, workItem?.kind]);
 
   useEffect(() => {
     fetchMemories();
@@ -505,7 +705,7 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
       setEmails(
         data.emails.map((e) => ({
           id: e.id,
-          subject: 'Email', // API doesn't provide subject
+          subject: 'Email',
           from: { name: 'Unknown', email: '' },
           to: [],
           date: e.received_at ? new Date(e.received_at) : new Date(),
@@ -537,8 +737,6 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
   const handleUnlinkEmail = async (email: LinkedEmail) => {
     if (!confirm('Unlink this email from the work item?')) return;
     try {
-      // The API uses thread_id as commId - we need to find the thread_id
-      // Since we only have the message id, we'll use it as the key
       const res = await fetch(`/api/work-items/${props.id}/communications/${email.id}`, {
         method: 'DELETE',
       });
@@ -565,113 +763,152 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
     }
   };
 
+  // Loading state
+  if (itemLoading) {
+    return (
+      <div className="p-6">
+        <SkeletonCard />
+      </div>
+    );
+  }
+
+  // Error state
+  if (itemError || !workItem) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="Work Item Not Found"
+          message={itemError || 'The requested work item could not be loaded.'}
+          action={
+            <Button variant="outline" asChild>
+              <a href="/app/work-items">Back to Work Items</a>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
-      <div className="mb-4">
+    <div className="flex flex-col h-full">
+      {/* Navigation bar */}
+      <div className="p-4 border-b flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
           <a href="/app/work-items">
             <ChevronRight className="mr-1 size-4 rotate-180" />
-            Back to Work Items
+            Back
           </a>
         </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/app/work-items/${props.id}/timeline`}>
+              <Calendar className="mr-2 size-4" />
+              Timeline
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/app/work-items/${props.id}/graph`}>
+              <Network className="mr-2 size-4" />
+              Dependencies
+            </a>
+          </Button>
+        </div>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>{title ? title : `Work Item ${props.id}`}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Button variant="outline" size="sm" asChild>
-              <a href={`/app/work-items/${props.id}/timeline`}>
-                <Calendar className="mr-2 size-4" />
-                Timeline
-              </a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={`/app/work-items/${props.id}/graph`}>
-                <Network className="mr-2 size-4" />
-                Dependencies
-              </a>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Memories Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Memories</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {memoriesLoading ? (
-            <Skeleton width="100%" height={100} />
-          ) : (
-            <ItemMemories
-              memories={memories}
-              onAddMemory={handleAddMemory}
-              onEditMemory={handleEditMemory}
-              onDeleteMemory={handleDeleteMemory}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Memory Editor Dialog */}
-      <MemoryEditor
-        memory={editingMemory || undefined}
-        open={memoryEditorOpen}
-        onOpenChange={setMemoryEditorOpen}
-        onSubmit={editingMemory ? handleUpdateMemory : handleCreateMemory}
+      {/* Main content using ItemDetail component */}
+      <ItemDetail
+        item={workItem}
+        onTitleChange={handleTitleChange}
+        onDescriptionChange={handleDescriptionChange}
+        onStatusChange={handleStatusChange}
+        onPriorityChange={handlePriorityChange}
+        onDueDateChange={handleDueDateChange}
+        onStartDateChange={handleStartDateChange}
+        onEstimateChange={handleEstimateChange}
+        onActualChange={handleActualChange}
+        onParentClick={handleParentClick}
+        onDependencyClick={handleDependencyClick}
+        className="flex-1"
       />
 
-      {/* Communications Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Communications</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {communicationsLoading ? (
-            <Skeleton width="100%" height={100} />
-          ) : (
-            <ItemCommunications
-              emails={emails}
-              calendarEvents={calendarEvents}
-              onUnlinkEmail={handleUnlinkEmail}
-              onUnlinkEvent={handleUnlinkEvent}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {/* Additional sections below ItemDetail */}
+      <div className="p-6 space-y-6 border-t">
+        {/* Memories Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Memories</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {memoriesLoading ? (
+              <Skeleton width="100%" height={100} />
+            ) : (
+              <ItemMemories
+                memories={memories}
+                onAddMemory={handleAddMemory}
+                onEditMemory={handleEditMemory}
+                onDeleteMemory={handleDeleteMemory}
+              />
+            )}
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Participants</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {participants.length === 0 ? (
-            <p className="text-muted-foreground">No participants assigned</p>
-          ) : (
-            <ul className="space-y-2">
-              {participants.map((p, idx) => (
-                <li key={idx} className="flex items-center gap-2">
-                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-xs font-medium text-primary">
-                      {(p.participant ?? 'U')[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-sm">{p.participant ?? 'Unknown'}</span>
-                  {p.role && (
-                    <Badge variant="outline" className="text-xs">
-                      {p.role}
-                    </Badge>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+        {/* Memory Editor Dialog */}
+        <MemoryEditor
+          memory={editingMemory || undefined}
+          open={memoryEditorOpen}
+          onOpenChange={setMemoryEditorOpen}
+          onSubmit={editingMemory ? handleUpdateMemory : handleCreateMemory}
+        />
+
+        {/* Communications Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Communications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {communicationsLoading ? (
+              <Skeleton width="100%" height={100} />
+            ) : (
+              <ItemCommunications
+                emails={emails}
+                calendarEvents={calendarEvents}
+                onUnlinkEmail={handleUnlinkEmail}
+                onUnlinkEvent={handleUnlinkEvent}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Participants Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Participants</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {participants.length === 0 ? (
+              <p className="text-muted-foreground">No participants assigned</p>
+            ) : (
+              <ul className="space-y-2">
+                {participants.map((p, idx) => (
+                  <li key={idx} className="flex items-center gap-2">
+                    <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-xs font-medium text-primary">
+                        {(p.participant ?? 'U')[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="text-sm">{p.participant ?? 'Unknown'}</span>
+                    {p.role && (
+                      <Badge variant="outline" className="text-xs">
+                        {p.role}
+                      </Badge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
