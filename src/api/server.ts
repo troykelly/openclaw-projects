@@ -1030,6 +1030,143 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows[0]);
   });
 
+  // Bulk operations endpoints
+  app.patch('/api/work-items/bulk', async (req, reply) => {
+    const body = req.body as {
+      ids: string[];
+      action: 'status' | 'priority' | 'parent' | 'delete';
+      value?: string | null;
+    };
+
+    if (!body?.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
+      return reply.code(400).send({ error: 'ids array is required' });
+    }
+
+    if (!body?.action) {
+      return reply.code(400).send({ error: 'action is required' });
+    }
+
+    // Validate UUIDs
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const id of body.ids) {
+      if (!uuidRe.test(id)) {
+        return reply.code(400).send({ error: `invalid UUID: ${id}` });
+      }
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      let result;
+      const ids = body.ids;
+
+      switch (body.action) {
+        case 'status':
+          if (!body.value) {
+            await client.query('ROLLBACK');
+            client.release();
+            await pool.end();
+            return reply.code(400).send({ error: 'value is required for status action' });
+          }
+          result = await client.query(
+            `UPDATE work_item
+             SET status = $1, updated_at = now()
+             WHERE id = ANY($2::uuid[])
+             RETURNING id::text as id, title, status`,
+            [body.value, ids]
+          );
+
+          // Record activity for each item
+          for (const row of result.rows as { id: string; title: string; status: string }[]) {
+            await client.query(
+              `INSERT INTO work_item_activity (work_item_id, activity_type, description)
+               VALUES ($1, 'status_change', $2)`,
+              [row.id, `Status changed to ${row.status} (bulk operation)`]
+            );
+          }
+          break;
+
+        case 'priority':
+          if (!body.value) {
+            await client.query('ROLLBACK');
+            client.release();
+            await pool.end();
+            return reply.code(400).send({ error: 'value is required for priority action' });
+          }
+          result = await client.query(
+            `UPDATE work_item
+             SET priority = $1, updated_at = now()
+             WHERE id = ANY($2::uuid[])
+             RETURNING id::text as id, title, priority::text as priority`,
+            [body.value, ids]
+          );
+          break;
+
+        case 'parent':
+          // value is the new parent ID, or null to unparent
+          const parentId = body.value || null;
+          if (parentId && !uuidRe.test(parentId)) {
+            await client.query('ROLLBACK');
+            client.release();
+            await pool.end();
+            return reply.code(400).send({ error: 'invalid parent UUID' });
+          }
+          result = await client.query(
+            `UPDATE work_item
+             SET parent_work_item_id = $1, updated_at = now()
+             WHERE id = ANY($2::uuid[])
+             RETURNING id::text as id, title, parent_work_item_id::text as parent_id`,
+            [parentId, ids]
+          );
+          break;
+
+        case 'delete':
+          // First get titles for activity log
+          const itemsToDelete = await client.query(
+            `SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])`,
+            [ids]
+          );
+
+          result = await client.query(
+            `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
+            [ids]
+          );
+
+          // Note: Activity entries will be cascade deleted along with work items
+          break;
+
+        default:
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: `unknown action: ${body.action}` });
+      }
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+
+      return reply.send({
+        success: true,
+        action: body.action,
+        affected: result.rows.length,
+        items: result.rows,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+
+      if (error instanceof Error) {
+        return reply.code(400).send({ error: error.message });
+      }
+      return reply.code(500).send({ error: 'internal server error' });
+    }
+  });
+
   app.get('/api/inbox', async (_req, reply) => {
     const pool = createPool();
     const result = await pool.query(
