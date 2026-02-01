@@ -368,7 +368,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
     const loginUrl = `${baseUrl}/api/auth/consume?token=${token}`;
 
-    const { delivered } = await sendMagicLinkEmail({ toEmail: email, loginUrl });
+    const { delivered, error } = await sendMagicLinkEmail({ toEmail: email, loginUrl });
+
+    if (!delivered) {
+      console.warn(`[Auth] Magic link email not delivered to ${email}${error ? `: ${error}` : ''}`);
+    }
 
     // Only return the URL when email delivery isn't configured (or in non-production).
     // This prevents leaking a login token to whoever can see the response in production.
