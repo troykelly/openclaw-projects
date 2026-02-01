@@ -6,3 +6,5 @@ export { Sheet, SheetPortal, SheetOverlay, SheetTrigger, SheetClose, SheetConten
 export { Separator } from './separator';
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip';
 export { ScrollArea, ScrollBar } from './scroll-area';
+export { Dialog, DialogPortal, DialogOverlay, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from './dialog';
+export { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandShortcut, CommandSeparator } from './command';
