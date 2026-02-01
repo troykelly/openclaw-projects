@@ -10,6 +10,10 @@ export default defineConfig({
     // Parallelism is disabled to avoid migration race conditions. If migrating
     // to per-file temp databases, this could be re-enabled.
     fileParallelism: false,
+
+    // UI component tests use jsdom environment
+    environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
+    setupFiles: ['./tests/setup-ui.ts'],
   },
   resolve: {
     alias: {
