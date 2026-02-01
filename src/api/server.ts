@@ -2721,6 +2721,186 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
   });
 
+  // Work Item Reparent API (issue #105)
+  // PATCH /api/work-items/:id/reparent - Move work item to a different parent
+  app.patch('/api/work-items/:id/reparent', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { newParentId?: string | null; afterId?: string | null };
+
+    const newParentId = body.newParentId ?? null;
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get the work item being reparented
+      const itemResult = await client.query(
+        `SELECT id, work_item_kind as kind, parent_work_item_id, sort_order
+         FROM work_item WHERE id = $1 FOR UPDATE`,
+        [params.id]
+      );
+      if (itemResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const item = itemResult.rows[0] as {
+        id: string;
+        kind: string;
+        parent_work_item_id: string | null;
+        sort_order: number;
+      };
+
+      // Check for self-reparenting
+      if (newParentId === params.id) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.code(400).send({ error: 'item cannot be its own parent' });
+      }
+
+      // Get new parent info if not null
+      let newParentKind: string | null = null;
+      if (newParentId) {
+        const parentResult = await client.query(
+          `SELECT work_item_kind as kind FROM work_item WHERE id = $1`,
+          [newParentId]
+        );
+        if (parentResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'parent not found' });
+        }
+        newParentKind = (parentResult.rows[0] as { kind: string }).kind;
+      }
+
+      // Validate hierarchy constraints
+      const kind = item.kind;
+      if (kind === 'project') {
+        if (newParentId !== null) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'project cannot have parent' });
+        }
+      } else if (kind === 'initiative') {
+        if (newParentId !== null && newParentKind !== 'project') {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'initiative parent must be project' });
+        }
+      } else if (kind === 'epic') {
+        if (newParentId === null || newParentKind !== 'initiative') {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'epic parent must be initiative' });
+        }
+      } else if (kind === 'issue') {
+        if (newParentId === null || newParentKind !== 'epic') {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'issue parent must be epic' });
+        }
+      }
+
+      // Calculate new sort_order among new siblings
+      let newSortOrder: number;
+      const afterId = body.afterId ?? null;
+
+      if (afterId) {
+        // Position after a specific sibling in new parent
+        const afterResult = await client.query(
+          `SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1`,
+          [afterId]
+        );
+        if (afterResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'afterId target not found' });
+        }
+        const afterItem = afterResult.rows[0] as {
+          sort_order: number;
+          parent_work_item_id: string | null;
+        };
+
+        // Verify afterId is in the new parent
+        if (afterItem.parent_work_item_id !== newParentId) {
+          await client.query('ROLLBACK');
+          client.release();
+          await pool.end();
+          return reply.code(400).send({ error: 'afterId must be in new parent' });
+        }
+
+        // Get next sibling
+        const nextResult = await client.query(
+          `SELECT sort_order FROM work_item
+           WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+             AND sort_order > $2
+             AND id != $3
+           ORDER BY sort_order ASC
+           LIMIT 1`,
+          [newParentId, afterItem.sort_order, params.id]
+        );
+
+        if (nextResult.rows.length > 0) {
+          const nextOrder = (nextResult.rows[0] as { sort_order: number }).sort_order;
+          newSortOrder = Math.floor((afterItem.sort_order + nextOrder) / 2);
+          if (newSortOrder === afterItem.sort_order) {
+            newSortOrder = afterItem.sort_order + 500;
+          }
+        } else {
+          newSortOrder = afterItem.sort_order + 1000;
+        }
+      } else {
+        // Position at end of new siblings
+        const maxResult = await client.query(
+          `SELECT COALESCE(MAX(sort_order), 0) + 1000 as new_order
+           FROM work_item
+           WHERE parent_work_item_id IS NOT DISTINCT FROM $1
+             AND id != $2`,
+          [newParentId, params.id]
+        );
+        newSortOrder = (maxResult.rows[0] as { new_order: number }).new_order;
+      }
+
+      // Update the item
+      const updateResult = await client.query(
+        `UPDATE work_item
+            SET parent_work_item_id = $2,
+                parent_id = $2,
+                sort_order = $3,
+                updated_at = now()
+          WHERE id = $1
+        RETURNING id::text as id, title, status, work_item_kind as kind,
+                  parent_work_item_id::text as parent_id, sort_order, updated_at`,
+        [params.id, newParentId, newSortOrder]
+      );
+
+      await client.query('COMMIT');
+      client.release();
+      await pool.end();
+
+      return reply.send({
+        ok: true,
+        item: updateResult.rows[0],
+      });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+      throw e;
+    }
+  });
+
   // Work Item Reorder API (issue #104)
   // PATCH /api/work-items/:id/reorder - Reorder work item within siblings
   app.patch('/api/work-items/:id/reorder', async (req, reply) => {
