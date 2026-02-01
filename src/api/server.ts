@@ -1092,6 +1092,153 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send(result.rows[0]);
   });
 
+  // GET /api/timeline - Global timeline endpoint
+  app.get('/api/timeline', async (req, reply) => {
+    const query = req.query as {
+      from?: string;
+      to?: string;
+      kind?: string;
+      parent_id?: string;
+    };
+
+    const pool = createPool();
+
+    // Build dynamic WHERE clauses and parameters
+    const conditions: string[] = [];
+    const params: (string | string[])[] = [];
+    let paramIndex = 1;
+
+    // Only include items with dates by default (for timeline view)
+    conditions.push('(wi.not_before IS NOT NULL OR wi.not_after IS NOT NULL)');
+
+    // Date range filters
+    if (query.from) {
+      conditions.push(`(wi.not_before >= $${paramIndex}::timestamptz OR wi.not_after >= $${paramIndex}::timestamptz)`);
+      params.push(query.from);
+      paramIndex++;
+    }
+
+    if (query.to) {
+      conditions.push(`(wi.not_before <= $${paramIndex}::timestamptz OR wi.not_after <= $${paramIndex}::timestamptz)`);
+      params.push(query.to);
+      paramIndex++;
+    }
+
+    // Kind filter (supports comma-separated list)
+    if (query.kind) {
+      const kinds = query.kind.split(',').map(k => k.trim()).filter(k => k);
+      if (kinds.length > 0) {
+        conditions.push(`wi.work_item_kind IN (${kinds.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+        kinds.forEach(k => params.push(k));
+        paramIndex += kinds.length;
+      }
+    }
+
+    // Parent ID filter - get all descendants of the specified parent
+    if (query.parent_id) {
+      const itemsQuery = `
+        WITH RECURSIVE descendants AS (
+          SELECT id, parent_work_item_id, 0 as level
+            FROM work_item
+           WHERE id = $${paramIndex}
+          UNION ALL
+          SELECT wi.id, wi.parent_work_item_id, d.level + 1
+            FROM work_item wi
+            JOIN descendants d ON wi.parent_work_item_id = d.id
+        )
+        SELECT wi.id::text as id,
+               wi.title,
+               wi.work_item_kind as kind,
+               wi.status,
+               wi.priority::text as priority,
+               wi.parent_work_item_id::text as parent_id,
+               d.level,
+               wi.not_before,
+               wi.not_after,
+               wi.estimate_minutes,
+               wi.actual_minutes,
+               wi.created_at
+          FROM descendants d
+          JOIN work_item wi ON wi.id = d.id
+         WHERE (wi.not_before IS NOT NULL OR wi.not_after IS NOT NULL)
+         ${query.kind ? `AND wi.work_item_kind IN (${query.kind.split(',').map((_, i) => `$${paramIndex + 1 + i}`).join(', ')})` : ''}
+         ORDER BY d.level, wi.not_before NULLS LAST, wi.created_at`;
+
+      const descendantParams = [query.parent_id];
+      if (query.kind) {
+        query.kind.split(',').map(k => k.trim()).filter(k => k).forEach(k => descendantParams.push(k));
+      }
+
+      const items = await pool.query(itemsQuery, descendantParams);
+
+      // Get dependencies between items in this subtree
+      const dependencies = await pool.query(
+        `WITH RECURSIVE descendants AS (
+           SELECT id FROM work_item WHERE id = $1
+           UNION ALL
+           SELECT wi.id FROM work_item wi
+             JOIN descendants d ON wi.parent_work_item_id = d.id
+         )
+         SELECT wid.id::text as id,
+                wid.work_item_id::text as from_id,
+                wid.depends_on_work_item_id::text as to_id,
+                wid.kind
+           FROM work_item_dependency wid
+          WHERE wid.work_item_id IN (SELECT id FROM descendants)
+            AND wid.depends_on_work_item_id IN (SELECT id FROM descendants)`,
+        [query.parent_id]
+      );
+
+      await pool.end();
+      return reply.send({
+        items: items.rows,
+        dependencies: dependencies.rows,
+      });
+    }
+
+    // No parent_id: get all items with dates
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const items = await pool.query(
+      `SELECT wi.id::text as id,
+              wi.title,
+              wi.work_item_kind as kind,
+              wi.status,
+              wi.priority::text as priority,
+              wi.parent_work_item_id::text as parent_id,
+              0 as level,
+              wi.not_before,
+              wi.not_after,
+              wi.estimate_minutes,
+              wi.actual_minutes,
+              wi.created_at
+         FROM work_item wi
+        ${whereClause}
+        ORDER BY wi.not_before NULLS LAST, wi.created_at`,
+      params
+    );
+
+    // Get all dependencies between dated items
+    const dependencies = await pool.query(
+      `SELECT wid.id::text as id,
+              wid.work_item_id::text as from_id,
+              wid.depends_on_work_item_id::text as to_id,
+              wid.kind
+         FROM work_item_dependency wid
+         JOIN work_item wi1 ON wi1.id = wid.work_item_id
+         JOIN work_item wi2 ON wi2.id = wid.depends_on_work_item_id
+        WHERE (wi1.not_before IS NOT NULL OR wi1.not_after IS NOT NULL)
+          AND (wi2.not_before IS NOT NULL OR wi2.not_after IS NOT NULL)`
+    );
+
+    await pool.end();
+
+    return reply.send({
+      items: items.rows,
+      dependencies: dependencies.rows,
+    });
+  });
+
   app.get('/api/work-items/:id/timeline', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
