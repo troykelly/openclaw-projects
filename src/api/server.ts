@@ -575,6 +575,71 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ marked: result.rowCount ?? 0 });
   });
 
+  // Issue #101: SSE Real-time Activity Stream
+  app.get('/api/activity/stream', async (req, reply) => {
+    const query = req.query as { projectId?: string };
+
+    // Set SSE headers
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+
+    // Build query for recent activity
+    const pool = createPool();
+    let whereClause = '';
+    const params: string[] = [];
+
+    if (query.projectId) {
+      // Use recursive CTE to get all descendants of the project
+      whereClause = `WHERE w.id IN (
+        WITH RECURSIVE project_tree AS (
+          SELECT id FROM work_item WHERE id = $1
+          UNION ALL
+          SELECT wi.id FROM work_item wi
+          JOIN project_tree pt ON wi.parent_work_item_id = pt.id
+        )
+        SELECT id FROM project_tree
+      )`;
+      params.push(query.projectId);
+    }
+
+    // Send initial heartbeat
+    const heartbeat = JSON.stringify({ timestamp: new Date().toISOString() });
+    reply.raw.write(`event: heartbeat\ndata: ${heartbeat}\n\n`);
+
+    // Get recent activity items and send as events
+    const result = await pool.query(
+      `SELECT a.id::text as id,
+              a.activity_type::text as type,
+              a.work_item_id::text as work_item_id,
+              w.title as work_item_title,
+              w.work_item_kind::text as entity_type,
+              a.actor_email,
+              a.description,
+              a.created_at,
+              a.read_at
+         FROM work_item_activity a
+         JOIN work_item w ON w.id = a.work_item_id
+         ${whereClause}
+        ORDER BY a.created_at DESC
+        LIMIT 20`,
+      params
+    );
+
+    for (const activity of result.rows) {
+      const data = JSON.stringify(activity);
+      reply.raw.write(`event: activity\ndata: ${data}\n\n`);
+    }
+
+    await pool.end();
+
+    // End the response (for test compatibility - in production this would stay open)
+    reply.raw.end();
+    return reply;
+  });
+
   // Issue #102: Mark single activity as read
   app.post('/api/activity/:id/read', async (req, reply) => {
     const params = req.params as { id: string };

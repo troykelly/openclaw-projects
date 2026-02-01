@@ -658,4 +658,106 @@ describe('Activity Feed API', () => {
       });
     });
   });
+
+  /**
+   * Issue #101: SSE Real-time Stream endpoint
+   */
+  describe('Issue #101 - SSE Stream', () => {
+    describe('GET /api/activity/stream', () => {
+      it('returns SSE headers', async () => {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/api/activity/stream',
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toBe('text/event-stream');
+        expect(res.headers['cache-control']).toBe('no-cache');
+        expect(res.headers['connection']).toBe('keep-alive');
+      });
+
+      it('sends initial heartbeat event', async () => {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/api/activity/stream',
+        });
+
+        expect(res.statusCode).toBe(200);
+        // Response should contain a heartbeat event
+        expect(res.payload).toContain('event: heartbeat');
+        expect(res.payload).toContain('data:');
+      });
+
+      it('accepts projectId filter parameter', async () => {
+        // Create a project first
+        const project = await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Test Project', kind: 'project' },
+        });
+        const projectId = (project.json() as { id: string }).id;
+
+        const res = await app.inject({
+          method: 'GET',
+          url: `/api/activity/stream?projectId=${projectId}`,
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toBe('text/event-stream');
+      });
+
+      it('sends recent activity events on connect', async () => {
+        // Create some activity first
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'SSE Test Item' },
+        });
+
+        const res = await app.inject({
+          method: 'GET',
+          url: '/api/activity/stream',
+        });
+
+        expect(res.statusCode).toBe(200);
+        // Should contain activity event for the work item
+        expect(res.payload).toContain('event: activity');
+        expect(res.payload).toContain('SSE Test Item');
+      });
+
+      it('filters activity by projectId', async () => {
+        // Create a project with a child
+        const project = await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Project A', kind: 'project' },
+        });
+        const projectId = (project.json() as { id: string }).id;
+
+        // Create initiative under project
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Initiative Under A', kind: 'initiative', parentId: projectId },
+        });
+
+        // Create separate standalone item
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Standalone Item' },
+        });
+
+        const res = await app.inject({
+          method: 'GET',
+          url: `/api/activity/stream?projectId=${projectId}`,
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.payload).toContain('Project A');
+        expect(res.payload).toContain('Initiative Under A');
+        expect(res.payload).not.toContain('Standalone Item');
+      });
+    });
+  });
 });
