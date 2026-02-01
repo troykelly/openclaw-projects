@@ -195,12 +195,20 @@ export function renderWorkItemsList({ email }: DashboardPageOptions): string {
   </div>
 
   <table>
-    <thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Type</th><th>Updated</th></tr></thead>
+    <thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Type</th><th>Est.</th><th>Actual</th><th>Updated</th></tr></thead>
     <tbody id="items"></tbody>
   </table>
 
   <script>
     ${baseScript()}
+
+    function formatMinutes(m) {
+      if (m == null) return '—';
+      if (m < 60) return m + 'm';
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      return rm > 0 ? h + 'h ' + rm + 'm' : h + 'h';
+    }
 
     async function refresh() {
       const res = await fetch('/api/work-items');
@@ -211,6 +219,8 @@ export function renderWorkItemsList({ email }: DashboardPageOptions): string {
           '<td><span class="pill">' + escapeHtml(i.status) + '</span></td>' +
           '<td>' + escapeHtml(i.priority) + '</td>' +
           '<td>' + escapeHtml(i.task_type) + '</td>' +
+          '<td>' + formatMinutes(i.estimate_minutes) + '</td>' +
+          '<td>' + formatMinutes(i.actual_minutes) + '</td>' +
           '<td class="muted">' + new Date(i.updated_at).toLocaleString() + '</td>' +
         '</tr>'
       ).join('');
@@ -334,9 +344,22 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
       <label class="muted">Not after <input type="datetime-local" id="notAfter" /></label>
     </div>
     <div class="row" style="margin-top:10px">
+      <label class="muted">Estimate (mins) <input type="number" id="estimateMinutes" min="0" max="525600" style="width:80px" /></label>
+      <label class="muted">Actual (mins) <input type="number" id="actualMinutes" min="0" max="525600" style="width:80px" /></label>
+    </div>
+    <div class="row" style="margin-top:10px">
       <button id="save">Save</button>
       <button id="delete" class="danger">Delete</button>
       <span id="out" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card" id="rollupCard" style="display:none">
+    <h2>Effort Rollup</h2>
+    <p class="muted">Total estimates and actuals across this item and all descendants.</p>
+    <div class="row" style="margin-top:10px">
+      <span><strong>Total Estimate:</strong> <span id="rollupEstimate">—</span></span>
+      <span><strong>Total Actual:</strong> <span id="rollupActual">—</span></span>
     </div>
   </div>
 
@@ -376,6 +399,14 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
 
     const workItemId = window.location.pathname.split('/').pop();
 
+    function formatMinutes(m) {
+      if (m == null) return '—';
+      if (m < 60) return m + 'm';
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      return rm > 0 ? h + 'h ' + rm + 'm' : h + 'h';
+    }
+
     async function load() {
       const res = await fetch('/api/work-items/' + workItemId);
       if (!res.ok) {
@@ -391,6 +422,17 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
       document.getElementById('description').value = wi.description || '';
       document.getElementById('notBefore').value = isoOrEmpty(wi.not_before);
       document.getElementById('notAfter').value = isoOrEmpty(wi.not_after);
+      document.getElementById('estimateMinutes').value = wi.estimate_minutes != null ? wi.estimate_minutes : '';
+      document.getElementById('actualMinutes').value = wi.actual_minutes != null ? wi.actual_minutes : '';
+
+      // Load and display rollup data
+      const rollupRes = await fetch('/api/work-items/' + workItemId + '/rollup');
+      if (rollupRes.ok) {
+        const rollup = await rollupRes.json();
+        document.getElementById('rollupCard').style.display = 'block';
+        document.getElementById('rollupEstimate').textContent = formatMinutes(rollup.total_estimate_minutes);
+        document.getElementById('rollupActual').textContent = formatMinutes(rollup.total_actual_minutes);
+      }
 
       const [depsRes, partsRes, listRes] = await Promise.all([
         fetch('/api/work-items/' + workItemId + '/dependencies'),
@@ -437,6 +479,8 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
     }
 
     document.getElementById('save').addEventListener('click', async () => {
+      const estVal = document.getElementById('estimateMinutes').value;
+      const actVal = document.getElementById('actualMinutes').value;
       const payload = {
         title: document.getElementById('title').value,
         description: document.getElementById('description').value,
@@ -445,6 +489,8 @@ export function renderWorkItemDetail({ email }: DashboardPageOptions): string {
         taskType: document.getElementById('taskType').value,
         notBefore: document.getElementById('notBefore').value ? new Date(document.getElementById('notBefore').value).toISOString() : null,
         notAfter: document.getElementById('notAfter').value ? new Date(document.getElementById('notAfter').value).toISOString() : null,
+        estimateMinutes: estVal !== '' ? parseInt(estVal, 10) : null,
+        actualMinutes: actVal !== '' ? parseInt(actVal, 10) : null,
       };
       const res = await fetch('/api/work-items/' + workItemId, {
         method: 'PUT',
