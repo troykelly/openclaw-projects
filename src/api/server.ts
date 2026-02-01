@@ -1015,7 +1015,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get dependencies - items this blocks (other items depend on this)
     const blocksResult = await pool.query(
-      `SELECT wi.id::text as id, wi.title
+      `SELECT wi.id::text as id, wi.title, wi.work_item_kind as kind, wi.status,
+              'blocks' as direction
        FROM work_item_dependency wid
        JOIN work_item wi ON wi.id = wid.work_item_id
        WHERE wid.depends_on_work_item_id = $1`,
@@ -1024,12 +1025,42 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get dependencies - items this is blocked by (this depends on others)
     const blockedByResult = await pool.query(
-      `SELECT wi.id::text as id, wi.title
+      `SELECT wi.id::text as id, wi.title, wi.work_item_kind as kind, wi.status,
+              'blocked_by' as direction
        FROM work_item_dependency wid
        JOIN work_item wi ON wi.id = wid.depends_on_work_item_id
        WHERE wid.work_item_id = $1`,
       [params.id]
     );
+
+    // Combine dependencies into a single array (issue #109 format)
+    const dependencies = [...blocksResult.rows, ...blockedByResult.rows];
+
+    // Get attachments - memories (issue #109)
+    const memoriesResult = await pool.query(
+      `SELECT id::text as id, 'memory' as type, title, memory_type::text as subtitle, created_at as "linkedAt"
+       FROM work_item_memory
+       WHERE work_item_id = $1
+       ORDER BY created_at DESC`,
+      [params.id]
+    );
+
+    // Get attachments - contacts (issue #109)
+    const contactsResult = await pool.query(
+      `SELECT c.id::text as id, 'contact' as type, c.display_name as title,
+              wic.relationship::text as subtitle, wic.created_at as "linkedAt"
+       FROM work_item_contact wic
+       JOIN contact c ON c.id = wic.contact_id
+       WHERE wic.work_item_id = $1
+       ORDER BY wic.created_at DESC`,
+      [params.id]
+    );
+
+    // Combine all attachments
+    const attachments = [
+      ...memoriesResult.rows,
+      ...contactsResult.rows,
+    ];
 
     await pool.end();
 
@@ -1037,10 +1068,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       ...workItem,
       children_count: parseInt(workItem.children_count, 10),
       parent,
-      dependencies: {
-        blocks: blocksResult.rows,
-        blocked_by: blockedByResult.rows,
-      },
+      dependencies,
+      attachments,
     });
   });
 

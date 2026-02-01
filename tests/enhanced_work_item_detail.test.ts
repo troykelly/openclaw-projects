@@ -111,16 +111,25 @@ describe('Enhanced Work Item Detail', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json() as {
-        dependencies: {
-          blocks: Array<{ id: string; title: string }>;
-          blocked_by: Array<{ id: string; title: string }>;
-        };
+        dependencies: Array<{
+          id: string;
+          title: string;
+          kind: string;
+          status: string;
+          direction: 'blocks' | 'blocked_by';
+        }>;
       };
       expect(body.dependencies).toBeDefined();
-      expect(body.dependencies.blocks.length).toBe(1);
-      expect(body.dependencies.blocks[0].title).toBe('Blocking Task');
-      expect(body.dependencies.blocked_by.length).toBe(1);
-      expect(body.dependencies.blocked_by[0].title).toBe('Prerequisite Task');
+      expect(Array.isArray(body.dependencies)).toBe(true);
+
+      // Find dependencies by direction
+      const blocks = body.dependencies.filter((d) => d.direction === 'blocks');
+      const blockedBy = body.dependencies.filter((d) => d.direction === 'blocked_by');
+
+      expect(blocks.length).toBe(1);
+      expect(blocks[0].title).toBe('Blocking Task');
+      expect(blockedBy.length).toBe(1);
+      expect(blockedBy[0].title).toBe('Prerequisite Task');
     });
 
     it('returns parent information', async () => {
