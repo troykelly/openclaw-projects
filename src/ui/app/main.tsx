@@ -9,6 +9,11 @@ import type { BreadcrumbItem } from '@/ui/components/layout/breadcrumb';
 // Command Palette
 import { CommandPalette, SearchResult } from '@/ui/components/command-palette';
 
+// Memory components
+import { ItemMemories } from '@/ui/components/memory/item-memories';
+import { MemoryEditor } from '@/ui/components/memory/memory-editor';
+import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
+
 // Feedback components
 import {
   Skeleton,
@@ -352,11 +357,119 @@ function WorkItemsListPage(): React.JSX.Element {
   );
 }
 
+// API Memory type from server
+type ApiMemory = {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  created_at: string;
+  updated_at: string;
+};
+
 // Work Item Detail Page
 function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
   const bootstrap = readBootstrap();
   const title = bootstrap?.workItem?.title;
   const participants = bootstrap?.participants ?? [];
+
+  // Memory state
+  const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const [memoriesLoading, setMemoriesLoading] = useState(true);
+  const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
+  const [editingMemory, setEditingMemory] = useState<MemoryItem | null>(null);
+
+  // Fetch memories
+  const fetchMemories = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/work-items/${props.id}/memories`, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { memories: ApiMemory[] };
+      setMemories(
+        data.memories.map((m) => ({
+          id: m.id,
+          title: m.title,
+          content: m.content,
+          linkedItemId: props.id,
+          linkedItemTitle: title || undefined,
+          linkedItemKind: (bootstrap?.workItem?.kind || 'issue') as 'issue',
+          createdAt: new Date(m.created_at),
+          updatedAt: new Date(m.updated_at),
+        }))
+      );
+    } catch {
+      // Silently fail
+    } finally {
+      setMemoriesLoading(false);
+    }
+  }, [props.id, title, bootstrap?.workItem?.kind]);
+
+  useEffect(() => {
+    fetchMemories();
+  }, [fetchMemories]);
+
+  // Create memory
+  const handleCreateMemory = async (data: MemoryFormData) => {
+    try {
+      const res = await fetch(`/api/work-items/${props.id}/memories`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: data.title, content: data.content, type: 'note' }),
+      });
+      if (res.ok) {
+        setMemoryEditorOpen(false);
+        fetchMemories();
+      }
+    } catch {
+      // Handle error
+    }
+  };
+
+  // Update memory
+  const handleUpdateMemory = async (data: MemoryFormData) => {
+    if (!editingMemory) return;
+    try {
+      const res = await fetch(`/api/memories/${editingMemory.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: data.title, content: data.content }),
+      });
+      if (res.ok) {
+        setMemoryEditorOpen(false);
+        setEditingMemory(null);
+        fetchMemories();
+      }
+    } catch {
+      // Handle error
+    }
+  };
+
+  // Delete memory
+  const handleDeleteMemory = async (memory: MemoryItem) => {
+    if (!confirm(`Delete memory "${memory.title}"?`)) return;
+    try {
+      const res = await fetch(`/api/memories/${memory.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchMemories();
+      }
+    } catch {
+      // Handle error
+    }
+  };
+
+  // Open editor for new memory
+  const handleAddMemory = () => {
+    setEditingMemory(null);
+    setMemoryEditorOpen(true);
+  };
+
+  // Open editor for existing memory
+  const handleEditMemory = (memory: MemoryItem) => {
+    setEditingMemory(memory);
+    setMemoryEditorOpen(true);
+  };
 
   return (
     <div className="p-6">
@@ -390,6 +503,33 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
           </div>
         </CardContent>
       </Card>
+
+      {/* Memories Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Memories</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {memoriesLoading ? (
+            <Skeleton width="100%" height={100} />
+          ) : (
+            <ItemMemories
+              memories={memories}
+              onAddMemory={handleAddMemory}
+              onEditMemory={handleEditMemory}
+              onDeleteMemory={handleDeleteMemory}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Memory Editor Dialog */}
+      <MemoryEditor
+        memory={editingMemory || undefined}
+        open={memoryEditorOpen}
+        onOpenChange={setMemoryEditorOpen}
+        onSubmit={editingMemory ? handleUpdateMemory : handleCreateMemory}
+      />
 
       <Card>
         <CardHeader>
