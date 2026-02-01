@@ -1292,18 +1292,184 @@ function NotFoundPage(props: { path: string }): React.JSX.Element {
   );
 }
 
-// Activity Page (placeholder for #131)
+// Activity Page (issue #131)
+type ApiActivityItem = {
+  id: string;
+  type: string;
+  work_item_id: string;
+  work_item_title: string;
+  actor_email: string | null;
+  description: string;
+  created_at: string;
+};
+
+type ActivityApiResponse = {
+  items: ApiActivityItem[];
+};
+
 function ActivityPage(): React.JSX.Element {
+  const [state, setState] = useState<
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'loaded'; items: ApiActivityItem[] }
+  >({ kind: 'loading' });
+
+  const [hasMore] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function fetchActivity(): Promise<void> {
+      try {
+        const res = await fetch('/api/activity?limit=50', {
+          headers: { accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error(`Failed to load activity: ${res.status}`);
+        const data = (await res.json()) as ActivityApiResponse;
+        if (!alive) return;
+        setState({ kind: 'loaded', items: data.items });
+      } catch (err) {
+        if (!alive) return;
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        setState({ kind: 'error', message });
+      }
+    }
+
+    fetchActivity();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Map API activity items to the ActivityItem type expected by ActivityFeed
+  const mapToActivityItems = (items: ApiActivityItem[]): Array<{
+    id: string;
+    actorType: 'agent' | 'human';
+    actorName: string;
+    action: 'created' | 'updated' | 'status_changed' | 'commented' | 'assigned' | 'completed' | 'deleted' | 'moved';
+    entityType: 'project' | 'initiative' | 'epic' | 'issue' | 'contact' | 'memory';
+    entityId: string;
+    entityTitle: string;
+    detail?: string;
+    timestamp: Date;
+    read?: boolean;
+  }> => {
+    return items.map((item) => ({
+      id: item.id,
+      actorType: item.actor_email?.includes('agent') ? 'agent' as const : 'human' as const,
+      actorName: item.actor_email || 'System',
+      action: (item.type === 'status_change' ? 'status_changed' : item.type) as 'created' | 'updated' | 'status_changed',
+      entityType: 'issue' as const,
+      entityId: item.work_item_id,
+      entityTitle: item.work_item_title,
+      detail: item.description,
+      timestamp: new Date(item.created_at),
+      read: false,
+    }));
+  };
+
+  if (state.kind === 'loading') {
+    return (
+      <div className="p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <Skeleton width={200} height={32} />
+        </div>
+        <SkeletonList count={5} variant="row" />
+      </div>
+    );
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load activity"
+          description={state.message}
+          onRetry={() => setState({ kind: 'loading' })}
+        />
+      </div>
+    );
+  }
+
+  if (state.items.length === 0) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-semibold text-foreground mb-4">Activity Feed</h1>
+        <Card>
+          <CardContent className="p-8">
+            <EmptyState
+              variant="no-data"
+              title="No activity yet"
+              description="Activity will appear here when work items are created or updated."
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const activityItems = mapToActivityItems(state.items);
+
+  // Simple inline activity display (using the existing patterns from the page)
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-foreground mb-4">Activity Feed</h1>
-      <Card>
-        <CardContent className="p-8">
-          <EmptyState
-            variant="no-data"
-            title="Activity Feed Coming Soon"
-            description="The activity feed will show recent updates across all work items."
-          />
+    <div className="p-6 h-full flex flex-col">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-foreground">Activity Feed</h1>
+        <p className="text-sm text-muted-foreground mt-1">Recent updates across all work items</p>
+      </div>
+
+      <Card className="flex-1">
+        <CardContent className="p-0">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <div className="divide-y">
+              {activityItems.map((item) => (
+                <div key={item.id} className="p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
+                      item.actorType === 'agent' ? 'bg-violet-500/10 text-violet-500' : 'bg-primary/10 text-primary'
+                    }`}>
+                      <span className="text-xs font-medium">
+                        {item.actorName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-foreground">{item.actorName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {item.action === 'created' && 'created'}
+                          {item.action === 'updated' && 'updated'}
+                          {item.action === 'status_changed' && 'changed status of'}
+                          {item.action === 'commented' && 'commented on'}
+                          {item.action === 'assigned' && 'assigned'}
+                        </span>
+                      </div>
+                      <a
+                        href={`/app/work-items/${item.entityId}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {item.entityTitle}
+                      </a>
+                      {item.detail && (
+                        <p className="text-sm text-muted-foreground mt-1">{item.detail}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {item.timestamp.toLocaleDateString()} at {item.timestamp.toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {hasMore && (
+                <div className="p-4 text-center">
+                  <Button variant="outline" size="sm">
+                    Load more
+                  </Button>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>
