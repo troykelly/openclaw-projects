@@ -555,3 +555,107 @@ The frontend will need these API endpoints (some exist, some need creation):
 - Multi-user collaboration features
 - Reporting/analytics dashboards
 - API for email/calendar sync (this design assumes display only)
+
+---
+
+## Research Findings (Issue #94)
+
+**Completed:** 2026-02-01
+
+See full details in [`docs/knowledge/frontend-2026.md`](../knowledge/frontend-2026.md)
+
+### Key Version Updates Required
+
+| Library | package.json | Target | Notes |
+|---------|-------------|--------|-------|
+| React | ^19.2.4 | ^19.2.x | Already current |
+| react-dom | ^19.2.4 | ^19.2.x | Already current |
+| @types/react | ^19.2.10 | ^19.x | Already current |
+| tailwindcss | ^3.4.17 | ^4.x | **Major upgrade needed** |
+| vite | ^7.3.1 | ^7.x | Already current |
+| postcss | ^8.5.3 | Remove | Not needed with Tailwind v4 |
+| autoprefixer | ^10.4.21 | Remove | Not needed with Tailwind v4 |
+
+### Breaking Changes to Address
+
+1. **Tailwind CSS v3 → v4**
+   - Replace `tailwind.config.ts` with CSS `@theme` directive
+   - Use `@tailwindcss/vite` plugin instead of PostCSS
+   - Update utility names (shadow, rounded, etc.)
+   - Replace `@tailwind` directives with `@import "tailwindcss"`
+
+2. **New Dependencies to Add**
+   - `@tailwindcss/vite` - Vite plugin for Tailwind v4
+   - `@dnd-kit/core`, `@dnd-kit/sortable` - Drag-drop
+   - shadcn/ui components (via CLI)
+
+### Recommended Configuration
+
+**vite.config.ts:**
+```typescript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+});
+```
+
+**src/index.css:**
+```css
+@import "tailwindcss";
+
+@theme {
+  /* Design system colors from Visual Design System section */
+  --color-background: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E5E5;
+  --color-text-primary: #171717;
+  --color-text-secondary: #737373;
+  --color-accent: #6366F1;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  /* Typography */
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: #0A0A0A;
+    --color-surface: #171717;
+    --color-border: #262626;
+    --color-text-primary: #FAFAFA;
+    --color-text-secondary: #A3A3A3;
+    --color-accent: #818CF8;
+  }
+}
+```
+
+### React 19 Patterns to Leverage
+
+1. **useActionState** for form submissions
+2. **useOptimistic** for instant UI feedback (status changes, drag-drop)
+3. **Activity component** for pre-rendering hidden tabs
+4. **useEffectEvent** for WebSocket event handlers
+
+### shadcn/ui Setup
+
+```bash
+# Initialize after Tailwind v4 setup
+pnpm dlx shadcn@latest init
+
+# Required components for this project
+pnpm dlx shadcn@latest add button dialog command dropdown-menu \
+  input textarea select checkbox card avatar badge \
+  tooltip popover sheet scroll-area separator
+```
