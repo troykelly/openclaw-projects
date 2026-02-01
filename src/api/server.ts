@@ -4445,5 +4445,227 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.code(204).send();
   });
 
+  // ===== Notifications API (Issue #181) =====
+
+  const NOTIFICATION_TYPES = ['assigned', 'mentioned', 'status_change', 'unblocked', 'due_soon', 'comment'] as const;
+  type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+  // GET /api/notifications - List notifications for a user
+  app.get('/api/notifications', async (req, reply) => {
+    const query = req.query as {
+      userEmail?: string;
+      unreadOnly?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+    const unreadOnly = query.unreadOnly === 'true';
+
+    const pool = createPool();
+
+    let whereClause = 'WHERE user_email = $1 AND dismissed_at IS NULL';
+    const params: (string | number)[] = [query.userEmail];
+
+    if (unreadOnly) {
+      whereClause += ' AND read_at IS NULL';
+    }
+
+    const result = await pool.query(
+      `SELECT
+         id::text as id,
+         notification_type as "notificationType",
+         title,
+         message,
+         work_item_id::text as "workItemId",
+         actor_email as "actorEmail",
+         metadata,
+         read_at as "readAt",
+         created_at as "createdAt"
+       FROM notification
+       ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`,
+      [query.userEmail]
+    );
+
+    await pool.end();
+
+    return reply.send({
+      notifications: result.rows,
+      unreadCount: parseInt(countResult.rows[0].count, 10),
+    });
+  });
+
+  // GET /api/notifications/unread-count - Get unread count for a user
+  app.get('/api/notifications/unread-count', async (req, reply) => {
+    const query = req.query as { userEmail?: string };
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`,
+      [query.userEmail]
+    );
+    await pool.end();
+
+    return reply.send({ unreadCount: parseInt(result.rows[0].count, 10) });
+  });
+
+  // POST /api/notifications/:id/read - Mark a notification as read
+  app.post('/api/notifications/:id/read', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { userEmail?: string };
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `UPDATE notification
+       SET read_at = COALESCE(read_at, now())
+       WHERE id = $1 AND user_email = $2
+       RETURNING id`,
+      [params.id, query.userEmail]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'notification not found' });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  // POST /api/notifications/read-all - Mark all notifications as read
+  app.post('/api/notifications/read-all', async (req, reply) => {
+    const query = req.query as { userEmail?: string };
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `UPDATE notification
+       SET read_at = now()
+       WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL
+       RETURNING id`,
+      [query.userEmail]
+    );
+    await pool.end();
+
+    return reply.send({ markedCount: result.rowCount || 0 });
+  });
+
+  // DELETE /api/notifications/:id - Dismiss a notification
+  app.delete('/api/notifications/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { userEmail?: string };
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `UPDATE notification
+       SET dismissed_at = now()
+       WHERE id = $1 AND user_email = $2
+       RETURNING id`,
+      [params.id, query.userEmail]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'notification not found' });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  // GET /api/notifications/preferences - Get notification preferences
+  app.get('/api/notifications/preferences', async (req, reply) => {
+    const query = req.query as { userEmail?: string };
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT notification_type, in_app_enabled, email_enabled
+       FROM notification_preference
+       WHERE user_email = $1`,
+      [query.userEmail]
+    );
+    await pool.end();
+
+    // Build preferences object with defaults
+    const preferences: Record<string, { inApp: boolean; email: boolean }> = {};
+    for (const type of NOTIFICATION_TYPES) {
+      preferences[type] = { inApp: true, email: false };
+    }
+
+    // Override with user preferences
+    for (const row of result.rows) {
+      preferences[row.notification_type] = {
+        inApp: row.in_app_enabled,
+        email: row.email_enabled,
+      };
+    }
+
+    return reply.send({ preferences });
+  });
+
+  // PATCH /api/notifications/preferences - Update notification preferences
+  app.patch('/api/notifications/preferences', async (req, reply) => {
+    const query = req.query as { userEmail?: string };
+    const body = req.body as Record<string, { inApp?: boolean; email?: boolean }>;
+
+    if (!query.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required' });
+    }
+
+    // Validate notification types
+    for (const type of Object.keys(body)) {
+      if (!NOTIFICATION_TYPES.includes(type as NotificationType)) {
+        return reply.code(400).send({ error: `Invalid notification type: ${type}` });
+      }
+    }
+
+    const pool = createPool();
+
+    for (const [type, pref] of Object.entries(body)) {
+      await pool.query(
+        `INSERT INTO notification_preference (user_email, notification_type, in_app_enabled, email_enabled)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_email, notification_type) DO UPDATE SET
+           in_app_enabled = COALESCE($3, notification_preference.in_app_enabled),
+           email_enabled = COALESCE($4, notification_preference.email_enabled),
+           updated_at = now()`,
+        [query.userEmail, type, pref.inApp ?? true, pref.email ?? false]
+      );
+    }
+
+    await pool.end();
+
+    return reply.send({ success: true });
+  });
+
   return app;
 }
