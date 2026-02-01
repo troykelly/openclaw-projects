@@ -7,4 +7,28 @@ dist/
 
 # pnpm store (should not be committed)
 .pnpm-store/
+
+# Claude Code local files
 .claude/
+
+# IDE and editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build outputs
+build/
+coverage/
+.cache/
+
+# Tailwind CSS (v4 uses @theme in CSS, no config file needed)
+# Note: postcss.config.* and tailwind.config.* removed in favor of CSS-first config
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local development
+*.local

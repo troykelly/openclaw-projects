@@ -1,61 +1,158 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* shadcn-style theme tokens */
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+/* Design system theme - Human-Agent Collaboration Workspace */
+@theme {
+  /* Colors - Light mode defaults */
+  --color-background: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E5E5;
+  --color-input: #E5E5E5;
+  --color-ring: #6366F1;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+  --color-foreground: #171717;
+  --color-muted: #F5F5F5;
+  --color-muted-foreground: #737373;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+  --color-primary: #6366F1;
+  --color-primary-foreground: #FFFFFF;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+  --color-secondary: #F5F5F5;
+  --color-secondary-foreground: #171717;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+  --color-accent: #6366F1;
+  --color-accent-foreground: #FFFFFF;
 
-    --radius: 0.5rem;
-  }
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
 
-  * {
-    @apply border-border;
-  }
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
 
-  body {
-    @apply bg-background text-foreground;
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: #0A0A0A;
+    --color-surface: #171717;
+    --color-border: #262626;
+    --color-input: #262626;
+
+    --color-foreground: #FAFAFA;
+    --color-muted: #262626;
+    --color-muted-foreground: #A3A3A3;
+
+    --color-primary: #818CF8;
+    --color-primary-foreground: #0A0A0A;
+
+    --color-secondary: #262626;
+    --color-secondary-foreground: #FAFAFA;
+
+    --color-accent: #818CF8;
+    --color-accent-foreground: #0A0A0A;
   }
 }
 
-@layer components {
-  .container-page {
-    @apply mx-auto w-full max-w-6xl px-4;
+/* Dark mode class for manual toggle */
+.dark {
+  --color-background: #0A0A0A;
+  --color-surface: #171717;
+  --color-border: #262626;
+  --color-input: #262626;
+
+  --color-foreground: #FAFAFA;
+  --color-muted: #262626;
+  --color-muted-foreground: #A3A3A3;
+
+  --color-primary: #818CF8;
+  --color-primary-foreground: #0A0A0A;
+
+  --color-secondary: #262626;
+  --color-secondary-foreground: #FAFAFA;
+
+  --color-accent: #818CF8;
+  --color-accent-foreground: #0A0A0A;
+}
+
+/* Base styles */
+@layer base {
+  * {
+    border-color: var(--color-border);
   }
 
-  /* Transitional utility classes for existing dashboard markup */
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Utility classes for existing dashboard markup */
+@layer components {
+  .container-page {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    max-width: 72rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
   .row {
-    @apply flex flex-wrap items-center gap-3;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .muted {
-    @apply text-muted-foreground;
+    color: var(--color-muted-foreground);
   }
 
   .pill {
-    @apply inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background-color: var(--color-muted);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
   }
 
   .card {
-    @apply rounded-lg border bg-background p-4 shadow-sm;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    padding: 1rem;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   }
 
   .danger {
-    @apply rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground shadow-sm hover:opacity-90;
+    border-radius: var(--radius-md);
+    background-color: var(--color-destructive);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-destructive-foreground);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+
+  .danger:hover {
+    opacity: 0.9;
   }
 }
