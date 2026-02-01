@@ -767,6 +767,78 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send(result.rows[0]);
   });
 
+  app.get('/api/work-items/:id/timeline', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if root item exists
+    const root = await pool.query(
+      `SELECT id FROM work_item WHERE id = $1`,
+      [params.id]
+    );
+
+    if (root.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Get all descendants (including the root) with their hierarchy level
+    const items = await pool.query(
+      `WITH RECURSIVE descendants AS (
+         -- Start with the root item
+         SELECT id, parent_work_item_id, 0 as level
+           FROM work_item
+          WHERE id = $1
+         UNION ALL
+         -- Add children
+         SELECT wi.id, wi.parent_work_item_id, d.level + 1
+           FROM work_item wi
+           JOIN descendants d ON wi.parent_work_item_id = d.id
+       )
+       SELECT wi.id::text as id,
+              wi.title,
+              wi.work_item_kind as kind,
+              wi.status,
+              wi.priority::text as priority,
+              wi.parent_work_item_id::text as parent_id,
+              d.level,
+              wi.not_before,
+              wi.not_after,
+              wi.estimate_minutes,
+              wi.actual_minutes,
+              wi.created_at
+         FROM descendants d
+         JOIN work_item wi ON wi.id = d.id
+        ORDER BY d.level, wi.not_before NULLS LAST, wi.created_at`,
+      [params.id]
+    );
+
+    // Get all dependencies between items in this subtree
+    const dependencies = await pool.query(
+      `WITH RECURSIVE descendants AS (
+         SELECT id FROM work_item WHERE id = $1
+         UNION ALL
+         SELECT wi.id FROM work_item wi
+           JOIN descendants d ON wi.parent_work_item_id = d.id
+       )
+       SELECT wid.id::text as id,
+              wid.work_item_id::text as from_id,
+              wid.depends_on_work_item_id::text as to_id,
+              wid.kind
+         FROM work_item_dependency wid
+        WHERE wid.work_item_id IN (SELECT id FROM descendants)
+          AND wid.depends_on_work_item_id IN (SELECT id FROM descendants)`,
+      [params.id]
+    );
+
+    await pool.end();
+
+    return reply.send({
+      items: items.rows,
+      dependencies: dependencies.rows,
+    });
+  });
+
   app.get('/api/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
