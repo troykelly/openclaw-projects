@@ -14,6 +14,9 @@ import { ItemMemories } from '@/ui/components/memory/item-memories';
 import { MemoryEditor } from '@/ui/components/memory/memory-editor';
 import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
 
+// Settings components
+import { SettingsPage } from '@/ui/components/settings';
+
 // Communications components
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
@@ -2901,6 +2904,7 @@ const routeToSection: Record<string, string> = {
   graph: 'projects',
   'global-timeline': 'timeline',
   contacts: 'people',
+  settings: 'settings',
 };
 
 // Main App with AppShell
@@ -2913,6 +2917,7 @@ function App(): React.JSX.Element {
     const activity = /^\/app\/activity\/?$/;
     const globalTimeline = /^\/app\/timeline\/?$/;
     const contacts = /^\/app\/contacts\/?$/;
+    const settings = /^\/app\/settings\/?$/;
 
     // Existing routes
     const list = /^\/app\/work-items\/?$/;
@@ -2925,6 +2930,7 @@ function App(): React.JSX.Element {
     if (activity.test(path)) return { kind: 'activity' as const };
     if (globalTimeline.test(path)) return { kind: 'global-timeline' as const };
     if (contacts.test(path)) return { kind: 'contacts' as const };
+    if (settings.test(path)) return { kind: 'settings' as const };
 
     // Existing route matching
     if (list.test(path)) return { kind: 'list' as const };
@@ -2962,6 +2968,9 @@ function App(): React.JSX.Element {
       case 'people':
         window.location.href = '/app/contacts';
         break;
+      case 'settings':
+        window.location.href = '/app/settings';
+        break;
       case 'search':
         // Search opens command palette - handled by AppShell
         break;
@@ -2982,6 +2991,10 @@ function App(): React.JSX.Element {
 
     if (route.kind === 'contacts') {
       return [{ id: 'contacts', label: 'People' }];
+    }
+
+    if (route.kind === 'settings') {
+      return [{ id: 'settings', label: 'Settings' }];
     }
 
     // Work items routes
@@ -3013,6 +3026,7 @@ function App(): React.JSX.Element {
     if (route.kind === 'activity') return <ActivityPage />;
     if (route.kind === 'global-timeline') return <GlobalTimelinePage />;
     if (route.kind === 'contacts') return <ContactsPage />;
+    if (route.kind === 'settings') return <SettingsPage />;
 
     // Existing pages
     if (route.kind === 'list') return <WorkItemsListPage />;
@@ -3083,6 +3097,9 @@ function App(): React.JSX.Element {
         break;
       case 'people':
         window.location.href = '/app/contacts';
+        break;
+      case 'settings':
+        window.location.href = '/app/settings';
         break;
       default:
         window.location.href = '/app/work-items';

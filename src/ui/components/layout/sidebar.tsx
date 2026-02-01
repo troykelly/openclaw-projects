@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Folder, Calendar, Users, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
@@ -120,7 +120,7 @@ export function Sidebar({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="border-t border-border/50 p-3">
+        <div className="border-t border-border/50 p-3 space-y-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -144,6 +144,29 @@ export function Sidebar({
             {collapsed && (
               <TooltipContent side="right" sideOffset={8} className="font-medium">
                 Search <kbd className="ml-1 text-[10px]">⌘K</kbd>
+              </TooltipContent>
+            )}
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                  collapsed && 'justify-center px-0',
+                  activeItem === 'settings'
+                    ? 'bg-primary/10 text-primary shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+                onClick={() => onItemClick?.({ id: 'settings', label: 'Settings', icon: Settings })}
+              >
+                <Settings className="size-[18px] shrink-0" />
+                {!collapsed && <span>Settings</span>}
+              </button>
+            </TooltipTrigger>
+            {collapsed && (
+              <TooltipContent side="right" sideOffset={8} className="font-medium">
+                Settings
               </TooltipContent>
             )}
           </Tooltip>

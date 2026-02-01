@@ -210,6 +210,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       .send(renderAppFrontendHtml(bootstrap));
   });
 
+  app.get('/app/settings', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    const bootstrap = {
+      route: { kind: 'settings' },
+      me: { email },
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
+  });
+
   app.get('/app/kanban', async (req, reply) => {
     const email = await requireDashboardSession(req, reply);
     if (!email) return;
