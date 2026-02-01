@@ -1649,6 +1649,184 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.code(201).send(result.rows[0]);
   });
 
+  // GET /api/contacts - List contacts with optional search and pagination
+  app.get('/api/contacts', async (req, reply) => {
+    const query = req.query as { search?: string; limit?: string; offset?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+    const search = query.search?.trim() || null;
+
+    const pool = createPool();
+
+    // Build query with optional search
+    let whereClause = '';
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (search) {
+      whereClause = `WHERE c.display_name ILIKE $${paramIndex} OR EXISTS (
+        SELECT 1 FROM contact_endpoint ce2 WHERE ce2.contact_id = c.id AND ce2.endpoint_value ILIKE $${paramIndex}
+      )`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Get total count
+    const countResult = await pool.query(
+      `SELECT COUNT(DISTINCT c.id) as total FROM contact c ${whereClause}`,
+      params
+    );
+    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+    // Get contacts with endpoints
+    const result = await pool.query(
+      `SELECT c.id::text as id, c.display_name, c.notes, c.created_at,
+              COALESCE(
+                json_agg(
+                  json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
+                ) FILTER (WHERE ce.id IS NOT NULL),
+                '[]'::json
+              ) as endpoints
+       FROM contact c
+       LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+       ${whereClause}
+       GROUP BY c.id
+       ORDER BY c.display_name
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...params, limit, offset]
+    );
+
+    await pool.end();
+
+    return reply.send({ contacts: result.rows, total });
+  });
+
+  // GET /api/contacts/:id - Get single contact with endpoints
+  app.get('/api/contacts/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const result = await pool.query(
+      `SELECT c.id::text as id, c.display_name, c.notes, c.created_at, c.updated_at,
+              COALESCE(
+                json_agg(
+                  json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
+                ) FILTER (WHERE ce.id IS NOT NULL),
+                '[]'::json
+              ) as endpoints
+       FROM contact c
+       LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+       WHERE c.id = $1
+       GROUP BY c.id`,
+      [params.id]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.send(result.rows[0]);
+  });
+
+  // PATCH /api/contacts/:id - Update contact
+  app.patch('/api/contacts/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { displayName?: string; notes?: string | null };
+
+    const pool = createPool();
+
+    // Check if contact exists
+    const existing = await pool.query('SELECT id FROM contact WHERE id = $1', [params.id]);
+    if (existing.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Build update query
+    const updates: string[] = [];
+    const values: (string | null)[] = [];
+    let paramIndex = 1;
+
+    if (body.displayName !== undefined) {
+      updates.push(`display_name = $${paramIndex}`);
+      values.push(body.displayName.trim());
+      paramIndex++;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'notes')) {
+      updates.push(`notes = $${paramIndex}`);
+      values.push(body.notes ?? null);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+
+    updates.push('updated_at = now()');
+    values.push(params.id);
+
+    const result = await pool.query(
+      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${paramIndex}
+       RETURNING id::text as id, display_name, notes, created_at, updated_at`,
+      values
+    );
+
+    await pool.end();
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/contacts/:id - Delete contact
+  app.delete('/api/contacts/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const result = await pool.query(
+      'DELETE FROM contact WHERE id = $1 RETURNING id::text as id',
+      [params.id]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
+  // GET /api/contacts/:id/work-items - Get work items associated with a contact
+  app.get('/api/contacts/:id/work-items', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if contact exists
+    const existing = await pool.query('SELECT id FROM contact WHERE id = $1', [params.id]);
+    if (existing.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Get work items linked via external_thread -> work_item_communication
+    // A contact is linked to work items through: contact_endpoint -> external_thread -> work_item_communication -> work_item
+    const result = await pool.query(
+      `SELECT DISTINCT wi.id::text as id, wi.title, wi.status, wi.kind, wi.created_at
+       FROM work_item wi
+       JOIN work_item_communication wic ON wic.work_item_id = wi.id
+       JOIN external_thread et ON et.id = wic.thread_id
+       JOIN contact_endpoint ce ON ce.endpoint_type = et.channel AND ce.normalized_value = et.external_thread_key
+       WHERE ce.contact_id = $1
+       ORDER BY wi.created_at DESC`,
+      [params.id]
+    );
+
+    await pool.end();
+    return reply.send({ work_items: result.rows });
+  });
+
   app.post('/api/contacts/:id/endpoints', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
