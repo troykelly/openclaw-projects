@@ -68,6 +68,22 @@ type DependencyGraphResponse = {
   critical_path: CriticalPathItem[];
 };
 
+type BacklogItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  task_type: string | null;
+  kind: string;
+  estimate_minutes: number | null;
+  created_at: string;
+};
+
+type BacklogResponse = {
+  items: BacklogItem[];
+};
+
 type WorkItemsResponse = {
   items: WorkItemSummary[];
 };
@@ -127,7 +143,12 @@ function WorkItemsListPage(): React.JSX.Element {
 
   return (
     <main style={{ padding: 16 }}>
-      <h1>Work items</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}>Work items</h1>
+        <a href="/app/kanban" style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', borderRadius: 6, textDecoration: 'none', fontSize: 13 }}>
+          View Kanban Board
+        </a>
+      </div>
 
       {state.kind === 'loading' ? <p>Loading…</p> : null}
       {state.kind === 'error' ? <p style={{ color: 'crimson' }}>Error: {state.message}</p> : null}
@@ -730,6 +751,301 @@ function DependencyGraphPage(props: { id: string }): React.JSX.Element {
   );
 }
 
+function useQueryParams(): URLSearchParams {
+  const [params, setParams] = useState(() => new URLSearchParams(window.location.search));
+
+  useEffect(() => {
+    const onPopState = (): void => setParams(new URLSearchParams(window.location.search));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  return params;
+}
+
+function KanbanPage(): React.JSX.Element {
+  const queryParams = useQueryParams();
+
+  const [items, setItems] = useState<BacklogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filter state from URL
+  const [filters, setFilters] = useState({
+    priority: queryParams.getAll('priority'),
+    kind: queryParams.getAll('kind'),
+  });
+
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+
+  const statuses = ['open', 'blocked', 'closed'];
+
+  const fetchItems = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      filters.priority.forEach((p) => params.append('priority', p));
+      filters.kind.forEach((k) => params.append('kind', k));
+
+      const res = await fetch(`/api/backlog?${params.toString()}`, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`Failed to load backlog: ${res.status}`);
+      const data = (await res.json()) as BacklogResponse;
+      setItems(data.items);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, [filters.priority.join(','), filters.kind.join(',')]);
+
+  const updateFilters = (newFilters: typeof filters) => {
+    setFilters(newFilters);
+
+    // Update URL
+    const params = new URLSearchParams();
+    newFilters.priority.forEach((p) => params.append('priority', p));
+    newFilters.kind.forEach((k) => params.append('kind', k));
+
+    const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const toggleFilter = (type: 'priority' | 'kind', value: string) => {
+    const current = filters[type];
+    const updated = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    updateFilters({ ...filters, [type]: updated });
+  };
+
+  const handleDragStart = (e: React.DragEvent, itemId: string) => {
+    setDraggedItem(itemId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    const item = items.find((i) => i.id === draggedItem);
+    if (!item || item.status === newStatus) {
+      setDraggedItem(null);
+      return;
+    }
+
+    // Optimistic update
+    setItems((prev) =>
+      prev.map((i) => (i.id === draggedItem ? { ...i, status: newStatus } : i))
+    );
+
+    try {
+      const res = await fetch(`/api/work-items/${draggedItem}/status`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update status');
+      }
+    } catch (err) {
+      // Revert on error
+      setItems((prev) =>
+        prev.map((i) => (i.id === draggedItem ? { ...i, status: item.status } : i))
+      );
+      setError('Failed to update status');
+    }
+
+    setDraggedItem(null);
+  };
+
+  const priorityColors: Record<string, string> = {
+    P0: '#ef4444',
+    P1: '#f97316',
+    P2: '#eab308',
+    P3: '#22c55e',
+    P4: '#6b7280',
+  };
+
+  const kindLabels: Record<string, string> = {
+    project: 'P',
+    initiative: 'I',
+    epic: 'E',
+    issue: 'T',
+  };
+
+  return (
+    <main style={{ padding: 16 }}>
+      <p><a href="/app/work-items">← Back to Work items</a></p>
+      <h1>Kanban Board</h1>
+
+      {/* Filters */}
+      <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <span style={{ fontSize: 12, color: '#6b7280', marginRight: 8 }}>Priority:</span>
+          {['P0', 'P1', 'P2', 'P3', 'P4'].map((p) => (
+            <button
+              key={p}
+              onClick={() => toggleFilter('priority', p)}
+              style={{
+                marginRight: 4,
+                padding: '4px 8px',
+                fontSize: 11,
+                border: '1px solid #e5e7eb',
+                borderRadius: 4,
+                background: filters.priority.includes(p) ? priorityColors[p] : 'white',
+                color: filters.priority.includes(p) ? 'white' : '#374151',
+                cursor: 'pointer',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <div>
+          <span style={{ fontSize: 12, color: '#6b7280', marginRight: 8 }}>Kind:</span>
+          {['project', 'initiative', 'epic', 'issue'].map((k) => (
+            <button
+              key={k}
+              onClick={() => toggleFilter('kind', k)}
+              style={{
+                marginRight: 4,
+                padding: '4px 8px',
+                fontSize: 11,
+                border: '1px solid #e5e7eb',
+                borderRadius: 4,
+                background: filters.kind.includes(k) ? '#3b82f6' : 'white',
+                color: filters.kind.includes(k) ? 'white' : '#374151',
+                cursor: 'pointer',
+              }}
+            >
+              {k}
+            </button>
+          ))}
+        </div>
+        {(filters.priority.length > 0 || filters.kind.length > 0) && (
+          <button
+            onClick={() => updateFilters({ priority: [], kind: [] })}
+            style={{
+              padding: '4px 8px',
+              fontSize: 11,
+              border: '1px solid #e5e7eb',
+              borderRadius: 4,
+              background: 'white',
+              color: '#6b7280',
+              cursor: 'pointer',
+            }}
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {loading && <p>Loading...</p>}
+      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+
+      {/* Kanban columns */}
+      <div style={{ display: 'flex', gap: 16, minHeight: 400 }}>
+        {statuses.map((status) => {
+          const columnItems = items.filter((i) => i.status === status);
+          return (
+            <div
+              key={status}
+              style={{
+                flex: 1,
+                background: '#f3f4f6',
+                borderRadius: 8,
+                padding: 12,
+                minWidth: 200,
+              }}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, status)}
+            >
+              <h3 style={{ margin: '0 0 12px 0', fontSize: 14, textTransform: 'capitalize' }}>
+                {status}
+                <span style={{ marginLeft: 8, color: '#6b7280', fontWeight: 'normal' }}>
+                  ({columnItems.length})
+                </span>
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {columnItems.map((item) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item.id)}
+                    style={{
+                      background: 'white',
+                      borderRadius: 6,
+                      padding: 10,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      cursor: 'grab',
+                      borderLeft: `3px solid ${priorityColors[item.priority] || '#6b7280'}`,
+                      opacity: draggedItem === item.id ? 0.5 : 1,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <a
+                        href={`/app/work-items/${item.id}`}
+                        style={{ fontWeight: 500, fontSize: 13, color: '#111827', textDecoration: 'none' }}
+                      >
+                        {item.title.length > 30 ? item.title.slice(0, 28) + '…' : item.title}
+                      </a>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          background: '#e5e7eb',
+                          borderRadius: 3,
+                          padding: '2px 4px',
+                          color: '#374151',
+                        }}
+                      >
+                        {kindLabels[item.kind] || item.kind}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#6b7280', display: 'flex', gap: 8 }}>
+                      <span style={{ color: priorityColors[item.priority] || '#6b7280' }}>{item.priority}</span>
+                      {item.estimate_minutes && (
+                        <span>
+                          {item.estimate_minutes >= 60
+                            ? `${Math.floor(item.estimate_minutes / 60)}h`
+                            : `${item.estimate_minutes}m`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {columnItems.length === 0 && (
+                <p style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', margin: '20px 0' }}>
+                  No items
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 16, fontSize: 12, color: '#6b7280' }}>
+        <strong>Tip:</strong> Drag and drop cards between columns to change status. Click card title to view details.
+      </div>
+    </main>
+  );
+}
+
 function NotFoundPage(props: { path: string }): React.JSX.Element {
   return (
     <main style={{ padding: 16 }}>
@@ -750,8 +1066,10 @@ function App(): React.JSX.Element {
     const detail = /^\/app\/work-items\/([^/]+)\/?$/;
     const timeline = /^\/app\/work-items\/([^/]+)\/timeline\/?$/;
     const graph = /^\/app\/work-items\/([^/]+)\/graph\/?$/;
+    const kanban = /^\/app\/kanban\/?$/;
 
     if (list.test(path)) return { kind: 'list' as const };
+    if (kanban.test(path)) return { kind: 'kanban' as const };
 
     const t = path.match(timeline);
     if (t) return { kind: 'timeline' as const, id: t[1] };
@@ -766,6 +1084,7 @@ function App(): React.JSX.Element {
   }, [path]);
 
   if (route.kind === 'list') return <WorkItemsListPage />;
+  if (route.kind === 'kanban') return <KanbanPage />;
   if (route.kind === 'timeline') return <TimelinePage id={route.id} />;
   if (route.kind === 'graph') return <DependencyGraphPage id={route.id} />;
   if (route.kind === 'detail') return <WorkItemDetailPage id={route.id} />;
