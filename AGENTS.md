@@ -8,6 +8,7 @@ If you are an automated agent (including dev-major/dev-adhoc, Claude Code, Codex
 
 1. **Dev Runbook (mandatory):** `/home/moltbot/molt/dev/DEV-RUNBOOK.md`
 2. **Coding Rules (mandatory):** `/home/moltbot/molt/shared/CODING.md`
+3. **Frontend Knowledge (mandatory for UI work):** `docs/knowledge/frontend-2026.md`
 
 If these conflict, **ask Troy** before proceeding.
 

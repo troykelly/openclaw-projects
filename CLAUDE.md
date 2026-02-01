@@ -9,6 +9,7 @@ This repo is intended to be maintained by both humans and automated agents. The 
 1) **Dev Runbook:** `/home/moltbot/molt/dev/DEV-RUNBOOK.md`
 2) **Agentic Coding Rules:** `/home/moltbot/molt/shared/CODING.md`
 3) Repo-local guidelines: `AGENTS.md` (this repo)
+4) **Frontend work:** `docs/knowledge/frontend-2026.md` (MUST read for any frontend/UI changes)
 
 If you have not read them in this environment, stop and read them.
 
