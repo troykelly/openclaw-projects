@@ -4,6 +4,7 @@ import { cn } from '@/ui/lib/utils';
 import { Sidebar, type NavItem } from './sidebar';
 import { MobileNav } from './mobile-nav';
 import { Breadcrumb, type BreadcrumbItem } from './breadcrumb';
+import { KeyboardShortcutsModal } from '@/ui/components/keyboard-shortcuts-modal';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -97,6 +98,9 @@ export function AppShell({
         activeItem={activeSection}
         onItemClick={handleNavItemClick}
       />
+
+      {/* Keyboard Shortcuts Help Modal (⌘/) */}
+      <KeyboardShortcutsModal />
     </div>
   );
 }

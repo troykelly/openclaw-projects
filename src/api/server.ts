@@ -453,6 +453,88 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ email });
   });
 
+  // User Settings API (issue #179 - Platform Completeness)
+  app.get('/api/settings', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'unauthorized' });
+
+    const pool = createPool();
+    try {
+      // Get or create default settings
+      const result = await pool.query(
+        `INSERT INTO user_setting (email)
+         VALUES ($1)
+         ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+         RETURNING *`,
+        [email]
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  app.patch('/api/settings', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'unauthorized' });
+
+    const body = req.body as {
+      theme?: 'light' | 'dark' | 'system';
+      default_view?: 'activity' | 'projects' | 'timeline' | 'contacts';
+      default_project_id?: string | null;
+      sidebar_collapsed?: boolean;
+      show_completed_items?: boolean;
+      items_per_page?: number;
+      email_notifications?: boolean;
+      email_digest_frequency?: 'never' | 'daily' | 'weekly';
+      timezone?: string;
+    };
+
+    // Build dynamic update
+    const updates: string[] = [];
+    const params: (string | boolean | number | null)[] = [email];
+    let paramIndex = 2;
+
+    const allowedFields = [
+      'theme',
+      'default_view',
+      'default_project_id',
+      'sidebar_collapsed',
+      'show_completed_items',
+      'items_per_page',
+      'email_notifications',
+      'email_digest_frequency',
+      'timezone',
+    ];
+
+    for (const field of allowedFields) {
+      if (field in body) {
+        updates.push(`${field} = $${paramIndex}`);
+        params.push((body as Record<string, unknown>)[field] as string | boolean | number | null);
+        paramIndex++;
+      }
+    }
+
+    if (updates.length === 0) {
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+
+    const pool = createPool();
+    try {
+      // Upsert settings
+      const result = await pool.query(
+        `INSERT INTO user_setting (email)
+         VALUES ($1)
+         ON CONFLICT (email) DO UPDATE SET ${updates.join(', ')}
+         RETURNING *`,
+        params
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Activity Feed API (issue #130)
   app.get('/api/activity', async (req, reply) => {
     const query = req.query as {

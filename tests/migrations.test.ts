@@ -57,6 +57,30 @@ describe('Migrations', () => {
   });
 
   it('rolls back migrations and removes table + helpers', async () => {
+    // Truncate all data tables before rollback to avoid constraint violations
+    // when other tests have inserted data
+    await pool.query(`
+      DO $$
+      DECLARE
+        r RECORD;
+      BEGIN
+        -- Disable triggers temporarily
+        SET session_replication_role = 'replica';
+
+        -- Truncate all tables except schema_migrations
+        FOR r IN (
+          SELECT tablename FROM pg_tables
+          WHERE schemaname = 'public'
+          AND tablename NOT IN ('schema_migrations', '_migration_smoke_test', 'spatial_ref_sys')
+        ) LOOP
+          EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE';
+        END LOOP;
+
+        -- Re-enable triggers
+        SET session_replication_role = 'origin';
+      END $$;
+    `);
+
     await runMigrate('down', migrationCount());
 
     // After dropping objects, reconnect to avoid any cached query plans
