@@ -2180,6 +2180,164 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.code(201).send(inserted.rows[0]);
   });
 
+  // Memory Items API (issue #138)
+  // GET /api/work-items/:id/memories - List memories for a work item
+  app.get('/api/work-items/:id/memories', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const result = await pool.query(
+      `SELECT id::text as id,
+              title,
+              content,
+              memory_type::text as type,
+              created_at,
+              updated_at
+         FROM work_item_memory
+        WHERE work_item_id = $1
+        ORDER BY created_at DESC`,
+      [params.id]
+    );
+
+    await pool.end();
+    return reply.send({ memories: result.rows });
+  });
+
+  // POST /api/work-items/:id/memories - Create a new memory
+  app.post('/api/work-items/:id/memories', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { title?: string; content?: string; type?: string };
+
+    if (!body?.title || body.title.trim().length === 0) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    if (!body?.content || body.content.trim().length === 0) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    const memoryType = body.type ?? 'note';
+    const validTypes = ['note', 'decision', 'context', 'reference'];
+    if (!validTypes.includes(memoryType)) {
+      return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
+    }
+
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+       VALUES ($1, $2, $3, $4::memory_type)
+       RETURNING id::text as id,
+                 title,
+                 content,
+                 memory_type::text as type,
+                 created_at,
+                 updated_at`,
+      [params.id, body.title.trim(), body.content.trim(), memoryType]
+    );
+
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // PATCH /api/memories/:id - Update a memory
+  app.patch('/api/memories/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { title?: string; content?: string; type?: string };
+
+    const pool = createPool();
+
+    // Check if memory exists
+    const exists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Build update query
+    const updates: string[] = [];
+    const values: (string | null)[] = [];
+    let paramIndex = 1;
+
+    if (body.title !== undefined) {
+      updates.push(`title = $${paramIndex}`);
+      values.push(body.title.trim());
+      paramIndex++;
+    }
+
+    if (body.content !== undefined) {
+      updates.push(`content = $${paramIndex}`);
+      values.push(body.content.trim());
+      paramIndex++;
+    }
+
+    if (body.type !== undefined) {
+      const validTypes = ['note', 'decision', 'context', 'reference'];
+      if (!validTypes.includes(body.type)) {
+        await pool.end();
+        return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
+      }
+      updates.push(`memory_type = $${paramIndex}::memory_type`);
+      values.push(body.type);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'no fields to update' });
+    }
+
+    updates.push('updated_at = now()');
+    values.push(params.id);
+
+    const result = await pool.query(
+      `UPDATE work_item_memory SET ${updates.join(', ')} WHERE id = $${paramIndex}
+       RETURNING id::text as id,
+                 title,
+                 content,
+                 memory_type::text as type,
+                 created_at,
+                 updated_at`,
+      values
+    );
+
+    await pool.end();
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/memories/:id - Delete a memory
+  app.delete('/api/memories/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const result = await pool.query(
+      'DELETE FROM work_item_memory WHERE id = $1 RETURNING id::text as id',
+      [params.id]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
   // Ingestion: create (or reuse) contact+endpoint, create (or reuse) thread, insert message.
   app.post('/api/ingest/external-message', async (req, reply) => {
     const body = req.body as {
