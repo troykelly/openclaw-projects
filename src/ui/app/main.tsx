@@ -17,6 +17,9 @@ import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
 // Settings components
 import { SettingsPage } from '@/ui/components/settings';
 
+// Keyboard shortcuts
+import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
+
 // Communications components
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
@@ -3106,8 +3109,17 @@ function App(): React.JSX.Element {
     }
   }, []);
 
+  // Open search (command palette)
+  const handleOpenSearch = useCallback(() => {
+    handleSectionChange('search');
+  }, [handleSectionChange]);
+
   return (
     <>
+      <KeyboardShortcutsHandler
+        onNavigate={handleNavigate}
+        onSearch={handleOpenSearch}
+      />
       <CommandPalette
         onSearch={handleSearch}
         onSelect={handleSearchSelect}

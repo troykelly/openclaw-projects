@@ -34,6 +34,7 @@ const shortcutGroups: ShortcutGroup[] = [
       { keys: ["G", "P"], description: "Go to Projects" },
       { keys: ["G", "T"], description: "Go to Timeline" },
       { keys: ["G", "C"], description: "Go to Contacts" },
+      { keys: ["G", "S"], description: "Go to Settings" },
     ],
   },
   {
