@@ -1476,18 +1476,397 @@ function ActivityPage(): React.JSX.Element {
   );
 }
 
-// Global Timeline Page (placeholder for #134)
+// Global Timeline Page (issue #134)
+type GlobalTimelineItem = {
+  id: string;
+  title: string;
+  kind: string;
+  status: string | null;
+  priority: string | null;
+  parent_id: string | null;
+  level: number;
+  not_before: string | null;
+  not_after: string | null;
+  estimate_minutes: number | null;
+  actual_minutes: number | null;
+  created_at: string;
+};
+
+type GlobalTimelineDependency = {
+  id: string;
+  from_id: string;
+  to_id: string;
+  kind: string;
+};
+
+type GlobalTimelineResponse = {
+  items: GlobalTimelineItem[];
+  dependencies: GlobalTimelineDependency[];
+};
+
+type TimelineZoomLevel = 'day' | 'week' | 'month' | 'quarter';
+
+const ZOOM_CONFIGS: Record<TimelineZoomLevel, { pixelsPerDay: number; label: string }> = {
+  day: { pixelsPerDay: 60, label: 'Day' },
+  week: { pixelsPerDay: 12, label: 'Week' },
+  month: { pixelsPerDay: 3, label: 'Month' },
+  quarter: { pixelsPerDay: 1, label: 'Quarter' },
+};
+
 function GlobalTimelinePage(): React.JSX.Element {
+  const [state, setState] = useState<
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'loaded'; data: GlobalTimelineResponse }
+  >({ kind: 'loading' });
+
+  const [zoom, setZoom] = useState<TimelineZoomLevel>('week');
+  const [kindFilter, setKindFilter] = useState<string[]>([]);
+
+  const fetchTimeline = useCallback(async () => {
+    try {
+      let url = '/api/timeline';
+      const params: string[] = [];
+      if (kindFilter.length > 0) {
+        params.push(`kind=${kindFilter.join(',')}`);
+      }
+      if (params.length > 0) {
+        url += '?' + params.join('&');
+      }
+
+      const res = await fetch(url, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`Failed to load timeline: ${res.status}`);
+      const data = (await res.json()) as GlobalTimelineResponse;
+      setState({ kind: 'loaded', data });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setState({ kind: 'error', message });
+    }
+  }, [kindFilter]);
+
+  useEffect(() => {
+    fetchTimeline();
+  }, [fetchTimeline]);
+
+  const handleKindToggle = (kind: string) => {
+    setKindFilter((prev) => {
+      if (prev.includes(kind)) {
+        return prev.filter((k) => k !== kind);
+      }
+      return [...prev, kind];
+    });
+  };
+
+  const handleZoomIn = () => {
+    const levels: TimelineZoomLevel[] = ['quarter', 'month', 'week', 'day'];
+    const idx = levels.indexOf(zoom);
+    if (idx < levels.length - 1) setZoom(levels[idx + 1]);
+  };
+
+  const handleZoomOut = () => {
+    const levels: TimelineZoomLevel[] = ['quarter', 'month', 'week', 'day'];
+    const idx = levels.indexOf(zoom);
+    if (idx > 0) setZoom(levels[idx - 1]);
+  };
+
+  if (state.kind === 'loading') {
+    return (
+      <div className="p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <Skeleton width={200} height={32} />
+          <div className="flex gap-2">
+            <Skeleton width={100} height={36} />
+            <Skeleton width={100} height={36} />
+          </div>
+        </div>
+        <Skeleton width="100%" height={400} />
+      </div>
+    );
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load timeline"
+          description={state.message}
+          onRetry={() => {
+            setState({ kind: 'loading' });
+            fetchTimeline();
+          }}
+        />
+      </div>
+    );
+  }
+
+  const { items, dependencies } = state.data;
+
+  if (items.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-foreground">Timeline</h1>
+          <p className="text-sm text-muted-foreground mt-1">Gantt view of all work items</p>
+        </div>
+        <Card>
+          <CardContent className="p-8">
+            <EmptyState
+              variant="no-data"
+              title="No scheduled items"
+              description="Add dates to your work items to see them on the timeline."
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Compute date range from items
+  const dates = items
+    .flatMap((i) => [i.not_before, i.not_after])
+    .filter((d): d is string => d !== null)
+    .map((d) => new Date(d).getTime());
+
+  const now = Date.now();
+  let minDate = dates.length > 0 ? Math.min(...dates) : now;
+  let maxDate = dates.length > 0 ? Math.max(...dates) : now + 30 * 24 * 60 * 60 * 1000;
+
+  // Add padding
+  const range = maxDate - minDate || 1;
+  minDate -= range * 0.05;
+  maxDate += range * 0.05;
+
+  const zoomConfig = ZOOM_CONFIGS[zoom];
+  const dayMs = 24 * 60 * 60 * 1000;
+  const totalDays = Math.ceil((maxDate - minDate) / dayMs);
+  const chartWidth = Math.max(800, totalDays * zoomConfig.pixelsPerDay);
+  const rowHeight = 36;
+  const labelWidth = 240;
+  const chartHeight = Math.max(200, items.length * rowHeight + 60);
+
+  function dateToX(date: number): number {
+    return labelWidth + ((date - minDate) / (maxDate - minDate)) * (chartWidth - labelWidth - 20);
+  }
+
+  const itemPositions: Record<string, { y: number }> = {};
+  items.forEach((item, idx) => {
+    itemPositions[item.id] = { y: idx * rowHeight + 40 };
+  });
+
+  const kindColors: Record<string, string> = {
+    project: 'fill-violet-500',
+    initiative: 'fill-blue-500',
+    epic: 'fill-green-500',
+    issue: 'fill-amber-500',
+  };
+
+  const statusBgColors: Record<string, string> = {
+    done: 'opacity-60',
+    in_progress: '',
+    blocked: 'opacity-80 stroke-red-500 stroke-2',
+    open: 'opacity-40',
+  };
+
+  // Generate date markers
+  const dateMarkers: { x: number; label: string }[] = [];
+  const markerInterval = zoom === 'day' ? dayMs : zoom === 'week' ? 7 * dayMs : zoom === 'month' ? 30 * dayMs : 90 * dayMs;
+  for (let d = minDate; d <= maxDate; d += markerInterval) {
+    dateMarkers.push({ x: dateToX(d), label: new Date(d).toLocaleDateString() });
+  }
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-foreground mb-4">Timeline</h1>
-      <Card>
-        <CardContent className="p-8">
-          <EmptyState
-            variant="no-data"
-            title="Global Timeline Coming Soon"
-            description="The timeline will show a Gantt view of all projects and their tasks."
-          />
+    <div className="p-6 h-full flex flex-col">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Timeline</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {items.length} item{items.length !== 1 ? 's' : ''} with scheduled dates
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          {/* Kind filters */}
+          <div className="flex gap-1">
+            {(['project', 'initiative', 'epic', 'issue'] as const).map((kind) => (
+              <Button
+                key={kind}
+                variant={kindFilter.length === 0 || kindFilter.includes(kind) ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => handleKindToggle(kind)}
+                className="text-xs"
+              >
+                {kind.charAt(0).toUpperCase() + kind.slice(1)}
+              </Button>
+            ))}
+          </div>
+          {/* Zoom controls */}
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" onClick={handleZoomIn} disabled={zoom === 'day'}>
+              Zoom In
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom === 'quarter'}>
+              Zoom Out
+            </Button>
+            <span className="ml-2 text-sm text-muted-foreground self-center">{zoomConfig.label} view</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Timeline Chart */}
+      <Card className="flex-1 overflow-hidden">
+        <CardContent className="p-0 h-full">
+          <ScrollArea className="h-full">
+            <div className="flex" style={{ minWidth: `${chartWidth}px` }}>
+              {/* Sticky labels column */}
+              <div
+                className="sticky left-0 z-10 bg-background border-r"
+                style={{ width: `${labelWidth}px`, minWidth: `${labelWidth}px` }}
+              >
+                <div className="h-10 border-b bg-muted/30 px-3 flex items-center">
+                  <span className="text-sm font-medium text-muted-foreground">Work Item</span>
+                </div>
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="h-9 border-b px-3 flex items-center gap-2 hover:bg-muted/50 transition-colors"
+                    style={{ paddingLeft: `${12 + (item.level || 0) * 16}px` }}
+                  >
+                    <span
+                      className={`size-2 rounded-full ${kindColors[item.kind] || 'bg-gray-400'}`}
+                    />
+                    <a
+                      href={`/app/work-items/${item.id}`}
+                      className="text-sm truncate hover:text-primary hover:underline"
+                      title={item.title}
+                    >
+                      {item.title}
+                    </a>
+                  </div>
+                ))}
+              </div>
+
+              {/* Chart area */}
+              <div className="flex-1">
+                <svg width={chartWidth - labelWidth} height={chartHeight}>
+                  {/* Date axis */}
+                  <g className="text-[10px]">
+                    {dateMarkers.map((m, i) => (
+                      <g key={i}>
+                        <line
+                          x1={m.x - labelWidth}
+                          y1={40}
+                          x2={m.x - labelWidth}
+                          y2={chartHeight}
+                          className="stroke-border"
+                          strokeDasharray="4,4"
+                        />
+                        <text
+                          x={m.x - labelWidth}
+                          y={28}
+                          textAnchor="middle"
+                          className="fill-muted-foreground"
+                        >
+                          {m.label}
+                        </text>
+                      </g>
+                    ))}
+                  </g>
+
+                  {/* Today line */}
+                  {now >= minDate && now <= maxDate && (
+                    <line
+                      x1={dateToX(now) - labelWidth}
+                      y1={40}
+                      x2={dateToX(now) - labelWidth}
+                      y2={chartHeight}
+                      className="stroke-red-500"
+                      strokeWidth={2}
+                    />
+                  )}
+
+                  {/* Item bars */}
+                  {items.map((item) => {
+                    const start = item.not_before ? new Date(item.not_before).getTime() : now;
+                    const end = item.not_after ? new Date(item.not_after).getTime() : start + 7 * dayMs;
+                    const x1 = dateToX(start) - labelWidth;
+                    const x2 = dateToX(end) - labelWidth;
+                    const y = itemPositions[item.id]?.y || 0;
+                    const barHeight = 20;
+                    const barY = y + (rowHeight - barHeight) / 2 - 4;
+
+                    return (
+                      <g key={item.id}>
+                        <rect
+                          x={x1}
+                          y={barY}
+                          width={Math.max(4, x2 - x1)}
+                          height={barHeight}
+                          rx={4}
+                          className={`${kindColors[item.kind]} ${statusBgColors[item.status || 'open']}`}
+                        />
+                        {/* Progress indicator if item is in progress */}
+                        {item.actual_minutes && item.estimate_minutes && item.estimate_minutes > 0 && (
+                          <rect
+                            x={x1}
+                            y={barY + barHeight - 3}
+                            width={Math.min(1, item.actual_minutes / item.estimate_minutes) * Math.max(4, x2 - x1)}
+                            height={3}
+                            rx={1}
+                            className="fill-white/50"
+                          />
+                        )}
+                      </g>
+                    );
+                  })}
+
+                  {/* Dependency arrows */}
+                  {dependencies.map((dep) => {
+                    const fromItem = items.find((i) => i.id === dep.from_id);
+                    const toItem = items.find((i) => i.id === dep.to_id);
+                    if (!fromItem || !toItem) return null;
+
+                    const fromEnd = fromItem.not_after ? new Date(fromItem.not_after).getTime() : now;
+                    const toStart = toItem.not_before ? new Date(toItem.not_before).getTime() : now;
+
+                    const x1 = dateToX(fromEnd) - labelWidth;
+                    const y1 = (itemPositions[dep.from_id]?.y || 0) + rowHeight / 2;
+                    const x2 = dateToX(toStart) - labelWidth;
+                    const y2 = (itemPositions[dep.to_id]?.y || 0) + rowHeight / 2;
+
+                    return (
+                      <g key={dep.id}>
+                        <path
+                          d={`M ${x1} ${y1} C ${x1 + 20} ${y1}, ${x2 - 20} ${y2}, ${x2} ${y2}`}
+                          fill="none"
+                          className="stroke-muted-foreground"
+                          strokeWidth={1.5}
+                          markerEnd="url(#arrowhead)"
+                        />
+                      </g>
+                    );
+                  })}
+
+                  {/* Arrow marker definition */}
+                  <defs>
+                    <marker
+                      id="arrowhead"
+                      markerWidth="10"
+                      markerHeight="7"
+                      refX="9"
+                      refY="3.5"
+                      orient="auto"
+                    >
+                      <polygon points="0 0, 10 3.5, 0 7" className="fill-muted-foreground" />
+                    </marker>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>
