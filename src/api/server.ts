@@ -2376,6 +2376,142 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     });
   });
 
+  // Memory CRUD API (issue #121)
+  // POST /api/memory - Create a new memory linked to a work item
+  app.post('/api/memory', async (req, reply) => {
+    const body = req.body as {
+      title?: string;
+      content?: string;
+      linkedItemId?: string;
+      type?: string;
+    };
+
+    if (!body?.title || body.title.trim().length === 0) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    if (!body?.content || body.content.trim().length === 0) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    if (!body?.linkedItemId) {
+      return reply.code(400).send({ error: 'linkedItemId is required' });
+    }
+
+    const memoryType = body.type ?? 'note';
+    const validTypes = ['note', 'decision', 'context', 'reference'];
+    if (!validTypes.includes(memoryType)) {
+      return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
+    }
+
+    const pool = createPool();
+
+    // Check if linked work item exists and get its title
+    const linkedItem = await pool.query(
+      'SELECT title FROM work_item WHERE id = $1',
+      [body.linkedItemId]
+    );
+    if (linkedItem.rows.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'linked item not found' });
+    }
+
+    const linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
+
+    const result = await pool.query(
+      `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+       VALUES ($1, $2, $3, $4::memory_type)
+       RETURNING id::text as id,
+                 title,
+                 content,
+                 memory_type::text as type,
+                 work_item_id::text as "linkedItemId",
+                 created_at as "createdAt"`,
+      [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType]
+    );
+
+    await pool.end();
+
+    const row = result.rows[0] as {
+      id: string;
+      title: string;
+      content: string;
+      type: string;
+      linkedItemId: string;
+      createdAt: string;
+    };
+
+    return reply.code(201).send({
+      ...row,
+      linkedItemTitle,
+    });
+  });
+
+  // PUT /api/memory/:id - Update a memory
+  app.put('/api/memory/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { title?: string; content?: string; type?: string };
+
+    if (!body?.title || body.title.trim().length === 0) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    if (!body?.content || body.content.trim().length === 0) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    const memoryType = body.type ?? 'note';
+    const validTypes = ['note', 'decision', 'context', 'reference'];
+    if (!validTypes.includes(memoryType)) {
+      return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
+    }
+
+    const pool = createPool();
+
+    // Check if memory exists
+    const exists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const result = await pool.query(
+      `UPDATE work_item_memory
+       SET title = $1, content = $2, memory_type = $3::memory_type, updated_at = now()
+       WHERE id = $4
+       RETURNING id::text as id,
+                 title,
+                 content,
+                 memory_type::text as type,
+                 work_item_id::text as "linkedItemId",
+                 created_at as "createdAt",
+                 updated_at as "updatedAt"`,
+      [body.title.trim(), body.content.trim(), memoryType, params.id]
+    );
+
+    await pool.end();
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/memory/:id - Delete a memory
+  app.delete('/api/memory/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const result = await pool.query(
+      'DELETE FROM work_item_memory WHERE id = $1 RETURNING id::text as id',
+      [params.id]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
   // Memory Items API (issue #138)
   // GET /api/work-items/:id/memories - List memories for a work item
   app.get('/api/work-items/:id/memories', async (req, reply) => {
