@@ -5,7 +5,8 @@ import { createTestPool, truncateAllTables } from './helpers/db.js';
 import { buildServer } from '../src/api/server.js';
 
 /**
- * Tests for Activity Feed API endpoints (issue #130).
+ * Tests for Activity Feed API endpoints (issue #130, #100).
+ * Issue #100 adds: query params verification, response format matching UI types.
  */
 describe('Activity Feed API', () => {
   const app = buildServer();
@@ -244,6 +245,249 @@ describe('Activity Feed API', () => {
       expect(activity.work_item_title).toBe('Test Item');
       expect(activity.description).toBeTruthy();
       expect(activity.created_at).toMatch(/^\d{4}-\d{2}-\d{2}/);
+    });
+  });
+
+  /**
+   * Issue #100: Verify query params work correctly
+   */
+  describe('Issue #100 - Query Parameters', () => {
+    it('filters by actionType', async () => {
+      // Create work items to generate 'created' activity
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Item' },
+      });
+      const { id } = created.json() as { id: string };
+
+      // Update to generate 'updated' activity
+      await app.inject({
+        method: 'PUT',
+        url: `/api/work-items/${id}`,
+        payload: { title: 'Updated Item' },
+      });
+
+      // Filter for only 'created' actions
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/activity?actionType=created',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { items: Array<{ type: string }> };
+      expect(body.items.length).toBe(1);
+      expect(body.items[0].type).toBe('created');
+    });
+
+    it('filters by entityType', async () => {
+      // Create project
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Project', kind: 'project' },
+      });
+
+      // Create issue
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Issue', kind: 'issue' },
+      });
+
+      // Filter for only 'project' entity type
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/activity?entityType=project',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { items: Array<{ entity_type: string }> };
+      expect(body.items.length).toBe(1);
+      expect(body.items[0].entity_type).toBe('project');
+    });
+
+    it('filters by projectId', async () => {
+      // Create project
+      const project = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Project', kind: 'project' },
+      });
+      const projectId = (project.json() as { id: string }).id;
+
+      // Create initiative under project (hierarchy: project -> initiative -> epic -> issue)
+      const init = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Initiative', kind: 'initiative', parentId: projectId },
+      });
+      const initId = (init.json() as { id: string }).id;
+
+      // Create epic under initiative
+      const epic = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Epic', kind: 'epic', parentId: initId },
+      });
+      const epicId = (epic.json() as { id: string }).id;
+
+      // Create issue under epic
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Issue', kind: 'issue', parentId: epicId },
+      });
+
+      // Create separate standalone issue (not under the project)
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Standalone Issue', kind: 'issue' },
+      });
+
+      // Filter by projectId (should get project + all descendants)
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/activity?projectId=${projectId}`,
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { items: Array<{ work_item_title: string }> };
+      // Should have project + initiative + epic + issue creations
+      expect(body.items.length).toBe(4);
+      const titles = body.items.map(i => i.work_item_title);
+      expect(titles).toContain('Test Project');
+      expect(titles).toContain('Test Initiative');
+      expect(titles).toContain('Test Epic');
+      expect(titles).toContain('Test Issue');
+      expect(titles).not.toContain('Standalone Issue');
+    });
+
+    it('filters by since timestamp', async () => {
+      // Create first item
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Older Item' },
+      });
+
+      // Wait a bit
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const sinceTime = new Date().toISOString();
+
+      // Wait again and create second item
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Newer Item' },
+      });
+
+      // Filter for items since middle timestamp
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/activity?since=${encodeURIComponent(sinceTime)}`,
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { items: Array<{ work_item_title: string }> };
+      expect(body.items.length).toBe(1);
+      expect(body.items[0].work_item_title).toBe('Newer Item');
+    });
+
+    it('supports page-based pagination', async () => {
+      // Create 5 work items
+      for (let i = 0; i < 5; i++) {
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: `Item ${i}` },
+        });
+      }
+
+      // Get page 1 with limit 2
+      const page1 = await app.inject({
+        method: 'GET',
+        url: '/api/activity?page=1&limit=2',
+      });
+
+      expect(page1.statusCode).toBe(200);
+      const body1 = page1.json() as {
+        items: unknown[];
+        pagination: { page: number; limit: number; total: number; hasMore: boolean };
+      };
+      expect(body1.items.length).toBe(2);
+      expect(body1.pagination.page).toBe(1);
+      expect(body1.pagination.limit).toBe(2);
+      expect(body1.pagination.total).toBe(5);
+      expect(body1.pagination.hasMore).toBe(true);
+
+      // Get page 2
+      const page2 = await app.inject({
+        method: 'GET',
+        url: '/api/activity?page=2&limit=2',
+      });
+
+      expect(page2.statusCode).toBe(200);
+      const body2 = page2.json() as {
+        items: unknown[];
+        pagination: { page: number; hasMore: boolean };
+      };
+      expect(body2.items.length).toBe(2);
+      expect(body2.pagination.page).toBe(2);
+      expect(body2.pagination.hasMore).toBe(true);
+
+      // Get page 3 (last page)
+      const page3 = await app.inject({
+        method: 'GET',
+        url: '/api/activity?page=3&limit=2',
+      });
+
+      expect(page3.statusCode).toBe(200);
+      const body3 = page3.json() as {
+        items: unknown[];
+        pagination: { hasMore: boolean };
+      };
+      expect(body3.items.length).toBe(1);
+      expect(body3.pagination.hasMore).toBe(false);
+    });
+
+    it('includes entity_type in response', async () => {
+      // Create project first
+      const project = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Project', kind: 'project' },
+      });
+      const projectId = (project.json() as { id: string }).id;
+
+      // Create initiative under project
+      const init = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Initiative', kind: 'initiative', parentId: projectId },
+      });
+      const initId = (init.json() as { id: string }).id;
+
+      // Create epic under initiative
+      await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Test Epic', kind: 'epic', parentId: initId },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/activity',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { items: Array<{ entity_type: string; work_item_title: string }> };
+      // Find the epic activity
+      const epicActivity = body.items.find(i => i.work_item_title === 'Test Epic');
+      expect(epicActivity).toBeDefined();
+      expect(epicActivity?.entity_type).toBe('epic');
     });
   });
 });

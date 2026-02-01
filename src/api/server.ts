@@ -451,27 +451,114 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Activity Feed API (issue #130)
   app.get('/api/activity', async (req, reply) => {
-    const query = req.query as { limit?: string; offset?: string };
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      page?: string;
+      actionType?: string;
+      entityType?: string;
+      projectId?: string;
+      since?: string;
+    };
+
+    // Support both page-based and offset-based pagination
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const page = query.page ? parseInt(query.page, 10) : null;
+    const offset = page ? (page - 1) * limit : parseInt(query.offset || '0', 10);
 
     const pool = createPool();
+
+    // Build dynamic WHERE clause
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (query.actionType) {
+      conditions.push(`a.activity_type = $${paramIndex}`);
+      params.push(query.actionType);
+      paramIndex++;
+    }
+
+    if (query.entityType) {
+      conditions.push(`w.work_item_kind = $${paramIndex}`);
+      params.push(query.entityType);
+      paramIndex++;
+    }
+
+    // projectId filter handled separately with CTE
+    let projectIdCTE = '';
+    if (query.projectId) {
+      // Use recursive CTE to get all descendants of the project
+      projectIdCTE = `
+        WITH RECURSIVE project_tree AS (
+          SELECT id FROM work_item WHERE id = $${paramIndex}
+          UNION ALL
+          SELECT w.id FROM work_item w
+          JOIN project_tree pt ON w.parent_work_item_id = pt.id
+        )`;
+      conditions.push(`w.id IN (SELECT id FROM project_tree)`);
+      params.push(query.projectId);
+      paramIndex++;
+    }
+
+    if (query.since) {
+      conditions.push(`a.created_at > $${paramIndex}`);
+      params.push(query.since);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Get total count for pagination
+    const countResult = await pool.query(
+      `${projectIdCTE}
+       SELECT COUNT(*) as count
+         FROM work_item_activity a
+         JOIN work_item w ON w.id = a.work_item_id
+         ${whereClause}`,
+      params
+    );
+    const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+
+    // Add limit and offset params
+    params.push(limit);
+    params.push(offset);
+
     const result = await pool.query(
-      `SELECT a.id::text as id,
+      `${projectIdCTE}
+       SELECT a.id::text as id,
               a.activity_type::text as type,
               a.work_item_id::text as work_item_id,
               w.title as work_item_title,
+              w.work_item_kind::text as entity_type,
               a.actor_email,
               a.description,
               a.created_at
          FROM work_item_activity a
          JOIN work_item w ON w.id = a.work_item_id
+         ${whereClause}
         ORDER BY a.created_at DESC
-        LIMIT $1 OFFSET $2`,
-      [limit, offset]
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      params
     );
     await pool.end();
-    return reply.send({ items: result.rows });
+
+    // Include pagination metadata if page-based pagination is used
+    const response: {
+      items: unknown[];
+      pagination?: { page: number; limit: number; total: number; hasMore: boolean };
+    } = { items: result.rows };
+
+    if (page !== null) {
+      response.pagination = {
+        page,
+        limit,
+        total,
+        hasMore: offset + result.rows.length < total,
+      };
+    }
+
+    return reply.send(response);
   });
 
   app.get('/api/work-items/:id/activity', async (req, reply) => {
