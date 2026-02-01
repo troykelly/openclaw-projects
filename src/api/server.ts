@@ -334,6 +334,96 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
+  app.get('/api/backlog', async (req, reply) => {
+    const query = req.query as {
+      status?: string | string[];
+      priority?: string | string[];
+      kind?: string | string[];
+    };
+
+    // Normalize to arrays
+    const statuses = query.status ? (Array.isArray(query.status) ? query.status : [query.status]) : null;
+    const priorities = query.priority ? (Array.isArray(query.priority) ? query.priority : [query.priority]) : null;
+    const kinds = query.kind ? (Array.isArray(query.kind) ? query.kind : [query.kind]) : null;
+
+    const pool = createPool();
+
+    // Build dynamic query
+    const conditions: string[] = [];
+    const params: (string | string[])[] = [];
+    let paramIndex = 1;
+
+    if (statuses && statuses.length > 0) {
+      conditions.push(`status = ANY($${paramIndex})`);
+      params.push(statuses);
+      paramIndex++;
+    }
+
+    if (priorities && priorities.length > 0) {
+      conditions.push(`priority::text = ANY($${paramIndex})`);
+      params.push(priorities);
+      paramIndex++;
+    }
+
+    if (kinds && kinds.length > 0) {
+      conditions.push(`work_item_kind = ANY($${paramIndex})`);
+      params.push(kinds);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const result = await pool.query(
+      `SELECT id::text as id,
+              title,
+              description,
+              status,
+              priority::text as priority,
+              task_type::text as task_type,
+              work_item_kind as kind,
+              parent_work_item_id::text as parent_id,
+              not_before,
+              not_after,
+              estimate_minutes,
+              actual_minutes,
+              created_at,
+              updated_at
+         FROM work_item
+        ${whereClause}
+        ORDER BY priority, created_at
+        LIMIT 100`,
+      params
+    );
+    await pool.end();
+    return reply.send({ items: result.rows });
+  });
+
+  app.patch('/api/work-items/:id/status', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { status?: string };
+
+    if (!body?.status) {
+      return reply.code(400).send({ error: 'status is required' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `UPDATE work_item
+          SET status = $2,
+              updated_at = now()
+        WHERE id = $1
+      RETURNING id::text as id, title, status, priority::text as priority, updated_at`,
+      [params.id, body.status]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.send(result.rows[0]);
+  });
+
   app.get('/api/inbox', async (_req, reply) => {
     const pool = createPool();
     const result = await pool.query(
