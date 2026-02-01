@@ -1494,20 +1494,413 @@ function GlobalTimelinePage(): React.JSX.Element {
   );
 }
 
-// Contacts Page (placeholder for #133)
+// API response types for contacts
+type ApiContact = {
+  id: string;
+  display_name: string;
+  notes: string | null;
+  created_at: string;
+  updated_at?: string;
+  endpoints: Array<{ type: string; value: string }>;
+};
+
+type ContactsApiResponse = {
+  contacts: ApiContact[];
+  total: number;
+};
+
+type ContactFormData = {
+  displayName: string;
+  notes?: string;
+};
+
+// Contacts Page (issue #133)
 function ContactsPage(): React.JSX.Element {
+  const [state, setState] = useState<
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'loaded'; contacts: ApiContact[]; total: number }
+  >({ kind: 'loading' });
+
+  const [search, setSearch] = useState('');
+  const [selectedContact, setSelectedContact] = useState<ApiContact | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ApiContact | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchContacts = useCallback(async (searchQuery?: string) => {
+    try {
+      const url = searchQuery
+        ? `/api/contacts?search=${encodeURIComponent(searchQuery)}`
+        : '/api/contacts';
+      const res = await fetch(url, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`Failed to load contacts: ${res.status}`);
+      const data = (await res.json()) as ContactsApiResponse;
+      setState({ kind: 'loaded', contacts: data.contacts, total: data.total });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setState({ kind: 'error', message });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchContacts(search || undefined);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, fetchContacts]);
+
+  const handleContactClick = (contact: ApiContact) => {
+    setSelectedContact(contact);
+    setDetailOpen(true);
+  };
+
+  const handleCreateContact = async (data: ContactFormData) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(`Failed to create contact: ${res.status}`);
+      setFormOpen(false);
+      fetchContacts(search || undefined);
+    } catch (err) {
+      console.error('Failed to create contact:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateContact = async (data: ContactFormData) => {
+    if (!editingContact) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/contacts/${editingContact.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(`Failed to update contact: ${res.status}`);
+      setFormOpen(false);
+      setEditingContact(null);
+      setDetailOpen(false);
+      fetchContacts(search || undefined);
+    } catch (err) {
+      console.error('Failed to update contact:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteContact = async (contact: ApiContact) => {
+    if (!confirm(`Delete contact "${contact.display_name}"?`)) return;
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error(`Failed to delete contact: ${res.status}`);
+      setDetailOpen(false);
+      setSelectedContact(null);
+      fetchContacts(search || undefined);
+    } catch (err) {
+      console.error('Failed to delete contact:', err);
+    }
+  };
+
+  const handleEdit = (contact: ApiContact) => {
+    setEditingContact(contact);
+    setDetailOpen(false);
+    setFormOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingContact(null);
+    setFormOpen(true);
+  };
+
+  // Get initials from display name
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Get primary email from endpoints
+  const getPrimaryEmail = (contact: ApiContact): string | null => {
+    const emailEndpoint = contact.endpoints.find((e) => e.type === 'email');
+    return emailEndpoint?.value || null;
+  };
+
+  if (state.kind === 'loading') {
+    return (
+      <div className="p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <Skeleton width={200} height={32} />
+          <Skeleton width={120} height={36} />
+        </div>
+        <Skeleton width="100%" height={40} className="mb-4" />
+        <SkeletonList count={5} variant="card" />
+      </div>
+    );
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load contacts"
+          description={state.message}
+          onRetry={() => {
+            setState({ kind: 'loading' });
+            fetchContacts();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-foreground mb-4">People</h1>
-      <Card>
-        <CardContent className="p-8">
-          <EmptyState
-            variant="no-data"
-            title="Contacts Directory Coming Soon"
-            description="The contacts page will show your team members and collaborators."
+    <div className="p-6 h-full flex flex-col">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">People</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {state.total} contact{state.total !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <Button onClick={handleAddNew}>
+          Add Contact
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Search contacts..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-md px-4 py-2 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      {/* Contacts List */}
+      {state.contacts.length === 0 ? (
+        <Card>
+          <CardContent className="p-8">
+            <EmptyState
+              variant="no-data"
+              title={search ? 'No contacts found' : 'No contacts yet'}
+              description={search ? 'Try a different search term.' : 'Add your first contact to get started.'}
+              action={
+                !search
+                  ? {
+                      label: 'Add Contact',
+                      onClick: handleAddNew,
+                    }
+                  : undefined
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="flex-1">
+          <CardContent className="p-0">
+            <ScrollArea className="h-[calc(100vh-280px)]">
+              <div className="divide-y">
+                {state.contacts.map((contact) => {
+                  const email = getPrimaryEmail(contact);
+                  return (
+                    <button
+                      key={contact.id}
+                      onClick={() => handleContactClick(contact)}
+                      className="w-full p-4 text-left hover:bg-muted/50 transition-colors flex items-center gap-3"
+                    >
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                        {getInitials(contact.display_name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {contact.display_name}
+                        </p>
+                        {email && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            {email}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="shrink-0">
+                        {contact.endpoints.length} endpoint{contact.endpoints.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Contact Detail Sheet */}
+      {selectedContact && (
+        <div
+          className={`fixed inset-0 z-50 ${detailOpen ? '' : 'pointer-events-none'}`}
+        >
+          {/* Backdrop */}
+          <div
+            className={`absolute inset-0 bg-black/50 transition-opacity ${
+              detailOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={() => setDetailOpen(false)}
           />
-        </CardContent>
-      </Card>
+          {/* Sheet */}
+          <div
+            className={`absolute right-0 top-0 h-full w-96 max-w-full bg-background shadow-lg transform transition-transform ${
+              detailOpen ? 'translate-x-0' : 'translate-x-full'
+            }`}
+          >
+            <div className="p-6 h-full overflow-auto">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">
+                  {getInitials(selectedContact.display_name)}
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold">{selectedContact.display_name}</h2>
+                  {getPrimaryEmail(selectedContact) && (
+                    <p className="text-sm text-muted-foreground">
+                      {getPrimaryEmail(selectedContact)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 mb-6">
+                <Button variant="outline" size="sm" onClick={() => handleEdit(selectedContact)}>
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleDeleteContact(selectedContact)}
+                >
+                  Delete
+                </Button>
+              </div>
+
+              {/* Notes */}
+              {selectedContact.notes && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium mb-2">Notes</h3>
+                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                    {selectedContact.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Endpoints */}
+              <div>
+                <h3 className="text-sm font-medium mb-2">Endpoints</h3>
+                {selectedContact.endpoints.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedContact.endpoints.map((ep, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <Badge variant="outline" className="text-xs">
+                          {ep.type}
+                        </Badge>
+                        <span className="text-muted-foreground">{ep.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No endpoints</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Form Modal */}
+      {formOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setFormOpen(false)} />
+          <div className="relative bg-background rounded-lg shadow-lg p-6 w-full max-w-md mx-4">
+            <h2 className="text-lg font-semibold mb-4">
+              {editingContact ? 'Edit Contact' : 'Add Contact'}
+            </h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data: ContactFormData = {
+                  displayName: formData.get('displayName') as string,
+                  notes: formData.get('notes') as string || undefined,
+                };
+                if (editingContact) {
+                  handleUpdateContact(data);
+                } else {
+                  handleCreateContact(data);
+                }
+              }}
+            >
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="displayName" className="block text-sm font-medium mb-1">
+                    Name <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="displayName"
+                    name="displayName"
+                    type="text"
+                    required
+                    defaultValue={editingContact?.display_name || ''}
+                    className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="notes" className="block text-sm font-medium mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    rows={3}
+                    defaultValue={editingContact?.notes || ''}
+                    className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Additional notes..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {editingContact ? 'Save Changes' : 'Add Contact'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
