@@ -2721,5 +2721,165 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
   });
 
+  // Todos API (issue #108)
+  // GET /api/work-items/:id/todos - List todos for a work item
+  app.get('/api/work-items/:id/todos', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const result = await pool.query(
+      `SELECT id::text as id,
+              text,
+              completed,
+              created_at as "createdAt",
+              completed_at as "completedAt"
+         FROM work_item_todo
+        WHERE work_item_id = $1
+        ORDER BY created_at ASC`,
+      [params.id]
+    );
+
+    await pool.end();
+    return reply.send({ todos: result.rows });
+  });
+
+  // POST /api/work-items/:id/todos - Create a new todo
+  app.post('/api/work-items/:id/todos', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { text?: string };
+
+    if (!body?.text || body.text.trim().length === 0) {
+      return reply.code(400).send({ error: 'text is required' });
+    }
+
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO work_item_todo (work_item_id, text)
+       VALUES ($1, $2)
+       RETURNING id::text as id,
+                 text,
+                 completed,
+                 created_at as "createdAt",
+                 completed_at as "completedAt"`,
+      [params.id, body.text.trim()]
+    );
+
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // PATCH /api/work-items/:id/todos/:todoId - Update a todo
+  app.patch('/api/work-items/:id/todos/:todoId', async (req, reply) => {
+    const params = req.params as { id: string; todoId: string };
+    const body = req.body as { text?: string; completed?: boolean };
+
+    // Check at least one field is provided
+    const hasText = body.text !== undefined;
+    const hasCompleted = body.completed !== undefined;
+    if (!hasText && !hasCompleted) {
+      return reply.code(400).send({ error: 'at least one field is required' });
+    }
+
+    const pool = createPool();
+
+    // Check if work item exists
+    const workItemExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (workItemExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Check if todo exists and belongs to work item
+    const todoExists = await pool.query(
+      'SELECT 1 FROM work_item_todo WHERE id = $1 AND work_item_id = $2',
+      [params.todoId, params.id]
+    );
+    if (todoExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Build update query
+    const updates: string[] = [];
+    const values: (string | boolean | null)[] = [];
+    let paramIndex = 1;
+
+    if (hasText) {
+      updates.push(`text = $${paramIndex}`);
+      values.push(body.text!.trim());
+      paramIndex++;
+    }
+
+    if (hasCompleted) {
+      updates.push(`completed = $${paramIndex}`);
+      values.push(body.completed!);
+      paramIndex++;
+
+      // Set or clear completed_at based on completed status
+      if (body.completed) {
+        updates.push(`completed_at = now()`);
+      } else {
+        updates.push(`completed_at = NULL`);
+      }
+    }
+
+    values.push(params.todoId);
+
+    const result = await pool.query(
+      `UPDATE work_item_todo SET ${updates.join(', ')} WHERE id = $${paramIndex}
+       RETURNING id::text as id,
+                 text,
+                 completed,
+                 created_at as "createdAt",
+                 completed_at as "completedAt"`,
+      values
+    );
+
+    await pool.end();
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/work-items/:id/todos/:todoId - Delete a todo
+  app.delete('/api/work-items/:id/todos/:todoId', async (req, reply) => {
+    const params = req.params as { id: string; todoId: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const workItemExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (workItemExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Delete todo (only if it belongs to the work item)
+    const result = await pool.query(
+      'DELETE FROM work_item_todo WHERE id = $1 AND work_item_id = $2 RETURNING id::text as id',
+      [params.todoId, params.id]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
   return app;
 }
