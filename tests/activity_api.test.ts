@@ -490,4 +490,172 @@ describe('Activity Feed API', () => {
       expect(epicActivity?.entity_type).toBe('epic');
     });
   });
+
+  /**
+   * Issue #102: Mark as Read endpoints
+   */
+  describe('Issue #102 - Mark as Read', () => {
+    describe('POST /api/activity/:id/read', () => {
+      it('marks a single activity item as read', async () => {
+        // Create activity by creating a work item
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Test Item' },
+        });
+
+        // Get activity items
+        const activityRes = await app.inject({
+          method: 'GET',
+          url: '/api/activity',
+        });
+        const activities = activityRes.json() as { items: Array<{ id: string; read_at: string | null }> };
+        const activityId = activities.items[0].id;
+
+        // Initially unread
+        expect(activities.items[0].read_at).toBeNull();
+
+        // Mark as read
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/activity/${activityId}/read`,
+        });
+
+        expect(res.statusCode).toBe(204);
+
+        // Verify it's now read
+        const checkRes = await app.inject({
+          method: 'GET',
+          url: '/api/activity',
+        });
+        const checkBody = checkRes.json() as { items: Array<{ id: string; read_at: string | null }> };
+        const markedItem = checkBody.items.find(i => i.id === activityId);
+        expect(markedItem?.read_at).not.toBeNull();
+      });
+
+      it('returns 404 for non-existent activity', async () => {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/activity/00000000-0000-0000-0000-000000000000/read',
+        });
+
+        expect(res.statusCode).toBe(404);
+        expect(res.json()).toEqual({ error: 'activity not found' });
+      });
+
+      it('is idempotent - can mark already read item', async () => {
+        // Create activity
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Test Item' },
+        });
+
+        const activityRes = await app.inject({
+          method: 'GET',
+          url: '/api/activity',
+        });
+        const activities = activityRes.json() as { items: Array<{ id: string }> };
+        const activityId = activities.items[0].id;
+
+        // Mark as read twice
+        await app.inject({
+          method: 'POST',
+          url: `/api/activity/${activityId}/read`,
+        });
+
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/activity/${activityId}/read`,
+        });
+
+        expect(res.statusCode).toBe(204);
+      });
+    });
+
+    describe('POST /api/activity/read-all', () => {
+      it('marks all activity items as read', async () => {
+        // Create multiple activities
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Item 1' },
+        });
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Item 2' },
+        });
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Item 3' },
+        });
+
+        // Mark all as read
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/activity/read-all',
+        });
+
+        expect(res.statusCode).toBe(200);
+        const body = res.json() as { marked: number };
+        expect(body.marked).toBe(3);
+
+        // Verify all are read
+        const checkRes = await app.inject({
+          method: 'GET',
+          url: '/api/activity',
+        });
+        const checkBody = checkRes.json() as { items: Array<{ read_at: string | null }> };
+        checkBody.items.forEach(item => {
+          expect(item.read_at).not.toBeNull();
+        });
+      });
+
+      it('returns 0 when no unread items exist', async () => {
+        // No activity created
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/activity/read-all',
+        });
+
+        expect(res.statusCode).toBe(200);
+        const body = res.json() as { marked: number };
+        expect(body.marked).toBe(0);
+      });
+
+      it('only marks unread items', async () => {
+        // Create activity
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Item 1' },
+        });
+
+        // Mark all as read
+        await app.inject({
+          method: 'POST',
+          url: '/api/activity/read-all',
+        });
+
+        // Create more activity
+        await app.inject({
+          method: 'POST',
+          url: '/api/work-items',
+          payload: { title: 'Item 2' },
+        });
+
+        // Mark all as read again - should only mark the new one
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/activity/read-all',
+        });
+
+        expect(res.statusCode).toBe(200);
+        const body = res.json() as { marked: number };
+        expect(body.marked).toBe(1);
+      });
+    });
+  });
 });

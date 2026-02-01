@@ -533,7 +533,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               w.work_item_kind::text as entity_type,
               a.actor_email,
               a.description,
-              a.created_at
+              a.created_at,
+              a.read_at
          FROM work_item_activity a
          JOIN work_item w ON w.id = a.work_item_id
          ${whereClause}
@@ -559,6 +560,42 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     return reply.send(response);
+  });
+
+  // Issue #102: Mark all activity as read
+  app.post('/api/activity/read-all', async (_req, reply) => {
+    const pool = createPool();
+    const result = await pool.query(
+      `UPDATE work_item_activity
+       SET read_at = now()
+       WHERE read_at IS NULL
+       RETURNING id`
+    );
+    await pool.end();
+    return reply.send({ marked: result.rowCount ?? 0 });
+  });
+
+  // Issue #102: Mark single activity as read
+  app.post('/api/activity/:id/read', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if activity exists
+    const exists = await pool.query('SELECT 1 FROM work_item_activity WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'activity not found' });
+    }
+
+    // Mark as read (idempotent - updates even if already read)
+    await pool.query(
+      `UPDATE work_item_activity
+       SET read_at = COALESCE(read_at, now())
+       WHERE id = $1`,
+      [params.id]
+    );
+    await pool.end();
+    return reply.code(204).send();
   });
 
   app.get('/api/work-items/:id/activity', async (req, reply) => {
