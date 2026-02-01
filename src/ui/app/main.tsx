@@ -1,6 +1,41 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import '../app.css';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 
+// Layout
+import { AppShell } from '@/ui/components/layout/app-shell';
+import type { BreadcrumbItem } from '@/ui/components/layout/breadcrumb';
+
+// Feedback components
+import {
+  Skeleton,
+  SkeletonCard,
+  SkeletonList,
+  ErrorState,
+  EmptyState,
+} from '@/ui/components/feedback';
+
+// UI components
+import { Button } from '@/ui/components/ui/button';
+import { Badge } from '@/ui/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/ui/components/ui/card';
+import { ScrollArea, ScrollBar } from '@/ui/components/ui/scroll-area';
+
+// Icons
+import {
+  LayoutGrid,
+  List,
+  Calendar,
+  Network,
+  ChevronRight,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Circle,
+  BarChart3,
+} from 'lucide-react';
+
+// Types
 type WorkItemSummary = {
   id: string;
   title: string;
@@ -88,6 +123,15 @@ type WorkItemsResponse = {
   items: WorkItemSummary[];
 };
 
+type AppBootstrap = {
+  route?: { kind?: string; id?: string };
+  me?: { email?: string };
+  workItems?: WorkItemSummary[];
+  workItem?: { id?: string; title?: string } | null;
+  participants?: Array<{ participant?: string; role?: string }>;
+};
+
+// Hooks
 function usePathname(): string {
   const [path, setPath] = useState(() => window.location.pathname);
 
@@ -100,6 +144,56 @@ function usePathname(): string {
   return path;
 }
 
+function useQueryParams(): URLSearchParams {
+  const [params, setParams] = useState(() => new URLSearchParams(window.location.search));
+
+  useEffect(() => {
+    const onPopState = (): void => setParams(new URLSearchParams(window.location.search));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  return params;
+}
+
+function readBootstrap(): AppBootstrap | null {
+  const el = document.getElementById('app-bootstrap');
+  if (!el) return null;
+  const text = el.textContent;
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text) as AppBootstrap;
+  } catch {
+    return null;
+  }
+}
+
+// Utility components
+const priorityColors: Record<string, string> = {
+  P0: 'bg-red-500 text-white',
+  P1: 'bg-orange-500 text-white',
+  P2: 'bg-yellow-500 text-white',
+  P3: 'bg-green-500 text-white',
+  P4: 'bg-gray-500 text-white',
+};
+
+const statusIcons: Record<string, React.ReactNode> = {
+  open: <Circle className="size-4 text-blue-500" />,
+  in_progress: <Clock className="size-4 text-yellow-500" />,
+  blocked: <AlertCircle className="size-4 text-red-500" />,
+  closed: <CheckCircle2 className="size-4 text-green-500" />,
+  done: <CheckCircle2 className="size-4 text-green-500" />,
+};
+
+const kindColors: Record<string, string> = {
+  project: 'bg-blue-500',
+  initiative: 'bg-violet-500',
+  epic: 'bg-emerald-500',
+  issue: 'bg-gray-500',
+};
+
+// Work Items List Page
 function WorkItemsListPage(): React.JSX.Element {
   const bootstrap = readBootstrap();
 
@@ -141,106 +235,198 @@ function WorkItemsListPage(): React.JSX.Element {
     };
   }, [state.kind]);
 
+  if (state.kind === 'loading') {
+    return (
+      <div className="p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <Skeleton width={200} height={32} />
+          <Skeleton width={150} height={36} />
+        </div>
+        <SkeletonList count={5} variant="row" />
+      </div>
+    );
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load work items"
+          description={state.message}
+          onRetry={() => setState({ kind: 'loading' })}
+        />
+      </div>
+    );
+  }
+
+  if (state.items.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          variant="no-data"
+          title="No work items"
+          description="Create your first work item to get started"
+          actionLabel="Create Work Item"
+          onAction={() => {}}
+        />
+      </div>
+    );
+  }
+
   return (
-    <main style={{ padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>Work items</h1>
-        <a href="/app/kanban" style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', borderRadius: 6, textDecoration: 'none', fontSize: 13 }}>
-          View Kanban Board
-        </a>
+    <div className="p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">Work Items</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <a href="/app/kanban">
+              <LayoutGrid className="mr-2 size-4" />
+              Kanban Board
+            </a>
+          </Button>
+        </div>
       </div>
 
-      {state.kind === 'loading' ? <p>Loading…</p> : null}
-      {state.kind === 'error' ? <p style={{ color: 'crimson' }}>Error: {state.message}</p> : null}
-
-      {state.kind === 'loaded' ? (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '6px 4px' }}>Title</th>
-              <th style={{ textAlign: 'left', padding: '6px 4px' }}>Status</th>
-              <th style={{ textAlign: 'left', padding: '6px 4px' }}>Priority</th>
-              <th style={{ textAlign: 'left', padding: '6px 4px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.items.map((i) => (
-              <tr key={i.id}>
-                <td style={{ padding: '6px 4px' }}>
-                  <a href={`/app/work-items/${encodeURIComponent(i.id)}`}>{i.title}</a>
-                </td>
-                <td style={{ padding: '6px 4px' }}>{i.status ?? '—'}</td>
-                <td style={{ padding: '6px 4px' }}>{i.priority ?? '—'}</td>
-                <td style={{ padding: '6px 4px' }}>
-                  <a href={`/app/work-items/${encodeURIComponent(i.id)}/timeline`} style={{ fontSize: 11, color: '#6b7280', marginRight: 8 }}>timeline</a>
-                  <a href={`/app/work-items/${encodeURIComponent(i.id)}/graph`} style={{ fontSize: 11, color: '#6b7280' }}>graph</a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-    </main>
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Title</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Priority</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {state.items.map((item) => (
+                  <tr key={item.id} className="hover:bg-muted/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <a
+                        href={`/app/work-items/${encodeURIComponent(item.id)}`}
+                        className="font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        {item.title}
+                      </a>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {statusIcons[item.status ?? 'open'] ?? statusIcons.open}
+                        <span className="text-sm capitalize">{item.status ?? 'open'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.priority && (
+                        <Badge className={priorityColors[item.priority] ?? 'bg-gray-500'}>
+                          {item.priority}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={`/app/work-items/${encodeURIComponent(item.id)}/timeline`}>
+                            <Calendar className="size-4" />
+                          </a>
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={`/app/work-items/${encodeURIComponent(item.id)}/graph`}>
+                            <Network className="size-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-type AppBootstrap = {
-  route?: { kind?: string; id?: string };
-  me?: { email?: string };
-  workItems?: WorkItemSummary[];
-  workItem?: { id?: string; title?: string } | null;
-  participants?: Array<{ participant?: string; role?: string }>;
-};
-
-function readBootstrap(): AppBootstrap | null {
-  const el = document.getElementById('app-bootstrap');
-  if (!el) return null;
-  const text = el.textContent;
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text) as AppBootstrap;
-  } catch {
-    return null;
-  }
-}
-
+// Work Item Detail Page
 function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
   const bootstrap = readBootstrap();
   const title = bootstrap?.workItem?.title;
   const participants = bootstrap?.participants ?? [];
 
   return (
-    <main style={{ padding: 16 }}>
-      <p>
-        <a href="/app/work-items">← Back</a>
-      </p>
-      <h1>{title ? title : `Work item ${props.id}`}</h1>
+    <div className="p-6">
+      <div className="mb-4">
+        <Button variant="ghost" size="sm" asChild>
+          <a href="/app/work-items">
+            <ChevronRight className="mr-1 size-4 rotate-180" />
+            Back to Work Items
+          </a>
+        </Button>
+      </div>
 
-      <h2>Participants</h2>
-      {participants.length === 0 ? (
-        <p>None</p>
-      ) : (
-        <ul>
-          {participants.map((p, idx) => (
-            <li key={idx}>
-              {p.participant ?? 'unknown'} {p.role ? `(${p.role})` : ''}
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>{title ? title : `Work Item ${props.id}`}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 mb-4">
+            <Button variant="outline" size="sm" asChild>
+              <a href={`/app/work-items/${props.id}/timeline`}>
+                <Calendar className="mr-2 size-4" />
+                Timeline
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={`/app/work-items/${props.id}/graph`}>
+                <Network className="mr-2 size-4" />
+                Dependencies
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Participants</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {participants.length === 0 ? (
+            <p className="text-muted-foreground">No participants assigned</p>
+          ) : (
+            <ul className="space-y-2">
+              {participants.map((p, idx) => (
+                <li key={idx} className="flex items-center gap-2">
+                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-medium text-primary">
+                      {(p.participant ?? 'U')[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-sm">{p.participant ?? 'Unknown'}</span>
+                  {p.role && (
+                    <Badge variant="outline" className="text-xs">
+                      {p.role}
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
+// Timeline/Gantt Page
 function TimelinePage(props: { id: string }): React.JSX.Element {
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'error'; message: string }
     | { kind: 'loaded'; data: TimelineResponse }
   >({ kind: 'loading' });
-
-  const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -269,21 +455,23 @@ function TimelinePage(props: { id: string }): React.JSX.Element {
 
   if (state.kind === 'loading') {
     return (
-      <main style={{ padding: 16 }}>
-        <p><a href="/app/work-items">← Back to Work items</a></p>
-        <h1>Timeline</h1>
-        <p>Loading...</p>
-      </main>
+      <div className="p-6">
+        <Skeleton width={150} height={24} className="mb-4" />
+        <Skeleton width="100%" height={400} />
+      </div>
     );
   }
 
   if (state.kind === 'error') {
     return (
-      <main style={{ padding: 16 }}>
-        <p><a href="/app/work-items">← Back to Work items</a></p>
-        <h1>Timeline</h1>
-        <p style={{ color: 'crimson' }}>Error: {state.message}</p>
-      </main>
+      <div className="p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load timeline"
+          description={state.message}
+          onRetry={() => setState({ kind: 'loading' })}
+        />
+      </div>
     );
   }
 
@@ -299,167 +487,186 @@ function TimelinePage(props: { id: string }): React.JSX.Element {
   let minDate = dates.length > 0 ? Math.min(...dates) : now;
   let maxDate = dates.length > 0 ? Math.max(...dates) : now + 30 * 24 * 60 * 60 * 1000;
 
-  // Add padding
   const range = maxDate - minDate || 1;
   minDate -= range * 0.05;
   maxDate += range * 0.05;
 
-  const chartWidth = 800;
-  const rowHeight = 32;
-  const labelWidth = 200;
-  const chartHeight = items.length * rowHeight + 40;
+  const chartWidth = 900;
+  const rowHeight = 40;
+  const labelWidth = 220;
+  const chartHeight = items.length * rowHeight + 60;
 
   function dateToX(date: number): number {
     return labelWidth + ((date - minDate) / (maxDate - minDate)) * (chartWidth - labelWidth - 20);
   }
 
-  const kindColors: Record<string, string> = {
-    project: '#3b82f6',
-    initiative: '#8b5cf6',
-    epic: '#10b981',
-    issue: '#6b7280',
-  };
-
-  // Build position map for dependencies
   const itemPositions: Record<string, { y: number }> = {};
   items.forEach((item, idx) => {
-    itemPositions[item.id] = { y: idx * rowHeight + 20 };
+    itemPositions[item.id] = { y: idx * rowHeight + 30 };
   });
 
   return (
-    <main style={{ padding: 16 }}>
-      <p><a href="/app/work-items">← Back to Work items</a></p>
-      <h1>Timeline / Gantt</h1>
-
-      <div style={{ overflowX: 'auto', marginTop: 16 }}>
-        <svg ref={svgRef} width={chartWidth} height={chartHeight} style={{ fontFamily: 'system-ui, sans-serif', fontSize: 12 }}>
-          {/* Background grid */}
-          <rect x={labelWidth} y={0} width={chartWidth - labelWidth} height={chartHeight} fill="#f9fafb" />
-
-          {/* Date axis markers */}
-          {[0.25, 0.5, 0.75, 1].map((pct) => {
-            const x = labelWidth + pct * (chartWidth - labelWidth - 20);
-            const dateVal = minDate + pct * (maxDate - minDate);
-            const label = new Date(dateVal).toLocaleDateString();
-            return (
-              <g key={pct}>
-                <line x1={x} y1={0} x2={x} y2={chartHeight} stroke="#e5e7eb" strokeDasharray="4,4" />
-                <text x={x} y={chartHeight - 5} textAnchor="middle" fill="#9ca3af" fontSize={10}>
-                  {label}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Items */}
-          {items.map((item, idx) => {
-            const y = idx * rowHeight + 20;
-            const indent = item.level * 12;
-
-            // Bar positioning
-            const hasStart = item.not_before !== null;
-            const hasEnd = item.not_after !== null;
-            let barX = labelWidth + 10;
-            let barWidth = 50;
-
-            if (hasStart && hasEnd) {
-              barX = dateToX(new Date(item.not_before!).getTime());
-              barWidth = Math.max(8, dateToX(new Date(item.not_after!).getTime()) - barX);
-            } else if (hasStart) {
-              barX = dateToX(new Date(item.not_before!).getTime());
-              barWidth = 50;
-            } else if (hasEnd) {
-              barX = dateToX(new Date(item.not_after!).getTime()) - 50;
-              barWidth = 50;
-            }
-
-            const color = kindColors[item.kind] || '#6b7280';
-
-            return (
-              <g key={item.id}>
-                {/* Label */}
-                <text x={4 + indent} y={y + rowHeight / 2 + 4} fill="#1f2937" fontSize={11}>
-                  {item.title.length > 20 ? item.title.slice(0, 18) + '…' : item.title}
-                </text>
-
-                {/* Bar */}
-                <rect
-                  x={barX}
-                  y={y + 4}
-                  width={barWidth}
-                  height={rowHeight - 12}
-                  rx={3}
-                  fill={color}
-                  opacity={item.status === 'done' || item.status === 'closed' ? 0.4 : 0.8}
-                />
-
-                {/* Kind badge */}
-                <text x={barX + 4} y={y + rowHeight / 2 + 3} fill="white" fontSize={9}>
-                  {item.kind.charAt(0).toUpperCase()}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Dependencies (arrows) */}
-          {dependencies.map((dep) => {
-            const fromPos = itemPositions[dep.from_id];
-            const toPos = itemPositions[dep.to_id];
-            if (!fromPos || !toPos) return null;
-
-            const fromItem = items.find((i) => i.id === dep.from_id);
-            const toItem = items.find((i) => i.id === dep.to_id);
-            if (!fromItem || !toItem) return null;
-
-            // Calculate positions
-            const fromY = fromPos.y + rowHeight / 2;
-            const toY = toPos.y + rowHeight / 2;
-
-            let fromX = labelWidth + 30;
-            let toX = labelWidth + 30;
-
-            if (toItem.not_after) {
-              toX = dateToX(new Date(toItem.not_after).getTime());
-            }
-            if (fromItem.not_before) {
-              fromX = dateToX(new Date(fromItem.not_before).getTime());
-            }
-
-            return (
-              <g key={dep.id}>
-                <line
-                  x1={toX + 4}
-                  y1={toY}
-                  x2={fromX - 4}
-                  y2={fromY}
-                  stroke="#ef4444"
-                  strokeWidth={1.5}
-                  markerEnd="url(#arrowhead)"
-                />
-              </g>
-            );
-          })}
-
-          {/* Arrow marker definition */}
-          <defs>
-            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 Z" fill="#ef4444" />
-            </marker>
-          </defs>
-        </svg>
+    <div className="p-6">
+      <div className="mb-4">
+        <Button variant="ghost" size="sm" asChild>
+          <a href="/app/work-items">
+            <ChevronRight className="mr-1 size-4 rotate-180" />
+            Back to Work Items
+          </a>
+        </Button>
       </div>
 
-      <div style={{ marginTop: 16, fontSize: 12, color: '#6b7280' }}>
-        <strong>Legend:</strong>{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#3b82f6', borderRadius: 2, marginRight: 4 }}></span> Project{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#8b5cf6', borderRadius: 2, marginLeft: 12, marginRight: 4 }}></span> Initiative{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#10b981', borderRadius: 2, marginLeft: 12, marginRight: 4 }}></span> Epic{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#6b7280', borderRadius: 2, marginLeft: 12, marginRight: 4 }}></span> Issue
-      </div>
-    </main>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="size-5" />
+            Timeline / Gantt Chart
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="w-full">
+            <svg
+              width={chartWidth}
+              height={chartHeight}
+              className="font-sans text-xs"
+            >
+              {/* Background */}
+              <rect x={labelWidth} y={0} width={chartWidth - labelWidth} height={chartHeight} className="fill-muted/30" />
+
+              {/* Date axis markers */}
+              {[0.25, 0.5, 0.75, 1].map((pct) => {
+                const x = labelWidth + pct * (chartWidth - labelWidth - 20);
+                const dateVal = minDate + pct * (maxDate - minDate);
+                const label = new Date(dateVal).toLocaleDateString();
+                return (
+                  <g key={pct}>
+                    <line x1={x} y1={0} x2={x} y2={chartHeight} className="stroke-border" strokeDasharray="4,4" />
+                    <text x={x} y={chartHeight - 8} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Items */}
+              {items.map((item, idx) => {
+                const y = idx * rowHeight + 30;
+                const indent = item.level * 16;
+
+                const hasStart = item.not_before !== null;
+                const hasEnd = item.not_after !== null;
+                let barX = labelWidth + 10;
+                let barWidth = 60;
+
+                if (hasStart && hasEnd) {
+                  barX = dateToX(new Date(item.not_before!).getTime());
+                  barWidth = Math.max(8, dateToX(new Date(item.not_after!).getTime()) - barX);
+                } else if (hasStart) {
+                  barX = dateToX(new Date(item.not_before!).getTime());
+                } else if (hasEnd) {
+                  barX = dateToX(new Date(item.not_after!).getTime()) - 60;
+                }
+
+                const colorClass = kindColors[item.kind] || 'bg-gray-500';
+                const isDone = item.status === 'done' || item.status === 'closed';
+
+                return (
+                  <g key={item.id}>
+                    {/* Row background */}
+                    <rect x={0} y={y - 15} width={chartWidth} height={rowHeight} className={idx % 2 === 0 ? 'fill-transparent' : 'fill-muted/20'} />
+
+                    {/* Label */}
+                    <text x={8 + indent} y={y + 5} className="fill-foreground text-xs font-medium">
+                      {item.title.length > 24 ? item.title.slice(0, 22) + '...' : item.title}
+                    </text>
+
+                    {/* Bar */}
+                    <rect
+                      x={barX}
+                      y={y - 10}
+                      width={barWidth}
+                      height={24}
+                      rx={4}
+                      className={`${colorClass} ${isDone ? 'opacity-40' : 'opacity-80'}`}
+                    />
+
+                    {/* Kind badge */}
+                    <text x={barX + 6} y={y + 5} className="fill-white text-[10px] font-medium">
+                      {item.kind.charAt(0).toUpperCase()}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Dependencies */}
+              {dependencies.map((dep) => {
+                const fromPos = itemPositions[dep.from_id];
+                const toPos = itemPositions[dep.to_id];
+                if (!fromPos || !toPos) return null;
+
+                const fromItem = items.find((i) => i.id === dep.from_id);
+                const toItem = items.find((i) => i.id === dep.to_id);
+                if (!fromItem || !toItem) return null;
+
+                const fromY = fromPos.y;
+                const toY = toPos.y;
+
+                let fromX = labelWidth + 40;
+                let toX = labelWidth + 40;
+
+                if (toItem.not_after) {
+                  toX = dateToX(new Date(toItem.not_after).getTime());
+                }
+                if (fromItem.not_before) {
+                  fromX = dateToX(new Date(fromItem.not_before).getTime());
+                }
+
+                return (
+                  <line
+                    key={dep.id}
+                    x1={toX + 4}
+                    y1={toY}
+                    x2={fromX - 4}
+                    y2={fromY}
+                    className="stroke-destructive"
+                    strokeWidth={1.5}
+                    markerEnd="url(#arrowhead)"
+                  />
+                );
+              })}
+
+              <defs>
+                <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                  <path d="M0,0 L8,4 L0,8 Z" className="fill-destructive" />
+                </marker>
+              </defs>
+            </svg>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+
+          {/* Legend */}
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <span className="font-medium">Legend:</span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-blue-500" /> Project
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-violet-500" /> Initiative
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-emerald-500" /> Epic
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-gray-500" /> Issue
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
+// Dependency Graph Page
 function DependencyGraphPage(props: { id: string }): React.JSX.Element {
   const [state, setState] = useState<
     | { kind: 'loading' }
@@ -519,33 +726,33 @@ function DependencyGraphPage(props: { id: string }): React.JSX.Element {
 
   if (state.kind === 'loading') {
     return (
-      <main style={{ padding: 16 }}>
-        <p><a href="/app/work-items">← Back to Work items</a></p>
-        <h1>Dependency Graph</h1>
-        <p>Loading...</p>
-      </main>
+      <div className="p-6">
+        <Skeleton width={200} height={24} className="mb-4" />
+        <Skeleton width="100%" height={500} />
+      </div>
     );
   }
 
   if (state.kind === 'error') {
     return (
-      <main style={{ padding: 16 }}>
-        <p><a href="/app/work-items">← Back to Work items</a></p>
-        <h1>Dependency Graph</h1>
-        <p style={{ color: 'crimson' }}>Error: {state.message}</p>
-      </main>
+      <div className="p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load dependency graph"
+          description={state.message}
+          onRetry={() => setState({ kind: 'loading' })}
+        />
+      </div>
     );
   }
 
   const { nodes, edges, critical_path } = state.data;
 
-  // Compute node positions using hierarchical layout
-  const nodeWidth = 160;
-  const nodeHeight = 50;
-  const levelGap = 100;
-  const nodeGap = 20;
+  const nodeWidth = 180;
+  const nodeHeight = 56;
+  const levelGap = 120;
+  const nodeGap = 24;
 
-  // Group nodes by level
   const nodesByLevel = new Map<number, GraphNode[]>();
   for (const node of nodes) {
     if (!nodesByLevel.has(node.level)) {
@@ -554,14 +761,13 @@ function DependencyGraphPage(props: { id: string }): React.JSX.Element {
     nodesByLevel.get(node.level)!.push(node);
   }
 
-  // Compute positions
   const positions = new Map<string, { x: number; y: number }>();
   let maxY = 0;
 
   for (const [level, levelNodes] of nodesByLevel) {
-    const x = 50 + level * (nodeWidth + levelGap);
+    const x = 60 + level * (nodeWidth + levelGap);
     for (let i = 0; i < levelNodes.length; i++) {
-      const y = 50 + i * (nodeHeight + nodeGap);
+      const y = 60 + i * (nodeHeight + nodeGap);
       positions.set(levelNodes[i].id, { x, y });
       maxY = Math.max(maxY, y + nodeHeight);
     }
@@ -569,200 +775,193 @@ function DependencyGraphPage(props: { id: string }): React.JSX.Element {
 
   const criticalPathIds = new Set(critical_path.map((n) => n.id));
 
-  const kindColors: Record<string, string> = {
-    project: '#3b82f6',
-    initiative: '#8b5cf6',
-    epic: '#10b981',
-    issue: '#6b7280',
-  };
-
-  const chartWidth = Math.max(800, (nodesByLevel.size + 1) * (nodeWidth + levelGap));
-  const chartHeight = Math.max(400, maxY + 50);
+  const chartWidth = Math.max(900, (nodesByLevel.size + 1) * (nodeWidth + levelGap));
+  const chartHeight = Math.max(500, maxY + 60);
 
   return (
-    <main style={{ padding: 16 }}>
-      <p><a href="/app/work-items">← Back to Work items</a></p>
-      <h1>Dependency Graph</h1>
-
-      <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <button onClick={() => setZoom((z) => Math.min(3, z * 1.2))} style={{ padding: '4px 8px' }}>Zoom In</button>
-        <button onClick={() => setZoom((z) => Math.max(0.2, z * 0.8))} style={{ padding: '4px 8px' }}>Zoom Out</button>
-        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={{ padding: '4px 8px' }}>Reset</button>
-        <span style={{ fontSize: 12, color: '#6b7280' }}>Zoom: {Math.round(zoom * 100)}% | Drag to pan</span>
+    <div className="p-6">
+      <div className="mb-4">
+        <Button variant="ghost" size="sm" asChild>
+          <a href="/app/work-items">
+            <ChevronRight className="mr-1 size-4 rotate-180" />
+            Back to Work Items
+          </a>
+        </Button>
       </div>
 
-      <div
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 8,
-          overflow: 'hidden',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          userSelect: 'none',
-        }}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        <svg
-          width={800}
-          height={500}
-          viewBox={`${-pan.x / zoom} ${-pan.y / zoom} ${800 / zoom} ${500 / zoom}`}
-          style={{ fontFamily: 'system-ui, sans-serif', fontSize: 11, background: '#f9fafb' }}
-        >
-          {/* Edges */}
-          {edges.map((edge) => {
-            const sourcePos = positions.get(edge.source);
-            const targetPos = positions.get(edge.target);
-            if (!sourcePos || !targetPos) return null;
-
-            const x1 = targetPos.x + nodeWidth;
-            const y1 = targetPos.y + nodeHeight / 2;
-            const x2 = sourcePos.x;
-            const y2 = sourcePos.y + nodeHeight / 2;
-
-            const isCritical = criticalPathIds.has(edge.source) && criticalPathIds.has(edge.target);
-
-            return (
-              <g key={edge.id}>
-                <line
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  stroke={isCritical ? '#ef4444' : '#9ca3af'}
-                  strokeWidth={isCritical ? 2.5 : 1.5}
-                  markerEnd={isCritical ? 'url(#arrowhead-critical)' : 'url(#arrowhead)'}
-                />
-              </g>
-            );
-          })}
-
-          {/* Nodes */}
-          {nodes.map((node) => {
-            const pos = positions.get(node.id);
-            if (!pos) return null;
-
-            const isCritical = criticalPathIds.has(node.id);
-            const baseColor = kindColors[node.kind] || '#6b7280';
-            const fillColor = node.status === 'done' || node.status === 'closed' ? '#e5e7eb' : baseColor;
-
-            return (
-              <g key={node.id}>
-                <rect
-                  x={pos.x}
-                  y={pos.y}
-                  width={nodeWidth}
-                  height={nodeHeight}
-                  rx={6}
-                  fill={fillColor}
-                  stroke={isCritical ? '#ef4444' : node.is_blocker ? '#f59e0b' : '#e5e7eb'}
-                  strokeWidth={isCritical ? 3 : node.is_blocker ? 2 : 1}
-                  opacity={node.status === 'done' || node.status === 'closed' ? 0.5 : 1}
-                />
-                <text
-                  x={pos.x + 8}
-                  y={pos.y + 18}
-                  fill="white"
-                  fontWeight="bold"
-                  fontSize={10}
-                >
-                  {node.title.length > 18 ? node.title.slice(0, 16) + '…' : node.title}
-                </text>
-                <text
-                  x={pos.x + 8}
-                  y={pos.y + 32}
-                  fill="white"
-                  fontSize={9}
-                  opacity={0.8}
-                >
-                  {node.kind} | {node.status || 'open'}
-                </text>
-                {node.is_blocker && (
-                  <text x={pos.x + nodeWidth - 8} y={pos.y + 14} fill="#fcd34d" fontSize={10} textAnchor="end">
-                    ⚠
-                  </text>
-                )}
-                {node.estimate_minutes && (
-                  <text x={pos.x + nodeWidth - 8} y={pos.y + nodeHeight - 8} fill="white" fontSize={9} textAnchor="end" opacity={0.7}>
-                    {node.estimate_minutes >= 60 ? `${Math.floor(node.estimate_minutes / 60)}h` : `${node.estimate_minutes}m`}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Arrow markers */}
-          <defs>
-            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 Z" fill="#9ca3af" />
-            </marker>
-            <marker id="arrowhead-critical" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 Z" fill="#ef4444" />
-            </marker>
-          </defs>
-        </svg>
-      </div>
-
-      {critical_path.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <h3 style={{ fontSize: 14, marginBottom: 8 }}>Critical Path</h3>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {critical_path.map((item, idx) => (
-              <React.Fragment key={item.id}>
-                <span
-                  style={{
-                    background: '#fef2f2',
-                    border: '1px solid #ef4444',
-                    borderRadius: 4,
-                    padding: '4px 8px',
-                    fontSize: 12,
-                  }}
-                >
-                  {item.title}
-                  {item.estimate_minutes && (
-                    <span style={{ marginLeft: 6, color: '#6b7280' }}>
-                      ({item.estimate_minutes >= 60 ? `${Math.floor(item.estimate_minutes / 60)}h` : `${item.estimate_minutes}m`})
-                    </span>
-                  )}
-                </span>
-                {idx < critical_path.length - 1 && <span style={{ color: '#9ca3af' }}>→</span>}
-              </React.Fragment>
-            ))}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Network className="size-5" />
+            Dependency Graph
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Zoom controls */}
+          <div className="mb-4 flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setZoom((z) => Math.min(3, z * 1.2))}>
+              Zoom In
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setZoom((z) => Math.max(0.2, z * 0.8))}>
+              Zoom Out
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
+              Reset
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Zoom: {Math.round(zoom * 100)}% | Drag to pan
+            </span>
           </div>
-          <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>
-            Total: {critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0)} minutes
-            ({Math.round(critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0) / 60 * 10) / 10} hours)
-          </p>
-        </div>
-      )}
 
-      <div style={{ marginTop: 16, fontSize: 12, color: '#6b7280' }}>
-        <strong>Legend:</strong>{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#3b82f6', borderRadius: 2, marginRight: 4 }}></span> Project{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#8b5cf6', borderRadius: 2, marginLeft: 12, marginRight: 4 }}></span> Initiative{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#10b981', borderRadius: 2, marginLeft: 12, marginRight: 4 }}></span> Epic{' '}
-        <span style={{ display: 'inline-block', width: 12, height: 12, background: '#6b7280', borderRadius: 2, marginLeft: 12, marginRight: 4 }}></span> Issue{' '}
-        <span style={{ marginLeft: 12 }}>⚠ = Blocker</span>{' '}
-        <span style={{ marginLeft: 12, color: '#ef4444' }}>━ = Critical Path</span>
-      </div>
-    </main>
+          {/* Graph */}
+          <div
+            className="rounded-lg border overflow-hidden cursor-grab active:cursor-grabbing select-none"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            <svg
+              width={900}
+              height={500}
+              viewBox={`${-pan.x / zoom} ${-pan.y / zoom} ${900 / zoom} ${500 / zoom}`}
+              className="font-sans text-xs bg-muted/20"
+            >
+              {/* Edges */}
+              {edges.map((edge) => {
+                const sourcePos = positions.get(edge.source);
+                const targetPos = positions.get(edge.target);
+                if (!sourcePos || !targetPos) return null;
+
+                const x1 = targetPos.x + nodeWidth;
+                const y1 = targetPos.y + nodeHeight / 2;
+                const x2 = sourcePos.x;
+                const y2 = sourcePos.y + nodeHeight / 2;
+
+                const isCritical = criticalPathIds.has(edge.source) && criticalPathIds.has(edge.target);
+
+                return (
+                  <line
+                    key={edge.id}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    className={isCritical ? 'stroke-destructive' : 'stroke-muted-foreground'}
+                    strokeWidth={isCritical ? 2.5 : 1.5}
+                    markerEnd={isCritical ? 'url(#arrowhead-critical)' : 'url(#arrowhead-normal)'}
+                  />
+                );
+              })}
+
+              {/* Nodes */}
+              {nodes.map((node) => {
+                const pos = positions.get(node.id);
+                if (!pos) return null;
+
+                const isCritical = criticalPathIds.has(node.id);
+                const isDone = node.status === 'done' || node.status === 'closed';
+                const colorClass = kindColors[node.kind] || 'bg-gray-500';
+
+                return (
+                  <g key={node.id}>
+                    <rect
+                      x={pos.x}
+                      y={pos.y}
+                      width={nodeWidth}
+                      height={nodeHeight}
+                      rx={8}
+                      className={`${isDone ? 'fill-muted' : colorClass} ${isDone ? 'opacity-50' : ''}`}
+                      stroke={isCritical ? '#ef4444' : node.is_blocker ? '#f59e0b' : 'transparent'}
+                      strokeWidth={isCritical ? 3 : node.is_blocker ? 2 : 0}
+                    />
+                    <text x={pos.x + 10} y={pos.y + 22} className="fill-white text-xs font-semibold">
+                      {node.title.length > 20 ? node.title.slice(0, 18) + '...' : node.title}
+                    </text>
+                    <text x={pos.x + 10} y={pos.y + 40} className="fill-white/80 text-[10px]">
+                      {node.kind} | {node.status || 'open'}
+                    </text>
+                    {node.is_blocker && (
+                      <text x={pos.x + nodeWidth - 20} y={pos.y + 18} className="fill-yellow-300 text-sm">
+                        !
+                      </text>
+                    )}
+                    {node.estimate_minutes && (
+                      <text x={pos.x + nodeWidth - 10} y={pos.y + nodeHeight - 10} className="fill-white/70 text-[9px]" textAnchor="end">
+                        {node.estimate_minutes >= 60 ? `${Math.floor(node.estimate_minutes / 60)}h` : `${node.estimate_minutes}m`}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              <defs>
+                <marker id="arrowhead-normal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                  <path d="M0,0 L8,4 L0,8 Z" className="fill-muted-foreground" />
+                </marker>
+                <marker id="arrowhead-critical" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                  <path d="M0,0 L8,4 L0,8 Z" className="fill-destructive" />
+                </marker>
+              </defs>
+            </svg>
+          </div>
+
+          {/* Critical Path */}
+          {critical_path.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-medium mb-3">Critical Path</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                {critical_path.map((item, idx) => (
+                  <React.Fragment key={item.id}>
+                    <Badge variant="outline" className="border-destructive text-destructive bg-destructive/10">
+                      {item.title}
+                      {item.estimate_minutes && (
+                        <span className="ml-2 text-muted-foreground">
+                          ({item.estimate_minutes >= 60 ? `${Math.floor(item.estimate_minutes / 60)}h` : `${item.estimate_minutes}m`})
+                        </span>
+                      )}
+                    </Badge>
+                    {idx < critical_path.length - 1 && <ChevronRight className="size-4 text-muted-foreground" />}
+                  </React.Fragment>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Total: {critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0)} minutes
+                ({Math.round(critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0) / 60 * 10) / 10} hours)
+              </p>
+            </div>
+          )}
+
+          {/* Legend */}
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <span className="font-medium">Legend:</span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-blue-500" /> Project
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-violet-500" /> Initiative
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-emerald-500" /> Epic
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-3 rounded bg-gray-500" /> Issue
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="text-yellow-500 font-bold">!</span> Blocker
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-0.5 w-4 bg-destructive" /> Critical Path
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-function useQueryParams(): URLSearchParams {
-  const [params, setParams] = useState(() => new URLSearchParams(window.location.search));
-
-  useEffect(() => {
-    const onPopState = (): void => setParams(new URLSearchParams(window.location.search));
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
-  return params;
-}
-
+// Kanban Page
 function KanbanPage(): React.JSX.Element {
   const queryParams = useQueryParams();
 
@@ -770,15 +969,28 @@ function KanbanPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter state from URL
   const [filters, setFilters] = useState({
     priority: queryParams.getAll('priority'),
     kind: queryParams.getAll('kind'),
   });
 
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   const statuses = ['open', 'blocked', 'closed'];
+  const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+    open: { label: 'To Do', color: 'text-blue-400', bgColor: 'from-blue-500/5 to-blue-500/0' },
+    blocked: { label: 'Blocked', color: 'text-amber-400', bgColor: 'from-amber-500/5 to-amber-500/0' },
+    closed: { label: 'Done', color: 'text-emerald-400', bgColor: 'from-emerald-500/5 to-emerald-500/0' },
+  };
+
+  const priorityConfig: Record<string, { color: string; bg: string }> = {
+    P0: { color: '#ef4444', bg: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    P1: { color: '#f97316', bg: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+    P2: { color: '#eab308', bg: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
+    P3: { color: '#22c55e', bg: 'bg-green-500/10 text-green-400 border-green-500/20' },
+    P4: { color: '#6b7280', bg: 'bg-gray-500/10 text-gray-400 border-gray-500/20' },
+  };
 
   const fetchItems = async () => {
     try {
@@ -808,7 +1020,6 @@ function KanbanPage(): React.JSX.Element {
   const updateFilters = (newFilters: typeof filters) => {
     setFilters(newFilters);
 
-    // Update URL
     const params = new URLSearchParams();
     newFilters.priority.forEach((p) => params.append('priority', p));
     newFilters.kind.forEach((k) => params.append('kind', k));
@@ -830,13 +1041,19 @@ function KanbanPage(): React.JSX.Element {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, status: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    setDragOverColumn(status);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
   };
 
   const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
+    setDragOverColumn(null);
     if (!draggedItem) return;
 
     const item = items.find((i) => i.id === draggedItem);
@@ -845,7 +1062,6 @@ function KanbanPage(): React.JSX.Element {
       return;
     }
 
-    // Optimistic update
     setItems((prev) =>
       prev.map((i) => (i.id === draggedItem ? { ...i, status: newStatus } : i))
     );
@@ -860,8 +1076,7 @@ function KanbanPage(): React.JSX.Element {
       if (!res.ok) {
         throw new Error('Failed to update status');
       }
-    } catch (err) {
-      // Revert on error
+    } catch {
       setItems((prev) =>
         prev.map((i) => (i.id === draggedItem ? { ...i, status: item.status } : i))
       );
@@ -871,208 +1086,307 @@ function KanbanPage(): React.JSX.Element {
     setDraggedItem(null);
   };
 
-  const priorityColors: Record<string, string> = {
-    P0: '#ef4444',
-    P1: '#f97316',
-    P2: '#eab308',
-    P3: '#22c55e',
-    P4: '#6b7280',
-  };
-
-  const kindLabels: Record<string, string> = {
-    project: 'P',
-    initiative: 'I',
-    epic: 'E',
-    issue: 'T',
+  const kindLabels: Record<string, { label: string; color: string }> = {
+    project: { label: 'P', color: 'bg-blue-500' },
+    initiative: { label: 'I', color: 'bg-violet-500' },
+    epic: { label: 'E', color: 'bg-emerald-500' },
+    issue: { label: 'T', color: 'bg-gray-500' },
   };
 
   return (
-    <main style={{ padding: 16 }}>
-      <p><a href="/app/work-items">← Back to Work items</a></p>
-      <h1>Kanban Board</h1>
-
-      {/* Filters */}
-      <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <span style={{ fontSize: 12, color: '#6b7280', marginRight: 8 }}>Priority:</span>
-          {['P0', 'P1', 'P2', 'P3', 'P4'].map((p) => (
-            <button
-              key={p}
-              onClick={() => toggleFilter('priority', p)}
-              style={{
-                marginRight: 4,
-                padding: '4px 8px',
-                fontSize: 11,
-                border: '1px solid #e5e7eb',
-                borderRadius: 4,
-                background: filters.priority.includes(p) ? priorityColors[p] : 'white',
-                color: filters.priority.includes(p) ? 'white' : '#374151',
-                cursor: 'pointer',
-              }}
-            >
-              {p}
-            </button>
-          ))}
+    <div className="h-full flex flex-col bg-gradient-to-br from-background to-muted/20">
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Kanban Board</h1>
+            <p className="text-sm text-muted-foreground mt-1">Drag cards to update status</p>
+          </div>
+          <Button variant="outline" size="sm" asChild className="border-border/50">
+            <a href="/app/work-items">
+              <List className="mr-2 size-4" />
+              List View
+            </a>
+          </Button>
         </div>
-        <div>
-          <span style={{ fontSize: 12, color: '#6b7280', marginRight: 8 }}>Kind:</span>
-          {['project', 'initiative', 'epic', 'issue'].map((k) => (
-            <button
-              key={k}
-              onClick={() => toggleFilter('kind', k)}
-              style={{
-                marginRight: 4,
-                padding: '4px 8px',
-                fontSize: 11,
-                border: '1px solid #e5e7eb',
-                borderRadius: 4,
-                background: filters.kind.includes(k) ? '#3b82f6' : 'white',
-                color: filters.kind.includes(k) ? 'white' : '#374151',
-                cursor: 'pointer',
-              }}
-            >
-              {k}
-            </button>
-          ))}
-        </div>
-        {(filters.priority.length > 0 || filters.kind.length > 0) && (
-          <button
-            onClick={() => updateFilters({ priority: [], kind: [] })}
-            style={{
-              padding: '4px 8px',
-              fontSize: 11,
-              border: '1px solid #e5e7eb',
-              borderRadius: 4,
-              background: 'white',
-              color: '#6b7280',
-              cursor: 'pointer',
-            }}
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-
-      {/* Kanban columns */}
-      <div style={{ display: 'flex', gap: 16, minHeight: 400 }}>
-        {statuses.map((status) => {
-          const columnItems = items.filter((i) => i.status === status);
-          return (
-            <div
-              key={status}
-              style={{
-                flex: 1,
-                background: '#f3f4f6',
-                borderRadius: 8,
-                padding: 12,
-                minWidth: 200,
-              }}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, status)}
-            >
-              <h3 style={{ margin: '0 0 12px 0', fontSize: 14, textTransform: 'capitalize' }}>
-                {status}
-                <span style={{ marginLeft: 8, color: '#6b7280', fontWeight: 'normal' }}>
-                  ({columnItems.length})
-                </span>
-              </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {columnItems.map((item) => (
-                  <div
-                    key={item.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, item.id)}
-                    style={{
-                      background: 'white',
-                      borderRadius: 6,
-                      padding: 10,
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                      cursor: 'grab',
-                      borderLeft: `3px solid ${priorityColors[item.priority] || '#6b7280'}`,
-                      opacity: draggedItem === item.id ? 0.5 : 1,
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <a
-                        href={`/app/work-items/${item.id}`}
-                        style={{ fontWeight: 500, fontSize: 13, color: '#111827', textDecoration: 'none' }}
-                      >
-                        {item.title.length > 30 ? item.title.slice(0, 28) + '…' : item.title}
-                      </a>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: '#e5e7eb',
-                          borderRadius: 3,
-                          padding: '2px 4px',
-                          color: '#374151',
-                        }}
-                      >
-                        {kindLabels[item.kind] || item.kind}
-                      </span>
-                    </div>
-                    <div style={{ marginTop: 6, fontSize: 11, color: '#6b7280', display: 'flex', gap: 8 }}>
-                      <span style={{ color: priorityColors[item.priority] || '#6b7280' }}>{item.priority}</span>
-                      {item.estimate_minutes && (
-                        <span>
-                          {item.estimate_minutes >= 60
-                            ? `${Math.floor(item.estimate_minutes / 60)}h`
-                            : `${item.estimate_minutes}m`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {columnItems.length === 0 && (
-                <p style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', margin: '20px 0' }}>
-                  No items
-                </p>
-              )}
+        {/* Filters */}
+        <div className="mt-4 flex flex-wrap gap-3 items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Priority</span>
+            <div className="flex gap-1">
+              {['P0', 'P1', 'P2', 'P3', 'P4'].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => toggleFilter('priority', p)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    filters.priority.includes(p)
+                      ? priorityConfig[p].bg + ' border'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
-          );
-        })}
+          </div>
+          <div className="h-4 w-px bg-border/50" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</span>
+            <div className="flex gap-1">
+              {(['project', 'initiative', 'epic', 'issue'] as const).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => toggleFilter('kind', k)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
+                    filters.kind.includes(k)
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <span className={`size-2 rounded-sm ${kindLabels[k].color}`} />
+                  {k.charAt(0).toUpperCase() + k.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(filters.priority.length > 0 || filters.kind.length > 0) && (
+            <>
+              <div className="h-4 w-px bg-border/50" />
+              <button
+                onClick={() => updateFilters({ priority: [], kind: [] })}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear all
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div style={{ marginTop: 16, fontSize: 12, color: '#6b7280' }}>
-        <strong>Tip:</strong> Drag and drop cards between columns to change status. Click card title to view details.
-      </div>
-    </main>
+      {loading && (
+        <div className="flex gap-4 flex-1 px-6 pb-6">
+          {statuses.map((s) => (
+            <div key={s} className="flex-1 rounded-xl bg-muted/30 animate-pulse min-h-[400px]" />
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="px-6">
+          <ErrorState
+            type="generic"
+            title="Failed to load board"
+            description={error}
+            onRetry={() => fetchItems()}
+          />
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="flex gap-4 flex-1 overflow-x-auto px-6 pb-6">
+          {statuses.map((status) => {
+            const columnItems = items.filter((i) => i.status === status);
+            const config = statusConfig[status];
+            const isOver = dragOverColumn === status;
+            return (
+              <div
+                key={status}
+                className={`flex-1 min-w-[300px] max-w-[380px] flex flex-col rounded-xl transition-all duration-200 ${
+                  isOver ? 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background' : ''
+                }`}
+                onDragOver={(e) => handleDragOver(e, status)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, status)}
+              >
+                {/* Column Header */}
+                <div className={`px-4 py-3 rounded-t-xl bg-gradient-to-b ${config.bgColor} border-b border-border/30`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`size-2 rounded-full ${
+                        status === 'open' ? 'bg-blue-400' : status === 'blocked' ? 'bg-amber-400' : 'bg-emerald-400'
+                      }`} />
+                      <h3 className="font-semibold text-sm">{config.label}</h3>
+                    </div>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      {columnItems.length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Column Content */}
+                <div className="flex-1 p-2 space-y-2 overflow-y-auto bg-muted/20 rounded-b-xl">
+                  {columnItems.map((item) => {
+                    const kindConfig = kindLabels[item.kind] || { label: '?', color: 'bg-gray-500' };
+                    const prioConfig = priorityConfig[item.priority] || priorityConfig.P4;
+                    return (
+                      <div
+                        key={item.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item.id)}
+                        className={`group bg-surface border border-border/50 rounded-lg p-3 cursor-grab active:cursor-grabbing transition-all duration-150 hover:border-border hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5 ${
+                          draggedItem === item.id ? 'opacity-50 scale-95' : ''
+                        }`}
+                        style={{ borderLeftWidth: 3, borderLeftColor: prioConfig.color }}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <a
+                              href={`/app/work-items/${item.id}`}
+                              className="font-medium text-sm text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug"
+                            >
+                              {item.title}
+                            </a>
+                          </div>
+                          <div className={`shrink-0 size-5 rounded flex items-center justify-center text-[10px] font-bold text-white ${kindConfig.color}`}>
+                            {kindConfig.label}
+                          </div>
+                        </div>
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${prioConfig.bg}`}>
+                            {item.priority}
+                          </span>
+                          {item.estimate_minutes && (
+                            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <Clock className="size-3" />
+                              {item.estimate_minutes >= 60
+                                ? `${Math.floor(item.estimate_minutes / 60)}h`
+                                : `${item.estimate_minutes}m`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {columnItems.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <div className="size-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+                        {status === 'open' ? <Circle className="size-5" /> : status === 'blocked' ? <AlertCircle className="size-5" /> : <CheckCircle2 className="size-5" />}
+                      </div>
+                      <span className="text-sm">No items</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
+// Not Found Page
 function NotFoundPage(props: { path: string }): React.JSX.Element {
   return (
-    <main style={{ padding: 16 }}>
-      <h1>Not found</h1>
-      <p>{props.path}</p>
-      <p>
-        <a href="/app/work-items">Go to work items</a>
-      </p>
-    </main>
+    <div className="p-6">
+      <EmptyState
+        variant="no-data"
+        title="Page Not Found"
+        description={`The page "${props.path}" does not exist.`}
+        actionLabel="Go to Work Items"
+        onAction={() => { window.location.href = '/app/work-items'; }}
+      />
+    </div>
   );
 }
 
+// Activity Page (placeholder for #131)
+function ActivityPage(): React.JSX.Element {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold text-foreground mb-4">Activity Feed</h1>
+      <Card>
+        <CardContent className="p-8">
+          <EmptyState
+            variant="no-data"
+            title="Activity Feed Coming Soon"
+            description="The activity feed will show recent updates across all work items."
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Global Timeline Page (placeholder for #134)
+function GlobalTimelinePage(): React.JSX.Element {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold text-foreground mb-4">Timeline</h1>
+      <Card>
+        <CardContent className="p-8">
+          <EmptyState
+            variant="no-data"
+            title="Global Timeline Coming Soon"
+            description="The timeline will show a Gantt view of all projects and their tasks."
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Contacts Page (placeholder for #133)
+function ContactsPage(): React.JSX.Element {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold text-foreground mb-4">People</h1>
+      <Card>
+        <CardContent className="p-8">
+          <EmptyState
+            variant="no-data"
+            title="Contacts Directory Coming Soon"
+            description="The contacts page will show your team members and collaborators."
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Route to sidebar section mapping
+const routeToSection: Record<string, string> = {
+  activity: 'activity',
+  list: 'projects',
+  kanban: 'projects',
+  detail: 'projects',
+  'item-timeline': 'projects',
+  graph: 'projects',
+  'global-timeline': 'timeline',
+  contacts: 'people',
+};
+
+// Main App with AppShell
 function App(): React.JSX.Element {
   const path = usePathname();
+  const bootstrap = readBootstrap();
 
   const route = useMemo(() => {
+    // New navigation routes (issue #129)
+    const activity = /^\/app\/activity\/?$/;
+    const globalTimeline = /^\/app\/timeline\/?$/;
+    const contacts = /^\/app\/contacts\/?$/;
+
+    // Existing routes
     const list = /^\/app\/work-items\/?$/;
     const detail = /^\/app\/work-items\/([^/]+)\/?$/;
-    const timeline = /^\/app\/work-items\/([^/]+)\/timeline\/?$/;
+    const itemTimeline = /^\/app\/work-items\/([^/]+)\/timeline\/?$/;
     const graph = /^\/app\/work-items\/([^/]+)\/graph\/?$/;
     const kanban = /^\/app\/kanban\/?$/;
 
+    // Match new routes first
+    if (activity.test(path)) return { kind: 'activity' as const };
+    if (globalTimeline.test(path)) return { kind: 'global-timeline' as const };
+    if (contacts.test(path)) return { kind: 'contacts' as const };
+
+    // Existing route matching
     if (list.test(path)) return { kind: 'list' as const };
     if (kanban.test(path)) return { kind: 'kanban' as const };
 
-    const t = path.match(timeline);
-    if (t) return { kind: 'timeline' as const, id: t[1] };
+    const t = path.match(itemTimeline);
+    if (t) return { kind: 'item-timeline' as const, id: t[1] };
 
     const g = path.match(graph);
     if (g) return { kind: 'graph' as const, id: g[1] };
@@ -1083,14 +1397,100 @@ function App(): React.JSX.Element {
     return { kind: 'not-found' as const, path };
   }, [path]);
 
-  if (route.kind === 'list') return <WorkItemsListPage />;
-  if (route.kind === 'kanban') return <KanbanPage />;
-  if (route.kind === 'timeline') return <TimelinePage id={route.id} />;
-  if (route.kind === 'graph') return <DependencyGraphPage id={route.id} />;
-  if (route.kind === 'detail') return <WorkItemDetailPage id={route.id} />;
-  return <NotFoundPage path={route.path} />;
+  // Derive activeSection from current route
+  const activeSection = useMemo(() => {
+    return routeToSection[route.kind] || 'projects';
+  }, [route.kind]);
+
+  const handleSectionChange = useCallback((section: string) => {
+    // Navigate to the correct route based on section
+    switch (section) {
+      case 'activity':
+        window.location.href = '/app/activity';
+        break;
+      case 'projects':
+        window.location.href = '/app/work-items';
+        break;
+      case 'timeline':
+        window.location.href = '/app/timeline';
+        break;
+      case 'people':
+        window.location.href = '/app/contacts';
+        break;
+      case 'search':
+        // Search opens command palette - handled by AppShell
+        break;
+      default:
+        window.location.href = '/app/work-items';
+    }
+  }, []);
+
+  const breadcrumbs: BreadcrumbItem[] = useMemo(() => {
+    // Set base crumb based on route
+    if (route.kind === 'activity') {
+      return [{ id: 'activity', label: 'Activity' }];
+    }
+
+    if (route.kind === 'global-timeline') {
+      return [{ id: 'timeline', label: 'Timeline' }];
+    }
+
+    if (route.kind === 'contacts') {
+      return [{ id: 'contacts', label: 'People' }];
+    }
+
+    // Work items routes
+    const crumbs: BreadcrumbItem[] = [
+      { id: 'work-items', label: 'Projects', href: '/app/work-items' },
+    ];
+
+    if (route.kind === 'kanban') {
+      crumbs.push({ id: 'kanban', label: 'Kanban Board' });
+    } else if (route.kind === 'detail') {
+      crumbs.push({ id: 'detail', label: bootstrap?.workItem?.title || route.id });
+    } else if (route.kind === 'item-timeline') {
+      crumbs.push(
+        { id: 'detail', label: bootstrap?.workItem?.title || route.id, href: `/app/work-items/${route.id}` },
+        { id: 'timeline', label: 'Timeline' }
+      );
+    } else if (route.kind === 'graph') {
+      crumbs.push(
+        { id: 'detail', label: bootstrap?.workItem?.title || route.id, href: `/app/work-items/${route.id}` },
+        { id: 'graph', label: 'Dependencies' }
+      );
+    }
+
+    return crumbs;
+  }, [route, bootstrap]);
+
+  const renderContent = () => {
+    // New navigation pages
+    if (route.kind === 'activity') return <ActivityPage />;
+    if (route.kind === 'global-timeline') return <GlobalTimelinePage />;
+    if (route.kind === 'contacts') return <ContactsPage />;
+
+    // Existing pages
+    if (route.kind === 'list') return <WorkItemsListPage />;
+    if (route.kind === 'kanban') return <KanbanPage />;
+    if (route.kind === 'item-timeline') return <TimelinePage id={route.id} />;
+    if (route.kind === 'graph') return <DependencyGraphPage id={route.id} />;
+    if (route.kind === 'detail') return <WorkItemDetailPage id={route.id} />;
+    return <NotFoundPage path={route.path} />;
+  };
+
+  return (
+    <AppShell
+      activeSection={activeSection}
+      onSectionChange={handleSectionChange}
+      breadcrumbs={breadcrumbs}
+      onHomeClick={() => { window.location.href = '/app/work-items'; }}
+    >
+      {renderContent()}
+    </AppShell>
+  );
 }
 
+// Mount the app
 const el = document.getElementById('root');
 if (!el) throw new Error('Missing #root element');
 

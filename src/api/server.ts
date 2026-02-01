@@ -7,14 +7,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from '../db.js';
 import { sendMagicLinkEmail } from '../email/magicLink.js';
-import {
-  renderDashboardHome,
-  renderInbox,
-  renderLogin,
-  renderWorkItemDetail,
-  renderWorkItemNew,
-  renderWorkItemsList,
-} from './dashboard.js';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -81,13 +73,143 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
     const email = await getSessionEmail(req);
     if (email) return email;
-    reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLogin());
+    reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLoginPage());
     return null;
+  }
+
+  function renderLoginPage(): string {
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in - clawdbot-projects</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body class="min-h-screen bg-background text-foreground font-sans">
+  <div class="flex min-h-screen flex-col items-center justify-center px-4">
+    <div class="w-full max-w-md">
+      <div class="mb-8 text-center">
+        <h1 class="text-3xl font-bold tracking-tight">clawdbot</h1>
+        <p class="mt-2 text-sm text-muted-foreground">Human-Agent Collaboration Workspace</p>
+      </div>
+      <div class="rounded-lg border border-border bg-surface p-6 shadow-sm">
+        <div class="mb-6">
+          <h2 class="text-xl font-semibold tracking-tight">Sign in</h2>
+          <p class="mt-1 text-sm text-muted-foreground">Enter your email to receive a magic link.</p>
+        </div>
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="sr-only" for="email">Email address</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              autocomplete="email"
+              required
+              class="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <button
+            type="submit"
+            class="h-10 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            Send magic link
+          </button>
+        </form>
+        <p id="message" class="mt-4 text-sm text-center hidden"></p>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const msg = document.getElementById('message');
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      try {
+        const res = await fetch('/api/auth/request-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = 'Check your email for the magic link!';
+          msg.className = 'mt-4 text-sm text-center text-success';
+        } else {
+          msg.textContent = data.error || 'Failed to send link';
+          msg.className = 'mt-4 text-sm text-center text-destructive';
+        }
+      } catch {
+        msg.textContent = 'Network error. Please try again.';
+        msg.className = 'mt-4 text-sm text-center text-destructive';
+      }
+      msg.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Send magic link';
+    });
+  </script>
+</body>
+</html>`;
   }
 
   app.get('/health', async () => ({ ok: true }));
 
   // New frontend (issue #52). These routes are protected by the existing dashboard session cookie.
+
+  // Issue #129: New navigation routes
+  app.get('/app/activity', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    const bootstrap = {
+      route: { kind: 'activity' },
+      me: { email },
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
+  });
+
+  app.get('/app/timeline', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    const bootstrap = {
+      route: { kind: 'timeline' },
+      me: { email },
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
+  });
+
+  app.get('/app/contacts', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    const bootstrap = {
+      route: { kind: 'contacts' },
+      me: { email },
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
+  });
+
   app.get('/app/kanban', async (req, reply) => {
     const email = await requireDashboardSession(req, reply);
     if (!email) return;
@@ -308,7 +430,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const accept = req.headers.accept || '';
       if (accept.includes('text/html')) {
-        return reply.redirect('/dashboard');
+        return reply.redirect('/app/work-items');
       }
 
       return reply.send({ ok: true });
@@ -460,40 +582,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.get('/dashboard', async (req, reply) => {
-    const email = await getSessionEmail(req);
-    const html = email ? renderDashboardHome({ email }) : renderLogin();
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(html);
+  // Legacy dashboard routes - redirect to new React app
+  app.get('/dashboard', async (_req, reply) => {
+    return reply.redirect('/app/work-items');
   });
 
-  app.get('/dashboard/inbox', async (req, reply) => {
-    const email = await requireDashboardSession(req, reply);
-    if (!email) return;
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderInbox({ email }));
-  });
-
-  app.get('/dashboard/work-items', async (req, reply) => {
-    const email = await requireDashboardSession(req, reply);
-    if (!email) return;
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderWorkItemsList({ email }));
-  });
-
-  app.get('/dashboard/work-items/new', async (req, reply) => {
-    const email = await requireDashboardSession(req, reply);
-    if (!email) return;
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderWorkItemNew({ email }));
-  });
-
-  app.get('/dashboard/work-items/:id', async (req, reply) => {
-    const email = await requireDashboardSession(req, reply);
-    if (!email) return;
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderWorkItemDetail({ email }));
+  app.get('/dashboard/*', async (_req, reply) => {
+    return reply.redirect('/app/work-items');
   });
   app.post('/api/work-items', async (req, reply) => {
     const body = req.body as {

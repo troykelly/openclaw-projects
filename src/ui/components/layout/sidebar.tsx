@@ -1,9 +1,7 @@
 import * as React from 'react';
 import { Bell, Folder, Calendar, Users, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
-import { Button } from '@/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
-import { Separator } from '@/ui/components/ui/separator';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 
 export interface NavItem {
@@ -19,7 +17,6 @@ const defaultNavItems: NavItem[] = [
   { id: 'projects', label: 'Projects', icon: Folder },
   { id: 'timeline', label: 'Timeline', icon: Calendar },
   { id: 'people', label: 'People', icon: Users },
-  { id: 'search', label: 'Search', icon: Search },
 ];
 
 export interface SidebarProps {
@@ -49,106 +46,117 @@ export function Sidebar({
         data-testid="sidebar"
         data-collapsed={collapsed}
         className={cn(
-          'flex h-full flex-col border-r border-border bg-surface transition-all duration-200',
-          collapsed ? 'w-16' : 'w-64',
+          'flex h-full flex-col border-r border-border/50 bg-gradient-to-b from-surface to-background transition-all duration-300 ease-out',
+          collapsed ? 'w-[68px]' : 'w-60',
           className
         )}
       >
         {/* Logo / Header */}
-        <div className="flex h-14 items-center justify-between px-4">
-          {!collapsed && (
-            <span className="text-lg font-semibold text-foreground">clawdbot</span>
-          )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleToggleCollapse}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={cn(collapsed && 'mx-auto')}
-          >
-            {collapsed ? (
-              <ChevronRight className="size-4" />
-            ) : (
-              <ChevronLeft className="size-4" />
+        <div className="flex h-14 items-center px-4">
+          <div className={cn('flex items-center gap-3', collapsed && 'justify-center w-full')}>
+            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-sm">
+              <span className="text-sm font-bold text-primary-foreground">C</span>
+            </div>
+            {!collapsed && (
+              <span className="text-base font-semibold tracking-tight text-foreground">clawdbot</span>
             )}
-          </Button>
+          </div>
+          {!collapsed && (
+            <button
+              onClick={handleToggleCollapse}
+              className="ml-auto flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+          )}
         </div>
 
-        <Separator />
-
         {/* Navigation Items */}
-        <ScrollArea className="flex-1 py-2">
-          <nav className="flex flex-col gap-1 px-2" role="navigation" aria-label="Main navigation">
+        <ScrollArea className="flex-1 px-3 py-4">
+          <nav className="flex flex-col gap-1" role="navigation" aria-label="Main navigation">
             {items.map((item) => {
               const Icon = item.icon;
               const isActive = activeItem === item.id;
 
-              const button = (
-                <Button
+              const navButton = (
+                <button
                   key={item.id}
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'justify-start gap-3',
-                    collapsed && 'justify-center px-0',
-                    isActive && 'bg-accent/10 text-accent'
-                  )}
                   onClick={() => {
                     item.onClick?.();
                     onItemClick?.(item);
                   }}
+                  className={cn(
+                    'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                    collapsed && 'justify-center px-0',
+                    isActive
+                      ? 'bg-primary/10 text-primary shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className="size-5 shrink-0" />
+                  <Icon className={cn(
+                    'size-[18px] shrink-0 transition-transform duration-150',
+                    !isActive && 'group-hover:scale-110'
+                  )} />
                   {!collapsed && <span>{item.label}</span>}
-                </Button>
+                </button>
               );
 
               if (collapsed) {
                 return (
                   <Tooltip key={item.id}>
-                    <TooltipTrigger asChild>{button}</TooltipTrigger>
-                    <TooltipContent side="right" className="font-medium">
+                    <TooltipTrigger asChild>{navButton}</TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8} className="font-medium">
                       {item.label}
                     </TooltipContent>
                   </Tooltip>
                 );
               }
 
-              return button;
+              return navButton;
             })}
           </nav>
         </ScrollArea>
 
         {/* Footer */}
-        <Separator />
-        <div className="p-2">
+        <div className="border-t border-border/50 p-3">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
+              <button
                 className={cn(
-                  'w-full justify-start gap-3 text-muted-foreground',
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
                   collapsed && 'justify-center px-0'
                 )}
                 onClick={() => onItemClick?.({ id: 'search', label: 'Search', icon: Search })}
               >
-                <Search className="size-5 shrink-0" />
+                <Search className="size-[18px] shrink-0" />
                 {!collapsed && (
-                  <span className="flex-1 text-left">
-                    Search...
-                    <kbd className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <span className="flex flex-1 items-center justify-between">
+                    <span>Search</span>
+                    <kbd className="hidden rounded border border-border/50 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
                       ⌘K
                     </kbd>
                   </span>
                 )}
-              </Button>
+              </button>
             </TooltipTrigger>
             {collapsed && (
-              <TooltipContent side="right" className="font-medium">
-                Search (⌘K)
+              <TooltipContent side="right" sideOffset={8} className="font-medium">
+                Search <kbd className="ml-1 text-[10px]">⌘K</kbd>
               </TooltipContent>
             )}
           </Tooltip>
+
+          {collapsed && (
+            <button
+              onClick={handleToggleCollapse}
+              className="mt-2 flex w-full items-center justify-center rounded-lg py-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Expand sidebar"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          )}
         </div>
       </aside>
     </TooltipProvider>
