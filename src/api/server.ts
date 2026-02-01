@@ -287,7 +287,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               kind,
               parent_id::text as parent_id,
               created_at,
-              updated_at
+              updated_at,
+              estimate_minutes,
+              actual_minutes
          FROM work_item
         ORDER BY created_at DESC
         LIMIT 50`
@@ -358,6 +360,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       description?: string | null;
       kind?: string;
       parentId?: string | null;
+      estimateMinutes?: number | null;
+      actualMinutes?: number | null;
     };
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
@@ -367,6 +371,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue']);
     if (!allowedKinds.has(kind)) {
       return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue' });
+    }
+
+    // Validate estimate/actual constraints before hitting DB
+    const estimateMinutes = body.estimateMinutes ?? null;
+    const actualMinutes = body.actualMinutes ?? null;
+
+    if (estimateMinutes !== null) {
+      if (typeof estimateMinutes !== 'number' || estimateMinutes < 0 || estimateMinutes > 525600) {
+        return reply.code(400).send({ error: 'estimateMinutes must be between 0 and 525600' });
+      }
+    }
+
+    if (actualMinutes !== null) {
+      if (typeof actualMinutes !== 'number' || actualMinutes < 0 || actualMinutes > 525600) {
+        return reply.code(400).send({ error: 'actualMinutes must be between 0 and 525600' });
+      }
     }
 
     const pool = createPool();
@@ -414,10 +434,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id)
-       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4)
-       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind]
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7)
+       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes`,
+      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes]
     );
     await pool.end();
 
@@ -514,7 +534,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               created_at,
               updated_at,
               not_before,
-              not_after
+              not_after,
+              estimate_minutes,
+              actual_minutes
          FROM work_item
         WHERE id = $1`,
       [params.id]
@@ -536,17 +558,35 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       notBefore?: string | null;
       notAfter?: string | null;
       parentId?: string | null;
+      estimateMinutes?: number | null;
+      actualMinutes?: number | null;
     };
 
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
     }
 
+    // Validate estimate/actual constraints before hitting DB
+    const estimateMinutesSpecified = Object.prototype.hasOwnProperty.call(body, 'estimateMinutes');
+    const actualMinutesSpecified = Object.prototype.hasOwnProperty.call(body, 'actualMinutes');
+
+    if (estimateMinutesSpecified && body.estimateMinutes !== null) {
+      if (typeof body.estimateMinutes !== 'number' || body.estimateMinutes < 0 || body.estimateMinutes > 525600) {
+        return reply.code(400).send({ error: 'estimateMinutes must be between 0 and 525600' });
+      }
+    }
+
+    if (actualMinutesSpecified && body.actualMinutes !== null) {
+      if (typeof body.actualMinutes !== 'number' || body.actualMinutes < 0 || body.actualMinutes > 525600) {
+        return reply.code(400).send({ error: 'actualMinutes must be between 0 and 525600' });
+      }
+    }
+
     const pool = createPool();
 
     // Fetch current row so we can validate hierarchy semantics on parent changes.
     const existing = await pool.query(
-      `SELECT kind, parent_id::text as parent_id
+      `SELECT kind, parent_id::text as parent_id, estimate_minutes, actual_minutes
          FROM work_item
         WHERE id = $1`,
       [params.id]
@@ -557,11 +597,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const { kind, parent_id: currentParentId } = existing.rows[0] as { kind: string; parent_id: string | null };
+    const {
+      kind,
+      parent_id: currentParentId,
+      estimate_minutes: currentEstimate,
+      actual_minutes: currentActual,
+    } = existing.rows[0] as {
+      kind: string;
+      parent_id: string | null;
+      estimate_minutes: number | null;
+      actual_minutes: number | null;
+    };
 
     // If parentId is omitted, keep the current value.
     const parentIdSpecified = Object.prototype.hasOwnProperty.call(body, 'parentId');
     const parentId = parentIdSpecified ? (body.parentId ?? null) : currentParentId;
+
+    // If estimate/actual not specified, keep current values.
+    const estimateMinutes = estimateMinutesSpecified ? (body.estimateMinutes ?? null) : currentEstimate;
+    const actualMinutes = actualMinutesSpecified ? (body.actualMinutes ?? null) : currentActual;
 
     // Validate parentId format early so we can return 4xx rather than a DB exception.
     if (parentId) {
@@ -618,11 +672,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               not_before = $7::timestamptz,
               not_after = $8::timestamptz,
               parent_id = $9,
+              estimate_minutes = $10,
+              actual_minutes = $11,
               updated_at = now()
         WHERE id = $1
       RETURNING id::text as id, title, description, status, priority::text as priority, task_type::text as task_type,
                 kind, parent_id::text as parent_id,
-                created_at, updated_at, not_before, not_after`,
+                created_at, updated_at, not_before, not_after, estimate_minutes, actual_minutes`,
       [
         params.id,
         body.title.trim(),
@@ -633,6 +689,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         body.notBefore ?? null,
         body.notAfter ?? null,
         parentId,
+        estimateMinutes,
+        actualMinutes,
       ]
     );
 
@@ -652,6 +710,61 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
     return reply.code(204).send();
+  });
+
+  app.get('/api/work-items/:id/rollup', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // First check if the work item exists and get its kind
+    const item = await pool.query(
+      `SELECT id, work_item_kind FROM work_item WHERE id = $1`,
+      [params.id]
+    );
+
+    if (item.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const kind = (item.rows[0] as { work_item_kind: string }).work_item_kind;
+
+    // Select the appropriate rollup view based on kind
+    let rollupView: string;
+    switch (kind) {
+      case 'project':
+        rollupView = 'work_item_rollup_project';
+        break;
+      case 'initiative':
+        rollupView = 'work_item_rollup_initiative';
+        break;
+      case 'epic':
+        rollupView = 'work_item_rollup_epic';
+        break;
+      default:
+        rollupView = 'work_item_rollup_issue';
+    }
+
+    const result = await pool.query(
+      `SELECT work_item_id::text as work_item_id,
+              total_estimate_minutes,
+              total_actual_minutes
+         FROM ${rollupView}
+        WHERE work_item_id = $1`,
+      [params.id]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      // The item exists but has no rollup (shouldn't happen, but handle gracefully)
+      return reply.send({
+        work_item_id: params.id,
+        total_estimate_minutes: null,
+        total_actual_minutes: null,
+      });
+    }
+
+    return reply.send(result.rows[0]);
   });
 
   app.get('/api/work-items/:id/dependencies', async (req, reply) => {
