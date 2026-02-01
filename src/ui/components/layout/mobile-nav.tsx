@@ -28,9 +28,11 @@ export function MobileNav({
     <nav
       data-testid="mobile-nav"
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 flex h-16 items-center justify-around border-t border-border bg-surface md:hidden',
+        'fixed inset-x-0 bottom-0 z-50 h-16 items-center justify-around border-t border-border bg-surface/95 backdrop-blur-sm',
+        'flex md:!hidden', // Force hide on desktop
         className
       )}
+      style={{ display: 'var(--mobile-nav-display, flex)' }}
       role="navigation"
       aria-label="Mobile navigation"
     >
@@ -47,13 +49,13 @@ export function MobileNav({
               onItemClick?.(item);
             }}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors',
-              isActive && 'text-accent'
+              'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
+              isActive && 'text-primary'
             )}
             aria-current={isActive ? 'page' : undefined}
           >
             <Icon className="size-5" />
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className="text-[10px] font-medium">{item.label}</span>
           </button>
         );
       })}

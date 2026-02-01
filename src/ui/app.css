@@ -95,10 +95,22 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   code, pre, kbd, samp {
     font-family: var(--font-mono);
+  }
+
+  /* Hide mobile nav on desktop */
+  @media (min-width: 768px) {
+    [data-testid="mobile-nav"] {
+      display: none !important;
+    }
+    :root {
+      --mobile-nav-display: none;
+    }
   }
 }
 
