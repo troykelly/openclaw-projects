@@ -14,6 +14,10 @@ import { ItemMemories } from '@/ui/components/memory/item-memories';
 import { MemoryEditor } from '@/ui/components/memory/memory-editor';
 import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
 
+// Communications components
+import { ItemCommunications } from '@/ui/components/communications/item-communications';
+import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
+
 // Feedback components
 import {
   Skeleton,
@@ -471,6 +475,96 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
     setMemoryEditorOpen(true);
   };
 
+  // Communications state
+  const [emails, setEmails] = useState<LinkedEmail[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<LinkedCalendarEvent[]>([]);
+  const [communicationsLoading, setCommunicationsLoading] = useState(true);
+
+  // API response type for communications
+  type ApiCommunication = {
+    id: string;
+    thread_id: string;
+    body: string | null;
+    direction: string;
+    received_at: string | null;
+    raw: unknown;
+  };
+
+  // Fetch communications
+  const fetchCommunications = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/work-items/${props.id}/communications`, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        emails: ApiCommunication[];
+        calendar_events: ApiCommunication[];
+      };
+      // Map API response to component types
+      setEmails(
+        data.emails.map((e) => ({
+          id: e.id,
+          subject: 'Email', // API doesn't provide subject
+          from: { name: 'Unknown', email: '' },
+          to: [],
+          date: e.received_at ? new Date(e.received_at) : new Date(),
+          snippet: e.body?.substring(0, 100) || '',
+          body: e.body || undefined,
+        }))
+      );
+      setCalendarEvents(
+        data.calendar_events.map((e) => ({
+          id: e.id,
+          title: 'Calendar Event',
+          startTime: e.received_at ? new Date(e.received_at) : new Date(),
+          endTime: e.received_at ? new Date(e.received_at) : new Date(),
+          attendees: [],
+        }))
+      );
+    } catch {
+      // Silently fail
+    } finally {
+      setCommunicationsLoading(false);
+    }
+  }, [props.id]);
+
+  useEffect(() => {
+    fetchCommunications();
+  }, [fetchCommunications]);
+
+  // Unlink email
+  const handleUnlinkEmail = async (email: LinkedEmail) => {
+    if (!confirm('Unlink this email from the work item?')) return;
+    try {
+      // The API uses thread_id as commId - we need to find the thread_id
+      // Since we only have the message id, we'll use it as the key
+      const res = await fetch(`/api/work-items/${props.id}/communications/${email.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok || res.status === 204) {
+        fetchCommunications();
+      }
+    } catch {
+      // Handle error
+    }
+  };
+
+  // Unlink calendar event
+  const handleUnlinkEvent = async (event: LinkedCalendarEvent) => {
+    if (!confirm('Unlink this event from the work item?')) return;
+    try {
+      const res = await fetch(`/api/work-items/${props.id}/communications/${event.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok || res.status === 204) {
+        fetchCommunications();
+      }
+    } catch {
+      // Handle error
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-4">
@@ -530,6 +624,25 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
         onOpenChange={setMemoryEditorOpen}
         onSubmit={editingMemory ? handleUpdateMemory : handleCreateMemory}
       />
+
+      {/* Communications Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">Communications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {communicationsLoading ? (
+            <Skeleton width="100%" height={100} />
+          ) : (
+            <ItemCommunications
+              emails={emails}
+              calendarEvents={calendarEvents}
+              onUnlinkEmail={handleUnlinkEmail}
+              onUnlinkEvent={handleUnlinkEvent}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
