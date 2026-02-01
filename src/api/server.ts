@@ -2289,6 +2289,93 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.code(201).send(inserted.rows[0]);
   });
 
+  // Global Memory API (issue #120)
+  // GET /api/memory - List all memory items with pagination and search
+  app.get('/api/memory', async (req, reply) => {
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      search?: string;
+      type?: string;
+      linkedItemKind?: string;
+    };
+
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+    const search = query.search?.trim() || null;
+    const typeFilter = query.type || null;
+    const kindFilter = query.linkedItemKind || null;
+
+    const pool = createPool();
+
+    // Build dynamic query
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (search) {
+      conditions.push(`(m.title ILIKE $${paramIndex} OR m.content ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (typeFilter) {
+      conditions.push(`m.memory_type::text = $${paramIndex}`);
+      params.push(typeFilter);
+      paramIndex++;
+    }
+
+    if (kindFilter) {
+      conditions.push(`wi.work_item_kind = $${paramIndex}`);
+      params.push(kindFilter);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Get total count
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM work_item_memory m
+       JOIN work_item wi ON wi.id = m.work_item_id
+       ${whereClause}`,
+      params
+    );
+    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+    // Get paginated results
+    params.push(limit);
+    params.push(offset);
+
+    const result = await pool.query(
+      `SELECT m.id::text as id,
+              m.title,
+              m.content,
+              m.memory_type::text as type,
+              m.work_item_id::text as "linkedItemId",
+              wi.title as "linkedItemTitle",
+              wi.work_item_kind as "linkedItemKind",
+              m.created_at as "createdAt",
+              m.updated_at as "updatedAt"
+         FROM work_item_memory m
+         JOIN work_item wi ON wi.id = m.work_item_id
+        ${whereClause}
+        ORDER BY m.created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      params
+    );
+
+    await pool.end();
+
+    const hasMore = offset + result.rows.length < total;
+
+    return reply.send({
+      items: result.rows,
+      total,
+      hasMore,
+    });
+  });
+
   // Memory Items API (issue #138)
   // GET /api/work-items/:id/memories - List memories for a work item
   app.get('/api/work-items/:id/memories', async (req, reply) => {
