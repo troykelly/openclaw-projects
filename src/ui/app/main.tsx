@@ -28,6 +28,10 @@ import type {
   WorkItemDependency,
 } from '@/ui/components/detail/types';
 
+// Tree components
+import { ProjectTree } from '@/ui/components/tree/project-tree';
+import type { TreeItem, TreeItemKind } from '@/ui/components/tree/types';
+
 // Feedback components
 import {
   Skeleton,
@@ -55,6 +59,9 @@ import {
   CheckCircle2,
   Circle,
   BarChart3,
+  FolderTree,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 
 // Types
@@ -216,9 +223,35 @@ const kindColors: Record<string, string> = {
 };
 
 // Work Items List Page
+// API tree response type
+type ApiTreeItem = {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  priority: string;
+  parent_id: string | null;
+  children_count: number;
+  children: ApiTreeItem[];
+};
+
+// Map API tree to component tree items
+function mapApiTreeToTreeItems(apiItems: ApiTreeItem[]): TreeItem[] {
+  return apiItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    kind: item.kind as TreeItemKind,
+    status: item.status as 'not_started' | 'in_progress' | 'blocked' | 'done' | 'cancelled',
+    parentId: item.parent_id,
+    childCount: item.children_count,
+    children: item.children.length > 0 ? mapApiTreeToTreeItems(item.children) : undefined,
+  }));
+}
+
 function WorkItemsListPage(): React.JSX.Element {
   const bootstrap = readBootstrap();
 
+  // List state
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'error'; message: string }
@@ -228,6 +261,36 @@ function WorkItemsListPage(): React.JSX.Element {
     if (items && items.length > 0) return { kind: 'loaded', items };
     return { kind: 'loading' };
   });
+
+  // Tree state
+  const [treeItems, setTreeItems] = useState<TreeItem[]>([]);
+  const [treeLoading, setTreeLoading] = useState(true);
+  const [treePanelOpen, setTreePanelOpen] = useState(true);
+
+  // Fetch tree data
+  const fetchTree = useCallback(async () => {
+    try {
+      const res = await fetch('/api/work-items/tree', {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { items: ApiTreeItem[] };
+      setTreeItems(mapApiTreeToTreeItems(data.items));
+    } catch {
+      // Silently fail
+    } finally {
+      setTreeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTree();
+  }, [fetchTree]);
+
+  // Navigate to item
+  const handleTreeSelect = (id: string) => {
+    window.location.href = `/app/work-items/${id}`;
+  };
 
   useEffect(() => {
     if (state.kind === 'loaded') return;
@@ -297,76 +360,127 @@ function WorkItemsListPage(): React.JSX.Element {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Work Items</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <a href="/app/kanban">
-              <LayoutGrid className="mr-2 size-4" />
-              Kanban Board
-            </a>
-          </Button>
+    <div className="flex h-full">
+      {/* Project Tree Panel */}
+      <div
+        className={`border-r bg-muted/30 transition-all duration-300 ${
+          treePanelOpen ? 'w-64' : 'w-0 overflow-hidden'
+        }`}
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between border-b p-3">
+            <div className="flex items-center gap-2">
+              <FolderTree className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Projects</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTreePanelOpen(false)}
+              className="size-7 p-0"
+            >
+              <PanelLeftClose className="size-4" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {treeLoading ? (
+              <div className="p-4">
+                <Skeleton width="100%" height={200} />
+              </div>
+            ) : (
+              <ProjectTree
+                items={treeItems}
+                onSelect={handleTreeSelect}
+              />
+            )}
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Title</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Priority</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {state.items.map((item) => (
-                  <tr key={item.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <a
-                        href={`/app/work-items/${encodeURIComponent(item.id)}`}
-                        className="font-medium text-foreground hover:text-primary transition-colors"
-                      >
-                        {item.title}
-                      </a>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {statusIcons[item.status ?? 'open'] ?? statusIcons.open}
-                        <span className="text-sm capitalize">{item.status ?? 'open'}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {item.priority && (
-                        <Badge className={priorityColors[item.priority] ?? 'bg-gray-500'}>
-                          {item.priority}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={`/app/work-items/${encodeURIComponent(item.id)}/timeline`}>
-                            <Calendar className="size-4" />
-                          </a>
-                        </Button>
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={`/app/work-items/${encodeURIComponent(item.id)}/graph`}>
-                            <Network className="size-4" />
-                          </a>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {!treePanelOpen && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTreePanelOpen(true)}
+              >
+                <PanelLeft className="mr-2 size-4" />
+                Show Tree
+              </Button>
+            )}
+            <h1 className="text-2xl font-semibold text-foreground">Work Items</h1>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <a href="/app/kanban">
+                <LayoutGrid className="mr-2 size-4" />
+                Kanban Board
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Title</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Priority</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {state.items.map((item) => (
+                    <tr key={item.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <a
+                          href={`/app/work-items/${encodeURIComponent(item.id)}`}
+                          className="font-medium text-foreground hover:text-primary transition-colors"
+                        >
+                          {item.title}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {statusIcons[item.status ?? 'open'] ?? statusIcons.open}
+                          <span className="text-sm capitalize">{item.status ?? 'open'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.priority && (
+                          <Badge className={priorityColors[item.priority] ?? 'bg-gray-500'}>
+                            {item.priority}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={`/app/work-items/${encodeURIComponent(item.id)}/timeline`}>
+                              <Calendar className="size-4" />
+                            </a>
+                          </Button>
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={`/app/work-items/${encodeURIComponent(item.id)}/graph`}>
+                              <Network className="size-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
