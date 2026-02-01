@@ -449,6 +449,65 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ email });
   });
 
+  // Activity Feed API (issue #130)
+  app.get('/api/activity', async (req, reply) => {
+    const query = req.query as { limit?: string; offset?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT a.id::text as id,
+              a.activity_type::text as type,
+              a.work_item_id::text as work_item_id,
+              w.title as work_item_title,
+              a.actor_email,
+              a.description,
+              a.created_at
+         FROM work_item_activity a
+         JOIN work_item w ON w.id = a.work_item_id
+        ORDER BY a.created_at DESC
+        LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    await pool.end();
+    return reply.send({ items: result.rows });
+  });
+
+  app.get('/api/work-items/:id/activity', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { limit?: string; offset?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const result = await pool.query(
+      `SELECT a.id::text as id,
+              a.activity_type::text as type,
+              a.work_item_id::text as work_item_id,
+              w.title as work_item_title,
+              a.actor_email,
+              a.description,
+              a.created_at
+         FROM work_item_activity a
+         JOIN work_item w ON w.id = a.work_item_id
+        WHERE a.work_item_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT $2 OFFSET $3`,
+      [params.id, limit, offset]
+    );
+    await pool.end();
+    return reply.send({ items: result.rows });
+  });
+
   app.get('/api/work-items', async (_req, reply) => {
     const pool = createPool();
     const result = await pool.query(
@@ -552,11 +611,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       RETURNING id::text as id, title, status, priority::text as priority, updated_at`,
       [params.id, body.status]
     );
-    await pool.end();
 
     if (result.rows.length === 0) {
+      await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
+
+    const workItem = result.rows[0] as { id: string; title: string; status: string };
+
+    // Record activity
+    await pool.query(
+      `INSERT INTO work_item_activity (work_item_id, activity_type, description)
+       VALUES ($1, 'status_change', $2)`,
+      [workItem.id, `Status changed to ${workItem.status}`]
+    );
+
+    await pool.end();
 
     return reply.send(result.rows[0]);
   });
@@ -675,6 +745,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes`,
       [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes]
     );
+
+    const workItem = result.rows[0] as { id: string; title: string };
+
+    // Record activity
+    await pool.query(
+      `INSERT INTO work_item_activity (work_item_id, activity_type, description)
+       VALUES ($1, 'created', $2)`,
+      [workItem.id, `Created work item: ${workItem.title}`]
+    );
+
     await pool.end();
 
     return reply.code(201).send(result.rows[0]);
@@ -934,6 +1014,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
+
+    const workItem = result.rows[0] as { id: string; title: string };
+
+    // Record activity
+    await pool.query(
+      `INSERT INTO work_item_activity (work_item_id, activity_type, description)
+       VALUES ($1, 'updated', $2)`,
+      [workItem.id, `Updated work item: ${workItem.title}`]
+    );
 
     await pool.end();
     return reply.send(result.rows[0]);
