@@ -2874,6 +2874,58 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send({ emails, calendar_events: calendarEvents });
   });
 
+  // GET /api/work-items/:id/emails - List linked emails for a work item (issue #124)
+  app.get('/api/work-items/:id/emails', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Get emails linked to this work item via work_item_communication
+    const result = await pool.query(
+      `SELECT em.id::text as id,
+              em.body,
+              em.raw,
+              em.received_at
+         FROM work_item_communication wic
+         JOIN external_thread et ON et.id = wic.thread_id
+         JOIN external_message em ON em.id = wic.message_id
+        WHERE wic.work_item_id = $1
+          AND et.channel = 'email'
+        ORDER BY em.received_at DESC`,
+      [params.id]
+    );
+
+    const emails = result.rows.map((row) => {
+      const r = row as {
+        id: string;
+        body: string | null;
+        raw: Record<string, unknown>;
+        received_at: Date;
+      };
+      const raw = r.raw ?? {};
+      return {
+        id: r.id,
+        subject: (raw.subject as string) ?? null,
+        from: (raw.from as string) ?? null,
+        to: (raw.to as string) ?? null,
+        date: r.received_at?.toISOString() ?? null,
+        snippet: (raw.snippet as string) ?? null,
+        body: r.body,
+        hasAttachments: (raw.hasAttachments as boolean) ?? false,
+        isRead: (raw.isRead as boolean) ?? false,
+      };
+    });
+
+    await pool.end();
+    return reply.send({ emails });
+  });
+
   // POST /api/work-items/:id/communications - Link a communication to a work item
   app.post('/api/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
