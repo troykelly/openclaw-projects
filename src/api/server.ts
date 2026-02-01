@@ -2926,6 +2926,60 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send({ emails });
   });
 
+  // GET /api/work-items/:id/calendar - List linked calendar events for a work item (issue #125)
+  app.get('/api/work-items/:id/calendar', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (exists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Get calendar events linked to this work item
+    // Filter by raw->type = 'calendar_event' to distinguish from regular messages
+    const result = await pool.query(
+      `SELECT em.id::text as id,
+              em.body,
+              em.raw,
+              em.received_at
+         FROM work_item_communication wic
+         JOIN external_thread et ON et.id = wic.thread_id
+         JOIN external_message em ON em.id = wic.message_id
+        WHERE wic.work_item_id = $1
+          AND (em.raw->>'type') = 'calendar_event'
+        ORDER BY (em.raw->>'startTime') ASC`,
+      [params.id]
+    );
+
+    const events = result.rows.map((row) => {
+      const r = row as {
+        id: string;
+        body: string | null;
+        raw: Record<string, unknown>;
+        received_at: Date;
+      };
+      const raw = r.raw ?? {};
+      return {
+        id: r.id,
+        title: (raw.title as string) ?? null,
+        description: (raw.description as string) ?? null,
+        startTime: (raw.startTime as string) ?? null,
+        endTime: (raw.endTime as string) ?? null,
+        isAllDay: (raw.isAllDay as boolean) ?? false,
+        location: (raw.location as string) ?? null,
+        attendees: (raw.attendees as Array<{ email: string; name?: string; status?: string }>) ?? [],
+        organizer: (raw.organizer as { email: string; name?: string }) ?? null,
+        meetingLink: (raw.meetingLink as string) ?? null,
+      };
+    });
+
+    await pool.end();
+    return reply.send({ events });
+  });
+
   // POST /api/work-items/:id/communications - Link a communication to a work item
   app.post('/api/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
