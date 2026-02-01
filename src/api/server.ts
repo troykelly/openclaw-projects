@@ -1092,6 +1092,114 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send(result.rows[0]);
   });
 
+  // GET /api/search - Unified search API endpoint
+  app.get('/api/search', async (req, reply) => {
+    const query = req.query as {
+      q?: string;
+      type?: string;
+      limit?: string;
+    };
+
+    const searchTerm = query.q?.trim() || '';
+    const limit = Math.min(parseInt(query.limit || '20', 10), 100);
+    const types = query.type?.split(',').map(t => t.trim()).filter(t => t) || ['work_item', 'contact'];
+
+    const pool = createPool();
+    const results: Array<{
+      type: string;
+      id: string;
+      title: string;
+      description: string;
+      url: string;
+    }> = [];
+    let total = 0;
+
+    // If no search term, return empty results
+    if (!searchTerm) {
+      await pool.end();
+      return reply.send({ results: [], total: 0 });
+    }
+
+    const searchPattern = `%${searchTerm}%`;
+
+    // Search work items
+    if (types.includes('work_item')) {
+      const workItemsResult = await pool.query(
+        `SELECT id::text as id, title, COALESCE(description, '') as description
+         FROM work_item
+         WHERE title ILIKE $1 OR description ILIKE $1
+         ORDER BY updated_at DESC
+         LIMIT $2`,
+        [searchPattern, limit]
+      );
+
+      const workItemCountResult = await pool.query(
+        `SELECT COUNT(*) as count
+         FROM work_item
+         WHERE title ILIKE $1 OR description ILIKE $1`,
+        [searchPattern]
+      );
+
+      workItemsResult.rows.forEach((row: { id: string; title: string; description: string }) => {
+        results.push({
+          type: 'work_item',
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          url: `/app/work-items/${row.id}`,
+        });
+      });
+
+      total += parseInt((workItemCountResult.rows[0] as { count: string }).count, 10);
+    }
+
+    // Search contacts
+    if (types.includes('contact')) {
+      const contactsResult = await pool.query(
+        `SELECT DISTINCT c.id::text as id, c.display_name,
+                COALESCE(
+                  (SELECT string_agg(ce.endpoint_value, ', ')
+                   FROM contact_endpoint ce
+                   WHERE ce.contact_id = c.id),
+                  ''
+                ) as endpoints
+         FROM contact c
+         LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+         WHERE c.display_name ILIKE $1 OR ce.endpoint_value ILIKE $1
+         ORDER BY c.display_name
+         LIMIT $2`,
+        [searchPattern, limit]
+      );
+
+      const contactCountResult = await pool.query(
+        `SELECT COUNT(DISTINCT c.id) as count
+         FROM contact c
+         LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+         WHERE c.display_name ILIKE $1 OR ce.endpoint_value ILIKE $1`,
+        [searchPattern]
+      );
+
+      contactsResult.rows.forEach((row: { id: string; display_name: string; endpoints: string }) => {
+        results.push({
+          type: 'contact',
+          id: row.id,
+          title: row.display_name,
+          description: row.endpoints,
+          url: `/app/contacts/${row.id}`,
+        });
+      });
+
+      total += parseInt((contactCountResult.rows[0] as { count: string }).count, 10);
+    }
+
+    await pool.end();
+
+    // Limit results if searching both types
+    const limitedResults = results.slice(0, limit);
+
+    return reply.send({ results: limitedResults, total });
+  });
+
   // GET /api/timeline - Global timeline endpoint
   app.get('/api/timeline', async (req, reply) => {
     const query = req.query as {
