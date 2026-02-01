@@ -2980,6 +2980,158 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send({ events });
   });
 
+  // Email Linking API (issue #126)
+  // POST /api/work-items/:id/emails - Link an email to a work item
+  app.post('/api/work-items/:id/emails', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { emailId?: string };
+
+    if (!body?.emailId) {
+      return reply.code(400).send({ error: 'emailId is required' });
+    }
+
+    const pool = createPool();
+
+    // Check if work item exists
+    const wiExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (wiExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'work item not found' });
+    }
+
+    // Check if email message exists and get its thread
+    const emailExists = await pool.query(
+      'SELECT thread_id FROM external_message WHERE id = $1',
+      [body.emailId]
+    );
+    if (emailExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'email not found' });
+    }
+    const threadId = (emailExists.rows[0] as { thread_id: string }).thread_id;
+
+    // Create the link (upsert to handle existing links)
+    await pool.query(
+      `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
+       VALUES ($1, $2, $3, 'reply_required')
+       ON CONFLICT (work_item_id) DO UPDATE
+         SET thread_id = EXCLUDED.thread_id,
+             message_id = EXCLUDED.message_id`,
+      [params.id, threadId, body.emailId]
+    );
+
+    await pool.end();
+    return reply.code(201).send({
+      workItemId: params.id,
+      emailId: body.emailId,
+    });
+  });
+
+  // DELETE /api/work-items/:id/emails/:emailId - Unlink an email from a work item
+  app.delete('/api/work-items/:id/emails/:emailId', async (req, reply) => {
+    const params = req.params as { id: string; emailId: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const wiExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (wiExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Delete the link
+    const result = await pool.query(
+      `DELETE FROM work_item_communication
+       WHERE work_item_id = $1 AND message_id = $2
+       RETURNING work_item_id::text`,
+      [params.id, params.emailId]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
+  // Calendar Event Linking API (issue #126)
+  // POST /api/work-items/:id/calendar - Link a calendar event to a work item
+  app.post('/api/work-items/:id/calendar', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { eventId?: string };
+
+    if (!body?.eventId) {
+      return reply.code(400).send({ error: 'eventId is required' });
+    }
+
+    const pool = createPool();
+
+    // Check if work item exists
+    const wiExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (wiExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'work item not found' });
+    }
+
+    // Check if event message exists and get its thread
+    const eventExists = await pool.query(
+      'SELECT thread_id FROM external_message WHERE id = $1',
+      [body.eventId]
+    );
+    if (eventExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(400).send({ error: 'event not found' });
+    }
+    const threadId = (eventExists.rows[0] as { thread_id: string }).thread_id;
+
+    // Create the link (upsert to handle existing links)
+    await pool.query(
+      `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
+       VALUES ($1, $2, $3, 'follow_up')
+       ON CONFLICT (work_item_id) DO UPDATE
+         SET thread_id = EXCLUDED.thread_id,
+             message_id = EXCLUDED.message_id`,
+      [params.id, threadId, body.eventId]
+    );
+
+    await pool.end();
+    return reply.code(201).send({
+      workItemId: params.id,
+      eventId: body.eventId,
+    });
+  });
+
+  // DELETE /api/work-items/:id/calendar/:eventId - Unlink a calendar event from a work item
+  app.delete('/api/work-items/:id/calendar/:eventId', async (req, reply) => {
+    const params = req.params as { id: string; eventId: string };
+    const pool = createPool();
+
+    // Check if work item exists
+    const wiExists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
+    if (wiExists.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    // Delete the link
+    const result = await pool.query(
+      `DELETE FROM work_item_communication
+       WHERE work_item_id = $1 AND message_id = $2
+       RETURNING work_item_id::text`,
+      [params.id, params.eventId]
+    );
+
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    return reply.code(204).send();
+  });
+
   // POST /api/work-items/:id/communications - Link a communication to a work item
   app.post('/api/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
