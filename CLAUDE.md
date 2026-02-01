@@ -27,6 +27,13 @@ If you have not read them in this environment, stop and read them.
   - PR title should begin with `[#NN]`.
   - PR body must include `Closes #NN`.
 
+- **No deferred work without tracking**
+  - If you skip, defer, or TODO any work while completing an issue, you MUST create NEW GitHub issues for that work.
+  - New issues MUST be in the same epic as the originating issue.
+  - New issues MUST reference the originating issue (e.g., "Related to #85" or "Spun off from #85").
+  - NEVER document future work only in the current issue's PR or comments—it will be lost when the issue closes.
+  - Examples: API endpoints a UI component will need, follow-up refactors, known limitations to address later.
+
 - **TDD + real verification**
   - Write failing tests first.
   - Run tests locally before pushing.
