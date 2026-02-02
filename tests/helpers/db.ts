@@ -63,6 +63,8 @@ const APPLICATION_TABLES = [
   'internal_job',
   // File storage
   'file_attachment',
+  // Embedding settings
+  'embedding_usage',
   // Parents
   'memory',
   'work_item_memory',

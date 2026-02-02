@@ -1370,6 +1370,59 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Embedding Settings API (issue #231)
+  app.get('/api/settings/embeddings', async (req, reply) => {
+    const pool = createPool();
+    try {
+      const { getEmbeddingSettings } = await import('./embeddings/settings.js');
+      const settings = await getEmbeddingSettings(pool);
+      return reply.send(settings);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  app.patch('/api/settings/embeddings', async (req, reply) => {
+    const body = req.body as {
+      dailyLimitUsd?: number;
+      monthlyLimitUsd?: number;
+      pauseOnLimit?: boolean;
+    };
+
+    // Validate limits
+    if (body.dailyLimitUsd !== undefined) {
+      if (body.dailyLimitUsd < 0 || body.dailyLimitUsd > 10000) {
+        return reply.code(400).send({
+          error: 'dailyLimitUsd must be between 0 and 10000',
+        });
+      }
+    }
+
+    if (body.monthlyLimitUsd !== undefined) {
+      if (body.monthlyLimitUsd < 0 || body.monthlyLimitUsd > 100000) {
+        return reply.code(400).send({
+          error: 'monthlyLimitUsd must be between 0 and 100000',
+        });
+      }
+    }
+
+    const pool = createPool();
+    try {
+      const { updateBudgetSettings, getEmbeddingSettings } = await import('./embeddings/settings.js');
+      await updateBudgetSettings(pool, body);
+      const settings = await getEmbeddingSettings(pool);
+      return reply.send(settings);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  app.post('/api/settings/embeddings/test', async (req, reply) => {
+    const { testProviderConnection } = await import('./embeddings/settings.js');
+    const result = await testProviderConnection();
+    return reply.send(result);
+  });
+
   // Activity Feed API (issue #130)
   app.get('/api/activity', async (req, reply) => {
     const query = req.query as {
