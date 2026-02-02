@@ -36,6 +36,8 @@ export function createTestPool(): Pool {
  */
 const APPLICATION_TABLES = [
   // FK children first
+  'memory_contact',
+  'memory_relationship',
   'work_item_external_link',
   'work_item_communication',
   'work_item_contact',
@@ -55,6 +57,7 @@ const APPLICATION_TABLES = [
   'webhook_outbox',
   'internal_job',
   // Parents
+  'work_item_memory',
   'work_item',
   'contact',
   'auth_magic_link',

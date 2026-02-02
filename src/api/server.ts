@@ -3895,6 +3895,639 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.code(204).send();
   });
 
+  // Memory Relationships API (issue #205)
+
+  // POST /api/memories/:id/contacts - Link memory to contact
+  app.post('/api/memories/:id/contacts', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      contactId?: string;
+      relationshipType?: string;
+      notes?: string;
+    };
+
+    if (!body?.contactId) {
+      return reply.code(400).send({ error: 'contactId is required' });
+    }
+
+    const relationshipType = body.relationshipType || 'about';
+    const validTypes = ['about', 'from', 'shared_with', 'mentioned'];
+    if (!validTypes.includes(relationshipType)) {
+      return reply.code(400).send({ error: `relationshipType must be one of: ${validTypes.join(', ')}` });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Check if memory exists
+      const memoryExists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+      if (memoryExists.rows.length === 0) {
+        return reply.code(404).send({ error: 'memory not found' });
+      }
+
+      // Check if contact exists
+      const contactExists = await pool.query('SELECT 1 FROM contact WHERE id = $1', [body.contactId]);
+      if (contactExists.rows.length === 0) {
+        return reply.code(404).send({ error: 'contact not found' });
+      }
+
+      // Create the relationship
+      const result = await pool.query(
+        `INSERT INTO memory_contact (memory_id, contact_id, relationship_type, notes)
+         VALUES ($1, $2, $3::memory_contact_relationship, $4)
+         ON CONFLICT (memory_id, contact_id, relationship_type) DO UPDATE SET notes = EXCLUDED.notes
+         RETURNING id::text as id, memory_id::text as "memoryId", contact_id::text as "contactId",
+                   relationship_type::text as "relationshipType", notes, created_at as "createdAt"`,
+        [params.id, body.contactId, relationshipType, body.notes || null]
+      );
+
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/memories/:id/contacts - Get contacts linked to a memory
+  app.get('/api/memories/:id/contacts', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { relationshipType?: string };
+
+    const pool = createPool();
+
+    try {
+      // Check if memory exists
+      const memoryExists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+      if (memoryExists.rows.length === 0) {
+        return reply.code(404).send({ error: 'memory not found' });
+      }
+
+      let sql = `
+        SELECT mc.id::text as id,
+               mc.memory_id::text as "memoryId",
+               mc.contact_id::text as "contactId",
+               mc.relationship_type::text as "relationshipType",
+               mc.notes,
+               mc.created_at as "createdAt",
+               c.display_name as "contactName"
+        FROM memory_contact mc
+        JOIN contact c ON c.id = mc.contact_id
+        WHERE mc.memory_id = $1
+      `;
+      const queryParams: string[] = [params.id];
+
+      if (query.relationshipType) {
+        sql += ' AND mc.relationship_type = $2::memory_contact_relationship';
+        queryParams.push(query.relationshipType);
+      }
+
+      sql += ' ORDER BY mc.created_at DESC';
+
+      const result = await pool.query(sql, queryParams);
+      return reply.send({ contacts: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/memories/:memoryId/contacts/:contactId - Remove memory-contact link
+  app.delete('/api/memories/:memoryId/contacts/:contactId', async (req, reply) => {
+    const params = req.params as { memoryId: string; contactId: string };
+    const query = req.query as { relationshipType?: string };
+
+    const pool = createPool();
+
+    try {
+      let sql = 'DELETE FROM memory_contact WHERE memory_id = $1 AND contact_id = $2';
+      const queryParams: string[] = [params.memoryId, params.contactId];
+
+      if (query.relationshipType) {
+        sql += ' AND relationship_type = $3::memory_contact_relationship';
+        queryParams.push(query.relationshipType);
+      }
+
+      sql += ' RETURNING id::text as id';
+
+      const result = await pool.query(sql, queryParams);
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'relationship not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contacts/:id/memories - Get memories linked to a contact
+  app.get('/api/contacts/:id/memories', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { relationshipType?: string; limit?: string; offset?: string };
+
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const pool = createPool();
+
+    try {
+      // Check if contact exists
+      const contactExists = await pool.query('SELECT 1 FROM contact WHERE id = $1', [params.id]);
+      if (contactExists.rows.length === 0) {
+        return reply.code(404).send({ error: 'contact not found' });
+      }
+
+      let sql = `
+        SELECT mc.id::text as "relationshipId",
+               mc.relationship_type::text as "relationshipType",
+               mc.notes as "relationshipNotes",
+               mc.created_at as "linkedAt",
+               m.id::text as id,
+               m.title,
+               m.content,
+               m.memory_type::text as type,
+               m.work_item_id::text as "linkedItemId",
+               m.created_at as "createdAt",
+               m.updated_at as "updatedAt"
+        FROM memory_contact mc
+        JOIN work_item_memory m ON m.id = mc.memory_id
+        WHERE mc.contact_id = $1
+      `;
+      const queryParams: (string | number)[] = [params.id];
+      let paramIndex = 2;
+
+      if (query.relationshipType) {
+        sql += ` AND mc.relationship_type = $${paramIndex}::memory_contact_relationship`;
+        queryParams.push(query.relationshipType);
+        paramIndex++;
+      }
+
+      sql += ` ORDER BY mc.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      queryParams.push(limit, offset);
+
+      const result = await pool.query(sql, queryParams);
+      return reply.send({ memories: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/:id/related - Link two memories together
+  app.post('/api/memories/:id/related', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      relatedMemoryId?: string;
+      relationshipType?: string;
+      notes?: string;
+    };
+
+    if (!body?.relatedMemoryId) {
+      return reply.code(400).send({ error: 'relatedMemoryId is required' });
+    }
+
+    if (params.id === body.relatedMemoryId) {
+      return reply.code(400).send({ error: 'cannot create self-referential relationship' });
+    }
+
+    const relationshipType = body.relationshipType || 'related';
+    const validTypes = ['related', 'supersedes', 'contradicts', 'supports'];
+    if (!validTypes.includes(relationshipType)) {
+      return reply.code(400).send({ error: `relationshipType must be one of: ${validTypes.join(', ')}` });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Check if both memories exist
+      const memoriesExist = await pool.query(
+        'SELECT id FROM work_item_memory WHERE id = ANY($1::uuid[])',
+        [[params.id, body.relatedMemoryId]]
+      );
+      if (memoriesExist.rows.length < 2) {
+        return reply.code(404).send({ error: 'one or both memories not found' });
+      }
+
+      // Create the relationship
+      const result = await pool.query(
+        `INSERT INTO memory_relationship (memory_id, related_memory_id, relationship_type, notes)
+         VALUES ($1, $2, $3::memory_relationship_type, $4)
+         ON CONFLICT (memory_id, related_memory_id) DO UPDATE SET
+           relationship_type = EXCLUDED.relationship_type,
+           notes = EXCLUDED.notes
+         RETURNING id::text as id, memory_id::text as "memoryId", related_memory_id::text as "relatedMemoryId",
+                   relationship_type::text as "relationshipType", notes, created_at as "createdAt"`,
+        [params.id, body.relatedMemoryId, relationshipType, body.notes || null]
+      );
+
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/memories/:id/related - Get memories related to this one
+  app.get('/api/memories/:id/related', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { relationshipType?: string; direction?: string };
+
+    const pool = createPool();
+
+    try {
+      // Check if memory exists
+      const memoryExists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+      if (memoryExists.rows.length === 0) {
+        return reply.code(404).send({ error: 'memory not found' });
+      }
+
+      // Get relationships where this memory is the source
+      let outgoingSql = `
+        SELECT mr.id::text as "relationshipId",
+               mr.relationship_type::text as "relationshipType",
+               mr.notes as "relationshipNotes",
+               mr.created_at as "linkedAt",
+               'outgoing' as direction,
+               m.id::text as id,
+               m.title,
+               m.content,
+               m.memory_type::text as type,
+               m.work_item_id::text as "linkedItemId",
+               m.created_at as "createdAt",
+               m.updated_at as "updatedAt"
+        FROM memory_relationship mr
+        JOIN work_item_memory m ON m.id = mr.related_memory_id
+        WHERE mr.memory_id = $1
+      `;
+
+      // Get relationships where this memory is the target
+      let incomingSql = `
+        SELECT mr.id::text as "relationshipId",
+               mr.relationship_type::text as "relationshipType",
+               mr.notes as "relationshipNotes",
+               mr.created_at as "linkedAt",
+               'incoming' as direction,
+               m.id::text as id,
+               m.title,
+               m.content,
+               m.memory_type::text as type,
+               m.work_item_id::text as "linkedItemId",
+               m.created_at as "createdAt",
+               m.updated_at as "updatedAt"
+        FROM memory_relationship mr
+        JOIN work_item_memory m ON m.id = mr.memory_id
+        WHERE mr.related_memory_id = $1
+      `;
+
+      const queryParams: string[] = [params.id];
+
+      if (query.relationshipType) {
+        const typeCondition = ` AND mr.relationship_type = $2::memory_relationship_type`;
+        outgoingSql += typeCondition;
+        incomingSql += typeCondition;
+        queryParams.push(query.relationshipType);
+      }
+
+      // Combine based on direction filter
+      let results;
+      if (query.direction === 'outgoing') {
+        results = await pool.query(outgoingSql + ' ORDER BY mr.created_at DESC', queryParams);
+      } else if (query.direction === 'incoming') {
+        results = await pool.query(incomingSql + ' ORDER BY mr.created_at DESC', queryParams);
+      } else {
+        // Get both directions
+        const combinedSql = `(${outgoingSql}) UNION ALL (${incomingSql}) ORDER BY "linkedAt" DESC`;
+        results = await pool.query(combinedSql, queryParams);
+      }
+
+      return reply.send({ related: results.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/memories/:memoryId/related/:relatedMemoryId - Remove memory relationship
+  app.delete('/api/memories/:memoryId/related/:relatedMemoryId', async (req, reply) => {
+    const params = req.params as { memoryId: string; relatedMemoryId: string };
+
+    const pool = createPool();
+
+    try {
+      // Delete relationship in either direction
+      const result = await pool.query(
+        `DELETE FROM memory_relationship
+         WHERE (memory_id = $1 AND related_memory_id = $2)
+            OR (memory_id = $2 AND related_memory_id = $1)
+         RETURNING id::text as id`,
+        [params.memoryId, params.relatedMemoryId]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'relationship not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/memories/:id/similar - Find semantically similar memories (requires embeddings)
+  app.get('/api/memories/:id/similar', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { limit?: string; threshold?: string };
+
+    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.7')));
+
+    const pool = createPool();
+
+    try {
+      // Get the source memory with its embedding
+      const sourceResult = await pool.query(
+        `SELECT id, title, content, embedding, embedding_status
+         FROM work_item_memory WHERE id = $1`,
+        [params.id]
+      );
+
+      if (sourceResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'memory not found' });
+      }
+
+      const source = sourceResult.rows[0] as {
+        id: string;
+        title: string;
+        content: string;
+        embedding: string | null;
+        embedding_status: string;
+      };
+
+      if (!source.embedding || source.embedding_status !== 'complete') {
+        return reply.code(400).send({
+          error: 'source memory does not have an embedding',
+          embedding_status: source.embedding_status,
+        });
+      }
+
+      // Find similar memories using cosine similarity
+      const similarResult = await pool.query(
+        `SELECT m.id::text as id,
+                m.title,
+                m.content,
+                m.memory_type::text as type,
+                m.work_item_id::text as "linkedItemId",
+                m.created_at as "createdAt",
+                m.updated_at as "updatedAt",
+                1 - (m.embedding <=> $1::vector) as similarity
+         FROM work_item_memory m
+         WHERE m.id != $2
+           AND m.embedding IS NOT NULL
+           AND m.embedding_status = 'complete'
+           AND 1 - (m.embedding <=> $1::vector) >= $3
+         ORDER BY m.embedding <=> $1::vector
+         LIMIT $4`,
+        [source.embedding, params.id, threshold, limit]
+      );
+
+      return reply.send({
+        source_memory_id: params.id,
+        threshold,
+        similar: similarResult.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contacts/:id/similar-memories - Find memories semantically related to a contact's context
+  app.get('/api/contacts/:id/similar-memories', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { limit?: string; threshold?: string };
+
+    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.6')));
+
+    const pool = createPool();
+
+    try {
+      // Check if contact exists and get their linked memories
+      const contactResult = await pool.query(
+        `SELECT c.id, c.display_name, c.notes
+         FROM contact c WHERE c.id = $1`,
+        [params.id]
+      );
+
+      if (contactResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'contact not found' });
+      }
+
+      // Get memories directly linked to this contact that have embeddings
+      const linkedMemoriesResult = await pool.query(
+        `SELECT m.embedding
+         FROM memory_contact mc
+         JOIN work_item_memory m ON m.id = mc.memory_id
+         WHERE mc.contact_id = $1
+           AND m.embedding IS NOT NULL
+           AND m.embedding_status = 'complete'
+         LIMIT 5`,
+        [params.id]
+      );
+
+      if (linkedMemoriesResult.rows.length === 0) {
+        // No linked memories with embeddings, try to use contact's name and notes
+        const { embeddingService } = await import('./embeddings/index.ts');
+
+        if (!embeddingService.isConfigured()) {
+          return reply.code(400).send({
+            error: 'no embedding service configured and no linked memories with embeddings',
+          });
+        }
+
+        const contact = contactResult.rows[0] as { id: string; display_name: string; notes: string | null };
+        const contextText = `${contact.display_name}${contact.notes ? '\n' + contact.notes : ''}`;
+
+        const embeddingResult = await embeddingService.embed(contextText);
+        if (!embeddingResult) {
+          return reply.code(500).send({ error: 'failed to generate embedding for contact context' });
+        }
+
+        const embeddingStr = `[${embeddingResult.embedding.join(',')}]`;
+
+        // Find similar memories
+        const similarResult = await pool.query(
+          `SELECT m.id::text as id,
+                  m.title,
+                  m.content,
+                  m.memory_type::text as type,
+                  m.work_item_id::text as "linkedItemId",
+                  m.created_at as "createdAt",
+                  m.updated_at as "updatedAt",
+                  1 - (m.embedding <=> $1::vector) as similarity
+           FROM work_item_memory m
+           WHERE m.embedding IS NOT NULL
+             AND m.embedding_status = 'complete'
+             AND 1 - (m.embedding <=> $1::vector) >= $2
+           ORDER BY m.embedding <=> $1::vector
+           LIMIT $3`,
+          [embeddingStr, threshold, limit]
+        );
+
+        return reply.send({
+          contact_id: params.id,
+          context_source: 'contact_name_and_notes',
+          threshold,
+          similar_memories: similarResult.rows,
+        });
+      }
+
+      // Use average of linked memory embeddings (centroid approach)
+      // For simplicity, we'll use the first linked memory's embedding as the query
+      const queryEmbedding = (linkedMemoriesResult.rows[0] as { embedding: string }).embedding;
+
+      // Find similar memories excluding already linked ones
+      const similarResult = await pool.query(
+        `SELECT m.id::text as id,
+                m.title,
+                m.content,
+                m.memory_type::text as type,
+                m.work_item_id::text as "linkedItemId",
+                m.created_at as "createdAt",
+                m.updated_at as "updatedAt",
+                1 - (m.embedding <=> $1::vector) as similarity
+         FROM work_item_memory m
+         WHERE m.embedding IS NOT NULL
+           AND m.embedding_status = 'complete'
+           AND 1 - (m.embedding <=> $1::vector) >= $2
+           AND m.id NOT IN (
+             SELECT memory_id FROM memory_contact WHERE contact_id = $3
+           )
+         ORDER BY m.embedding <=> $1::vector
+         LIMIT $4`,
+        [queryEmbedding, threshold, params.id, limit]
+      );
+
+      return reply.send({
+        contact_id: params.id,
+        context_source: 'linked_memories',
+        threshold,
+        similar_memories: similarResult.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/work-items/:id/related-entities - Discover related contacts and memories
+  app.get('/api/work-items/:id/related-entities', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { limit?: string; threshold?: string };
+
+    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.6')));
+
+    const pool = createPool();
+
+    try {
+      // Check if work item exists
+      const workItemResult = await pool.query(
+        'SELECT id, title, description FROM work_item WHERE id = $1',
+        [params.id]
+      );
+
+      if (workItemResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'work item not found' });
+      }
+
+      // Get directly linked contacts
+      const directContactsResult = await pool.query(
+        `SELECT c.id::text as id,
+                c.display_name as "displayName",
+                wic.relationship::text as relationship,
+                'direct' as "linkType"
+         FROM work_item_contact wic
+         JOIN contact c ON c.id = wic.contact_id
+         WHERE wic.work_item_id = $1`,
+        [params.id]
+      );
+
+      // Get directly linked memories
+      const directMemoriesResult = await pool.query(
+        `SELECT m.id::text as id,
+                m.title,
+                m.content,
+                m.memory_type::text as type,
+                'direct' as "linkType"
+         FROM work_item_memory m
+         WHERE m.work_item_id = $1`,
+        [params.id]
+      );
+
+      // Get contacts linked through memories
+      const memoryContactsResult = await pool.query(
+        `SELECT DISTINCT c.id::text as id,
+                c.display_name as "displayName",
+                mc.relationship_type::text as relationship,
+                'via_memory' as "linkType"
+         FROM work_item_memory m
+         JOIN memory_contact mc ON mc.memory_id = m.id
+         JOIN contact c ON c.id = mc.contact_id
+         WHERE m.work_item_id = $1
+           AND c.id NOT IN (
+             SELECT contact_id FROM work_item_contact WHERE work_item_id = $1
+           )`,
+        [params.id]
+      );
+
+      // Try to find semantically similar memories (if embeddings available)
+      let similarMemories: unknown[] = [];
+      const workItemMemoriesWithEmbeddings = await pool.query(
+        `SELECT m.embedding
+         FROM work_item_memory m
+         WHERE m.work_item_id = $1
+           AND m.embedding IS NOT NULL
+           AND m.embedding_status = 'complete'
+         LIMIT 3`,
+        [params.id]
+      );
+
+      if (workItemMemoriesWithEmbeddings.rows.length > 0) {
+        const queryEmbedding = (workItemMemoriesWithEmbeddings.rows[0] as { embedding: string }).embedding;
+
+        const similarResult = await pool.query(
+          `SELECT m.id::text as id,
+                  m.title,
+                  m.content,
+                  m.memory_type::text as type,
+                  m.work_item_id::text as "originalWorkItemId",
+                  1 - (m.embedding <=> $1::vector) as similarity,
+                  'semantic' as "linkType"
+           FROM work_item_memory m
+           WHERE m.work_item_id != $2
+             AND m.embedding IS NOT NULL
+             AND m.embedding_status = 'complete'
+             AND 1 - (m.embedding <=> $1::vector) >= $3
+           ORDER BY m.embedding <=> $1::vector
+           LIMIT $4`,
+          [queryEmbedding, params.id, threshold, limit]
+        );
+
+        similarMemories = similarResult.rows;
+      }
+
+      return reply.send({
+        work_item_id: params.id,
+        contacts: {
+          direct: directContactsResult.rows,
+          via_memory: memoryContactsResult.rows,
+        },
+        memories: {
+          direct: directMemoriesResult.rows,
+          semantically_similar: similarMemories,
+        },
+        threshold_used: threshold,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Communications API (issue #140)
   // GET /api/work-items/:id/communications - List communications for a work item
   app.get('/api/work-items/:id/communications', async (req, reply) => {
