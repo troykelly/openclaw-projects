@@ -17,6 +17,12 @@ import {
   createAutoRecallHook,
   createAutoCaptureHook,
   createHealthCheck,
+  createCliCommands,
+  createStatusCommand,
+  createUsersCommand,
+  createRecallCommand,
+  createStatsCommand,
+  createExportCommand,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
@@ -233,6 +239,20 @@ describe('Plugin Entry Point', () => {
       const result = register(mockContext)
       expect(typeof result.healthCheck).toBe('function')
     })
+
+    it('should return instance with CLI commands', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.cli).toBeDefined()
+      expect(typeof result.cli.status).toBe('function')
+      expect(typeof result.cli.users).toBe('function')
+      expect(typeof result.cli.recall).toBe('function')
+      expect(typeof result.cli.stats).toBe('function')
+      expect(typeof result.cli.export).toBe('function')
+    })
   })
 
   describe('tool exports', () => {
@@ -350,6 +370,30 @@ describe('Plugin Entry Point', () => {
 
     it('should export createHealthCheck', () => {
       expect(typeof createHealthCheck).toBe('function')
+    })
+
+    it('should export createCliCommands', () => {
+      expect(typeof createCliCommands).toBe('function')
+    })
+
+    it('should export createStatusCommand', () => {
+      expect(typeof createStatusCommand).toBe('function')
+    })
+
+    it('should export createUsersCommand', () => {
+      expect(typeof createUsersCommand).toBe('function')
+    })
+
+    it('should export createRecallCommand', () => {
+      expect(typeof createRecallCommand).toBe('function')
+    })
+
+    it('should export createStatsCommand', () => {
+      expect(typeof createStatsCommand).toBe('function')
+    })
+
+    it('should export createExportCommand', () => {
+      expect(typeof createExportCommand).toBe('function')
     })
   })
 })

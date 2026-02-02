@@ -20,6 +20,12 @@ import {
   type HealthCheckResult,
 } from './hooks.js'
 import {
+  createCliCommands,
+  type CliCommands,
+  type CliContext,
+  type CommandResult,
+} from './cli.js'
+import {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
@@ -85,6 +91,7 @@ export interface PluginInstance {
   context: PluginContext
   tools: PluginTools
   hooks: PluginHooks
+  cli: CliCommands
   healthCheck: () => Promise<HealthCheckResult>
 }
 
@@ -208,6 +215,14 @@ export function register(ctx: RegistrationContext): PluginInstance {
   // Create health check
   const healthCheck = createHealthCheck({ client: apiClient, logger })
 
+  // Create CLI commands
+  const cli = createCliCommands({
+    client: apiClient,
+    logger,
+    config,
+    userId,
+  })
+
   logger.info('Plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
@@ -223,6 +238,7 @@ export function register(ctx: RegistrationContext): PluginInstance {
     context,
     tools,
     hooks,
+    cli,
     healthCheck,
   }
 }
@@ -341,3 +357,26 @@ export {
   createAutoCaptureHook,
   createHealthCheck,
 } from './hooks.js'
+
+// Re-export CLI
+export type {
+  CliContext,
+  CliCommands,
+  CommandResult,
+  RecallOptions,
+  ExportOptions,
+  StatusData,
+  UsersData,
+  RecallData,
+  StatsData,
+  ExportData,
+  MemoryItem,
+} from './cli.js'
+export {
+  createCliCommands,
+  createStatusCommand,
+  createUsersCommand,
+  createRecallCommand,
+  createStatsCommand,
+  createExportCommand,
+} from './cli.js'
