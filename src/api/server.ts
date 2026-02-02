@@ -299,6 +299,40 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Thread history endpoint for agent conversation context (Issue #226)
+  app.get('/api/threads/:id/history', async (req, reply) => {
+    const { getThreadHistory } = await import('./threads/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      limit?: string;
+      before?: string;
+      after?: string;
+      include_work_items?: string;
+      include_memories?: string;
+    };
+
+    const pool = createPool();
+
+    try {
+      const result = await getThreadHistory(pool, params.id, {
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        before: query.before ? new Date(query.before) : undefined,
+        after: query.after ? new Date(query.after) : undefined,
+        includeWorkItems: query.include_work_items !== 'false',
+        includeMemories: query.include_memories !== 'false',
+      });
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Thread not found' });
+      }
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // API Capabilities endpoint - Agent-discoverable capability list (Issue #207)
   app.get('/api/capabilities', async () => ({
     name: 'clawdbot-projects',
@@ -362,6 +396,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         description: 'Initialize agent session with full context (preferences, projects, reminders, contacts)',
         endpoints: [
           { method: 'GET', path: '/api/bootstrap', description: 'Get complete session context in single call' },
+        ],
+      },
+      {
+        name: 'threads',
+        description: 'Access conversation thread history for agent context',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/api/threads/:id/history',
+            description: 'Get thread history with messages, related work items, and contact memories',
+            parameters: {
+              limit: 'Max messages to return (default 50, max 200)',
+              before: 'Get messages before this timestamp (ISO 8601)',
+              after: 'Get messages after this timestamp (ISO 8601)',
+              include_work_items: 'Include related work items (default true)',
+              include_memories: 'Include contact memories (default true)',
+            },
+          },
         ],
       },
       {
