@@ -16,9 +16,10 @@ import {
   searchMemoriesSemantic,
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
-import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, isWebhookVerificationConfigured } from './webhooks/index.ts';
+import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
 import { processTwilioSms, type TwilioSmsWebhookPayload } from './twilio/index.ts';
 import { processPostmarkEmail, type PostmarkInboundPayload } from './postmark/index.ts';
+import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -189,6 +190,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Webhook endpoints use signature verification instead of bearer tokens
     '/api/twilio/sms',
     '/api/postmark/inbound',
+    '/api/cloudflare/email',
   ]);
 
   // Bearer token authentication hook for API routes
@@ -5559,6 +5561,61 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       });
     } catch (error) {
       console.error('[Postmark] Error processing email:', error);
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Cloudflare Email Workers Inbound Webhook (Issue #210)
+  // POST /api/cloudflare/email - Receive emails forwarded from Cloudflare Email Workers
+  app.post('/api/cloudflare/email', async (req, reply) => {
+    // Verify HMAC-SHA256 signature (unless auth disabled)
+    if (!isAuthDisabled()) {
+      if (!verifyCloudflareEmailSecret(req)) {
+        console.warn('[Cloudflare Email] Invalid signature on inbound webhook');
+        return reply.code(401).send({ error: 'Invalid signature' });
+      }
+    }
+
+    const payload = req.body as CloudflareEmailPayload;
+
+    // Validate required fields
+    if (!payload.from || !payload.to || !payload.timestamp) {
+      return reply.code(400).send({ error: 'Missing required fields: from, to, timestamp' });
+    }
+
+    // Timestamp replay protection (reject if >5 minutes old)
+    const payloadTime = new Date(payload.timestamp).getTime();
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    if (isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
+      console.warn('[Cloudflare Email] Rejecting stale or invalid timestamp:', payload.timestamp);
+      return reply.code(400).send({ error: 'Invalid or stale timestamp' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await processCloudflareEmail(pool, payload);
+
+      console.log(
+        `[Cloudflare Email] Email from ${payload.from}: subject="${payload.subject}", ` +
+        `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`
+      );
+
+      // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
+
+      // Return success with receipt ID
+      return reply.code(200).send({
+        success: true,
+        receiptId: result.messageId,
+        contactId: result.contactId,
+        threadId: result.threadId,
+        messageId: result.messageId,
+      });
+    } catch (error) {
+      console.error('[Cloudflare Email] Error processing email:', error);
       throw error;
     } finally {
       await pool.end();
