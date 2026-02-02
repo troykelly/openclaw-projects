@@ -36,6 +36,8 @@ export function createTestPool(): Pool {
  */
 const APPLICATION_TABLES = [
   // FK children first
+  'work_item_label',
+  'label',
   'memory_contact',
   'memory_relationship',
   'work_item_external_link',
