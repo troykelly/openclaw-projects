@@ -1596,8 +1596,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.get('/api/work-items', async (_req, reply) => {
+  // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
+  app.get('/api/work-items', async (req, reply) => {
+    const query = req.query as { include_deleted?: string };
     const pool = createPool();
+
+    // By default, exclude soft-deleted items
+    const deletedFilter = query.include_deleted === 'true' ? '' : 'WHERE deleted_at IS NULL';
+
     const result = await pool.query(
       `SELECT id::text as id,
               title,
@@ -1611,6 +1617,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               estimate_minutes,
               actual_minutes
          FROM work_item
+         ${deletedFilter}
         ORDER BY created_at DESC
         LIMIT 50`
     );
@@ -2372,9 +2379,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows[0]);
   });
 
+  // GET /api/work-items/:id - Get single work item (excludes soft-deleted, Issue #225)
   app.get('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { include_deleted?: string };
     const pool = createPool();
+
+    // By default, exclude soft-deleted items
+    const deletedFilter = query.include_deleted === 'true' ? '' : 'AND wi.deleted_at IS NULL';
 
     // Get main work item
     const result = await pool.query(
@@ -2392,9 +2404,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               wi.not_after,
               wi.estimate_minutes,
               wi.actual_minutes,
-              (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id) as children_count
+              wi.deleted_at,
+              (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id AND c.deleted_at IS NULL) as children_count
          FROM work_item wi
-        WHERE wi.id = $1`,
+        WHERE wi.id = $1 ${deletedFilter}`,
       [params.id]
     );
 
@@ -2666,13 +2679,191 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows[0]);
   });
 
-app.delete('/api/work-items/:id', async (req, reply) => {
+// DELETE /api/work-items/:id - Soft delete by default (Issue #225)
+  app.delete('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { permanent?: string };
     const pool = createPool();
-    const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
+
+    // Check if permanent delete requested
+    if (query.permanent === 'true') {
+      const result = await pool.query(
+        `DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`,
+        [params.id]
+      );
+      await pool.end();
+      if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
+      return reply.code(204).send();
+    }
+
+    // Soft delete by default
+    const result = await pool.query(
+      `UPDATE work_item SET deleted_at = now()
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id::text as id`,
+      [params.id]
+    );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
     return reply.code(204).send();
+  });
+
+  // POST /api/work-items/:id/restore - Restore soft-deleted work item (Issue #225)
+  app.post('/api/work-items/:id/restore', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const result = await pool.query(
+      `UPDATE work_item SET deleted_at = NULL
+       WHERE id = $1 AND deleted_at IS NOT NULL
+       RETURNING id::text as id, title`,
+      [params.id]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found or not deleted' });
+    }
+
+    return reply.send({
+      restored: true,
+      id: result.rows[0].id,
+      title: result.rows[0].title,
+    });
+  });
+
+  // GET /api/trash - List all soft-deleted items (Issue #225)
+  app.get('/api/trash', async (req, reply) => {
+    const query = req.query as {
+      entityType?: string;
+      limit?: string;
+      offset?: string;
+    };
+    const pool = createPool();
+
+    const retentionDays = 30;
+    const limit = Math.min(parseInt(query.limit || '50', 10), 500);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const items: Array<{
+      id: string;
+      entityType: string;
+      title?: string;
+      displayName?: string;
+      deletedAt: Date;
+      daysUntilPurge: number;
+    }> = [];
+    let total = 0;
+
+    // Query work items
+    if (!query.entityType || query.entityType === 'work_item') {
+      const wiResult = await pool.query(
+        `SELECT
+          id::text,
+          title,
+          deleted_at,
+          GREATEST(0, $1 - EXTRACT(DAY FROM (now() - deleted_at)))::integer as days_until_purge
+        FROM work_item
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        LIMIT $2 OFFSET $3`,
+        [retentionDays, limit, offset]
+      );
+
+      const wiCountResult = await pool.query(
+        `SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`
+      );
+
+      for (const row of wiResult.rows) {
+        items.push({
+          id: row.id,
+          entityType: 'work_item',
+          title: row.title,
+          deletedAt: row.deleted_at,
+          daysUntilPurge: row.days_until_purge,
+        });
+      }
+
+      total += parseInt(wiCountResult.rows[0].count, 10);
+    }
+
+    // Query contacts
+    if (!query.entityType || query.entityType === 'contact') {
+      const cResult = await pool.query(
+        `SELECT
+          id::text,
+          display_name,
+          deleted_at,
+          GREATEST(0, $1 - EXTRACT(DAY FROM (now() - deleted_at)))::integer as days_until_purge
+        FROM contact
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        LIMIT $2 OFFSET $3`,
+        [retentionDays, limit, offset]
+      );
+
+      const cCountResult = await pool.query(
+        `SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL`
+      );
+
+      for (const row of cResult.rows) {
+        items.push({
+          id: row.id,
+          entityType: 'contact',
+          displayName: row.display_name,
+          deletedAt: row.deleted_at,
+          daysUntilPurge: row.days_until_purge,
+        });
+      }
+
+      total += parseInt(cCountResult.rows[0].count, 10);
+    }
+
+    await pool.end();
+
+    // Sort combined results by deleted_at desc
+    items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+
+    return reply.send({
+      items: items.slice(0, limit),
+      total,
+      limit,
+      offset,
+      retentionDays,
+    });
+  });
+
+  // POST /api/trash/purge - Purge old soft-deleted items (Issue #225)
+  app.post('/api/trash/purge', async (req, reply) => {
+    const body = req.body as { retentionDays?: number };
+    const retentionDays = body.retentionDays ?? 30;
+
+    if (retentionDays < 1 || retentionDays > 365) {
+      return reply.code(400).send({
+        error: 'retentionDays must be between 1 and 365',
+      });
+    }
+
+    const pool = createPool();
+
+    const result = await pool.query(
+      `SELECT * FROM purge_soft_deleted($1)`,
+      [retentionDays]
+    );
+
+    await pool.end();
+
+    const row = result.rows[0];
+    const workItemsPurged = parseInt(row.work_items_purged || '0', 10);
+    const contactsPurged = parseInt(row.contacts_purged || '0', 10);
+
+    return reply.send({
+      success: true,
+      retentionDays,
+      workItemsPurged,
+      contactsPurged,
+      totalPurged: workItemsPurged + contactsPurged,
+    });
   });
 
   // GET /api/work-items/:id/recurrence - Get recurrence details (Issue #217)
@@ -3985,26 +4176,35 @@ app.delete('/api/work-items/:id', async (req, reply) => {
   });
 
   // GET /api/contacts - List contacts with optional search and pagination
+  // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
   app.get('/api/contacts', async (req, reply) => {
-    const query = req.query as { search?: string; limit?: string; offset?: string };
+    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string };
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
     const offset = parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
+    const includeDeleted = query.include_deleted === 'true';
 
     const pool = createPool();
 
-    // Build query with optional search
-    let whereClause = '';
+    // Build query with optional search and deleted filter
+    const conditions: string[] = [];
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
+    // Exclude soft-deleted by default
+    if (!includeDeleted) {
+      conditions.push('c.deleted_at IS NULL');
+    }
+
     if (search) {
-      whereClause = `WHERE c.display_name ILIKE $${paramIndex} OR EXISTS (
+      conditions.push(`(c.display_name ILIKE $${paramIndex} OR EXISTS (
         SELECT 1 FROM contact_endpoint ce2 WHERE ce2.contact_id = c.id AND ce2.endpoint_value ILIKE $${paramIndex}
-      )`;
+      ))`);
       params.push(`%${search}%`);
       paramIndex++;
     }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Get total count
     const countResult = await pool.query(
@@ -4036,13 +4236,17 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send({ contacts: result.rows, total });
   });
 
-  // GET /api/contacts/:id - Get single contact with endpoints
+  // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
   app.get('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { include_deleted?: string };
     const pool = createPool();
+
+    const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
 
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.created_at, c.updated_at,
+              c.deleted_at,
               COALESCE(
                 json_agg(
                   json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
@@ -4051,7 +4255,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
               ) as endpoints
        FROM contact c
        LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-       WHERE c.id = $1
+       WHERE c.id = $1 ${deletedFilter}
        GROUP BY c.id`,
       [params.id]
     );
@@ -4114,13 +4318,30 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send(result.rows[0]);
   });
 
-  // DELETE /api/contacts/:id - Delete contact
+  // DELETE /api/contacts/:id - Soft delete by default (Issue #225)
   app.delete('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { permanent?: string };
     const pool = createPool();
 
+    // Check if permanent delete requested
+    if (query.permanent === 'true') {
+      const result = await pool.query(
+        'DELETE FROM contact WHERE id = $1 RETURNING id::text as id',
+        [params.id]
+      );
+      await pool.end();
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    }
+
+    // Soft delete by default
     const result = await pool.query(
-      'DELETE FROM contact WHERE id = $1 RETURNING id::text as id',
+      `UPDATE contact SET deleted_at = now()
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id::text as id`,
       [params.id]
     );
 
@@ -4131,6 +4352,30 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
 
     return reply.code(204).send();
+  });
+
+  // POST /api/contacts/:id/restore - Restore soft-deleted contact (Issue #225)
+  app.post('/api/contacts/:id/restore', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const result = await pool.query(
+      `UPDATE contact SET deleted_at = NULL
+       WHERE id = $1 AND deleted_at IS NOT NULL
+       RETURNING id::text as id, display_name`,
+      [params.id]
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found or not deleted' });
+    }
+
+    return reply.send({
+      restored: true,
+      id: result.rows[0].id,
+      displayName: result.rows[0].display_name,
+    });
   });
 
   // GET /api/contacts/:id/work-items - Get work items associated with a contact
