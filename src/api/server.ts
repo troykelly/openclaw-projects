@@ -2047,6 +2047,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       parentId?: string | null;
       estimateMinutes?: number | null;
       actualMinutes?: number | null;
+      recurrence_rule?: string;
+      recurrence_natural?: string;
+      recurrence_end?: string;
     };
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
@@ -2118,11 +2121,37 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Handle recurrence if specified (Issue #217)
+    let recurrenceRule: string | null = null;
+    let recurrenceEnd: Date | null = null;
+    let isRecurrenceTemplate = false;
+
+    if (body.recurrence_natural) {
+      // Parse natural language recurrence
+      const { parseNaturalLanguage } = await import('./recurrence/parser.js');
+      const parseResult = parseNaturalLanguage(body.recurrence_natural);
+      if (parseResult.isRecurring && parseResult.rrule) {
+        recurrenceRule = parseResult.rrule;
+        isRecurrenceTemplate = true;
+      }
+    } else if (body.recurrence_rule) {
+      recurrenceRule = body.recurrence_rule;
+      isRecurrenceTemplate = true;
+    }
+
+    if (body.recurrence_end) {
+      recurrenceEnd = new Date(body.recurrence_end);
+      if (isNaN(recurrenceEnd.getTime())) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Invalid recurrence_end date format' });
+      }
+    }
+
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes)
-       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7)
-       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes]
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10)
+       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template`,
+      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate]
     );
 
     const workItem = result.rows[0] as { id: string; title: string };
@@ -2515,6 +2544,219 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
     return reply.code(204).send();
+  });
+
+  // GET /api/work-items/:id/recurrence - Get recurrence details (Issue #217)
+  app.get('/api/work-items/:id/recurrence', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    const { getRecurrenceInfo, describeRrule } = await import('./recurrence/index.js');
+
+    try {
+      const info = await getRecurrenceInfo(pool, params.id);
+      if (!info) {
+        await pool.end();
+        return reply.code(404).send({ error: 'Work item not found or has no recurrence' });
+      }
+
+      await pool.end();
+      return reply.send({
+        rule: info.rule,
+        ruleDescription: info.rule ? describeRrule(info.rule) : null,
+        end: info.end,
+        parentId: info.parentId,
+        isTemplate: info.isTemplate,
+        nextOccurrence: info.nextOccurrence,
+      });
+    } catch (error) {
+      await pool.end();
+      return reply.code(500).send({ error: 'Failed to get recurrence info' });
+    }
+  });
+
+  // PUT /api/work-items/:id/recurrence - Update recurrence rule (Issue #217)
+  app.put('/api/work-items/:id/recurrence', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      recurrence_rule?: string;
+      recurrence_natural?: string;
+      recurrence_end?: string | null;
+    };
+    const pool = createPool();
+
+    try {
+      // Determine the rule to use
+      let recurrenceRule: string | undefined;
+
+      if (body.recurrence_natural) {
+        const { parseNaturalLanguage } = await import('./recurrence/parser.js');
+        const parseResult = parseNaturalLanguage(body.recurrence_natural);
+        if (parseResult.isRecurring && parseResult.rrule) {
+          recurrenceRule = parseResult.rrule;
+        } else {
+          await pool.end();
+          return reply.code(400).send({ error: 'Could not parse recurrence pattern' });
+        }
+      } else if (body.recurrence_rule !== undefined) {
+        recurrenceRule = body.recurrence_rule;
+      }
+
+      // Parse end date if provided
+      let recurrenceEnd: Date | null | undefined;
+      if (body.recurrence_end !== undefined) {
+        if (body.recurrence_end === null) {
+          recurrenceEnd = null;
+        } else {
+          recurrenceEnd = new Date(body.recurrence_end);
+          if (isNaN(recurrenceEnd.getTime())) {
+            await pool.end();
+            return reply.code(400).send({ error: 'Invalid recurrence_end date format' });
+          }
+        }
+      }
+
+      const { updateRecurrence, getRecurrenceInfo, describeRrule } = await import('./recurrence/index.js');
+
+      const updated = await updateRecurrence(pool, params.id, {
+        recurrenceRule,
+        recurrenceEnd,
+      });
+
+      if (!updated) {
+        await pool.end();
+        return reply.code(404).send({ error: 'Work item not found or no changes made' });
+      }
+
+      // Return updated recurrence info
+      const info = await getRecurrenceInfo(pool, params.id);
+      await pool.end();
+
+      return reply.send({
+        success: true,
+        recurrence: info ? {
+          rule: info.rule,
+          ruleDescription: info.rule ? describeRrule(info.rule) : null,
+          end: info.end,
+          nextOccurrence: info.nextOccurrence,
+        } : null,
+      });
+    } catch (error) {
+      await pool.end();
+      console.error('[Recurrence] Error updating:', error);
+      return reply.code(500).send({ error: 'Failed to update recurrence' });
+    }
+  });
+
+  // DELETE /api/work-items/:id/recurrence - Stop recurring (Issue #217)
+  app.delete('/api/work-items/:id/recurrence', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    try {
+      const { stopRecurrence } = await import('./recurrence/index.js');
+      const stopped = await stopRecurrence(pool, params.id);
+
+      await pool.end();
+
+      if (!stopped) {
+        return reply.code(404).send({ error: 'Work item not found' });
+      }
+
+      return reply.send({ success: true, message: 'Recurrence stopped' });
+    } catch (error) {
+      await pool.end();
+      console.error('[Recurrence] Error stopping:', error);
+      return reply.code(500).send({ error: 'Failed to stop recurrence' });
+    }
+  });
+
+  // GET /api/work-items/:id/instances - List generated instances (Issue #217)
+  app.get('/api/work-items/:id/instances', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as {
+      limit?: string;
+      includeCompleted?: string;
+    };
+    const pool = createPool();
+
+    try {
+      const { getInstances } = await import('./recurrence/index.js');
+
+      const instances = await getInstances(pool, params.id, {
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        includeCompleted: query.includeCompleted !== 'false',
+      });
+
+      await pool.end();
+
+      return reply.send({
+        instances,
+        count: instances.length,
+      });
+    } catch (error) {
+      await pool.end();
+      console.error('[Recurrence] Error getting instances:', error);
+      return reply.code(500).send({ error: 'Failed to get instances' });
+    }
+  });
+
+  // GET /api/recurrence/templates - List all recurrence templates (Issue #217)
+  app.get('/api/recurrence/templates', async (req, reply) => {
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+    };
+    const pool = createPool();
+
+    try {
+      const { getTemplates } = await import('./recurrence/index.js');
+
+      const templates = await getTemplates(pool, {
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+      });
+
+      await pool.end();
+
+      return reply.send({
+        templates,
+        count: templates.length,
+      });
+    } catch (error) {
+      await pool.end();
+      console.error('[Recurrence] Error getting templates:', error);
+      return reply.code(500).send({ error: 'Failed to get templates' });
+    }
+  });
+
+  // POST /api/recurrence/generate - Generate upcoming instances (Issue #217)
+  app.post('/api/recurrence/generate', async (req, reply) => {
+    const body = req.body as {
+      daysAhead?: number;
+    };
+    const pool = createPool();
+
+    try {
+      const { generateUpcomingInstances } = await import('./recurrence/index.js');
+
+      const result = await generateUpcomingInstances(
+        pool,
+        body.daysAhead || 14
+      );
+
+      await pool.end();
+
+      return reply.send({
+        success: result.errors.length === 0,
+        generated: result.generated,
+        errors: result.errors,
+      });
+    } catch (error) {
+      await pool.end();
+      console.error('[Recurrence] Error generating instances:', error);
+      return reply.code(500).send({ error: 'Failed to generate instances' });
+    }
   });
 
   app.get('/api/work-items/:id/rollup', async (req, reply) => {
