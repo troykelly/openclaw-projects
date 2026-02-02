@@ -1,17 +1,32 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.js';
 import { createTestPool } from './helpers/db.js';
 import { buildServer } from '../src/api/server.js';
+import { clearConfigCache } from '../src/api/webhooks/config.ts';
 
 describe('Health API endpoints', () => {
   const app = buildServer();
   let pool: Pool;
+  const originalEnv = process.env;
 
   beforeAll(async () => {
     await runMigrate('up');
     pool = createTestPool();
     await app.ready();
+  });
+
+  beforeEach(() => {
+    // Configure webhooks to avoid degraded status
+    process.env = { ...originalEnv };
+    process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
+    process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+    clearConfigCache();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    clearConfigCache();
   });
 
   afterAll(async () => {

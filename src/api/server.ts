@@ -15,6 +15,7 @@ import {
   searchMemoriesSemantic,
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
+import { WebhookHealthChecker } from './webhooks/index.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -249,6 +250,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   const healthRegistry = new HealthCheckRegistry();
   healthRegistry.register(new DatabaseHealthChecker(healthPool));
   healthRegistry.register(new EmbeddingHealthChecker());
+  healthRegistry.register(new WebhookHealthChecker());
 
   // Liveness probe - instant, no I/O, always 200
   app.get('/api/health/live', async () => ({ status: 'ok' }));
@@ -3723,6 +3725,120 @@ app.delete('/api/work-items/:id', async (req, reply) => {
           pending: parseInt(row.pending, 10),
           failed: parseInt(row.failed, 10),
         },
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Webhook Admin API (issue #201)
+
+  // GET /api/webhooks/outbox - List webhook outbox entries
+  app.get('/api/webhooks/outbox', async (req, reply) => {
+    const { getWebhookOutbox } = await import('./webhooks/index.ts');
+
+    const query = req.query as {
+      status?: string;
+      kind?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    const status = query.status as 'pending' | 'failed' | 'dispatched' | undefined;
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+
+    const pool = createPool();
+
+    try {
+      const result = await getWebhookOutbox(pool, {
+        status,
+        kind: query.kind,
+        limit,
+        offset,
+      });
+
+      return reply.send({
+        entries: result.entries,
+        total: result.total,
+        limit,
+        offset,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/webhooks/:id/retry - Retry a failed webhook
+  app.post('/api/webhooks/:id/retry', async (req, reply) => {
+    const { retryWebhook } = await import('./webhooks/index.ts');
+
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    try {
+      const success = await retryWebhook(pool, params.id);
+
+      if (!success) {
+        return reply.code(404).send({ error: 'Webhook not found or already dispatched' });
+      }
+
+      return reply.send({ status: 'queued', id: params.id });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/webhooks/status - Get webhook configuration status
+  app.get('/api/webhooks/status', async (req, reply) => {
+    const { getConfigSummary, getWebhookOutbox } = await import('./webhooks/index.ts');
+
+    const config = getConfigSummary();
+    const pool = createPool();
+
+    try {
+      // Get stats
+      const pendingResult = await getWebhookOutbox(pool, { status: 'pending', limit: 0 });
+      const failedResult = await getWebhookOutbox(pool, { status: 'failed', limit: 0 });
+      const dispatchedResult = await pool.query(
+        `SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL`
+      );
+
+      return reply.send({
+        configured: config.configured,
+        gatewayUrl: config.gatewayUrl,
+        hasToken: config.hasToken,
+        defaultModel: config.defaultModel,
+        timeoutSeconds: config.timeoutSeconds,
+        stats: {
+          pending: pendingResult.total,
+          failed: failedResult.total,
+          dispatched: parseInt((dispatchedResult.rows[0] as { count: string }).count, 10),
+        },
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/webhooks/process - Manually trigger webhook processing
+  app.post('/api/webhooks/process', async (req, reply) => {
+    const { processPendingWebhooks } = await import('./webhooks/index.ts');
+
+    const body = req.body as { limit?: number };
+    const limit = Math.min(body?.limit || 100, 1000);
+
+    const pool = createPool();
+
+    try {
+      const stats = await processPendingWebhooks(pool, limit);
+
+      return reply.send({
+        status: 'completed',
+        processed: stats.processed,
+        succeeded: stats.succeeded,
+        failed: stats.failed,
+        skipped: stats.skipped,
       });
     } finally {
       await pool.end();
