@@ -8,12 +8,22 @@ import { buildServer } from '../src/api/server.js';
  * Tests for Email & Calendar Sync API endpoints (issue #184).
  */
 describe('Email & Calendar Sync API', () => {
-  const app = buildServer();
+  let app: ReturnType<typeof buildServer>;
   let pool: Pool;
+  const originalEnv = process.env;
 
   beforeAll(async () => {
+    // Configure OAuth providers for tests
+    process.env = { ...originalEnv };
+    process.env.GOOGLE_CLIENT_ID = 'test-google-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
+    process.env.MS365_CLIENT_ID = 'test-ms-id';
+    process.env.MS365_CLIENT_SECRET = 'test-ms-secret';
+    process.env.CLAWDBOT_AUTH_DISABLED = 'true';
+
     await runMigrate('up');
     pool = createTestPool();
+    app = buildServer({ logger: false });
     await app.ready();
   });
 
@@ -24,6 +34,7 @@ describe('Email & Calendar Sync API', () => {
   afterAll(async () => {
     await app.close();
     await pool.end();
+    process.env = originalEnv;
   });
 
   describe('OAuth Connections', () => {

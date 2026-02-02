@@ -37,6 +37,23 @@ import {
   FileNotFoundError,
   DEFAULT_MAX_FILE_SIZE_BYTES,
 } from './file-storage/index.ts';
+import {
+  getAuthorizationUrl,
+  exchangeCodeForTokens,
+  getUserEmail as getOAuthUserEmail,
+  saveConnection,
+  getValidAccessToken,
+  isProviderConfigured,
+  getConfiguredProviders,
+  syncContacts,
+  getContactSyncCursor,
+  validateState,
+  OAuthError,
+  ProviderNotConfiguredError,
+  NoConnectionError,
+  InvalidStateError,
+  type OAuthProvider,
+} from './oauth/index.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -261,6 +278,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/cloudflare/email',
     // WebSocket endpoint uses its own auth via query params or cookies
     '/api/ws',
+    // OAuth callback comes from external provider redirect
+    '/api/oauth/callback',
   ]);
 
   // Bearer token authentication hook for API routes
@@ -8886,28 +8905,139 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/oauth/authorize/:provider - Get OAuth authorization URL
   app.get('/api/oauth/authorize/:provider', async (req, reply) => {
     const params = req.params as { provider: string };
-    const query = req.query as { userEmail?: string; scopes?: string };
+    const query = req.query as { scopes?: string };
 
     const validProviders = ['google', 'microsoft'];
     if (!validProviders.includes(params.provider)) {
       return reply.code(400).send({ error: 'Unknown OAuth provider' });
     }
 
-    const scopes = query.scopes?.split(',') || ['email', 'calendar'];
+    const provider = params.provider as OAuthProvider;
+
+    // Check if provider is configured
+    if (!isProviderConfigured(provider)) {
+      return reply.code(503).send({
+        error: `OAuth provider ${provider} is not configured`,
+        hint: `Set ${provider === 'microsoft' ? 'MS365_CLIENT_ID and MS365_CLIENT_SECRET' : 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET'} environment variables`,
+      });
+    }
+
+    const scopes = query.scopes?.split(',');
     const state = randomBytes(32).toString('hex');
 
-    // In production, these would be real OAuth URLs
-    // For now, return mock authorization URLs for testing
-    const authUrls: Record<string, string> = {
-      google: `https://accounts.google.com/o/oauth2/v2/auth?scope=${encodeURIComponent(scopes.join(' '))}`,
-      microsoft: `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?scope=${encodeURIComponent(scopes.join(' '))}`,
-    };
+    try {
+      const authResult = getAuthorizationUrl(provider, state, scopes);
 
+      return reply.send({
+        authUrl: authResult.url,
+        state: authResult.state,
+        provider: authResult.provider,
+        scopes: authResult.scopes,
+      });
+    } catch (error) {
+      if (error instanceof ProviderNotConfiguredError) {
+        return reply.code(503).send({
+          error: error.message,
+          code: error.code,
+        });
+      }
+      throw error;
+    }
+  });
+
+  // GET /api/oauth/callback - Handle OAuth callback
+  app.get('/api/oauth/callback', async (req, reply) => {
+    const query = req.query as { code?: string; state?: string; error?: string; provider?: string };
+
+    if (query.error) {
+      return reply.code(400).send({
+        error: 'OAuth authorization failed',
+        details: query.error,
+      });
+    }
+
+    if (!query.code) {
+      return reply.code(400).send({ error: 'Missing authorization code' });
+    }
+
+    if (!query.state) {
+      return reply.code(400).send({ error: 'Missing OAuth state parameter' });
+    }
+
+    // Validate state and get stored data (provider, codeVerifier)
+    let stateData;
+    try {
+      stateData = validateState(query.state);
+    } catch (error) {
+      if (error instanceof InvalidStateError) {
+        return reply.code(400).send({
+          error: 'Invalid or expired OAuth state',
+          code: 'INVALID_STATE',
+        });
+      }
+      throw error;
+    }
+
+    const provider = stateData.provider;
+
+    if (!isProviderConfigured(provider)) {
+      return reply.code(503).send({
+        error: `OAuth provider ${provider} is not configured`,
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Exchange code for tokens (with PKCE code_verifier)
+      const tokens = await exchangeCodeForTokens(provider, query.code, stateData.codeVerifier);
+
+      // Get user email from provider
+      const userEmail = await getOAuthUserEmail(provider, tokens.accessToken);
+
+      // Save connection
+      const connection = await saveConnection(pool, userEmail, provider, tokens);
+
+      await pool.end();
+
+      // In a real app, you might redirect to a success page
+      return reply.send({
+        status: 'connected',
+        provider,
+        userEmail,
+        connectionId: connection.id,
+        scopes: tokens.scopes,
+      });
+    } catch (error) {
+      await pool.end();
+
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({
+          error: error.message,
+          code: error.code,
+        });
+      }
+      throw error;
+    }
+  });
+
+  // GET /api/oauth/providers - List configured providers
+  app.get('/api/oauth/providers', async (_req, reply) => {
+    const providers = getConfiguredProviders();
     return reply.send({
-      authUrl: authUrls[params.provider],
-      state,
-      provider: params.provider,
-      scopes,
+      providers: providers.map((p) => ({
+        name: p,
+        configured: true,
+      })),
+      unconfigured: (['google', 'microsoft'] as OAuthProvider[])
+        .filter((p) => !providers.includes(p))
+        .map((p) => ({
+          name: p,
+          configured: false,
+          hint: p === 'microsoft'
+            ? 'Set MS365_CLIENT_ID and MS365_CLIENT_SECRET'
+            : 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET',
+        })),
     });
   });
 
@@ -8927,6 +9057,61 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     return reply.code(204).send();
+  });
+
+  // POST /api/sync/contacts - Trigger contact sync from OAuth provider
+  app.post('/api/sync/contacts', async (req, reply) => {
+    const body = req.body as { userEmail: string; provider: string; incremental?: boolean };
+    const pool = createPool();
+
+    const provider = body.provider as OAuthProvider;
+
+    // Validate provider
+    if (!['google', 'microsoft'].includes(provider)) {
+      await pool.end();
+      return reply.code(400).send({ error: 'Invalid provider' });
+    }
+
+    try {
+      // Get sync cursor for incremental sync
+      let syncCursor: string | undefined;
+      if (body.incremental !== false) {
+        syncCursor = await getContactSyncCursor(pool, body.userEmail, provider);
+      }
+
+      // Perform sync
+      const result = await syncContacts(pool, body.userEmail, provider, { syncCursor });
+
+      await pool.end();
+
+      return reply.send({
+        status: 'completed',
+        provider: result.provider,
+        userEmail: result.userEmail,
+        syncedCount: result.syncedCount,
+        createdCount: result.createdCount,
+        updatedCount: result.updatedCount,
+        incremental: !!syncCursor,
+      });
+    } catch (error) {
+      await pool.end();
+
+      if (error instanceof NoConnectionError) {
+        return reply.code(400).send({
+          error: 'No OAuth connection found for this provider',
+          code: error.code,
+        });
+      }
+
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({
+          error: error.message,
+          code: error.code,
+        });
+      }
+
+      throw error;
+    }
   });
 
   // POST /api/sync/emails - Trigger email sync
