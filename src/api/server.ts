@@ -5,8 +5,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPool } from '../db.js';
-import { sendMagicLinkEmail } from '../email/magicLink.js';
+import { createPool } from '../db.ts';
+import { sendMagicLinkEmail } from '../email/magicLink.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;

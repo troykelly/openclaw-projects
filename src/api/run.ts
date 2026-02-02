@@ -1,4 +1,4 @@
-import { buildServer } from './server.js';
+import { buildServer } from './server.ts';
 
 const port = parseInt(process.env.PORT || '3000');
 const host = process.env.HOST || '0.0.0.0';

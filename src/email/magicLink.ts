@@ -1,4 +1,4 @@
-import { getPostmarkTransactionalToken, sendPostmarkEmail } from './postmark.js';
+import { getPostmarkTransactionalToken, sendPostmarkEmail } from './postmark.ts';
 
 const DEFAULT_FROM = 'Projects <projects@execdesk.ai>';
 const DEFAULT_REPLY_TO = 'quasar@execdesk.ai';
