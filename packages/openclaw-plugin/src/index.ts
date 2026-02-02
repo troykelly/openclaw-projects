@@ -9,14 +9,19 @@ import type { PluginConfig } from './config.js'
 import { validateConfig } from './config.js'
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
-import { extractContext, type PluginContext } from './context.js'
-import { tools } from './tools/index.js'
+import { extractContext, getUserScopeKey, type PluginContext } from './context.js'
+import { createMemoryRecallTool, type MemoryRecallTool } from './tools/index.js'
 
 /** Plugin registration context from OpenClaw runtime */
 export interface RegistrationContext {
   config: Record<string, unknown>
   logger?: Logger
   runtime?: unknown
+}
+
+/** Tool instances created for the plugin */
+export interface PluginTools {
+  memoryRecall: MemoryRecallTool
 }
 
 /** Plugin instance after registration */
@@ -27,7 +32,7 @@ export interface PluginInstance {
   config: PluginConfig
   apiClient: ApiClient
   context: PluginContext
-  tools: typeof tools
+  tools: PluginTools
 }
 
 /**
@@ -46,9 +51,29 @@ export function register(ctx: RegistrationContext): PluginInstance {
   // Extract context
   const context = extractContext(ctx.runtime)
 
+  // Determine user scope key based on config
+  const userId = getUserScopeKey(
+    {
+      agentId: context.agent.agentId,
+      sessionKey: context.session.sessionId,
+    },
+    config.userScoping
+  )
+
+  // Create tools
+  const tools: PluginTools = {
+    memoryRecall: createMemoryRecallTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+  }
+
   logger.info('Plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
+    userId,
   })
 
   return {
@@ -83,4 +108,13 @@ export type {
   AgentContext,
   SessionContext,
 } from './context.js'
-export { extractContext } from './context.js'
+export { extractContext, getUserScopeKey } from './context.js'
+
+// Re-export tool types and factories
+export type {
+  MemoryRecallTool,
+  MemoryRecallParams,
+  MemoryRecallResult,
+  Memory,
+} from './tools/index.js'
+export { createMemoryRecallTool, MemoryRecallParamsSchema, MemoryCategory } from './tools/index.js'

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { register, plugin } from '../src/index.js'
+import {
+  register,
+  plugin,
+  createMemoryRecallTool,
+  MemoryRecallParamsSchema,
+  MemoryCategory,
+} from '../src/index.js'
 
 describe('Plugin Entry Point', () => {
   describe('exports', () => {
@@ -44,10 +50,35 @@ describe('Plugin Entry Point', () => {
     it('should return plugin instance', () => {
       const mockContext = {
         config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
-        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {} },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
       }
       const result = register(mockContext)
       expect(result).toBeDefined()
+    })
+
+    it('should return instance with memoryRecall tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.memoryRecall).toBeDefined()
+      expect(result.tools.memoryRecall.name).toBe('memory_recall')
+    })
+  })
+
+  describe('tool exports', () => {
+    it('should export createMemoryRecallTool', () => {
+      expect(typeof createMemoryRecallTool).toBe('function')
+    })
+
+    it('should export MemoryRecallParamsSchema', () => {
+      expect(MemoryRecallParamsSchema).toBeDefined()
+    })
+
+    it('should export MemoryCategory enum', () => {
+      expect(MemoryCategory).toBeDefined()
     })
   })
 })
