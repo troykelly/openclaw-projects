@@ -522,6 +522,57 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Context retrieval endpoint for auto-recall feature (Issue #251)
+  app.post('/api/v1/context', async (req, reply) => {
+    const { retrieveContext, validateContextInput } = await import('./context/index.ts');
+
+    const body = req.body as {
+      userId?: string;
+      prompt?: string;
+      maxMemories?: number;
+      maxContextLength?: number;
+      includeProjects?: boolean;
+      includeTodos?: boolean;
+      includeContacts?: boolean;
+      minSimilarity?: number;
+    };
+
+    // Validate input
+    const validationError = validateContextInput({
+      userId: body.userId,
+      prompt: body.prompt ?? '',
+      maxMemories: body.maxMemories,
+      maxContextLength: body.maxContextLength,
+      includeProjects: body.includeProjects,
+      includeTodos: body.includeTodos,
+      includeContacts: body.includeContacts,
+      minSimilarity: body.minSimilarity,
+    });
+
+    if (validationError) {
+      return reply.code(400).send({ error: validationError });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await retrieveContext(pool, {
+        userId: body.userId,
+        prompt: body.prompt!,
+        maxMemories: body.maxMemories,
+        maxContextLength: body.maxContextLength,
+        includeProjects: body.includeProjects,
+        includeTodos: body.includeTodos,
+        includeContacts: body.includeContacts,
+        minSimilarity: body.minSimilarity,
+      });
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Thread history endpoint for agent conversation context (Issue #226)
   app.get('/api/threads/:id/history', async (req, reply) => {
     const { getThreadHistory } = await import('./threads/index.ts');
