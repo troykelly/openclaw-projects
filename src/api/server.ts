@@ -9,6 +9,12 @@ import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
+import {
+  EmbeddingHealthChecker,
+  generateMemoryEmbedding,
+  searchMemoriesSemantic,
+  backfillMemoryEmbeddings,
+} from './embeddings/index.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -242,6 +248,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   const healthPool = createPool();
   const healthRegistry = new HealthCheckRegistry();
   healthRegistry.register(new DatabaseHealthChecker(healthPool));
+  healthRegistry.register(new EmbeddingHealthChecker());
 
   // Liveness probe - instant, no I/O, always 200
   app.get('/api/health/live', async () => ({ status: 'ok' }));
@@ -3503,11 +3510,10 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                  content,
                  memory_type::text as type,
                  work_item_id::text as "linkedItemId",
-                 created_at as "createdAt"`,
+                 created_at as "createdAt",
+                 embedding_status`,
       [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType]
     );
-
-    await pool.end();
 
     const row = result.rows[0] as {
       id: string;
@@ -3516,11 +3522,24 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       type: string;
       linkedItemId: string;
       createdAt: string;
+      embedding_status: string;
     };
 
+    // Generate embedding asynchronously (don't block response)
+    const memoryContent = `${row.title}\n\n${row.content}`;
+    const embeddingStatus = await generateMemoryEmbedding(pool, row.id, memoryContent);
+
+    await pool.end();
+
     return reply.code(201).send({
-      ...row,
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      type: row.type,
+      linkedItemId: row.linkedItemId,
       linkedItemTitle,
+      createdAt: row.createdAt,
+      embedding_status: embeddingStatus,
     });
   });
 
@@ -3554,7 +3573,8 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
     const result = await pool.query(
       `UPDATE work_item_memory
-       SET title = $1, content = $2, memory_type = $3::memory_type, updated_at = now()
+       SET title = $1, content = $2, memory_type = $3::memory_type, updated_at = now(),
+           embedding_status = 'pending'
        WHERE id = $4
        RETURNING id::text as id,
                  title,
@@ -3566,8 +3586,26 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       [body.title.trim(), body.content.trim(), memoryType, params.id]
     );
 
+    const row = result.rows[0] as {
+      id: string;
+      title: string;
+      content: string;
+      type: string;
+      linkedItemId: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+
+    // Regenerate embedding (content changed)
+    const memoryContent = `${row.title}\n\n${row.content}`;
+    const embeddingStatus = await generateMemoryEmbedding(pool, row.id, memoryContent);
+
     await pool.end();
-    return reply.send(result.rows[0]);
+
+    return reply.send({
+      ...row,
+      embedding_status: embeddingStatus,
+    });
   });
 
   // DELETE /api/memory/:id - Delete a memory
@@ -3587,6 +3625,72 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
 
     return reply.code(204).send();
+  });
+
+  // GET /api/memories/search - Semantic search for memories (issue #200)
+  app.get('/api/memories/search', async (req, reply) => {
+    const query = req.query as {
+      q?: string;
+      limit?: string;
+      offset?: string;
+      memory_type?: string;
+      work_item_id?: string;
+    };
+
+    if (!query.q || query.q.trim().length === 0) {
+      return reply.code(400).send({ error: 'q (query) parameter is required' });
+    }
+
+    const limit = Math.min(Math.max(parseInt(query.limit || '20', 10), 1), 100);
+    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+
+    const pool = createPool();
+
+    try {
+      const result = await searchMemoriesSemantic(pool, query.q.trim(), {
+        limit,
+        offset,
+        memoryType: query.memory_type,
+        workItemId: query.work_item_id,
+      });
+
+      return reply.send({
+        results: result.results,
+        search_type: result.searchType,
+        query_embedding_provider: result.queryEmbeddingProvider,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/admin/embeddings/backfill - Backfill embeddings for memories (issue #200)
+  app.post('/api/admin/embeddings/backfill', async (req, reply) => {
+    const body = req.body as {
+      batch_size?: number;
+      force?: boolean;
+    };
+
+    const batchSize = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
+    const force = body?.force === true;
+
+    const pool = createPool();
+
+    try {
+      const result = await backfillMemoryEmbeddings(pool, { batchSize, force });
+      return reply.code(202).send({
+        status: 'completed',
+        processed: result.processed,
+        succeeded: result.succeeded,
+        failed: result.failed,
+      });
+    } catch (error) {
+      return reply.code(500).send({
+        error: (error as Error).message,
+      });
+    } finally {
+      await pool.end();
+    }
   });
 
   // Memory Items API (issue #138)
