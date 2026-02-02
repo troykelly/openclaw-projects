@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
+import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -15,7 +16,8 @@ import {
   searchMemoriesSemantic,
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
-import { WebhookHealthChecker } from './webhooks/index.ts';
+import { WebhookHealthChecker, verifyTwilioSignature, isWebhookVerificationConfigured } from './webhooks/index.ts';
+import { processTwilioSms, type TwilioSmsWebhookPayload } from './twilio/index.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -30,6 +32,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // In production, set COOKIE_SECRET to enable signed cookies.
     secret: process.env.COOKIE_SECRET,
   });
+
+  // Support URL-encoded form bodies (used by Twilio webhooks)
+  app.register(formbody);
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -170,6 +175,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   // Routes that skip bearer token authentication
+  // (These routes use their own authentication methods)
   const authSkipPaths = new Set([
     '/health',
     '/api/health',
@@ -179,6 +185,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/auth/consume',
     '/api/capabilities',
     '/api/openapi.json',
+    // Webhook endpoints use signature verification instead of bearer tokens
+    '/api/twilio/sms',
   ]);
 
   // Bearer token authentication hook for API routes
@@ -5461,6 +5469,50 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       throw e;
     } finally {
       client.release();
+      await pool.end();
+    }
+  });
+
+  // Twilio SMS Inbound Webhook (Issue #202)
+  // POST /api/twilio/sms - Receive Twilio SMS webhooks
+  app.post('/api/twilio/sms', async (req, reply) => {
+    // Verify Twilio signature (unless auth disabled or in dev mode without config)
+    if (!isAuthDisabled()) {
+      if (!isWebhookVerificationConfigured('twilio')) {
+        console.warn('[Twilio] TWILIO_AUTH_TOKEN not configured, rejecting webhook');
+        return reply.code(503).send({ error: 'Twilio webhook not configured' });
+      }
+
+      if (!verifyTwilioSignature(req)) {
+        console.warn('[Twilio] Invalid signature on SMS webhook');
+        return reply.code(401).send({ error: 'Invalid signature' });
+      }
+    }
+
+    // Twilio sends webhooks as application/x-www-form-urlencoded
+    const payload = req.body as TwilioSmsWebhookPayload;
+
+    // Validate required fields
+    if (!payload.MessageSid || !payload.From || !payload.To) {
+      return reply.code(400).send({ error: 'Missing required fields: MessageSid, From, To' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await processTwilioSms(pool, payload);
+
+      console.log(
+        `[Twilio] SMS from ${payload.From}: contactId=${result.contactId}, ` +
+        `messageId=${result.messageId}, isNew=${result.isNewContact}`
+      );
+
+      // TODO: Queue webhook to notify OpenClaw of new inbound message (#201)
+
+      // Return TwiML response (empty means no auto-reply)
+      reply.header('Content-Type', 'application/xml');
+      return reply.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    } finally {
       await pool.end();
     }
   });
