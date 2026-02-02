@@ -55,8 +55,26 @@ export {
   type ProjectToolOptions,
 } from './projects.js'
 
-// Todo tools (to be implemented in #246)
-// export * from './todos.js'
+// Todo tools
+export {
+  createTodoListTool,
+  createTodoCreateTool,
+  createTodoCompleteTool,
+  TodoListParamsSchema,
+  TodoCreateParamsSchema,
+  TodoCompleteParamsSchema,
+  type TodoListParams,
+  type TodoCreateParams,
+  type TodoCompleteParams,
+  type TodoListTool,
+  type TodoCreateTool,
+  type TodoCompleteTool,
+  type TodoListResult,
+  type TodoCreateResult,
+  type TodoCompleteResult,
+  type Todo,
+  type TodoToolOptions,
+} from './todos.js'
 
 // Contact tools (to be implemented in #247)
 // export * from './contacts.js'
