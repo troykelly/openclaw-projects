@@ -14,9 +14,15 @@ import {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
+  createProjectListTool,
+  createProjectGetTool,
+  createProjectCreateTool,
   type MemoryRecallTool,
   type MemoryStoreTool,
   type MemoryForgetTool,
+  type ProjectListTool,
+  type ProjectGetTool,
+  type ProjectCreateTool,
 } from './tools/index.js'
 
 /** Plugin registration context from OpenClaw runtime */
@@ -31,6 +37,9 @@ export interface PluginTools {
   memoryRecall: MemoryRecallTool
   memoryStore: MemoryStoreTool
   memoryForget: MemoryForgetTool
+  projectList: ProjectListTool
+  projectGet: ProjectGetTool
+  projectCreate: ProjectCreateTool
 }
 
 /** Plugin instance after registration */
@@ -84,6 +93,24 @@ export function register(ctx: RegistrationContext): PluginInstance {
       userId,
     }),
     memoryForget: createMemoryForgetTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+    projectList: createProjectListTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+    projectGet: createProjectGetTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+    projectCreate: createProjectCreateTool({
       client: apiClient,
       logger,
       config,
@@ -144,13 +171,31 @@ export type {
   MemoryForgetTool,
   MemoryForgetParams,
   MemoryForgetResult,
+  ProjectListTool,
+  ProjectGetTool,
+  ProjectCreateTool,
+  ProjectListParams,
+  ProjectGetParams,
+  ProjectCreateParams,
+  ProjectListResult,
+  ProjectGetResult,
+  ProjectCreateResult,
+  Project,
+  ProjectToolOptions,
 } from './tools/index.js'
 export {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
+  createProjectListTool,
+  createProjectGetTool,
+  createProjectCreateTool,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
   MemoryCategory,
+  ProjectListParamsSchema,
+  ProjectGetParamsSchema,
+  ProjectCreateParamsSchema,
+  ProjectStatus,
 } from './tools/index.js'

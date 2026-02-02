@@ -33,8 +33,27 @@ export {
   type MemoryForgetResult,
 } from './memory-forget.js'
 
-// Project tools (to be implemented in #245)
-// export * from './projects.js'
+// Project tools
+export {
+  createProjectListTool,
+  createProjectGetTool,
+  createProjectCreateTool,
+  ProjectListParamsSchema,
+  ProjectGetParamsSchema,
+  ProjectCreateParamsSchema,
+  ProjectStatus,
+  type ProjectListParams,
+  type ProjectGetParams,
+  type ProjectCreateParams,
+  type ProjectListTool,
+  type ProjectGetTool,
+  type ProjectCreateTool,
+  type ProjectListResult,
+  type ProjectGetResult,
+  type ProjectCreateResult,
+  type Project,
+  type ProjectToolOptions,
+} from './projects.js'
 
 // Todo tools (to be implemented in #246)
 // export * from './todos.js'

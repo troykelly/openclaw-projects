@@ -5,10 +5,17 @@ import {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
+  createProjectListTool,
+  createProjectGetTool,
+  createProjectCreateTool,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
   MemoryCategory,
+  ProjectListParamsSchema,
+  ProjectGetParamsSchema,
+  ProjectCreateParamsSchema,
+  ProjectStatus,
 } from '../src/index.js'
 
 describe('Plugin Entry Point', () => {
@@ -92,6 +99,39 @@ describe('Plugin Entry Point', () => {
       expect(result.tools.memoryForget).toBeDefined()
       expect(result.tools.memoryForget.name).toBe('memory_forget')
     })
+
+    it('should return instance with projectList tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.projectList).toBeDefined()
+      expect(result.tools.projectList.name).toBe('project_list')
+    })
+
+    it('should return instance with projectGet tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.projectGet).toBeDefined()
+      expect(result.tools.projectGet.name).toBe('project_get')
+    })
+
+    it('should return instance with projectCreate tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.projectCreate).toBeDefined()
+      expect(result.tools.projectCreate.name).toBe('project_create')
+    })
   })
 
   describe('tool exports', () => {
@@ -121,6 +161,34 @@ describe('Plugin Entry Point', () => {
 
     it('should export MemoryCategory enum', () => {
       expect(MemoryCategory).toBeDefined()
+    })
+
+    it('should export createProjectListTool', () => {
+      expect(typeof createProjectListTool).toBe('function')
+    })
+
+    it('should export createProjectGetTool', () => {
+      expect(typeof createProjectGetTool).toBe('function')
+    })
+
+    it('should export createProjectCreateTool', () => {
+      expect(typeof createProjectCreateTool).toBe('function')
+    })
+
+    it('should export ProjectListParamsSchema', () => {
+      expect(ProjectListParamsSchema).toBeDefined()
+    })
+
+    it('should export ProjectGetParamsSchema', () => {
+      expect(ProjectGetParamsSchema).toBeDefined()
+    })
+
+    it('should export ProjectCreateParamsSchema', () => {
+      expect(ProjectCreateParamsSchema).toBeDefined()
+    })
+
+    it('should export ProjectStatus enum', () => {
+      expect(ProjectStatus).toBeDefined()
     })
   })
 })
