@@ -338,8 +338,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
       {
         name: 'search',
-        description: 'Global search across all entities',
-        endpoints: [{ method: 'GET', path: '/api/search', description: 'Search work items, contacts, memories' }],
+        description: 'Unified full-text and semantic search across all entities',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/api/search',
+            description: 'Search work items, contacts, memories, and messages with hybrid (text + semantic) search',
+            parameters: {
+              q: 'Search query (required)',
+              types: 'Comma-separated entity types: work_item, contact, memory, message',
+              limit: 'Max results (default 20, max 100)',
+              offset: 'Pagination offset',
+              semantic: 'Enable semantic search (default true)',
+              date_from: 'Filter by date (ISO 8601)',
+              date_to: 'Filter by date (ISO 8601)',
+              semantic_weight: 'Weight for semantic vs text search (0-1, default 0.5)',
+            },
+          },
+        ],
       },
       {
         name: 'analytics',
@@ -2240,112 +2256,88 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.send(result.rows[0]);
   });
 
-  // GET /api/search - Unified search API endpoint
+  // GET /api/search - Unified search API endpoint (Issue #216)
+  // Full-text search with optional semantic search for memories
   app.get('/api/search', async (req, reply) => {
+    const { unifiedSearch } = await import('./search/index.ts');
+
     const query = req.query as {
       q?: string;
-      type?: string;
+      types?: string;
       limit?: string;
+      offset?: string;
+      semantic?: string;
+      date_from?: string;
+      date_to?: string;
+      semantic_weight?: string;
     };
 
     const searchTerm = query.q?.trim() || '';
-    const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-    const types = query.type?.split(',').map(t => t.trim()).filter(t => t) || ['work_item', 'contact'];
-
-    const pool = createPool();
-    const results: Array<{
-      type: string;
-      id: string;
-      title: string;
-      description: string;
-      url: string;
-    }> = [];
-    let total = 0;
 
     // If no search term, return empty results
     if (!searchTerm) {
+      return reply.send({
+        query: '',
+        search_type: 'text',
+        results: [],
+        facets: { work_item: 0, contact: 0, memory: 0, message: 0 },
+        total: 0,
+      });
+    }
+
+    const limit = Math.min(parseInt(query.limit || '20', 10), 100);
+    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+    const semantic = query.semantic !== 'false'; // Default true
+    const semanticWeight = Math.min(1, Math.max(0, parseFloat(query.semantic_weight || '0.5')));
+
+    // Parse entity types
+    const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
+    type EntityType = typeof validTypes[number];
+    let types: EntityType[] | undefined;
+    if (query.types) {
+      types = query.types
+        .split(',')
+        .map((t) => t.trim() as EntityType)
+        .filter((t) => validTypes.includes(t));
+      if (types.length === 0) {
+        types = undefined; // Use defaults
+      }
+    }
+
+    // Parse date filters
+    let dateFrom: Date | undefined;
+    let dateTo: Date | undefined;
+    if (query.date_from) {
+      const parsed = new Date(query.date_from);
+      if (!isNaN(parsed.getTime())) {
+        dateFrom = parsed;
+      }
+    }
+    if (query.date_to) {
+      const parsed = new Date(query.date_to);
+      if (!isNaN(parsed.getTime())) {
+        dateTo = parsed;
+      }
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await unifiedSearch(pool, {
+        query: searchTerm,
+        types,
+        limit,
+        offset,
+        semantic,
+        dateFrom,
+        dateTo,
+        semanticWeight,
+      });
+
+      return reply.send(result);
+    } finally {
       await pool.end();
-      return reply.send({ results: [], total: 0 });
     }
-
-    const searchPattern = `%${searchTerm}%`;
-
-    // Search work items
-    if (types.includes('work_item')) {
-      const workItemsResult = await pool.query(
-        `SELECT id::text as id, title, COALESCE(description, '') as description
-         FROM work_item
-         WHERE title ILIKE $1 OR description ILIKE $1
-         ORDER BY updated_at DESC
-         LIMIT $2`,
-        [searchPattern, limit]
-      );
-
-      const workItemCountResult = await pool.query(
-        `SELECT COUNT(*) as count
-         FROM work_item
-         WHERE title ILIKE $1 OR description ILIKE $1`,
-        [searchPattern]
-      );
-
-      workItemsResult.rows.forEach((row: { id: string; title: string; description: string }) => {
-        results.push({
-          type: 'work_item',
-          id: row.id,
-          title: row.title,
-          description: row.description,
-          url: `/app/work-items/${row.id}`,
-        });
-      });
-
-      total += parseInt((workItemCountResult.rows[0] as { count: string }).count, 10);
-    }
-
-    // Search contacts
-    if (types.includes('contact')) {
-      const contactsResult = await pool.query(
-        `SELECT DISTINCT c.id::text as id, c.display_name,
-                COALESCE(
-                  (SELECT string_agg(ce.endpoint_value, ', ')
-                   FROM contact_endpoint ce
-                   WHERE ce.contact_id = c.id),
-                  ''
-                ) as endpoints
-         FROM contact c
-         LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-         WHERE c.display_name ILIKE $1 OR ce.endpoint_value ILIKE $1
-         ORDER BY c.display_name
-         LIMIT $2`,
-        [searchPattern, limit]
-      );
-
-      const contactCountResult = await pool.query(
-        `SELECT COUNT(DISTINCT c.id) as count
-         FROM contact c
-         LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-         WHERE c.display_name ILIKE $1 OR ce.endpoint_value ILIKE $1`,
-        [searchPattern]
-      );
-
-      contactsResult.rows.forEach((row: { id: string; display_name: string; endpoints: string }) => {
-        results.push({
-          type: 'contact',
-          id: row.id,
-          title: row.display_name,
-          description: row.endpoints,
-          url: `/app/contacts/${row.id}`,
-        });
-      });
-
-      total += parseInt((contactCountResult.rows[0] as { count: string }).count, 10);
-    }
-
-    await pool.end();
-
-    // Limit results if searching both types
-    const limitedResults = results.slice(0, limit);
-
-    return reply.send({ results: limitedResults, total });
   });
 
   // GET /api/timeline - Global timeline endpoint
