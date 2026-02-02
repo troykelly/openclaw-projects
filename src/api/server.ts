@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
+import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -161,6 +162,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   app.get('/health', async () => ({ ok: true }));
+
+  // Health check endpoints (Kubernetes-compatible)
+  const healthPool = createPool();
+  const healthRegistry = new HealthCheckRegistry();
+  healthRegistry.register(new DatabaseHealthChecker(healthPool));
+
+  // Liveness probe - instant, no I/O, always 200
+  app.get('/api/health/live', async () => ({ status: 'ok' }));
+
+  // Readiness probe - checks critical dependencies
+  app.get('/api/health/ready', async (req, reply) => {
+    const ready = await healthRegistry.isReady();
+    if (ready) {
+      return { status: 'ok' };
+    }
+    return reply.code(503).send({ status: 'unavailable' });
+  });
+
+  // Detailed health status for monitoring
+  app.get('/api/health', async (req, reply) => {
+    const health = await healthRegistry.checkAll();
+    const statusCode = health.status === 'unhealthy' ? 503 : 200;
+    return reply.code(statusCode).send(health);
+  });
 
   // New frontend (issue #52). These routes are protected by the existing dashboard session cookie.
 
