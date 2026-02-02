@@ -17,12 +17,18 @@ import {
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
+  createTodoListTool,
+  createTodoCreateTool,
+  createTodoCompleteTool,
   type MemoryRecallTool,
   type MemoryStoreTool,
   type MemoryForgetTool,
   type ProjectListTool,
   type ProjectGetTool,
   type ProjectCreateTool,
+  type TodoListTool,
+  type TodoCreateTool,
+  type TodoCompleteTool,
 } from './tools/index.js'
 
 /** Plugin registration context from OpenClaw runtime */
@@ -40,6 +46,9 @@ export interface PluginTools {
   projectList: ProjectListTool
   projectGet: ProjectGetTool
   projectCreate: ProjectCreateTool
+  todoList: TodoListTool
+  todoCreate: TodoCreateTool
+  todoComplete: TodoCompleteTool
 }
 
 /** Plugin instance after registration */
@@ -116,6 +125,24 @@ export function register(ctx: RegistrationContext): PluginInstance {
       config,
       userId,
     }),
+    todoList: createTodoListTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+    todoCreate: createTodoCreateTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+    todoComplete: createTodoCompleteTool({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
   }
 
   logger.info('Plugin registered', {
@@ -182,6 +209,17 @@ export type {
   ProjectCreateResult,
   Project,
   ProjectToolOptions,
+  TodoListTool,
+  TodoCreateTool,
+  TodoCompleteTool,
+  TodoListParams,
+  TodoCreateParams,
+  TodoCompleteParams,
+  TodoListResult,
+  TodoCreateResult,
+  TodoCompleteResult,
+  Todo,
+  TodoToolOptions,
 } from './tools/index.js'
 export {
   createMemoryRecallTool,
@@ -190,6 +228,9 @@ export {
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
+  createTodoListTool,
+  createTodoCreateTool,
+  createTodoCompleteTool,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
@@ -198,4 +239,7 @@ export {
   ProjectGetParamsSchema,
   ProjectCreateParamsSchema,
   ProjectStatus,
+  TodoListParamsSchema,
+  TodoCreateParamsSchema,
+  TodoCompleteParamsSchema,
 } from './tools/index.js'

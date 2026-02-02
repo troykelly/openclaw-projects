@@ -8,6 +8,9 @@ import {
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
+  createTodoListTool,
+  createTodoCreateTool,
+  createTodoCompleteTool,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
@@ -16,6 +19,9 @@ import {
   ProjectGetParamsSchema,
   ProjectCreateParamsSchema,
   ProjectStatus,
+  TodoListParamsSchema,
+  TodoCreateParamsSchema,
+  TodoCompleteParamsSchema,
 } from '../src/index.js'
 
 describe('Plugin Entry Point', () => {
@@ -132,6 +138,39 @@ describe('Plugin Entry Point', () => {
       expect(result.tools.projectCreate).toBeDefined()
       expect(result.tools.projectCreate.name).toBe('project_create')
     })
+
+    it('should return instance with todoList tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.todoList).toBeDefined()
+      expect(result.tools.todoList.name).toBe('todo_list')
+    })
+
+    it('should return instance with todoCreate tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.todoCreate).toBeDefined()
+      expect(result.tools.todoCreate.name).toBe('todo_create')
+    })
+
+    it('should return instance with todoComplete tool', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.tools).toBeDefined()
+      expect(result.tools.todoComplete).toBeDefined()
+      expect(result.tools.todoComplete.name).toBe('todo_complete')
+    })
   })
 
   describe('tool exports', () => {
@@ -189,6 +228,30 @@ describe('Plugin Entry Point', () => {
 
     it('should export ProjectStatus enum', () => {
       expect(ProjectStatus).toBeDefined()
+    })
+
+    it('should export createTodoListTool', () => {
+      expect(typeof createTodoListTool).toBe('function')
+    })
+
+    it('should export createTodoCreateTool', () => {
+      expect(typeof createTodoCreateTool).toBe('function')
+    })
+
+    it('should export createTodoCompleteTool', () => {
+      expect(typeof createTodoCompleteTool).toBe('function')
+    })
+
+    it('should export TodoListParamsSchema', () => {
+      expect(TodoListParamsSchema).toBeDefined()
+    })
+
+    it('should export TodoCreateParamsSchema', () => {
+      expect(TodoCreateParamsSchema).toBeDefined()
+    })
+
+    it('should export TodoCompleteParamsSchema', () => {
+      expect(TodoCompleteParamsSchema).toBeDefined()
     })
   })
 })
