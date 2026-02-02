@@ -39,7 +39,7 @@ describe('Memory Items in Work Item Detail', () => {
 
       // Create some memories
       await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+        `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Decision Note', 'We decided to use TypeScript', 'decision'),
                 ($1, 'Context Info', 'This is background information', 'context')`,
         [itemId]
@@ -141,7 +141,7 @@ describe('Memory Items in Work Item Detail', () => {
       const itemId = (item.rows[0] as { id: string }).id;
 
       const memory = await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+        `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Original Title', 'Original content', 'note')
          RETURNING id::text as id`,
         [itemId]
@@ -184,7 +184,7 @@ describe('Memory Items in Work Item Detail', () => {
       const itemId = (item.rows[0] as { id: string }).id;
 
       const memory = await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+        `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'To Delete', 'Delete me', 'note')
          RETURNING id::text as id`,
         [itemId]

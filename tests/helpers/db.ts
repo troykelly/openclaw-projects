@@ -57,6 +57,7 @@ const APPLICATION_TABLES = [
   'webhook_outbox',
   'internal_job',
   // Parents
+  'memory',
   'work_item_memory',
   'work_item',
   'contact',

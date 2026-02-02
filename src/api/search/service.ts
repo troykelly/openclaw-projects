@@ -160,7 +160,7 @@ async function searchMemoriesText(
        memory_type::text as memory_type,
        work_item_id::text as work_item_id,
        ts_rank(search_vector, plainto_tsquery('english', $1)) as rank
-     FROM work_item_memory
+     FROM memory
      WHERE ${conditions.join(' AND ')}
      ORDER BY rank DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -265,7 +265,7 @@ async function searchMemoriesSemantic(
        memory_type::text as memory_type,
        work_item_id::text as work_item_id,
        1 - (embedding <=> $1::vector) as similarity
-     FROM work_item_memory
+     FROM memory
      WHERE ${conditions.join(' AND ')}
      ORDER BY embedding <=> $1::vector
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -527,7 +527,7 @@ export async function countSearchResults(
 
   // Count memories
   const memoryCount = await pool.query(
-    `SELECT COUNT(*) FROM work_item_memory
+    `SELECT COUNT(*) FROM memory
      WHERE search_vector @@ plainto_tsquery('english', $1) ${workItemWhere}`,
     params
   );

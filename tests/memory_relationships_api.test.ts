@@ -49,7 +49,7 @@ describe('Memory Relationships API', () => {
     content: string
   ): Promise<string> {
     const result = await pool.query(
-      `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+      `INSERT INTO memory (work_item_id, title, content, memory_type)
        VALUES ($1, $2, $3, 'note')
        RETURNING id::text as id`,
       [workItemId, title, content]

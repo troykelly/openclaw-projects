@@ -1995,7 +1995,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Get attachments - memories (issue #109)
     const memoriesResult = await pool.query(
       `SELECT id::text as id, 'memory' as type, title, memory_type::text as subtitle, created_at as "linkedAt"
-       FROM work_item_memory
+       FROM memory
        WHERE work_item_id = $1
        ORDER BY created_at DESC`,
       [params.id]
@@ -3414,7 +3414,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     // Get total count
     const countResult = await pool.query(
       `SELECT COUNT(*) as total
-       FROM work_item_memory m
+       FROM memory m
        JOIN work_item wi ON wi.id = m.work_item_id
        ${whereClause}`,
       params
@@ -3435,7 +3435,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
               wi.work_item_kind as "linkedItemKind",
               m.created_at as "createdAt",
               m.updated_at as "updatedAt"
-         FROM work_item_memory m
+         FROM memory m
          JOIN work_item wi ON wi.id = m.work_item_id
         ${whereClause}
         ORDER BY m.created_at DESC
@@ -3497,7 +3497,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     const linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
 
     const result = await pool.query(
-      `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+      `INSERT INTO memory (work_item_id, title, content, memory_type)
        VALUES ($1, $2, $3, $4::memory_type)
        RETURNING id::text as id,
                  title,
@@ -3559,14 +3559,14 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     const pool = createPool();
 
     // Check if memory exists
-    const exists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+    const exists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
     if (exists.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
     const result = await pool.query(
-      `UPDATE work_item_memory
+      `UPDATE memory
        SET title = $1, content = $2, memory_type = $3::memory_type, updated_at = now(),
            embedding_status = 'pending'
        WHERE id = $4
@@ -3608,7 +3608,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     const pool = createPool();
 
     const result = await pool.query(
-      'DELETE FROM work_item_memory WHERE id = $1 RETURNING id::text as id',
+      'DELETE FROM memory WHERE id = $1 RETURNING id::text as id',
       [params.id]
     );
 
@@ -3703,7 +3703,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
           COUNT(*) FILTER (WHERE embedding_status = 'complete') as with_embedding,
           COUNT(*) FILTER (WHERE embedding_status = 'pending') as pending,
           COUNT(*) FILTER (WHERE embedding_status = 'failed') as failed
-        FROM work_item_memory
+        FROM memory
       `);
 
       const row = stats.rows[0] as {
@@ -3726,6 +3726,216 @@ app.delete('/api/work-items/:id', async (req, reply) => {
           failed: parseInt(row.failed, 10),
         },
       });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Unified Memory API (issue #209) - Flexible memory scoping
+
+  // GET /api/memories/global - List global memories (no work item or contact scope)
+  app.get('/api/memories/global', async (req, reply) => {
+    const { getGlobalMemories } = await import('./memory/index.ts');
+
+    const query = req.query as {
+      user_email?: string;
+      memory_type?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await getGlobalMemories(pool, query.user_email, {
+        memoryType: query.memory_type as any,
+        limit: parseInt(query.limit || '50', 10),
+        offset: parseInt(query.offset || '0', 10),
+      });
+
+      return reply.send({
+        memories: result.memories,
+        total: result.total,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/unified - Create memory with flexible scoping (issue #209)
+  app.post('/api/memories/unified', async (req, reply) => {
+    const { createMemory, isValidMemoryType } = await import('./memory/index.ts');
+
+    const body = req.body as {
+      title?: string;
+      content?: string;
+      memory_type?: string;
+      user_email?: string;
+      work_item_id?: string;
+      contact_id?: string;
+      created_by_agent?: string;
+      created_by_human?: boolean;
+      source_url?: string;
+      importance?: number;
+      confidence?: number;
+      expires_at?: string;
+    };
+
+    if (!body?.title?.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    if (!body?.content?.trim()) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    const memoryType = body.memory_type ?? 'note';
+    if (!isValidMemoryType(memoryType)) {
+      return reply.code(400).send({
+        error: `Invalid memory_type. Valid types: preference, fact, note, decision, context, reference`,
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      const memory = await createMemory(pool, {
+        title: body.title.trim(),
+        content: body.content.trim(),
+        memoryType: memoryType as any,
+        userEmail: body.user_email,
+        workItemId: body.work_item_id,
+        contactId: body.contact_id,
+        createdByAgent: body.created_by_agent,
+        createdByHuman: body.created_by_human,
+        sourceUrl: body.source_url,
+        importance: body.importance,
+        confidence: body.confidence,
+        expiresAt: body.expires_at ? new Date(body.expires_at) : undefined,
+      });
+
+      // Generate embedding asynchronously
+      const memoryContent = `${memory.title}\n\n${memory.content}`;
+      await generateMemoryEmbedding(pool, memory.id, memoryContent);
+
+      return reply.code(201).send(memory);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/memories/unified - List memories with flexible filtering (issue #209)
+  app.get('/api/memories/unified', async (req, reply) => {
+    const { listMemories } = await import('./memory/index.ts');
+
+    const query = req.query as {
+      user_email?: string;
+      work_item_id?: string;
+      contact_id?: string;
+      memory_type?: string;
+      include_expired?: string;
+      include_superseded?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    const pool = createPool();
+
+    try {
+      const result = await listMemories(pool, {
+        userEmail: query.user_email,
+        workItemId: query.work_item_id,
+        contactId: query.contact_id,
+        memoryType: query.memory_type as any,
+        includeExpired: query.include_expired === 'true',
+        includeSuperseded: query.include_superseded === 'true',
+        limit: parseInt(query.limit || '50', 10),
+        offset: parseInt(query.offset || '0', 10),
+      });
+
+      return reply.send({
+        memories: result.memories,
+        total: result.total,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/memories/:id/supersede - Supersede a memory with a new one (issue #209)
+  app.post('/api/memories/:id/supersede', async (req, reply) => {
+    const { supersedeMemory, getMemory, isValidMemoryType } = await import('./memory/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      title?: string;
+      content?: string;
+      memory_type?: string;
+      importance?: number;
+      confidence?: number;
+    };
+
+    if (!body?.title?.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    if (!body?.content?.trim()) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Get the old memory to inherit its scope
+      const oldMemory = await getMemory(pool, params.id);
+      if (!oldMemory) {
+        return reply.code(404).send({ error: 'Memory not found' });
+      }
+
+      const memoryType = body.memory_type ?? oldMemory.memoryType;
+      if (!isValidMemoryType(memoryType)) {
+        return reply.code(400).send({
+          error: `Invalid memory_type. Valid types: preference, fact, note, decision, context, reference`,
+        });
+      }
+
+      const newMemory = await supersedeMemory(pool, params.id, {
+        title: body.title.trim(),
+        content: body.content.trim(),
+        memoryType: memoryType as any,
+        userEmail: oldMemory.userEmail ?? undefined,
+        workItemId: oldMemory.workItemId ?? undefined,
+        contactId: oldMemory.contactId ?? undefined,
+        importance: body.importance ?? oldMemory.importance,
+        confidence: body.confidence ?? oldMemory.confidence,
+      });
+
+      // Generate embedding for new memory
+      const memoryContent = `${newMemory.title}\n\n${newMemory.content}`;
+      await generateMemoryEmbedding(pool, newMemory.id, memoryContent);
+
+      return reply.code(201).send({
+        newMemory,
+        supersededId: params.id,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/memories/cleanup-expired - Cleanup expired memories (issue #209)
+  app.delete('/api/memories/cleanup-expired', async (req, reply) => {
+    const { cleanupExpiredMemories } = await import('./memory/index.ts');
+
+    const pool = createPool();
+
+    try {
+      const deleted = await cleanupExpiredMemories(pool);
+      return reply.send({ deleted });
     } finally {
       await pool.end();
     }
@@ -3865,7 +4075,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
               memory_type::text as type,
               created_at,
               updated_at
-         FROM work_item_memory
+         FROM memory
         WHERE work_item_id = $1
         ORDER BY created_at DESC`,
       [params.id]
@@ -3904,7 +4114,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+      `INSERT INTO memory (work_item_id, title, content, memory_type)
        VALUES ($1, $2, $3, $4::memory_type)
        RETURNING id::text as id,
                  title,
@@ -3927,7 +4137,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     const pool = createPool();
 
     // Check if memory exists
-    const exists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+    const exists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
     if (exists.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -3970,7 +4180,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     values.push(params.id);
 
     const result = await pool.query(
-      `UPDATE work_item_memory SET ${updates.join(', ')} WHERE id = $${paramIndex}
+      `UPDATE memory SET ${updates.join(', ')} WHERE id = $${paramIndex}
        RETURNING id::text as id,
                  title,
                  content,
@@ -3990,7 +4200,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     const pool = createPool();
 
     const result = await pool.query(
-      'DELETE FROM work_item_memory WHERE id = $1 RETURNING id::text as id',
+      'DELETE FROM memory WHERE id = $1 RETURNING id::text as id',
       [params.id]
     );
 
@@ -4028,7 +4238,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
     try {
       // Check if memory exists
-      const memoryExists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+      const memoryExists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
       if (memoryExists.rows.length === 0) {
         return reply.code(404).send({ error: 'memory not found' });
       }
@@ -4064,7 +4274,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
     try {
       // Check if memory exists
-      const memoryExists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+      const memoryExists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
       if (memoryExists.rows.length === 0) {
         return reply.code(404).send({ error: 'memory not found' });
       }
@@ -4157,7 +4367,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                m.created_at as "createdAt",
                m.updated_at as "updatedAt"
         FROM memory_contact mc
-        JOIN work_item_memory m ON m.id = mc.memory_id
+        JOIN memory m ON m.id = mc.memory_id
         WHERE mc.contact_id = $1
       `;
       const queryParams: (string | number)[] = [params.id];
@@ -4207,7 +4417,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     try {
       // Check if both memories exist
       const memoriesExist = await pool.query(
-        'SELECT id FROM work_item_memory WHERE id = ANY($1::uuid[])',
+        'SELECT id FROM memory WHERE id = ANY($1::uuid[])',
         [[params.id, body.relatedMemoryId]]
       );
       if (memoriesExist.rows.length < 2) {
@@ -4241,7 +4451,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
     try {
       // Check if memory exists
-      const memoryExists = await pool.query('SELECT 1 FROM work_item_memory WHERE id = $1', [params.id]);
+      const memoryExists = await pool.query('SELECT 1 FROM memory WHERE id = $1', [params.id]);
       if (memoryExists.rows.length === 0) {
         return reply.code(404).send({ error: 'memory not found' });
       }
@@ -4261,7 +4471,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                m.created_at as "createdAt",
                m.updated_at as "updatedAt"
         FROM memory_relationship mr
-        JOIN work_item_memory m ON m.id = mr.related_memory_id
+        JOIN memory m ON m.id = mr.related_memory_id
         WHERE mr.memory_id = $1
       `;
 
@@ -4280,7 +4490,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                m.created_at as "createdAt",
                m.updated_at as "updatedAt"
         FROM memory_relationship mr
-        JOIN work_item_memory m ON m.id = mr.memory_id
+        JOIN memory m ON m.id = mr.memory_id
         WHERE mr.related_memory_id = $1
       `;
 
@@ -4351,7 +4561,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       // Get the source memory with its embedding
       const sourceResult = await pool.query(
         `SELECT id, title, content, embedding, embedding_status
-         FROM work_item_memory WHERE id = $1`,
+         FROM memory WHERE id = $1`,
         [params.id]
       );
 
@@ -4384,7 +4594,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                 m.created_at as "createdAt",
                 m.updated_at as "updatedAt",
                 1 - (m.embedding <=> $1::vector) as similarity
-         FROM work_item_memory m
+         FROM memory m
          WHERE m.id != $2
            AND m.embedding IS NOT NULL
            AND m.embedding_status = 'complete'
@@ -4430,7 +4640,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       const linkedMemoriesResult = await pool.query(
         `SELECT m.embedding
          FROM memory_contact mc
-         JOIN work_item_memory m ON m.id = mc.memory_id
+         JOIN memory m ON m.id = mc.memory_id
          WHERE mc.contact_id = $1
            AND m.embedding IS NOT NULL
            AND m.embedding_status = 'complete'
@@ -4468,7 +4678,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                   m.created_at as "createdAt",
                   m.updated_at as "updatedAt",
                   1 - (m.embedding <=> $1::vector) as similarity
-           FROM work_item_memory m
+           FROM memory m
            WHERE m.embedding IS NOT NULL
              AND m.embedding_status = 'complete'
              AND 1 - (m.embedding <=> $1::vector) >= $2
@@ -4499,7 +4709,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                 m.created_at as "createdAt",
                 m.updated_at as "updatedAt",
                 1 - (m.embedding <=> $1::vector) as similarity
-         FROM work_item_memory m
+         FROM memory m
          WHERE m.embedding IS NOT NULL
            AND m.embedding_status = 'complete'
            AND 1 - (m.embedding <=> $1::vector) >= $2
@@ -4562,7 +4772,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                 m.content,
                 m.memory_type::text as type,
                 'direct' as "linkType"
-         FROM work_item_memory m
+         FROM memory m
          WHERE m.work_item_id = $1`,
         [params.id]
       );
@@ -4573,7 +4783,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                 c.display_name as "displayName",
                 mc.relationship_type::text as relationship,
                 'via_memory' as "linkType"
-         FROM work_item_memory m
+         FROM memory m
          JOIN memory_contact mc ON mc.memory_id = m.id
          JOIN contact c ON c.id = mc.contact_id
          WHERE m.work_item_id = $1
@@ -4587,7 +4797,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       let similarMemories: unknown[] = [];
       const workItemMemoriesWithEmbeddings = await pool.query(
         `SELECT m.embedding
-         FROM work_item_memory m
+         FROM memory m
          WHERE m.work_item_id = $1
            AND m.embedding IS NOT NULL
            AND m.embedding_status = 'complete'
@@ -4606,7 +4816,7 @@ app.delete('/api/work-items/:id', async (req, reply) => {
                   m.work_item_id::text as "originalWorkItemId",
                   1 - (m.embedding <=> $1::vector) as similarity,
                   'semantic' as "linkType"
-           FROM work_item_memory m
+           FROM memory m
            WHERE m.work_item_id != $2
              AND m.embedding IS NOT NULL
              AND m.embedding_status = 'complete'

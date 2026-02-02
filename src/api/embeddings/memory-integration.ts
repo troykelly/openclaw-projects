@@ -46,7 +46,7 @@ export async function generateMemoryEmbedding(
   if (!embeddingService.isConfigured()) {
     // Mark as pending - can be backfilled later
     await pool.query(
-      `UPDATE work_item_memory SET embedding_status = 'pending' WHERE id = $1`,
+      `UPDATE memory SET embedding_status = 'pending' WHERE id = $1`,
       [memoryId]
     );
     return 'pending';
@@ -57,7 +57,7 @@ export async function generateMemoryEmbedding(
 
     if (!result) {
       await pool.query(
-        `UPDATE work_item_memory SET embedding_status = 'pending' WHERE id = $1`,
+        `UPDATE memory SET embedding_status = 'pending' WHERE id = $1`,
         [memoryId]
       );
       return 'pending';
@@ -65,7 +65,7 @@ export async function generateMemoryEmbedding(
 
     // Store embedding in database
     await pool.query(
-      `UPDATE work_item_memory
+      `UPDATE memory
        SET embedding = $1::vector,
            embedding_model = $2,
            embedding_provider = $3,
@@ -92,7 +92,7 @@ export async function generateMemoryEmbedding(
 
     // Mark as failed
     await pool.query(
-      `UPDATE work_item_memory SET embedding_status = 'failed' WHERE id = $1`,
+      `UPDATE memory SET embedding_status = 'failed' WHERE id = $1`,
       [memoryId]
     );
 
@@ -197,7 +197,7 @@ export async function searchMemoriesSemantic(
          m.embedding_provider,
          m.embedding_model,
          1 - (m.embedding <=> $${embeddingParamIndex}::vector) as similarity
-       FROM work_item_memory m
+       FROM memory m
        ${fullWhereClause}
        ORDER BY m.embedding <=> $${embeddingParamIndex}::vector
        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
@@ -238,7 +238,7 @@ export async function searchMemoriesSemantic(
        m.embedding_provider,
        m.embedding_model,
        0.5 as similarity
-     FROM work_item_memory m
+     FROM memory m
      ${fullWhereClause}
      ORDER BY m.updated_at DESC
      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
@@ -282,7 +282,7 @@ export async function backfillMemoryEmbeddings(
 
   const result = await pool.query(
     `SELECT id::text as id, title, content
-     FROM work_item_memory
+     FROM memory
      WHERE ${condition}
      ORDER BY created_at ASC
      LIMIT $1`,

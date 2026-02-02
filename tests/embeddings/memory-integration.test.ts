@@ -44,7 +44,7 @@ describe('Memory Embedding Integration', () => {
 
       // Create a memory
       const memory = await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+        `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'User Preference', 'User prefers dark mode', 'note')
          RETURNING id::text as id`,
         [workItemId]
@@ -63,7 +63,7 @@ describe('Memory Embedding Integration', () => {
       // Verify embedding was stored
       const result = await pool.query(
         `SELECT embedding_status, embedding_provider, embedding_model, embedding
-         FROM work_item_memory WHERE id = $1`,
+         FROM memory WHERE id = $1`,
         [memoryId]
       );
 
@@ -96,7 +96,7 @@ describe('Memory Embedding Integration', () => {
 
         // Create a memory
         const memory = await pool.query(
-          `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+          `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, 'Test Memory', 'Test content', 'note')
            RETURNING id::text as id`,
           [workItemId]
@@ -110,7 +110,7 @@ describe('Memory Embedding Integration', () => {
 
         // Verify status was updated
         const result = await pool.query(
-          `SELECT embedding_status FROM work_item_memory WHERE id = $1`,
+          `SELECT embedding_status FROM memory WHERE id = $1`,
           [memoryId]
         );
         expect((result.rows[0] as { embedding_status: string }).embedding_status).toBe('pending');
@@ -143,7 +143,7 @@ describe('Memory Embedding Integration', () => {
 
       for (const mem of memories) {
         const result = await pool.query(
-          `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+          `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, $2, $3, 'note')
            RETURNING id::text as id`,
           [workItemId, mem.title, mem.content]
@@ -183,7 +183,7 @@ describe('Memory Embedding Integration', () => {
 
         // Create a memory (no embedding)
         await pool.query(
-          `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+          `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, 'Test Memory with Keyword', 'Contains the keyword searchterm', 'note')`,
           [workItemId]
         );
@@ -216,7 +216,7 @@ describe('Memory Embedding Integration', () => {
 
       // Create memories without embeddings
       await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type, embedding_status)
+        `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Memory 1', 'Content 1', 'note', 'pending'),
                 ($1, 'Memory 2', 'Content 2', 'note', 'pending')`,
         [workItemId]
@@ -231,7 +231,7 @@ describe('Memory Embedding Integration', () => {
 
       // Verify embeddings were created
       const memories = await pool.query(
-        `SELECT embedding_status FROM work_item_memory WHERE work_item_id = $1`,
+        `SELECT embedding_status FROM memory WHERE work_item_id = $1`,
         [workItemId]
       );
       for (const row of memories.rows as Array<{ embedding_status: string }>) {

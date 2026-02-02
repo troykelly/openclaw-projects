@@ -53,7 +53,7 @@ describe('Memory Search API', () => {
 
       // Create a memory
       await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type)
+        `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Test Memory', 'Some content', 'note')`,
         [workItemId]
       );
@@ -144,7 +144,7 @@ describe('Memory Search API', () => {
 
       // Create memory
       const memory = await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type, embedding_status)
+        `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Original Title', 'Original content', 'note', 'complete')
          RETURNING id::text as id`,
         [workItemId]
@@ -181,7 +181,7 @@ describe('Memory Search API', () => {
 
       // Create memories without embeddings
       await pool.query(
-        `INSERT INTO work_item_memory (work_item_id, title, content, memory_type, embedding_status)
+        `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Memory 1', 'Content 1', 'note', 'pending'),
                 ($1, 'Memory 2', 'Content 2', 'note', 'pending')`,
         [workItemId]
