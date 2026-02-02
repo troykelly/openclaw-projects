@@ -1,0 +1,23 @@
+{
+  "id": "openclaw-projects",
+  "name": "OpenClaw Projects Plugin",
+  "description": "Memory provider with projects, todos, and contacts integration",
+  "version": "1.0.0",
+  "kind": "memory",
+  "main": "dist/index.js",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "apiUrl": { "type": "string", "description": "Backend API URL" },
+      "apiKey": { "type": "string", "description": "API authentication key" },
+      "autoRecall": { "type": "boolean", "default": true },
+      "autoCapture": { "type": "boolean", "default": true },
+      "userScoping": {
+        "type": "string",
+        "enum": ["agent", "identity", "session"],
+        "default": "agent"
+      }
+    },
+    "required": ["apiUrl", "apiKey"]
+  }
+}

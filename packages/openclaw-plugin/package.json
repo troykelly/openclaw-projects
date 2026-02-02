@@ -1,0 +1,48 @@
+{
+  "name": "@troykelly/openclaw-projects",
+  "version": "1.0.0",
+  "description": "OpenClaw memory plugin with projects, todos, and contacts integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "openclaw.plugin.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint placeholder'"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "memory",
+    "projects",
+    "todos",
+    "contacts"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

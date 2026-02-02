@@ -1,0 +1,28 @@
+# Environment and secrets
+.env*
+*.local.*
+
+# Source files (only publish dist)
+src/
+tests/
+
+# Development files
+node_modules/
+.git/
+*.tgz
+
+# Config files
+tsconfig.json
+vitest.config.ts
+.eslintrc*
+
+# IDE
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
+
+# Misc
+*.log
+.DS_Store
