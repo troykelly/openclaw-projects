@@ -170,6 +170,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/health/ready',
     '/api/auth/request-link',
     '/api/auth/consume',
+    '/api/capabilities',
+    '/api/openapi.json',
   ]);
 
   // Bearer token authentication hook for API routes
@@ -259,6 +261,410 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const statusCode = health.status === 'unhealthy' ? 503 : 200;
     return reply.code(statusCode).send(health);
   });
+
+  // API Capabilities endpoint - Agent-discoverable capability list (Issue #207)
+  app.get('/api/capabilities', async () => ({
+    name: 'clawdbot-projects',
+    version: '1.0.0',
+    description: 'Project management, memory storage, and communications backend for OpenClaw agents',
+    documentation: '/skills/clawdbot-projects/SKILL.md',
+    authentication: {
+      type: 'bearer',
+      header: 'Authorization',
+      format: 'Bearer <token>',
+      envVars: ['CLAWDBOT_AUTH_SECRET', 'CLAWDBOT_AUTH_SECRET_FILE', 'CLAWDBOT_AUTH_SECRET_COMMAND'],
+    },
+    capabilities: [
+      {
+        name: 'work_items',
+        description: 'Manage projects, epics, initiatives, issues, and tasks in a hierarchical structure',
+        endpoints: [
+          { method: 'GET', path: '/api/work-items', description: 'List all work items' },
+          { method: 'POST', path: '/api/work-items', description: 'Create a work item' },
+          { method: 'GET', path: '/api/work-items/:id', description: 'Get a work item' },
+          { method: 'PUT', path: '/api/work-items/:id', description: 'Update a work item' },
+          { method: 'DELETE', path: '/api/work-items/:id', description: 'Delete a work item' },
+          { method: 'GET', path: '/api/work-items/tree', description: 'Get hierarchical tree view' },
+          { method: 'PATCH', path: '/api/work-items/:id/status', description: 'Update status' },
+          { method: 'PATCH', path: '/api/work-items/:id/dates', description: 'Update dates (reminders/deadlines)' },
+          { method: 'GET', path: '/api/work-items/:id/rollup', description: 'Get aggregated data from children' },
+        ],
+      },
+      {
+        name: 'memory',
+        description: 'Store and retrieve contextual memories (preferences, facts, decisions, context)',
+        endpoints: [
+          { method: 'GET', path: '/api/memory', description: 'List/search memories' },
+          { method: 'POST', path: '/api/memory', description: 'Create a memory' },
+          { method: 'PUT', path: '/api/memory/:id', description: 'Update a memory' },
+          { method: 'DELETE', path: '/api/memory/:id', description: 'Delete a memory' },
+        ],
+      },
+      {
+        name: 'contacts',
+        description: 'Manage people and their communication endpoints',
+        endpoints: [
+          { method: 'GET', path: '/api/contacts', description: 'List contacts' },
+          { method: 'POST', path: '/api/contacts', description: 'Create a contact' },
+          { method: 'GET', path: '/api/contacts/:id', description: 'Get a contact' },
+          { method: 'PATCH', path: '/api/contacts/:id', description: 'Update a contact' },
+          { method: 'DELETE', path: '/api/contacts/:id', description: 'Delete a contact' },
+          { method: 'POST', path: '/api/contacts/:id/endpoints', description: 'Add communication endpoint' },
+        ],
+      },
+      {
+        name: 'activity',
+        description: 'Track changes and activity across the system',
+        endpoints: [
+          { method: 'GET', path: '/api/activity', description: 'Get activity feed' },
+          { method: 'GET', path: '/api/activity/stream', description: 'SSE stream for real-time updates' },
+        ],
+      },
+      {
+        name: 'notifications',
+        description: 'User notifications from agent actions and system events',
+        endpoints: [
+          { method: 'GET', path: '/api/notifications', description: 'List notifications' },
+          { method: 'GET', path: '/api/notifications/unread-count', description: 'Get unread count' },
+          { method: 'POST', path: '/api/notifications/:id/read', description: 'Mark as read' },
+        ],
+      },
+      {
+        name: 'search',
+        description: 'Global search across all entities',
+        endpoints: [{ method: 'GET', path: '/api/search', description: 'Search work items, contacts, memories' }],
+      },
+      {
+        name: 'analytics',
+        description: 'Project health and progress metrics',
+        endpoints: [
+          { method: 'GET', path: '/api/analytics/project-health', description: 'Overall project health' },
+          { method: 'GET', path: '/api/analytics/velocity', description: 'Completion velocity' },
+          { method: 'GET', path: '/api/analytics/overdue', description: 'Overdue items' },
+        ],
+      },
+    ],
+    workflows: [
+      {
+        name: 'add_to_list',
+        description: 'Add an item to a list (e.g., shopping list)',
+        steps: [
+          'GET /api/work-items?title=<list-name> to find the list',
+          'POST /api/work-items with parent_work_item_id set to list ID',
+        ],
+      },
+      {
+        name: 'set_reminder',
+        description: 'Create a reminder for a future time',
+        steps: ['POST /api/work-items with not_before date set to reminder time'],
+      },
+      {
+        name: 'store_preference',
+        description: 'Store a user preference',
+        steps: ['POST /api/memory with memory_type="preference"'],
+      },
+      {
+        name: 'find_memories',
+        description: 'Search for relevant memories',
+        steps: ['GET /api/memory?search=<query>'],
+      },
+    ],
+  }));
+
+  // OpenAPI specification endpoint (Issue #207)
+  app.get('/api/openapi.json', async () => ({
+    openapi: '3.0.3',
+    info: {
+      title: 'clawdbot-projects API',
+      version: '1.0.0',
+      description: 'Project management, memory storage, and communications backend for OpenClaw agents',
+      contact: {
+        name: 'OpenClaw',
+        url: 'https://docs.openclaw.ai',
+      },
+    },
+    servers: [
+      {
+        url: process.env.PUBLIC_BASE_URL || 'http://localhost:3000',
+        description: 'API Server',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          description: 'Bearer token authentication using shared secret',
+        },
+        cookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'projects_session',
+          description: 'Session cookie from magic link authentication',
+        },
+      },
+      schemas: {
+        WorkItem: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            title: { type: 'string' },
+            description: { type: 'string', nullable: true },
+            kind: { type: 'string', enum: ['project', 'epic', 'initiative', 'issue'] },
+            status: { type: 'string', enum: ['backlog', 'todo', 'in_progress', 'done', 'cancelled'] },
+            parent_work_item_id: { type: 'string', format: 'uuid', nullable: true },
+            not_before: { type: 'string', format: 'date-time', nullable: true },
+            not_after: { type: 'string', format: 'date-time', nullable: true },
+            estimated_effort_minutes: { type: 'integer', nullable: true },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          },
+        },
+        Memory: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            memory_type: { type: 'string', enum: ['preference', 'fact', 'decision', 'context'] },
+            title: { type: 'string' },
+            content: { type: 'string' },
+            work_item_id: { type: 'string', format: 'uuid', nullable: true },
+            contact_id: { type: 'string', format: 'uuid', nullable: true },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          },
+        },
+        Contact: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            name: { type: 'string' },
+            email: { type: 'string', nullable: true },
+            phone: { type: 'string', nullable: true },
+            notes: { type: 'string', nullable: true },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          },
+        },
+        Error: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+    paths: {
+      '/api/work-items': {
+        get: {
+          summary: 'List work items',
+          tags: ['Work Items'],
+          responses: {
+            '200': { description: 'List of work items' },
+            '401': { description: 'Unauthorized' },
+          },
+        },
+        post: {
+          summary: 'Create a work item',
+          tags: ['Work Items'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['title'],
+                  properties: {
+                    title: { type: 'string' },
+                    description: { type: 'string' },
+                    kind: { type: 'string', enum: ['project', 'epic', 'initiative', 'issue'] },
+                    parent_work_item_id: { type: 'string', format: 'uuid' },
+                    not_before: { type: 'string', format: 'date-time' },
+                    not_after: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': { description: 'Work item created' },
+            '400': { description: 'Invalid request' },
+            '401': { description: 'Unauthorized' },
+          },
+        },
+      },
+      '/api/work-items/{id}': {
+        get: {
+          summary: 'Get a work item',
+          tags: ['Work Items'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Work item details' },
+            '404': { description: 'Not found' },
+          },
+        },
+        put: {
+          summary: 'Update a work item',
+          tags: ['Work Items'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Work item updated' },
+            '404': { description: 'Not found' },
+          },
+        },
+        delete: {
+          summary: 'Delete a work item',
+          tags: ['Work Items'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Work item deleted' },
+            '404': { description: 'Not found' },
+          },
+        },
+      },
+      '/api/work-items/tree': {
+        get: {
+          summary: 'Get work items as hierarchical tree',
+          tags: ['Work Items'],
+          parameters: [
+            { name: 'root_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+            { name: 'max_depth', in: 'query', schema: { type: 'integer' } },
+          ],
+          responses: {
+            '200': { description: 'Hierarchical tree of work items' },
+          },
+        },
+      },
+      '/api/memory': {
+        get: {
+          summary: 'List or search memories',
+          tags: ['Memory'],
+          parameters: [
+            { name: 'search', in: 'query', schema: { type: 'string' } },
+            { name: 'memory_type', in: 'query', schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': { description: 'List of memories' },
+          },
+        },
+        post: {
+          summary: 'Create a memory',
+          tags: ['Memory'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['memory_type', 'title', 'content'],
+                  properties: {
+                    memory_type: { type: 'string', enum: ['preference', 'fact', 'decision', 'context'] },
+                    title: { type: 'string' },
+                    content: { type: 'string' },
+                    work_item_id: { type: 'string', format: 'uuid' },
+                    contact_id: { type: 'string', format: 'uuid' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': { description: 'Memory created' },
+          },
+        },
+      },
+      '/api/contacts': {
+        get: {
+          summary: 'List contacts',
+          tags: ['Contacts'],
+          parameters: [{ name: 'search', in: 'query', schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'List of contacts' },
+          },
+        },
+        post: {
+          summary: 'Create a contact',
+          tags: ['Contacts'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['name'],
+                  properties: {
+                    name: { type: 'string' },
+                    email: { type: 'string' },
+                    phone: { type: 'string' },
+                    notes: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': { description: 'Contact created' },
+          },
+        },
+      },
+      '/api/search': {
+        get: {
+          summary: 'Global search',
+          tags: ['Search'],
+          parameters: [
+            { name: 'q', in: 'query', required: true, schema: { type: 'string' } },
+            { name: 'types', in: 'query', schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': { description: 'Search results' },
+          },
+        },
+      },
+      '/api/activity': {
+        get: {
+          summary: 'Get activity feed',
+          tags: ['Activity'],
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer' } },
+            { name: 'offset', in: 'query', schema: { type: 'integer' } },
+          ],
+          responses: {
+            '200': { description: 'Activity feed' },
+          },
+        },
+      },
+      '/api/notifications': {
+        get: {
+          summary: 'List notifications',
+          tags: ['Notifications'],
+          responses: {
+            '200': { description: 'List of notifications' },
+          },
+        },
+      },
+      '/api/health': {
+        get: {
+          summary: 'Health check',
+          tags: ['Health'],
+          security: [],
+          responses: {
+            '200': { description: 'System is healthy' },
+            '503': { description: 'System is unhealthy' },
+          },
+        },
+      },
+      '/api/capabilities': {
+        get: {
+          summary: 'List API capabilities',
+          tags: ['Documentation'],
+          security: [],
+          responses: {
+            '200': { description: 'API capabilities and available endpoints' },
+          },
+        },
+      },
+    },
+  }));
 
   // New frontend (issue #52). These routes are protected by the existing dashboard session cookie.
 
