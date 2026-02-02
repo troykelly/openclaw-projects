@@ -1658,7 +1658,174 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows[0]);
   });
 
+  // Bulk operations constants
+  const BULK_OPERATION_LIMIT = 100;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   // Bulk operations endpoints
+
+  // POST /api/work-items/bulk - Create multiple work items (Issue #218)
+  app.post('/api/work-items/bulk', async (req, reply) => {
+    const body = req.body as {
+      items: Array<{
+        title: string;
+        work_item_kind?: string;
+        parent_work_item_id?: string | null;
+        status?: string;
+        priority?: string;
+        description?: string;
+        labels?: string[];
+      }>;
+    };
+
+    if (!body?.items || !Array.isArray(body.items) || body.items.length === 0) {
+      return reply.code(400).send({ error: 'items array is required' });
+    }
+
+    if (body.items.length > BULK_OPERATION_LIMIT) {
+      return reply.code(413).send({
+        error: `Maximum ${BULK_OPERATION_LIMIT} items per bulk request`,
+        limit: BULK_OPERATION_LIMIT,
+        requested: body.items.length,
+      });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
+      let createdCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < body.items.length; i++) {
+        const item = body.items[i];
+
+        // Validate required fields
+        if (!item.title) {
+          results.push({ index: i, status: 'failed', error: 'title is required' });
+          failedCount++;
+          continue;
+        }
+
+        // Validate parent UUID if provided
+        if (item.parent_work_item_id && !uuidRegex.test(item.parent_work_item_id)) {
+          results.push({ index: i, status: 'failed', error: 'invalid parent_work_item_id' });
+          failedCount++;
+          continue;
+        }
+
+        try {
+          const result = await client.query(
+            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description)
+             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6)
+             RETURNING id::text as id`,
+            [
+              item.title,
+              item.work_item_kind || 'issue',
+              item.parent_work_item_id || null,
+              item.status || null,
+              item.priority || null,
+              item.description || null,
+            ]
+          );
+          const workItemId = result.rows[0].id;
+
+          // Handle labels via junction table if provided
+          if (item.labels && item.labels.length > 0) {
+            await client.query(
+              `SELECT set_work_item_labels($1, $2)`,
+              [workItemId, item.labels]
+            );
+          }
+          results.push({ index: i, id: result.rows[0].id, status: 'created' });
+          createdCount++;
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'unknown error';
+          results.push({ index: i, status: 'failed', error: errorMsg });
+          failedCount++;
+        }
+      }
+
+      // Transaction succeeds if at least some items were created
+      if (createdCount > 0) {
+        await client.query('COMMIT');
+      } else {
+        await client.query('ROLLBACK');
+      }
+
+      client.release();
+      await pool.end();
+
+      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+        success: failedCount === 0,
+        created: createdCount,
+        failed: failedCount,
+        results,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+
+      if (error instanceof Error) {
+        return reply.code(400).send({ error: error.message });
+      }
+      return reply.code(500).send({ error: 'internal server error' });
+    }
+  });
+
+  // DELETE /api/work-items/bulk - Delete multiple work items (Issue #218)
+  app.delete('/api/work-items/bulk', async (req, reply) => {
+    const body = req.body as { ids: string[] };
+
+    if (!body?.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
+      return reply.code(400).send({ error: 'ids array is required' });
+    }
+
+    if (body.ids.length > BULK_OPERATION_LIMIT) {
+      return reply.code(413).send({
+        error: `Maximum ${BULK_OPERATION_LIMIT} items per bulk request`,
+        limit: BULK_OPERATION_LIMIT,
+        requested: body.ids.length,
+      });
+    }
+
+    // Validate UUIDs
+    for (const id of body.ids) {
+      if (!uuidRegex.test(id)) {
+        return reply.code(400).send({ error: `invalid UUID: ${id}` });
+      }
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
+        [body.ids]
+      );
+
+      await pool.end();
+
+      return reply.send({
+        success: true,
+        deleted: result.rows.length,
+        ids: result.rows.map((r: { id: string }) => r.id),
+      });
+    } catch (error) {
+      await pool.end();
+
+      if (error instanceof Error) {
+        return reply.code(400).send({ error: error.message });
+      }
+      return reply.code(500).send({ error: 'internal server error' });
+    }
+  });
+
+  // PATCH /api/work-items/bulk - Update multiple work items
   app.patch('/api/work-items/bulk', async (req, reply) => {
     const body = req.body as {
       ids: string[];
@@ -1670,14 +1837,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'ids array is required' });
     }
 
+    if (body.ids.length > BULK_OPERATION_LIMIT) {
+      return reply.code(413).send({
+        error: `Maximum ${BULK_OPERATION_LIMIT} items per bulk request`,
+        limit: BULK_OPERATION_LIMIT,
+        requested: body.ids.length,
+      });
+    }
+
     if (!body?.action) {
       return reply.code(400).send({ error: 'action is required' });
     }
 
     // Validate UUIDs
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const id of body.ids) {
-      if (!uuidRe.test(id)) {
+      if (!uuidRegex.test(id)) {
         return reply.code(400).send({ error: `invalid UUID: ${id}` });
       }
     }
@@ -1736,7 +1910,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         case 'parent':
           // value is the new parent ID, or null to unparent
           const parentId = body.value || null;
-          if (parentId && !uuidRe.test(parentId)) {
+          if (parentId && !uuidRegex.test(parentId)) {
             await client.query('ROLLBACK');
             client.release();
             await pool.end();
@@ -3145,6 +3319,111 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     return reply.code(201).send(result.rows[0]);
   });
 
+  // POST /api/contacts/bulk - Bulk create contacts (Issue #218)
+  app.post('/api/contacts/bulk', async (req, reply) => {
+    const body = req.body as {
+      contacts: Array<{
+        displayName: string;
+        notes?: string | null;
+        endpoints?: Array<{
+          endpoint_type: string;
+          endpoint_value: string;
+          metadata?: Record<string, unknown>;
+        }>;
+      }>;
+    };
+
+    if (!body?.contacts || !Array.isArray(body.contacts) || body.contacts.length === 0) {
+      return reply.code(400).send({ error: 'contacts array is required' });
+    }
+
+    if (body.contacts.length > BULK_OPERATION_LIMIT) {
+      return reply.code(413).send({
+        error: `Maximum ${BULK_OPERATION_LIMIT} contacts per bulk request`,
+        limit: BULK_OPERATION_LIMIT,
+        requested: body.contacts.length,
+      });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
+      let createdCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < body.contacts.length; i++) {
+        const contact = body.contacts[i];
+
+        // Validate required fields
+        if (!contact.displayName || contact.displayName.trim().length === 0) {
+          results.push({ index: i, status: 'failed', error: 'displayName is required' });
+          failedCount++;
+          continue;
+        }
+
+        try {
+          const contactResult = await client.query(
+            `INSERT INTO contact (display_name, notes)
+             VALUES ($1, $2)
+             RETURNING id::text as id`,
+            [contact.displayName.trim(), contact.notes ?? null]
+          );
+          const contactId = contactResult.rows[0].id;
+
+          // Create endpoints if provided
+          if (contact.endpoints && Array.isArray(contact.endpoints)) {
+            for (const ep of contact.endpoints) {
+              if (ep.endpoint_type && ep.endpoint_value) {
+                await client.query(
+                  `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
+                   VALUES ($1, $2, $3, $4::jsonb)`,
+                  [contactId, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {})]
+                );
+              }
+            }
+          }
+
+          results.push({ index: i, id: contactId, status: 'created' });
+          createdCount++;
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'unknown error';
+          results.push({ index: i, status: 'failed', error: errorMsg });
+          failedCount++;
+        }
+      }
+
+      // Transaction succeeds if at least some contacts were created
+      if (createdCount > 0) {
+        await client.query('COMMIT');
+      } else {
+        await client.query('ROLLBACK');
+      }
+
+      client.release();
+      await pool.end();
+
+      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+        success: failedCount === 0,
+        created: createdCount,
+        failed: failedCount,
+        results,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+
+      if (error instanceof Error) {
+        return reply.code(400).send({ error: error.message });
+      }
+      return reply.code(500).send({ error: 'internal server error' });
+    }
+  });
+
   // GET /api/contacts - List contacts with optional search and pagination
   app.get('/api/contacts', async (req, reply) => {
     const query = req.query as { search?: string; limit?: string; offset?: string };
@@ -3924,6 +4203,252 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       return reply.code(201).send(memory);
     } finally {
       await pool.end();
+    }
+  });
+
+  // POST /api/memories/bulk - Bulk create memories (Issue #218)
+  app.post('/api/memories/bulk', async (req, reply) => {
+    const { createMemory, isValidMemoryType } = await import('./memory/index.ts');
+
+    const body = req.body as {
+      memories: Array<{
+        title: string;
+        content: string;
+        memory_type?: string;
+        user_email?: string;
+        work_item_id?: string;
+        contact_id?: string;
+        created_by_agent?: string;
+        created_by_human?: boolean;
+        source_url?: string;
+        importance?: number;
+        confidence?: number;
+        expires_at?: string;
+      }>;
+    };
+
+    if (!body?.memories || !Array.isArray(body.memories) || body.memories.length === 0) {
+      return reply.code(400).send({ error: 'memories array is required' });
+    }
+
+    if (body.memories.length > BULK_OPERATION_LIMIT) {
+      return reply.code(413).send({
+        error: `Maximum ${BULK_OPERATION_LIMIT} memories per bulk request`,
+        limit: BULK_OPERATION_LIMIT,
+        requested: body.memories.length,
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
+      let createdCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < body.memories.length; i++) {
+        const mem = body.memories[i];
+
+        // Validate required fields
+        if (!mem.title?.trim()) {
+          results.push({ index: i, status: 'failed', error: 'title is required' });
+          failedCount++;
+          continue;
+        }
+
+        if (!mem.content?.trim()) {
+          results.push({ index: i, status: 'failed', error: 'content is required' });
+          failedCount++;
+          continue;
+        }
+
+        const memoryType = mem.memory_type ?? 'note';
+        if (!isValidMemoryType(memoryType)) {
+          results.push({ index: i, status: 'failed', error: 'invalid memory_type' });
+          failedCount++;
+          continue;
+        }
+
+        try {
+          const memory = await createMemory(pool, {
+            title: mem.title.trim(),
+            content: mem.content.trim(),
+            memoryType: memoryType as any,
+            userEmail: mem.user_email,
+            workItemId: mem.work_item_id,
+            contactId: mem.contact_id,
+            createdByAgent: mem.created_by_agent,
+            createdByHuman: mem.created_by_human,
+            sourceUrl: mem.source_url,
+            importance: mem.importance,
+            confidence: mem.confidence,
+            expiresAt: mem.expires_at ? new Date(mem.expires_at) : undefined,
+          });
+
+          // Generate embedding asynchronously (don't await to avoid blocking)
+          const memoryContent = `${memory.title}\n\n${memory.content}`;
+          generateMemoryEmbedding(pool, memory.id, memoryContent).catch(() => {
+            // Embedding failures are non-fatal for bulk operations
+          });
+
+          results.push({ index: i, id: memory.id, status: 'created' });
+          createdCount++;
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'unknown error';
+          results.push({ index: i, status: 'failed', error: errorMsg });
+          failedCount++;
+        }
+      }
+
+      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+        success: failedCount === 0,
+        created: createdCount,
+        failed: failedCount,
+        results,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/memories/bulk - Bulk update memories (Issue #218)
+  app.patch('/api/memories/bulk', async (req, reply) => {
+    const body = req.body as {
+      updates: Array<{
+        id: string;
+        title?: string;
+        content?: string;
+        importance?: number;
+        confidence?: number;
+        is_active?: boolean;
+      }>;
+    };
+
+    if (!body?.updates || !Array.isArray(body.updates) || body.updates.length === 0) {
+      return reply.code(400).send({ error: 'updates array is required' });
+    }
+
+    if (body.updates.length > BULK_OPERATION_LIMIT) {
+      return reply.code(413).send({
+        error: `Maximum ${BULK_OPERATION_LIMIT} updates per bulk request`,
+        limit: BULK_OPERATION_LIMIT,
+        requested: body.updates.length,
+      });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const results: Array<{ index: number; id: string; status: 'updated' | 'failed'; error?: string }> = [];
+      let updatedCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < body.updates.length; i++) {
+        const update = body.updates[i];
+
+        // Validate ID
+        if (!update.id || !uuidRegex.test(update.id)) {
+          results.push({ index: i, id: update.id || '', status: 'failed', error: 'valid id is required' });
+          failedCount++;
+          continue;
+        }
+
+        // Build dynamic update
+        const setClauses: string[] = ['updated_at = now()'];
+        const values: unknown[] = [];
+        let paramCount = 0;
+
+        if (update.title !== undefined) {
+          paramCount++;
+          setClauses.push(`title = $${paramCount}`);
+          values.push(update.title);
+        }
+
+        if (update.content !== undefined) {
+          paramCount++;
+          setClauses.push(`content = $${paramCount}`);
+          values.push(update.content);
+        }
+
+        if (update.importance !== undefined) {
+          paramCount++;
+          setClauses.push(`importance = $${paramCount}`);
+          values.push(update.importance);
+        }
+
+        if (update.confidence !== undefined) {
+          paramCount++;
+          setClauses.push(`confidence = $${paramCount}`);
+          values.push(update.confidence);
+        }
+
+        if (update.is_active !== undefined) {
+          paramCount++;
+          setClauses.push(`is_active = $${paramCount}`);
+          values.push(update.is_active);
+        }
+
+        // Only update if there's something to update
+        if (values.length === 0) {
+          results.push({ index: i, id: update.id, status: 'failed', error: 'no fields to update' });
+          failedCount++;
+          continue;
+        }
+
+        paramCount++;
+        values.push(update.id);
+
+        try {
+          const result = await client.query(
+            `UPDATE memory
+             SET ${setClauses.join(', ')}
+             WHERE id = $${paramCount}
+             RETURNING id::text as id`,
+            values
+          );
+
+          if (result.rows.length === 0) {
+            results.push({ index: i, id: update.id, status: 'failed', error: 'memory not found' });
+            failedCount++;
+          } else {
+            results.push({ index: i, id: update.id, status: 'updated' });
+            updatedCount++;
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'unknown error';
+          results.push({ index: i, id: update.id, status: 'failed', error: errorMsg });
+          failedCount++;
+        }
+      }
+
+      // Commit if at least some updates succeeded
+      if (updatedCount > 0) {
+        await client.query('COMMIT');
+      } else {
+        await client.query('ROLLBACK');
+      }
+
+      client.release();
+      await pool.end();
+
+      return reply.code(failedCount > 0 && updatedCount === 0 ? 400 : 200).send({
+        success: failedCount === 0,
+        updated: updatedCount,
+        failed: failedCount,
+        results,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      client.release();
+      await pool.end();
+
+      if (error instanceof Error) {
+        return reply.code(400).send({ error: error.message });
+      }
+      return reply.code(500).send({ error: 'internal server error' });
     }
   });
 
