@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
+import rateLimit from '@fastify/rate-limit';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -37,6 +38,46 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Support URL-encoded form bodies (used by Twilio webhooks)
   app.register(formbody);
+
+  // Rate limiting configuration (Issue #212)
+  // Skip rate limiting in test environment or when explicitly disabled
+  const rateLimitEnabled = process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_DISABLED !== 'true';
+
+  if (rateLimitEnabled) {
+    app.register(rateLimit, {
+      // Default: 100 requests per minute per IP
+      max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      timeWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+
+      // Add standard rate limit headers
+      addHeaders: {
+        'x-ratelimit-limit': true,
+        'x-ratelimit-remaining': true,
+        'x-ratelimit-reset': true,
+        'retry-after': true,
+      },
+
+      // Log rate limit violations
+      onExceeding: (req) => {
+        console.warn(`[RateLimit] Client approaching limit: ${req.ip} - ${req.method} ${req.url}`);
+      },
+      onExceeded: (req) => {
+        console.warn(`[RateLimit] Client exceeded limit: ${req.ip} - ${req.method} ${req.url}`);
+      },
+
+      // Custom error response
+      errorResponseBuilder: (req, context) => ({
+        error: 'Too Many Requests',
+        message: `Rate limit exceeded. Try again in ${Math.ceil((context.ttl ?? 60000) / 1000)} seconds.`,
+        statusCode: 429,
+        retryAfter: Math.ceil((context.ttl ?? 60000) / 1000),
+      }),
+
+      // Skip rate limiting for health check endpoints
+      skipOnError: true,
+      keyGenerator: (req) => req.ip,
+    });
+  }
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -2533,7 +2574,14 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
   // GET /api/search - Unified search API endpoint (Issue #216)
   // Full-text search with optional semantic search for memories
-  app.get('/api/search', async (req, reply) => {
+  app.get('/api/search', {
+    config: {
+      rateLimit: {
+        max: 30, // 30 requests per minute for search (expensive)
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
     const { unifiedSearch } = await import('./search/index.ts');
 
     const query = req.query as {
@@ -4000,7 +4048,14 @@ app.delete('/api/work-items/:id', async (req, reply) => {
   });
 
   // GET /api/memories/search - Semantic search for memories (issue #200)
-  app.get('/api/memories/search', async (req, reply) => {
+  app.get('/api/memories/search', {
+    config: {
+      rateLimit: {
+        max: 30, // 30 requests per minute for search (expensive)
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
     const query = req.query as {
       q?: string;
       limit?: string;
@@ -6004,7 +6059,14 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
   // Twilio SMS Inbound Webhook (Issue #202)
   // POST /api/twilio/sms - Receive Twilio SMS webhooks
-  app.post('/api/twilio/sms', async (req, reply) => {
+  app.post('/api/twilio/sms', {
+    config: {
+      rateLimit: {
+        max: 60, // 60 requests per minute for webhooks
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
     // Verify Twilio signature (unless auth disabled or in dev mode without config)
     if (!isAuthDisabled()) {
       if (!isWebhookVerificationConfigured('twilio')) {
@@ -6048,7 +6110,14 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
   // Postmark Email Inbound Webhook (Issue #203)
   // POST /api/postmark/inbound - Receive Postmark inbound email webhooks
-  app.post('/api/postmark/inbound', async (req, reply) => {
+  app.post('/api/postmark/inbound', {
+    config: {
+      rateLimit: {
+        max: 60, // 60 requests per minute for webhooks
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
     // Verify Postmark auth (Basic Auth unless auth disabled)
     if (!isAuthDisabled()) {
       if (!verifyPostmarkAuth(req)) {
@@ -6094,7 +6163,14 @@ app.delete('/api/work-items/:id', async (req, reply) => {
 
   // Cloudflare Email Workers Inbound Webhook (Issue #210)
   // POST /api/cloudflare/email - Receive emails forwarded from Cloudflare Email Workers
-  app.post('/api/cloudflare/email', async (req, reply) => {
+  app.post('/api/cloudflare/email', {
+    config: {
+      rateLimit: {
+        max: 60, // 60 requests per minute for webhooks
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
     // Verify HMAC-SHA256 signature (unless auth disabled)
     if (!isAuthDisabled()) {
       if (!verifyCloudflareEmailSecret(req)) {
