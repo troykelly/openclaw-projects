@@ -14,6 +14,9 @@ import {
   createContactSearchTool,
   createContactGetTool,
   createContactCreateTool,
+  createAutoRecallHook,
+  createAutoCaptureHook,
+  createHealthCheck,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
@@ -210,6 +213,26 @@ describe('Plugin Entry Point', () => {
       expect(result.tools.contactCreate).toBeDefined()
       expect(result.tools.contactCreate.name).toBe('contact_create')
     })
+
+    it('should return instance with hooks', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(result.hooks).toBeDefined()
+      expect(typeof result.hooks.beforeAgentStart).toBe('function')
+      expect(typeof result.hooks.agentEnd).toBe('function')
+    })
+
+    it('should return instance with healthCheck', () => {
+      const mockContext = {
+        config: { apiUrl: 'http://example.com', apiKey: 'test-key' },
+        logger: { info: () => {}, error: () => {}, warn: () => {}, debug: () => {}, namespace: 'test' },
+      }
+      const result = register(mockContext)
+      expect(typeof result.healthCheck).toBe('function')
+    })
   })
 
   describe('tool exports', () => {
@@ -315,6 +338,18 @@ describe('Plugin Entry Point', () => {
 
     it('should export ContactCreateParamsSchema', () => {
       expect(ContactCreateParamsSchema).toBeDefined()
+    })
+
+    it('should export createAutoRecallHook', () => {
+      expect(typeof createAutoRecallHook).toBe('function')
+    })
+
+    it('should export createAutoCaptureHook', () => {
+      expect(typeof createAutoCaptureHook).toBe('function')
+    })
+
+    it('should export createHealthCheck', () => {
+      expect(typeof createHealthCheck).toBe('function')
     })
   })
 })

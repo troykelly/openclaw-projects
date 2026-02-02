@@ -11,6 +11,15 @@ import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
 import { extractContext, getUserScopeKey, type PluginContext } from './context.js'
 import {
+  createAutoRecallHook,
+  createAutoCaptureHook,
+  createHealthCheck,
+  type AutoRecallEvent,
+  type AutoRecallResult,
+  type AutoCaptureEvent,
+  type HealthCheckResult,
+} from './hooks.js'
+import {
   createMemoryRecallTool,
   createMemoryStoreTool,
   createMemoryForgetTool,
@@ -60,6 +69,12 @@ export interface PluginTools {
   contactCreate: ContactCreateTool
 }
 
+/** Lifecycle hooks for the plugin */
+export interface PluginHooks {
+  beforeAgentStart: (event: AutoRecallEvent) => Promise<AutoRecallResult | null>
+  agentEnd: (event: AutoCaptureEvent) => Promise<void>
+}
+
 /** Plugin instance after registration */
 export interface PluginInstance {
   id: string
@@ -69,6 +84,8 @@ export interface PluginInstance {
   apiClient: ApiClient
   context: PluginContext
   tools: PluginTools
+  hooks: PluginHooks
+  healthCheck: () => Promise<HealthCheckResult>
 }
 
 /**
@@ -172,6 +189,25 @@ export function register(ctx: RegistrationContext): PluginInstance {
     }),
   }
 
+  // Create lifecycle hooks
+  const hooks: PluginHooks = {
+    beforeAgentStart: createAutoRecallHook({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+    agentEnd: createAutoCaptureHook({
+      client: apiClient,
+      logger,
+      config,
+      userId,
+    }),
+  }
+
+  // Create health check
+  const healthCheck = createHealthCheck({ client: apiClient, logger })
+
   logger.info('Plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
@@ -186,6 +222,8 @@ export function register(ctx: RegistrationContext): PluginInstance {
     apiClient,
     context,
     tools,
+    hooks,
+    healthCheck,
   }
 }
 
@@ -287,3 +325,19 @@ export {
   ContactGetParamsSchema,
   ContactCreateParamsSchema,
 } from './tools/index.js'
+
+// Re-export hooks
+export type {
+  AutoRecallEvent,
+  AutoRecallResult,
+  AutoCaptureEvent,
+  HealthCheckResult,
+  AutoRecallHookOptions,
+  AutoCaptureHookOptions,
+  HealthCheckOptions,
+} from './hooks.js'
+export {
+  createAutoRecallHook,
+  createAutoCaptureHook,
+  createHealthCheck,
+} from './hooks.js'
