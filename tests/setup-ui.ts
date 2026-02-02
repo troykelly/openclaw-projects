@@ -1,5 +1,39 @@
 import '@testing-library/jest-dom/vitest';
 
+// Mock localStorage for jsdom environment
+// Note: jsdom provides localStorage but it may not work properly in all cases
+if (typeof window !== 'undefined') {
+  const localStorageMock = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem(key: string): string | null {
+        return store[key] ?? null;
+      },
+      setItem(key: string, value: string): void {
+        store[key] = String(value);
+      },
+      removeItem(key: string): void {
+        delete store[key];
+      },
+      clear(): void {
+        store = {};
+      },
+      get length(): number {
+        return Object.keys(store).length;
+      },
+      key(index: number): string | null {
+        return Object.keys(store)[index] ?? null;
+      },
+    };
+  })();
+
+  Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+    configurable: true,
+    writable: true,
+  });
+}
+
 // Only apply DOM mocks when running in jsdom environment
 if (typeof Element !== 'undefined') {
   // Mock scrollIntoView for Radix UI components

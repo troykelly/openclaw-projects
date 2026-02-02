@@ -13,7 +13,9 @@ export default defineConfig({
 
     // UI component tests use jsdom environment
     environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
-    setupFiles: ['./tests/setup-ui.ts'],
+    // setup-api.ts disables bearer token auth for tests
+    // setup-ui.ts configures jsdom mocks for UI tests
+    setupFiles: ['./tests/setup-api.ts', './tests/setup-ui.ts'],
   },
   resolve: {
     alias: {

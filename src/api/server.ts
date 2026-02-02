@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
+import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -160,6 +161,78 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 </body>
 </html>`;
   }
+
+  // Routes that skip bearer token authentication
+  const authSkipPaths = new Set([
+    '/health',
+    '/api/health',
+    '/api/health/live',
+    '/api/health/ready',
+    '/api/auth/request-link',
+    '/api/auth/consume',
+  ]);
+
+  // Bearer token authentication hook for API routes
+  app.addHook('onRequest', async (req, reply) => {
+    const url = req.url.split('?')[0]; // Remove query string
+
+    // Skip auth for explicitly allowed paths
+    if (authSkipPaths.has(url)) {
+      return;
+    }
+
+    // Skip auth for static files
+    if (url.startsWith('/static/')) {
+      return;
+    }
+
+    // Skip auth for /app/* routes (these use session cookies via requireDashboardSession)
+    if (url.startsWith('/app/')) {
+      return;
+    }
+
+    // Skip auth for /dashboard routes
+    if (url === '/dashboard' || url.startsWith('/dashboard/')) {
+      return;
+    }
+
+    // Skip auth if disabled (development mode)
+    if (isAuthDisabled()) {
+      return;
+    }
+
+    // Check for valid session cookie first (allows browser-based access)
+    const sessionEmail = await getSessionEmail(req);
+    if (sessionEmail) {
+      return;
+    }
+
+    // Check for bearer token
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
+    // Validate bearer token format
+    if (!authHeader.startsWith('Bearer ')) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
+    const token = authHeader.slice(7); // Remove 'Bearer ' prefix
+    const expectedSecret = getCachedSecret();
+
+    // If no secret is configured and auth is not disabled, reject
+    if (!expectedSecret) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
+    // Compare tokens using constant-time comparison
+    if (!compareSecrets(token, expectedSecret)) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+
+    // Token is valid - continue to route handler
+  });
 
   app.get('/health', async () => ({ ok: true }));
 
