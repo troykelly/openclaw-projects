@@ -216,4 +216,22 @@ describe('Memory Search API', () => {
       expect(body.components.embeddings.details).toBeDefined();
     });
   });
+
+  describe('GET /api/admin/embeddings/status', () => {
+    it('returns embedding configuration and stats', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/admin/embeddings/status',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.configured).toBeDefined();
+      expect(body.stats).toBeDefined();
+      expect(body.stats.total_memories).toBeDefined();
+      expect(body.stats.with_embedding).toBeDefined();
+      expect(body.stats.pending).toBeDefined();
+      expect(body.stats.failed).toBeDefined();
+    });
+  });
 });

@@ -3693,6 +3693,50 @@ app.delete('/api/work-items/:id', async (req, reply) => {
     }
   });
 
+  // GET /api/admin/embeddings/status - Get embedding configuration status (issue #200)
+  app.get('/api/admin/embeddings/status', async (req, reply) => {
+    const pool = createPool();
+
+    try {
+      // Get embedding service config
+      const { embeddingService, getConfigSummary } = await import('./embeddings/index.ts');
+      const config = getConfigSummary();
+
+      // Get stats from database
+      const stats = await pool.query(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE embedding_status = 'complete') as with_embedding,
+          COUNT(*) FILTER (WHERE embedding_status = 'pending') as pending,
+          COUNT(*) FILTER (WHERE embedding_status = 'failed') as failed
+        FROM work_item_memory
+      `);
+
+      const row = stats.rows[0] as {
+        total: string;
+        with_embedding: string;
+        pending: string;
+        failed: string;
+      };
+
+      return reply.send({
+        configured: config.provider !== null,
+        provider: config.provider,
+        model: config.model,
+        dimensions: config.dimensions,
+        configured_providers: config.configuredProviders,
+        stats: {
+          total_memories: parseInt(row.total, 10),
+          with_embedding: parseInt(row.with_embedding, 10),
+          pending: parseInt(row.pending, 10),
+          failed: parseInt(row.failed, 10),
+        },
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Memory Items API (issue #138)
   // GET /api/work-items/:id/memories - List memories for a work item
   app.get('/api/work-items/:id/memories', async (req, reply) => {
