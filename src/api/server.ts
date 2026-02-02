@@ -16,8 +16,9 @@ import {
   searchMemoriesSemantic,
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
-import { WebhookHealthChecker, verifyTwilioSignature, isWebhookVerificationConfigured } from './webhooks/index.ts';
+import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, isWebhookVerificationConfigured } from './webhooks/index.ts';
 import { processTwilioSms, type TwilioSmsWebhookPayload } from './twilio/index.ts';
+import { processPostmarkEmail, type PostmarkInboundPayload } from './postmark/index.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -187,6 +188,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/openapi.json',
     // Webhook endpoints use signature verification instead of bearer tokens
     '/api/twilio/sms',
+    '/api/postmark/inbound',
   ]);
 
   // Bearer token authentication hook for API routes
@@ -5512,6 +5514,52 @@ app.delete('/api/work-items/:id', async (req, reply) => {
       // Return TwiML response (empty means no auto-reply)
       reply.header('Content-Type', 'application/xml');
       return reply.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Postmark Email Inbound Webhook (Issue #203)
+  // POST /api/postmark/inbound - Receive Postmark inbound email webhooks
+  app.post('/api/postmark/inbound', async (req, reply) => {
+    // Verify Postmark auth (Basic Auth unless auth disabled)
+    if (!isAuthDisabled()) {
+      if (!verifyPostmarkAuth(req)) {
+        console.warn('[Postmark] Invalid authentication on inbound webhook');
+        return reply.code(401).send({ error: 'Invalid authentication' });
+      }
+    }
+
+    // Postmark sends JSON webhooks
+    const payload = req.body as PostmarkInboundPayload;
+
+    // Validate required fields
+    if (!payload.MessageID || !payload.FromFull?.Email) {
+      return reply.code(400).send({ error: 'Missing required fields: MessageID, FromFull.Email' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await processPostmarkEmail(pool, payload);
+
+      console.log(
+        `[Postmark] Email from ${payload.FromFull.Email}: subject="${payload.Subject}", ` +
+        `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`
+      );
+
+      // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
+
+      // Return success
+      return reply.code(200).send({
+        success: true,
+        contactId: result.contactId,
+        threadId: result.threadId,
+        messageId: result.messageId,
+      });
+    } catch (error) {
+      console.error('[Postmark] Error processing email:', error);
+      throw error;
     } finally {
       await pool.end();
     }
