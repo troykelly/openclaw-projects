@@ -12,6 +12,7 @@ export interface AppShellProps {
   children: React.ReactNode;
   activeSection?: string;
   onSectionChange?: (section: string) => void;
+  onCreateClick?: () => void;
   breadcrumbs?: BreadcrumbItem[];
   onBreadcrumbClick?: (item: BreadcrumbItem, index: number) => void;
   onHomeClick?: () => void;
@@ -23,6 +24,7 @@ export function AppShell({
   children,
   activeSection = 'activity',
   onSectionChange,
+  onCreateClick,
   breadcrumbs = [],
   onBreadcrumbClick,
   onHomeClick,
@@ -69,6 +71,7 @@ export function AppShell({
         <Sidebar
           activeItem={activeSection}
           onItemClick={handleNavItemClick}
+          onCreateClick={onCreateClick}
           collapsed={sidebarCollapsed}
           onCollapsedChange={handleCollapsedChange}
         />

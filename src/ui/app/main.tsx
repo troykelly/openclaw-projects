@@ -20,6 +20,13 @@ import { SettingsPage } from '@/ui/components/settings';
 // Keyboard shortcuts
 import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
 
+// Work item creation
+import {
+  QuickAddDialog,
+  WorkItemCreateDialog,
+  type CreatedWorkItem,
+} from '@/ui/components/work-item-create';
+
 // Communications components
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
@@ -2915,6 +2922,11 @@ function App(): React.JSX.Element {
   const path = usePathname();
   const bootstrap = readBootstrap();
 
+  // Work item creation dialogs
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createContextParentId, setCreateContextParentId] = useState<string | undefined>(undefined);
+
   const route = useMemo(() => {
     // New navigation routes (issue #129)
     const activity = /^\/app\/activity\/?$/;
@@ -3114,11 +3126,52 @@ function App(): React.JSX.Element {
     handleSectionChange('search');
   }, [handleSectionChange]);
 
+  // Handle new item creation (N key)
+  const handleNewItem = useCallback(() => {
+    // Get context from current route
+    if (route.kind === 'detail' && route.id) {
+      setCreateContextParentId(route.id);
+    } else {
+      setCreateContextParentId(undefined);
+    }
+    setQuickAddOpen(true);
+  }, [route]);
+
+  // Handle work item created
+  const handleWorkItemCreated = useCallback((item: CreatedWorkItem) => {
+    // Navigate to the new item
+    window.location.href = `/app/work-items/${item.id}`;
+  }, []);
+
+  // Handle "+" button click for full form
+  const handleOpenCreateDialog = useCallback(() => {
+    if (route.kind === 'detail' && route.id) {
+      setCreateContextParentId(route.id);
+    } else {
+      setCreateContextParentId(undefined);
+    }
+    setCreateDialogOpen(true);
+  }, [route]);
+
   return (
     <>
       <KeyboardShortcutsHandler
         onNavigate={handleNavigate}
         onSearch={handleOpenSearch}
+        onNewItem={handleNewItem}
+        onNewItemFullForm={handleOpenCreateDialog}
+      />
+      <QuickAddDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        onCreated={handleWorkItemCreated}
+        defaultParentId={createContextParentId}
+      />
+      <WorkItemCreateDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreated={handleWorkItemCreated}
+        defaultParentId={createContextParentId}
       />
       <CommandPalette
         onSearch={handleSearch}
@@ -3128,6 +3181,7 @@ function App(): React.JSX.Element {
       <AppShell
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
+        onCreateClick={handleOpenCreateDialog}
         breadcrumbs={breadcrumbs}
         onHomeClick={() => { window.location.href = '/app/work-items'; }}
       >

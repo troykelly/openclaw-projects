@@ -5,6 +5,7 @@ interface KeyboardShortcutsHandlerProps {
   onNavigate?: (section: string) => void;
   onSearch?: () => void;
   onNewItem?: () => void;
+  onNewItemFullForm?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onChangeStatus?: () => void;
@@ -19,6 +20,7 @@ export function KeyboardShortcutsHandler({
   onNavigate,
   onSearch,
   onNewItem,
+  onNewItemFullForm,
   onEdit,
   onDelete,
   onChangeStatus,
@@ -53,6 +55,7 @@ export function KeyboardShortcutsHandler({
 
   // Actions
   useHotkeys('n', () => onNewItem?.());
+  useHotkeys('shift+n', () => onNewItemFullForm?.());
   useHotkeys('e', () => onEdit?.());
   useHotkeys('d', () => onDelete?.());
   useHotkeys('s', () => onChangeStatus?.());

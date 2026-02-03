@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
@@ -23,6 +23,7 @@ export interface SidebarProps {
   items?: NavItem[];
   activeItem?: string;
   onItemClick?: (item: NavItem) => void;
+  onCreateClick?: () => void;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   className?: string;
@@ -32,6 +33,7 @@ export function Sidebar({
   items = defaultNavItems,
   activeItem = 'activity',
   onItemClick,
+  onCreateClick,
   collapsed = false,
   onCollapsedChange,
   className,
@@ -71,6 +73,32 @@ export function Sidebar({
             </button>
           )}
         </div>
+
+        {/* Create Button */}
+        {onCreateClick && (
+          <div className="px-3 pt-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onCreateClick}
+                  className={cn(
+                    'flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90',
+                    collapsed && 'px-0'
+                  )}
+                  aria-label="Create new work item"
+                >
+                  <Plus className="size-[18px] shrink-0" />
+                  {!collapsed && <span>Create</span>}
+                </button>
+              </TooltipTrigger>
+              {collapsed && (
+                <TooltipContent side="right" sideOffset={8} className="font-medium">
+                  Create <kbd className="ml-1 text-[10px]">N</kbd>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </div>
+        )}
 
         {/* Navigation Items */}
         <ScrollArea className="flex-1 px-3 py-4">
