@@ -10160,5 +10160,295 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
+  // Notes CRUD API (Epic #337, Issue #344)
+
+  // GET /api/notes - List notes with filters and pagination
+  app.get('/api/notes', async (req, reply) => {
+    const {
+      listNotes,
+    } = await import('./notes/index.ts');
+
+    const query = req.query as {
+      user_email?: string;
+      notebook_id?: string;
+      tags?: string;
+      visibility?: string;
+      search?: string;
+      is_pinned?: string;
+      limit?: string;
+      offset?: string;
+      sort_by?: string;
+      sort_order?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await listNotes(pool, query.user_email, {
+        notebookId: query.notebook_id,
+        tags: query.tags ? query.tags.split(',').map((t) => t.trim()) : undefined,
+        visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
+        search: query.search,
+        isPinned: query.is_pinned !== undefined ? query.is_pinned === 'true' : undefined,
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        sortBy: query.sort_by as 'createdAt' | 'updatedAt' | 'title' | undefined,
+        sortOrder: query.sort_order as 'asc' | 'desc' | undefined,
+      });
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/:id - Get a single note by ID
+  app.get('/api/notes/:id', async (req, reply) => {
+    const {
+      getNote,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      user_email?: string;
+      include_versions?: string;
+      include_references?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const note = await getNote(pool, params.id, query.user_email, {
+        includeVersions: query.include_versions === 'true',
+        includeReferences: query.include_references === 'true',
+      });
+
+      if (!note) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.send(note);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notes - Create a new note
+  app.post('/api/notes', async (req, reply) => {
+    const {
+      createNote,
+      isValidVisibility,
+    } = await import('./notes/index.ts');
+
+    const body = req.body as {
+      user_email?: string;
+      title?: string;
+      content?: string;
+      notebook_id?: string;
+      tags?: string[];
+      visibility?: string;
+      hide_from_agents?: boolean;
+      summary?: string;
+      is_pinned?: boolean;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!body?.title?.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    if (body.visibility && !isValidVisibility(body.visibility)) {
+      return reply.code(400).send({
+        error: 'Invalid visibility. Valid values: private, shared, public',
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      const note = await createNote(
+        pool,
+        {
+          title: body.title.trim(),
+          content: body.content,
+          notebookId: body.notebook_id,
+          tags: body.tags,
+          visibility: body.visibility as 'private' | 'shared' | 'public' | undefined,
+          hideFromAgents: body.hide_from_agents,
+          summary: body.summary,
+          isPinned: body.is_pinned,
+        },
+        body.user_email
+      );
+
+      return reply.code(201).send(note);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'Notebook not found') {
+        return reply.code(400).send({ error: message });
+      }
+      if (message.includes('Cannot add note to notebook')) {
+        return reply.code(403).send({ error: message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/notes/:id - Update a note
+  app.put('/api/notes/:id', async (req, reply) => {
+    const {
+      updateNote,
+      isValidVisibility,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      title?: string;
+      content?: string;
+      notebook_id?: string | null;
+      tags?: string[];
+      visibility?: string;
+      hide_from_agents?: boolean;
+      summary?: string | null;
+      is_pinned?: boolean;
+      sort_order?: number;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (body.visibility && !isValidVisibility(body.visibility)) {
+      return reply.code(400).send({
+        error: 'Invalid visibility. Valid values: private, shared, public',
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      const note = await updateNote(
+        pool,
+        params.id,
+        {
+          title: body.title,
+          content: body.content,
+          notebookId: body.notebook_id,
+          tags: body.tags,
+          visibility: body.visibility as 'private' | 'shared' | 'public' | undefined,
+          hideFromAgents: body.hide_from_agents,
+          summary: body.summary,
+          isPinned: body.is_pinned,
+          sortOrder: body.sort_order,
+        },
+        body.user_email
+      );
+
+      if (!note) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.send(note);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'You do not have permission to edit this note' });
+      }
+      if (message === 'Notebook not found') {
+        return reply.code(400).send({ error: message });
+      }
+      if (message.includes('Only note owner')) {
+        return reply.code(403).send({ error: message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/notes/:id - Soft delete a note
+  app.delete('/api/notes/:id', async (req, reply) => {
+    const {
+      deleteNote,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const deleted = await deleteNote(pool, params.id, query.user_email);
+      if (!deleted) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'NOT_FOUND') {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can delete this note' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notes/:id/restore - Restore a soft-deleted note
+  app.post('/api/notes/:id/restore', async (req, reply) => {
+    const {
+      restoreNote,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as { user_email?: string };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const note = await restoreNote(pool, params.id, body.user_email);
+
+      if (!note) {
+        return reply.code(404).send({ error: 'Note not found or already restored' });
+      }
+
+      return reply.send(note);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can restore this note' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
   return app;
 }
