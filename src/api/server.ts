@@ -573,6 +573,42 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Context capture endpoint for auto-capture feature (Issue #317)
+  app.post('/api/context/capture', async (req, reply) => {
+    const { captureContext, validateCaptureInput } = await import('./context/capture.ts');
+
+    const body = req.body as {
+      conversation?: string;
+      messageCount?: number;
+      userId?: string;
+    };
+
+    // Validate input
+    const validationError = validateCaptureInput({
+      conversation: body.conversation ?? '',
+      messageCount: body.messageCount ?? 0,
+      userId: body.userId,
+    });
+
+    if (validationError) {
+      return reply.code(400).send({ error: validationError });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await captureContext(pool, {
+        conversation: body.conversation!,
+        messageCount: body.messageCount!,
+        userId: body.userId,
+      });
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Thread history endpoint for agent conversation context (Issue #226)
   app.get('/api/threads/:id/history', async (req, reply) => {
     const { getThreadHistory } = await import('./threads/index.ts');
