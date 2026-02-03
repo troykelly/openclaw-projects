@@ -21,7 +21,7 @@ import {
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
 import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback } from './twilio/index.ts';
-import { processPostmarkEmail, type PostmarkInboundPayload } from './postmark/index.ts';
+import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 import { RealtimeHub } from './realtime/index.ts';
 import {
@@ -7519,6 +7519,94 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     } catch (error) {
       console.error('[Postmark] Error processing email:', error);
       throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Postmark Email Outbound Send (Issue #293)
+  // POST /api/postmark/email/send - Send email via Postmark
+  app.post<{
+    Body: {
+      to: string;
+      subject: string;
+      body: string;
+      htmlBody?: string;
+      threadId?: string;
+      replyToMessageId?: string;
+      idempotencyKey?: string;
+    };
+  }>('/api/postmark/email/send', {
+    config: {
+      rateLimit: {
+        max: 30, // 30 requests per minute for sending
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Require authentication for sending
+    if (!isAuthDisabled()) {
+      const secret = getCachedSecret();
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      if (!secret || !compareSecrets(token, secret)) {
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+    }
+
+    // Check if Postmark is configured
+    if (!isPostmarkConfigured()) {
+      return reply.code(503).send({
+        error: 'Postmark not configured',
+        message: 'Required env vars: POSTMARK_SERVER_TOKEN (or POSTMARK_TRANSACTIONAL_TOKEN), POSTMARK_FROM_EMAIL',
+      });
+    }
+
+    const { to, subject, body, htmlBody, threadId, replyToMessageId, idempotencyKey } = req.body;
+
+    // Validate required fields
+    if (!to || !subject || !body) {
+      return reply.code(400).send({ error: 'Missing required fields: to, subject, body' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await enqueueEmailMessage(pool, {
+        to,
+        subject,
+        body,
+        htmlBody,
+        threadId,
+        replyToMessageId,
+        idempotencyKey,
+      });
+
+      console.log(
+        `[Postmark] Email queued: to=${to}, messageId=${result.messageId}, ` +
+        `idempotencyKey=${result.idempotencyKey}`
+      );
+
+      return reply.code(202).send({
+        messageId: result.messageId,
+        threadId: result.threadId,
+        status: result.status,
+        idempotencyKey: result.idempotencyKey,
+      });
+    } catch (error) {
+      const err = error as Error;
+      console.error('[Postmark] Email send error:', err);
+
+      if (err.message.includes('Invalid email')) {
+        return reply.code(400).send({ error: err.message });
+      }
+
+      if (err.message.includes('Subject') || err.message.includes('Body')) {
+        return reply.code(400).send({ error: err.message });
+      }
+
+      return reply.code(500).send({ error: 'Internal server error' });
     } finally {
       await pool.end();
     }
