@@ -20,7 +20,7 @@ import {
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
-import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback } from './twilio/index.ts';
+import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback, listPhoneNumbers, getPhoneNumberDetails, updatePhoneNumberWebhooks } from './twilio/index.ts';
 import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured, processPostmarkDeliveryStatus, type PostmarkWebhookPayload } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 import { RealtimeHub } from './realtime/index.ts';
@@ -7466,6 +7466,165 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         messageId: result.messageId,
         statusUnchanged: result.statusUnchanged || false,
       });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Twilio Phone Number Management (Issue #300)
+  // GET /api/twilio/numbers - List all Twilio phone numbers
+  app.get('/api/twilio/numbers', {
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Require authentication
+    if (!isAuthDisabled()) {
+      const secret = getCachedSecret();
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      if (!secret || !compareSecrets(token, secret)) {
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+    }
+
+    // Check if Twilio is configured
+    if (!isTwilioConfigured()) {
+      return reply.code(503).send({
+        error: 'Twilio not configured',
+        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+      });
+    }
+
+    try {
+      const numbers = await listPhoneNumbers();
+      return reply.code(200).send({ numbers });
+    } catch (error) {
+      console.error('[Twilio] Error listing phone numbers:', error);
+      return reply.code(500).send({ error: 'Failed to list phone numbers' });
+    }
+  });
+
+  // GET /api/twilio/numbers/:phoneNumber - Get phone number details
+  app.get<{
+    Params: { phoneNumber: string };
+  }>('/api/twilio/numbers/:phoneNumber', {
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Require authentication
+    if (!isAuthDisabled()) {
+      const secret = getCachedSecret();
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      if (!secret || !compareSecrets(token, secret)) {
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+    }
+
+    // Check if Twilio is configured
+    if (!isTwilioConfigured()) {
+      return reply.code(503).send({
+        error: 'Twilio not configured',
+        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+      });
+    }
+
+    try {
+      const { phoneNumber } = req.params;
+      const details = await getPhoneNumberDetails(decodeURIComponent(phoneNumber));
+      return reply.code(200).send(details);
+    } catch (error) {
+      const err = error as Error;
+      if (err.message.includes('not found')) {
+        return reply.code(404).send({ error: err.message });
+      }
+      console.error('[Twilio] Error getting phone number details:', error);
+      return reply.code(500).send({ error: 'Failed to get phone number details' });
+    }
+  });
+
+  // PATCH /api/twilio/numbers/:phoneNumber - Update phone number webhooks
+  app.patch<{
+    Params: { phoneNumber: string };
+    Body: {
+      smsUrl?: string;
+      smsMethod?: 'GET' | 'POST';
+      smsFallbackUrl?: string;
+      voiceUrl?: string;
+      voiceMethod?: 'GET' | 'POST';
+      voiceFallbackUrl?: string;
+      statusCallbackUrl?: string;
+      statusCallbackMethod?: 'GET' | 'POST';
+    };
+  }>('/api/twilio/numbers/:phoneNumber', {
+    config: {
+      rateLimit: {
+        max: 10, // Lower limit for config changes
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Require authentication
+    if (!isAuthDisabled()) {
+      const secret = getCachedSecret();
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      if (!secret || !compareSecrets(token, secret)) {
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+    }
+
+    // Check if Twilio is configured
+    if (!isTwilioConfigured()) {
+      return reply.code(503).send({
+        error: 'Twilio not configured',
+        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      const { phoneNumber } = req.params;
+      const options = req.body;
+
+      // Extract actor ID from auth token if available (for audit logging)
+      const actorId = req.headers['x-actor-id'] as string | undefined;
+
+      const updated = await updatePhoneNumberWebhooks(
+        decodeURIComponent(phoneNumber),
+        options,
+        pool,
+        actorId
+      );
+
+      return reply.code(200).send(updated);
+    } catch (error) {
+      const err = error as Error;
+
+      // URL validation errors
+      if (err.message.includes('Invalid URL') || err.message.includes('must use HTTPS')) {
+        return reply.code(400).send({ error: err.message });
+      }
+
+      // Not found
+      if (err.message.includes('not found')) {
+        return reply.code(404).send({ error: err.message });
+      }
+
+      console.error('[Twilio] Error updating phone number webhooks:', error);
+      return reply.code(500).send({ error: 'Failed to update phone number webhooks' });
     } finally {
       await pool.end();
     }
