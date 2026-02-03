@@ -56,3 +56,46 @@ export interface ActivityStatistics {
   lastInteraction: Date | null;
   typeCounts: Record<ActivityType, number>;
 }
+
+/** Actor type for activity feed */
+export type ActorType = 'agent' | 'human' | 'system';
+
+/** Action type for activity items */
+export type ActionType = 'created' | 'updated' | 'deleted' | 'commented' | 'completed' | 'assigned' | 'mentioned';
+
+/** Entity type for activity items */
+export type EntityType = 'issue' | 'project' | 'task' | 'comment' | 'contact';
+
+/** Time range for filtering */
+export type TimeRange = 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month';
+
+/** Activity item for feed display */
+export interface ActivityItem {
+  id: string;
+  actorType: ActorType;
+  actorName: string;
+  action: ActionType;
+  entityType: EntityType;
+  entityId: string;
+  entityTitle: string;
+  parentEntityTitle?: string;
+  parentEntityId?: string;
+  timestamp: Date;
+  read: boolean;
+  detail?: string;
+}
+
+/** Filter options for activity feed */
+export interface ActivityFilter {
+  actorType?: ActorType;
+  actionType?: ActionType;
+  entityType?: EntityType;
+  projectId?: string;
+  timeRange?: TimeRange;
+}
+
+/** Time-grouped activities */
+export interface TimeGroup {
+  label: string;
+  items: ActivityItem[];
+}

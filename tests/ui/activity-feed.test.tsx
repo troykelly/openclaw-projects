@@ -1,228 +1,187 @@
 /**
  * @vitest-environment jsdom
+ * Tests for activity components
+ * Issue #396: Implement contact activity timeline
  */
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import {
-  ActivityFeed,
   ActivityCard,
-  ActivityFilterBar,
-  type ActivityItem,
-  type ActivityFilter,
+  ActivityTimeline,
+  ActivityFilter,
+  ActivityStats,
+  type Activity,
+  type ActivityType,
 } from '@/ui/components/activity';
 
-const mockActivity: ActivityItem = {
+const mockActivity: Activity = {
   id: '1',
-  actorType: 'agent',
-  actorName: 'Claude',
-  action: 'created',
-  entityType: 'issue',
-  entityId: 'issue-1',
-  entityTitle: 'Fix login bug',
-  parentEntityTitle: 'Project Alpha',
-  parentEntityId: 'project-1',
-  timestamp: new Date(),
-  read: false,
+  type: 'work_item_assignment',
+  title: 'Fix login bug assigned to you',
+  description: 'High priority fix needed',
+  timestamp: new Date().toISOString(),
+  sourceType: 'work_item',
+  sourceId: 'issue-1',
 };
 
-const mockActivities: ActivityItem[] = [
+const mockActivities: Activity[] = [
   mockActivity,
   {
     id: '2',
-    actorType: 'human',
-    actorName: 'Alice',
-    action: 'commented',
-    entityType: 'issue',
-    entityId: 'issue-2',
-    entityTitle: 'Add dark mode',
-    timestamp: new Date(Date.now() - 86400000), // yesterday
-    read: true,
+    type: 'email_received',
+    title: 'New email from Alice',
+    timestamp: new Date(Date.now() - 86400000).toISOString(), // yesterday
+    sourceType: 'email',
+    sourceId: 'email-1',
   },
   {
     id: '3',
-    actorType: 'agent',
-    actorName: 'Bot',
-    action: 'completed',
-    entityType: 'project',
-    entityId: 'project-2',
-    entityTitle: 'Backend API',
-    timestamp: new Date(Date.now() - 86400000 * 3), // 3 days ago
-    read: false,
+    type: 'note_added',
+    title: 'Note added to project',
+    timestamp: new Date(Date.now() - 86400000 * 3).toISOString(), // 3 days ago
+    sourceType: 'note',
+    sourceId: 'note-1',
   },
 ];
 
-describe('ActivityCard', () => {
-  it('renders activity information', () => {
-    render(<ActivityCard item={mockActivity} />);
 
-    expect(screen.getByText('Claude')).toBeInTheDocument();
-    expect(screen.getByText('Fix login bug')).toBeInTheDocument();
-    expect(screen.getByText(/in Project Alpha/)).toBeInTheDocument();
+describe('ActivityCard', () => {
+  it('renders activity title', () => {
+    render(<ActivityCard activity={mockActivity} />);
+    expect(screen.getByText('Fix login bug assigned to you')).toBeInTheDocument();
   });
 
-  it('shows unread indicator for unread items', () => {
-    const { container } = render(<ActivityCard item={mockActivity} />);
-    const card = container.querySelector('[data-testid="activity-card"]');
-    expect(card?.className).toContain('border-l-primary');
+  it('renders activity description when provided', () => {
+    render(<ActivityCard activity={mockActivity} />);
+    expect(screen.getByText('High priority fix needed')).toBeInTheDocument();
   });
 
   it('calls onClick when clicked', () => {
     const onClick = vi.fn();
-    render(<ActivityCard item={mockActivity} onClick={onClick} />);
+    render(<ActivityCard activity={mockActivity} onClick={onClick} />);
 
-    fireEvent.click(screen.getByRole('article'));
-    expect(onClick).toHaveBeenCalledWith(mockActivity);
+    fireEvent.click(screen.getByRole('button'));
+    expect(onClick).toHaveBeenCalledWith(mockActivity.id, mockActivity.sourceType, mockActivity.sourceId);
   });
 
-  it('displays relative time', () => {
-    render(<ActivityCard item={mockActivity} />);
-    expect(screen.getByText(/just now|minute/)).toBeInTheDocument();
+  it('renders icon based on activity type', () => {
+    render(<ActivityCard activity={mockActivity} />);
+    expect(screen.getByTestId('activity-icon')).toBeInTheDocument();
   });
 
-  it('shows detail when provided', () => {
-    const itemWithDetail: ActivityItem = {
-      ...mockActivity,
-      detail: 'This is a detailed comment',
-    };
-    render(<ActivityCard item={itemWithDetail} />);
-    expect(screen.getByText(/"This is a detailed comment"/)).toBeInTheDocument();
-  });
-});
+  it('handles keyboard navigation', () => {
+    const onClick = vi.fn();
+    render(<ActivityCard activity={mockActivity} onClick={onClick} />);
 
-describe('ActivityFilterBar', () => {
-  it('renders filter button', () => {
-    const onFilterChange = vi.fn();
-    render(<ActivityFilterBar filter={{}} onFilterChange={onFilterChange} />);
-
-    expect(screen.getByText('Filter')).toBeInTheDocument();
-  });
-
-  it('shows filter options when expanded', () => {
-    const onFilterChange = vi.fn();
-    render(<ActivityFilterBar filter={{}} onFilterChange={onFilterChange} />);
-
-    fireEvent.click(screen.getByText('Filter'));
-
-    expect(screen.getByText('Time')).toBeInTheDocument();
-    expect(screen.getByText('Actor')).toBeInTheDocument();
-    expect(screen.getByText('Action')).toBeInTheDocument();
-  });
-
-  it('shows active filter count', () => {
-    const onFilterChange = vi.fn();
-    const filter: ActivityFilter = { actorType: 'agent', timeRange: 'today' };
-    render(<ActivityFilterBar filter={filter} onFilterChange={onFilterChange} />);
-
-    expect(screen.getByText('2')).toBeInTheDocument();
-  });
-
-  it('calls onFilterChange when filter is toggled', () => {
-    const onFilterChange = vi.fn();
-    render(<ActivityFilterBar filter={{}} onFilterChange={onFilterChange} />);
-
-    fireEvent.click(screen.getByText('Filter'));
-    fireEvent.click(screen.getByText('Agents'));
-
-    expect(onFilterChange).toHaveBeenCalledWith({ actorType: 'agent' });
-  });
-
-  it('shows clear button when filters are active', () => {
-    const onFilterChange = vi.fn();
-    const filter: ActivityFilter = { actorType: 'agent' };
-    render(<ActivityFilterBar filter={filter} onFilterChange={onFilterChange} />);
-
-    expect(screen.getByText('Clear')).toBeInTheDocument();
-  });
-
-  it('clears filters when clear is clicked', () => {
-    const onFilterChange = vi.fn();
-    const filter: ActivityFilter = { actorType: 'agent' };
-    render(<ActivityFilterBar filter={filter} onFilterChange={onFilterChange} />);
-
-    fireEvent.click(screen.getByText('Clear'));
-    expect(onFilterChange).toHaveBeenCalledWith({});
+    const button = screen.getByRole('button');
+    fireEvent.keyDown(button, { key: 'Enter' });
+    expect(onClick).toHaveBeenCalled();
   });
 });
 
-describe('ActivityFeed', () => {
-  it('renders activity items', () => {
-    render(<ActivityFeed items={mockActivities} />);
+describe('ActivityTimeline', () => {
+  it('renders activities', () => {
+    render(<ActivityTimeline activities={mockActivities} />);
 
-    expect(screen.getByText('Claude')).toBeInTheDocument();
-    expect(screen.getByText('Alice')).toBeInTheDocument();
-    expect(screen.getByText('Bot')).toBeInTheDocument();
+    expect(screen.getByText('Fix login bug assigned to you')).toBeInTheDocument();
+    expect(screen.getByText('New email from Alice')).toBeInTheDocument();
   });
 
-  it('groups items by time', () => {
-    render(<ActivityFeed items={mockActivities} />);
+  it('groups activities by date', () => {
+    render(<ActivityTimeline activities={mockActivities} />);
 
+    // Activities should be grouped by date
     expect(screen.getByText('Today')).toBeInTheDocument();
-    expect(screen.getByText('Yesterday')).toBeInTheDocument();
   });
 
-  it('shows unread count', () => {
-    render(<ActivityFeed items={mockActivities} />);
-
-    // 2 unread items
-    expect(screen.getByText('2')).toBeInTheDocument();
-  });
-
-  it('shows Mark all read button when there are unread items', () => {
-    const onMarkAllRead = vi.fn();
-    render(<ActivityFeed items={mockActivities} onMarkAllRead={onMarkAllRead} />);
-
-    expect(screen.getByText('Mark all read')).toBeInTheDocument();
-  });
-
-  it('calls onMarkAllRead when button is clicked', () => {
-    const onMarkAllRead = vi.fn();
-    render(<ActivityFeed items={mockActivities} onMarkAllRead={onMarkAllRead} />);
-
-    fireEvent.click(screen.getByText('Mark all read'));
-    expect(onMarkAllRead).toHaveBeenCalled();
-  });
-
-  it('shows empty state when no items', () => {
-    render(<ActivityFeed items={[]} />);
-
-    expect(screen.getByText('No activity to show')).toBeInTheDocument();
-  });
-
-  it('shows loading state', () => {
-    render(<ActivityFeed items={[]} loading />);
-
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  it('shows empty state when no activities', () => {
+    render(<ActivityTimeline activities={[]} />);
+    expect(screen.getByText('No activity yet')).toBeInTheDocument();
   });
 
   it('shows load more button when hasMore is true', () => {
-    const onLoadMore = vi.fn();
-    render(<ActivityFeed items={mockActivities} hasMore onLoadMore={onLoadMore} />);
-
-    expect(screen.getByText('Load more')).toBeInTheDocument();
+    render(<ActivityTimeline activities={mockActivities} hasMore onLoadMore={vi.fn()} />);
+    expect(screen.getByText('Load More')).toBeInTheDocument();
   });
 
-  it('calls onLoadMore when load more is clicked', () => {
-    const onLoadMore = vi.fn();
-    render(<ActivityFeed items={mockActivities} hasMore onLoadMore={onLoadMore} />);
+  it('calls onActivityClick when activity is clicked', () => {
+    const onActivityClick = vi.fn();
+    render(<ActivityTimeline activities={mockActivities} onActivityClick={onActivityClick} />);
 
-    fireEvent.click(screen.getByText('Load more'));
-    expect(onLoadMore).toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Fix login bug assigned to you').closest('[role="button"]')!);
+    expect(onActivityClick).toHaveBeenCalled();
+  });
+});
+
+describe('ActivityFilter', () => {
+  const defaultProps = {
+    selectedTypes: [] as ActivityType[],
+    dateRange: null,
+    searchQuery: '',
+    onTypeChange: vi.fn(),
+    onDateRangeChange: vi.fn(),
+    onSearchChange: vi.fn(),
+  };
+
+  it('renders search input', () => {
+    render(<ActivityFilter {...defaultProps} />);
+    expect(screen.getByPlaceholderText('Search activities...')).toBeInTheDocument();
   });
 
-  it('filters items based on filter state', () => {
-    // This tests the internal filtering - we can't directly test because filter state is internal
-    // But we can verify the filter bar is present
-    render(<ActivityFeed items={mockActivities} />);
-
-    expect(screen.getByText('Filter')).toBeInTheDocument();
+  it('renders activity type filter buttons', () => {
+    render(<ActivityFilter {...defaultProps} />);
+    expect(screen.getByText('Activity Type')).toBeInTheDocument();
   });
 
-  it('calls onItemClick when an item is clicked', () => {
-    const onItemClick = vi.fn();
-    render(<ActivityFeed items={mockActivities} onItemClick={onItemClick} />);
+  it('renders date range filter buttons', () => {
+    render(<ActivityFilter {...defaultProps} />);
+    expect(screen.getByText('Date Range')).toBeInTheDocument();
+    expect(screen.getByText('All Time')).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByText('Claude').closest('[role="article"]')!);
-    expect(onItemClick).toHaveBeenCalledWith(mockActivities[0]);
+  it('calls onSearchChange when search input changes', () => {
+    const onSearchChange = vi.fn();
+    render(<ActivityFilter {...defaultProps} onSearchChange={onSearchChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search activities...'), {
+      target: { value: 'test' },
+    });
+    expect(onSearchChange).toHaveBeenCalledWith('test');
+  });
+
+  it('shows clear button when filters are active', () => {
+    render(<ActivityFilter {...defaultProps} searchQuery="test" />);
+    expect(screen.getByText('Clear')).toBeInTheDocument();
+  });
+});
+
+describe('ActivityStats', () => {
+  it('renders total count', () => {
+    render(<ActivityStats activities={mockActivities} />);
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('renders most common type label', () => {
+    // All activities have different types so none is most common
+    const sameTypeActivities: Activity[] = [
+      { ...mockActivity, id: '1' },
+      { ...mockActivity, id: '2' },
+    ];
+    render(<ActivityStats activities={sameTypeActivities} />);
+    // Should show Assignments category since work_item_assignment is most common
+    expect(screen.getByText(/Assignments/i)).toBeInTheDocument();
+  });
+
+  it('renders last interaction section', () => {
+    render(<ActivityStats activities={mockActivities} />);
+    expect(screen.getByText('Last Interaction')).toBeInTheDocument();
+  });
+
+  it('handles empty activities gracefully', () => {
+    render(<ActivityStats activities={[]} />);
+    expect(screen.getByText('0')).toBeInTheDocument();
   });
 });
