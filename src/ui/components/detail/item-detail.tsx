@@ -37,6 +37,7 @@ export interface ItemDetailProps {
   onDependencyClick?: (dependency: WorkItemDependency) => void;
   onAddDependency?: (direction: 'blocks' | 'blocked_by') => void;
   onParentClick?: () => void;
+  onDelete?: () => void;
   className?: string;
 }
 
@@ -59,6 +60,7 @@ export function ItemDetail({
   onDependencyClick,
   onAddDependency,
   onParentClick,
+  onDelete,
   className,
 }: ItemDetailProps) {
   return (
@@ -73,6 +75,7 @@ export function ItemDetail({
             parentTitle={item.parentTitle}
             onTitleChange={onTitleChange}
             onParentClick={onParentClick}
+            onDelete={onDelete}
           />
 
           {/* Main content grid */}

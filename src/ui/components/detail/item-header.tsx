@@ -9,6 +9,7 @@ import {
   Pencil,
   Check,
   X,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
@@ -57,6 +58,7 @@ export interface ItemHeaderProps {
   parentTitle?: string;
   onTitleChange?: (title: string) => void;
   onParentClick?: () => void;
+  onDelete?: () => void;
   className?: string;
 }
 
@@ -67,6 +69,7 @@ export function ItemHeader({
   parentTitle,
   onTitleChange,
   onParentClick,
+  onDelete,
   className,
 }: ItemHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -147,6 +150,17 @@ export function ItemHeader({
                 >
                   <Pencil className="size-3" />
                   <span className="sr-only">Edit title</span>
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="mt-0.5 size-6 opacity-0 text-destructive hover:text-destructive group-hover:opacity-100"
+                  onClick={onDelete}
+                >
+                  <Trash2 className="size-3" />
+                  <span className="sr-only">Delete</span>
                 </Button>
               )}
             </div>

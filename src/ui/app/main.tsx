@@ -27,6 +27,14 @@ import {
   type CreatedWorkItem,
 } from '@/ui/components/work-item-create';
 
+// Work item deletion
+import {
+  DeleteConfirmDialog,
+  UndoToast,
+  useWorkItemDelete,
+  type DeleteItem,
+} from '@/ui/components/work-item-delete';
+
 // Communications components
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
@@ -305,6 +313,64 @@ function WorkItemsListPage(): React.JSX.Element {
     window.location.href = `/app/work-items/${id}`;
   };
 
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<DeleteItem | null>(null);
+
+  // Helper to find item in tree
+  const findTreeItem = useCallback((items: TreeItem[], id: string): TreeItem | null => {
+    for (const item of items) {
+      if (item.id === id) return item;
+      if (item.children) {
+        const found = findTreeItem(item.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, []);
+
+  // Delete hook
+  const {
+    deleteItem: performDelete,
+    isDeleting,
+    undoState,
+    dismissUndo,
+  } = useWorkItemDelete({
+    onDeleted: () => {
+      // Refresh tree after delete
+      fetchTree();
+      // Also refresh list
+      setState({ kind: 'loading' });
+    },
+    onRestored: () => {
+      // Refresh after undo
+      fetchTree();
+      setState({ kind: 'loading' });
+    },
+  });
+
+  // Handle tree item delete request
+  const handleTreeDelete = useCallback((id: string) => {
+    const item = findTreeItem(treeItems, id);
+    if (item) {
+      setItemToDelete({
+        id: item.id,
+        title: item.title,
+        kind: item.kind,
+        childCount: item.childCount ?? 0,
+      });
+      setDeleteDialogOpen(true);
+    }
+  }, [treeItems, findTreeItem]);
+
+  // Confirm delete
+  const handleConfirmDelete = useCallback(async () => {
+    if (!itemToDelete) return;
+    await performDelete({ id: itemToDelete.id, title: itemToDelete.title });
+    setDeleteDialogOpen(false);
+    setItemToDelete(null);
+  }, [itemToDelete, performDelete]);
+
   useEffect(() => {
     if (state.kind === 'loaded') return;
 
@@ -373,12 +439,13 @@ function WorkItemsListPage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full">
-      {/* Project Tree Panel */}
-      <div
-        className={`border-r bg-muted/30 transition-all duration-300 ${
-          treePanelOpen ? 'w-64' : 'w-0 overflow-hidden'
-        }`}
+    <>
+      <div className="flex h-full">
+        {/* Project Tree Panel */}
+        <div
+          className={`border-r bg-muted/30 transition-all duration-300 ${
+            treePanelOpen ? 'w-64' : 'w-0 overflow-hidden'
+          }`}
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b p-3">
@@ -404,6 +471,7 @@ function WorkItemsListPage(): React.JSX.Element {
               <ProjectTree
                 items={treeItems}
                 onSelect={handleTreeSelect}
+                onDelete={handleTreeDelete}
               />
             )}
           </div>
@@ -494,7 +562,27 @@ function WorkItemsListPage(): React.JSX.Element {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+
+      {/* Delete confirmation dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        item={itemToDelete ?? undefined}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
+
+      {/* Undo toast */}
+      {undoState && (
+        <UndoToast
+          visible={!!undoState}
+          itemTitle={undoState.itemTitle}
+          onUndo={undoState.onUndo}
+          onDismiss={dismissUndo}
+        />
+      )}
+    </>
   );
 }
 
@@ -568,6 +656,34 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
   const [memoriesLoading, setMemoriesLoading] = useState(true);
   const [memoryEditorOpen, setMemoryEditorOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<MemoryItem | null>(null);
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // Delete hook
+  const {
+    deleteItem: performDelete,
+    isDeleting,
+    undoState,
+    dismissUndo,
+  } = useWorkItemDelete({
+    onDeleted: () => {
+      // Navigate back to list after delete
+      window.location.href = '/app/work-items';
+    },
+  });
+
+  // Handle delete request
+  const handleDelete = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirm delete
+  const handleConfirmDelete = async () => {
+    if (!workItem) return;
+    await performDelete({ id: workItem.id, title: workItem.title });
+    setDeleteDialogOpen(false);
+  };
 
   // Fetch work item details
   const fetchWorkItem = useCallback(async () => {
@@ -955,6 +1071,7 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
         onActualChange={handleActualChange}
         onParentClick={handleParentClick}
         onDependencyClick={handleDependencyClick}
+        onDelete={handleDelete}
         className="flex-1"
       />
 
@@ -1036,6 +1153,25 @@ function WorkItemDetailPage(props: { id: string }): React.JSX.Element {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        item={workItem ? { id: workItem.id, title: workItem.title, kind: workItem.kind, childCount: 0 } : undefined}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
+
+      {/* Undo toast */}
+      {undoState && (
+        <UndoToast
+          visible={!!undoState}
+          itemTitle={undoState.itemTitle}
+          onUndo={undoState.onUndo}
+          onDismiss={dismissUndo}
+        />
+      )}
     </div>
   );
 }
