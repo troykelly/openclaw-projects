@@ -21,7 +21,7 @@ import {
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
 import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback } from './twilio/index.ts';
-import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured } from './postmark/index.ts';
+import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured, processPostmarkDeliveryStatus, type PostmarkWebhookPayload } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 import { RealtimeHub } from './realtime/index.ts';
 import {
@@ -7606,6 +7606,69 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: err.message });
       }
 
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Postmark Delivery Status Webhook (Issue #294)
+  // POST /api/postmark/email/status - Receive delivery status updates from Postmark
+  app.post('/api/postmark/email/status', {
+    config: {
+      rateLimit: {
+        max: 100, // 100 requests per minute for webhooks
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Verify Postmark webhook auth (unless auth disabled)
+    if (!isAuthDisabled()) {
+      if (!verifyPostmarkAuth(req)) {
+        console.warn('[Postmark] Invalid auth on delivery status webhook');
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+    }
+
+    const payload = req.body as PostmarkWebhookPayload;
+
+    // Validate required fields
+    if (!payload.RecordType || !payload.MessageID) {
+      return reply.code(400).send({ error: 'Missing required fields: RecordType, MessageID' });
+    }
+
+    // Validate RecordType
+    const validRecordTypes = ['Delivery', 'Bounce', 'SpamComplaint'];
+    if (!validRecordTypes.includes(payload.RecordType)) {
+      console.warn(`[Postmark] Unknown RecordType: ${payload.RecordType}`);
+      // Still return 200 to acknowledge receipt (avoid retries)
+      return reply.code(200).send({ success: true, message: 'Ignored unknown RecordType' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await processPostmarkDeliveryStatus(pool, payload);
+
+      if (result.notFound) {
+        console.warn(`[Postmark] Message not found for MessageID: ${payload.MessageID}`);
+        // Return 200 to acknowledge - we don't want Postmark to retry for unknown messages
+        return reply.code(200).send({ success: false, reason: 'Message not found' });
+      }
+
+      console.log(
+        `[Postmark] Delivery status: MessageID=${payload.MessageID}, RecordType=${payload.RecordType}, ` +
+        `messageId=${result.messageId}, statusUnchanged=${result.statusUnchanged ?? false}`
+      );
+
+      return reply.code(200).send({
+        success: true,
+        messageId: result.messageId,
+        statusUnchanged: result.statusUnchanged ?? false,
+      });
+    } catch (error) {
+      console.error('[Postmark] Delivery status webhook error:', error);
+      // Return 500 so Postmark retries
       return reply.code(500).send({ error: 'Internal server error' });
     } finally {
       await pool.end();
