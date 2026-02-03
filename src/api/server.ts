@@ -10450,5 +10450,392 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Notebooks CRUD API (Epic #337, Issue #345)
+
+  // GET /api/notebooks - List notebooks with filters
+  app.get('/api/notebooks', async (req, reply) => {
+    const {
+      listNotebooks,
+    } = await import('./notebooks/index.ts');
+
+    const query = req.query as {
+      user_email?: string;
+      parent_id?: string;
+      include_archived?: string;
+      include_note_counts?: string;
+      include_child_counts?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await listNotebooks(pool, query.user_email, {
+        parentId: query.parent_id === 'null' ? null : query.parent_id,
+        includeArchived: query.include_archived === 'true',
+        includeNoteCounts: query.include_note_counts !== 'false',
+        includeChildCounts: query.include_child_counts !== 'false',
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+      });
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notebooks/tree - Get notebooks as tree hierarchy
+  app.get('/api/notebooks/tree', async (req, reply) => {
+    const {
+      getNotebooksTree,
+    } = await import('./notebooks/index.ts');
+
+    const query = req.query as {
+      user_email?: string;
+      include_note_counts?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebooks = await getNotebooksTree(
+        pool,
+        query.user_email,
+        query.include_note_counts === 'true'
+      );
+
+      return reply.send({ notebooks });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notebooks/:id - Get a single notebook by ID
+  app.get('/api/notebooks/:id', async (req, reply) => {
+    const {
+      getNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      user_email?: string;
+      include_notes?: string;
+      include_children?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebook = await getNotebook(pool, params.id, query.user_email, {
+        includeNotes: query.include_notes === 'true',
+        includeChildren: query.include_children === 'true',
+      });
+
+      if (!notebook) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.send(notebook);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notebooks - Create a new notebook
+  app.post('/api/notebooks', async (req, reply) => {
+    const {
+      createNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const body = req.body as {
+      user_email?: string;
+      name?: string;
+      description?: string;
+      icon?: string;
+      color?: string;
+      parent_notebook_id?: string;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!body?.name?.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebook = await createNotebook(
+        pool,
+        {
+          name: body.name.trim(),
+          description: body.description,
+          icon: body.icon,
+          color: body.color,
+          parentNotebookId: body.parent_notebook_id,
+        },
+        body.user_email
+      );
+
+      return reply.code(201).send(notebook);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'Parent notebook not found') {
+        return reply.code(400).send({ error: message });
+      }
+      if (message.includes('do not own')) {
+        return reply.code(403).send({ error: message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/notebooks/:id - Update a notebook
+  app.put('/api/notebooks/:id', async (req, reply) => {
+    const {
+      updateNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      name?: string;
+      description?: string | null;
+      icon?: string | null;
+      color?: string | null;
+      parent_notebook_id?: string | null;
+      sort_order?: number;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebook = await updateNotebook(
+        pool,
+        params.id,
+        {
+          name: body.name,
+          description: body.description,
+          icon: body.icon,
+          color: body.color,
+          parentNotebookId: body.parent_notebook_id,
+          sortOrder: body.sort_order,
+        },
+        body.user_email
+      );
+
+      if (!notebook) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.send(notebook);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'You do not have permission to edit this notebook' });
+      }
+      if (message === 'Parent notebook not found') {
+        return reply.code(400).send({ error: message });
+      }
+      if (message.includes('circular')) {
+        return reply.code(400).send({ error: message });
+      }
+      if (message.includes('do not own')) {
+        return reply.code(403).send({ error: message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notebooks/:id/archive - Archive a notebook
+  app.post('/api/notebooks/:id/archive', async (req, reply) => {
+    const {
+      archiveNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as { user_email?: string };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebook = await archiveNotebook(pool, params.id, body.user_email);
+
+      if (!notebook) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.send(notebook);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can archive this notebook' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notebooks/:id/unarchive - Unarchive a notebook
+  app.post('/api/notebooks/:id/unarchive', async (req, reply) => {
+    const {
+      unarchiveNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as { user_email?: string };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebook = await unarchiveNotebook(pool, params.id, body.user_email);
+
+      if (!notebook) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.send(notebook);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can unarchive this notebook' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/notebooks/:id - Soft delete a notebook
+  app.delete('/api/notebooks/:id', async (req, reply) => {
+    const {
+      deleteNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      user_email?: string;
+      delete_notes?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const deleted = await deleteNotebook(
+        pool,
+        params.id,
+        query.user_email,
+        query.delete_notes === 'true'
+      );
+
+      if (!deleted) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'NOT_FOUND') {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can delete this notebook' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notebooks/:id/notes - Move or copy notes to notebook
+  app.post('/api/notebooks/:id/notes', async (req, reply) => {
+    const {
+      moveNotesToNotebook,
+    } = await import('./notebooks/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      note_ids?: string[];
+      action?: string;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!body?.note_ids || !Array.isArray(body.note_ids) || body.note_ids.length === 0) {
+      return reply.code(400).send({ error: 'note_ids array is required' });
+    }
+
+    if (!body?.action || !['move', 'copy'].includes(body.action)) {
+      return reply.code(400).send({ error: 'action must be "move" or "copy"' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await moveNotesToNotebook(
+        pool,
+        params.id,
+        {
+          noteIds: body.note_ids,
+          action: body.action as 'move' | 'copy',
+        },
+        body.user_email
+      );
+
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'NOT_FOUND') {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'You do not have permission to modify this notebook' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
   return app;
 }
