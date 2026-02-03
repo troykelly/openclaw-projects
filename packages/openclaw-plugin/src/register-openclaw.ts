@@ -37,6 +37,8 @@ import {
   SmsSendParamsSchema,
   EmailSendParamsSchema,
   MessageSearchParamsSchema,
+  ThreadListParamsSchema,
+  ThreadGetParamsSchema,
   MemoryCategory,
   ProjectStatus,
 } from './tools/index.js'
@@ -434,6 +436,53 @@ const messageSearchSchema: JSONSchema = {
     },
   },
   required: ['query'],
+}
+
+/**
+ * Thread list tool JSON Schema
+ */
+const threadListSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    channel: {
+      type: 'string',
+      description: 'Filter by channel type',
+      enum: ['sms', 'email'],
+    },
+    contactId: {
+      type: 'string',
+      description: 'Filter by contact ID',
+      format: 'uuid',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum threads to return',
+      minimum: 1,
+      maximum: 100,
+      default: 20,
+    },
+  },
+}
+
+/**
+ * Thread get tool JSON Schema
+ */
+const threadGetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    threadId: {
+      type: 'string',
+      description: 'Thread ID to retrieve',
+    },
+    messageLimit: {
+      type: 'integer',
+      description: 'Maximum messages to return',
+      minimum: 1,
+      maximum: 200,
+      default: 50,
+    },
+  },
+  required: ['threadId'],
 }
 
 /**
@@ -1163,6 +1212,193 @@ function createToolHandlers(state: PluginState) {
         }
       }
     },
+
+    async thread_list(params: Record<string, unknown>): Promise<ToolResult> {
+      const { channel, contactId, limit = 20 } = params as {
+        channel?: string
+        contactId?: string
+        limit?: number
+      }
+
+      logger.info('thread_list invoked', {
+        userId,
+        channel,
+        hasContactId: !!contactId,
+        limit,
+      })
+
+      try {
+        const queryParams = new URLSearchParams()
+        queryParams.set('limit', String(limit))
+
+        if (channel) {
+          queryParams.set('channel', channel)
+        }
+        if (contactId) {
+          queryParams.set('contactId', contactId)
+        }
+
+        const response = await apiClient.get<{
+          threads: Array<{
+            id: string
+            channel: string
+            contactName?: string
+            endpointValue: string
+            messageCount: number
+            lastMessageAt?: string
+          }>
+          total: number
+        }>(
+          `/api/threads?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('thread_list API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to list threads',
+          }
+        }
+
+        const { threads, total } = response.data
+
+        logger.debug('thread_list completed', {
+          userId,
+          threadCount: threads.length,
+          total,
+        })
+
+        const content = threads.length > 0
+          ? threads.map((t) => {
+              const contact = t.contactName || t.endpointValue
+              const msgCount = `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}`
+              return `[${t.channel}] ${contact} - ${msgCount}`
+            }).join('\n')
+          : 'No threads found.'
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: { threads, total, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('thread_list failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'An unexpected error occurred while listing threads.',
+        }
+      }
+    },
+
+    async thread_get(params: Record<string, unknown>): Promise<ToolResult> {
+      const { threadId, messageLimit = 50 } = params as {
+        threadId: string
+        messageLimit?: number
+      }
+
+      // Validate threadId
+      if (!threadId || threadId.length === 0) {
+        return {
+          success: false,
+          error: 'threadId: Thread ID is required',
+        }
+      }
+
+      logger.info('thread_get invoked', {
+        userId,
+        threadId,
+        messageLimit,
+      })
+
+      try {
+        const queryParams = new URLSearchParams()
+        queryParams.set('messageLimit', String(messageLimit))
+
+        const response = await apiClient.get<{
+          thread: {
+            id: string
+            channel: string
+            contactName?: string
+            endpointValue?: string
+          }
+          messages: Array<{
+            id: string
+            direction: 'inbound' | 'outbound'
+            body: string
+            subject?: string
+            deliveryStatus?: string
+            createdAt: string
+          }>
+        }>(
+          `/api/threads/${threadId}?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('thread_get API error', {
+            userId,
+            threadId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to get thread',
+          }
+        }
+
+        const { thread, messages } = response.data
+
+        logger.debug('thread_get completed', {
+          userId,
+          threadId,
+          messageCount: messages.length,
+        })
+
+        const contact = thread.contactName || thread.endpointValue || 'Unknown'
+        const header = `Thread with ${contact} [${thread.channel}]`
+
+        const messageContent = messages.length > 0
+          ? messages.map((m) => {
+              const prefix = m.direction === 'inbound' ? '←' : '→'
+              const timestamp = new Date(m.createdAt).toLocaleString()
+              return `${prefix} [${timestamp}] ${m.body}`
+            }).join('\n')
+          : 'No messages in this thread.'
+
+        const content = `${header}\n\n${messageContent}`
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: { thread, messages, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('thread_get failed', {
+          userId,
+          threadId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'An unexpected error occurred while getting thread.',
+        }
+      }
+    },
   }
 }
 
@@ -1289,6 +1525,18 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
       parameters: messageSearchSchema,
       execute: (params) => handlers.message_search(params),
     },
+    {
+      name: 'thread_list',
+      description: 'List message threads (conversations). Use to see recent conversations with contacts. Can filter by channel (SMS/email) or contact.',
+      parameters: threadListSchema,
+      execute: (params) => handlers.thread_list(params),
+    },
+    {
+      name: 'thread_get',
+      description: 'Get a thread with its message history. Use to view the full conversation in a thread.',
+      parameters: threadGetSchema,
+      execute: (params) => handlers.thread_get(params),
+    },
   ]
 
   for (const tool of tools) {
@@ -1386,4 +1634,6 @@ export const schemas = {
   smsSend: smsSendSchema,
   emailSend: emailSendSchema,
   messageSearch: messageSearchSchema,
+  threadList: threadListSchema,
+  threadGet: threadGetSchema,
 }
