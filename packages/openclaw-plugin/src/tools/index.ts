@@ -107,6 +107,16 @@ export {
   type SmsSendToolOptions,
 } from './sms-send.js'
 
+// Email tools
+export {
+  createEmailSendTool,
+  EmailSendParamsSchema,
+  type EmailSendParams,
+  type EmailSendTool,
+  type EmailSendResult,
+  type EmailSendToolOptions,
+} from './email-send.js'
+
 /** Tool factory types */
 export interface ToolFactoryOptions {
   // Common options for tool factories

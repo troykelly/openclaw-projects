@@ -35,6 +35,7 @@ import {
   ContactGetParamsSchema,
   ContactCreateParamsSchema,
   SmsSendParamsSchema,
+  EmailSendParamsSchema,
   MemoryCategory,
   ProjectStatus,
 } from './tools/index.js'
@@ -356,6 +357,44 @@ const smsSendSchema: JSONSchema = {
     },
   },
   required: ['to', 'body'],
+}
+
+/**
+ * Email send tool JSON Schema
+ */
+const emailSendSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    to: {
+      type: 'string',
+      description: 'Recipient email address',
+      format: 'email',
+    },
+    subject: {
+      type: 'string',
+      description: 'Email subject line',
+      minLength: 1,
+      maxLength: 998,
+    },
+    body: {
+      type: 'string',
+      description: 'Plain text email body',
+      minLength: 1,
+    },
+    htmlBody: {
+      type: 'string',
+      description: 'Optional HTML email body',
+    },
+    threadId: {
+      type: 'string',
+      description: 'Optional thread ID for replies',
+    },
+    idempotencyKey: {
+      type: 'string',
+      description: 'Optional unique key to prevent duplicate sends',
+    },
+  },
+  required: ['to', 'subject', 'body'],
 }
 
 /**
@@ -850,6 +889,121 @@ function createToolHandlers(state: PluginState) {
         }
       }
     },
+
+    async email_send(params: Record<string, unknown>): Promise<ToolResult> {
+      const { to, subject, body, htmlBody, threadId, idempotencyKey } = params as {
+        to: string
+        subject: string
+        body: string
+        htmlBody?: string
+        threadId?: string
+        idempotencyKey?: string
+      }
+
+      // Check Postmark configuration
+      if (!config.postmarkToken || !config.postmarkFromEmail) {
+        return {
+          success: false,
+          error: 'Postmark is not configured. Please configure Postmark credentials.',
+        }
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(to)) {
+        return {
+          success: false,
+          error: 'to: Invalid email address format',
+        }
+      }
+
+      // Validate subject
+      if (!subject || subject.length === 0) {
+        return {
+          success: false,
+          error: 'subject: Subject cannot be empty',
+        }
+      }
+      if (subject.length > 998) {
+        return {
+          success: false,
+          error: 'subject: Subject must be 998 characters or less',
+        }
+      }
+
+      // Validate body
+      if (!body || body.length === 0) {
+        return {
+          success: false,
+          error: 'body: Email body cannot be empty',
+        }
+      }
+
+      logger.info('email_send invoked', {
+        userId,
+        subjectLength: subject.length,
+        bodyLength: body.length,
+        hasHtmlBody: !!htmlBody,
+        hasThreadId: !!threadId,
+        hasIdempotencyKey: !!idempotencyKey,
+      })
+
+      try {
+        const response = await apiClient.post<{
+          messageId: string
+          threadId?: string
+          status: string
+        }>(
+          '/api/postmark/email/send',
+          { to, subject, body, htmlBody, threadId, idempotencyKey },
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('email_send API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to send email',
+          }
+        }
+
+        const { messageId, threadId: responseThreadId, status } = response.data
+
+        logger.debug('email_send completed', {
+          userId,
+          messageId,
+          status,
+        })
+
+        return {
+          success: true,
+          data: {
+            content: `Email sent successfully (ID: ${messageId}, Status: ${status})`,
+            details: { messageId, threadId: responseThreadId, status, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('email_send failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+
+        // Sanitize error message (remove email addresses for privacy)
+        let errorMessage = 'An unexpected error occurred while sending email.'
+        if (error instanceof Error) {
+          errorMessage = error.message.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')
+        }
+
+        return {
+          success: false,
+          error: errorMessage,
+        }
+      }
+    },
   }
 }
 
@@ -964,6 +1118,12 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
       parameters: smsSendSchema,
       execute: (params) => handlers.sms_send(params),
     },
+    {
+      name: 'email_send',
+      description: 'Send an email message. Use when you need to communicate via email. Requires the recipient email address, subject, and body.',
+      parameters: emailSendSchema,
+      execute: (params) => handlers.email_send(params),
+    },
   ]
 
   for (const tool of tools) {
@@ -1059,4 +1219,5 @@ export const schemas = {
   contactGet: contactGetSchema,
   contactCreate: contactCreateSchema,
   smsSend: smsSendSchema,
+  emailSend: emailSendSchema,
 }
