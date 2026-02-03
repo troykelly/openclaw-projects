@@ -127,6 +127,21 @@ export {
   type MessageSearchToolOptions,
 } from './message-search.js'
 
+// Thread tools
+export {
+  createThreadListTool,
+  createThreadGetTool,
+  ThreadListParamsSchema,
+  ThreadGetParamsSchema,
+  type ThreadListParams,
+  type ThreadGetParams,
+  type ThreadListTool,
+  type ThreadGetTool,
+  type ThreadListResult,
+  type ThreadGetResult,
+  type ThreadToolOptions,
+} from './threads.js'
+
 /** Tool factory types */
 export interface ToolFactoryOptions {
   // Common options for tool factories
