@@ -83,6 +83,46 @@
 
   --color-accent: #818CF8;
   --color-accent-foreground: #0A0A0A;
+
+  /* Dark mode shadows - use subtle glows instead */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+}
+
+/* OLED mode - true black for OLED screens */
+.oled {
+  --color-background: #000000;
+  --color-surface: #0A0A0A;
+  --color-border: #1A1A1A;
+  --color-input: #1A1A1A;
+
+  --color-foreground: #FFFFFF;
+  --color-muted: #1A1A1A;
+  --color-muted-foreground: #B3B3B3;
+
+  --color-primary: #A5B4FC;
+  --color-primary-foreground: #000000;
+
+  --color-secondary: #1A1A1A;
+  --color-secondary-foreground: #FFFFFF;
+
+  --color-accent: #A5B4FC;
+  --color-accent-foreground: #000000;
+}
+
+/* Smooth theme transitions */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out !important;
+}
+
+/* Prevent white flash on page load */
+html {
+  background-color: var(--color-background);
 }
 
 /* Base styles */
