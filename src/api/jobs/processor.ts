@@ -18,6 +18,7 @@ import {
   getWebhookDestination,
 } from '../webhooks/payloads.js';
 import { handleSmsSendJob } from '../twilio/sms-outbound.js';
+import { handleEmailSendJob } from '../postmark/email-outbound.js';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;
@@ -230,6 +231,8 @@ function getJobHandler(
       return (job) => handleNudgeJob(pool, job);
     case 'message.send.sms':
       return (job) => handleSmsSendJob(pool, job);
+    case 'message.send.email':
+      return (job) => handleEmailSendJob(pool, job);
     default:
       return null;
   }
