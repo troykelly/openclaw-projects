@@ -5,6 +5,7 @@ import { Clock, User, GripVertical } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Card } from '@/ui/components/ui/card';
 import { Badge } from '@/ui/components/ui/badge';
+import { InlineEditableText } from '@/ui/components/inline-edit';
 import type { BoardItem, BoardPriority } from './types';
 
 function getPriorityVariant(priority: BoardPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -24,6 +25,13 @@ function getPriorityLabel(priority: BoardPriority): string {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
 
+const PRIORITY_ORDER: BoardPriority[] = ['low', 'medium', 'high', 'urgent'];
+
+function getNextPriority(current: BoardPriority): BoardPriority {
+  const index = PRIORITY_ORDER.indexOf(current);
+  return PRIORITY_ORDER[(index + 1) % PRIORITY_ORDER.length];
+}
+
 function formatEstimate(minutes: number | undefined): string | null {
   if (!minutes) return null;
   if (minutes < 60) return `${minutes}m`;
@@ -37,9 +45,13 @@ export interface BoardCardProps {
   onClick?: (item: BoardItem) => void;
   isDragging?: boolean;
   className?: string;
+  /** Called when title is edited inline */
+  onTitleChange?: (id: string, newTitle: string) => void;
+  /** Called when priority badge is clicked to cycle */
+  onPriorityChange?: (id: string, newPriority: BoardPriority) => void;
 }
 
-export function BoardCard({ item, onClick, isDragging, className }: BoardCardProps) {
+export function BoardCard({ item, onClick, isDragging, className, onTitleChange, onPriorityChange }: BoardCardProps) {
   const {
     attributes,
     listeners,
@@ -87,12 +99,34 @@ export function BoardCard({ item, onClick, isDragging, className }: BoardCardPro
           >
             <GripVertical className="size-4" />
           </div>
-          <h4 className="flex-1 text-sm font-medium leading-tight">{item.title}</h4>
+          {onTitleChange ? (
+            <InlineEditableText
+              value={item.title}
+              onSave={(newTitle) => onTitleChange(item.id, newTitle)}
+              selectOnFocus
+              className="flex-1 text-sm font-medium leading-tight"
+              validate={(v) => v.trim().length > 0}
+            />
+          ) : (
+            <h4 className="flex-1 text-sm font-medium leading-tight">{item.title}</h4>
+          )}
         </div>
 
         {/* Metadata row */}
         <div className="flex items-center justify-between gap-2">
-          <Badge variant={getPriorityVariant(item.priority)} className="text-xs">
+          <Badge
+            variant={getPriorityVariant(item.priority)}
+            className={cn('text-xs', onPriorityChange && 'cursor-pointer hover:opacity-80')}
+            onClick={
+              onPriorityChange
+                ? (e) => {
+                    e.stopPropagation();
+                    onPriorityChange(item.id, getNextPriority(item.priority));
+                  }
+                : undefined
+            }
+            title={onPriorityChange ? 'Click to change priority' : undefined}
+          >
             {getPriorityLabel(item.priority)}
           </Badge>
 

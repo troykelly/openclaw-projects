@@ -43,6 +43,9 @@ import {
   type PotentialParent,
 } from '@/ui/components/work-item-move';
 
+// Inline editing
+import { InlineEditableText } from '@/ui/components/inline-edit';
+
 // Communications components
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
@@ -443,6 +446,22 @@ function WorkItemsListPage(): React.JSX.Element {
     setItemToMove(null);
   }, [itemToMove, performMove]);
 
+  // Handle inline title change
+  const handleTreeTitleChange = useCallback(async (id: string, newTitle: string) => {
+    try {
+      const res = await fetch(`/api/work-items/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
+      // Refresh tree to show updated title
+      fetchTree();
+    } catch {
+      // Silently fail - the inline edit component will revert
+    }
+  }, [fetchTree]);
+
   useEffect(() => {
     if (state.kind === 'loaded') return;
 
@@ -546,6 +565,7 @@ function WorkItemsListPage(): React.JSX.Element {
                 onDelete={handleTreeDelete}
                 onMove={handleTreeMove}
                 onMoveRequest={handleMoveRequest}
+                onTitleChange={handleTreeTitleChange}
               />
             )}
           </div>
@@ -1926,6 +1946,27 @@ function KanbanPage(): React.JSX.Element {
     setDraggedItem(null);
   };
 
+  // Handle inline title edit
+  const handleKanbanTitleChange = async (id: string, newTitle: string) => {
+    // Optimistic update
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, title: newTitle } : i))
+    );
+
+    try {
+      const res = await fetch(`/api/work-items/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      if (!res.ok) throw new Error('Failed to update title');
+    } catch {
+      // Revert on error
+      fetchItems();
+      setError('Failed to update title');
+    }
+  };
+
   const kindLabels: Record<string, { label: string; color: string }> = {
     project: { label: 'P', color: 'bg-blue-500' },
     initiative: { label: 'I', color: 'bg-violet-500' },
@@ -2071,16 +2112,25 @@ function KanbanPage(): React.JSX.Element {
                       >
                         <div className="flex items-start gap-2">
                           <div className="flex-1 min-w-0">
-                            <a
-                              href={`/app/work-items/${item.id}`}
-                              className="font-medium text-sm text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug"
-                            >
-                              {item.title}
-                            </a>
+                            <InlineEditableText
+                              value={item.title}
+                              onSave={(newTitle) => handleKanbanTitleChange(item.id, newTitle)}
+                              selectOnFocus
+                              className="font-medium text-sm text-foreground line-clamp-2 leading-snug"
+                              validate={(v) => v.trim().length > 0}
+                            />
                           </div>
-                          <div className={`shrink-0 size-5 rounded flex items-center justify-center text-[10px] font-bold text-white ${kindConfig.color}`}>
-                            {kindConfig.label}
-                          </div>
+                          <a
+                            href={`/app/work-items/${item.id}`}
+                            className="shrink-0 size-5 rounded flex items-center justify-center text-[10px] font-bold text-white hover:opacity-80 transition-opacity"
+                            style={{ backgroundColor: kindConfig.color.replace('bg-', '') }}
+                            onClick={(e) => e.stopPropagation()}
+                            title="View details"
+                          >
+                            <div className={`size-full rounded flex items-center justify-center ${kindConfig.color}`}>
+                              {kindConfig.label}
+                            </div>
+                          </a>
                         </div>
                         <div className="mt-2.5 flex items-center gap-2">
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${prioConfig.bg}`}>

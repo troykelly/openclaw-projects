@@ -19,7 +19,7 @@ import { Button } from '@/ui/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/ui/components/ui/scroll-area';
 import { BoardColumn } from './board-column';
 import { BoardCardOverlay } from './board-card';
-import type { BoardItem, BoardStatus, BoardColumn as ColumnType } from './types';
+import type { BoardItem, BoardStatus, BoardColumn as ColumnType, BoardPriority } from './types';
 
 const DEFAULT_COLUMNS: ColumnType[] = [
   { id: 'not_started', title: 'To Do', items: [] },
@@ -46,6 +46,10 @@ export interface KanbanBoardProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   className?: string;
+  /** Called when a card title is edited inline */
+  onTitleChange?: (id: string, newTitle: string) => void;
+  /** Called when a card priority is cycled */
+  onPriorityChange?: (id: string, newPriority: BoardPriority) => void;
 }
 
 export function KanbanBoard({
@@ -56,6 +60,8 @@ export function KanbanBoard({
   viewMode = 'board',
   onViewModeChange,
   className,
+  onTitleChange,
+  onPriorityChange,
 }: KanbanBoardProps) {
   const [activeItem, setActiveItem] = useState<BoardItem | null>(null);
   const [overColumn, setOverColumn] = useState<BoardStatus | null>(null);
@@ -182,6 +188,8 @@ export function KanbanBoard({
                 onItemClick={onItemClick}
                 onAddItem={onAddItem}
                 isOver={overColumn === column.id}
+                onTitleChange={onTitleChange}
+                onPriorityChange={onPriorityChange}
               />
             ))}
             <DragOverlay>

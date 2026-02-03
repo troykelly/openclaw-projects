@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/components/ui/dropdown-menu';
 import type { TreeItem, TreeItemKind, TreeItemStatus } from './types';
+import { InlineEditableText } from '@/ui/components/inline-edit';
 
 function getKindIcon(kind: TreeItemKind) {
   switch (kind) {
@@ -78,6 +79,8 @@ export interface TreeItemRowProps {
   onDelete?: (id: string) => void;
   /** Called when user requests to move the item via "Move to..." menu */
   onMoveRequest?: (item: TreeItem) => void;
+  /** Called when title is changed via inline edit */
+  onTitleChange?: (id: string, newTitle: string) => void;
 }
 
 export function TreeItemRow({
@@ -91,6 +94,7 @@ export function TreeItemRow({
   onEdit,
   onDelete,
   onMoveRequest,
+  onTitleChange,
 }: TreeItemRowProps) {
   const {
     attributes,
@@ -203,7 +207,18 @@ export function TreeItemRow({
       <span className="shrink-0 text-muted-foreground">{getKindIcon(item.kind)}</span>
 
       {/* Title */}
-      <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
+      {onTitleChange ? (
+        <InlineEditableText
+          value={item.title}
+          onSave={(newTitle) => onTitleChange(item.id, newTitle)}
+          doubleClick
+          selectOnFocus
+          className="min-w-0 flex-1 truncate text-sm"
+          validate={(v) => v.trim().length > 0}
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
+      )}
 
       {/* Child count badge */}
       {hasChildren && (
