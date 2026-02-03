@@ -1,155 +1,162 @@
+/**
+ * Filter panel for activity timeline
+ * Issue #396: Implement contact activity timeline
+ */
 import * as React from 'react';
-import { Filter, X } from 'lucide-react';
-import { cn } from '@/ui/lib/utils';
+import { X, Search } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import { Badge } from '@/ui/components/ui/badge';
-import type { ActivityFilter, ActorType, ActionType, EntityType } from './types';
+import { Input } from '@/ui/components/ui/input';
+import { cn } from '@/ui/lib/utils';
+import type { ActivityType, DateRange } from './types';
+import { FILTER_CATEGORIES } from './activity-utils';
 
-const TIME_RANGES = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'this_week', label: 'This week' },
-  { value: 'this_month', label: 'This month' },
-  { value: 'all', label: 'All time' },
-] as const;
-
-const ACTOR_TYPES = [
-  { value: 'agent', label: 'Agents' },
-  { value: 'human', label: 'Humans' },
-] as const;
-
-const ACTION_TYPES = [
-  { value: 'created', label: 'Created' },
-  { value: 'updated', label: 'Updated' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'commented', label: 'Commented' },
-  { value: 'status_changed', label: 'Status changed' },
-] as const;
-
-export interface ActivityFilterBarProps {
-  filter: ActivityFilter;
-  onFilterChange: (filter: ActivityFilter) => void;
+export interface ActivityFilterProps {
+  selectedTypes: ActivityType[];
+  dateRange: DateRange | null;
+  searchQuery: string;
+  onTypeChange: (types: ActivityType[]) => void;
+  onDateRangeChange: (range: DateRange | null) => void;
+  onSearchChange: (query: string) => void;
   className?: string;
 }
 
-export function ActivityFilterBar({
-  filter,
-  onFilterChange,
+export function ActivityFilter({
+  selectedTypes,
+  dateRange,
+  searchQuery,
+  onTypeChange,
+  onDateRangeChange,
+  onSearchChange,
   className,
-}: ActivityFilterBarProps) {
-  const [showFilters, setShowFilters] = React.useState(false);
+}: ActivityFilterProps) {
+  const hasFilters = selectedTypes.length > 0 || dateRange !== null || searchQuery !== '';
 
-  const activeFilterCount = [
-    filter.actorType,
-    filter.actionType,
-    filter.entityType,
-    filter.timeRange && filter.timeRange !== 'all',
-  ].filter(Boolean).length;
+  const toggleType = (types: ActivityType[]) => {
+    const allSelected = types.every((t) => selectedTypes.includes(t));
 
-  const clearFilters = () => {
-    onFilterChange({});
-  };
-
-  const toggleFilter = <K extends keyof ActivityFilter>(
-    key: K,
-    value: ActivityFilter[K]
-  ) => {
-    if (filter[key] === value) {
-      const newFilter = { ...filter };
-      delete newFilter[key];
-      onFilterChange(newFilter);
+    if (allSelected) {
+      // Remove all types in this category
+      onTypeChange(selectedTypes.filter((t) => !types.includes(t)));
     } else {
-      onFilterChange({ ...filter, [key]: value });
+      // Add all types in this category
+      const newTypes = [...selectedTypes];
+      for (const type of types) {
+        if (!newTypes.includes(type)) {
+          newTypes.push(type);
+        }
+      }
+      onTypeChange(newTypes);
     }
   };
 
-  return (
-    <div className={cn('space-y-3', className)}>
-      {/* Filter toggle button */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant={showFilters ? 'secondary' : 'ghost'}
-          size="sm"
-          onClick={() => setShowFilters(!showFilters)}
-          className="gap-2"
-        >
-          <Filter className="size-4" />
-          Filter
-          {activeFilterCount > 0 && (
-            <Badge variant="secondary" className="ml-1">
-              {activeFilterCount}
-            </Badge>
-          )}
-        </Button>
+  const clearFilters = () => {
+    onTypeChange([]);
+    onDateRangeChange(null);
+    onSearchChange('');
+  };
 
-        {activeFilterCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="gap-1 text-muted-foreground"
-          >
-            <X className="size-3" />
-            Clear
-          </Button>
-        )}
+  return (
+    <div className={cn('space-y-4', className)}>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search activities..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
-      {/* Filter options */}
-      {showFilters && (
-        <div className="space-y-3 rounded-lg border bg-surface p-3">
-          {/* Time range */}
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Time</p>
-            <div className="flex flex-wrap gap-1">
-              {TIME_RANGES.map(({ value, label }) => (
-                <Badge
-                  key={value}
-                  variant={filter.timeRange === value ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => toggleFilter('timeRange', value)}
-                >
-                  {label}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Actor type */}
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Actor</p>
-            <div className="flex flex-wrap gap-1">
-              {ACTOR_TYPES.map(({ value, label }) => (
-                <Badge
-                  key={value}
-                  variant={filter.actorType === value ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => toggleFilter('actorType', value as ActorType)}
-                >
-                  {label}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Action type */}
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Action</p>
-            <div className="flex flex-wrap gap-1">
-              {ACTION_TYPES.map(({ value, label }) => (
-                <Badge
-                  key={value}
-                  variant={filter.actionType === value ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => toggleFilter('actionType', value as ActionType)}
-                >
-                  {label}
-                </Badge>
-              ))}
-            </div>
-          </div>
+      {/* Activity type filter */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-muted-foreground">Activity Type</span>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={clearFilters}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
-      )}
+
+        <div className="flex flex-wrap gap-1.5">
+          {FILTER_CATEGORIES.map((category) => {
+            const isSelected = category.types.every((t) => selectedTypes.includes(t));
+            return (
+              <button
+                key={category.label}
+                type="button"
+                data-selected={isSelected}
+                className={cn(
+                  'px-2.5 py-1 text-xs rounded-full transition-colors',
+                  isSelected
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                )}
+                onClick={() => toggleType(category.types)}
+              >
+                {category.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Date range filter */}
+      <div className="space-y-2">
+        <span className="text-sm font-medium text-muted-foreground">Date Range</span>
+        <div className="flex gap-1.5">
+          {[
+            { label: 'All Time', value: null },
+            { label: 'Today', value: 'today' },
+            { label: 'This Week', value: 'week' },
+            { label: 'This Month', value: 'month' },
+          ].map((option) => {
+            const isSelected = option.value === null
+              ? dateRange === null
+              : dateRange !== null;
+
+            return (
+              <button
+                key={option.label}
+                type="button"
+                className={cn(
+                  'px-2.5 py-1 text-xs rounded-full transition-colors',
+                  isSelected && option.value === null
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                )}
+                onClick={() => {
+                  if (option.value === null) {
+                    onDateRangeChange(null);
+                  } else {
+                    const now = new Date();
+                    const start = new Date();
+
+                    if (option.value === 'today') {
+                      start.setHours(0, 0, 0, 0);
+                    } else if (option.value === 'week') {
+                      start.setDate(start.getDate() - 7);
+                    } else if (option.value === 'month') {
+                      start.setMonth(start.getMonth() - 1);
+                    }
+
+                    onDateRangeChange({ start, end: now });
+                  }
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

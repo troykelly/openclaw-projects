@@ -1,48 +1,58 @@
-export type ActorType = 'agent' | 'human';
+/**
+ * Types for contact activity timeline
+ * Issue #396: Implement contact activity timeline
+ */
 
-export type ActionType =
-  | 'created'
-  | 'updated'
-  | 'deleted'
-  | 'status_changed'
-  | 'commented'
-  | 'assigned'
-  | 'completed'
-  | 'moved';
+/** Activity types */
+export type ActivityType =
+  | 'work_item_assignment'
+  | 'work_item_mention'
+  | 'email_sent'
+  | 'email_received'
+  | 'calendar_event'
+  | 'relationship_added'
+  | 'relationship_removed'
+  | 'contact_updated'
+  | 'note_added';
 
-export type EntityType =
-  | 'project'
-  | 'initiative'
-  | 'epic'
-  | 'issue'
+/** Source types for navigation */
+export type ActivitySourceType =
+  | 'work_item'
+  | 'email'
+  | 'calendar'
+  | 'relationship'
   | 'contact'
-  | 'memory';
+  | 'note';
 
-export interface ActivityItem {
+/** An activity entry */
+export interface Activity {
   id: string;
-  actorType: ActorType;
-  actorName: string;
-  actorId?: string;
-  action: ActionType;
-  entityType: EntityType;
-  entityId: string;
-  entityTitle: string;
-  parentEntityTitle?: string;
-  parentEntityId?: string;
-  detail?: string;
-  timestamp: Date;
-  read?: boolean;
+  type: ActivityType;
+  title: string;
+  description?: string;
+  timestamp: string;
+  sourceType: ActivitySourceType;
+  sourceId: string;
+  metadata?: Record<string, string>;
 }
 
-export interface ActivityFilter {
-  actorType?: ActorType;
-  actionType?: ActionType;
-  entityType?: EntityType;
-  projectId?: string;
-  timeRange?: 'today' | 'yesterday' | 'this_week' | 'this_month' | 'all';
-}
-
-export interface TimeGroup {
+/** A group of activities by date */
+export interface ActivityGroup {
   label: string;
-  items: ActivityItem[];
+  date: Date;
+  activities: Activity[];
+}
+
+/** Date range for filtering */
+export interface DateRange {
+  start: Date;
+  end: Date;
+}
+
+/** Activity statistics */
+export interface ActivityStatistics {
+  total: number;
+  mostCommonType: ActivityType | null;
+  lastInteraction: Date | null;
+  typeCounts: Record<ActivityType, number>;
 }
