@@ -1,9 +1,33 @@
 /**
- * OpenClaw OpenClaw Projects Plugin
+ * OpenClaw Projects Plugin
  *
  * This plugin provides memory management, projects, todos, and contacts
  * integration for OpenClaw agents.
+ *
+ * Supports two registration patterns:
+ * 1. OpenClaw 2026 API: `export default (api) => { ... }` (recommended)
+ * 2. Legacy API: `register(ctx)` returns plugin instance (deprecated)
  */
+
+// Re-export the OpenClaw 2026 API default export
+export { default, registerOpenClaw, schemas } from './register-openclaw.js'
+
+// Export OpenClaw API types
+export type {
+  OpenClawPluginAPI,
+  PluginInitializer,
+  PluginDefinition,
+  ToolDefinition,
+  ToolContext,
+  ToolResult,
+  JSONSchema,
+  JSONSchemaProperty,
+  HookEvent,
+  HookHandler,
+  CliRegistrationCallback,
+  CliRegistrationContext,
+  ServiceDefinition,
+} from './types/openclaw-api.js'
 
 import type { PluginConfig, RawPluginConfig } from './config.js'
 import {

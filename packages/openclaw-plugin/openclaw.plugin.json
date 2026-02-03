@@ -2,7 +2,7 @@
   "id": "openclaw-projects",
   "name": "OpenClaw Projects Plugin",
   "description": "Memory provider with projects, todos, and contacts integration",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "kind": "memory",
   "main": "dist/index.js",
   "configSchema": {
@@ -115,5 +115,114 @@
       { "required": ["apiKeyFile"] },
       { "required": ["apiKeyCommand"] }
     ]
+  },
+  "uiHints": {
+    "apiUrl": {
+      "label": "Backend URL",
+      "placeholder": "https://api.openclaw-projects.example.com",
+      "helpText": "The URL of your OpenClaw Projects backend API"
+    },
+    "apiKey": {
+      "label": "API Key",
+      "sensitive": true,
+      "placeholder": "sk-...",
+      "helpText": "Direct API key value (least secure, for development)"
+    },
+    "apiKeyFile": {
+      "label": "API Key File",
+      "placeholder": "~/.secrets/openclaw-api-key",
+      "helpText": "Path to a file containing your API key"
+    },
+    "apiKeyCommand": {
+      "label": "API Key Command",
+      "placeholder": "op read op://Personal/openclaw/api_key",
+      "helpText": "Command to retrieve API key (e.g., 1Password CLI)"
+    },
+    "twilioAccountSid": {
+      "label": "Twilio Account SID",
+      "sensitive": true,
+      "group": "Twilio SMS"
+    },
+    "twilioAccountSidFile": {
+      "label": "Twilio Account SID File",
+      "group": "Twilio SMS"
+    },
+    "twilioAccountSidCommand": {
+      "label": "Twilio Account SID Command",
+      "group": "Twilio SMS"
+    },
+    "twilioAuthToken": {
+      "label": "Twilio Auth Token",
+      "sensitive": true,
+      "group": "Twilio SMS"
+    },
+    "twilioAuthTokenFile": {
+      "label": "Twilio Auth Token File",
+      "group": "Twilio SMS"
+    },
+    "twilioAuthTokenCommand": {
+      "label": "Twilio Auth Token Command",
+      "group": "Twilio SMS"
+    },
+    "twilioPhoneNumber": {
+      "label": "Twilio Phone Number",
+      "sensitive": true,
+      "placeholder": "+15551234567",
+      "group": "Twilio SMS"
+    },
+    "twilioPhoneNumberFile": {
+      "label": "Twilio Phone Number File",
+      "group": "Twilio SMS"
+    },
+    "twilioPhoneNumberCommand": {
+      "label": "Twilio Phone Number Command",
+      "group": "Twilio SMS"
+    },
+    "postmarkToken": {
+      "label": "Postmark Token",
+      "sensitive": true,
+      "group": "Postmark Email"
+    },
+    "postmarkTokenFile": {
+      "label": "Postmark Token File",
+      "group": "Postmark Email"
+    },
+    "postmarkTokenCommand": {
+      "label": "Postmark Token Command",
+      "group": "Postmark Email"
+    },
+    "postmarkFromEmail": {
+      "label": "Postmark From Email",
+      "placeholder": "noreply@example.com",
+      "group": "Postmark Email"
+    },
+    "postmarkFromEmailFile": {
+      "label": "Postmark From Email File",
+      "group": "Postmark Email"
+    },
+    "postmarkFromEmailCommand": {
+      "label": "Postmark From Email Command",
+      "group": "Postmark Email"
+    },
+    "secretCommandTimeout": {
+      "label": "Secret Command Timeout",
+      "helpText": "Timeout in milliseconds for secret retrieval commands",
+      "group": "Advanced"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "helpText": "Automatically inject relevant memories at conversation start",
+      "group": "Memory"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "helpText": "Automatically store important information as memories",
+      "group": "Memory"
+    },
+    "userScoping": {
+      "label": "User Scoping",
+      "helpText": "How to isolate memories between users",
+      "group": "Memory"
+    }
   }
 }
