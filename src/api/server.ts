@@ -10450,6 +10450,165 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Note Version History API (Epic #337, Issue #347)
+
+  // GET /api/notes/:id/versions - List version history
+  app.get('/api/notes/:id/versions', async (req, reply) => {
+    const {
+      listVersions,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      user_email?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await listVersions(pool, params.id, query.user_email, {
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+      });
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Note not found or access denied' });
+      }
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/:id/versions/compare - Compare two versions
+  app.get('/api/notes/:id/versions/compare', async (req, reply) => {
+    const {
+      compareVersions,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      user_email?: string;
+      from?: string;
+      to?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!query.from || !query.to) {
+      return reply.code(400).send({ error: 'from and to version numbers are required' });
+    }
+
+    const fromVersion = parseInt(query.from, 10);
+    const toVersion = parseInt(query.to, 10);
+
+    if (isNaN(fromVersion) || isNaN(toVersion)) {
+      return reply.code(400).send({ error: 'from and to must be valid version numbers' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await compareVersions(pool, params.id, fromVersion, toVersion, query.user_email);
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Note or versions not found, or access denied' });
+      }
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/:id/versions/:versionNumber - Get specific version
+  app.get('/api/notes/:id/versions/:versionNumber', async (req, reply) => {
+    const {
+      getVersion,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string; versionNumber: string };
+    const query = req.query as {
+      user_email?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const versionNumber = parseInt(params.versionNumber, 10);
+    if (isNaN(versionNumber)) {
+      return reply.code(400).send({ error: 'versionNumber must be a valid number' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const version = await getVersion(pool, params.id, versionNumber, query.user_email);
+
+      if (!version) {
+        return reply.code(404).send({ error: 'Note or version not found, or access denied' });
+      }
+
+      return reply.send(version);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notes/:id/versions/:versionNumber/restore - Restore to version
+  app.post('/api/notes/:id/versions/:versionNumber/restore', async (req, reply) => {
+    const {
+      restoreVersion,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string; versionNumber: string };
+    const query = req.query as {
+      user_email?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const versionNumber = parseInt(params.versionNumber, 10);
+    if (isNaN(versionNumber)) {
+      return reply.code(400).send({ error: 'versionNumber must be a valid number' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await restoreVersion(pool, params.id, versionNumber, query.user_email);
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Write access required to restore versions' });
+      }
+      if (message === 'VERSION_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Version not found' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Notebooks CRUD API (Epic #337, Issue #345)
 
   // GET /api/notebooks - List notebooks with filters
