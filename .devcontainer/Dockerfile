@@ -67,3 +67,26 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends gh; \
     rm -rf /var/lib/apt/lists/*
+
+# Install Google Cloud SDK (gcloud).
+# Ref: https://cloud.google.com/sdk/docs/install#deb
+RUN set -eux; \
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+      | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+      > /etc/apt/sources.list.d/google-cloud-sdk.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends google-cloud-cli; \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Azure CLI (az).
+# Ref: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux
+RUN set -eux; \
+    curl -sLS https://packages.microsoft.com/keys/microsoft.asc \
+      | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg; \
+    chmod go+r /etc/apt/keyrings/microsoft.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/azure-cli.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends azure-cli; \
+    rm -rf /var/lib/apt/lists/*

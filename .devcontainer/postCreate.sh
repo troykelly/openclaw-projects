@@ -172,8 +172,46 @@ install_plugins_user_scope() {
   done
 }
 
+restore_cloud_credentials() {
+  # Environment variables are loaded via docker-compose env_file directive.
+
+  # Restore Google Cloud ADC if all required values exist
+  if [[ -n "${GOOGLE_CLOUD_REFRESH_TOKEN:-}" && -n "${GOOGLE_CLOUD_CLIENT_ID:-}" && -n "${GOOGLE_CLOUD_CLIENT_SECRET:-}" ]]; then
+    log "Restoring Google Cloud Application Default Credentials"
+    mkdir -p "$HOME/.config/gcloud"
+    cat > "$HOME/.config/gcloud/application_default_credentials.json" <<EOF
+{
+  "account": "",
+  "client_id": "${GOOGLE_CLOUD_CLIENT_ID}",
+  "client_secret": "${GOOGLE_CLOUD_CLIENT_SECRET}",
+  "quota_project_id": "${GOOGLE_CLOUD_QUOTA_PROJECT:-}",
+  "refresh_token": "${GOOGLE_CLOUD_REFRESH_TOKEN}",
+  "type": "authorized_user",
+  "universe_domain": "googleapis.com"
+}
+EOF
+    chmod 600 "$HOME/.config/gcloud/application_default_credentials.json"
+    log "Google Cloud ADC restored"
+  fi
+
+  # Restore Azure CLI credentials via service principal
+  if [[ -n "${AZURE_CLIENT_ID:-}" && -n "${AZURE_CLIENT_SECRET:-}" && -n "${AZURE_TENANT_ID:-}" ]]; then
+    log "Logging in to Azure with service principal"
+    if az login --service-principal \
+        -u "${AZURE_CLIENT_ID}" \
+        -p "${AZURE_CLIENT_SECRET}" \
+        --tenant "${AZURE_TENANT_ID}" \
+        --allow-no-subscriptions >/dev/null 2>&1; then
+      log "Azure CLI authenticated as service principal"
+    else
+      log "WARN: Azure service principal login failed"
+    fi
+  fi
+}
+
 install_claude_code
 install_codex_binary
 install_plugins_user_scope
+restore_cloud_credentials
 
 log "postCreate setup complete."
