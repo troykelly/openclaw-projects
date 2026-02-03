@@ -10609,6 +10609,283 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Note Sharing API (Epic #337, Issue #348)
+
+  // POST /api/notes/:id/share - Share note with a user
+  app.post('/api/notes/:id/share', async (req, reply) => {
+    const {
+      createUserShare,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      email?: string;
+      permission?: string;
+      expiresAt?: string;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+    if (!body?.email) {
+      return reply.code(400).send({ error: 'email is required to share with' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const share = await createUserShare(
+        pool,
+        params.id,
+        {
+          email: body.email,
+          permission: body.permission as 'read' | 'read_write' | undefined,
+          expiresAt: body.expiresAt,
+        },
+        body.user_email
+      );
+
+      if (!share) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.code(201).send(share);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can share' });
+      }
+      if (message === 'ALREADY_SHARED') {
+        return reply.code(409).send({ error: 'Note already shared with this user' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notes/:id/share/link - Create share link
+  app.post('/api/notes/:id/share/link', async (req, reply) => {
+    const {
+      createLinkShare,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      permission?: string;
+      isSingleView?: boolean;
+      maxViews?: number;
+      expiresAt?: string;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const share = await createLinkShare(
+        pool,
+        params.id,
+        {
+          permission: body.permission as 'read' | 'read_write' | undefined,
+          isSingleView: body.isSingleView,
+          maxViews: body.maxViews,
+          expiresAt: body.expiresAt,
+        },
+        body.user_email
+      );
+
+      if (!share) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.code(201).send(share);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can create share links' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/:id/shares - List all shares for a note
+  app.get('/api/notes/:id/shares', async (req, reply) => {
+    const {
+      listShares,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await listShares(pool, params.id, query.user_email);
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can view shares' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/notes/:id/shares/:shareId - Update share
+  app.put('/api/notes/:id/shares/:shareId', async (req, reply) => {
+    const {
+      updateShare,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string; shareId: string };
+    const body = req.body as {
+      user_email?: string;
+      permission?: string;
+      expiresAt?: string | null;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const share = await updateShare(
+        pool,
+        params.id,
+        params.shareId,
+        {
+          permission: body.permission as 'read' | 'read_write' | undefined,
+          expiresAt: body.expiresAt,
+        },
+        body.user_email
+      );
+
+      if (!share) {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+
+      return reply.send(share);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can update shares' });
+      }
+      if (message === 'SHARE_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Share not found' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/notes/:id/shares/:shareId - Revoke share
+  app.delete('/api/notes/:id/shares/:shareId', async (req, reply) => {
+    const {
+      revokeShare,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string; shareId: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      await revokeShare(pool, params.id, params.shareId, query.user_email);
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'NOTE_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Note not found' });
+      }
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the note owner can revoke shares' });
+      }
+      if (message === 'SHARE_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Share not found' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/shared-with-me - List notes shared with current user
+  app.get('/api/notes/shared-with-me', async (req, reply) => {
+    const {
+      listSharedWithMe,
+    } = await import('./notes/index.ts');
+
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notes = await listSharedWithMe(pool, query.user_email);
+      return reply.send({ notes });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/shared/notes/:token - Access shared note via link
+  app.get('/api/shared/notes/:token', async (req, reply) => {
+    const {
+      accessSharedNote,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { token: string };
+
+    const pool = createPool();
+
+    try {
+      const result = await accessSharedNote(pool, params.token);
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Invalid or expired share link' });
+      }
+
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      // Specific error messages from validate_share_link
+      if (message.includes('expired') || message.includes('views') || message.includes('once')) {
+        return reply.code(410).send({ error: message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Notebooks CRUD API (Epic #337, Issue #345)
 
   // GET /api/notebooks - List notebooks with filters
@@ -10989,6 +11266,264 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
       if (message === 'FORBIDDEN') {
         return reply.code(403).send({ error: 'You do not have permission to modify this notebook' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Notebook Sharing API (Epic #337, Issue #348)
+
+  // POST /api/notebooks/:id/share - Share notebook with a user
+  app.post('/api/notebooks/:id/share', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      email?: string;
+      permission?: string;
+      expiresAt?: string;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+    if (!body?.email) {
+      return reply.code(400).send({ error: 'email is required to share with' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const share = await notebookSharing.createUserShare(
+        pool,
+        params.id,
+        {
+          email: body.email,
+          permission: body.permission as 'read' | 'read_write' | undefined,
+          expiresAt: body.expiresAt,
+        },
+        body.user_email
+      );
+
+      if (!share) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.code(201).send(share);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can share' });
+      }
+      if (message === 'ALREADY_SHARED') {
+        return reply.code(409).send({ error: 'Notebook already shared with this user' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notebooks/:id/share/link - Create share link
+  app.post('/api/notebooks/:id/share/link', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const params = req.params as { id: string };
+    const body = req.body as {
+      user_email?: string;
+      permission?: string;
+      expiresAt?: string;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const share = await notebookSharing.createLinkShare(
+        pool,
+        params.id,
+        {
+          permission: body.permission as 'read' | 'read_write' | undefined,
+          expiresAt: body.expiresAt,
+        },
+        body.user_email
+      );
+
+      if (!share) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.code(201).send(share);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can create share links' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notebooks/:id/shares - List all shares for a notebook
+  app.get('/api/notebooks/:id/shares', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await notebookSharing.listShares(pool, params.id, query.user_email);
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can view shares' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/notebooks/:id/shares/:shareId - Update share
+  app.put('/api/notebooks/:id/shares/:shareId', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const params = req.params as { id: string; shareId: string };
+    const body = req.body as {
+      user_email?: string;
+      permission?: string;
+      expiresAt?: string | null;
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const share = await notebookSharing.updateShare(
+        pool,
+        params.id,
+        params.shareId,
+        {
+          permission: body.permission as 'read' | 'read_write' | undefined,
+          expiresAt: body.expiresAt,
+        },
+        body.user_email
+      );
+
+      if (!share) {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+
+      return reply.send(share);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can update shares' });
+      }
+      if (message === 'SHARE_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Share not found' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/notebooks/:id/shares/:shareId - Revoke share
+  app.delete('/api/notebooks/:id/shares/:shareId', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const params = req.params as { id: string; shareId: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      await notebookSharing.revokeShare(pool, params.id, params.shareId, query.user_email);
+      return reply.code(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'NOTEBOOK_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Notebook not found' });
+      }
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'Only the notebook owner can revoke shares' });
+      }
+      if (message === 'SHARE_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Share not found' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notebooks/shared-with-me - List notebooks shared with current user
+  app.get('/api/notebooks/shared-with-me', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const notebooks = await notebookSharing.listSharedWithMe(pool, query.user_email);
+      return reply.send({ notebooks });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/shared/notebooks/:token - Access shared notebook via link
+  app.get('/api/shared/notebooks/:token', async (req, reply) => {
+    const notebookSharing = await import('./notebooks/sharing.ts');
+
+    const params = req.params as { token: string };
+
+    const pool = createPool();
+
+    try {
+      const result = await notebookSharing.accessSharedNotebook(pool, params.token);
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Invalid or expired share link' });
+      }
+
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('expired')) {
+        return reply.code(410).send({ error: message });
       }
       throw err;
     } finally {

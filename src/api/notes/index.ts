@@ -6,3 +6,4 @@
 export * from './types.ts';
 export * from './service.ts';
 export * from './versions.ts';
+export * from './sharing.ts';
