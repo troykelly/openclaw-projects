@@ -97,6 +97,16 @@ export {
   type ContactToolOptions,
 } from './contacts.js'
 
+// SMS tools
+export {
+  createSmsSendTool,
+  SmsSendParamsSchema,
+  type SmsSendParams,
+  type SmsSendTool,
+  type SmsSendResult,
+  type SmsSendToolOptions,
+} from './sms-send.js'
+
 /** Tool factory types */
 export interface ToolFactoryOptions {
   // Common options for tool factories

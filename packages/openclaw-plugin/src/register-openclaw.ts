@@ -34,6 +34,7 @@ import {
   ContactSearchParamsSchema,
   ContactGetParamsSchema,
   ContactCreateParamsSchema,
+  SmsSendParamsSchema,
   MemoryCategory,
   ProjectStatus,
 } from './tools/index.js'
@@ -330,6 +331,31 @@ const contactCreateSchema: JSONSchema = {
     },
   },
   required: ['name'],
+}
+
+/**
+ * SMS send tool JSON Schema
+ */
+const smsSendSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    to: {
+      type: 'string',
+      description: 'Recipient phone number in E.164 format (e.g., +15551234567)',
+      pattern: '^\\+[1-9]\\d{1,14}$',
+    },
+    body: {
+      type: 'string',
+      description: 'SMS message body',
+      minLength: 1,
+      maxLength: 1600,
+    },
+    idempotencyKey: {
+      type: 'string',
+      description: 'Optional key to prevent duplicate sends',
+    },
+  },
+  required: ['to', 'body'],
 }
 
 /**
@@ -723,6 +749,107 @@ function createToolHandlers(state: PluginState) {
         return { success: false, error: 'Failed to create contact' }
       }
     },
+
+    async sms_send(params: Record<string, unknown>): Promise<ToolResult> {
+      const { to, body, idempotencyKey } = params as {
+        to: string
+        body: string
+        idempotencyKey?: string
+      }
+
+      // Check Twilio configuration
+      if (!config.twilioAccountSid || !config.twilioAuthToken || !config.twilioPhoneNumber) {
+        return {
+          success: false,
+          error: 'Twilio is not configured. Please configure Twilio credentials.',
+        }
+      }
+
+      // Validate E.164 format
+      const e164Regex = /^\+[1-9]\d{1,14}$/
+      if (!e164Regex.test(to)) {
+        return {
+          success: false,
+          error: 'to: Phone number must be in E.164 format (e.g., +15551234567)',
+        }
+      }
+
+      // Validate body length
+      if (!body || body.length === 0) {
+        return {
+          success: false,
+          error: 'body: Message body cannot be empty',
+        }
+      }
+      if (body.length > 1600) {
+        return {
+          success: false,
+          error: 'body: Message body must be 1600 characters or less',
+        }
+      }
+
+      logger.info('sms_send invoked', {
+        userId,
+        bodyLength: body.length,
+        hasIdempotencyKey: !!idempotencyKey,
+      })
+
+      try {
+        const response = await apiClient.post<{
+          messageId: string
+          threadId?: string
+          status: string
+        }>(
+          '/api/twilio/sms/send',
+          { to, body, idempotencyKey },
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('sms_send API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to send SMS',
+          }
+        }
+
+        const { messageId, threadId, status } = response.data
+
+        logger.debug('sms_send completed', {
+          userId,
+          messageId,
+          status,
+        })
+
+        return {
+          success: true,
+          data: {
+            content: `SMS sent successfully (ID: ${messageId}, Status: ${status})`,
+            details: { messageId, threadId, status, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('sms_send failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+
+        // Sanitize error message (remove phone numbers for privacy)
+        let errorMessage = 'An unexpected error occurred while sending SMS.'
+        if (error instanceof Error) {
+          errorMessage = error.message.replace(/\+\d{1,15}/g, '[phone]')
+        }
+
+        return {
+          success: false,
+          error: errorMessage,
+        }
+      }
+    },
   }
 }
 
@@ -831,6 +958,12 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
       parameters: contactCreateSchema,
       execute: (params) => handlers.contact_create(params),
     },
+    {
+      name: 'sms_send',
+      description: 'Send an SMS message to a phone number. Use when you need to notify someone via text message. Requires the recipient phone number in E.164 format (e.g., +15551234567).',
+      parameters: smsSendSchema,
+      execute: (params) => handlers.sms_send(params),
+    },
   ]
 
   for (const tool of tools) {
@@ -925,4 +1058,5 @@ export const schemas = {
   contactSearch: contactSearchSchema,
   contactGet: contactGetSchema,
   contactCreate: contactCreateSchema,
+  smsSend: smsSendSchema,
 }
