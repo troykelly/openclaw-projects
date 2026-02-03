@@ -58,6 +58,14 @@ const APPLICATION_TABLES = [
   'user_presence',
   'calendar_event',
   'oauth_connection',
+  // Note/notebook tables (Epic #337)
+  'note_work_item_reference',
+  'note_version',
+  'note_collaborator',
+  'note_share',
+  'notebook_share',
+  'note',
+  'notebook',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
