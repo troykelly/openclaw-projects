@@ -20,7 +20,7 @@ import {
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
-import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured } from './twilio/index.ts';
+import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback } from './twilio/index.ts';
 import { processPostmarkEmail, type PostmarkInboundPayload } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 import { RealtimeHub } from './realtime/index.ts';
@@ -7408,6 +7408,64 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Twilio SMS Delivery Status Webhook (Issue #292)
+  // POST /api/twilio/sms/status - Receive Twilio delivery status callbacks
+  app.post('/api/twilio/sms/status', {
+    config: {
+      rateLimit: {
+        max: 120, // Higher limit for status callbacks (can come in bursts)
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Verify Twilio signature (unless auth disabled or in dev mode)
+    if (!isAuthDisabled()) {
+      if (!isWebhookVerificationConfigured('twilio')) {
+        console.warn('[Twilio] TWILIO_AUTH_TOKEN not configured, rejecting status webhook');
+        return reply.code(503).send({ error: 'Twilio webhook not configured' });
+      }
+
+      if (!verifyTwilioSignature(req)) {
+        console.warn('[Twilio] Invalid signature on status webhook');
+        return reply.code(401).send({ error: 'Invalid signature' });
+      }
+    }
+
+    // Twilio sends status callbacks as URL-encoded form data
+    const callback = req.body as TwilioStatusCallback;
+
+    // Validate required fields
+    if (!callback.MessageSid || !callback.MessageStatus) {
+      return reply.code(400).send({ error: 'Missing required fields: MessageSid, MessageStatus' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await processDeliveryStatus(pool, callback);
+
+      if (result.notFound) {
+        // Return 404 but Twilio will retry - this is expected for messages
+        // we didn't send through this system
+        return reply.code(404).send({ error: 'Message not found' });
+      }
+
+      if (!result.success) {
+        console.error(`[Twilio] Status processing failed: ${result.error}`);
+        return reply.code(500).send({ error: 'Processing failed' });
+      }
+
+      // Return success (Twilio expects 200-299 to stop retrying)
+      return reply.code(200).send({
+        success: true,
+        messageId: result.messageId,
+        statusUnchanged: result.statusUnchanged || false,
+      });
     } finally {
       await pool.end();
     }
