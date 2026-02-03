@@ -20,6 +20,7 @@ import {
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
+import { twilioIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, getClientIP } from './webhooks/ip-whitelist.ts';
 import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback, listPhoneNumbers, getPhoneNumberDetails, updatePhoneNumberWebhooks } from './twilio/index.ts';
 import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured, processPostmarkDeliveryStatus, type PostmarkWebhookPayload } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
@@ -7326,6 +7327,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
   }, async (req, reply) => {
+    // Check IP whitelist (Issue #318) - defense in depth
+    await twilioIPWhitelistMiddleware(req, reply);
+    if (reply.sent) return;
+
     // Verify Twilio signature (unless auth disabled or in dev mode without config)
     if (!isAuthDisabled()) {
       if (!isWebhookVerificationConfigured('twilio')) {
@@ -7459,6 +7464,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
   }, async (req, reply) => {
+    // Check IP whitelist (Issue #318) - defense in depth
+    await twilioIPWhitelistMiddleware(req, reply);
+    if (reply.sent) return;
+
     // Verify Twilio signature (unless auth disabled or in dev mode)
     if (!isAuthDisabled()) {
       if (!isWebhookVerificationConfigured('twilio')) {
@@ -7676,6 +7685,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
   }, async (req, reply) => {
+    // Check IP whitelist (Issue #318) - defense in depth
+    await postmarkIPWhitelistMiddleware(req, reply);
+    if (reply.sent) return;
+
     // Verify Postmark auth (Basic Auth unless auth disabled)
     if (!isAuthDisabled()) {
       if (!verifyPostmarkAuth(req)) {
@@ -7817,6 +7830,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
   }, async (req, reply) => {
+    // Check IP whitelist (Issue #318) - defense in depth
+    await postmarkIPWhitelistMiddleware(req, reply);
+    if (reply.sent) return;
+
     // Verify Postmark webhook auth (unless auth disabled)
     if (!isAuthDisabled()) {
       if (!verifyPostmarkAuth(req)) {
