@@ -92,6 +92,9 @@ export async function createNote(
   input: CreateNoteInput,
   userEmail: string
 ): Promise<Note> {
+  // Import embedding integration lazily to avoid circular deps
+  const { triggerNoteEmbedding } = await import('../embeddings/note-integration.js');
+
   const visibility = input.visibility ?? 'private';
 
   if (!isValidVisibility(visibility)) {
@@ -135,7 +138,12 @@ export async function createNote(
     ]
   );
 
-  return mapRowToNote(result.rows[0]);
+  const note = mapRowToNote(result.rows[0]);
+
+  // Queue embedding generation (async, non-blocking)
+  triggerNoteEmbedding(pool, note.id);
+
+  return note;
 }
 
 /**
@@ -439,7 +447,24 @@ export async function updateNote(
     return null;
   }
 
-  return mapRowToNote(result.rows[0]);
+  const note = mapRowToNote(result.rows[0]);
+
+  // Re-embed if content, title, or visibility changed
+  if (
+    input.title !== undefined ||
+    input.content !== undefined ||
+    input.visibility !== undefined ||
+    input.hideFromAgents !== undefined
+  ) {
+    // Import embedding integration lazily
+    import('../embeddings/note-integration.js')
+      .then(({ triggerNoteEmbedding }) => triggerNoteEmbedding(pool, note.id))
+      .catch((err) =>
+        console.error(`[Embeddings] Failed to import embedding module:`, err)
+      );
+  }
+
+  return note;
 }
 
 /**
