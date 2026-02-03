@@ -158,6 +158,24 @@ If you have not read them in this environment, stop and read them.
 - For long-running autonomous work across multiple issues, use **ralph-loop** per the runbook:
   - always set `--max-iterations`
   - only emit the completion promise when the work is truly complete
+  - use templates from `docs/ralph-templates/` (issue, epic, iteration, initiative)
+
+### Worktree Discipline (MANDATORY)
+
+**Never work in the root repository directly.** All work MUST happen in isolated git worktrees in `/tmp`.
+
+```bash
+# Create worktree
+git worktree add /tmp/worktree-issue-<NUMBER>-<slug> -b issue/<NUMBER>-<slug>
+cd /tmp/worktree-issue-<NUMBER>-<slug>
+
+# After PR merged, clean up
+cd <REPO_ROOT>
+git worktree remove /tmp/worktree-issue-<NUMBER>-<slug>
+git branch -d issue/<NUMBER>-<slug>
+```
+
+This enables parallel agents and prevents filesystem conflicts. See `AGENTS.md` for full worktree policy.
 
 ---
 

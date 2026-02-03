@@ -88,6 +88,52 @@ If these conflict, **ask Troy** before proceeding.
 
 ---
 
+## Worktree Discipline (MANDATORY)
+
+**Never work in the root repository directly.** All work MUST happen in isolated git worktrees.
+
+### Why Worktrees?
+
+- Enables parallel agents to work on different issues simultaneously
+- Prevents filesystem conflicts between concurrent workers
+- Isolates work-in-progress from the main checkout
+- Using `/tmp` keeps worktrees ephemeral and avoids polluting the workspace
+
+### Worktree Rules
+
+- Every worker MUST use its own git worktree in `/tmp` with naming pattern: `/tmp/worktree-issue-<number>-<slug>`
+- Workers MUST NOT operate in the root repository directory
+- One issue per worker, one branch per issue
+- Worktrees MUST be cleaned up immediately after PR merge:
+  ```bash
+  git worktree remove /tmp/worktree-issue-<number>-<slug>
+  git branch -d issue/<number>-<slug>
+  ```
+
+### Orchestrator vs Worker
+
+When running parallel work:
+
+| Role | Where It Runs | What It Does |
+|------|---------------|--------------|
+| **Orchestrator** | Root repository | Coordinates workers, updates GitHub Projects, serializes board updates |
+| **Workers** | Isolated worktrees in `/tmp` | Implements issues, uses REST-only GitHub API (no GraphQL) |
+
+### Worker API Constraints
+
+Workers MUST NOT use:
+- `gh api graphql`
+- `gh project item-list`
+- Any GitHub Projects/ProjectV2 queries
+
+Workers SHOULD use REST-only endpoints:
+- `gh api repos/<owner>/<repo>/issues/<num>`
+- `gh api repos/<owner>/<repo>/issues/<num>/comments`
+- `gh pr view <num> --json ...`
+- `gh pr checks <num> --watch`
+
+---
+
 ## Key Technical Patterns
 
 ### Memory APIs (pgvector)
