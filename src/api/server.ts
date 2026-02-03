@@ -11531,5 +11531,94 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Note Embeddings Admin Endpoints (Issue #349)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/admin/embeddings/status/notes - Get note embedding statistics
+  app.get('/api/admin/embeddings/status/notes', async (req, reply) => {
+    const noteEmbeddings = await import('./embeddings/note-integration.ts');
+
+    const pool = createPool();
+
+    try {
+      const stats = await noteEmbeddings.getNoteEmbeddingStats(pool);
+      return reply.send(stats);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/admin/embeddings/backfill/notes - Backfill note embeddings
+  app.post('/api/admin/embeddings/backfill/notes', async (req, reply) => {
+    const noteEmbeddings = await import('./embeddings/note-integration.ts');
+
+    const body = req.body as {
+      limit?: number;
+      onlyPending?: boolean;
+      batchSize?: number;
+    };
+
+    const pool = createPool();
+
+    try {
+      const result = await noteEmbeddings.backfillNoteEmbeddings(pool, {
+        limit: body?.limit ?? 100,
+        onlyPending: body?.onlyPending ?? true,
+        batchSize: body?.batchSize ?? 10,
+      });
+      return reply.send(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message.includes('No embedding provider configured')) {
+        return reply.code(503).send({ error: message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/notes/search/semantic - Semantic search for notes
+  app.post('/api/notes/search/semantic', async (req, reply) => {
+    const noteEmbeddings = await import('./embeddings/note-integration.ts');
+
+    const body = req.body as {
+      user_email?: string;
+      query?: string;
+      limit?: number;
+      offset?: number;
+      notebookId?: string;
+      tags?: string[];
+    };
+
+    if (!body?.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!body?.query) {
+      return reply.code(400).send({ error: 'query is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await noteEmbeddings.searchNotesSemantic(
+        pool,
+        body.query,
+        body.user_email,
+        {
+          limit: body.limit ?? 20,
+          offset: body.offset ?? 0,
+          notebookId: body.notebookId,
+          tags: body.tags,
+        }
+      );
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
   return app;
 }

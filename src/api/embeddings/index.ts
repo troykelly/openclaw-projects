@@ -8,6 +8,7 @@ export * from './config.js';
 export * from './service.js';
 export * from './memory-integration.js';
 export * from './message-integration.js';
+export * from './note-integration.js';
 export * from './health.js';
 export * from './settings.js';
 export { createProvider, VoyageAIProvider, OpenAIProvider, GeminiProvider } from './providers/index.js';
