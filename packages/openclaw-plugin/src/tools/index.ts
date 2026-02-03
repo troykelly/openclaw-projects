@@ -117,6 +117,16 @@ export {
   type EmailSendToolOptions,
 } from './email-send.js'
 
+// Message search tools
+export {
+  createMessageSearchTool,
+  MessageSearchParamsSchema,
+  type MessageSearchParams,
+  type MessageSearchTool,
+  type MessageSearchResult,
+  type MessageSearchToolOptions,
+} from './message-search.js'
+
 /** Tool factory types */
 export interface ToolFactoryOptions {
   // Common options for tool factories

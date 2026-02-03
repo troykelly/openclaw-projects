@@ -51,10 +51,10 @@ describe('OpenClaw 2026 API Registration', () => {
   })
 
   describe('registration', () => {
-    it('should register all 14 tools', async () => {
+    it('should register all 15 tools', async () => {
       await registerOpenClaw(mockApi)
 
-      expect(registeredTools).toHaveLength(14)
+      expect(registeredTools).toHaveLength(15)
       const toolNames = registeredTools.map((t) => t.name)
       expect(toolNames).toContain('memory_recall')
       expect(toolNames).toContain('memory_store')
@@ -70,6 +70,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(toolNames).toContain('contact_create')
       expect(toolNames).toContain('sms_send')
       expect(toolNames).toContain('email_send')
+      expect(toolNames).toContain('message_search')
     })
 
     it('should register beforeAgentStart hook when autoRecall is true', async () => {
@@ -109,7 +110,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
         expect.objectContaining({
-          toolCount: 14,
+          toolCount: 15,
         })
       )
     })
@@ -165,6 +166,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(schemas.contactCreate).toBeDefined()
       expect(schemas.smsSend).toBeDefined()
       expect(schemas.emailSend).toBeDefined()
+      expect(schemas.messageSearch).toBeDefined()
     })
 
     it('should have valid schema structure', () => {

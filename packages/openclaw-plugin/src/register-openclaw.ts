@@ -36,6 +36,7 @@ import {
   ContactCreateParamsSchema,
   SmsSendParamsSchema,
   EmailSendParamsSchema,
+  MessageSearchParamsSchema,
   MemoryCategory,
   ProjectStatus,
 } from './tools/index.js'
@@ -395,6 +396,44 @@ const emailSendSchema: JSONSchema = {
     },
   },
   required: ['to', 'subject', 'body'],
+}
+
+/**
+ * Message search tool JSON Schema
+ */
+const messageSearchSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      description: 'Search query (semantic matching)',
+      minLength: 1,
+    },
+    channel: {
+      type: 'string',
+      description: 'Filter by channel type',
+      enum: ['sms', 'email', 'all'],
+      default: 'all',
+    },
+    contactId: {
+      type: 'string',
+      description: 'Filter by contact ID',
+      format: 'uuid',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum results to return',
+      minimum: 1,
+      maximum: 100,
+      default: 10,
+    },
+    includeThread: {
+      type: 'boolean',
+      description: 'Include full thread context',
+      default: false,
+    },
+  },
+  required: ['query'],
 }
 
 /**
@@ -1004,6 +1043,126 @@ function createToolHandlers(state: PluginState) {
         }
       }
     },
+
+    async message_search(params: Record<string, unknown>): Promise<ToolResult> {
+      const { query, channel = 'all', contactId, limit = 10, includeThread = false } = params as {
+        query: string
+        channel?: string
+        contactId?: string
+        limit?: number
+        includeThread?: boolean
+      }
+
+      // Validate query
+      if (!query || query.length === 0) {
+        return {
+          success: false,
+          error: 'query: Search query cannot be empty',
+        }
+      }
+
+      logger.info('message_search invoked', {
+        userId,
+        queryLength: query.length,
+        channel,
+        hasContactId: !!contactId,
+        limit,
+        includeThread,
+      })
+
+      try {
+        // Build query parameters
+        const queryParams = new URLSearchParams()
+        queryParams.set('q', query)
+        queryParams.set('types', 'message')
+        queryParams.set('limit', String(limit))
+
+        if (channel !== 'all') {
+          queryParams.set('channel', channel)
+        }
+        if (contactId) {
+          queryParams.set('contactId', contactId)
+        }
+        if (includeThread) {
+          queryParams.set('includeThread', 'true')
+        }
+
+        const response = await apiClient.get<{
+          results: Array<{
+            id: string
+            body: string
+            direction: 'inbound' | 'outbound'
+            channel: string
+            contactName?: string
+            timestamp: string
+            score: number
+          }>
+          total: number
+        }>(
+          `/api/search?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('message_search API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to search messages',
+          }
+        }
+
+        const { results, total } = response.data
+
+        // Transform results
+        const messages = results.map((r) => ({
+          id: r.id,
+          body: r.body,
+          direction: r.direction,
+          channel: r.channel,
+          contactName: r.contactName,
+          timestamp: r.timestamp,
+          similarity: r.score,
+        }))
+
+        logger.debug('message_search completed', {
+          userId,
+          resultCount: messages.length,
+          total,
+        })
+
+        // Format content for display
+        const content = messages.length > 0
+          ? messages.map((m) => {
+              const prefix = m.direction === 'inbound' ? '←' : '→'
+              const contact = m.contactName || 'Unknown'
+              const similarity = `(${Math.round(m.similarity * 100)}%)`
+              return `${prefix} [${m.channel}] ${contact} ${similarity}: ${m.body.substring(0, 100)}${m.body.length > 100 ? '...' : ''}`
+            }).join('\n')
+          : 'No messages found matching your query.'
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: { messages, total, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('message_search failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'An unexpected error occurred while searching messages.',
+        }
+      }
+    },
   }
 }
 
@@ -1124,6 +1283,12 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
       parameters: emailSendSchema,
       execute: (params) => handlers.email_send(params),
     },
+    {
+      name: 'message_search',
+      description: 'Search message history semantically. Use when you need to find past conversations, messages about specific topics, or communications with contacts. Supports filtering by channel (SMS/email) and contact.',
+      parameters: messageSearchSchema,
+      execute: (params) => handlers.message_search(params),
+    },
   ]
 
   for (const tool of tools) {
@@ -1220,4 +1385,5 @@ export const schemas = {
   contactCreate: contactCreateSchema,
   smsSend: smsSendSchema,
   emailSend: emailSendSchema,
+  messageSearch: messageSearchSchema,
 }
