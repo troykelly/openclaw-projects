@@ -19,6 +19,7 @@ import {
 } from '../webhooks/payloads.js';
 import { handleSmsSendJob } from '../twilio/sms-outbound.js';
 import { handleEmailSendJob } from '../postmark/email-outbound.js';
+import { handleMessageEmbedJob } from '../embeddings/message-integration.js';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;
@@ -233,6 +234,8 @@ function getJobHandler(
       return (job) => handleSmsSendJob(pool, job);
     case 'message.send.email':
       return (job) => handleEmailSendJob(pool, job);
+    case 'message.embed':
+      return (job) => handleMessageEmbedJob(pool, job);
     default:
       return null;
   }

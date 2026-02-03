@@ -228,6 +228,63 @@ async function searchMessagesText(
 }
 
 /**
+ * Search messages using semantic search.
+ */
+async function searchMessagesSemantic(
+  pool: Pool,
+  queryEmbedding: number[],
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+): Promise<EntitySearchResult[]> {
+  const embeddingStr = `[${queryEmbedding.join(',')}]`;
+  const conditions: string[] = [
+    'm.embedding IS NOT NULL',
+    "m.embedding_status = 'complete'",
+  ];
+  const params: (string | number | Date)[] = [embeddingStr];
+  let paramIndex = 2;
+
+  if (options.dateFrom) {
+    conditions.push(`m.received_at >= $${paramIndex}`);
+    params.push(options.dateFrom);
+    paramIndex++;
+  }
+
+  if (options.dateTo) {
+    conditions.push(`m.received_at <= $${paramIndex}`);
+    params.push(options.dateTo);
+    paramIndex++;
+  }
+
+  params.push(options.limit, options.offset);
+
+  const result = await pool.query(
+    `SELECT
+       m.id::text as id,
+       m.body,
+       m.subject,
+       m.direction::text as direction,
+       m.received_at,
+       t.channel::text as channel,
+       1 - (m.embedding <=> $1::vector) as similarity
+     FROM external_message m
+     JOIN external_thread t ON t.id = m.thread_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY m.embedding <=> $1::vector
+     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    params
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.subject || `${row.channel} message (${row.direction})`,
+    snippet: generateSnippet(row.body || ''),
+    textScore: 0,
+    semanticScore: parseFloat(row.similarity) || 0,
+    metadata: { channel: row.channel, direction: row.direction, received_at: row.received_at },
+  }));
+}
+
+/**
  * Search memories using semantic search.
  */
 async function searchMemoriesSemantic(
@@ -436,17 +493,27 @@ export async function unifiedSearch(
     }
   }
 
-  // Search messages
+  // Search messages (hybrid if available)
   if (types.includes('message')) {
     const textResults = await searchMessagesText(pool, query, searchOpts);
-    facets.message = textResults.length;
-    for (const result of textResults) {
+    let messageResults: EntitySearchResult[];
+
+    if (searchType === 'hybrid' && queryEmbedding) {
+      const semanticResults = await searchMessagesSemantic(pool, queryEmbedding, searchOpts);
+      messageResults = combineResults(textResults, semanticResults, semanticWeight);
+    } else {
+      messageResults = textResults;
+    }
+
+    facets.message = messageResults.length;
+    for (const result of messageResults) {
+      const combinedScore = result.textScore + (result.semanticScore || 0);
       allResults.push({
         type: 'message',
         id: result.id,
         title: result.title,
         snippet: result.snippet,
-        score: result.textScore,
+        score: combinedScore,
         metadata: result.metadata,
       });
     }
