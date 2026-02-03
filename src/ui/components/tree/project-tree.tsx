@@ -120,6 +120,8 @@ export interface ProjectTreeProps {
   onMove?: (itemId: string, newParentId: string | null) => void;
   /** Called when user requests to move an item via the "Move to..." menu */
   onMoveRequest?: (item: TreeItem) => void;
+  /** Called when a title is changed via inline edit */
+  onTitleChange?: (id: string, newTitle: string) => void;
   className?: string;
 }
 
@@ -132,6 +134,7 @@ export function ProjectTree({
   onDelete,
   onMove,
   onMoveRequest,
+  onTitleChange,
   className,
 }: ProjectTreeProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -272,6 +275,7 @@ export function ProjectTree({
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onMoveRequest={onMoveRequest}
+                  onTitleChange={onTitleChange}
                 />
               ))}
             </SortableContext>

@@ -6,7 +6,7 @@ import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { BoardCard } from './board-card';
-import type { BoardColumn as ColumnType, BoardItem, BoardStatus } from './types';
+import type { BoardColumn as ColumnType, BoardItem, BoardStatus, BoardPriority } from './types';
 
 function getStatusColor(status: BoardStatus): string {
   switch (status) {
@@ -27,6 +27,10 @@ export interface BoardColumnProps {
   onAddItem?: (status: BoardStatus) => void;
   isOver?: boolean;
   className?: string;
+  /** Called when card title is edited inline */
+  onTitleChange?: (id: string, newTitle: string) => void;
+  /** Called when card priority is cycled */
+  onPriorityChange?: (id: string, newPriority: BoardPriority) => void;
 }
 
 export function BoardColumn({
@@ -35,6 +39,8 @@ export function BoardColumn({
   onAddItem,
   isOver,
   className,
+  onTitleChange,
+  onPriorityChange,
 }: BoardColumnProps) {
   const { setNodeRef, isOver: isDroppableOver } = useDroppable({
     id: column.id,
@@ -84,7 +90,13 @@ export function BoardColumn({
         <div className="space-y-2 p-2">
           <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
             {column.items.map((item) => (
-              <BoardCard key={item.id} item={item} onClick={onItemClick} />
+              <BoardCard
+                key={item.id}
+                item={item}
+                onClick={onItemClick}
+                onTitleChange={onTitleChange}
+                onPriorityChange={onPriorityChange}
+              />
             ))}
           </SortableContext>
 
