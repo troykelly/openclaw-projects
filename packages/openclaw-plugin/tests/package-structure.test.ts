@@ -83,11 +83,16 @@ describe('Package Structure', () => {
       expect(manifest).toHaveProperty('configSchema')
     })
 
-    it('should have configSchema with required apiUrl and apiKey', () => {
+    it('should have configSchema with required apiUrl and flexible apiKey', () => {
       const manifestPath = join(packageRoot, 'openclaw.plugin.json')
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
       expect(manifest.configSchema.required).toContain('apiUrl')
-      expect(manifest.configSchema.required).toContain('apiKey')
+      // apiKey is now flexible - uses anyOf with apiKey, apiKeyFile, or apiKeyCommand
+      expect(manifest.configSchema.anyOf).toBeDefined()
+      expect(manifest.configSchema.anyOf).toHaveLength(3)
+      expect(manifest.configSchema.anyOf[0].required).toContain('apiKey')
+      expect(manifest.configSchema.anyOf[1].required).toContain('apiKeyFile')
+      expect(manifest.configSchema.anyOf[2].required).toContain('apiKeyCommand')
     })
   })
 

@@ -5,8 +5,14 @@
  * integration for OpenClaw agents.
  */
 
-import type { PluginConfig } from './config.js'
-import { validateConfig } from './config.js'
+import type { PluginConfig, RawPluginConfig } from './config.js'
+import {
+  validateConfig,
+  validateRawConfig,
+  resolveConfigSecrets,
+  redactConfig,
+} from './config.js'
+import { clearSecretCache } from './secrets.js'
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
 import { extractContext, getUserScopeKey, type PluginContext } from './context.js'
@@ -96,20 +102,19 @@ export interface PluginInstance {
 }
 
 /**
- * Registers the plugin with OpenClaw.
- * Called by the OpenClaw runtime during plugin initialization.
+ * Creates a plugin instance from resolved configuration.
+ * Internal helper used by both sync and async registration.
  */
-export function register(ctx: RegistrationContext): PluginInstance {
-  const logger = ctx.logger ?? createLogger('openclaw-projects')
-
-  // Validate configuration
-  const config = validateConfig(ctx.config)
-
+function createPluginInstance(
+  config: PluginConfig,
+  logger: Logger,
+  runtime: unknown
+): PluginInstance {
   // Create API client
   const apiClient = createApiClient({ config, logger })
 
   // Extract context
-  const context = extractContext(ctx.runtime)
+  const context = extractContext(runtime)
 
   // Determine user scope key based on config
   const userId = getUserScopeKey(
@@ -227,6 +232,7 @@ export function register(ctx: RegistrationContext): PluginInstance {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
     userId,
+    config: redactConfig(config),
   })
 
   return {
@@ -243,6 +249,66 @@ export function register(ctx: RegistrationContext): PluginInstance {
   }
 }
 
+/**
+ * Registers the plugin with OpenClaw (synchronous version).
+ *
+ * This function supports configurations with direct secret values only.
+ * For file or command-based secrets, use registerAsync instead.
+ *
+ * @deprecated Use registerAsync for flexible secret handling
+ */
+export function register(ctx: RegistrationContext): PluginInstance {
+  const logger = ctx.logger ?? createLogger('openclaw-projects')
+
+  // Validate as raw config first to check structure
+  const rawConfig = validateRawConfig(ctx.config)
+
+  // For sync registration, we require direct values - file/command refs won't work
+  // Build a resolved config from direct values only
+  const config = validateConfig({
+    apiUrl: rawConfig.apiUrl,
+    apiKey: rawConfig.apiKey ?? '',
+    twilioAccountSid: rawConfig.twilioAccountSid,
+    twilioAuthToken: rawConfig.twilioAuthToken,
+    twilioPhoneNumber: rawConfig.twilioPhoneNumber,
+    postmarkToken: rawConfig.postmarkToken,
+    postmarkFromEmail: rawConfig.postmarkFromEmail,
+    secretCommandTimeout: rawConfig.secretCommandTimeout,
+    autoRecall: rawConfig.autoRecall,
+    autoCapture: rawConfig.autoCapture,
+    userScoping: rawConfig.userScoping,
+    maxRecallMemories: rawConfig.maxRecallMemories,
+    minRecallScore: rawConfig.minRecallScore,
+    timeout: rawConfig.timeout,
+    maxRetries: rawConfig.maxRetries,
+    debug: rawConfig.debug,
+  })
+
+  return createPluginInstance(config, logger, ctx.runtime)
+}
+
+/**
+ * Registers the plugin with OpenClaw (asynchronous version).
+ *
+ * This function supports all secret loading methods:
+ * - Direct values (apiKey: "sk-xxx")
+ * - File references (apiKeyFile: "~/.secrets/api_key")
+ * - Command references (apiKeyCommand: "op read op://...")
+ *
+ * Preferred over register() for flexible secret handling.
+ */
+export async function registerAsync(ctx: RegistrationContext): Promise<PluginInstance> {
+  const logger = ctx.logger ?? createLogger('openclaw-projects')
+
+  // Validate raw configuration
+  const rawConfig = validateRawConfig(ctx.config)
+
+  // Resolve all secrets
+  const config = await resolveConfigSecrets(rawConfig)
+
+  return createPluginInstance(config, logger, ctx.runtime)
+}
+
 /** Plugin definition object for OpenClaw */
 export const plugin = {
   id: 'openclaw-projects',
@@ -252,8 +318,17 @@ export const plugin = {
 }
 
 // Re-export types and utilities
-export type { PluginConfig } from './config.js'
-export { validateConfig, safeValidateConfig } from './config.js'
+export type { PluginConfig, RawPluginConfig } from './config.js'
+export {
+  validateConfig,
+  safeValidateConfig,
+  validateRawConfig,
+  safeValidateRawConfig,
+  resolveConfigSecrets,
+  redactConfig,
+} from './config.js'
+export type { SecretConfig } from './secrets.js'
+export { resolveSecret, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js'
 export type { Logger } from './logger.js'
 export { createLogger, redactSensitive } from './logger.js'
 export type { ApiClient, ApiResponse, ApiError } from './api-client.js'

@@ -8,16 +8,112 @@
   "configSchema": {
     "type": "object",
     "properties": {
-      "apiUrl": { "type": "string", "description": "Backend API URL" },
-      "apiKey": { "type": "string", "description": "API authentication key" },
-      "autoRecall": { "type": "boolean", "default": true },
-      "autoCapture": { "type": "boolean", "default": true },
+      "apiUrl": {
+        "type": "string",
+        "description": "Backend API URL (must be HTTPS in production)"
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "API authentication key (direct value, least secure)"
+      },
+      "apiKeyFile": {
+        "type": "string",
+        "description": "Path to file containing API key (e.g., ~/.secrets/api_key)"
+      },
+      "apiKeyCommand": {
+        "type": "string",
+        "description": "Command to execute to get API key (e.g., op read op://Personal/openclaw/api_key)"
+      },
+      "twilioAccountSid": {
+        "type": "string",
+        "description": "Twilio Account SID (direct value)"
+      },
+      "twilioAccountSidFile": {
+        "type": "string",
+        "description": "Path to file containing Twilio Account SID"
+      },
+      "twilioAccountSidCommand": {
+        "type": "string",
+        "description": "Command to get Twilio Account SID"
+      },
+      "twilioAuthToken": {
+        "type": "string",
+        "description": "Twilio Auth Token (direct value)"
+      },
+      "twilioAuthTokenFile": {
+        "type": "string",
+        "description": "Path to file containing Twilio Auth Token"
+      },
+      "twilioAuthTokenCommand": {
+        "type": "string",
+        "description": "Command to get Twilio Auth Token"
+      },
+      "twilioPhoneNumber": {
+        "type": "string",
+        "description": "Twilio Phone Number (direct value)"
+      },
+      "twilioPhoneNumberFile": {
+        "type": "string",
+        "description": "Path to file containing Twilio Phone Number"
+      },
+      "twilioPhoneNumberCommand": {
+        "type": "string",
+        "description": "Command to get Twilio Phone Number"
+      },
+      "postmarkToken": {
+        "type": "string",
+        "description": "Postmark API Token (direct value)"
+      },
+      "postmarkTokenFile": {
+        "type": "string",
+        "description": "Path to file containing Postmark Token"
+      },
+      "postmarkTokenCommand": {
+        "type": "string",
+        "description": "Command to get Postmark Token"
+      },
+      "postmarkFromEmail": {
+        "type": "string",
+        "format": "email",
+        "description": "Postmark From Email address (direct value)"
+      },
+      "postmarkFromEmailFile": {
+        "type": "string",
+        "description": "Path to file containing Postmark From Email"
+      },
+      "postmarkFromEmailCommand": {
+        "type": "string",
+        "description": "Command to get Postmark From Email"
+      },
+      "secretCommandTimeout": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 30000,
+        "default": 5000,
+        "description": "Timeout for secret command execution in milliseconds"
+      },
+      "autoRecall": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically recall relevant memories on conversation start"
+      },
+      "autoCapture": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically capture important information as memories"
+      },
       "userScoping": {
         "type": "string",
         "enum": ["agent", "identity", "session"],
-        "default": "agent"
+        "default": "agent",
+        "description": "How to scope user memories"
       }
     },
-    "required": ["apiUrl", "apiKey"]
+    "required": ["apiUrl"],
+    "anyOf": [
+      { "required": ["apiKey"] },
+      { "required": ["apiKeyFile"] },
+      { "required": ["apiKeyCommand"] }
+    ]
   }
 }

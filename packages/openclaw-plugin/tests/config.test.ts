@@ -1,15 +1,30 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest'
+import * as fs from 'node:fs'
+import * as childProcess from 'node:child_process'
 import {
   PluginConfigSchema,
   validateConfig,
   safeValidateConfig,
   redactConfig,
+  resolveConfigSecrets,
   type PluginConfig,
+  type RawPluginConfig,
 } from '../src/config.js'
+import { clearSecretCache } from '../src/secrets.js'
+
+// Mock fs and child_process for secret resolution tests
+vi.mock('node:fs')
+vi.mock('node:child_process')
 
 describe('Config Schema', () => {
+  beforeEach(() => {
+    clearSecretCache()
+    vi.clearAllMocks()
+  })
+
   afterEach(() => {
     vi.unstubAllEnvs()
+    vi.restoreAllMocks()
   })
 
   describe('required fields', () => {
@@ -376,6 +391,371 @@ describe('Config Schema', () => {
       })
       expect(config.apiUrl).toBe('https://example.com')
       expect(config.apiKey).toBe('test-key')
+    })
+  })
+
+  describe('flexible secret config fields', () => {
+    describe('apiKey variants', () => {
+      it('should accept apiKey as direct value', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'direct-key',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept apiKeyFile as file reference', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKeyFile: '~/.secrets/api_key',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept apiKeyCommand as command reference', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKeyCommand: 'op read op://Personal/openclaw/api_key',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should require at least one apiKey variant', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+        })
+        expect(result.success).toBe(false)
+        if (!result.success) {
+          expect(
+            result.errors.some((e) => e.message.includes('apiKey'))
+          ).toBe(true)
+        }
+      })
+    })
+
+    describe('Twilio credentials', () => {
+      it('should accept twilioAccountSid as direct value', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          twilioAccountSid: 'AC123456',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept twilioAccountSidFile', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          twilioAccountSidFile: '~/.secrets/twilio_sid',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept twilioAccountSidCommand', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          twilioAccountSidCommand: 'op read op://Personal/twilio/account_sid',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept twilioAuthToken variants', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          twilioAuthTokenFile: '~/.secrets/twilio_token',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept twilioPhoneNumber variants', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          twilioPhoneNumberFile: '~/.secrets/twilio_phone',
+        })
+        expect(result.success).toBe(true)
+      })
+    })
+
+    describe('Postmark credentials', () => {
+      it('should accept postmarkToken as direct value', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          postmarkToken: 'pm-token-123',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept postmarkTokenFile', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          postmarkTokenFile: '~/.secrets/postmark_token',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept postmarkTokenCommand', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          postmarkTokenCommand: 'op read op://Personal/postmark/token',
+        })
+        expect(result.success).toBe(true)
+      })
+
+      it('should accept postmarkFromEmail variants', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          postmarkFromEmailFile: '~/.secrets/postmark_from',
+        })
+        expect(result.success).toBe(true)
+      })
+    })
+
+    describe('command timeout', () => {
+      it('should accept secretCommandTimeout option', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKeyCommand: 'op read op://Personal/openclaw/api_key',
+          secretCommandTimeout: 10000,
+        })
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.data.secretCommandTimeout).toBe(10000)
+        }
+      })
+
+      it('should default secretCommandTimeout to 5000', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+        })
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.data.secretCommandTimeout).toBe(5000)
+        }
+      })
+
+      it('should reject secretCommandTimeout less than 1000', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          secretCommandTimeout: 500,
+        })
+        expect(result.success).toBe(false)
+      })
+
+      it('should reject secretCommandTimeout greater than 30000', () => {
+        const result = safeValidateConfig({
+          apiUrl: 'https://example.com',
+          apiKey: 'test-key',
+          secretCommandTimeout: 31000,
+        })
+        expect(result.success).toBe(false)
+      })
+    })
+  })
+
+  describe('redactConfig with flexible secrets', () => {
+    it('should redact all secret fields', () => {
+      const config: PluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'super-secret-key',
+        twilioAccountSid: 'AC123456',
+        twilioAuthToken: 'auth-token',
+        twilioPhoneNumber: '+15551234567',
+        postmarkToken: 'pm-token',
+        postmarkFromEmail: 'noreply@example.com',
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        secretCommandTimeout: 5000,
+        debug: false,
+      }
+      const redacted = redactConfig(config)
+      expect(redacted.apiKey).toBe('[REDACTED]')
+      expect(redacted.twilioAccountSid).toBe('[REDACTED]')
+      expect(redacted.twilioAuthToken).toBe('[REDACTED]')
+      expect(redacted.twilioPhoneNumber).toBe('[REDACTED]')
+      expect(redacted.postmarkToken).toBe('[REDACTED]')
+      // postmarkFromEmail is not a secret, it's just a from address
+      expect(redacted.postmarkFromEmail).toBe('noreply@example.com')
+    })
+  })
+
+  describe('resolveConfigSecrets', () => {
+    it('should resolve direct apiKey', async () => {
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'direct-api-key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = await resolveConfigSecrets(rawConfig)
+      expect(resolved.apiKey).toBe('direct-api-key')
+    })
+
+    it('should resolve apiKey from file', async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockReturnValue('file-api-key\n')
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyFile: '/path/to/api_key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = await resolveConfigSecrets(rawConfig)
+      expect(resolved.apiKey).toBe('file-api-key')
+    })
+
+    it('should resolve apiKey from command', async () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('command-api-key\n')
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyCommand: 'op read op://test/api_key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = await resolveConfigSecrets(rawConfig)
+      expect(resolved.apiKey).toBe('command-api-key')
+    })
+
+    it('should resolve all Twilio credentials', async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        if (String(path).includes('sid')) return 'twilio-sid'
+        if (String(path).includes('token')) return 'twilio-token'
+        if (String(path).includes('phone')) return '+15551234567'
+        return ''
+      })
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        twilioAccountSidFile: '/path/to/twilio_sid',
+        twilioAuthTokenFile: '/path/to/twilio_token',
+        twilioPhoneNumberFile: '/path/to/twilio_phone',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = await resolveConfigSecrets(rawConfig)
+      expect(resolved.twilioAccountSid).toBe('twilio-sid')
+      expect(resolved.twilioAuthToken).toBe('twilio-token')
+      expect(resolved.twilioPhoneNumber).toBe('+15551234567')
+    })
+
+    it('should resolve Postmark credentials', async () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('postmark-token-from-1password')
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        postmarkTokenCommand: 'op read op://test/postmark_token',
+        postmarkFromEmail: 'noreply@example.com',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = await resolveConfigSecrets(rawConfig)
+      expect(resolved.postmarkToken).toBe('postmark-token-from-1password')
+      expect(resolved.postmarkFromEmail).toBe('noreply@example.com')
+    })
+
+    it('should throw when apiKey cannot be resolved', async () => {
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: '   ', // empty after trim
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      await expect(resolveConfigSecrets(rawConfig)).rejects.toThrow(
+        /Failed to resolve API key/
+      )
+    })
+
+    it('should use configured command timeout', async () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('test-key')
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyCommand: 'echo test-key',
+        secretCommandTimeout: 10000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      await resolveConfigSecrets(rawConfig)
+      expect(childProcess.execSync).toHaveBeenCalledWith(
+        'echo test-key',
+        expect.objectContaining({ timeout: 10000 })
+      )
     })
   })
 })

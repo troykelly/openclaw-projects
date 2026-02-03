@@ -1,0 +1,335 @@
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import * as fs from 'node:fs'
+import * as childProcess from 'node:child_process'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {
+  resolveSecret,
+  resolveSecrets,
+  clearSecretCache,
+  type SecretConfig,
+} from '../src/secrets.js'
+
+// Mock fs and child_process
+vi.mock('node:fs')
+vi.mock('node:child_process')
+
+describe('Secrets Module', () => {
+  beforeEach(() => {
+    clearSecretCache()
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  describe('resolveSecret', () => {
+    describe('direct value', () => {
+      it('should return direct value when provided', async () => {
+        const config: SecretConfig = { direct: 'my-secret-key' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('my-secret-key')
+      })
+
+      it('should trim whitespace from direct value', async () => {
+        const config: SecretConfig = { direct: '  my-secret-key  ' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('my-secret-key')
+      })
+
+      it('should return undefined for empty direct value', async () => {
+        const config: SecretConfig = { direct: '' }
+        const result = await resolveSecret(config)
+        expect(result).toBeUndefined()
+      })
+
+      it('should return undefined for whitespace-only direct value', async () => {
+        const config: SecretConfig = { direct: '   ' }
+        const result = await resolveSecret(config)
+        expect(result).toBeUndefined()
+      })
+    })
+
+    describe('file reference', () => {
+      it('should read secret from file', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('secret-from-file')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('secret-from-file')
+        expect(fs.readFileSync).toHaveBeenCalledWith('/path/to/secret', 'utf-8')
+      })
+
+      it('should trim whitespace from file contents', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('  secret-from-file\n')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('secret-from-file')
+      })
+
+      it('should expand ~ in file path', async () => {
+        const homeDir = os.homedir()
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('secret-from-file')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '~/.secrets/api_key' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('secret-from-file')
+        expect(fs.readFileSync).toHaveBeenCalledWith(
+          path.join(homeDir, '.secrets', 'api_key'),
+          'utf-8'
+        )
+      })
+
+      it('should warn when file is world-readable', async () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o644 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        await resolveSecret(config)
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('world-readable')
+        )
+      })
+
+      it('should throw when file does not exist', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(false)
+
+        const config: SecretConfig = { file: '/path/to/nonexistent' }
+        await expect(resolveSecret(config)).rejects.toThrow(/does not exist/)
+      })
+
+      it('should throw when file read fails', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockImplementation(() => {
+          throw new Error('Permission denied')
+        })
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        await expect(resolveSecret(config)).rejects.toThrow(/Permission denied/)
+      })
+    })
+
+    describe('command reference', () => {
+      it('should execute command and return output', async () => {
+        vi.mocked(childProcess.execSync).mockReturnValue('secret-from-command')
+
+        const config: SecretConfig = { command: 'echo secret-from-command' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('secret-from-command')
+      })
+
+      it('should trim whitespace from command output', async () => {
+        vi.mocked(childProcess.execSync).mockReturnValue('  secret-from-command\n')
+
+        const config: SecretConfig = { command: 'echo secret' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('secret-from-command')
+      })
+
+      it('should use default timeout of 5 seconds', async () => {
+        vi.mocked(childProcess.execSync).mockReturnValue('secret')
+
+        const config: SecretConfig = { command: 'some-command' }
+        await resolveSecret(config)
+        expect(childProcess.execSync).toHaveBeenCalledWith(
+          'some-command',
+          expect.objectContaining({ timeout: 5000 })
+        )
+      })
+
+      it('should allow custom timeout', async () => {
+        vi.mocked(childProcess.execSync).mockReturnValue('secret')
+
+        const config: SecretConfig = { command: 'some-command', commandTimeout: 10000 }
+        await resolveSecret(config)
+        expect(childProcess.execSync).toHaveBeenCalledWith(
+          'some-command',
+          expect.objectContaining({ timeout: 10000 })
+        )
+      })
+
+      it('should throw when command fails', async () => {
+        vi.mocked(childProcess.execSync).mockImplementation(() => {
+          throw new Error('Command failed')
+        })
+
+        const config: SecretConfig = { command: 'invalid-command' }
+        await expect(resolveSecret(config)).rejects.toThrow(/Command failed/)
+      })
+
+      it('should throw when command times out', async () => {
+        vi.mocked(childProcess.execSync).mockImplementation(() => {
+          const error = new Error('Command timed out') as Error & { killed: boolean }
+          error.killed = true
+          throw error
+        })
+
+        const config: SecretConfig = { command: 'slow-command' }
+        await expect(resolveSecret(config)).rejects.toThrow(/timed out/)
+      })
+    })
+
+    describe('priority: command > file > direct', () => {
+      it('should prefer command over file and direct', async () => {
+        vi.mocked(childProcess.execSync).mockReturnValue('from-command')
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('from-file')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = {
+          direct: 'from-direct',
+          file: '/path/to/secret',
+          command: 'echo from-command',
+        }
+        const result = await resolveSecret(config)
+        expect(result).toBe('from-command')
+      })
+
+      it('should prefer file over direct when command not provided', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('from-file')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = {
+          direct: 'from-direct',
+          file: '/path/to/secret',
+        }
+        const result = await resolveSecret(config)
+        expect(result).toBe('from-file')
+      })
+
+      it('should use direct when command and file not provided', async () => {
+        const config: SecretConfig = { direct: 'from-direct' }
+        const result = await resolveSecret(config)
+        expect(result).toBe('from-direct')
+      })
+    })
+
+    describe('caching', () => {
+      it('should cache resolved secrets', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        const result1 = await resolveSecret(config, 'apiKey')
+        const result2 = await resolveSecret(config, 'apiKey')
+
+        expect(result1).toBe('cached-secret')
+        expect(result2).toBe('cached-secret')
+        expect(fs.readFileSync).toHaveBeenCalledTimes(1)
+      })
+
+      it('should not cache when cacheKey is not provided', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('uncached-secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        await resolveSecret(config)
+        await resolveSecret(config)
+
+        expect(fs.readFileSync).toHaveBeenCalledTimes(2)
+      })
+
+      it('should clear cache when clearSecretCache is called', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        await resolveSecret(config, 'apiKey')
+        clearSecretCache()
+        await resolveSecret(config, 'apiKey')
+
+        expect(fs.readFileSync).toHaveBeenCalledTimes(2)
+      })
+    })
+
+    describe('empty config', () => {
+      it('should return undefined for empty config', async () => {
+        const config: SecretConfig = {}
+        const result = await resolveSecret(config)
+        expect(result).toBeUndefined()
+      })
+    })
+  })
+
+  describe('resolveSecrets', () => {
+    it('should resolve multiple secrets in parallel', async () => {
+      const configs = {
+        apiKey: { direct: 'api-key-value' } as SecretConfig,
+        twilioToken: { direct: 'twilio-token-value' } as SecretConfig,
+      }
+
+      const result = await resolveSecrets(configs)
+      expect(result).toEqual({
+        apiKey: 'api-key-value',
+        twilioToken: 'twilio-token-value',
+      })
+    })
+
+    it('should handle mixed resolution methods', async () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('from-command')
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockReturnValue('from-file')
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const configs = {
+        apiKey: { command: 'echo from-command' } as SecretConfig,
+        twilioToken: { file: '/path/to/token' } as SecretConfig,
+        postmarkToken: { direct: 'direct-value' } as SecretConfig,
+      }
+
+      const result = await resolveSecrets(configs)
+      expect(result).toEqual({
+        apiKey: 'from-command',
+        twilioToken: 'from-file',
+        postmarkToken: 'direct-value',
+      })
+    })
+
+    it('should cache all resolved secrets', async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const configs = {
+        apiKey: { file: '/path/to/api_key' } as SecretConfig,
+        twilioToken: { file: '/path/to/twilio' } as SecretConfig,
+      }
+
+      await resolveSecrets(configs)
+      await resolveSecrets(configs)
+
+      // Should only read each file once due to caching
+      expect(fs.readFileSync).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('security', () => {
+    it('should not include secrets in error messages', async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockImplementation(() => {
+        throw new Error('Failed to read')
+      })
+
+      const config: SecretConfig = { file: '/path/to/secret-key-12345' }
+      try {
+        await resolveSecret(config)
+      } catch (error) {
+        expect((error as Error).message).not.toContain('secret-key-12345')
+      }
+    })
+  })
+})
