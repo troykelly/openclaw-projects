@@ -176,4 +176,56 @@ describe('Package Structure', () => {
       expect(tsconfig.compilerOptions.moduleResolution).toBe('NodeNext')
     })
   })
+
+  describe('Skills Directory', () => {
+    it('should have skillsDir declared in manifest', () => {
+      const manifestPath = join(packageRoot, 'openclaw.plugin.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      expect(manifest.skillsDir).toBe('skills')
+    })
+
+    it('should have skills directory', () => {
+      const skillsPath = join(packageRoot, 'skills')
+      expect(existsSync(skillsPath)).toBe(true)
+    })
+
+    it('should have daily-summary skill', () => {
+      const skillPath = join(packageRoot, 'skills', 'daily-summary', 'SKILL.md')
+      expect(existsSync(skillPath)).toBe(true)
+    })
+
+    it('should have project-status skill', () => {
+      const skillPath = join(packageRoot, 'skills', 'project-status', 'SKILL.md')
+      expect(existsSync(skillPath)).toBe(true)
+    })
+
+    it('should have contact-lookup skill', () => {
+      const skillPath = join(packageRoot, 'skills', 'contact-lookup', 'SKILL.md')
+      expect(existsSync(skillPath)).toBe(true)
+    })
+
+    it('should have send-reminder skill', () => {
+      const skillPath = join(packageRoot, 'skills', 'send-reminder', 'SKILL.md')
+      expect(existsSync(skillPath)).toBe(true)
+    })
+
+    it('should have valid SKILL.md format with frontmatter', () => {
+      const skillPath = join(packageRoot, 'skills', 'daily-summary', 'SKILL.md')
+      const content = readFileSync(skillPath, 'utf-8')
+      // Should start with frontmatter
+      expect(content).toMatch(/^---/)
+      // Should have name field
+      expect(content).toMatch(/name:\s+\S+/)
+      // Should have description field
+      expect(content).toMatch(/description:\s+.+/)
+    })
+
+    it('should have skills with args defined where needed', () => {
+      const skillPath = join(packageRoot, 'skills', 'project-status', 'SKILL.md')
+      const content = readFileSync(skillPath, 'utf-8')
+      // project-status should have args
+      expect(content).toMatch(/args:/)
+      expect(content).toMatch(/name:\s+project/)
+    })
+  })
 })
