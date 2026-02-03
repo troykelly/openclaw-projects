@@ -21,6 +21,7 @@ import {
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
 import { twilioIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, getClientIP } from './webhooks/ip-whitelist.ts';
+import { createRateLimitKeyGenerator, getEndpointRateLimitCategory, getRateLimitConfig, type GetSessionEmailFn } from './rate-limit/per-user.ts';
 import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback, listPhoneNumbers, getPhoneNumberDetails, updatePhoneNumberWebhooks } from './twilio/index.ts';
 import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured, processPostmarkDeliveryStatus, type PostmarkWebhookPayload } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
@@ -84,13 +85,40 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // WebSocket support for real-time updates (Issue #213)
   app.register(websocket);
 
-  // Rate limiting configuration (Issue #212)
+  // Session email extraction for rate limiting and auth
+  // Moved before rate limit registration to allow per-user rate limiting (Issue #323)
+  async function getSessionEmail(req: any): Promise<string | null> {
+    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
+    if (!sessionId) return null;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT email
+           FROM auth_session
+          WHERE id = $1
+            AND revoked_at IS NULL
+            AND expires_at > now()`,
+        [sessionId]
+      );
+
+      if (result.rows.length === 0) return null;
+      return result.rows[0].email as string;
+    } finally {
+      await pool.end();
+    }
+  }
+
+  // Rate limiting configuration (Issue #212, enhanced by Issue #323)
   // Skip rate limiting in test environment or when explicitly disabled
   const rateLimitEnabled = process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_DISABLED !== 'true';
 
   if (rateLimitEnabled) {
+    // Create per-user key generator using session email when available, fallback to IP
+    const rateLimitKeyGenerator = createRateLimitKeyGenerator(getSessionEmail as GetSessionEmailFn);
+
     app.register(rateLimit, {
-      // Default: 100 requests per minute per IP
+      // Default: 100 requests per minute (per user when authenticated, per IP otherwise)
       max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
       timeWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
 
@@ -102,12 +130,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         'retry-after': true,
       },
 
-      // Log rate limit violations
-      onExceeding: (req) => {
-        console.warn(`[RateLimit] Client approaching limit: ${req.ip} - ${req.method} ${req.url}`);
+      // Log rate limit violations with user context (Issue #323)
+      onExceeding: async (req) => {
+        const category = getEndpointRateLimitCategory(req.method, req.url);
+        const key = await rateLimitKeyGenerator(req);
+        console.warn(`[RateLimit] Client approaching limit: ${key} - ${req.method} ${req.url} [${category}]`);
       },
-      onExceeded: (req) => {
-        console.warn(`[RateLimit] Client exceeded limit: ${req.ip} - ${req.method} ${req.url}`);
+      onExceeded: async (req) => {
+        const category = getEndpointRateLimitCategory(req.method, req.url);
+        const key = await rateLimitKeyGenerator(req);
+        console.warn(`[RateLimit] Client exceeded limit: ${key} - ${req.method} ${req.url} [${category}]`);
       },
 
       // Custom error response
@@ -120,7 +152,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Skip rate limiting for health check endpoints
       skipOnError: true,
-      keyGenerator: (req) => req.ip,
+      // Per-user rate limiting: uses session email when authenticated, IP otherwise (Issue #323)
+      keyGenerator: rateLimitKeyGenerator,
     });
   }
 
@@ -151,25 +184,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     return `${appFrontendIndexHtml}${injection}`;
-  }
-
-  async function getSessionEmail(req: any): Promise<string | null> {
-    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
-    if (!sessionId) return null;
-
-    const pool = createPool();
-    const result = await pool.query(
-      `SELECT email
-         FROM auth_session
-        WHERE id = $1
-          AND revoked_at IS NULL
-          AND expires_at > now()`,
-      [sessionId]
-    );
-    await pool.end();
-
-    if (result.rows.length === 0) return null;
-    return result.rows[0].email as string;
   }
 
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
