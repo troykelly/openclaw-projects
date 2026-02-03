@@ -11579,7 +11579,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // POST /api/notes/search/semantic - Semantic search for notes
+  // POST /api/notes/search/semantic - Semantic search for notes (legacy endpoint from #349)
   app.post('/api/notes/search/semantic', async (req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
 
@@ -11614,6 +11614,100 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           tags: body.tags,
         }
       );
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Note Search Endpoints (Issue #346)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/notes/search - Search notes with privacy filtering
+  app.get('/api/notes/search', async (req, reply) => {
+    const noteSearch = await import('./notes/search.ts');
+
+    const query = req.query as {
+      user_email?: string;
+      q?: string;
+      searchType?: 'hybrid' | 'text' | 'semantic';
+      notebookId?: string;
+      tags?: string;
+      visibility?: string;
+      limit?: string;
+      offset?: string;
+      minSimilarity?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!query.q) {
+      return reply.code(400).send({ error: 'q (search query) is required' });
+    }
+
+    // Detect if request is from an agent
+    const isAgent = !!(
+      req.headers['x-openclaw-agent'] ||
+      (typeof req.headers.authorization === 'string' && req.headers.authorization.includes('agent:'))
+    );
+
+    const pool = createPool();
+
+    try {
+      const result = await noteSearch.searchNotes(pool, query.q, query.user_email, {
+        searchType: query.searchType ?? 'hybrid',
+        notebookId: query.notebookId,
+        tags: query.tags ? query.tags.split(',') : undefined,
+        visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
+        limit: query.limit ? Math.min(parseInt(query.limit, 10), 50) : 20,
+        offset: query.offset ? parseInt(query.offset, 10) : 0,
+        minSimilarity: query.minSimilarity ? parseFloat(query.minSimilarity) : 0.3,
+        isAgent,
+      });
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/:id/similar - Find similar notes
+  app.get('/api/notes/:id/similar', async (req, reply) => {
+    const noteSearch = await import('./notes/search.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      user_email?: string;
+      limit?: string;
+      minSimilarity?: string;
+    };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    // Detect if request is from an agent
+    const isAgent = !!(
+      req.headers['x-openclaw-agent'] ||
+      (typeof req.headers.authorization === 'string' && req.headers.authorization.includes('agent:'))
+    );
+
+    const pool = createPool();
+
+    try {
+      const result = await noteSearch.findSimilarNotes(pool, params.id, query.user_email, {
+        limit: query.limit ? Math.min(parseInt(query.limit, 10), 20) : 5,
+        minSimilarity: query.minSimilarity ? parseFloat(query.minSimilarity) : 0.5,
+        isAgent,
+      });
+
+      if (!result) {
+        return reply.code(404).send({ error: 'Note not found or access denied' });
+      }
+
       return reply.send(result);
     } finally {
       await pool.end();
