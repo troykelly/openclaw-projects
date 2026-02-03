@@ -20,7 +20,7 @@ import {
   backfillMemoryEmbeddings,
 } from './embeddings/index.ts';
 import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
-import { processTwilioSms, type TwilioSmsWebhookPayload } from './twilio/index.ts';
+import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured } from './twilio/index.ts';
 import { processPostmarkEmail, type PostmarkInboundPayload } from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 import { RealtimeHub } from './realtime/index.ts';
@@ -7326,6 +7326,88 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Return TwiML response (empty means no auto-reply)
       reply.header('Content-Type', 'application/xml');
       return reply.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // Twilio SMS Outbound Send (Issue #291)
+  // POST /api/twilio/sms/send - Send SMS via Twilio
+  app.post<{
+    Body: {
+      to: string;
+      body: string;
+      threadId?: string;
+      idempotencyKey?: string;
+    };
+  }>('/api/twilio/sms/send', {
+    config: {
+      rateLimit: {
+        max: 30, // 30 requests per minute for sending
+        timeWindow: '1 minute',
+      },
+    },
+  }, async (req, reply) => {
+    // Require authentication for sending
+    if (!isAuthDisabled()) {
+      const secret = getCachedSecret();
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      if (!secret || !compareSecrets(token, secret)) {
+        return reply.code(401).send({ error: 'Unauthorized' });
+      }
+    }
+
+    // Check if Twilio is configured
+    if (!isTwilioConfigured()) {
+      return reply.code(503).send({
+        error: 'Twilio not configured',
+        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+      });
+    }
+
+    const { to, body, threadId, idempotencyKey } = req.body;
+
+    // Validate required fields
+    if (!to || !body) {
+      return reply.code(400).send({ error: 'Missing required fields: to, body' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await enqueueSmsMessage(pool, {
+        to,
+        body,
+        threadId,
+        idempotencyKey,
+      });
+
+      console.log(
+        `[Twilio] SMS queued: to=${to}, messageId=${result.messageId}, ` +
+        `idempotencyKey=${result.idempotencyKey}`
+      );
+
+      return reply.code(202).send({
+        messageId: result.messageId,
+        threadId: result.threadId,
+        status: result.status,
+        idempotencyKey: result.idempotencyKey,
+      });
+    } catch (error) {
+      const err = error as Error;
+      console.error('[Twilio] SMS send error:', err);
+
+      if (err.message.includes('Invalid phone')) {
+        return reply.code(400).send({ error: err.message });
+      }
+
+      if (err.message.includes('body')) {
+        return reply.code(400).send({ error: err.message });
+      }
+
+      return reply.code(500).send({ error: 'Internal server error' });
     } finally {
       await pool.end();
     }

@@ -17,6 +17,7 @@ import {
   buildDeadlineApproachingPayload,
   getWebhookDestination,
 } from '../webhooks/payloads.js';
+import { handleSmsSendJob } from '../twilio/sms-outbound.js';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;
@@ -227,6 +228,8 @@ function getJobHandler(
       return (job) => handleReminderJob(pool, job);
     case 'nudge.work_item.not_after':
       return (job) => handleNudgeJob(pool, job);
+    case 'message.send.sms':
+      return (job) => handleSmsSendJob(pool, job);
     default:
       return null;
   }
