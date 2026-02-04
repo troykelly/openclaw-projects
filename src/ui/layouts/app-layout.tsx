@@ -27,6 +27,7 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/activity')) return 'activity';
   if (pathname.startsWith('/timeline')) return 'timeline';
   if (pathname.startsWith('/contacts')) return 'people';
+  if (pathname.startsWith('/communications')) return 'communications';
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban'))
     return 'projects';
@@ -39,6 +40,7 @@ const sectionRoutes: Record<string, string> = {
   projects: '/work-items',
   timeline: '/timeline',
   people: '/contacts',
+  communications: '/communications',
   settings: '/settings',
 };
 
@@ -58,6 +60,9 @@ function deriveBreadcrumbs(
   }
   if (pathname.startsWith('/contacts')) {
     return [{ id: 'contacts', label: 'People' }];
+  }
+  if (pathname.startsWith('/communications')) {
+    return [{ id: 'communications', label: 'Communications' }];
   }
   if (pathname.startsWith('/settings')) {
     return [{ id: 'settings', label: 'Settings' }];
