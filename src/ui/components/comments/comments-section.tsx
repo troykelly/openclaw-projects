@@ -37,6 +37,7 @@ export function CommentsSection({
   className,
 }: CommentsSectionProps) {
   const [replyingTo, setReplyingTo] = React.useState<string | null>(null);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
 
   // Separate top-level comments and replies
   const { topLevel, repliesByParent } = React.useMemo(() => {
@@ -77,9 +78,17 @@ export function CommentsSection({
   };
 
   const handleEdit = (commentId: string) => {
-    // This would typically open an edit modal or inline editor
-    // For now, we just call onEditComment with placeholder
-    console.log('Edit comment:', commentId);
+    setEditingId(commentId);
+    setReplyingTo(null); // Close any open reply
+  };
+
+  const handleEditSave = (commentId: string, content: string) => {
+    onEditComment(commentId, content);
+    setEditingId(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
   };
 
   return (
@@ -128,6 +137,9 @@ export function CommentsSection({
                 onEdit={handleEdit}
                 onDelete={onDeleteComment}
                 onReact={onReact}
+                editingId={editingId}
+                onEditSave={handleEditSave}
+                onEditCancel={handleEditCancel}
               />
 
               {/* Reply input */}

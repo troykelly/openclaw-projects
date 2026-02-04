@@ -411,6 +411,315 @@ describe('CommentsSection', () => {
   });
 });
 
+describe('CommentThread inline editing', () => {
+  const mockAuthor: Author = {
+    id: 'user-1',
+    name: 'Alice Smith',
+  };
+
+  const mockParent: Comment = {
+    id: 'comment-1',
+    content: 'Parent comment content',
+    authorId: 'user-1',
+    author: mockAuthor,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    replyCount: 1,
+    reactions: [],
+  };
+
+  const mockReplies: Comment[] = [
+    {
+      id: 'reply-1',
+      content: 'Reply content here',
+      authorId: 'user-2',
+      author: { id: 'user-2', name: 'Bob Jones' },
+      parentId: 'comment-1',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      replyCount: 0,
+      reactions: [],
+    },
+  ];
+
+  const defaultProps: CommentThreadProps = {
+    comment: mockParent,
+    replies: mockReplies,
+    currentUserId: 'user-1',
+    onReply: vi.fn(),
+    onEdit: vi.fn(),
+    onDelete: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should show CommentInput instead of CommentCard when editingId matches parent', () => {
+    const onEditSave = vi.fn();
+    const onEditCancel = vi.fn();
+    render(
+      <CommentThread
+        {...defaultProps}
+        editingId="comment-1"
+        onEditSave={onEditSave}
+        onEditCancel={onEditCancel}
+      />
+    );
+
+    // The parent comment content should NOT be visible as plain text
+    expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument();
+    // Instead a textarea should be shown pre-filled with the comment content
+    const textarea = screen.getByDisplayValue('Parent comment content');
+    expect(textarea).toBeInTheDocument();
+  });
+
+  it('should show CommentInput instead of CommentCard when editingId matches reply', () => {
+    const onEditSave = vi.fn();
+    const onEditCancel = vi.fn();
+    render(
+      <CommentThread
+        {...defaultProps}
+        editingId="reply-1"
+        onEditSave={onEditSave}
+        onEditCancel={onEditCancel}
+      />
+    );
+
+    // The reply content should NOT be shown as plain text (it should be in a textarea)
+    // The parent should still render as normal CommentCard
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+    expect(screen.getByText('Parent comment content')).toBeInTheDocument();
+    // Reply should be in edit mode
+    const textarea = screen.getByDisplayValue('Reply content here');
+    expect(textarea).toBeInTheDocument();
+  });
+
+  it('should call onEditSave with correct args when edit is submitted', async () => {
+    const onEditSave = vi.fn();
+    const onEditCancel = vi.fn();
+    render(
+      <CommentThread
+        {...defaultProps}
+        editingId="comment-1"
+        onEditSave={onEditSave}
+        onEditCancel={onEditCancel}
+      />
+    );
+
+    // Modify the textarea content
+    const textarea = screen.getByDisplayValue('Parent comment content');
+    fireEvent.change(textarea, { target: { value: 'Updated parent content' } });
+    // Submit by clicking the submit button within the edit form
+    // The edit input renders as a form with a submit button of type="submit"
+    const form = textarea.closest('form')!;
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLElement;
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(onEditSave).toHaveBeenCalledWith('comment-1', 'Updated parent content');
+    });
+  });
+
+  it('should call onEditCancel when cancel is clicked', () => {
+    const onEditSave = vi.fn();
+    const onEditCancel = vi.fn();
+    render(
+      <CommentThread
+        {...defaultProps}
+        editingId="comment-1"
+        onEditSave={onEditSave}
+        onEditCancel={onEditCancel}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(onEditCancel).toHaveBeenCalled();
+  });
+
+  it('should not show edit input when editingId is null', () => {
+    render(
+      <CommentThread
+        {...defaultProps}
+        editingId={null}
+        onEditSave={vi.fn()}
+        onEditCancel={vi.fn()}
+      />
+    );
+
+    // Both parent and reply should render as normal cards
+    expect(screen.getByText('Parent comment content')).toBeInTheDocument();
+    expect(screen.getByText('Reply content here')).toBeInTheDocument();
+    // No textarea should be present for editing (the main comment input isn't here)
+    expect(screen.queryByDisplayValue('Parent comment content')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Reply content here')).not.toBeInTheDocument();
+  });
+});
+
+describe('CommentsSection inline editing', () => {
+  // Since Radix dropdown menus don't work well in jsdom (portal-based rendering),
+  // we test the inline editing flow by using pointerDown events to open the
+  // dropdown and verifying the edit state management in CommentsSection.
+  //
+  // The core rendering logic (CommentInput vs CommentCard) is tested thoroughly
+  // in the "CommentThread inline editing" describe block above.
+
+  const mockComments: Comment[] = [
+    {
+      id: 'comment-1',
+      content: 'Editable comment',
+      authorId: 'user-1',
+      author: { id: 'user-1', name: 'Alice' },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      replyCount: 0,
+      reactions: [],
+    },
+    {
+      id: 'comment-2',
+      content: 'Other user comment',
+      authorId: 'user-2',
+      author: { id: 'user-2', name: 'Bob' },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      replyCount: 0,
+      reactions: [],
+    },
+  ];
+
+  const defaultProps: CommentsSectionProps = {
+    workItemId: 'wi-1',
+    comments: mockComments,
+    currentUserId: 'user-1',
+    onAddComment: vi.fn(),
+    onEditComment: vi.fn(),
+    onDeleteComment: vi.fn(),
+    onAddReply: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /**
+   * Helper to open the Radix dropdown and click Edit.
+   * Radix DropdownMenu uses pointerDown to open, and the menu items
+   * appear in a portal. We use fireEvent.pointerDown on the trigger,
+   * then look for the Edit menu item.
+   */
+  async function triggerEditOnComment(container: HTMLElement) {
+    // Find the dropdown trigger button (the one with px-1 class, owner-only)
+    const allButtons = container.querySelectorAll('button');
+    let trigger: HTMLElement | null = null;
+    for (const btn of allButtons) {
+      if (btn.className.includes('px-1')) {
+        trigger = btn;
+        break;
+      }
+    }
+
+    if (trigger) {
+      // Radix DropdownMenu opens on pointerDown
+      fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' });
+      // Also try click as fallback
+      fireEvent.click(trigger);
+    }
+
+    // Wait for the Edit menu item to appear in the document (Radix renders in portal)
+    await waitFor(() => {
+      const editItem = screen.getByRole('menuitem', { name: /edit/i });
+      expect(editItem).toBeInTheDocument();
+    });
+
+    // Click the Edit menu item
+    const editItem = screen.getByRole('menuitem', { name: /edit/i });
+    fireEvent.click(editItem);
+  }
+
+  it('should enter edit mode when Edit is clicked in dropdown', async () => {
+    const { container } = render(<CommentsSection {...defaultProps} />);
+
+    await triggerEditOnComment(container);
+
+    // After clicking Edit, a textarea should appear pre-filled with the comment content
+    await waitFor(() => {
+      const textarea = screen.getByDisplayValue('Editable comment');
+      expect(textarea).toBeInTheDocument();
+    });
+  });
+
+  it('should call onEditComment and exit edit mode on save', async () => {
+    const onEditComment = vi.fn();
+    const { container } = render(
+      <CommentsSection {...defaultProps} onEditComment={onEditComment} />
+    );
+
+    await triggerEditOnComment(container);
+
+    // Modify content in the textarea
+    const textarea = screen.getByDisplayValue('Editable comment');
+    fireEvent.change(textarea, { target: { value: 'Modified comment' } });
+
+    // Submit via the form's submit button
+    const form = textarea.closest('form')!;
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLElement;
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(onEditComment).toHaveBeenCalledWith('comment-1', 'Modified comment');
+    });
+
+    // Should exit edit mode - the original comment text should be back
+    await waitFor(() => {
+      expect(screen.getByText('Editable comment')).toBeInTheDocument();
+      expect(screen.queryByDisplayValue('Editable comment')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should exit edit mode on cancel', async () => {
+    const { container } = render(<CommentsSection {...defaultProps} />);
+
+    await triggerEditOnComment(container);
+
+    // Verify edit mode is active
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Editable comment')).toBeInTheDocument();
+    });
+
+    // Click cancel
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    // Should return to normal view
+    await waitFor(() => {
+      expect(screen.getByText('Editable comment')).toBeInTheDocument();
+      expect(screen.queryByDisplayValue('Editable comment')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should close reply input when entering edit mode', async () => {
+    const { container } = render(<CommentsSection {...defaultProps} />);
+
+    // Click Reply on the first comment to open reply input
+    const replyButtons = screen.getAllByRole('button', { name: /reply/i });
+    fireEvent.click(replyButtons[0]);
+
+    // Verify reply input is shown
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/write a reply/i)).toBeInTheDocument();
+    });
+
+    // Now enter edit mode
+    await triggerEditOnComment(container);
+
+    // Reply input should be gone, edit textarea should be visible
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Editable comment')).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/write a reply/i)).not.toBeInTheDocument();
+    });
+  });
+});
+
 describe('CommentReactions', () => {
   const mockReactions: CommentReaction[] = [
     { emoji: '👍', count: 3, users: ['user-1', 'user-2', 'user-3'] },

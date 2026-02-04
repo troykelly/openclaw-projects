@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import { cn } from '@/ui/lib/utils';
 import { CommentCard } from './comment-card';
+import { CommentInput } from './comment-input';
 import type { Comment } from './types';
 
 export interface CommentThreadProps {
@@ -17,6 +18,9 @@ export interface CommentThreadProps {
   onEdit: (commentId: string) => void;
   onDelete: (commentId: string) => void;
   onReact?: (commentId: string, emoji: string) => void;
+  editingId?: string | null;
+  onEditSave?: (commentId: string, content: string) => void;
+  onEditCancel?: () => void;
   defaultCollapsed?: boolean;
   className?: string;
 }
@@ -29,6 +33,9 @@ export function CommentThread({
   onEdit,
   onDelete,
   onReact,
+  editingId,
+  onEditSave,
+  onEditCancel,
   defaultCollapsed = false,
   className,
 }: CommentThreadProps) {
@@ -38,14 +45,24 @@ export function CommentThread({
   return (
     <div className={cn('space-y-2', className)}>
       {/* Parent comment */}
-      <CommentCard
-        comment={comment}
-        currentUserId={currentUserId}
-        onReply={onReply}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onReact={onReact}
-      />
+      {editingId === comment.id ? (
+        <CommentInput
+          initialValue={comment.content}
+          onSubmit={(content) => onEditSave?.(comment.id, content)}
+          onCancel={onEditCancel}
+          isReply
+          placeholder="Edit comment..."
+        />
+      ) : (
+        <CommentCard
+          comment={comment}
+          currentUserId={currentUserId}
+          onReply={onReply}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onReact={onReact}
+        />
+      )}
 
       {/* Replies */}
       {hasReplies && (
@@ -74,17 +91,28 @@ export function CommentThread({
               </Button>
 
               <div data-testid="thread-replies" className="ml-8 space-y-4">
-                {replies.map((reply) => (
-                  <CommentCard
-                    key={reply.id}
-                    comment={reply}
-                    currentUserId={currentUserId}
-                    onReply={onReply}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onReact={onReact}
-                  />
-                ))}
+                {replies.map((reply) =>
+                  editingId === reply.id ? (
+                    <CommentInput
+                      key={reply.id}
+                      initialValue={reply.content}
+                      onSubmit={(content) => onEditSave?.(reply.id, content)}
+                      onCancel={onEditCancel}
+                      isReply
+                      placeholder="Edit reply..."
+                    />
+                  ) : (
+                    <CommentCard
+                      key={reply.id}
+                      comment={reply}
+                      currentUserId={currentUserId}
+                      onReply={onReply}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onReact={onReact}
+                    />
+                  )
+                )}
               </div>
             </>
           )}
