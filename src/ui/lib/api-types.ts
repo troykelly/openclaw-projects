@@ -213,3 +213,148 @@ export interface UnreadCountResponse {
 
 /** Response from GET /api/work-items?kind=project (same shape as WorkItemsResponse) */
 export type ProjectsResponse = WorkItemsResponse;
+
+// ---------------------------------------------------------------------------
+// Timeline
+// ---------------------------------------------------------------------------
+
+/** Item in a timeline/Gantt response. */
+export interface TimelineItem {
+  id: string;
+  title: string;
+  kind: string;
+  status: string | null;
+  priority: string | null;
+  parent_id: string | null;
+  level: number;
+  not_before: string | null;
+  not_after: string | null;
+  estimate_minutes: number | null;
+  actual_minutes: number | null;
+  created_at: string;
+}
+
+/** Dependency edge in a timeline response. */
+export interface TimelineDependency {
+  id: string;
+  from_id: string;
+  to_id: string;
+  kind: string;
+}
+
+/** Response from GET /api/work-items/:id/timeline or GET /api/timeline */
+export interface TimelineResponse {
+  items: TimelineItem[];
+  dependencies: TimelineDependency[];
+}
+
+// ---------------------------------------------------------------------------
+// Dependency Graph
+// ---------------------------------------------------------------------------
+
+/** Node in a dependency graph. */
+export interface GraphNode {
+  id: string;
+  title: string;
+  kind: string;
+  status: string | null;
+  priority: string | null;
+  level: number;
+  estimate_minutes: number | null;
+  is_blocker: boolean;
+}
+
+/** Edge in a dependency graph. */
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+}
+
+/** Item on the critical path. */
+export interface CriticalPathItem {
+  id: string;
+  title: string;
+  estimate_minutes: number | null;
+}
+
+/** Response from GET /api/work-items/:id/dependency-graph */
+export interface DependencyGraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  critical_path: CriticalPathItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Backlog / Kanban
+// ---------------------------------------------------------------------------
+
+/** Item in the backlog response. */
+export interface BacklogItem {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  task_type: string | null;
+  kind: string;
+  estimate_minutes: number | null;
+  created_at: string;
+}
+
+/** Response from GET /api/backlog */
+export interface BacklogResponse {
+  items: BacklogItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+/** A single search result from GET /api/search */
+export interface SearchResultItem {
+  type: string;
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+}
+
+/** Response from GET /api/search */
+export interface SearchResponse {
+  results: SearchResultItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Communications
+// ---------------------------------------------------------------------------
+
+/** External message from GET /api/work-items/:id/communications */
+export interface ApiCommunication {
+  id: string;
+  thread_id: string;
+  body: string | null;
+  direction: string;
+  received_at: string | null;
+  raw: unknown;
+}
+
+/** Response from GET /api/work-items/:id/communications */
+export interface CommunicationsResponse {
+  emails: ApiCommunication[];
+  calendar_events: ApiCommunication[];
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap (server-injected data)
+// ---------------------------------------------------------------------------
+
+/** Bootstrap data injected by the server into the HTML page. */
+export interface AppBootstrap {
+  route?: { kind?: string; id?: string };
+  me?: { email?: string };
+  workItems?: WorkItemSummary[];
+  workItem?: { id?: string; title?: string } | null;
+  participants?: Array<{ participant?: string; role?: string }>;
+}
