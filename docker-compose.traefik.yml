@@ -1,0 +1,370 @@
+# Production docker-compose with Traefik reverse proxy (Issue #529)
+#
+# Features:
+#   - Traefik 3.6 reverse proxy with automatic TLS via ACME DNS-01
+#   - TLS 1.3 only with modern cipher suites
+#   - HTTP/3 (QUIC) support on websecure entrypoint
+#   - Security headers and rate limiting
+#   - Container hardening (read_only, no-new-privileges, cap_drop)
+#
+# Usage:
+#   cp .env.example .env
+#   # Edit .env and set required values:
+#   #   - POSTGRES_PASSWORD, COOKIE_SECRET, S3_SECRET_KEY
+#   #   - DOMAIN, ACME_EMAIL
+#   #   - CF_DNS_API_TOKEN (or other DNS provider credentials)
+#   docker compose -f docker-compose.traefik.yml up -d
+#
+# Required environment variables:
+#   - DOMAIN: Your primary domain (e.g., example.com)
+#   - ACME_EMAIL: Email for Let's Encrypt certificate notifications
+#   - DNS provider credentials (e.g., CF_DNS_API_TOKEN for Cloudflare)
+#
+# See .env.example for full configuration options
+
+name: openclaw-projects
+
+services:
+  # =============================================================================
+  # Traefik Reverse Proxy
+  # =============================================================================
+  traefik:
+    image: traefik:3.6
+    container_name: openclaw-traefik
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    environment:
+      # Required for entrypoint script
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      TRUSTED_IPS: ${TRUSTED_IPS:-}
+      DISABLE_HTTP: ${DISABLE_HTTP:-false}
+      # DNS provider credentials (passed through to ACME)
+      # Cloudflare
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:-}
+      CF_API_KEY: ${CF_API_KEY:-}
+      CF_API_EMAIL: ${CF_API_EMAIL:-}
+      # AWS Route53
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_HOSTED_ZONE_ID: ${AWS_HOSTED_ZONE_ID:-}
+      AWS_REGION: ${AWS_REGION:-}
+    command:
+      # API and Dashboard
+      - --api.dashboard=false
+      - --api.insecure=false
+      # Providers
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=openclaw-projects_default
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      # Entrypoints
+      - --entrypoints.web.address=:${HTTP_PORT:-80}
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web.http.redirections.entryPoint.permanent=true
+      - --entrypoints.websecure.address=:${HTTPS_PORT:-443}
+      - --entrypoints.websecure.http3=true
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.websecure.http.tls.certResolver=letsencrypt
+      - --entrypoints.websecure.http.tls.options=default@file
+      # ACME Certificate Resolver (DNS-01 challenge)
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL is required}
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${ACME_DNS_PROVIDER:-cloudflare}
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=30
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.disablepropagationcheck=true
+      # Logging
+      - --log.level=${TRAEFIK_LOG_LEVEL:-INFO}
+      - --accesslog=true
+      - --accesslog.format=json
+    ports:
+      # HTTP
+      - "${HTTP_PORT:-80}:${HTTP_PORT:-80}"
+      # HTTPS (TCP + UDP for HTTP/3)
+      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}/tcp"
+      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}/udp"
+    volumes:
+      # Docker socket for provider (read-only)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Dynamic configuration template and output
+      - ./docker/traefik/dynamic-config.yml.template:/etc/traefik/templates/dynamic-config.yml.template:ro
+      - traefik_dynamic:/etc/traefik/dynamic
+      # ACME certificate storage
+      - traefik_acme:/etc/traefik/acme
+    entrypoint: ["/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=16M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    configs:
+      - source: traefik_entrypoint
+        target: /entrypoint.sh
+        mode: 0755
+
+  # =============================================================================
+  # Database (PostgreSQL with TimescaleDB, pgvector, pg_cron)
+  # =============================================================================
+  db:
+    image: ghcr.io/troykelly/openclaw-projects-db:latest
+    container_name: openclaw-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-openclaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-openclaw}
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb,pg_cron
+      - -c
+      - cron.database_name=${POSTGRES_DB:-openclaw}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-openclaw} -d $${POSTGRES_DB:-openclaw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # =============================================================================
+  # SeaweedFS (S3-compatible object storage)
+  # =============================================================================
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: openclaw-seaweedfs
+    restart: unless-stopped
+    command: "server -s3 -s3.port=8333 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-30000} -volume.max=100"
+    volumes:
+      - seaweedfs_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # =============================================================================
+  # Database Migrations (runs once and exits)
+  # =============================================================================
+  migrate:
+    image: ghcr.io/troykelly/openclaw-projects-migrate:latest
+    container_name: openclaw-migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-openclaw}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-openclaw}?sslmode=disable
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgresql://${POSTGRES_USER:-openclaw}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-openclaw}?sslmode=disable
+      - up
+    # Container hardening
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # =============================================================================
+  # API Server (Fastify)
+  # =============================================================================
+  api:
+    image: ghcr.io/troykelly/openclaw-projects-api:latest
+    container_name: openclaw-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3001
+      PUBLIC_BASE_URL: https://api.${DOMAIN:?DOMAIN is required}
+      COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
+      # Database connection
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      # S3-compatible storage (SeaweedFS)
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_BUCKET: ${S3_BUCKET:-openclaw}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-openclaw}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_FORCE_PATH_STYLE: "true"
+      # Optional: Postmark email (magic links)
+      POSTMARK_FROM: ${POSTMARK_FROM:-}
+      POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
+      POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
+      POSTMARK_TRANSACTIONAL_TOKEN: ${POSTMARK_TRANSACTIONAL_TOKEN:-}
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      # Router for API
+      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN:?DOMAIN is required}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certResolver=letsencrypt"
+      - "traefik.http.routers.api.tls.options=default@file"
+      - "traefik.http.routers.api.middlewares=security-headers@file,rate-limit@file"
+      # Service configuration
+      - "traefik.http.services.api.loadbalancer.server.port=3001"
+      - "traefik.http.services.api.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.api.loadbalancer.healthcheck.interval=10s"
+
+  # =============================================================================
+  # Frontend App (React SPA served via static server)
+  # =============================================================================
+  app:
+    image: ghcr.io/troykelly/openclaw-projects-app:latest
+    container_name: openclaw-app
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # The API URL the frontend will use for requests
+      VITE_API_URL: https://api.${DOMAIN:?DOMAIN is required}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=32M
+      - /var/cache/nginx:mode=1777,size=32M
+      - /var/run:mode=1777,size=8M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      # Router for App (main domain and www)
+      - "traefik.http.routers.app.rule=Host(`${DOMAIN:?DOMAIN is required}`) || Host(`www.${DOMAIN:?DOMAIN is required}`)"
+      - "traefik.http.routers.app.entrypoints=websecure"
+      - "traefik.http.routers.app.tls=true"
+      - "traefik.http.routers.app.tls.certResolver=letsencrypt"
+      - "traefik.http.routers.app.tls.options=default@file"
+      - "traefik.http.routers.app.middlewares=security-headers@file,compress@file"
+      # Service configuration
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
+      - "traefik.http.services.app.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.app.loadbalancer.healthcheck.interval=10s"
+
+volumes:
+  db_data:
+  seaweedfs_data:
+  traefik_acme:
+  traefik_dynamic:
+
+configs:
+  traefik_entrypoint:
+    file: ./docker/traefik/entrypoint.sh
