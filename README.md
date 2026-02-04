@@ -49,9 +49,45 @@ pnpm add @troykelly/openclaw-projects
 
 The plugin provides tools for memory, projects, todos, and contacts that agents can use during conversations. See [packages/openclaw-plugin/README.md](packages/openclaw-plugin/README.md) for details.
 
-## Operations
+## Deployment
 
-See `ops/README.md` for the production Docker Compose deployment runbook (including Traefik wiring).
+Deploy openclaw-projects using Docker Compose:
+
+### Quick Start (Basic)
+
+```bash
+cp .env.example .env
+# Edit .env with POSTGRES_PASSWORD, COOKIE_SECRET, S3_SECRET_KEY
+docker compose up -d
+```
+
+Services will be available at:
+- API: http://localhost:3000
+- Frontend: http://localhost:8080
+
+### Production (with TLS, HTTP/3, WAF)
+
+```bash
+cp .env.example .env
+# Edit .env with DOMAIN, ACME_EMAIL, DNS credentials
+docker compose -f docker-compose.traefik.yml up -d
+```
+
+Features:
+- Automatic TLS via Let's Encrypt (DNS-01)
+- TLS 1.3 only with modern cipher suites
+- HTTP/3 (QUIC) support
+- ModSecurity WAF with OWASP Core Rule Set
+- Security headers and rate limiting
+
+See **[docs/deployment.md](docs/deployment.md)** for the full deployment guide, including:
+- Environment variable reference
+- DNS provider configuration (Cloudflare, Route53, etc.)
+- Running behind another load balancer
+- Extending Traefik with custom routes
+- ModSecurity WAF tuning
+- Backup and restore procedures
+- Troubleshooting
 
 ## Development
 
