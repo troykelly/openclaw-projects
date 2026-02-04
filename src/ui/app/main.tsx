@@ -6,12 +6,16 @@
  * `src/ui/pages/` and lazy-loaded via the route configuration in
  * `src/ui/routes.tsx`. The AppLayout (sidebar, header, command palette)
  * is rendered as a layout route wrapping all page routes.
+ *
+ * ThemeProvider wraps the entire tree to manage light/dark/oled/system
+ * themes with no flash of wrong theme on page load.
  */
 import '../app.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from '@/ui/providers/ThemeProvider';
 import { routes } from '@/ui/routes';
 
 /** Shared QueryClient instance with default stale time and retry policy. */
@@ -35,8 +39,10 @@ if (!el) throw new Error('Missing #root element');
 
 createRoot(el).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 );
