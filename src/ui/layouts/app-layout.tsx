@@ -30,6 +30,7 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/contacts')) return 'people';
   if (pathname.startsWith('/communications')) return 'communications';
   if (pathname.startsWith('/settings')) return 'settings';
+  if (pathname.startsWith('/search')) return 'search';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban'))
     return 'projects';
   return 'dashboard';
@@ -182,6 +183,10 @@ export function AppLayout(): React.JSX.Element {
       if (typeof result === 'string') {
         if (result === 'create-issue' || result === 'create-project') {
           navigate('/work-items');
+        } else if (result === 'view-all') {
+          // Navigate to full search page with current query
+          // The command palette passes 'view-all' when the user wants to see all results
+          navigate('/search');
         }
       } else if (result.href) {
         // Result href may be an absolute /app/ path -- strip prefix for React Router

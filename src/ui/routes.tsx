@@ -53,6 +53,9 @@ const ProjectDetailPage = React.lazy(() =>
 const DashboardPage = React.lazy(() =>
   import('@/ui/pages/DashboardPage.js').then((m) => ({ default: m.DashboardPage }))
 );
+const SearchPage = React.lazy(() =>
+  import('@/ui/pages/SearchPage.js').then((m) => ({ default: m.SearchPage }))
+);
 const NotFoundPage = React.lazy(() =>
   import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage }))
 );
@@ -92,6 +95,7 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /contacts -> ContactsPage
  *   /memory -> MemoryPage
  *   /settings -> SettingsPage
+ *   /search -> SearchPage
  *   * -> NotFoundPage
  */
 export const routes: RouteObject[] = [
@@ -153,6 +157,10 @@ export const routes: RouteObject[] = [
       {
         path: 'settings',
         element: lazy(SettingsPage),
+      },
+      {
+        path: 'search',
+        element: lazy(SearchPage),
       },
       {
         path: '*',

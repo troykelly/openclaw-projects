@@ -117,6 +117,13 @@ describe('Route configuration', () => {
     });
   });
 
+  it('renders SearchPage at /search', async () => {
+    renderWithRouter('/search');
+    await waitFor(() => {
+      expect(screen.getByTestId('page-search')).toBeInTheDocument();
+    });
+  });
+
   it('renders NotFoundPage for unknown routes', async () => {
     renderWithRouter('/this-does-not-exist');
     await waitFor(() => {
