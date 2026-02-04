@@ -131,7 +131,7 @@ export function createAutoRecallHook(
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchContext(client, userId, event.prompt, logger),
+        fetchContext(client, userId, event.prompt, logger, config.maxRecallMemories),
         createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
           logger.warn('auto-recall timeout exceeded', { userId, timeoutMs })
           return null
@@ -160,20 +160,36 @@ export function createAutoRecallHook(
 }
 
 /**
- * Fetch context from the backend API.
+ * Fetch context from the backend API using semantic memory search.
+ *
+ * Uses the existing `/api/memories/search` endpoint (which works)
+ * instead of the non-existent `/api/context` endpoint.
+ * The user's actual prompt is passed as the search query for semantic matching.
  */
 async function fetchContext(
   client: ApiClient,
   userId: string,
   prompt: string,
-  logger: Logger
+  logger: Logger,
+  maxResults = 5
 ): Promise<AutoRecallResult | null> {
+  // Truncate prompt to a reasonable length for the search query
+  const searchQuery = prompt.substring(0, 500)
+
   const queryParams = new URLSearchParams({
-    prompt: prompt.substring(0, 500), // Limit prompt length sent to API
+    q: searchQuery,
+    limit: String(maxResults),
   })
 
-  const response = await client.get<{ context: string }>(
-    `/api/context?${queryParams.toString()}`,
+  const response = await client.get<{
+    memories: Array<{
+      id: string
+      content: string
+      category: string
+      score?: number
+    }>
+  }>(
+    `/api/memories/search?${queryParams.toString()}`,
     { userId }
   )
 
@@ -186,10 +202,15 @@ async function fetchContext(
     return null
   }
 
-  const context = response.data.context?.trim()
-  if (!context) {
+  const memories = response.data.memories ?? []
+  if (memories.length === 0) {
     return null
   }
+
+  // Format memories as context to prepend to the conversation
+  const context = memories
+    .map((m) => `- [${m.category}] ${m.content}`)
+    .join('\n')
 
   return {
     prependContext: context,
