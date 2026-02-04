@@ -1,2 +1,0 @@
-import{u as t}from"./useQuery-Euy325s0.js";import{a as i}from"./api-client-CDvRtWmo.js";const l={all:["timeline"],item:e=>[...l.all,"item",e],global:e=>[...l.all,"global",e]};function u(e){return t({queryKey:l.item(e),queryFn:({signal:a})=>i.get(`/api/work-items/${e}/timeline`,{signal:a}),enabled:!!e})}function r(e){const a=e&&e.length>0?`?kind=${e.join(",")}`:"";return t({queryKey:l.global(e),queryFn:({signal:n})=>i.get(`/api/timeline${a}`,{signal:n})})}export{r as a,u};
-//# sourceMappingURL=use-timeline-D_btK0hf.js.map

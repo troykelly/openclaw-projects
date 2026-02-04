@@ -1,11 +1,12 @@
 /**
- * TanStack Query hook for contacts.
+ * TanStack Query hooks for contacts.
  *
- * Fetches contacts list from GET /api/contacts with optional search.
+ * Provides queries for the contacts list (with optional search) and
+ * individual contact detail by ID.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type { ContactsResponse } from '@/ui/lib/api-types.ts';
+import type { Contact, ContactsResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for contacts. */
 export const contactKeys = {
@@ -30,5 +31,20 @@ export function useContacts(search?: string) {
     queryKey: contactKeys.list(search),
     queryFn: ({ signal }) =>
       apiClient.get<ContactsResponse>(`/api/contacts${queryString}`, { signal }),
+  });
+}
+
+/**
+ * Fetch a single contact by ID.
+ *
+ * @param id - The contact UUID
+ * @returns TanStack Query result with `Contact`
+ */
+export function useContactDetail(id: string) {
+  return useQuery({
+    queryKey: contactKeys.detail(id),
+    queryFn: ({ signal }) =>
+      apiClient.get<Contact>(`/api/contacts/${id}`, { signal }),
+    enabled: !!id,
   });
 }
