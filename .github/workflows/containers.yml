@@ -1,0 +1,141 @@
+# Container Build, Scan, and Publish Workflow
+# Builds multi-arch images for db, api, app, and migrate containers
+# Pushes to GitHub Container Registry (ghcr.io)
+
+name: Container Build and Publish
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.image.name }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: db
+            context: .
+            dockerfile: docker/postgres/Dockerfile
+          - name: api
+            context: .
+            dockerfile: docker/api/Dockerfile
+          - name: app
+            context: .
+            dockerfile: docker/app/Dockerfile
+          - name: migrate
+            context: .
+            dockerfile: docker/migrate/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/troykelly/openclaw-projects-${{ matrix.image.name }}
+          tags: |
+            type=edge,branch=main
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=sha,prefix=
+          labels: |
+            org.opencontainers.image.title=openclaw-projects-${{ matrix.image.name }}
+            org.opencontainers.image.description=OpenClaw Projects ${{ matrix.image.name }} container
+            org.opencontainers.image.vendor=Troy Kelly
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          sbom: true
+          provenance: true
+          build-args: |
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            OCI_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+
+      # For PRs: Build single-arch image locally for scanning
+      - name: Build local image for scanning (PR only)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: scan-target:${{ matrix.image.name }}
+          cache-from: type=gha
+          build-args: |
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            OCI_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ github.event_name == 'pull_request' && format('scan-target:{0}', matrix.image.name) || format('ghcr.io/troykelly/openclaw-projects-{0}:{1}', matrix.image.name, steps.meta.outputs.version) }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.image.name }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          # Exit code 1 = fail on vulnerabilities for pushed images, exit code 0 = informational for PRs
+          exit-code: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-${{ matrix.image.name }}.sarif'
+        if: always()
