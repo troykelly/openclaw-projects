@@ -24,6 +24,7 @@ import { readBootstrap } from '@/ui/lib/work-item-utils';
 
 /** Map route pathname segments to sidebar section IDs. */
 function pathToSection(pathname: string): string {
+  if (pathname.startsWith('/dashboard')) return 'dashboard';
   if (pathname.startsWith('/activity')) return 'activity';
   if (pathname.startsWith('/timeline')) return 'timeline';
   if (pathname.startsWith('/contacts')) return 'people';
@@ -31,11 +32,12 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban'))
     return 'projects';
-  return 'projects';
+  return 'dashboard';
 }
 
 /** Section ID to route path mapping. */
 const sectionRoutes: Record<string, string> = {
+  dashboard: '/dashboard',
   activity: '/activity',
   projects: '/work-items',
   timeline: '/timeline',
@@ -52,6 +54,9 @@ function deriveBreadcrumbs(
   pathname: string,
   bootstrap: AppBootstrap | null,
 ): BreadcrumbItem[] {
+  if (pathname.startsWith('/dashboard')) {
+    return [{ id: 'dashboard', label: 'Dashboard' }];
+  }
   if (pathname.startsWith('/activity')) {
     return [{ id: 'activity', label: 'Activity' }];
   }
@@ -266,7 +271,7 @@ export function AppLayout(): React.JSX.Element {
         onSectionChange={handleSectionChange}
         onCreateClick={handleOpenCreateDialog}
         breadcrumbs={breadcrumbs}
-        onHomeClick={() => navigate('/work-items')}
+        onHomeClick={() => navigate('/dashboard')}
       >
         <Outlet />
       </AppShell>
