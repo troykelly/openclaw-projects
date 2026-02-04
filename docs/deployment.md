@@ -114,6 +114,23 @@ All images are published to GitHub Container Registry:
 | `ghcr.io/troykelly/openclaw-projects-app:latest` | React frontend with Nginx |
 | `ghcr.io/troykelly/openclaw-projects-migrate:latest` | Database migration runner |
 
+### Internal Ports
+
+The containers use different internal ports depending on the deployment type:
+
+| Container | Basic Compose | Traefik Compose | Notes |
+|-----------|---------------|-----------------|-------|
+| **API** | 3000 | 3001 | Traefik uses 3001 to avoid port conflicts with app labels |
+| **Frontend (nginx)** | 8080 | 8080 | Consistent across both deployments |
+| **PostgreSQL** | 5432 | 5432 | Standard PostgreSQL port |
+| **SeaweedFS S3** | 8333 | 8333 | Internal S3-compatible storage |
+
+In the Traefik deployment, the API runs on port 3001 because:
+- ModSecurity WAF proxies to `http://api:3001`
+- This avoids potential conflicts with Traefik's service discovery
+
+The frontend's nginx automatically proxies `/api/*` requests to the correct API port based on the `API_PORT` environment variable passed by each compose file.
+
 ---
 
 ## Quick Start (Basic Deployment)
