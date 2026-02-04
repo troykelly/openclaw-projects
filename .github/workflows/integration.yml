@@ -1,0 +1,90 @@
+# Integration Test Workflow
+# Runs end-to-end compose stack verification
+# Part of Epic #523, Issue #539
+
+name: Integration Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docker-compose.yml'
+      - 'docker-compose.*.yml'
+      - 'docker/**'
+      - '.github/workflows/integration.yml'
+      - 'scripts/integration-test.sh'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docker-compose.yml'
+      - 'docker-compose.*.yml'
+      - 'docker/**'
+      - '.github/workflows/integration.yml'
+      - 'scripts/integration-test.sh'
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: 'Timeout in seconds for waiting for services'
+        required: false
+        default: '300'
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  integration-test:
+    name: Compose Stack Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Test environment configuration
+      POSTGRES_PASSWORD: integrationtest123
+      COOKIE_SECRET: integrationtestsecret12345678901234567890123456
+      S3_SECRET_KEY: integrationtests3secretkey1234567890abcdef
+      API_PORT: 3000
+      FRONTEND_PORT: 8080
+      SEAWEEDFS_PORT: 8333
+      # Safe handling of workflow_dispatch input
+      INTEGRATION_TEST_TIMEOUT: ${{ github.event.inputs.timeout || '300' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull container images
+        run: |
+          docker compose pull --quiet || echo "Some images may need to be built"
+
+      - name: Run integration tests
+        run: |
+          chmod +x scripts/integration-test.sh
+          ./scripts/integration-test.sh --timeout "$INTEGRATION_TEST_TIMEOUT"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Docker Compose Logs ==="
+          docker compose logs --tail=100 2>/dev/null || true
+          echo ""
+          echo "=== Container Status ==="
+          docker compose ps -a 2>/dev/null || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v --remove-orphans 2>/dev/null || true
