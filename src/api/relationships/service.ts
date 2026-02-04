@@ -1,0 +1,619 @@
+/**
+ * Service layer for relationships between contacts.
+ * Part of Epic #486, Issue #491
+ *
+ * Provides CRUD operations, graph traversal, group membership queries,
+ * and smart relationship creation (resolving contacts/types by name).
+ */
+
+import type { Pool } from 'pg';
+import type {
+  RelationshipEntry,
+  RelationshipWithDetails,
+  CreateRelationshipInput,
+  UpdateRelationshipInput,
+  ListRelationshipsOptions,
+  ListRelationshipsResult,
+  RelatedContact,
+  GraphTraversalResult,
+  GroupMembership,
+  RelationshipSetInput,
+  RelationshipSetResult,
+} from './types.ts';
+
+/**
+ * Maps a database row to a RelationshipEntry.
+ */
+function mapRowToRelationship(row: Record<string, unknown>): RelationshipEntry {
+  return {
+    id: row.id as string,
+    contactAId: row.contact_a_id as string,
+    contactBId: row.contact_b_id as string,
+    relationshipTypeId: row.relationship_type_id as string,
+    notes: (row.notes as string) ?? null,
+    createdByAgent: (row.created_by_agent as string) ?? null,
+    embeddingStatus: row.embedding_status as 'pending' | 'complete' | 'failed',
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+  };
+}
+
+/**
+ * Maps a database row to a RelationshipWithDetails.
+ */
+function mapRowToRelationshipWithDetails(row: Record<string, unknown>): RelationshipWithDetails {
+  return {
+    ...mapRowToRelationship(row),
+    contactAName: row.contact_a_name as string,
+    contactBName: row.contact_b_name as string,
+    relationshipType: {
+      id: row.rt_id as string,
+      name: row.rt_name as string,
+      label: row.rt_label as string,
+      isDirectional: row.rt_is_directional as boolean,
+    },
+  };
+}
+
+/** SQL fragment for selecting relationships with details */
+const SELECT_WITH_DETAILS = `
+  SELECT
+    r.id::text as id,
+    r.contact_a_id::text as contact_a_id,
+    r.contact_b_id::text as contact_b_id,
+    r.relationship_type_id::text as relationship_type_id,
+    r.notes,
+    r.created_by_agent,
+    r.embedding_status,
+    r.created_at,
+    r.updated_at,
+    ca.display_name as contact_a_name,
+    cb.display_name as contact_b_name,
+    rt.id::text as rt_id,
+    rt.name as rt_name,
+    rt.label as rt_label,
+    rt.is_directional as rt_is_directional
+  FROM relationship r
+  JOIN contact ca ON r.contact_a_id = ca.id
+  JOIN contact cb ON r.contact_b_id = cb.id
+  JOIN relationship_type rt ON r.relationship_type_id = rt.id
+`;
+
+/** SQL fragment for selecting basic relationship columns */
+const SELECT_BASIC = `
+  SELECT
+    id::text as id,
+    contact_a_id::text as contact_a_id,
+    contact_b_id::text as contact_b_id,
+    relationship_type_id::text as relationship_type_id,
+    notes,
+    created_by_agent,
+    embedding_status,
+    created_at,
+    updated_at
+  FROM relationship
+`;
+
+/**
+ * Creates a new relationship between two contacts.
+ *
+ * @throws Error if contacts are the same (self-relationship)
+ * @throws Error if duplicate relationship exists
+ */
+export async function createRelationship(
+  pool: Pool,
+  input: CreateRelationshipInput
+): Promise<RelationshipEntry> {
+  if (input.contactAId === input.contactBId) {
+    throw new Error('Cannot create a self-relationship');
+  }
+
+  const result = await pool.query(
+    `INSERT INTO relationship (
+      contact_a_id, contact_b_id, relationship_type_id,
+      notes, created_by_agent
+    ) VALUES ($1, $2, $3, $4, $5)
+    RETURNING
+      id::text as id,
+      contact_a_id::text as contact_a_id,
+      contact_b_id::text as contact_b_id,
+      relationship_type_id::text as relationship_type_id,
+      notes, created_by_agent, embedding_status,
+      created_at, updated_at`,
+    [
+      input.contactAId,
+      input.contactBId,
+      input.relationshipTypeId,
+      input.notes ?? null,
+      input.createdByAgent ?? null,
+    ]
+  );
+
+  return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
+}
+
+/**
+ * Gets a relationship by ID with expanded contact and type details.
+ */
+export async function getRelationship(
+  pool: Pool,
+  id: string
+): Promise<RelationshipWithDetails | null> {
+  const result = await pool.query(
+    `${SELECT_WITH_DETAILS} WHERE r.id = $1`,
+    [id]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return mapRowToRelationshipWithDetails(result.rows[0] as Record<string, unknown>);
+}
+
+/**
+ * Updates an existing relationship.
+ */
+export async function updateRelationship(
+  pool: Pool,
+  id: string,
+  input: UpdateRelationshipInput
+): Promise<RelationshipEntry | null> {
+  const updates: string[] = [];
+  const params: unknown[] = [];
+  let paramIndex = 1;
+
+  if (input.relationshipTypeId !== undefined) {
+    updates.push(`relationship_type_id = $${paramIndex}`);
+    params.push(input.relationshipTypeId);
+    paramIndex++;
+  }
+
+  if (input.notes !== undefined) {
+    updates.push(`notes = $${paramIndex}`);
+    params.push(input.notes);
+    paramIndex++;
+  }
+
+  if (updates.length === 0) {
+    // No updates, just return existing
+    const result = await pool.query(`${SELECT_BASIC} WHERE id = $1`, [id]);
+    if (result.rows.length === 0) return null;
+    return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
+  }
+
+  params.push(id);
+
+  const result = await pool.query(
+    `UPDATE relationship SET ${updates.join(', ')}
+    WHERE id = $${paramIndex}
+    RETURNING
+      id::text as id,
+      contact_a_id::text as contact_a_id,
+      contact_b_id::text as contact_b_id,
+      relationship_type_id::text as relationship_type_id,
+      notes, created_by_agent, embedding_status,
+      created_at, updated_at`,
+    params
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
+}
+
+/**
+ * Deletes a relationship.
+ */
+export async function deleteRelationship(
+  pool: Pool,
+  id: string
+): Promise<boolean> {
+  const result = await pool.query(
+    'DELETE FROM relationship WHERE id = $1 RETURNING id',
+    [id]
+  );
+  return result.rows.length > 0;
+}
+
+/**
+ * Lists relationships with optional filtering and pagination.
+ */
+export async function listRelationships(
+  pool: Pool,
+  options: ListRelationshipsOptions = {}
+): Promise<ListRelationshipsResult> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  let paramIndex = 1;
+
+  if (options.contactId !== undefined) {
+    conditions.push(`(r.contact_a_id = $${paramIndex} OR r.contact_b_id = $${paramIndex})`);
+    params.push(options.contactId);
+    paramIndex++;
+  }
+
+  if (options.relationshipTypeId !== undefined) {
+    conditions.push(`r.relationship_type_id = $${paramIndex}`);
+    params.push(options.relationshipTypeId);
+    paramIndex++;
+  }
+
+  if (options.createdByAgent !== undefined) {
+    conditions.push(`r.created_by_agent = $${paramIndex}`);
+    params.push(options.createdByAgent);
+    paramIndex++;
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Get total count
+  const countResult = await pool.query(
+    `SELECT COUNT(*) as total FROM relationship r ${whereClause}`,
+    params
+  );
+  const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+  // Get paginated results
+  const limit = Math.min(options.limit ?? 100, 200);
+  const offset = options.offset ?? 0;
+
+  params.push(limit, offset);
+
+  const result = await pool.query(
+    `${SELECT_WITH_DETAILS}
+    ${whereClause}
+    ORDER BY r.created_at DESC
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    params
+  );
+
+  return {
+    relationships: result.rows.map((row) =>
+      mapRowToRelationshipWithDetails(row as Record<string, unknown>)
+    ),
+    total,
+  };
+}
+
+/**
+ * Graph traversal: given a contact, returns all related contacts with
+ * effective relationship types. Handles inverse resolution for directional types.
+ *
+ * Logic:
+ * 1. Find rows where contact_a_id = X -> return type as-is
+ * 2. Find rows where contact_b_id = X:
+ *    - If type is symmetric (is_directional = false) -> return type as-is
+ *    - If type is directional (is_directional = true) -> return inverse type
+ * 3. Combine results
+ */
+export async function getRelatedContacts(
+  pool: Pool,
+  contactId: string
+): Promise<GraphTraversalResult> {
+  // Get the contact's name first
+  const contactResult = await pool.query(
+    `SELECT display_name FROM contact WHERE id = $1`,
+    [contactId]
+  );
+  const contactName = contactResult.rows.length > 0
+    ? (contactResult.rows[0] as { display_name: string }).display_name
+    : 'Unknown';
+
+  // Check if contact_kind column exists (added in separate migration 044_contact_kind)
+  const kindColCheck = await pool.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'contact' AND column_name = 'contact_kind'`
+  );
+  const hasContactKind = kindColCheck.rows.length > 0;
+  const contactKindSelect = hasContactKind
+    ? `c_ref.contact_kind::text as contact_kind`
+    : `'person' as contact_kind`;
+
+  // Query 1: Contact is on the A side -> type as-is, related contact is B
+  const aSideResult = await pool.query(
+    `SELECT
+      cb.id::text as contact_id,
+      cb.display_name as contact_name,
+      ${contactKindSelect.replace('c_ref', 'cb')},
+      r.id::text as relationship_id,
+      rt.name as relationship_type_name,
+      rt.label as relationship_type_label,
+      rt.is_directional,
+      r.notes
+    FROM relationship r
+    JOIN contact cb ON r.contact_b_id = cb.id
+    JOIN relationship_type rt ON r.relationship_type_id = rt.id
+    WHERE r.contact_a_id = $1`,
+    [contactId]
+  );
+
+  // Query 2: Contact is on the B side
+  // For symmetric types: use the type as-is
+  // For directional types: use the inverse type
+  const bSideResult = await pool.query(
+    `SELECT
+      ca.id::text as contact_id,
+      ca.display_name as contact_name,
+      ${contactKindSelect.replace('c_ref', 'ca')},
+      r.id::text as relationship_id,
+      CASE
+        WHEN rt.is_directional = false THEN rt.name
+        WHEN rt.is_directional = true AND inv.name IS NOT NULL THEN inv.name
+        ELSE rt.name
+      END as relationship_type_name,
+      CASE
+        WHEN rt.is_directional = false THEN rt.label
+        WHEN rt.is_directional = true AND inv.label IS NOT NULL THEN inv.label
+        ELSE rt.label
+      END as relationship_type_label,
+      rt.is_directional,
+      r.notes
+    FROM relationship r
+    JOIN contact ca ON r.contact_a_id = ca.id
+    JOIN relationship_type rt ON r.relationship_type_id = rt.id
+    LEFT JOIN relationship_type inv ON rt.inverse_type_id = inv.id
+    WHERE r.contact_b_id = $1`,
+    [contactId]
+  );
+
+  const relatedContacts: RelatedContact[] = [];
+
+  for (const row of aSideResult.rows) {
+    const r = row as Record<string, unknown>;
+    relatedContacts.push({
+      contactId: r.contact_id as string,
+      contactName: r.contact_name as string,
+      contactKind: r.contact_kind as string,
+      relationshipId: r.relationship_id as string,
+      relationshipTypeName: r.relationship_type_name as string,
+      relationshipTypeLabel: r.relationship_type_label as string,
+      isDirectional: r.is_directional as boolean,
+      notes: (r.notes as string) ?? null,
+    });
+  }
+
+  for (const row of bSideResult.rows) {
+    const r = row as Record<string, unknown>;
+    relatedContacts.push({
+      contactId: r.contact_id as string,
+      contactName: r.contact_name as string,
+      contactKind: r.contact_kind as string,
+      relationshipId: r.relationship_id as string,
+      relationshipTypeName: r.relationship_type_name as string,
+      relationshipTypeLabel: r.relationship_type_label as string,
+      isDirectional: r.is_directional as boolean,
+      notes: (r.notes as string) ?? null,
+    });
+  }
+
+  return {
+    contactId,
+    contactName,
+    relatedContacts,
+  };
+}
+
+/**
+ * Gets all members of a group contact.
+ * Uses the has_member/member_of directional relationship type.
+ */
+export async function getGroupMembers(
+  pool: Pool,
+  groupContactId: string
+): Promise<GroupMembership[]> {
+  const result = await pool.query(
+    `SELECT
+      r.id::text as relationship_id,
+      cg.id::text as group_id,
+      cg.display_name as group_name,
+      cm.id::text as member_id,
+      cm.display_name as member_name
+    FROM relationship r
+    JOIN contact cg ON r.contact_a_id = cg.id
+    JOIN contact cm ON r.contact_b_id = cm.id
+    JOIN relationship_type rt ON r.relationship_type_id = rt.id
+    WHERE r.contact_a_id = $1
+      AND rt.name = 'has_member'
+    ORDER BY cm.display_name ASC`,
+    [groupContactId]
+  );
+
+  return result.rows.map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      groupId: r.group_id as string,
+      groupName: r.group_name as string,
+      memberId: r.member_id as string,
+      memberName: r.member_name as string,
+      relationshipId: r.relationship_id as string,
+    };
+  });
+}
+
+/**
+ * Gets all groups a contact belongs to.
+ * Uses the has_member/member_of directional relationship type.
+ */
+export async function getContactGroups(
+  pool: Pool,
+  contactId: string
+): Promise<GroupMembership[]> {
+  const result = await pool.query(
+    `SELECT
+      r.id::text as relationship_id,
+      cg.id::text as group_id,
+      cg.display_name as group_name,
+      cm.id::text as member_id,
+      cm.display_name as member_name
+    FROM relationship r
+    JOIN contact cg ON r.contact_a_id = cg.id
+    JOIN contact cm ON r.contact_b_id = cm.id
+    JOIN relationship_type rt ON r.relationship_type_id = rt.id
+    WHERE r.contact_b_id = $1
+      AND rt.name = 'has_member'
+    ORDER BY cg.display_name ASC`,
+    [contactId]
+  );
+
+  return result.rows.map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      groupId: r.group_id as string,
+      groupName: r.group_name as string,
+      memberId: r.member_id as string,
+      memberName: r.member_name as string,
+      relationshipId: r.relationship_id as string,
+    };
+  });
+}
+
+/**
+ * Resolves a contact identifier (UUID or display name) to a contact ID and name.
+ * Returns null if the contact cannot be found.
+ */
+async function resolveContact(
+  pool: Pool,
+  identifier: string
+): Promise<{ id: string; displayName: string } | null> {
+  // Try as UUID first
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (uuidPattern.test(identifier)) {
+    const result = await pool.query(
+      `SELECT id::text as id, display_name FROM contact WHERE id = $1`,
+      [identifier]
+    );
+    if (result.rows.length > 0) {
+      const row = result.rows[0] as { id: string; display_name: string };
+      return { id: row.id, displayName: row.display_name };
+    }
+  }
+
+  // Try as display name (exact match, case-insensitive)
+  const nameResult = await pool.query(
+    `SELECT id::text as id, display_name FROM contact
+     WHERE lower(display_name) = lower($1)
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [identifier]
+  );
+
+  if (nameResult.rows.length > 0) {
+    const row = nameResult.rows[0] as { id: string; display_name: string };
+    return { id: row.id, displayName: row.display_name };
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a relationship type by exact name match or semantic/text search.
+ * Returns the best matching type or null.
+ */
+async function resolveRelationshipType(
+  pool: Pool,
+  typeIdentifier: string
+): Promise<{ id: string; name: string; label: string } | null> {
+  // Try exact name match first
+  const exactResult = await pool.query(
+    `SELECT id::text as id, name, label FROM relationship_type WHERE name = $1`,
+    [typeIdentifier]
+  );
+
+  if (exactResult.rows.length > 0) {
+    const row = exactResult.rows[0] as { id: string; name: string; label: string };
+    return { id: row.id, name: row.name, label: row.label };
+  }
+
+  // Try semantic/text match
+  const { findSemanticMatch } = await import('../relationship-types/index.ts');
+  const matches = await findSemanticMatch(pool, typeIdentifier, { limit: 1, minSimilarity: 0.1 });
+
+  if (matches.length > 0) {
+    const match = matches[0];
+    return { id: match.type.id, name: match.type.name, label: match.type.label };
+  }
+
+  return null;
+}
+
+/**
+ * Smart relationship creation: resolves contacts and type by name/semantic match,
+ * creates the relationship in one call.
+ *
+ * relationship_set("Troy", "Alex", "partner"):
+ * 1. Resolve "Troy" -> contact ID
+ * 2. Resolve "Alex" -> contact ID
+ * 3. Semantic-match "partner" against relationship_type embeddings
+ * 4. If existing relationship found, return it
+ * 5. Create relationship row
+ * 6. Return structured confirmation
+ *
+ * @throws Error if either contact cannot be resolved
+ * @throws Error if relationship type cannot be resolved
+ */
+export async function relationshipSet(
+  pool: Pool,
+  input: RelationshipSetInput
+): Promise<RelationshipSetResult> {
+  // Step 1 & 2: Resolve contacts
+  const contactA = await resolveContact(pool, input.contactA);
+  if (!contactA) {
+    throw new Error(`Contact "${input.contactA}" cannot be resolved. No matching contact found.`);
+  }
+
+  const contactB = await resolveContact(pool, input.contactB);
+  if (!contactB) {
+    throw new Error(`Contact "${input.contactB}" cannot be resolved. No matching contact found.`);
+  }
+
+  // Step 3: Resolve relationship type
+  const relType = await resolveRelationshipType(pool, input.relationshipType);
+  if (!relType) {
+    throw new Error(
+      `Relationship type "${input.relationshipType}" cannot be resolved. No matching type found.`
+    );
+  }
+
+  // Step 4: Check for existing relationship
+  const existingResult = await pool.query(
+    `SELECT id::text as id, contact_a_id::text as contact_a_id,
+            contact_b_id::text as contact_b_id,
+            relationship_type_id::text as relationship_type_id,
+            notes, created_by_agent, embedding_status,
+            created_at, updated_at
+     FROM relationship
+     WHERE contact_a_id = $1 AND contact_b_id = $2 AND relationship_type_id = $3`,
+    [contactA.id, contactB.id, relType.id]
+  );
+
+  if (existingResult.rows.length > 0) {
+    return {
+      relationship: mapRowToRelationship(existingResult.rows[0] as Record<string, unknown>),
+      contactA: { id: contactA.id, displayName: contactA.displayName },
+      contactB: { id: contactB.id, displayName: contactB.displayName },
+      relationshipType: relType,
+      created: false,
+    };
+  }
+
+  // Step 5: Create the relationship
+  const relationship = await createRelationship(pool, {
+    contactAId: contactA.id,
+    contactBId: contactB.id,
+    relationshipTypeId: relType.id,
+    notes: input.notes,
+    createdByAgent: input.createdByAgent,
+  });
+
+  return {
+    relationship,
+    contactA: { id: contactA.id, displayName: contactA.displayName },
+    contactB: { id: contactB.id, displayName: contactB.displayName },
+    relationshipType: relType,
+    created: true,
+  };
+}
