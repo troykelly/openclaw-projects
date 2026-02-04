@@ -1,37 +1,75 @@
+# Basic docker-compose.yml for openclaw-projects (Issue #528)
+#
+# This is for localhost/behind-proxy deployment without TLS.
+# Uses published images from ghcr.io.
+#
+# Usage:
+#   cp .env.example .env
+#   # Edit .env and set required values (POSTGRES_PASSWORD, COOKIE_SECRET, S3_SECRET_KEY)
+#   docker compose up -d
+#
+# The migrate service will run once on startup and exit.
+# API will be available on API_PORT (default 3000)
+# Frontend will be available on FRONTEND_PORT (default 8080)
+
+name: openclaw-projects
+
 services:
-  postgres:
-    build:
-      context: .
-      dockerfile: docker/postgres/Dockerfile
-    container_name: openclaw-postgres
+  # =============================================================================
+  # Database (PostgreSQL with TimescaleDB, pgvector, pg_cron)
+  # =============================================================================
+  db:
+    image: ghcr.io/troykelly/openclaw-projects-db:latest
+    container_name: openclaw-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: openclaw
-      POSTGRES_PASSWORD: openclaw
-      POSTGRES_DB: openclaw
-    ports:
-      - "5432:5432"
-    # Required for some extensions (notably pg_cron and TimescaleDB)
+      POSTGRES_USER: ${POSTGRES_USER:-openclaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-openclaw}
     command:
       - postgres
       - -c
       - shared_preload_libraries=timescaledb,pg_cron
       - -c
-      - cron.database_name=openclaw
+      - cron.database_name=${POSTGRES_DB:-openclaw}
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openclaw -d openclaw"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-openclaw} -d $${POSTGRES_DB:-openclaw}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
 
+  # =============================================================================
+  # SeaweedFS (S3-compatible object storage)
+  # =============================================================================
   seaweedfs:
     image: chrislusf/seaweedfs:latest
     container_name: openclaw-seaweedfs
-    command: "server -s3 -s3.port=8333 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=100 -volume.max=10"
+    restart: unless-stopped
+    command: "server -s3 -s3.port=8333 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-1000} -volume.max=10"
     ports:
-      - "8333:8333"
-      - "9333:9333"
+      - "${SEAWEEDFS_PORT:-8333}:8333"
     volumes:
       - seaweedfs_data:/data
     healthcheck:
@@ -40,11 +78,148 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # =============================================================================
+  # Database Migrations (runs once and exits)
+  # =============================================================================
+  migrate:
+    image: ghcr.io/troykelly/openclaw-projects-migrate:latest
+    container_name: openclaw-migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-openclaw}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-openclaw}?sslmode=disable
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgresql://${POSTGRES_USER:-openclaw}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-openclaw}?sslmode=disable
+      - up
+    # Container hardening
+    read_only: true
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
 
+  # =============================================================================
+  # API Server (Fastify)
+  # =============================================================================
+  api:
+    image: ghcr.io/troykelly/openclaw-projects-api:latest
+    container_name: openclaw-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
+      # Database connection
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-openclaw}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-openclaw}
+      # S3-compatible storage (SeaweedFS)
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_BUCKET: ${S3_BUCKET:-openclaw}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-openclaw}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_FORCE_PATH_STYLE: "true"
+      # Optional: Postmark email (magic links)
+      POSTMARK_FROM: ${POSTMARK_FROM:-}
+      POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
+      POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
+      POSTMARK_TRANSACTIONAL_TOKEN: ${POSTMARK_TRANSACTIONAL_TOKEN:-}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # =============================================================================
+  # Frontend App (React SPA served via static server)
+  # =============================================================================
+  app:
+    image: ghcr.io/troykelly/openclaw-projects-app:latest
+    container_name: openclaw-app
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # The API URL the frontend will use for requests
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:${API_PORT:-3000}}
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # Container hardening
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=32M
+      - /var/cache/nginx:mode=1777,size=32M
+      - /var/run:mode=1777,size=8M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
 volumes:
-  postgres_data:
+  db_data:
   seaweedfs_data:
