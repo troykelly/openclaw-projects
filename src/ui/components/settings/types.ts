@@ -1,4 +1,4 @@
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'oled' | 'system';
 export type DefaultView = 'activity' | 'projects' | 'timeline' | 'contacts';
 export type EmailDigestFrequency = 'never' | 'daily' | 'weekly';
 

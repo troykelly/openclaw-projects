@@ -1,0 +1,2 @@
+import{u as o,j as t,L as n}from"./index-CqOBwho-.js";function a(){const e=o();return t.jsxs("div",{"data-testid":"page-not-found",className:"flex flex-col items-center justify-center p-6",children:[t.jsx("h1",{className:"text-4xl font-bold text-muted-foreground",children:"404"}),t.jsxs("p",{className:"mt-2 text-lg text-muted-foreground",children:["Page not found: ",e.pathname]}),t.jsx(n,{to:"/activity",className:"mt-4 text-primary underline hover:text-primary/80",children:"Go to Activity"})]})}export{a as NotFoundPage};
+//# sourceMappingURL=NotFoundPage-DBA4ZC7O.js.map
