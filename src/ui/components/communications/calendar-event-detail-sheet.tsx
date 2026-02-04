@@ -20,6 +20,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/ui/components/ui/sheet';
@@ -62,6 +63,7 @@ export function CalendarEventDetailSheet({
       <SheetContent className="w-[500px] sm:max-w-lg">
         <SheetHeader>
           <SheetTitle className="sr-only">Event Details</SheetTitle>
+          <SheetDescription className="sr-only">View event time, attendees, and details</SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="h-full">

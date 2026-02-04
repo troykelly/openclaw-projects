@@ -17,6 +17,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/ui/components/ui/sheet';
@@ -95,6 +96,7 @@ export function MemoryDetailSheet({
       <SheetContent className="w-96 sm:max-w-md">
         <SheetHeader>
           <SheetTitle className="sr-only">Memory Details</SheetTitle>
+          <SheetDescription className="sr-only">View memory content, tags, and linked items</SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="h-full">

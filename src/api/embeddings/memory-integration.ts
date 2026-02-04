@@ -82,19 +82,24 @@ export async function generateMemoryEmbedding(
 
     return 'complete';
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // Pool-closed errors are expected during shutdown/test teardown
+    if (msg.includes('Cannot use a pool after calling end')) {
+      return 'failed';
+    }
     // Log error but don't fail the request
     console.error(
       `[Embeddings] Failed to embed memory ${memoryId}:`,
       error instanceof EmbeddingError
         ? error.toSafeString()
-        : (error as Error).message
+        : msg
     );
 
-    // Mark as failed
+    // Mark as failed (may also fail if pool is closed, ignore that)
     await pool.query(
       `UPDATE memory SET embedding_status = 'failed' WHERE id = $1`,
       [memoryId]
-    );
+    ).catch(() => {});
 
     return 'failed';
   }

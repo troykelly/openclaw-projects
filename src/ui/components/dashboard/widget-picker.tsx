@@ -7,6 +7,7 @@ import { Search, CheckSquare, Calendar, Activity, BarChart, Zap, Bell } from 'lu
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/ui/components/ui/dialog';
@@ -65,6 +66,7 @@ export function WidgetPicker({
       <DialogContent className={cn('sm:max-w-lg', className)}>
         <DialogHeader>
           <DialogTitle>Add Widget</DialogTitle>
+          <DialogDescription className="sr-only">Choose a widget to add to your dashboard</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

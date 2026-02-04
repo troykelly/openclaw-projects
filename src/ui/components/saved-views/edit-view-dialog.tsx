@@ -6,6 +6,7 @@ import * as React from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -62,6 +63,7 @@ export function EditViewDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit View</DialogTitle>
+          <DialogDescription className="sr-only">Edit the view name and settings</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

@@ -23,6 +23,17 @@ import { join } from 'node:path';
 // OPENCLAW_PROJECTS_AUTH_DISABLED that the setup-api.ts file sets.
 const originalAuthDisabled = process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
 
+/** Restore env vars without setting undefined values to the string "undefined" */
+function restoreEnv(saved: Record<string, string | undefined>, keys: string[]) {
+  for (const key of keys) {
+    if (saved[key] !== undefined) {
+      process.env[key] = saved[key];
+    } else {
+      delete process.env[key];
+    }
+  }
+}
+
 describe('Shared secret authentication', () => {
   beforeAll(async () => {
     await runMigrate('up');
@@ -53,11 +64,12 @@ describe('Shared secret authentication', () => {
     });
 
     afterEach(() => {
-      // Restore original env
-      process.env.OPENCLAW_PROJECTS_AUTH_SECRET = originalEnv.OPENCLAW_PROJECTS_AUTH_SECRET;
-      process.env.OPENCLAW_PROJECTS_AUTH_SECRET_FILE = originalEnv.OPENCLAW_PROJECTS_AUTH_SECRET_FILE;
-      process.env.OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND = originalEnv.OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND;
-      process.env.OPENCLAW_PROJECTS_AUTH_DISABLED = originalEnv.OPENCLAW_PROJECTS_AUTH_DISABLED;
+      restoreEnv(originalEnv, [
+        'OPENCLAW_PROJECTS_AUTH_SECRET',
+        'OPENCLAW_PROJECTS_AUTH_SECRET_FILE',
+        'OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND',
+        'OPENCLAW_PROJECTS_AUTH_DISABLED',
+      ]);
       clearCachedSecret();
     });
 
@@ -69,7 +81,7 @@ describe('Shared secret authentication', () => {
 
     it('loads secret from file via OPENCLAW_PROJECTS_AUTH_SECRET_FILE', async () => {
       const secretFile = join(tmpdir(), `openclaw-test-secret-${Date.now()}.txt`);
-      writeFileSync(secretFile, 'secret-from-file\n');
+      writeFileSync(secretFile, 'secret-from-file\n', { mode: 0o600 });
 
       try {
         process.env.OPENCLAW_PROJECTS_AUTH_SECRET_FILE = secretFile;
@@ -88,7 +100,7 @@ describe('Shared secret authentication', () => {
 
     it('prioritizes COMMAND over FILE over direct value', async () => {
       const secretFile = join(tmpdir(), `openclaw-test-priority-${Date.now()}.txt`);
-      writeFileSync(secretFile, 'secret-from-file');
+      writeFileSync(secretFile, 'secret-from-file', { mode: 0o600 });
 
       try {
         process.env.OPENCLAW_PROJECTS_AUTH_SECRET = 'secret-from-env';
@@ -105,7 +117,7 @@ describe('Shared secret authentication', () => {
 
     it('falls back to FILE when COMMAND is not set', async () => {
       const secretFile = join(tmpdir(), `openclaw-test-fallback-${Date.now()}.txt`);
-      writeFileSync(secretFile, 'secret-from-file');
+      writeFileSync(secretFile, 'secret-from-file', { mode: 0o600 });
 
       try {
         process.env.OPENCLAW_PROJECTS_AUTH_SECRET = 'secret-from-env';
@@ -143,9 +155,7 @@ describe('Shared secret authentication', () => {
     });
 
     afterEach(async () => {
-      // Restore original env
-      process.env.OPENCLAW_PROJECTS_AUTH_SECRET = originalEnv.OPENCLAW_PROJECTS_AUTH_SECRET;
-      process.env.OPENCLAW_PROJECTS_AUTH_DISABLED = originalEnv.OPENCLAW_PROJECTS_AUTH_DISABLED;
+      restoreEnv(originalEnv, ['OPENCLAW_PROJECTS_AUTH_SECRET', 'OPENCLAW_PROJECTS_AUTH_DISABLED']);
       clearCachedSecret();
       // Reset realtime hub to clean up PostgreSQL connections
       await resetRealtimeHub();

@@ -153,16 +153,21 @@ export async function embedNote(
 
     return 'complete';
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // Pool-closed errors are expected during shutdown/test teardown
+    if (msg.includes('Cannot use a pool after calling end')) {
+      return 'failed';
+    }
     // Log error but don't fail the request
     console.error(
       `[Embeddings] Failed to embed note ${noteId}:`,
       error instanceof EmbeddingError
         ? error.toSafeString()
-        : (error as Error).message
+        : msg
     );
 
-    // Mark as failed
-    await updateEmbeddingStatus(pool, noteId, 'failed');
+    // Mark as failed (may also fail if pool is closed, ignore that)
+    await updateEmbeddingStatus(pool, noteId, 'failed').catch(() => {});
     return 'failed';
   }
 }
@@ -176,9 +181,12 @@ export async function embedNote(
  */
 export function triggerNoteEmbedding(pool: Pool, noteId: string): void {
   // Run async, don't wait for result
-  embedNote(pool, noteId).catch((err) =>
-    console.error(`[Embeddings] Background embedding failed for note ${noteId}:`, err)
-  );
+  embedNote(pool, noteId).catch((err) => {
+    // Pool-closed errors are expected during shutdown/test teardown
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Cannot use a pool after calling end')) return;
+    console.error(`[Embeddings] Background embedding failed for note ${noteId}:`, err);
+  });
 }
 
 /**

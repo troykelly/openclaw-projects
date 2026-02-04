@@ -7,6 +7,7 @@ import { Textarea } from '@/ui/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -64,6 +65,7 @@ export function ContactForm({
       <DialogContent className={cn('sm:max-w-md', className)}>
         <DialogHeader>
           <DialogTitle>{contact ? 'Edit Contact' : 'Add Contact'}</DialogTitle>
+          <DialogDescription className="sr-only">{contact ? 'Edit contact details' : 'Add a new contact'}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

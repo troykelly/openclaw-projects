@@ -5616,8 +5616,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
           // Generate embedding asynchronously (don't await to avoid blocking)
           const memoryContent = `${memory.title}\n\n${memory.content}`;
-          generateMemoryEmbedding(pool, memory.id, memoryContent).catch(() => {
-            // Embedding failures are non-fatal for bulk operations
+          generateMemoryEmbedding(pool, memory.id, memoryContent).catch((err) => {
+            // Pool-closed errors are expected during shutdown/test teardown
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes('Cannot use a pool after calling end')) return;
+            // Other embedding failures are non-fatal for bulk operations
           });
 
           results.push({ index: i, id: memory.id, status: 'created' });

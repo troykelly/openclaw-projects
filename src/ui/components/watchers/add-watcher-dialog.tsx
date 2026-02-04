@@ -7,6 +7,7 @@ import { Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/ui/components/ui/dialog';
@@ -69,6 +70,7 @@ export function AddWatcherDialog({
       <DialogContent className={cn('sm:max-w-md', className)}>
         <DialogHeader>
           <DialogTitle>Add watcher</DialogTitle>
+          <DialogDescription className="sr-only">Search and add a watcher to this item</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
