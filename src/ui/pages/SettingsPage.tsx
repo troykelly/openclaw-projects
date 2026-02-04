@@ -1,11 +1,15 @@
 /**
- * Settings page placeholder.
- * Actual implementation will be added in Phase 2 issues.
+ * Settings page.
+ *
+ * Delegates rendering to the SettingsPage component from the settings
+ * module, wrapping it with the standard page test ID.
  */
+import { SettingsPage as SettingsPageComponent } from '@/ui/components/settings';
+
 export function SettingsPage(): React.JSX.Element {
   return (
-    <div data-testid="page-settings" className="p-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+    <div data-testid="page-settings">
+      <SettingsPageComponent />
     </div>
   );
 }
