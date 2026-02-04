@@ -174,6 +174,22 @@ export {
   type NoteToolOptions,
 } from './notes.js'
 
+// Relationship tools
+export {
+  createRelationshipSetTool,
+  createRelationshipQueryTool,
+  RelationshipSetParamsSchema,
+  RelationshipQueryParamsSchema,
+  type RelationshipSetParams,
+  type RelationshipQueryParams,
+  type RelationshipSetTool,
+  type RelationshipQueryTool,
+  type RelationshipSetResult,
+  type RelationshipQueryResult,
+  type RelatedContact,
+  type RelationshipToolOptions,
+} from './relationships.js'
+
 // Notebook tools
 export {
   createNotebookListTool,

@@ -39,6 +39,8 @@ import {
   MessageSearchParamsSchema,
   ThreadListParamsSchema,
   ThreadGetParamsSchema,
+  RelationshipSetParamsSchema,
+  RelationshipQueryParamsSchema,
   MemoryCategory,
   ProjectStatus,
 } from './tools/index.js'
@@ -485,6 +487,60 @@ const threadGetSchema: JSONSchema = {
     },
   },
   required: ['threadId'],
+}
+
+/**
+ * Relationship set tool JSON Schema
+ */
+const relationshipSetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    contact_a: {
+      type: 'string',
+      description: 'Name or ID of the first contact',
+      minLength: 1,
+      maxLength: 200,
+    },
+    contact_b: {
+      type: 'string',
+      description: 'Name or ID of the second contact',
+      minLength: 1,
+      maxLength: 200,
+    },
+    relationship: {
+      type: 'string',
+      description: "Description of the relationship, e.g. 'partner', 'parent of', 'member of', 'works for'",
+      minLength: 1,
+      maxLength: 200,
+    },
+    notes: {
+      type: 'string',
+      description: 'Optional context about this relationship',
+      maxLength: 2000,
+    },
+  },
+  required: ['contact_a', 'contact_b', 'relationship'],
+}
+
+/**
+ * Relationship query tool JSON Schema
+ */
+const relationshipQuerySchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    contact: {
+      type: 'string',
+      description: 'Name or ID of the contact to query',
+      minLength: 1,
+      maxLength: 200,
+    },
+    type_filter: {
+      type: 'string',
+      description: 'Optional: filter by relationship type',
+      maxLength: 200,
+    },
+  },
+  required: ['contact'],
 }
 
 /**
@@ -1401,6 +1457,159 @@ function createToolHandlers(state: PluginState) {
         }
       }
     },
+
+    async relationship_set(params: Record<string, unknown>): Promise<ToolResult> {
+      const { contact_a, contact_b, relationship, notes } = params as {
+        contact_a: string
+        contact_b: string
+        relationship: string
+        notes?: string
+      }
+
+      if (!contact_a || !contact_b || !relationship) {
+        return {
+          success: false,
+          error: 'contact_a, contact_b, and relationship are required',
+        }
+      }
+
+      logger.info('relationship_set invoked', {
+        userId,
+        contactALength: contact_a.length,
+        contactBLength: contact_b.length,
+        relationshipLength: relationship.length,
+        hasNotes: !!notes,
+      })
+
+      try {
+        const body: Record<string, unknown> = {
+          contactA: contact_a,
+          contactB: contact_b,
+          relationshipType: relationship,
+        }
+        if (notes) {
+          body.notes = notes
+        }
+
+        const response = await apiClient.post<{
+          relationship: { id: string }
+          contactA: { id: string; displayName: string }
+          contactB: { id: string; displayName: string }
+          relationshipType: { id: string; name: string; label: string }
+          created: boolean
+        }>(
+          '/api/relationships/set',
+          body,
+          { userId }
+        )
+
+        if (!response.success) {
+          return { success: false, error: response.error.message }
+        }
+
+        const { relationship: rel, contactA, contactB, relationshipType, created } = response.data
+        const content = created
+          ? `Recorded: ${contactA.displayName} [${relationshipType.label}] ${contactB.displayName}`
+          : `Relationship already exists: ${contactA.displayName} [${relationshipType.label}] ${contactB.displayName}`
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: {
+              relationshipId: rel.id,
+              created,
+              contactA,
+              contactB,
+              relationshipType,
+              userId,
+            },
+          },
+        }
+      } catch (error) {
+        logger.error('relationship_set failed', { error })
+        return { success: false, error: 'Failed to set relationship' }
+      }
+    },
+
+    async relationship_query(params: Record<string, unknown>): Promise<ToolResult> {
+      const { contact, type_filter } = params as {
+        contact: string
+        type_filter?: string
+      }
+
+      if (!contact) {
+        return {
+          success: false,
+          error: 'contact is required',
+        }
+      }
+
+      logger.info('relationship_query invoked', {
+        userId,
+        contactLength: contact.length,
+        hasTypeFilter: !!type_filter,
+      })
+
+      try {
+        const queryParams = new URLSearchParams({ contact })
+        if (type_filter) {
+          queryParams.set('type_filter', type_filter)
+        }
+
+        const response = await apiClient.get<{
+          contactId: string
+          contactName: string
+          relatedContacts: Array<{
+            contactId: string
+            contactName: string
+            contactKind: string
+            relationshipId: string
+            relationshipTypeName: string
+            relationshipTypeLabel: string
+            isDirectional: boolean
+            notes: string | null
+          }>
+        }>(
+          `/api/relationships/query?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          return { success: false, error: response.error.message }
+        }
+
+        const { contactId, contactName, relatedContacts } = response.data
+
+        if (relatedContacts.length === 0) {
+          return {
+            success: true,
+            data: {
+              content: `No relationships found for ${contactName}.`,
+              details: { contactId, contactName, relatedContacts: [], userId },
+            },
+          }
+        }
+
+        const lines = [`Relationships for ${contactName}:`]
+        for (const rel of relatedContacts) {
+          const kindTag = rel.contactKind !== 'person' ? ` [${rel.contactKind}]` : ''
+          const notesTag = rel.notes ? ` -- ${rel.notes}` : ''
+          lines.push(`- ${rel.relationshipTypeLabel}: ${rel.contactName}${kindTag}${notesTag}`)
+        }
+
+        return {
+          success: true,
+          data: {
+            content: lines.join('\n'),
+            details: { contactId, contactName, relatedContacts, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('relationship_query failed', { error })
+        return { success: false, error: 'Failed to query relationships' }
+      }
+    },
   }
 }
 
@@ -1435,7 +1644,7 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
   // Create tool handlers
   const handlers = createToolHandlers(state)
 
-  // Register all 12 tools
+  // Register all 19 tools
   const tools: ToolDefinition[] = [
     {
       name: 'memory_recall',
@@ -1538,6 +1747,18 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
       description: 'Get a thread with its message history. Use to view the full conversation in a thread.',
       parameters: threadGetSchema,
       execute: (params) => handlers.thread_get(params),
+    },
+    {
+      name: 'relationship_set',
+      description: "Record a relationship between two people, groups, or organisations. Examples: 'Troy is Alex\\'s partner', 'Sam is a member of The Kelly Household', 'Troy works for Acme Corp'. The system handles directionality and type matching automatically.",
+      parameters: relationshipSetSchema,
+      execute: (params) => handlers.relationship_set(params),
+    },
+    {
+      name: 'relationship_query',
+      description: "Query a contact's relationships. Returns all relationships including family, partners, group memberships, professional connections, etc. Handles directional relationships automatically.",
+      parameters: relationshipQuerySchema,
+      execute: (params) => handlers.relationship_query(params),
     },
   ]
 
@@ -1670,4 +1891,6 @@ export const schemas = {
   messageSearch: messageSearchSchema,
   threadList: threadListSchema,
   threadGet: threadGetSchema,
+  relationshipSet: relationshipSetSchema,
+  relationshipQuery: relationshipQuerySchema,
 }

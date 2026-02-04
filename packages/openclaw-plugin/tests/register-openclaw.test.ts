@@ -51,10 +51,10 @@ describe('OpenClaw 2026 API Registration', () => {
   })
 
   describe('registration', () => {
-    it('should register all 17 tools', async () => {
+    it('should register all 19 tools', async () => {
       await registerOpenClaw(mockApi)
 
-      expect(registeredTools).toHaveLength(17)
+      expect(registeredTools).toHaveLength(19)
       const toolNames = registeredTools.map((t) => t.name)
       expect(toolNames).toContain('memory_recall')
       expect(toolNames).toContain('memory_store')
@@ -73,6 +73,8 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(toolNames).toContain('message_search')
       expect(toolNames).toContain('thread_list')
       expect(toolNames).toContain('thread_get')
+      expect(toolNames).toContain('relationship_set')
+      expect(toolNames).toContain('relationship_query')
     })
 
     it('should register beforeAgentStart hook when autoRecall is true', async () => {
@@ -112,7 +114,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
         expect.objectContaining({
-          toolCount: 17,
+          toolCount: 19,
         })
       )
     })
@@ -141,6 +143,14 @@ describe('OpenClaw 2026 API Registration', () => {
 
       const contactCreate = registeredTools.find((t) => t.name === 'contact_create')
       expect(contactCreate?.parameters.required).toContain('name')
+
+      const relationshipSet = registeredTools.find((t) => t.name === 'relationship_set')
+      expect(relationshipSet?.parameters.required).toContain('contact_a')
+      expect(relationshipSet?.parameters.required).toContain('contact_b')
+      expect(relationshipSet?.parameters.required).toContain('relationship')
+
+      const relationshipQuery = registeredTools.find((t) => t.name === 'relationship_query')
+      expect(relationshipQuery?.parameters.required).toContain('contact')
     })
 
     it('should have executable functions', async () => {
@@ -171,6 +181,8 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(schemas.messageSearch).toBeDefined()
       expect(schemas.threadList).toBeDefined()
       expect(schemas.threadGet).toBeDefined()
+      expect(schemas.relationshipSet).toBeDefined()
+      expect(schemas.relationshipQuery).toBeDefined()
     })
 
     it('should have valid schema structure', () => {
