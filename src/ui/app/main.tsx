@@ -1,6 +1,7 @@
 import '../app.css';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
 
 // Layout
 import { AppShell } from '@/ui/components/layout/app-shell';
@@ -3467,6 +3468,8 @@ if (!el) throw new Error('Missing #root element');
 
 createRoot(el).render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter basename="/static/app">
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );
