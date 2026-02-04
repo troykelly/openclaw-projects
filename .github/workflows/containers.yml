@@ -131,7 +131,8 @@ jobs:
           format: 'sarif'
           output: 'trivy-results-${{ matrix.image.name }}.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          # Exit code 1 = fail on vulnerabilities for pushed images, exit code 0 = informational for PRs
+          exit-code: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3

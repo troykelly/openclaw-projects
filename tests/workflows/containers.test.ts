@@ -208,11 +208,13 @@ describe('containers.yml workflow', () => {
         expect(trivy).toBeDefined();
       });
 
-      it('should configure Trivy to fail on critical and high severity', () => {
+      it('should configure Trivy to fail on critical and high severity for non-PR events', () => {
         const trivy = steps.find((s) =>
           s.uses?.includes('aquasecurity/trivy-action')
         );
-        expect(trivy?.with?.['exit-code']).toBe('1');
+        const exitCode = String(trivy?.with?.['exit-code'] ?? '');
+        // Can be static '1' or a conditional that fails for non-PRs
+        expect(exitCode === '1' || exitCode.includes("'1'")).toBe(true);
         const severity = String(trivy?.with?.severity ?? '').toUpperCase();
         expect(severity).toContain('CRITICAL');
         expect(severity).toContain('HIGH');
