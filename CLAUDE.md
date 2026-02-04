@@ -184,6 +184,12 @@ This enables parallel agents and prevents filesystem conflicts. See `AGENTS.md` 
 - dev-major must work inside the repo devcontainer.
 - The devcontainer must load `GITHUB_TOKEN` and `GITHUB_TOKEN_TROY` from a local `.env` (not committed) per the runbook.
 
+### Package Manager: pnpm ONLY
+
+- **NEVER use `npm` or `npx`.** This project uses `pnpm` exclusively.
+- Use `pnpm run <script>`, `pnpm exec <bin>`, `pnpm add`, `pnpm install`, etc.
+- All scripts in `package.json` are invoked via `pnpm run <name>`.
+
 ---
 
 ## Commit Discipline

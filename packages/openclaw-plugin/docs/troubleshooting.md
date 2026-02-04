@@ -252,13 +252,13 @@ This guide covers common issues and their solutions.
 1. **Rebuild plugin**
    ```bash
    cd /path/to/plugin
-   npm run build
+   pnpm build
    ```
 
-2. **Clear npm cache**
+2. **Clear pnpm cache and reinstall**
    ```bash
-   npm cache clean --force
-   npm install
+   pnpm store prune
+   pnpm install
    ```
 
 3. **Check Node.js version**

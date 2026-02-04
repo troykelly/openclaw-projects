@@ -17,20 +17,20 @@ openclaw plugins install @troykelly/openclaw-projects
 ```
 
 This will:
-- Download the plugin from npm
+- Download the plugin from the registry
 - Register it with your OpenClaw installation
 - Create a configuration template
 
-### Method 2: npm Global Installation
+### Method 2: pnpm Global Installation
 
 ```bash
-npm install -g @troykelly/openclaw-projects
+pnpm add -g @troykelly/openclaw-projects
 ```
 
 Then link it to OpenClaw:
 
 ```bash
-openclaw plugins link $(npm root -g)/@troykelly/openclaw-projects
+openclaw plugins link $(pnpm root -g)/@troykelly/openclaw-projects
 ```
 
 ### Method 3: Local Development
@@ -99,10 +99,10 @@ Agent: [Uses memory_recall] You don't have any stored preferences yet.
 openclaw plugins update @troykelly/openclaw-projects
 ```
 
-### Via npm
+### Via pnpm
 
 ```bash
-npm update -g @troykelly/openclaw-projects
+pnpm update -g @troykelly/openclaw-projects
 ```
 
 ## Uninstalling
@@ -113,10 +113,10 @@ npm update -g @troykelly/openclaw-projects
 openclaw plugins uninstall @troykelly/openclaw-projects
 ```
 
-### Via npm
+### Via pnpm
 
 ```bash
-npm uninstall -g @troykelly/openclaw-projects
+pnpm remove -g @troykelly/openclaw-projects
 ```
 
 ## Troubleshooting Installation
@@ -129,10 +129,10 @@ Ensure the plugin is in your OpenClaw plugin path:
 openclaw config get pluginPaths
 ```
 
-If missing, add the npm global path:
+If missing, add the pnpm global path:
 
 ```bash
-openclaw config set pluginPaths "$(npm root -g)"
+openclaw config set pluginPaths "$(pnpm root -g)"
 ```
 
 ### Build Errors (Local Development)
@@ -153,13 +153,13 @@ pnpm build
 
 ### Permission Errors
 
-On Unix systems, you may need to adjust npm permissions:
+On Unix systems, you may need to adjust permissions:
 
 ```bash
 # Option 1: Use a node version manager (recommended)
-# Option 2: Configure npm to use a different directory
-npm config set prefix ~/.npm-global
-export PATH=~/.npm-global/bin:$PATH
+# Option 2: Configure pnpm to use a different directory
+pnpm config set global-dir ~/.pnpm-global
+export PATH=~/.pnpm-global/bin:$PATH
 ```
 
 For more troubleshooting help, see [Troubleshooting](./troubleshooting.md).
