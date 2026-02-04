@@ -2,13 +2,22 @@
  * @vitest-environment jsdom
  */
 import * as React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { CommunicationsPage } from '@/ui/pages/CommunicationsPage';
 import type {
   LinkedEmail,
   LinkedCalendarEvent,
 } from '@/ui/components/communications/types';
+import { useEmails, useCalendarEvents } from '@/ui/hooks/queries/use-global-communications';
+
+// ---------------------------------------------------------------------------
+// Mock the global communications hooks
+// ---------------------------------------------------------------------------
+vi.mock('@/ui/hooks/queries/use-global-communications', () => ({
+  useEmails: vi.fn(() => ({ data: undefined, isLoading: false, error: null })),
+  useCalendarEvents: vi.fn(() => ({ data: undefined, isLoading: false, error: null })),
+}));
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -78,6 +87,19 @@ const mockEvents: LinkedCalendarEvent[] = [
 // ---------------------------------------------------------------------------
 
 describe('CommunicationsPage', () => {
+  beforeEach(() => {
+    vi.mocked(useEmails).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useEmails>);
+    vi.mocked(useCalendarEvents).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useCalendarEvents>);
+  });
+
   describe('Page structure', () => {
     it('renders page with test id', () => {
       render(<CommunicationsPage emails={[]} calendarEvents={[]} />);
@@ -397,6 +419,118 @@ describe('CommunicationsPage', () => {
       expect(
         screen.getByText('Emails and calendar events linked to your work items will appear here.'),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('API integration', () => {
+    it('shows loading state when email hook is loading and no props provided', () => {
+      vi.mocked(useEmails).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      } as ReturnType<typeof useEmails>);
+      vi.mocked(useCalendarEvents).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: null,
+      } as ReturnType<typeof useCalendarEvents>);
+
+      render(<CommunicationsPage />);
+      // Should show loading skeletons
+      expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
+    });
+
+    it('shows loading state when calendar hook is loading and no props provided', () => {
+      vi.mocked(useEmails).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: null,
+      } as ReturnType<typeof useEmails>);
+      vi.mocked(useCalendarEvents).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      } as ReturnType<typeof useCalendarEvents>);
+
+      render(<CommunicationsPage />);
+      expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
+    });
+
+    it('shows error state when email hook has an error and no props provided', () => {
+      vi.mocked(useEmails).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: new Error('Network failure'),
+      } as ReturnType<typeof useEmails>);
+
+      render(<CommunicationsPage />);
+      expect(screen.getByTestId('error-state')).toBeInTheDocument();
+      expect(screen.getByText(/failed to load/i)).toBeInTheDocument();
+    });
+
+    it('shows error state when calendar hook has an error and no props provided', () => {
+      vi.mocked(useCalendarEvents).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: new Error('Server error'),
+      } as ReturnType<typeof useCalendarEvents>);
+
+      render(<CommunicationsPage />);
+      expect(screen.getByTestId('error-state')).toBeInTheDocument();
+    });
+
+    it('uses prop data over hook data when props are provided', () => {
+      // Even if hooks return data, props should take precedence
+      vi.mocked(useEmails).mockReturnValue({
+        data: { emails: [] },
+        isLoading: false,
+        error: null,
+      } as ReturnType<typeof useEmails>);
+      vi.mocked(useCalendarEvents).mockReturnValue({
+        data: { events: [] },
+        isLoading: false,
+        error: null,
+      } as ReturnType<typeof useCalendarEvents>);
+
+      render(<CommunicationsPage emails={mockEmails} calendarEvents={mockEvents} />);
+      expect(screen.getByText('Sprint Planning Notes')).toBeInTheDocument();
+      expect(screen.getByText('Team Standup')).toBeInTheDocument();
+    });
+
+    it('does not show loading state when props are provided even if hooks are loading', () => {
+      vi.mocked(useEmails).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      } as ReturnType<typeof useEmails>);
+      vi.mocked(useCalendarEvents).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      } as ReturnType<typeof useCalendarEvents>);
+
+      render(<CommunicationsPage emails={mockEmails} calendarEvents={mockEvents} />);
+      // Should NOT show loading state because props are provided
+      expect(screen.queryAllByTestId('skeleton').length).toBe(0);
+      expect(screen.getByText('Sprint Planning Notes')).toBeInTheDocument();
+    });
+
+    it('does not show error state when props are provided even if hooks have errors', () => {
+      vi.mocked(useEmails).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: new Error('fail'),
+      } as ReturnType<typeof useEmails>);
+
+      render(<CommunicationsPage emails={mockEmails} calendarEvents={mockEvents} />);
+      expect(screen.queryByTestId('error-state')).not.toBeInTheDocument();
+      expect(screen.getByText('Sprint Planning Notes')).toBeInTheDocument();
+    });
+
+    it('calls useEmails and useCalendarEvents hooks', () => {
+      render(<CommunicationsPage />);
+      expect(useEmails).toHaveBeenCalled();
+      expect(useCalendarEvents).toHaveBeenCalled();
     });
   });
 });

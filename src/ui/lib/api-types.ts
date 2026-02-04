@@ -346,6 +346,16 @@ export interface CommunicationsResponse {
   calendar_events: ApiCommunication[];
 }
 
+/** Response from GET /api/emails */
+export interface EmailsResponse {
+  emails: ApiCommunication[];
+}
+
+/** Response from GET /api/calendar/events */
+export interface CalendarEventsResponse {
+  events: ApiCommunication[];
+}
+
 // ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
