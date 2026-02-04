@@ -2,6 +2,7 @@ import '../app.css';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Layout
 import { AppShell } from '@/ui/components/layout/app-shell';
@@ -3462,6 +3463,16 @@ function App(): React.JSX.Element {
   );
 }
 
+// Shared QueryClient instance for TanStack Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
+
 // Mount the app
 const el = document.getElementById('root');
 if (!el) throw new Error('Missing #root element');
@@ -3469,7 +3480,9 @@ if (!el) throw new Error('Missing #root element');
 createRoot(el).render(
   <React.StrictMode>
     <BrowserRouter basename="/static/app">
-      <App />
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
