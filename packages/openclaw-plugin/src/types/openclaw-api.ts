@@ -3,6 +3,8 @@
  *
  * These types define the contract between plugins and the OpenClaw Gateway runtime.
  * Based on OpenClaw 2026 plugin architecture.
+ *
+ * Reference: docs/knowledge/openclaw-hook-contract.md
  */
 
 import type { Logger } from '../logger.js'
@@ -63,7 +65,69 @@ export interface ToolDefinition {
   execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>
 }
 
-/** Hook event types */
+// ── OpenClaw Hook Contract Types ─────────────────────────────────────────────
+// These match the actual OpenClaw Gateway hook contract.
+// See: docs/knowledge/openclaw-hook-contract.md
+
+/**
+ * Hook names using the actual OpenClaw snake_case convention.
+ * Preferred over legacy camelCase names.
+ */
+export type PluginHookName =
+  | 'before_agent_start'
+  | 'agent_end'
+  | 'before_compaction'
+  | 'after_compaction'
+  | 'message_received'
+  | 'message_sending'
+  | 'message_sent'
+  | 'before_tool_call'
+  | 'after_tool_call'
+  | 'tool_result_persist'
+  | 'session_start'
+  | 'session_end'
+  | 'gateway_start'
+  | 'gateway_stop'
+
+/** Event payload for before_agent_start hook */
+export interface PluginHookBeforeAgentStartEvent {
+  /** The user's actual prompt text */
+  prompt: string
+  /** Previous conversation messages (optional) */
+  messages?: unknown[]
+}
+
+/** Context passed as second argument to hook handlers */
+export interface PluginHookAgentContext {
+  agentId?: string
+  sessionKey?: string
+  workspaceDir?: string
+  messageProvider?: string
+}
+
+/** Return value from before_agent_start hook */
+export interface PluginHookBeforeAgentStartResult {
+  /** Append to the system prompt */
+  systemPrompt?: string
+  /** Prepend to conversation context */
+  prependContext?: string
+}
+
+/** Event payload for agent_end hook */
+export interface PluginHookAgentEndEvent {
+  /** Full conversation messages */
+  messages: unknown[]
+  /** Whether the agent completed successfully */
+  success: boolean
+  /** Error message if the agent failed */
+  error?: string
+  /** Duration of the agent run in milliseconds */
+  durationMs?: number
+}
+
+// ── Legacy Hook Types (kept for backwards compatibility) ─────────────────────
+
+/** Legacy hook event types (camelCase) */
 export type HookEvent =
   | 'beforeAgentStart'
   | 'afterAgentStart'
@@ -74,7 +138,7 @@ export type HookEvent =
   | 'messageReceived'
   | 'messageSent'
 
-/** Hook handler function */
+/** Legacy hook handler function */
 export type HookHandler<T = unknown> = (event: T) => Promise<T | null | void>
 
 /** CLI registration callback */
@@ -130,8 +194,25 @@ export interface OpenClawPluginAPI {
   registerTool: (tool: ToolDefinition) => void
 
   /**
-   * Register a lifecycle hook.
+   * Register a lifecycle hook using the modern api.on() method.
+   * Preferred over registerHook(). Uses snake_case hook names.
+   *
+   * @example
+   * api.on('before_agent_start', async (event, ctx) => {
+   *   return { prependContext: 'some context' }
+   * })
+   */
+  on?: <K extends PluginHookName>(
+    hookName: K,
+    handler: (...args: unknown[]) => unknown,
+    opts?: { priority?: number }
+  ) => void
+
+  /**
+   * Register a lifecycle hook (legacy method).
    * Hooks allow intercepting and modifying plugin/agent lifecycle events.
+   *
+   * @deprecated Use api.on() for modern hook registration with proper typing.
    */
   registerHook: <T = unknown>(event: HookEvent, handler: HookHandler<T>) => void
 
