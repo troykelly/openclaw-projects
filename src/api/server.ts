@@ -979,6 +979,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           parameters: [
             { name: 'search', in: 'query', schema: { type: 'string' } },
             { name: 'memory_type', in: 'query', schema: { type: 'string' } },
+            { name: 'tags', in: 'query', schema: { type: 'string' }, description: 'Comma-separated tags to filter by' },
           ],
           responses: {
             '200': { description: 'List of memories' },
@@ -1000,6 +1001,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                     content: { type: 'string' },
                     work_item_id: { type: 'string', format: 'uuid' },
                     contact_id: { type: 'string', format: 'uuid' },
+                    tags: { type: 'array', items: { type: 'string' }, description: 'Freeform text tags for categorical filtering' },
                   },
                 },
               },
@@ -5076,6 +5078,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       search?: string;
       type?: string;
       linkedItemKind?: string;
+      tags?: string;
     };
 
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
@@ -5083,6 +5086,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const search = query.search?.trim() || null;
     const typeFilter = query.type || null;
     const kindFilter = query.linkedItemKind || null;
+    const tagsFilter = query.tags ? query.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : null;
 
     const pool = createPool();
 
@@ -5109,6 +5113,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
+    if (tagsFilter && tagsFilter.length > 0) {
+      conditions.push(`m.tags @> $${paramIndex}`);
+      params.push(tagsFilter);
+      paramIndex++;
+    }
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Get total count
@@ -5130,6 +5140,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               m.title,
               m.content,
               m.memory_type::text as type,
+              m.tags,
               m.work_item_id::text as "linkedItemId",
               wi.title as "linkedItemTitle",
               wi.work_item_kind as "linkedItemKind",
@@ -5162,6 +5173,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       content?: string;
       linkedItemId?: string;
       type?: string;
+      tags?: string[];
     };
 
     if (!body?.title || body.title.trim().length === 0) {
@@ -5196,17 +5208,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const linkedItemTitle = (linkedItem.rows[0] as { title: string }).title;
 
+    const tags = body.tags ?? [];
+
     const result = await pool.query(
-      `INSERT INTO memory (work_item_id, title, content, memory_type)
-       VALUES ($1, $2, $3, $4::memory_type)
+      `INSERT INTO memory (work_item_id, title, content, memory_type, tags)
+       VALUES ($1, $2, $3, $4::memory_type, $5)
        RETURNING id::text as id,
                  title,
                  content,
                  memory_type::text as type,
+                 tags,
                  work_item_id::text as "linkedItemId",
                  created_at as "createdAt",
                  embedding_status`,
-      [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType]
+      [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType, tags]
     );
 
     const row = result.rows[0] as {
@@ -5214,6 +5229,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       title: string;
       content: string;
       type: string;
+      tags: string[];
       linkedItemId: string;
       createdAt: string;
       embedding_status: string;
@@ -5230,6 +5246,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       title: row.title,
       content: row.content,
       type: row.type,
+      tags: row.tags,
       linkedItemId: row.linkedItemId,
       linkedItemTitle,
       createdAt: row.createdAt,
@@ -5240,7 +5257,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PUT /api/memory/:id - Update a memory
   app.put('/api/memory/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const body = req.body as { title?: string; content?: string; type?: string };
+    const body = req.body as { title?: string; content?: string; type?: string; tags?: string[] };
 
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
@@ -5265,19 +5282,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
+    const tags = body.tags;
+
     const result = await pool.query(
       `UPDATE memory
        SET title = $1, content = $2, memory_type = $3::memory_type, updated_at = now(),
-           embedding_status = 'pending'
+           embedding_status = 'pending'${tags !== undefined ? ', tags = $5' : ''}
        WHERE id = $4
        RETURNING id::text as id,
                  title,
                  content,
                  memory_type::text as type,
+                 tags,
                  work_item_id::text as "linkedItemId",
                  created_at as "createdAt",
                  updated_at as "updatedAt"`,
-      [body.title.trim(), body.content.trim(), memoryType, params.id]
+      tags !== undefined
+        ? [body.title.trim(), body.content.trim(), memoryType, params.id, tags]
+        : [body.title.trim(), body.content.trim(), memoryType, params.id]
     );
 
     const row = result.rows[0] as {
@@ -5285,6 +5307,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       title: string;
       content: string;
       type: string;
+      tags: string[];
       linkedItemId: string;
       createdAt: string;
       updatedAt: string;
@@ -5336,6 +5359,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
       memory_type?: string;
       work_item_id?: string;
+      tags?: string;
     };
 
     if (!query.q || query.q.trim().length === 0) {
@@ -5344,6 +5368,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const limit = Math.min(Math.max(parseInt(query.limit || '20', 10), 1), 100);
     const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+    const searchTags = query.tags ? query.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : undefined;
 
     const pool = createPool();
 
@@ -5353,6 +5378,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset,
         memoryType: query.memory_type,
         workItemId: query.work_item_id,
+        tags: searchTags,
       });
 
       return reply.send({
@@ -5490,6 +5516,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       importance?: number;
       confidence?: number;
       expires_at?: string;
+      tags?: string[];
     };
 
     if (!body?.title?.trim()) {
@@ -5523,6 +5550,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         importance: body.importance,
         confidence: body.confidence,
         expiresAt: body.expires_at ? new Date(body.expires_at) : undefined,
+        tags: body.tags,
       });
 
       // Generate embedding asynchronously
@@ -5553,6 +5581,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         importance?: number;
         confidence?: number;
         expires_at?: string;
+        tags?: string[];
       }>;
     };
 
@@ -5612,6 +5641,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             importance: mem.importance,
             confidence: mem.confidence,
             expiresAt: mem.expires_at ? new Date(mem.expires_at) : undefined,
+            tags: mem.tags,
           });
 
           // Generate embedding asynchronously (don't await to avoid blocking)

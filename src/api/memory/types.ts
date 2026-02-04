@@ -1,6 +1,7 @@
 /**
  * Memory types for the unified memory system.
  * Part of Epic #199, Issue #209
+ * Tags added in Issue #492
  */
 
 /** Valid memory types */
@@ -43,6 +44,8 @@ export interface CreateMemoryInput extends MemoryScope, MemoryAttribution, Memor
   title: string;
   content: string;
   memoryType?: MemoryType;
+  /** Freeform text tags for categorical filtering */
+  tags?: string[];
 }
 
 /** Input for updating a memory */
@@ -54,6 +57,8 @@ export interface UpdateMemoryInput {
   confidence?: number;
   expiresAt?: Date | null;
   supersededBy?: string | null;
+  /** Freeform text tags for categorical filtering */
+  tags?: string[];
 }
 
 /** A memory entry from the database */
@@ -65,6 +70,8 @@ export interface MemoryEntry {
   title: string;
   content: string;
   memoryType: MemoryType;
+  /** Freeform text tags for categorical filtering */
+  tags: string[];
   createdByAgent: string | null;
   createdByHuman: boolean;
   sourceUrl: string | null;
@@ -81,6 +88,8 @@ export interface MemoryEntry {
 export interface ListMemoriesOptions extends MemoryScope {
   status?: 'pending' | 'dispatched' | 'failed';
   memoryType?: MemoryType;
+  /** Filter to memories containing all of these tags */
+  tags?: string[];
   includeExpired?: boolean;
   includeSuperseded?: boolean;
   limit?: number;
@@ -103,6 +112,8 @@ export interface MemorySearchResult {
 /** Options for semantic search */
 export interface SearchMemoriesOptions extends MemoryScope {
   memoryType?: MemoryType;
+  /** Filter to memories containing all of these tags */
+  tags?: string[];
   limit?: number;
   offset?: number;
   minSimilarity?: number;

@@ -1,6 +1,7 @@
 /**
  * memory_store tool implementation.
  * Persists important information to long-term memory.
+ * Tags support added in Issue #492.
  */
 
 import { z } from 'zod'
@@ -17,6 +18,10 @@ export const MemoryStoreParamsSchema = z.object({
     .max(5000, 'Text must be 5000 characters or less'),
   category: MemoryCategory.optional(),
   importance: z.number().min(0).max(1).optional(),
+  tags: z
+    .array(z.string().min(1).max(100))
+    .max(20, 'Maximum 20 tags per memory')
+    .optional(),
 })
 export type MemoryStoreParams = z.infer<typeof MemoryStoreParamsSchema>
 
@@ -26,6 +31,7 @@ export interface StoredMemory {
   content: string
   category?: string
   importance?: number
+  tags?: string[]
   createdAt?: string
 }
 
@@ -38,6 +44,7 @@ export interface MemoryStoreSuccess {
       id: string
       category: string
       importance: number
+      tags: string[]
       userId: string
     }
   }
@@ -132,7 +139,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
   return {
     name: 'memory_store',
     description:
-      'Save important information to long-term memory. Use for preferences, facts, decisions, or any information worth remembering.',
+      'Save important information to long-term memory. Use for preferences, facts, decisions, or any information worth remembering. Optionally tag memories for structured retrieval (e.g., ["music", "work", "food"]).',
     parameters: MemoryStoreParamsSchema,
 
     async execute(params: MemoryStoreParams): Promise<MemoryStoreResult> {
@@ -149,6 +156,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         text,
         category = 'other',
         importance = 0.7,
+        tags = [],
       } = parseResult.data
 
       // Sanitize text
@@ -170,6 +178,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         userId,
         category,
         importance,
+        tags,
         textLength: sanitizedText.length,
       })
 
@@ -181,6 +190,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
             content: sanitizedText,
             category,
             importance,
+            tags,
           },
           { userId }
         )
@@ -201,7 +211,8 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
 
         // Format response
         const preview = truncateForPreview(sanitizedText)
-        const content = `Stored memory [${category}]: "${preview}"`
+        const tagSuffix = tags.length > 0 ? ` (tags: ${tags.join(', ')})` : ''
+        const content = `Stored memory [${category}]: "${preview}"${tagSuffix}`
 
         logger.debug('memory_store completed', {
           userId,
@@ -216,6 +227,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
               id: stored.id,
               category,
               importance,
+              tags,
               userId,
             },
           },

@@ -123,13 +123,14 @@ export async function searchMemoriesSemantic(
     offset?: number;
     memoryType?: string;
     workItemId?: string;
+    tags?: string[];
   } = {}
 ): Promise<{
   results: Array<MemoryWithEmbedding & { similarity: number }>;
   searchType: 'semantic' | 'text';
   queryEmbeddingProvider?: string;
 }> {
-  const { limit = 20, offset = 0, memoryType, workItemId } = options;
+  const { limit = 20, offset = 0, memoryType, workItemId, tags } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -169,6 +170,12 @@ export async function searchMemoriesSemantic(
     paramIndex++;
   }
 
+  if (tags && tags.length > 0) {
+    conditions.push(`m.tags @> $${paramIndex}`);
+    params.push(tags);
+    paramIndex++;
+  }
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Semantic search with embedding
@@ -201,6 +208,7 @@ export async function searchMemoriesSemantic(
          m.embedding_status,
          m.embedding_provider,
          m.embedding_model,
+         m.tags,
          1 - (m.embedding <=> $${embeddingParamIndex}::vector) as similarity
        FROM memory m
        ${fullWhereClause}

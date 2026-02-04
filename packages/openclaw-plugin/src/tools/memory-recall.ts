@@ -1,6 +1,7 @@
 /**
  * memory_recall tool implementation.
  * Provides semantic search through stored memories.
+ * Tags filtering support added in Issue #492.
  */
 
 import { z } from 'zod'
@@ -20,6 +21,10 @@ export const MemoryRecallParamsSchema = z.object({
     .max(1000, 'Query must be 1000 characters or less'),
   limit: z.number().int().min(1).max(20).optional(),
   category: MemoryCategory.optional(),
+  tags: z
+    .array(z.string().min(1).max(100))
+    .max(20, 'Maximum 20 tags per filter')
+    .optional(),
 })
 export type MemoryRecallParams = z.infer<typeof MemoryRecallParamsSchema>
 
@@ -28,6 +33,7 @@ export interface Memory {
   id: string
   content: string
   category: string
+  tags?: string[]
   score?: number
   createdAt?: string
   updatedAt?: string
@@ -82,7 +88,7 @@ function sanitizeQuery(query: string): string {
 }
 
 /**
- * Format memories as a bullet list with category tags.
+ * Format memories as a bullet list with category and tag annotations.
  */
 function formatMemoriesAsText(memories: Memory[]): string {
   if (memories.length === 0) {
@@ -90,7 +96,10 @@ function formatMemoriesAsText(memories: Memory[]): string {
   }
 
   return memories
-    .map((m) => `- [${m.category}] ${m.content}`)
+    .map((m) => {
+      const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : ''
+      return `- [${m.category}]${tagSuffix} ${m.content}`
+    })
     .join('\n')
 }
 
@@ -124,7 +133,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
   return {
     name: 'memory_recall',
     description:
-      'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics.',
+      'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics. Optionally filter by tags for categorical queries (e.g., ["music", "food"]).',
     parameters: MemoryRecallParamsSchema,
 
     async execute(params: MemoryRecallParams): Promise<MemoryRecallResult> {
@@ -137,7 +146,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         return { success: false, error: errorMessage }
       }
 
-      const { query, limit = config.maxRecallMemories, category } = parseResult.data
+      const { query, limit = config.maxRecallMemories, category, tags } = parseResult.data
 
       // Sanitize query
       const sanitizedQuery = sanitizeQuery(query)
@@ -150,6 +159,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         userId,
         limit,
         category: category ?? 'all',
+        tags: tags ?? [],
         queryLength: sanitizedQuery.length,
       })
 
@@ -161,6 +171,9 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         })
         if (category) {
           queryParams.set('category', category)
+        }
+        if (tags && tags.length > 0) {
+          queryParams.set('tags', tags.join(','))
         }
 
         const path = `/api/memories/search?${queryParams.toString()}`

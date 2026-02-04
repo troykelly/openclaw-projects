@@ -1,6 +1,7 @@
 /**
  * Memory service for the unified memory system.
  * Part of Epic #199, Issue #209
+ * Tags support added in Issue #492
  */
 
 import type { Pool } from 'pg';
@@ -37,6 +38,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     title: row.title as string,
     content: row.content as string,
     memoryType: row.memory_type as MemoryType,
+    tags: (row.tags as string[]) ?? [],
     createdByAgent: row.created_by_agent as string | null,
     createdByHuman: (row.created_by_human as boolean) ?? false,
     sourceUrl: row.source_url as string | null,
@@ -77,16 +79,19 @@ export async function createMemory(
     console.warn('[Memory] Creating memory without scope - consider adding userEmail, workItemId, or contactId');
   }
 
+  const tags = input.tags ?? [];
+
   const result = await pool.query(
     `INSERT INTO memory (
       user_email, work_item_id, contact_id,
       title, content, memory_type,
+      tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at
-    ) VALUES ($1, $2, $3, $4, $5, $6::memory_type, $7, $8, $9, $10, $11, $12)
+    ) VALUES ($1, $2, $3, $4, $5, $6::memory_type, $7, $8, $9, $10, $11, $12, $13)
     RETURNING
       id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at`,
@@ -97,6 +102,7 @@ export async function createMemory(
       input.title,
       input.content,
       memoryType,
+      tags,
       input.createdByAgent ?? null,
       input.createdByHuman ?? false,
       input.sourceUrl ?? null,
@@ -119,7 +125,7 @@ export async function getMemory(
   const result = await pool.query(
     `SELECT
       id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at
@@ -170,6 +176,12 @@ export async function updateMemory(
     paramIndex++;
   }
 
+  if (input.tags !== undefined) {
+    updates.push(`tags = $${paramIndex}`);
+    params.push(input.tags);
+    paramIndex++;
+  }
+
   if (input.importance !== undefined) {
     if (input.importance < 1 || input.importance > 10) {
       throw new Error('Importance must be between 1 and 10');
@@ -211,7 +223,7 @@ export async function updateMemory(
     WHERE id = $${paramIndex}
     RETURNING
       id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at`,
@@ -273,6 +285,13 @@ export async function listMemories(
     paramIndex++;
   }
 
+  // Tag filter (array containment: memory must have ALL specified tags)
+  if (options.tags !== undefined && options.tags.length > 0) {
+    conditions.push(`tags @> $${paramIndex}`);
+    params.push(options.tags);
+    paramIndex++;
+  }
+
   // Exclude expired unless requested
   if (!options.includeExpired) {
     conditions.push(`(expires_at IS NULL OR expires_at > NOW())`);
@@ -301,7 +320,7 @@ export async function listMemories(
   const result = await pool.query(
     `SELECT
       id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at
@@ -360,7 +379,7 @@ export async function getGlobalMemories(
   const result = await pool.query(
     `SELECT
       id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at
@@ -459,6 +478,11 @@ export async function searchMemories(
           semanticParams.push(options.memoryType);
           semanticIdx++;
         }
+        if (options.tags !== undefined && options.tags.length > 0) {
+          semanticConditions.push(`tags @> $${semanticIdx}`);
+          semanticParams.push(options.tags);
+          semanticIdx++;
+        }
 
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
         const allParams = [embeddingStr, minSimilarity, ...semanticParams, limit, offset];
@@ -467,7 +491,7 @@ export async function searchMemories(
         const result = await pool.query(
           `SELECT
             id::text, user_email, work_item_id::text, contact_id::text,
-            title, content, memory_type::text,
+            title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
             embedding_status, created_at, updated_at,
@@ -525,6 +549,11 @@ export async function searchMemories(
     textParams.push(options.memoryType);
     textIdx++;
   }
+  if (options.tags !== undefined && options.tags.length > 0) {
+    textConditions.push(`tags @> $${textIdx}`);
+    textParams.push(options.tags);
+    textIdx++;
+  }
 
   textParams.push(limit, offset);
   const whereClause = textConditions.length > 0 ? `AND ${textConditions.join(' AND ')}` : '';
@@ -532,7 +561,7 @@ export async function searchMemories(
   const result = await pool.query(
     `SELECT
       id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at,
