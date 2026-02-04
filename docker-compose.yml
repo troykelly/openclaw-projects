@@ -25,5 +25,26 @@ services:
       timeout: 5s
       retries: 5
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: openclaw-seaweedfs
+    command: "server -s3 -s3.port=8333 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=100 -volume.max=10"
+    ports:
+      - "8333:8333"
+      - "9333:9333"
+    volumes:
+      - seaweedfs_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
 volumes:
   postgres_data:
+  seaweedfs_data:

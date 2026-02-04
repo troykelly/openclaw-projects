@@ -33,6 +33,26 @@ services:
       timeout: 5s
       retries: 10
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: openclaw-projects-seaweedfs
+    restart: unless-stopped
+    command: "server -s3 -s3.port=8333 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-30000} -volume.max=100"
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - /var/project/data/openclaw-projects/seaweedfs:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   projects:
     build:
       context: .
@@ -41,6 +61,8 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      seaweedfs:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -54,6 +76,14 @@ services:
       PGUSER: ${POSTGRES_USER:-openclaw}
       PGPASSWORD: ${POSTGRES_PASSWORD:-openclaw}
       PGDATABASE: ${POSTGRES_DB:-openclaw}
+
+      # S3-compatible storage (SeaweedFS)
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_BUCKET: ${S3_BUCKET:-openclaw}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-openclaw}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-openclaw}
+      S3_FORCE_PATH_STYLE: "true"
 
       # Email (Postmark)
       POSTMARK_FROM: ${POSTMARK_FROM:-}
