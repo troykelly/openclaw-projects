@@ -2033,6 +2033,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Bulk operations constants
   const BULK_OPERATION_LIMIT = 100;
+
+  /** Valid contact_kind enum values (issue #489). */
+  const VALID_CONTACT_KINDS = ['person', 'organisation', 'group', 'agent'] as const;
+  type ContactKind = typeof VALID_CONTACT_KINDS[number];
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   // Bulk operations endpoints
@@ -4570,17 +4574,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.post('/api/contacts', async (req, reply) => {
-    const body = req.body as { displayName?: string; notes?: string | null };
+    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string };
     if (!body?.displayName || body.displayName.trim().length === 0) {
       return reply.code(400).send({ error: 'displayName is required' });
     }
 
+    // Validate contact_kind if provided (issue #489)
+    const contactKind = body.contactKind ?? 'person';
+    if (!VALID_CONTACT_KINDS.includes(contactKind as ContactKind)) {
+      return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
     const pool = createPool();
     const result = await pool.query(
-      `INSERT INTO contact (display_name, notes)
-       VALUES ($1, $2)
-       RETURNING id::text as id, display_name, notes, created_at, updated_at`,
-      [body.displayName.trim(), body.notes ?? null]
+      `INSERT INTO contact (display_name, notes, contact_kind)
+       VALUES ($1, $2, $3)
+       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
+      [body.displayName.trim(), body.notes ?? null, contactKind]
     );
     await pool.end();
 
@@ -4593,6 +4603,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       contacts: Array<{
         displayName: string;
         notes?: string | null;
+        contactKind?: string;
         endpoints?: Array<{
           endpoint_type: string;
           endpoint_value: string;
@@ -4634,11 +4645,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
 
         try {
+          // Validate contact_kind if provided (issue #489)
+          const bulkContactKind = contact.contactKind ?? 'person';
+          if (!VALID_CONTACT_KINDS.includes(bulkContactKind as ContactKind)) {
+            results.push({ index: i, status: 'failed', error: `Invalid contactKind: ${bulkContactKind}` });
+            failedCount++;
+            continue;
+          }
+
           const contactResult = await client.query(
-            `INSERT INTO contact (display_name, notes)
-             VALUES ($1, $2)
+            `INSERT INTO contact (display_name, notes, contact_kind)
+             VALUES ($1, $2, $3)
              RETURNING id::text as id`,
-            [contact.displayName.trim(), contact.notes ?? null]
+            [contact.displayName.trim(), contact.notes ?? null, bulkContactKind]
           );
           const contactId = contactResult.rows[0].id;
 
@@ -4695,11 +4714,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts - List contacts with optional search and pagination
   // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
   app.get('/api/contacts', async (req, reply) => {
-    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string };
+    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string };
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
     const offset = parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
     const includeDeleted = query.include_deleted === 'true';
+    const contactKindFilter = query.contact_kind?.trim() || null;
 
     const pool = createPool();
 
@@ -4721,6 +4741,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
+    // Filter by contact_kind (issue #489), supports comma-separated values
+    if (contactKindFilter) {
+      const kinds = contactKindFilter.split(',').map(k => k.trim()).filter(k => VALID_CONTACT_KINDS.includes(k as ContactKind));
+      if (kinds.length > 0) {
+        conditions.push(`c.contact_kind::text IN (${kinds.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+        kinds.forEach(k => params.push(k));
+        paramIndex += kinds.length;
+      }
+    }
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Get total count
@@ -4732,7 +4762,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get contacts with endpoints
     const result = await pool.query(
-      `SELECT c.id::text as id, c.display_name, c.notes, c.created_at,
+      `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind, c.created_at,
               COALESCE(
                 json_agg(
                   json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
@@ -4762,7 +4792,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
 
     const result = await pool.query(
-      `SELECT c.id::text as id, c.display_name, c.notes, c.created_at, c.updated_at,
+      `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.created_at, c.updated_at,
               c.deleted_at,
               COALESCE(
                 json_agg(
@@ -4789,9 +4820,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/contacts/:id - Update contact
   app.patch('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const body = req.body as { displayName?: string; notes?: string | null };
+    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string };
 
     const pool = createPool();
+
+    // Validate contactKind if provided (issue #489)
+    if (body.contactKind !== undefined && !VALID_CONTACT_KINDS.includes(body.contactKind as ContactKind)) {
+      await pool.end();
+      return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
 
     // Check if contact exists
     const existing = await pool.query('SELECT id FROM contact WHERE id = $1', [params.id]);
@@ -4817,6 +4854,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
+    if (body.contactKind !== undefined) {
+      updates.push(`contact_kind = $${paramIndex}`);
+      values.push(body.contactKind);
+      paramIndex++;
+    }
+
     if (updates.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'no fields to update' });
@@ -4827,7 +4870,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const result = await pool.query(
       `UPDATE contact SET ${updates.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id::text as id, display_name, notes, created_at, updated_at`,
+       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
       values
     );
 

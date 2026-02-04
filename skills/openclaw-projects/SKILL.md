@@ -306,12 +306,23 @@ POST /api/contacts
 
 ```json
 {
-  "name": "Jane Doe",
-  "email": "jane@example.com",
-  "phone": "+1234567890",
-  "notes": "Met at conference"
+  "displayName": "Jane Doe",
+  "notes": "Met at conference",
+  "contactKind": "person"
 }
 ```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `displayName` | string | Yes | Contact display name |
+| `notes` | string | No | Free-text notes |
+| `contactKind` | string | No | `person` (default), `organisation`, `group`, or `agent` |
+
+**Contact Kinds:**
+- `person` — Individual human contact (default)
+- `organisation` — Company, business, or institution
+- `group` — Household, family, team, or collective (e.g., "The Kelly Household")
+- `agent` — AI agent or automated system
 
 #### List Contacts
 
@@ -321,6 +332,9 @@ GET /api/contacts
 
 Query params:
 - `search` - Search by name/email/phone
+- `contact_kind` - Filter by kind: `person`, `organisation`, `group`, `agent` (comma-separated for multiple)
+- `limit` - Results per page (default: 50, max: 100)
+- `offset` - Pagination offset
 
 #### Get Contact
 
@@ -328,13 +342,15 @@ Query params:
 GET /api/contacts/:id
 ```
 
-Returns contact with all endpoints.
+Returns contact with all endpoints and `contact_kind`.
 
 #### Update Contact
 
 ```
 PATCH /api/contacts/:id
 ```
+
+Supports updating `contactKind` along with other fields.
 
 #### Delete Contact
 
