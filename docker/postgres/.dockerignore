@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+README*
+LICENSE*
+CHANGELOG*
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*_test.sh
+tests/
+test/
+*.test.*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# Development files
+docker-compose*.yml
+Makefile
+.env*
+
+# Build artifacts
+*.log
+*.tmp
