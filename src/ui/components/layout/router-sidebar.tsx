@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { NavLink } from 'react-router';
 import { Bell, Folder, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, Brain, MessageSquare } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
+import { PrefetchLink } from '@/ui/components/navigation/PrefetchLink';
 
 /** Navigation item definition used by RouterSidebar. */
 export interface RouterNavItem {
@@ -41,11 +41,13 @@ export interface RouterSidebarProps {
 }
 
 /**
- * Router-aware sidebar that uses NavLink for active state detection.
+ * Router-aware sidebar that uses PrefetchLink for active state detection
+ * and route chunk prefetching on hover/focus.
  *
  * This replaces the original Sidebar component's button-based navigation
- * with react-router NavLinks. The active state is derived from the current
- * URL automatically by react-router, eliminating manual state management.
+ * with PrefetchLink (a NavLink wrapper). The active state is derived from
+ * the current URL automatically by react-router, and hovering over a link
+ * triggers preloading of the target page chunk for instant navigation.
  */
 export function RouterSidebar({
   items = defaultNavItems,
@@ -124,9 +126,10 @@ export function RouterSidebar({
               const Icon = item.icon;
 
               const navLink = (
-                <NavLink
+                <PrefetchLink
                   key={item.id}
                   to={item.to}
+                  prefetchPath={item.to}
                   className={({ isActive }) =>
                     cn(
                       'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
@@ -147,7 +150,7 @@ export function RouterSidebar({
                       {!collapsed && <span>{item.label}</span>}
                     </>
                   )}
-                </NavLink>
+                </PrefetchLink>
               );
 
               if (collapsed) {
@@ -197,8 +200,9 @@ export function RouterSidebar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <NavLink
+              <PrefetchLink
                 to="/settings"
+                prefetchPath="/settings"
                 className={({ isActive }) =>
                   cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
@@ -211,7 +215,7 @@ export function RouterSidebar({
               >
                 <Settings className="size-[18px] shrink-0" />
                 {!collapsed && <span>Settings</span>}
-              </NavLink>
+              </PrefetchLink>
             </TooltipTrigger>
             {collapsed && (
               <TooltipContent side="right" sideOffset={8} className="font-medium">
