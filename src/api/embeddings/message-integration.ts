@@ -5,9 +5,9 @@
  */
 
 import type { Pool } from 'pg';
-import { embeddingService } from './service.js';
-import { EmbeddingError } from './errors.js';
-import type { InternalJob, JobProcessorResult } from '../jobs/types.js';
+import { embeddingService } from './service.ts';
+import { EmbeddingError } from './errors.ts';
+import type { InternalJob, JobProcessorResult } from '../jobs/types.ts';
 
 /** Embedding status for message records. */
 export type MessageEmbeddingStatus = 'complete' | 'pending' | 'failed';

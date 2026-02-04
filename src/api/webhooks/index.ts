@@ -3,11 +3,11 @@
  * Part of Issue #201.
  */
 
-export * from './types.js';
-export * from './config.js';
-export * from './dispatcher.js';
-export * from './payloads.js';
-export { WebhookHealthChecker } from './health.js';
+export * from './types.ts';
+export * from './config.ts';
+export * from './dispatcher.ts';
+export * from './payloads.ts';
+export { WebhookHealthChecker } from './health.ts';
 
 // Webhook signature verification (Issue #224)
-export * from './verification.js';
+export * from './verification.ts';

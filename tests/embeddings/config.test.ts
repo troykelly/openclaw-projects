@@ -5,7 +5,7 @@ import {
   getActiveProvider,
   clearCachedProvider,
   getConfigSummary,
-} from '../../src/api/embeddings/config.js';
+} from '../../src/api/embeddings/config.ts';
 
 describe('Embeddings Config', () => {
   const originalEnv = process.env;

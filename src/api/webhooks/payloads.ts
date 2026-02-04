@@ -3,8 +3,8 @@
  * Part of Issue #201.
  */
 
-import type { AgentHookPayload, WakeHookPayload } from './types.js';
-import { getOpenClawConfig } from './config.js';
+import type { AgentHookPayload, WakeHookPayload } from './types.ts';
+import { getOpenClawConfig } from './config.ts';
 
 /**
  * Build payload for SMS received event.

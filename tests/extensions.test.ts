@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { existsSync } from 'fs';
-import { runMigrate } from './helpers/migrate.js';
+import { runMigrate } from './helpers/migrate.ts';
 
 describe('Required Postgres extensions', () => {
   let pool: Pool;

@@ -4,8 +4,8 @@ import {
   VoyageAIProvider,
   OpenAIProvider,
   GeminiProvider,
-} from '../../src/api/embeddings/providers/index.js';
-import { EmbeddingError } from '../../src/api/embeddings/errors.js';
+} from '../../src/api/embeddings/providers/index.ts';
+import { EmbeddingError } from '../../src/api/embeddings/errors.ts';
 
 describe('Embedding Providers - Integration', () => {
   // These tests require API keys to be configured

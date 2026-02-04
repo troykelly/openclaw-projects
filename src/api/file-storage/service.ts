@@ -11,8 +11,8 @@ import type {
   FileAttachment,
   UploadRequest,
   UploadResponse,
-} from './types.js';
-import { DEFAULT_MAX_FILE_SIZE_BYTES } from './types.js';
+} from './types.ts';
+import { DEFAULT_MAX_FILE_SIZE_BYTES } from './types.ts';
 
 /**
  * Generate a storage key for a file

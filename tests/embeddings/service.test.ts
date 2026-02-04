@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   createEmbeddingService,
   embeddingService,
-} from '../../src/api/embeddings/service.js';
-import { clearCachedProvider } from '../../src/api/embeddings/config.js';
+} from '../../src/api/embeddings/service.ts';
+import { clearCachedProvider } from '../../src/api/embeddings/config.ts';
 
 describe('Embedding Service', () => {
   const originalEnv = process.env;

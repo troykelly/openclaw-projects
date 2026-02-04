@@ -4,8 +4,8 @@
  */
 
 import type { Pool } from 'pg';
-import type { OAuthProvider, ProviderContact, ContactSyncResult } from './types.js';
-import { getValidAccessToken, fetchProviderContacts } from './service.js';
+import type { OAuthProvider, ProviderContact, ContactSyncResult } from './types.ts';
+import { getValidAccessToken, fetchProviderContacts } from './service.ts';
 
 // PostgreSQL error codes
 const PG_UNIQUE_VIOLATION = '23505';

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { runMigrate } from './helpers/migrate.js';
-import { buildServer } from '../src/api/server.js';
-import { clearCachedSecret } from '../src/api/auth/secret.js';
-import { resetRealtimeHub } from '../src/api/realtime/hub.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { buildServer } from '../src/api/server.ts';
+import { clearCachedSecret } from '../src/api/auth/secret.ts';
+import { resetRealtimeHub } from '../src/api/realtime/hub.ts';
 import { writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

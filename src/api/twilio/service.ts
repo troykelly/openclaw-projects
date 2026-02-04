@@ -4,8 +4,8 @@
  */
 
 import { Pool } from 'pg';
-import type { TwilioSmsWebhookPayload, TwilioSmsResult, E164PhoneNumber } from './types.js';
-import { normalizePhoneNumber, createSmsThreadKey } from './phone-utils.js';
+import type { TwilioSmsWebhookPayload, TwilioSmsResult, E164PhoneNumber } from './types.ts';
+import { normalizePhoneNumber, createSmsThreadKey } from './phone-utils.ts';
 
 /**
  * Process an inbound Twilio SMS webhook.

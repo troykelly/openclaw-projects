@@ -2,9 +2,9 @@
  * Embedding service with retry logic and batch support.
  */
 
-import { getCachedProvider, getConfigSummary, clearCachedProvider } from './config.js';
-import { createProvider } from './providers/index.js';
-import { withRetry, EmbeddingError } from './errors.js';
+import { getCachedProvider, getConfigSummary, clearCachedProvider } from './config.ts';
+import { createProvider } from './providers/index.ts';
+import { withRetry, EmbeddingError } from './errors.ts';
 import {
   type EmbeddingProvider,
   type EmbeddingResult,
@@ -15,7 +15,7 @@ import {
   PROVIDER_DETAILS,
   MAX_EMBEDDING_TEXT_LENGTH,
   DEFAULT_MAX_CONCURRENT,
-} from './types.js';
+} from './types.ts';
 
 /**
  * Embedding service interface.

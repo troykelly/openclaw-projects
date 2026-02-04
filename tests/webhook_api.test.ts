@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool, truncateAllTables } from './helpers/db.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { clearConfigCache } from '../src/api/webhooks/config.ts';
 
 describe('Webhook API', () => {

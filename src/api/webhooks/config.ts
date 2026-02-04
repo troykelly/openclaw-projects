@@ -3,7 +3,7 @@
  * Part of Issue #201.
  */
 
-import type { OpenClawConfig } from './types.js';
+import type { OpenClawConfig } from './types.ts';
 
 let cachedConfig: OpenClawConfig | null = null;
 

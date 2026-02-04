@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from 'vitest';
-import { runMigrate } from './helpers/migrate.js';
-import { buildServer } from '../src/api/server.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { buildServer } from '../src/api/server.ts';
 
 describe('Postmark delivery for magic-link auth', () => {
   const app = buildServer();

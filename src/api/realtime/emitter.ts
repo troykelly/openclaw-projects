@@ -3,14 +3,14 @@
  * Part of Issue #213.
  */
 
-import { getRealtimeHub } from './hub.js';
+import { getRealtimeHub } from './hub.ts';
 import type {
   WorkItemEventData,
   MemoryEventData,
   ContactEventData,
   MessageEventData,
   NotificationEventData,
-} from './types.js';
+} from './types.ts';
 
 /**
  * Emit work item created event

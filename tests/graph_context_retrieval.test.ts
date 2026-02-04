@@ -12,8 +12,8 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import type { Pool } from 'pg';
 import { randomUUID } from 'crypto';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool } from './helpers/db.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool } from './helpers/db.ts';
 import {
   retrieveGraphAwareContext,
   collectGraphScopes,

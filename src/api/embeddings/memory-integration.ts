@@ -6,8 +6,8 @@
  */
 
 import type { Pool } from 'pg';
-import { embeddingService } from './service.js';
-import { EmbeddingError } from './errors.js';
+import { embeddingService } from './service.ts';
+import { EmbeddingError } from './errors.ts';
 
 /** Embedding status for memory records. */
 export type MemoryEmbeddingStatus = 'complete' | 'pending' | 'failed';

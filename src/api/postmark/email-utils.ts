@@ -3,7 +3,7 @@
  * Part of Issue #203.
  */
 
-import type { ParsedEmailAddress, PostmarkHeader } from './types.js';
+import type { ParsedEmailAddress, PostmarkHeader } from './types.ts';
 
 /**
  * Parse an email address string into components.

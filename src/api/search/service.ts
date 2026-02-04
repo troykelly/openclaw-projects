@@ -5,7 +5,7 @@
  */
 
 import type { Pool } from 'pg';
-import { embeddingService } from '../embeddings/service.js';
+import { embeddingService } from '../embeddings/service.ts';
 import type {
   SearchOptions,
   SearchResponse,
@@ -13,7 +13,7 @@ import type {
   SearchEntityType,
   SearchType,
   EntitySearchResult,
-} from './types.js';
+} from './types.ts';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;

@@ -7,9 +7,9 @@
  * Uses output_dimensionality to request reduced dimensions for pgvector compatibility.
  */
 
-import { getApiKey } from '../config.js';
-import { EmbeddingError } from '../errors.js';
-import { type EmbeddingProvider, PROVIDER_DETAILS, DEFAULT_TIMEOUT_MS } from '../types.js';
+import { getApiKey } from '../config.ts';
+import { EmbeddingError } from '../errors.ts';
+import { type EmbeddingProvider, PROVIDER_DETAILS, DEFAULT_TIMEOUT_MS } from '../types.ts';
 
 const PROVIDER = PROVIDER_DETAILS.gemini;
 

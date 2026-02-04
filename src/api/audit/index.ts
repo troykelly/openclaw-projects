@@ -3,5 +3,5 @@
  * Part of Issue #214.
  */
 
-export * from './types.js';
-export * from './service.js';
+export * from './types.ts';
+export * from './service.ts';

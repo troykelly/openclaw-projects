@@ -4,12 +4,12 @@
  */
 
 import { Pool } from 'pg';
-import type { CloudflareEmailPayload, CloudflareEmailResult } from './types.js';
+import type { CloudflareEmailPayload, CloudflareEmailResult } from './types.ts';
 import {
   normalizeEmail,
   createEmailThreadKey,
   getBestPlainText,
-} from '../postmark/email-utils.js';
+} from '../postmark/email-utils.ts';
 
 /**
  * Parse the Message-ID header, removing angle brackets if present.

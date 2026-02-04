@@ -2,5 +2,5 @@
  * Search service exports.
  */
 
-export * from './types.js';
-export * from './service.js';
+export * from './types.ts';
+export * from './service.ts';

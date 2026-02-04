@@ -3,8 +3,8 @@
  * Part of Issue #206.
  */
 
-import type { OAuthConfig, OAuthProvider } from './types.js';
-import { ProviderNotConfiguredError } from './types.js';
+import type { OAuthConfig, OAuthProvider } from './types.ts';
+import { ProviderNotConfiguredError } from './types.ts';
 
 // Microsoft OAuth scopes
 export const MICROSOFT_SCOPES = {

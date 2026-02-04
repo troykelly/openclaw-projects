@@ -3,7 +3,7 @@ import {
   EmbeddingError,
   calculateRetryDelay,
   DEFAULT_RETRY_CONFIG,
-} from '../../src/api/embeddings/errors.js';
+} from '../../src/api/embeddings/errors.ts';
 
 describe('EmbeddingError', () => {
   describe('constructor', () => {

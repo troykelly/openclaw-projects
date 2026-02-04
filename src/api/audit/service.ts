@@ -10,7 +10,7 @@ import type {
   AuditLogCreateParams,
   AuditActor,
   AuditActorType,
-} from './types.js';
+} from './types.ts';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 500;

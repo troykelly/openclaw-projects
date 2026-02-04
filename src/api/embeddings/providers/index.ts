@@ -2,10 +2,10 @@
  * Provider factory for embedding providers.
  */
 
-import { type EmbeddingProvider, type EmbeddingProviderName } from '../types.js';
-import { VoyageAIProvider } from './voyageai.js';
-import { OpenAIProvider } from './openai.js';
-import { GeminiProvider } from './gemini.js';
+import { type EmbeddingProvider, type EmbeddingProviderName } from '../types.ts';
+import { VoyageAIProvider } from './voyageai.ts';
+import { OpenAIProvider } from './openai.ts';
+import { GeminiProvider } from './gemini.ts';
 
 /**
  * Create an embedding provider instance by name.
@@ -26,6 +26,6 @@ export function createProvider(name: EmbeddingProviderName): EmbeddingProvider {
   }
 }
 
-export { VoyageAIProvider } from './voyageai.js';
-export { OpenAIProvider } from './openai.js';
-export { GeminiProvider } from './gemini.js';
+export { VoyageAIProvider } from './voyageai.ts';
+export { OpenAIProvider } from './openai.ts';
+export { GeminiProvider } from './gemini.ts';

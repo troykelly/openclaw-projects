@@ -4,7 +4,7 @@
  */
 
 import type { Pool } from 'pg';
-import { isTwilioConfigured, requireTwilioClient } from './config.js';
+import { isTwilioConfigured, requireTwilioClient } from './config.ts';
 
 /**
  * Phone number capabilities.

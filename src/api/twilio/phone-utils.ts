@@ -3,7 +3,7 @@
  * Part of Issue #202.
  */
 
-import type { E164PhoneNumber } from './types.js';
+import type { E164PhoneNumber } from './types.ts';
 
 /**
  * Normalize a phone number to E.164 format.

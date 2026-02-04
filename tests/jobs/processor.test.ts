@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { Pool } from 'pg';
-import { runMigrate } from '../helpers/migrate.js';
-import { createTestPool, truncateAllTables } from '../helpers/db.js';
+import { runMigrate } from '../helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 import {
   claimJobs,
   completeJob,
   failJob,
   processJobs,
   getPendingJobCounts,
-} from '../../src/api/jobs/processor.js';
+} from '../../src/api/jobs/processor.ts';
 
 // Set up OpenClaw config for webhook tests
 vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://test-gateway.openclaw.ai');

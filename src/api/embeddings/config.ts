@@ -14,7 +14,7 @@ import {
   PROVIDER_PRIORITY,
   PROVIDER_DETAILS,
   type ProviderDetails,
-} from './types.js';
+} from './types.ts';
 
 /**
  * Environment variable names for each provider's API key.

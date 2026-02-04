@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool, truncateAllTables } from './helpers/db.js';
-import { buildServer } from '../src/api/server.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { buildServer } from '../src/api/server.ts';
 
 describe('Work Item Calendar API (issue #125)', () => {
   const app = buildServer();

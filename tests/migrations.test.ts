@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { existsSync } from 'fs';
-import { runMigrate, migrationCount } from './helpers/migrate.js';
+import { runMigrate, migrationCount } from './helpers/migrate.ts';
 
 describe('Migrations', () => {
   let pool: Pool;

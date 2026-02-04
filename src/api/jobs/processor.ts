@@ -10,16 +10,16 @@ import type {
   JobProcessorResult,
   JobProcessorStats,
   JobHandler,
-} from './types.js';
-import { enqueueWebhook } from '../webhooks/dispatcher.js';
+} from './types.ts';
+import { enqueueWebhook } from '../webhooks/dispatcher.ts';
 import {
   buildReminderDuePayload,
   buildDeadlineApproachingPayload,
   getWebhookDestination,
-} from '../webhooks/payloads.js';
-import { handleSmsSendJob } from '../twilio/sms-outbound.js';
-import { handleEmailSendJob } from '../postmark/email-outbound.js';
-import { handleMessageEmbedJob } from '../embeddings/message-integration.js';
+} from '../webhooks/payloads.ts';
+import { handleSmsSendJob } from '../twilio/sms-outbound.ts';
+import { handleEmailSendJob } from '../postmark/email-outbound.ts';
+import { handleMessageEmbedJob } from '../embeddings/message-integration.ts';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;

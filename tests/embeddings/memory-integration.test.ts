@@ -4,10 +4,10 @@ import {
   generateMemoryEmbedding,
   searchMemoriesSemantic,
   backfillMemoryEmbeddings,
-} from '../../src/api/embeddings/memory-integration.js';
-import { embeddingService } from '../../src/api/embeddings/service.js';
-import { runMigrate } from '../helpers/migrate.js';
-import { createTestPool, truncateAllTables } from '../helpers/db.js';
+} from '../../src/api/embeddings/memory-integration.ts';
+import { embeddingService } from '../../src/api/embeddings/service.ts';
+import { runMigrate } from '../helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 
 describe('Memory Embedding Integration', () => {
   let pool: Pool;

@@ -2,9 +2,9 @@
  * Health check for the embedding service.
  */
 
-import type { HealthChecker, HealthCheckResult } from '../health.js';
-import { getConfigSummary } from './config.js';
-import { embeddingService } from './service.js';
+import type { HealthChecker, HealthCheckResult } from '../health.ts';
+import { getConfigSummary } from './config.ts';
+import { embeddingService } from './service.ts';
 
 /**
  * Health checker for the embedding service.

@@ -5,10 +5,10 @@
 
 import type { Pool, PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
-import { normalizePhoneNumber, createSmsThreadKey } from './phone-utils.js';
-import { getTwilioConfig, requireTwilioClient, isTwilioConfigured } from './config.js';
-import type { E164PhoneNumber } from './types.js';
-import type { InternalJob, JobProcessorResult } from '../jobs/types.js';
+import { normalizePhoneNumber, createSmsThreadKey } from './phone-utils.ts';
+import { getTwilioConfig, requireTwilioClient, isTwilioConfigured } from './config.ts';
+import type { E164PhoneNumber } from './types.ts';
+import type { InternalJob, JobProcessorResult } from '../jobs/types.ts';
 
 /**
  * Request to send an SMS message.

@@ -3,5 +3,5 @@
  * Part of Issue #222.
  */
 
-export * from './types.js';
-export * from './processor.js';
+export * from './types.ts';
+export * from './processor.ts';

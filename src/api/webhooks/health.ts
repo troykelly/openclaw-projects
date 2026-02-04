@@ -3,8 +3,8 @@
  * Part of Issue #201.
  */
 
-import type { HealthChecker, HealthCheckResult } from '../health.js';
-import { getConfigSummary, isOpenClawConfigured } from './config.js';
+import type { HealthChecker, HealthCheckResult } from '../health.ts';
+import { getConfigSummary, isOpenClawConfigured } from './config.ts';
 
 /**
  * Health checker for webhook dispatch service.

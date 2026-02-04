@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool, truncateAllTables } from './helpers/db.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
 describe('Contacts + endpoints + trust model', () => {
   let pool: Pool;

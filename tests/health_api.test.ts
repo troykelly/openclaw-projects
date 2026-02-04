@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Pool } from 'pg';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool } from './helpers/db.js';
-import { buildServer } from '../src/api/server.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool } from './helpers/db.ts';
+import { buildServer } from '../src/api/server.ts';
 import { clearConfigCache } from '../src/api/webhooks/config.ts';
 
 describe('Health API endpoints', () => {

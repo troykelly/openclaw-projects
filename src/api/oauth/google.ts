@@ -4,9 +4,9 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
-import type { OAuthConfig, OAuthTokens, ProviderContact, OAuthAuthorizationUrl } from './types.js';
-import { OAuthError, TokenRefreshError } from './types.js';
-import { requireProviderConfig } from './config.js';
+import type { OAuthConfig, OAuthTokens, ProviderContact, OAuthAuthorizationUrl } from './types.ts';
+import { OAuthError, TokenRefreshError } from './types.ts';
+import { requireProviderConfig } from './config.ts';
 
 // PKCE utilities
 function generateCodeVerifier(): string {

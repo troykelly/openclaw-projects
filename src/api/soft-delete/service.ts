@@ -10,7 +10,7 @@ import type {
   TrashQueryOptions,
   PurgeResult,
   RestoreResult,
-} from './types.js';
+} from './types.ts';
 
 const DEFAULT_RETENTION_DAYS = 30;
 const DEFAULT_LIMIT = 50;

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { runMigrate } from './helpers/migrate.js';
-import { buildServer } from '../src/api/server.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { buildServer } from '../src/api/server.ts';
 
 /**
  * Tests for API documentation endpoints (Issue #207)

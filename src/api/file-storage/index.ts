@@ -3,6 +3,6 @@
  * Part of Issue #215.
  */
 
-export * from './types.js';
-export * from './s3-storage.js';
-export * from './service.js';
+export * from './types.ts';
+export * from './s3-storage.ts';
+export * from './service.ts';

@@ -3,7 +3,7 @@
  * Part of Issue #293.
  */
 
-import { getPostmarkTransactionalToken } from '../../email/postmark.js';
+import { getPostmarkTransactionalToken } from '../../email/postmark.ts';
 
 export interface PostmarkConfig {
   serverToken: string;

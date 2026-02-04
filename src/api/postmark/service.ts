@@ -8,7 +8,7 @@ import type {
   PostmarkInboundPayload,
   PostmarkEmailResult,
   AttachmentMetadata,
-} from './types.js';
+} from './types.ts';
 import {
   normalizeEmail,
   getMessageId,
@@ -16,7 +16,7 @@ import {
   getReferences,
   createEmailThreadKey,
   getBestPlainText,
-} from './email-utils.js';
+} from './email-utils.ts';
 
 /**
  * Process an inbound Postmark email webhook.

@@ -3,8 +3,8 @@
  * Part of Issue #206.
  */
 
-export * from './types.js';
-export * from './config.js';
+export * from './types.ts';
+export * from './config.ts';
 export {
   getAuthorizationUrl,
   exchangeCodeForTokens,
@@ -18,7 +18,7 @@ export {
   listConnections,
   isProviderConfigured,
   validateState,
-} from './service.js';
-export { syncContacts, getContactSyncCursor } from './contacts.js';
-export * as microsoft from './microsoft.js';
-export * as google from './google.js';
+} from './service.ts';
+export { syncContacts, getContactSyncCursor } from './contacts.ts';
+export * as microsoft from './microsoft.ts';
+export * as google from './google.ts';

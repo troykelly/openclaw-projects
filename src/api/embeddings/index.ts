@@ -2,13 +2,13 @@
  * Embedding service exports.
  */
 
-export * from './types.js';
-export * from './errors.js';
-export * from './config.js';
-export * from './service.js';
-export * from './memory-integration.js';
-export * from './message-integration.js';
-export * from './note-integration.js';
-export * from './health.js';
-export * from './settings.js';
-export { createProvider, VoyageAIProvider, OpenAIProvider, GeminiProvider } from './providers/index.js';
+export * from './types.ts';
+export * from './errors.ts';
+export * from './config.ts';
+export * from './service.ts';
+export * from './memory-integration.ts';
+export * from './message-integration.ts';
+export * from './note-integration.ts';
+export * from './health.ts';
+export * from './settings.ts';
+export { createProvider, VoyageAIProvider, OpenAIProvider, GeminiProvider } from './providers/index.ts';

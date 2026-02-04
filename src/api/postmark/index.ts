@@ -3,9 +3,9 @@
  * Part of Issue #203, #293, #294.
  */
 
-export * from './types.js';
-export * from './email-utils.js';
-export * from './service.js';
-export * from './config.js';
-export * from './email-outbound.js';
-export * from './delivery-status.js';
+export * from './types.ts';
+export * from './email-utils.ts';
+export * from './service.ts';
+export * from './config.ts';
+export * from './email-outbound.ts';
+export * from './delivery-status.ts';

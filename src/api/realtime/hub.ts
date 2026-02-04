@@ -11,7 +11,7 @@ import type {
   RealtimeEventType,
   NotifyPayload,
   WebSocketClient,
-} from './types.js';
+} from './types.ts';
 
 const HEARTBEAT_INTERVAL_MS = 30000;
 const PG_CHANNEL = 'realtime_events';

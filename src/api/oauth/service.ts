@@ -11,16 +11,16 @@ import type {
   OAuthAuthorizationUrl,
   OAuthStateData,
   ProviderContact,
-} from './types.js';
+} from './types.ts';
 import {
   OAuthError,
   NoConnectionError,
   TokenExpiredError,
   InvalidStateError,
-} from './types.js';
-import { requireProviderConfig, isProviderConfigured } from './config.js';
-import * as microsoft from './microsoft.js';
-import * as google from './google.js';
+} from './types.ts';
+import { requireProviderConfig, isProviderConfigured } from './config.ts';
+import * as microsoft from './microsoft.ts';
+import * as google from './google.ts';
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes buffer
 const STATE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes for state to be valid

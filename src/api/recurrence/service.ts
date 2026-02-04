@@ -5,8 +5,8 @@
 
 import { RRule } from 'rrule';
 import type { Pool } from 'pg';
-import type { RecurrenceInfo, RecurrenceInstance } from './types.js';
-import { parseNaturalLanguage, describeRrule } from './parser.js';
+import type { RecurrenceInfo, RecurrenceInstance } from './types.ts';
+import { parseNaturalLanguage, describeRrule } from './parser.ts';
 
 /**
  * Parse an RRULE string and return the RRule object

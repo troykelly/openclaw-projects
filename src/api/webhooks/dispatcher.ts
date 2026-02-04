@@ -9,8 +9,8 @@ import type {
   WebhookOutboxEntry,
   WebhookDispatchResult,
   DispatchStats,
-} from './types.js';
-import { getOpenClawConfig } from './config.js';
+} from './types.ts';
+import { getOpenClawConfig } from './config.ts';
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;

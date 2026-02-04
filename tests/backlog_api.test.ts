@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
-import { buildServer } from '../src/api/server.js';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool, truncateAllTables } from './helpers/db.js';
+import { buildServer } from '../src/api/server.ts';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
 describe('Backlog API: GET /api/backlog', () => {
   let pool: Pool;

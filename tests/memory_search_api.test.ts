@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
-import { runMigrate } from './helpers/migrate.js';
-import { createTestPool, truncateAllTables } from './helpers/db.js';
-import { embeddingService } from '../src/api/embeddings/service.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { embeddingService } from '../src/api/embeddings/service.ts';
 
 describe('Memory Search API', () => {
   const app = buildServer();

@@ -5,10 +5,10 @@
 
 import type { Pool, PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
-import { normalizeEmail, createEmailThreadKey } from './email-utils.js';
-import { getPostmarkConfig, isPostmarkConfigured } from './config.js';
-import { sendPostmarkEmail, type PostmarkEmail } from '../../email/postmark.js';
-import type { InternalJob, JobProcessorResult } from '../jobs/types.js';
+import { normalizeEmail, createEmailThreadKey } from './email-utils.ts';
+import { getPostmarkConfig, isPostmarkConfigured } from './config.ts';
+import { sendPostmarkEmail, type PostmarkEmail } from '../../email/postmark.ts';
+import type { InternalJob, JobProcessorResult } from '../jobs/types.ts';
 
 /**
  * Request to send an email message.

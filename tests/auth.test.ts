@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { runMigrate } from './helpers/migrate.js';
-import { buildServer } from '../src/api/server.js';
-import { createPool } from '../src/db.js';
+import { runMigrate } from './helpers/migrate.ts';
+import { buildServer } from '../src/api/server.ts';
+import { createPool } from '../src/db.ts';
 
 describe('Magic-link auth + sessions', () => {
   const app = buildServer();

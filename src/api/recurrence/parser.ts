@@ -3,7 +3,7 @@
  * Part of Issue #217.
  */
 
-import type { NaturalLanguageParseResult } from './types.js';
+import type { NaturalLanguageParseResult } from './types.ts';
 
 // Weekday mappings
 const WEEKDAY_MAP: Record<string, string> = {

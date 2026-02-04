@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { Pool } from 'pg';
 import { existsSync } from 'fs';
-import { runMigrate } from './helpers/migrate.js';
+import { runMigrate } from './helpers/migrate.ts';
 
 /**
  * Tests for Issue #343 - Note Work Item References Schema

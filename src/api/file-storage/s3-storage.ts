@@ -11,7 +11,7 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl as s3GetSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { FileStorage, S3Config } from './types.js';
+import type { FileStorage, S3Config } from './types.ts';
 
 /**
  * S3-compatible storage implementation.

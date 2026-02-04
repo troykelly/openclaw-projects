@@ -3,6 +3,6 @@
  * Part of Issue #213.
  */
 
-export * from './types.js';
-export * from './hub.js';
-export * from './emitter.js';
+export * from './types.ts';
+export * from './hub.ts';
+export * from './emitter.ts';

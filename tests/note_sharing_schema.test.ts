@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Pool } from 'pg';
 import { existsSync } from 'fs';
-import { runMigrate } from './helpers/migrate.js';
+import { runMigrate } from './helpers/migrate.ts';
 
 /**
  * Tests for Issue #341 - Note Sharing and Permissions Schema

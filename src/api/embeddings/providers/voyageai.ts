@@ -5,9 +5,9 @@
  * Default model: voyage-3-large (1024 dimensions)
  */
 
-import { getApiKey } from '../config.js';
-import { EmbeddingError } from '../errors.js';
-import { type EmbeddingProvider, PROVIDER_DETAILS, DEFAULT_TIMEOUT_MS } from '../types.js';
+import { getApiKey } from '../config.ts';
+import { EmbeddingError } from '../errors.ts';
+import { type EmbeddingProvider, PROVIDER_DETAILS, DEFAULT_TIMEOUT_MS } from '../types.ts';
 
 const PROVIDER = PROVIDER_DETAILS.voyageai;
 

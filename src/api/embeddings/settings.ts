@@ -8,8 +8,8 @@ import {
   getConfigSummary,
   isProviderConfigured,
   loadApiKey,
-} from './config.js';
-import { PROVIDER_PRIORITY, PROVIDER_DETAILS, type EmbeddingProviderName } from './types.js';
+} from './config.ts';
+import { PROVIDER_PRIORITY, PROVIDER_DETAILS, type EmbeddingProviderName } from './types.ts';
 
 /**
  * Provider status for settings response
