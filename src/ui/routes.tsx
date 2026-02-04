@@ -2,7 +2,7 @@
  * Application route configuration.
  *
  * All routes are relative to the router basename.
- * The root path redirects to `/work-items` as the default landing page.
+ * The root path redirects to `/dashboard` as the default landing page.
  * Each page is lazy-loaded with React.lazy + Suspense for code splitting.
  * The AppLayout wraps all routes providing the sidebar, header, command
  * palette, and keyboard shortcuts.
@@ -47,6 +47,9 @@ const MemoryPage = React.lazy(() =>
 const SettingsPage = React.lazy(() =>
   import('@/ui/pages/SettingsPage.js').then((m) => ({ default: m.SettingsPage }))
 );
+const DashboardPage = React.lazy(() =>
+  import('@/ui/pages/DashboardPage.js').then((m) => ({ default: m.DashboardPage }))
+);
 const NotFoundPage = React.lazy(() =>
   import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage }))
 );
@@ -73,7 +76,8 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  * Application route tree.
  *
  * Routes match the URL patterns previously handled by main.tsx:
- *   / -> redirect to /work-items
+ *   / -> redirect to /dashboard
+ *   /dashboard -> DashboardPage
  *   /activity -> ActivityPage
  *   /work-items -> ProjectListPage
  *   /work-items/:id -> WorkItemDetailPage
@@ -92,7 +96,11 @@ export const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="/work-items" replace />,
+        element: <Navigate to="/dashboard" replace />,
+      },
+      {
+        path: 'dashboard',
+        element: lazy(DashboardPage),
       },
       {
         path: 'activity',

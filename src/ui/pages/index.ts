@@ -1,3 +1,4 @@
+export { DashboardPage } from './DashboardPage.js';
 export { ActivityPage } from './ActivityPage.js';
 export { ProjectListPage } from './ProjectListPage.js';
 export { ProjectDetailPage } from './ProjectDetailPage.js';

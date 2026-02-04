@@ -42,10 +42,10 @@ function renderWithRouter(initialPath = '/') {
 // Route rendering tests
 // ---------------------------------------------------------------------------
 describe('Route configuration', () => {
-  it('redirects root to /work-items', async () => {
+  it('redirects root to /dashboard', async () => {
     renderWithRouter('/');
     await waitFor(() => {
-      expect(screen.getByTestId('page-project-list')).toBeInTheDocument();
+      expect(screen.getByTestId('page-dashboard')).toBeInTheDocument();
     });
   });
 
