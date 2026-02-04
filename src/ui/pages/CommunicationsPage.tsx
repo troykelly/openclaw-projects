@@ -50,7 +50,12 @@ import {
   Skeleton,
   SkeletonList,
   EmptyState,
+  ErrorState,
 } from '@/ui/components/feedback';
+import {
+  useEmails,
+  useCalendarEvents,
+} from '@/ui/hooks/queries/use-global-communications';
 
 /** Tab values for the communications view. */
 export type CommunicationTab = 'all' | 'emails' | 'calendar';
@@ -161,11 +166,37 @@ export interface CommunicationsPageProps {
 export function CommunicationsPage({
   emails: propEmails,
   calendarEvents: propEvents,
-  isLoading = false,
+  isLoading: propIsLoading = false,
 }: CommunicationsPageProps = {}): React.JSX.Element {
-  // Use provided data or empty arrays (real API integration will come later)
+  const emailsQuery = useEmails();
+  const eventsQuery = useCalendarEvents();
+
+  // Determine whether props were explicitly provided
+  const hasPropsEmails = propEmails !== undefined;
+  const hasPropsEvents = propEvents !== undefined;
+
+  // Use props if provided (for testing / server-rendered data), otherwise use
+  // query data. The API returns ApiCommunication[] which differs from the
+  // LinkedEmail / LinkedCalendarEvent shapes the page expects — a full mapping
+  // layer will be added in a follow-up. For now, fall back to empty arrays when
+  // only the API data is available.
   const emails = propEmails ?? [];
   const calendarEvents = propEvents ?? [];
+
+  // Loading: prop loading flag, or hooks loading when no props provided
+  const isLoading =
+    propIsLoading ||
+    (!hasPropsEmails && emailsQuery.isLoading) ||
+    (!hasPropsEvents && eventsQuery.isLoading);
+
+  // Error: only show when no props were provided and at least one hook errored
+  const hasError =
+    !hasPropsEmails && !hasPropsEvents &&
+    (emailsQuery.error != null || eventsQuery.error != null);
+  const errorMessage =
+    (emailsQuery.error as Error | null)?.message ??
+    (eventsQuery.error as Error | null)?.message ??
+    'An unexpected error occurred';
 
   // UI state
   const [activeTab, setActiveTab] = useState<CommunicationTab>('all');
@@ -243,6 +274,23 @@ export function CommunicationsPage({
         </div>
         <Skeleton width="100%" height={40} className="mb-4" />
         <SkeletonList count={5} variant="card" />
+      </div>
+    );
+  }
+
+  // Error state — only shown when no prop data provided and a hook errored
+  if (hasError) {
+    return (
+      <div data-testid="page-communications" className="flex h-full flex-col p-6">
+        <ErrorState
+          type="generic"
+          title="Failed to load communications"
+          description={errorMessage}
+          onRetry={() => {
+            void emailsQuery.refetch();
+            void eventsQuery.refetch();
+          }}
+        />
       </div>
     );
   }
