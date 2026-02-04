@@ -27,13 +27,31 @@ import {
   getRelationshipTypeByName,
 } from '../src/api/relationship-types/index.ts';
 
-/** Helper: create a test contact and return its ID */
+/** Helper: create a test contact and return its ID.
+ *  Supports both schemas: with and without contact_kind column. */
 async function createContact(pool: Pool, displayName: string, kind = 'person'): Promise<string> {
+  // Check if contact_kind column exists (it's from a separate 044 migration)
+  const colCheck = await pool.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'contact' AND column_name = 'contact_kind'`
+  );
+  const hasContactKind = colCheck.rows.length > 0;
+
+  if (hasContactKind) {
+    const result = await pool.query(
+      `INSERT INTO contact (display_name, contact_kind)
+       VALUES ($1, $2::contact_kind)
+       RETURNING id::text as id`,
+      [displayName, kind]
+    );
+    return (result.rows[0] as { id: string }).id;
+  }
+
   const result = await pool.query(
-    `INSERT INTO contact (display_name, contact_kind)
-     VALUES ($1, $2::contact_kind)
+    `INSERT INTO contact (display_name)
+     VALUES ($1)
      RETURNING id::text as id`,
-    [displayName, kind]
+    [displayName]
   );
   return (result.rows[0] as { id: string }).id;
 }

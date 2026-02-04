@@ -302,12 +302,22 @@ export async function getRelatedContacts(
     ? (contactResult.rows[0] as { display_name: string }).display_name
     : 'Unknown';
 
+  // Check if contact_kind column exists (added in separate migration 044_contact_kind)
+  const kindColCheck = await pool.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'contact' AND column_name = 'contact_kind'`
+  );
+  const hasContactKind = kindColCheck.rows.length > 0;
+  const contactKindSelect = hasContactKind
+    ? `c_ref.contact_kind::text as contact_kind`
+    : `'person' as contact_kind`;
+
   // Query 1: Contact is on the A side -> type as-is, related contact is B
   const aSideResult = await pool.query(
     `SELECT
       cb.id::text as contact_id,
       cb.display_name as contact_name,
-      cb.contact_kind::text as contact_kind,
+      ${contactKindSelect.replace('c_ref', 'cb')},
       r.id::text as relationship_id,
       rt.name as relationship_type_name,
       rt.label as relationship_type_label,
@@ -327,7 +337,7 @@ export async function getRelatedContacts(
     `SELECT
       ca.id::text as contact_id,
       ca.display_name as contact_name,
-      ca.contact_kind::text as contact_kind,
+      ${contactKindSelect.replace('c_ref', 'ca')},
       r.id::text as relationship_id,
       CASE
         WHEN rt.is_directional = false THEN rt.name
