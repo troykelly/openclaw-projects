@@ -1,0 +1,2 @@
+import{c as e}from"./button-CCcTHsAD.js";const t=[["rect",{width:"18",height:"18",x:"3",y:"3",rx:"2",key:"afitv7"}],["path",{d:"M9 3v18",key:"fh3hqa"}],["path",{d:"m16 15-3-3 3-3",key:"14y99z"}]],c=e("panel-left-close",t);const a=[["rect",{width:"18",height:"18",x:"3",y:"3",rx:"2",key:"afitv7"}],["path",{d:"M9 3v18",key:"fh3hqa"}]],h=e("panel-left",a);export{h as P,c as a};
+//# sourceMappingURL=panel-left-CpWb8f9D.js.map

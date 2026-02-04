@@ -1305,6 +1305,43 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       .send(renderAppFrontendHtml(bootstrap));
   });
 
+  // Root /app route - serves the SPA which will redirect to /dashboard
+  app.get('/app', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    const bootstrap = {
+      route: { path: '/' },
+      me: { email },
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
+  });
+
+  // Catch-all for /app/* routes not explicitly defined above.
+  // This allows the React Router to handle client-side routing for paths
+  // like /app/dashboard, /app/search, /app/memory, /app/projects/:id, etc.
+  app.get('/app/*', async (req, reply) => {
+    const email = await requireDashboardSession(req, reply);
+    if (!email) return;
+
+    // Extract the path after /app for client-side routing
+    const path = req.url.replace(/^\/app/, '') || '/';
+
+    const bootstrap = {
+      route: { path },
+      me: { email },
+    };
+
+    return reply
+      .code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .send(renderAppFrontendHtml(bootstrap));
+  });
+
   app.post('/api/auth/request-link', async (req, reply) => {
     const body = req.body as { email?: string };
     const email = body?.email?.trim().toLowerCase();

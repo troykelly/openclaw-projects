@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Explicitly tell Tailwind v4 where to find class usage */
+@source "../**/*.tsx";
+@source "../**/*.ts";
+
 /* Design system theme - Human-Agent Collaboration Workspace */
 @theme {
   /* Colors - Light mode defaults */
