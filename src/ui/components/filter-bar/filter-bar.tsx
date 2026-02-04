@@ -44,6 +44,8 @@ import type {
   FilterField,
   FilterFieldConfig,
   QuickFilter,
+  DateRange,
+  DateRangePreset,
 } from './types';
 
 // Default filter field configurations
@@ -245,6 +247,141 @@ function MultiSelectPopover({ field, config, value, onChange, onClose }: MultiSe
   );
 }
 
+export interface DateRangePopoverProps {
+  field: FilterField;
+  config: FilterFieldConfig;
+  value: DateRange | string | undefined;
+  onChange: (value: DateRange | undefined) => void;
+  onClose: () => void;
+}
+
+export function DateRangePopover({ field, config, value, onChange, onClose }: DateRangePopoverProps) {
+  // Parse initial value - could be a DateRange object or a preset string like 'overdue'
+  const initialRange: DateRange = typeof value === 'string'
+    ? { preset: value as DateRangePreset }
+    : value || {};
+
+  const [selectedPreset, setSelectedPreset] = useState<DateRangePreset | undefined>(initialRange.preset);
+  const [fromDate, setFromDate] = useState(initialRange.from || '');
+  const [toDate, setToDate] = useState(initialRange.to || '');
+
+  const presets: { value: DateRangePreset; label: string }[] = [
+    { value: 'today', label: 'Today' },
+    { value: 'this_week', label: 'This Week' },
+    { value: 'this_month', label: 'This Month' },
+    { value: 'overdue', label: 'Overdue' },
+    { value: 'upcoming', label: 'Upcoming' },
+  ];
+
+  const handlePresetClick = (preset: DateRangePreset) => {
+    setSelectedPreset(preset);
+    setFromDate('');
+    setToDate('');
+  };
+
+  const handleApply = () => {
+    if (selectedPreset && selectedPreset !== 'custom') {
+      onChange({ preset: selectedPreset });
+    } else if (fromDate || toDate) {
+      onChange({ preset: 'custom', from: fromDate || undefined, to: toDate || undefined });
+    } else {
+      onChange(undefined);
+    }
+    onClose();
+  };
+
+  return (
+    <div className="space-y-2" data-testid="date-range-popover">
+      <p className="text-sm font-medium">{config.label}</p>
+      <div className="space-y-1">
+        {presets.map((preset) => (
+          <button
+            key={preset.value}
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted cursor-pointer',
+              selectedPreset === preset.value && 'bg-muted font-medium'
+            )}
+            onClick={() => handlePresetClick(preset.value)}
+          >
+            {selectedPreset === preset.value && <Check className="size-3" />}
+            {selectedPreset !== preset.value && <span className="size-3" />}
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-2 border-t pt-2">
+        <p className="text-xs text-muted-foreground">Custom range</p>
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => { setFromDate(e.target.value); setSelectedPreset('custom'); }}
+            className="flex-1 rounded border px-2 py-1 text-sm"
+            aria-label="From date"
+          />
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => { setToDate(e.target.value); setSelectedPreset('custom'); }}
+            className="flex-1 rounded border px-2 py-1 text-sm"
+            aria-label="To date"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-2 border-t">
+        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+        <Button size="sm" onClick={handleApply}>Apply</Button>
+      </div>
+    </div>
+  );
+}
+
+export interface BooleanPopoverProps {
+  field: FilterField;
+  config: FilterFieldConfig;
+  value: boolean | undefined;
+  onChange: (value: boolean | undefined) => void;
+  onClose: () => void;
+}
+
+export function BooleanPopover({ field, config, value, onChange, onClose }: BooleanPopoverProps) {
+  const [localValue, setLocalValue] = useState<boolean | undefined>(value);
+
+  const handleApply = () => {
+    onChange(localValue);
+    onClose();
+  };
+
+  return (
+    <div className="space-y-2" data-testid="boolean-popover">
+      <p className="text-sm font-medium">{config.label}</p>
+      <div className="flex gap-2">
+        <Button
+          variant={localValue === true ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setLocalValue(true)}
+          className="flex-1"
+        >
+          Yes
+        </Button>
+        <Button
+          variant={localValue === false ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setLocalValue(false)}
+          className="flex-1"
+        >
+          No
+        </Button>
+      </div>
+      <div className="flex justify-end gap-2 pt-2 border-t">
+        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+        <Button size="sm" onClick={handleApply}>Apply</Button>
+      </div>
+    </div>
+  );
+}
+
 export function FilterBar({
   filters,
   onFiltersChange,
@@ -428,12 +565,31 @@ export function FilterBar({
                 );
               }
 
-              // TODO: Add date-range and boolean filter popovers
-              return (
-                <p className="text-sm text-muted-foreground">
-                  {config.type} filter not yet implemented
-                </p>
-              );
+              if (config.type === 'date-range') {
+                return (
+                  <DateRangePopover
+                    field={openField}
+                    config={config}
+                    value={filters[openField] as DateRange | string | undefined}
+                    onChange={(value) => handleFieldValueChange(openField, value)}
+                    onClose={() => setOpenField(null)}
+                  />
+                );
+              }
+
+              if (config.type === 'boolean') {
+                return (
+                  <BooleanPopover
+                    field={openField}
+                    config={config}
+                    value={filters[openField] as boolean | undefined}
+                    onChange={(value) => handleFieldValueChange(openField, value)}
+                    onClose={() => setOpenField(null)}
+                  />
+                );
+              }
+
+              return null;
             })()}
           </PopoverContent>
         </Popover>
