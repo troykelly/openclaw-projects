@@ -1,6 +1,7 @@
 /**
  * Context retrieval module.
  * Part of Epic #235 - Issue #251.
+ * Graph-aware retrieval added in Issue #496.
  */
 
 export {
@@ -14,3 +15,16 @@ export {
   type ProjectSource,
   type TodoSource,
 } from './service.ts';
+
+export {
+  retrieveGraphAwareContext,
+  collectGraphScopes,
+  type ScopeType,
+  type ScopeDetail,
+  type GraphScope,
+  type GraphTraversalOptions,
+  type GraphAwareContextInput,
+  type ScopedMemoryResult,
+  type GraphContextMetadata,
+  type GraphAwareContextResult,
+} from './graph-aware-service.ts';
