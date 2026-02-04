@@ -3,8 +3,8 @@
  * Tests for accessibility components
  * Issue #411: WCAG 2.1 AA accessibility compliance
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import * as React from 'react';
 
@@ -205,7 +205,15 @@ describe('AnnounceProvider and useAnnounce', () => {
   }
 
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    act(() => {
+      vi.runAllTimers();
+    });
+    vi.useRealTimers();
   });
 
   it('should provide announce function', () => {
@@ -224,11 +232,11 @@ describe('AnnounceProvider and useAnnounce', () => {
       </AnnounceProvider>
     );
 
-    screen.getByRole('button').click();
-
-    await waitFor(() => {
-      expect(screen.getByText('Item saved')).toBeInTheDocument();
+    act(() => {
+      screen.getByRole('button').click();
     });
+
+    expect(screen.getByText('Item saved')).toBeInTheDocument();
   });
 
   it('should support assertive announcements', async () => {
@@ -247,11 +255,11 @@ describe('AnnounceProvider and useAnnounce', () => {
       </AnnounceProvider>
     );
 
-    screen.getByRole('button').click();
-
-    await waitFor(() => {
-      const region = screen.getByText('Error occurred');
-      expect(region).toHaveAttribute('aria-live', 'assertive');
+    act(() => {
+      screen.getByRole('button').click();
     });
+
+    const region = screen.getByText('Error occurred');
+    expect(region).toHaveAttribute('aria-live', 'assertive');
   });
 });

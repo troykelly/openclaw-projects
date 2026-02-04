@@ -110,6 +110,7 @@ describe('Secrets Module', () => {
 
       it('should throw when file read fails', async () => {
         vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
         vi.mocked(fs.readFileSync).mockImplementation(() => {
           throw new Error('Permission denied')
         })

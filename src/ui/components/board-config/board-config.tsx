@@ -6,6 +6,7 @@ import * as React from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/ui/components/ui/dialog';
@@ -61,6 +62,7 @@ export function BoardConfig({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Board Settings</DialogTitle>
+          <DialogDescription className="sr-only">Configure board columns, swimlanes, and display options</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="columns" className="w-full">

@@ -6,6 +6,7 @@ import * as React from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -65,6 +66,7 @@ export function SaveViewDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Save View</DialogTitle>
+          <DialogDescription className="sr-only">Save the current view configuration</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

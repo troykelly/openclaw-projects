@@ -14,7 +14,7 @@ vi.mock('../src/api/embeddings/service.ts', () => ({
   embeddingService: {
     isConfigured: vi.fn(() => true),
     embed: vi.fn(async (text: string) => ({
-      embedding: new Array(1536).fill(0).map((_, i) => Math.sin(i + text.length)),
+      embedding: new Array(1024).fill(0).map((_, i) => Math.sin(i + text.length)),
       model: 'test-model',
       provider: 'test-provider',
     })),

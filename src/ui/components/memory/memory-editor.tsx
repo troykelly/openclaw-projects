@@ -9,6 +9,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -134,6 +135,7 @@ export function MemoryEditor({
       <DialogContent className={cn('sm:max-w-2xl', className)}>
         <DialogHeader>
           <DialogTitle>{memory ? 'Edit Memory' : 'Create Memory'}</DialogTitle>
+          <DialogDescription className="sr-only">{memory ? 'Edit memory details' : 'Create a new memory entry'}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

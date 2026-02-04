@@ -23,6 +23,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/ui/components/ui/sheet';
@@ -87,6 +88,7 @@ export function ContactDetailSheet({
       <SheetContent className="w-96 sm:max-w-md">
         <SheetHeader>
           <SheetTitle className="sr-only">Contact Details</SheetTitle>
+          <SheetDescription className="sr-only">View contact information, linked items, and communications</SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="h-full">

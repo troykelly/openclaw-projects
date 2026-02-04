@@ -15,6 +15,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/ui/components/ui/sheet';
@@ -40,6 +41,7 @@ export function EmailDetailSheet({
       <SheetContent className="w-[500px] sm:max-w-lg">
         <SheetHeader>
           <SheetTitle className="sr-only">Email Details</SheetTitle>
+          <SheetDescription className="sr-only">View email subject, sender, and body</SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="h-full">
