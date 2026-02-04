@@ -2,7 +2,7 @@
  * Tests for file storage API endpoints.
  * Part of Issue #215.
  *
- * Note: These tests mock the S3 storage since Minio may not be available
+ * Note: These tests mock the S3 storage since SeaweedFS may not be available
  * in all test environments.
  */
 
@@ -69,7 +69,7 @@ describe('File Storage API Endpoints', () => {
     process.env.S3_REGION = 'us-east-1';
     process.env.S3_ACCESS_KEY = 'test-key';
     process.env.S3_SECRET_KEY = 'test-secret';
-    process.env.S3_ENDPOINT = 'http://localhost:9000';
+    process.env.S3_ENDPOINT = 'http://localhost:8333';
 
     pool = createTestPool();
     await truncateAllTables(pool);

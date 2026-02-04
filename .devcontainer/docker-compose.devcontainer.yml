@@ -6,6 +6,14 @@ services:
     env_file:
       - path: ../.env
         required: false
+    environment:
+      # S3-compatible storage via SeaweedFS
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_BUCKET: openclaw
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: openclaw
+      S3_SECRET_KEY: openclaw
+      S3_FORCE_PATH_STYLE: "true"
     volumes:
       - ..:/workspaces/openclaw-projects:cached
       - /var/run/docker.sock:/var/run/docker.sock
@@ -13,6 +21,8 @@ services:
     command: sleep infinity
     depends_on:
       postgres:
+        condition: service_healthy
+      seaweedfs:
         condition: service_healthy
 
   postgres:
@@ -37,24 +47,25 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    command: "server -s3 -s3.port=8333 -master.volumeSizeLimitMB=100 -volume.max=10"
     environment:
-      MINIO_ROOT_USER: openclaw
-      MINIO_ROOT_PASSWORD: openclaw123
-    command: server /data --console-address ":9001"
+      # SeaweedFS S3 credentials (used by the filer/s3 gateway)
+      WEED_S3_AUTH_ENABLED: "false"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "8333:8333"
+      - "9333:9333"
     volumes:
-      - openclaw_projects_minio_data:/data
+      - openclaw_projects_seaweedfs_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/status"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 20
+      start_period: 30s
 
 volumes:
   openclaw_projects_postgres_data:
-  openclaw_projects_minio_data:
+  openclaw_projects_seaweedfs_data:
   openclaw_gateway_source:

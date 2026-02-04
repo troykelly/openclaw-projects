@@ -15,7 +15,7 @@ import type { FileStorage, S3Config } from './types.ts';
 
 /**
  * S3-compatible storage implementation.
- * Works with AWS S3, Minio, and SeaweedFS.
+ * Works with AWS S3 and SeaweedFS.
  */
 export class S3Storage implements FileStorage {
   private client: S3Client;

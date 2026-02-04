@@ -11,7 +11,7 @@ openclaw-projects has basic Docker support (dev compose, a prod compose, and Doc
 - A reverse proxy / TLS termination setup
 - Container hardening (images run as root, no security constraints)
 - WAF / OWASP protections
-- S3-compatible object storage in the stack (devcontainer uses MinIO, which is deprecated)
+- S3-compatible object storage in the stack (SeaweedFS for dev and production)
 - Multi-architecture builds (arm64 users can't run the images)
 - CI/CD for building and publishing images
 - Proper OCI labelling and versioning
@@ -241,13 +241,13 @@ strategy:
 - `org.opencontainers.image.authors`
 - `org.opencontainers.image.base.name` → base image reference
 
-## MinIO Removal
+## MinIO Removal (Completed)
 
-MinIO is deprecated and must be fully removed:
-- Delete MinIO service from `.devcontainer/docker-compose.devcontainer.yml`
-- Replace with SeaweedFS in devcontainer
-- Remove any MinIO references in documentation, scripts, and env examples
-- Update dev-setup scripts to use SeaweedFS
+MinIO has been removed and replaced with SeaweedFS:
+- Deleted MinIO service from `.devcontainer/docker-compose.devcontainer.yml`
+- Added SeaweedFS service to devcontainer
+- Removed all MinIO references from documentation, scripts, and env examples
+- Updated dev-setup scripts to use SeaweedFS
 
 ## Research Sources
 
