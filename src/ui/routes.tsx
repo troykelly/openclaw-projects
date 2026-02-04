@@ -41,8 +41,8 @@ const GlobalTimelinePage = React.lazy(() =>
 const ContactsPage = React.lazy(() =>
   import('@/ui/pages/ContactsPage.js').then((m) => ({ default: m.ContactsPage }))
 );
-const CommunicationsPage = React.lazy(() =>
-  import('@/ui/pages/CommunicationsPage.js').then((m) => ({ default: m.CommunicationsPage }))
+const MemoryPage = React.lazy(() =>
+  import('@/ui/pages/MemoryPage.js').then((m) => ({ default: m.MemoryPage }))
 );
 const SettingsPage = React.lazy(() =>
   import('@/ui/pages/SettingsPage.js').then((m) => ({ default: m.SettingsPage }))
@@ -82,7 +82,7 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /kanban -> KanbanPage
  *   /timeline -> GlobalTimelinePage
  *   /contacts -> ContactsPage
- *   /communications -> CommunicationsPage
+ *   /memory -> MemoryPage
  *   /settings -> SettingsPage
  *   * -> NotFoundPage
  */
@@ -127,8 +127,8 @@ export const routes: RouteObject[] = [
         element: lazy(ContactsPage),
       },
       {
-        path: 'communications',
-        element: lazy(CommunicationsPage),
+        path: 'memory',
+        element: lazy(MemoryPage),
       },
       {
         path: 'settings',
