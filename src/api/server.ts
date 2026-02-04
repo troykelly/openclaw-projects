@@ -11717,6 +11717,136 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+
+  // ── Relationship Types API (Epic #486, Issue #490) ────────────────
+  // Reference table for relationship types between contacts.
+  // Pre-seeded with common types, extensible by agents.
+
+  // GET /api/relationship-types - List all relationship types with optional filters
+  app.get('/api/relationship-types', async (req, reply) => {
+    const {
+      listRelationshipTypes,
+    } = await import('./relationship-types/index.ts');
+    const pool = createPool();
+    try {
+      const query = req.query as Record<string, string | undefined>;
+
+      const options: Parameters<typeof listRelationshipTypes>[1] = {};
+
+      if (query.is_directional !== undefined) {
+        options.isDirectional = query.is_directional === 'true';
+      }
+      if (query.created_by_agent !== undefined) {
+        options.createdByAgent = query.created_by_agent;
+      }
+      if (query.pre_seeded_only === 'true') {
+        options.preSeededOnly = true;
+      }
+      if (query.limit !== undefined) {
+        options.limit = parseInt(query.limit, 10);
+      }
+      if (query.offset !== undefined) {
+        options.offset = parseInt(query.offset, 10);
+      }
+
+      const result = await listRelationshipTypes(pool, options);
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/relationship-types/match - Find types matching a query string
+  // Must be defined before :id route to avoid conflict
+  app.get('/api/relationship-types/match', async (req, reply) => {
+    const {
+      findSemanticMatch,
+    } = await import('./relationship-types/index.ts');
+    const pool = createPool();
+    try {
+      const query = req.query as Record<string, string | undefined>;
+
+      if (!query.q || query.q.trim().length === 0) {
+        return reply.code(400).send({ error: 'Query parameter "q" is required' });
+      }
+
+      const limit = query.limit ? parseInt(query.limit, 10) : undefined;
+      const results = await findSemanticMatch(pool, query.q.trim(), { limit });
+      return reply.send({ results });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/relationship-types/:id - Get a single relationship type
+  app.get('/api/relationship-types/:id', async (req, reply) => {
+    const {
+      getRelationshipType,
+    } = await import('./relationship-types/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const type = await getRelationshipType(pool, params.id);
+
+      if (!type) {
+        return reply.code(404).send({ error: 'Relationship type not found' });
+      }
+
+      return reply.send(type);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/relationship-types - Create a new relationship type
+  app.post('/api/relationship-types', async (req, reply) => {
+    const {
+      createRelationshipType,
+    } = await import('./relationship-types/index.ts');
+    const pool = createPool();
+    try {
+      const body = req.body as Record<string, unknown> | null;
+
+      if (!body) {
+        return reply.code(400).send({ error: 'Request body is required' });
+      }
+
+      const name = body.name as string | undefined;
+      const label = body.label as string | undefined;
+
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return reply.code(400).send({ error: 'Field "name" is required' });
+      }
+
+      if (!label || typeof label !== 'string' || label.trim().length === 0) {
+        return reply.code(400).send({ error: 'Field "label" is required' });
+      }
+
+      const input = {
+        name: name.trim(),
+        label: label.trim(),
+        isDirectional: body.is_directional === true,
+        inverseTypeName: (body.inverse_type_name as string) ?? undefined,
+        description: (body.description as string) ?? undefined,
+        createdByAgent: (body.created_by_agent as string) ?? undefined,
+      };
+
+      const type = await createRelationshipType(pool, input);
+      return reply.code(201).send(type);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+
+      // Unique constraint violation for duplicate name
+      if (msg.includes('unique') || msg.includes('duplicate')) {
+        return reply.code(409).send({ error: 'A relationship type with this name already exists' });
+      }
+
+      return reply.code(500).send({ error: msg });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
