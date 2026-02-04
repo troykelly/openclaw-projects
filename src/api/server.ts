@@ -11717,5 +11717,34 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── SPA fallback for client-side routing (Issue #481) ──────────────
+  // Serve index.html for /static/app/* paths that don't match a real file.
+  // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
+  // which then handles routing client-side.
+  app.setNotFoundHandler((request, reply) => {
+    const url = request.url.split('?')[0]; // Strip query string
+
+    if (url.startsWith('/static/app/')) {
+      // Check if this looks like a static asset request (has a file extension)
+      // If so, the file genuinely doesn't exist — return 404.
+      const lastSegment = url.split('/').pop() ?? '';
+      if (lastSegment.includes('.')) {
+        return reply.code(404).send({ error: 'Not Found' });
+      }
+
+      // SPA fallback: serve index.html with bootstrap data for the requested path
+      const bootstrap = {
+        route: { path: url.replace('/static/app', '') || '/' },
+      };
+
+      return reply
+        .code(200)
+        .header('content-type', 'text/html; charset=utf-8')
+        .send(renderAppFrontendHtml(bootstrap));
+    }
+
+    return reply.code(404).send({ error: 'Not Found' });
+  });
+
   return app;
 }
