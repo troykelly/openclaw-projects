@@ -59,11 +59,11 @@ services:
     volumes:
       - openclaw_projects_seaweedfs_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9333 || exit 1"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/status"]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 20
+      start_period: 30s
 
 volumes:
   openclaw_projects_postgres_data:
