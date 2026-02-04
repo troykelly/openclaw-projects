@@ -2,7 +2,7 @@
  * Application route configuration.
  *
  * All routes are relative to the router basename.
- * The root path redirects to `/dashboard` as the default landing page.
+ * The root path redirects to `/work-items` as the default landing page.
  * Each page is lazy-loaded with React.lazy + Suspense for code splitting.
  * The AppLayout wraps all routes providing the sidebar, header, command
  * palette, and keyboard shortcuts.
@@ -47,8 +47,8 @@ const MemoryPage = React.lazy(() =>
 const SettingsPage = React.lazy(() =>
   import('@/ui/pages/SettingsPage.js').then((m) => ({ default: m.SettingsPage }))
 );
-const DashboardPage = React.lazy(() =>
-  import('@/ui/pages/DashboardPage.js').then((m) => ({ default: m.DashboardPage }))
+const ProjectDetailPage = React.lazy(() =>
+  import('@/ui/pages/ProjectDetailPage.js').then((m) => ({ default: m.ProjectDetailPage }))
 );
 const NotFoundPage = React.lazy(() =>
   import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage }))
@@ -76,13 +76,14 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  * Application route tree.
  *
  * Routes match the URL patterns previously handled by main.tsx:
- *   / -> redirect to /dashboard
- *   /dashboard -> DashboardPage
+ *   / -> redirect to /work-items
  *   /activity -> ActivityPage
  *   /work-items -> ProjectListPage
  *   /work-items/:id -> WorkItemDetailPage
  *   /work-items/:id/timeline -> ItemTimelinePage
  *   /work-items/:id/graph -> DependencyGraphPage
+ *   /projects/:projectId -> ProjectDetailPage (list view)
+ *   /projects/:projectId/:view -> ProjectDetailPage (board|tree|calendar view)
  *   /kanban -> KanbanPage
  *   /timeline -> GlobalTimelinePage
  *   /contacts -> ContactsPage
@@ -96,11 +97,7 @@ export const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="/dashboard" replace />,
-      },
-      {
-        path: 'dashboard',
-        element: lazy(DashboardPage),
+        element: <Navigate to="/work-items" replace />,
       },
       {
         path: 'activity',
@@ -121,6 +118,14 @@ export const routes: RouteObject[] = [
       {
         path: 'work-items/:id/graph',
         element: lazy(DependencyGraphPage),
+      },
+      {
+        path: 'projects/:projectId',
+        element: lazy(ProjectDetailPage),
+      },
+      {
+        path: 'projects/:projectId/:view',
+        element: lazy(ProjectDetailPage),
       },
       {
         path: 'kanban',
