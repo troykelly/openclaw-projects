@@ -53,8 +53,10 @@ import { createNotificationService } from './services/notification-service.js'
 import {
   createAutoRecallHook,
   createAutoCaptureHook,
+  createGraphAwareRecallHook,
   type AutoRecallHookOptions,
   type AutoCaptureHookOptions,
+  type GraphAwareRecallHookOptions,
 } from './hooks.js'
 
 /** Plugin state stored during registration */
@@ -89,6 +91,20 @@ const memoryRecallSchema: JSONSchema = {
       description: 'Filter by memory category',
       enum: ['preference', 'fact', 'decision', 'context', 'other'],
     },
+    tags: {
+      type: 'array',
+      description: 'Filter by tags for categorical queries (e.g., ["music", "food"])',
+      items: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 100,
+      },
+    },
+    relationship_id: {
+      type: 'string',
+      description: 'Scope search to a specific relationship between contacts',
+      format: 'uuid',
+    },
   },
   required: ['query'],
 }
@@ -117,6 +133,20 @@ const memoryStoreSchema: JSONSchema = {
       minimum: 0,
       maximum: 1,
       default: 0.5,
+    },
+    tags: {
+      type: 'array',
+      description: 'Tags for structured retrieval (e.g., ["music", "work", "food"])',
+      items: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 100,
+      },
+    },
+    relationship_id: {
+      type: 'string',
+      description: 'Scope memory to a specific relationship between contacts',
+      format: 'uuid',
     },
   },
   required: ['content'],
@@ -561,15 +591,19 @@ function createToolHandlers(state: PluginState) {
 
   return {
     async memory_recall(params: Record<string, unknown>): Promise<ToolResult> {
-      const { query, limit = config.maxRecallMemories, category } = params as {
+      const { query, limit = config.maxRecallMemories, category, tags, relationship_id } = params as {
         query: string
         limit?: number
         category?: string
+        tags?: string[]
+        relationship_id?: string
       }
 
       try {
         const queryParams = new URLSearchParams({ q: query, limit: String(limit) })
         if (category) queryParams.set('category', category)
+        if (tags && tags.length > 0) queryParams.set('tags', tags.join(','))
+        if (relationship_id) queryParams.set('relationship_id', relationship_id)
 
         const response = await apiClient.get<{ memories: Array<{ id: string; content: string; category: string; score?: number }> }>(
           `/api/memories/search?${queryParams}`,
@@ -600,16 +634,22 @@ function createToolHandlers(state: PluginState) {
     },
 
     async memory_store(params: Record<string, unknown>): Promise<ToolResult> {
-      const { content, category = 'fact', importance = 0.5 } = params as {
+      const { content, category = 'fact', importance = 0.5, tags, relationship_id } = params as {
         content: string
         category?: string
         importance?: number
+        tags?: string[]
+        relationship_id?: string
       }
 
       try {
+        const payload: Record<string, unknown> = { content, category, importance }
+        if (tags && tags.length > 0) payload.tags = tags
+        if (relationship_id) payload.relationship_id = relationship_id
+
         const response = await apiClient.post<{ id: string }>(
           '/api/memories',
-          { content, category, importance },
+          payload,
           { userId }
         )
 
@@ -1784,8 +1824,10 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
   const HOOK_TIMEOUT_MS = 5000
 
   if (config.autoRecall) {
-    // Create the auto-recall hook using the consolidated hooks.ts implementation
-    const autoRecallHook = createAutoRecallHook({
+    // Create the graph-aware auto-recall hook which traverses the user's
+    // relationship graph for multi-scope context retrieval.
+    // Falls back to basic memory search if the graph-aware endpoint is unavailable.
+    const autoRecallHook = createGraphAwareRecallHook({
       client: apiClient,
       logger,
       config,

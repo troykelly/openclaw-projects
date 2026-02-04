@@ -2,7 +2,7 @@
   "id": "openclaw-projects",
   "name": "OpenClaw Projects Plugin",
   "description": "Memory provider with projects, todos, and contacts integration",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "kind": "memory",
   "main": "dist/index.js",
   "skillsDir": "skills",
