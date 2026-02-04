@@ -1,4 +1,4 @@
--- Migration 046: Add relationship_id scope to memory table
+-- Migration 048: Add relationship_id scope to memory table
 -- Part of Epic #486, Issue #493
 -- Allows memories to be scoped to specific relationships (e.g., "Troy and Alex's anniversary is March 15").
 

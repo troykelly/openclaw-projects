@@ -1,4 +1,4 @@
--- Migration 044: Add tags to memory table
+-- Migration 045: Add tags to memory table
 -- Part of Epic #486, Issue #492
 -- Enables structured tag-based filtering alongside semantic search
 

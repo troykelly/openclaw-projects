@@ -1,4 +1,4 @@
--- Migration 044: Relationship Types
+-- Migration 046: Relationship Types
 -- Part of Epic #486, Issue #490
 -- Creates the relationship_type reference table pre-seeded with common types.
 -- Relationship types define how contacts relate to each other.

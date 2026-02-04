@@ -57,9 +57,24 @@ if [ "$RESET" = true ]; then
 fi
 
 echo "==> Running migrations..."
+# Ensure schema_migrations table exists for test compatibility
+psql -c "
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    version bigint PRIMARY KEY,
+    dirty boolean NOT NULL DEFAULT false,
+    applied_at timestamptz NOT NULL DEFAULT now()
+  );
+  ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS dirty boolean NOT NULL DEFAULT false;
+  ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS applied_at timestamptz NOT NULL DEFAULT now();
+" > /dev/null 2>&1
 for f in "$PROJECT_ROOT"/migrations/*.up.sql; do
   migration_name=$(basename "$f")
-  if psql -f "$f" > /dev/null 2>&1; then
+  # Extract numeric version prefix (e.g. "003" from "003_work_items_core.up.sql")
+  version=$(echo "$migration_name" | grep -oE '^[0-9]+')
+  # Use ON_ERROR_STOP so psql returns non-zero on SQL errors
+  if psql -v ON_ERROR_STOP=1 -f "$f" > /dev/null 2>&1; then
+    # Track the applied version in schema_migrations
+    psql -c "INSERT INTO schema_migrations(version, dirty) VALUES ($version, false) ON CONFLICT (version) DO NOTHING;" > /dev/null 2>&1
     echo "    Applied: $migration_name"
   else
     echo "    Already applied or error: $migration_name"

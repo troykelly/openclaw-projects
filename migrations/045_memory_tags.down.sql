@@ -1,4 +1,4 @@
--- Migration 044 down: Remove tags from memory table
+-- Migration 045 down: Remove tags from memory table
 -- Reverses Issue #492 changes
 
 -- Drop the GIN index

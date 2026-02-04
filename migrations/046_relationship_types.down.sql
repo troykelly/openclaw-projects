@@ -1,4 +1,4 @@
--- Migration 044 Down: Remove Relationship Types
+-- Migration 046 Down: Remove Relationship Types
 -- Part of Epic #486, Issue #490
 
 -- Drop triggers first

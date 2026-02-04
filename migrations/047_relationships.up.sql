@@ -1,4 +1,4 @@
--- Migration 045: Relationships
+-- Migration 047: Relationships
 -- Part of Epic #486, Issue #491
 -- Creates the relationship table connecting contacts via relationship types.
 -- Supports directional, symmetric, and group membership relationships.

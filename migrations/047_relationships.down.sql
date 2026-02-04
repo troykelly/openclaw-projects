@@ -1,4 +1,4 @@
--- Migration 045 Down: Remove Relationships
+-- Migration 047 Down: Remove Relationships
 -- Part of Epic #486, Issue #491
 
 -- Drop triggers first
