@@ -18,8 +18,6 @@ An [OpenClaw](https://docs.openclaw.ai/) plugin that connects agents to the open
 ## Installation
 
 ```bash
-npm install @troykelly/openclaw-projects
-# or
 pnpm add @troykelly/openclaw-projects
 ```
 
