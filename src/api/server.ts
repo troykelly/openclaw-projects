@@ -11920,6 +11920,263 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Relationships API (Epic #486, Issue #491) ────────────────────────
+  // CRUD for relationships between contacts, graph traversal, group membership,
+  // and smart creation (resolve contacts/types by name).
+
+  // GET /api/relationships - List relationships with optional filters
+  app.get('/api/relationships', async (req, reply) => {
+    const {
+      listRelationships,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const query = req.query as Record<string, string | undefined>;
+
+      const options: Parameters<typeof listRelationships>[1] = {};
+
+      if (query.contact_id !== undefined) {
+        options.contactId = query.contact_id;
+      }
+      if (query.relationship_type_id !== undefined) {
+        options.relationshipTypeId = query.relationship_type_id;
+      }
+      if (query.created_by_agent !== undefined) {
+        options.createdByAgent = query.created_by_agent;
+      }
+      if (query.limit !== undefined) {
+        options.limit = parseInt(query.limit, 10);
+      }
+      if (query.offset !== undefined) {
+        options.offset = parseInt(query.offset, 10);
+      }
+
+      const result = await listRelationships(pool, options);
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/relationships/set - Smart relationship creation
+  // Must be defined before :id route to avoid conflict
+  app.post('/api/relationships/set', async (req, reply) => {
+    const {
+      relationshipSet,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const body = req.body as Record<string, unknown> | null;
+
+      if (!body) {
+        return reply.code(400).send({ error: 'Request body is required' });
+      }
+
+      const contactA = body.contact_a as string | undefined;
+      const contactB = body.contact_b as string | undefined;
+      const relationshipType = body.relationship_type as string | undefined;
+
+      if (!contactA || typeof contactA !== 'string' || contactA.trim().length === 0) {
+        return reply.code(400).send({ error: 'Field "contact_a" is required' });
+      }
+
+      if (!contactB || typeof contactB !== 'string' || contactB.trim().length === 0) {
+        return reply.code(400).send({ error: 'Field "contact_b" is required' });
+      }
+
+      if (!relationshipType || typeof relationshipType !== 'string' || relationshipType.trim().length === 0) {
+        return reply.code(400).send({ error: 'Field "relationship_type" is required' });
+      }
+
+      const result = await relationshipSet(pool, {
+        contactA: contactA.trim(),
+        contactB: contactB.trim(),
+        relationshipType: relationshipType.trim(),
+        notes: (body.notes as string) ?? undefined,
+        createdByAgent: (body.created_by_agent as string) ?? undefined,
+      });
+
+      return reply.send(result);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('cannot be resolved')) {
+        return reply.code(404).send({ error: msg });
+      }
+      return reply.code(500).send({ error: msg });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/relationships/:id - Get a single relationship with details
+  app.get('/api/relationships/:id', async (req, reply) => {
+    const {
+      getRelationship,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const relationship = await getRelationship(pool, params.id);
+
+      if (!relationship) {
+        return reply.code(404).send({ error: 'Relationship not found' });
+      }
+
+      return reply.send(relationship);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/relationships - Create a new relationship
+  app.post('/api/relationships', async (req, reply) => {
+    const {
+      createRelationship,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const body = req.body as Record<string, unknown> | null;
+
+      if (!body) {
+        return reply.code(400).send({ error: 'Request body is required' });
+      }
+
+      const contactAId = body.contact_a_id as string | undefined;
+      const contactBId = body.contact_b_id as string | undefined;
+      const relationshipTypeId = body.relationship_type_id as string | undefined;
+
+      if (!contactAId || typeof contactAId !== 'string') {
+        return reply.code(400).send({ error: 'Field "contact_a_id" is required' });
+      }
+
+      if (!contactBId || typeof contactBId !== 'string') {
+        return reply.code(400).send({ error: 'Field "contact_b_id" is required' });
+      }
+
+      if (!relationshipTypeId || typeof relationshipTypeId !== 'string') {
+        return reply.code(400).send({ error: 'Field "relationship_type_id" is required' });
+      }
+
+      const relationship = await createRelationship(pool, {
+        contactAId,
+        contactBId,
+        relationshipTypeId,
+        notes: (body.notes as string) ?? undefined,
+        createdByAgent: (body.created_by_agent as string) ?? undefined,
+      });
+
+      return reply.code(201).send(relationship);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+
+      if (msg.includes('unique') || msg.includes('duplicate') || msg.includes('unique_relationship')) {
+        return reply.code(409).send({ error: 'A relationship between these contacts with this type already exists' });
+      }
+      if (msg.includes('self-relationship')) {
+        return reply.code(400).send({ error: msg });
+      }
+
+      return reply.code(500).send({ error: msg });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/relationships/:id - Update a relationship
+  app.patch('/api/relationships/:id', async (req, reply) => {
+    const {
+      updateRelationship,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const body = req.body as Record<string, unknown> | null;
+
+      const input: Record<string, unknown> = {};
+      if (body?.notes !== undefined) {
+        input.notes = body.notes;
+      }
+      if (body?.relationship_type_id !== undefined) {
+        input.relationshipTypeId = body.relationship_type_id;
+      }
+
+      const updated = await updateRelationship(pool, params.id, input);
+
+      if (!updated) {
+        return reply.code(404).send({ error: 'Relationship not found' });
+      }
+
+      return reply.send(updated);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/relationships/:id - Delete a relationship
+  app.delete('/api/relationships/:id', async (req, reply) => {
+    const {
+      deleteRelationship,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const deleted = await deleteRelationship(pool, params.id);
+
+      if (!deleted) {
+        return reply.code(404).send({ error: 'Relationship not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contacts/:id/relationships - Graph traversal for a contact
+  app.get('/api/contacts/:id/relationships', async (req, reply) => {
+    const {
+      getRelatedContacts,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const result = await getRelatedContacts(pool, params.id);
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contacts/:id/groups - Groups a contact belongs to
+  app.get('/api/contacts/:id/groups', async (req, reply) => {
+    const {
+      getContactGroups,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const groups = await getContactGroups(pool, params.id);
+      return reply.send({ groups });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contacts/:id/members - Members of a group contact
+  app.get('/api/contacts/:id/members', async (req, reply) => {
+    const {
+      getGroupMembers,
+    } = await import('./relationships/index.ts');
+    const pool = createPool();
+    try {
+      const params = req.params as { id: string };
+      const members = await getGroupMembers(pool, params.id);
+      return reply.send({ members });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
