@@ -50,6 +50,9 @@ const SettingsPage = React.lazy(() =>
 const ProjectDetailPage = React.lazy(() =>
   import('@/ui/pages/ProjectDetailPage.js').then((m) => ({ default: m.ProjectDetailPage }))
 );
+const DashboardPage = React.lazy(() =>
+  import('@/ui/pages/DashboardPage.js').then((m) => ({ default: m.DashboardPage }))
+);
 const NotFoundPage = React.lazy(() =>
   import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage }))
 );
@@ -97,7 +100,11 @@ export const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="/work-items" replace />,
+        element: <Navigate to="/dashboard" replace />,
+      },
+      {
+        path: 'dashboard',
+        element: lazy(DashboardPage),
       },
       {
         path: 'activity',

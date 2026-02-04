@@ -24,6 +24,58 @@ vi.mock('@/ui/lib/api-client', () => ({
   apiClient: mockApiClient,
 }));
 
+// Mock cmdk-based command components to render plain HTML in jsdom.
+// The cmdk library uses internal scoring/filtering that doesn't work in jsdom,
+// causing CommandItem children to not render visibly.
+vi.mock('@/ui/components/ui/command', () => {
+  const React = require('react');
+  return {
+    CommandDialog: ({ open, onOpenChange, children, title, description }: any) => {
+      // Handle Escape key to close the dialog, mimicking Radix Dialog behavior
+      React.useEffect(() => {
+        if (!open) return;
+        const handler = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') onOpenChange?.(false);
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+      }, [open, onOpenChange]);
+      if (!open) return null;
+      return React.createElement('div', { role: 'dialog', 'data-testid': 'command-dialog' },
+        React.createElement('div', { className: 'sr-only' },
+          React.createElement('h2', null, title),
+          React.createElement('p', null, description),
+        ),
+        children,
+      );
+    },
+    CommandInput: ({ placeholder, value, onValueChange, ...props }: any) =>
+      React.createElement('input', {
+        placeholder,
+        value: value || '',
+        onChange: (e: any) => onValueChange?.(e.target.value),
+        ...props,
+      }),
+    CommandList: ({ children }: any) => React.createElement('div', { 'data-slot': 'command-list' }, children),
+    CommandEmpty: ({ children }: any) => React.createElement('div', { 'data-slot': 'command-empty' }, children),
+    CommandGroup: ({ heading, children }: any) =>
+      React.createElement('div', { 'data-slot': 'command-group' },
+        heading ? React.createElement('div', null, heading) : null,
+        children,
+      ),
+    CommandItem: ({ children, onSelect, disabled, value, ...props }: any) =>
+      React.createElement('div', {
+        'data-slot': 'command-item',
+        role: 'option',
+        onClick: () => !disabled && onSelect?.(),
+        ...props,
+      }, children),
+    CommandSeparator: () => React.createElement('hr'),
+    CommandShortcut: ({ children }: any) => React.createElement('span', null, children),
+    Command: ({ children }: any) => React.createElement('div', null, children),
+  };
+});
+
 import {
   CommandPalette,
   type SearchResult,

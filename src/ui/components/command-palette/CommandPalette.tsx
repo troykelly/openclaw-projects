@@ -249,6 +249,7 @@ export function CommandPalette({
       onOpenChange={handleOpenChange}
       title="Command Palette"
       description="Search for commands, projects, issues, or contacts"
+      shouldFilter={false}
     >
       <CommandInput
         placeholder="Type a command or search..."

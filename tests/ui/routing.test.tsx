@@ -18,6 +18,11 @@ vi.mock('@/ui/lib/api-client', () => ({
   },
 }));
 
+// Mock command palette to avoid cmdk jsdom rendering issues in route tests
+vi.mock('@/ui/components/command-palette', () => ({
+  CommandPalette: () => null,
+}));
+
 /**
  * Helper to render with a MemoryRouter at the given initial path,
  * wrapped in QueryClientProvider for TanStack Query hooks.
