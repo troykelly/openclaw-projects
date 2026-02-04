@@ -2,6 +2,7 @@
  * Memory types for the unified memory system.
  * Part of Epic #199, Issue #209
  * Tags added in Issue #492
+ * Relationship scope added in Issue #493
  */
 
 /** Valid memory types */
@@ -15,6 +16,8 @@ export interface MemoryScope {
   workItemId?: string;
   /** Contact ID for contact scope */
   contactId?: string;
+  /** Relationship ID for relationship scope (e.g., anniversaries, interpersonal metadata) */
+  relationshipId?: string;
 }
 
 /** Attribution metadata for a memory */
@@ -67,6 +70,8 @@ export interface MemoryEntry {
   userEmail: string | null;
   workItemId: string | null;
   contactId: string | null;
+  /** Relationship this memory is scoped to (e.g., anniversaries, interpersonal metadata) */
+  relationshipId: string | null;
   title: string;
   content: string;
   memoryType: MemoryType;

@@ -2,6 +2,7 @@
  * memory_store tool implementation.
  * Persists important information to long-term memory.
  * Tags support added in Issue #492.
+ * Relationship scope added in Issue #493.
  */
 
 import { z } from 'zod'
@@ -21,6 +22,10 @@ export const MemoryStoreParamsSchema = z.object({
   tags: z
     .array(z.string().min(1).max(100))
     .max(20, 'Maximum 20 tags per memory')
+    .optional(),
+  relationship_id: z
+    .string()
+    .uuid('relationship_id must be a valid UUID')
     .optional(),
 })
 export type MemoryStoreParams = z.infer<typeof MemoryStoreParamsSchema>
@@ -139,7 +144,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
   return {
     name: 'memory_store',
     description:
-      'Save important information to long-term memory. Use for preferences, facts, decisions, or any information worth remembering. Optionally tag memories for structured retrieval (e.g., ["music", "work", "food"]).',
+      'Save important information to long-term memory. Use for preferences, facts, decisions, or any information worth remembering. Optionally tag memories for structured retrieval (e.g., ["music", "work", "food"]). Use relationship_id to scope memories to a specific relationship between contacts (e.g., anniversaries, shared preferences).',
     parameters: MemoryStoreParamsSchema,
 
     async execute(params: MemoryStoreParams): Promise<MemoryStoreResult> {
@@ -157,6 +162,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         category = 'other',
         importance = 0.7,
         tags = [],
+        relationship_id,
       } = parseResult.data
 
       // Sanitize text
@@ -184,14 +190,19 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
 
       try {
         // Store memory via API
+        const payload: Record<string, unknown> = {
+          content: sanitizedText,
+          category,
+          importance,
+          tags,
+        }
+        if (relationship_id) {
+          payload.relationship_id = relationship_id
+        }
+
         const response = await client.post<StoredMemory>(
           '/api/memories',
-          {
-            content: sanitizedText,
-            category,
-            importance,
-            tags,
-          },
+          payload,
           { userId }
         )
 

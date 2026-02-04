@@ -5402,6 +5402,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
       memory_type?: string;
       work_item_id?: string;
+      contact_id?: string;
+      relationship_id?: string;
+      user_email?: string;
       tags?: string;
     };
 
@@ -5421,6 +5424,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset,
         memoryType: query.memory_type,
         workItemId: query.work_item_id,
+        contactId: query.contact_id,
+        relationshipId: query.relationship_id,
+        userEmail: query.user_email,
         tags: searchTags,
       });
 
@@ -5553,6 +5559,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       user_email?: string;
       work_item_id?: string;
       contact_id?: string;
+      relationship_id?: string;
       created_by_agent?: string;
       created_by_human?: boolean;
       source_url?: string;
@@ -5587,6 +5594,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         userEmail: body.user_email,
         workItemId: body.work_item_id,
         contactId: body.contact_id,
+        relationshipId: body.relationship_id,
         createdByAgent: body.created_by_agent,
         createdByHuman: body.created_by_human,
         sourceUrl: body.source_url,
@@ -5618,6 +5626,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         user_email?: string;
         work_item_id?: string;
         contact_id?: string;
+        relationship_id?: string;
         created_by_agent?: string;
         created_by_human?: boolean;
         source_url?: string;
@@ -5678,6 +5687,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             userEmail: mem.user_email,
             workItemId: mem.work_item_id,
             contactId: mem.contact_id,
+            relationshipId: mem.relationship_id,
             createdByAgent: mem.created_by_agent,
             createdByHuman: mem.created_by_human,
             sourceUrl: mem.source_url,
@@ -5865,6 +5875,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       user_email?: string;
       work_item_id?: string;
       contact_id?: string;
+      relationship_id?: string;
       memory_type?: string;
       include_expired?: string;
       include_superseded?: string;
@@ -5879,6 +5890,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         userEmail: query.user_email,
         workItemId: query.work_item_id,
         contactId: query.contact_id,
+        relationshipId: query.relationship_id,
         memoryType: query.memory_type as any,
         includeExpired: query.include_expired === 'true',
         includeSuperseded: query.include_superseded === 'true',
@@ -5939,6 +5951,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         userEmail: oldMemory.userEmail ?? undefined,
         workItemId: oldMemory.workItemId ?? undefined,
         contactId: oldMemory.contactId ?? undefined,
+        relationshipId: oldMemory.relationshipId ?? undefined,
         importance: body.importance ?? oldMemory.importance,
         confidence: body.confidence ?? oldMemory.confidence,
       });

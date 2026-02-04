@@ -2,6 +2,7 @@
  * Memory service for the unified memory system.
  * Part of Epic #199, Issue #209
  * Tags support added in Issue #492
+ * Relationship scope added in Issue #493
  */
 
 import type { Pool } from 'pg';
@@ -35,6 +36,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     userEmail: row.user_email as string | null,
     workItemId: row.work_item_id as string | null,
     contactId: row.contact_id as string | null,
+    relationshipId: row.relationship_id as string | null,
     title: row.title as string,
     content: row.content as string,
     memoryType: row.memory_type as MemoryType,
@@ -73,24 +75,24 @@ export async function createMemory(
   }
 
   // At least one scope should be set
-  if (!input.userEmail && !input.workItemId && !input.contactId) {
+  if (!input.userEmail && !input.workItemId && !input.contactId && !input.relationshipId) {
     // Default to requiring at least some scope for organization
     // For now, allow completely unscoped memories but log a warning
-    console.warn('[Memory] Creating memory without scope - consider adding userEmail, workItemId, or contactId');
+    console.warn('[Memory] Creating memory without scope - consider adding userEmail, workItemId, contactId, or relationshipId');
   }
 
   const tags = input.tags ?? [];
 
   const result = await pool.query(
     `INSERT INTO memory (
-      user_email, work_item_id, contact_id,
+      user_email, work_item_id, contact_id, relationship_id,
       title, content, memory_type,
       tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at
-    ) VALUES ($1, $2, $3, $4, $5, $6::memory_type, $7, $8, $9, $10, $11, $12, $13)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14)
     RETURNING
-      id::text, user_email, work_item_id::text, contact_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -99,6 +101,7 @@ export async function createMemory(
       input.userEmail ?? null,
       input.workItemId ?? null,
       input.contactId ?? null,
+      input.relationshipId ?? null,
       input.title,
       input.content,
       memoryType,
@@ -124,7 +127,7 @@ export async function getMemory(
 ): Promise<MemoryEntry | null> {
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -222,7 +225,7 @@ export async function updateMemory(
     `UPDATE memory SET ${updates.join(', ')}, updated_at = NOW()
     WHERE id = $${paramIndex}
     RETURNING
-      id::text, user_email, work_item_id::text, contact_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -278,6 +281,12 @@ export async function listMemories(
     paramIndex++;
   }
 
+  if (options.relationshipId !== undefined) {
+    conditions.push(`relationship_id = $${paramIndex}`);
+    params.push(options.relationshipId);
+    paramIndex++;
+  }
+
   // Type filter
   if (options.memoryType !== undefined) {
     conditions.push(`memory_type = $${paramIndex}::memory_type`);
@@ -319,7 +328,7 @@ export async function listMemories(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -338,7 +347,7 @@ export async function listMemories(
 }
 
 /**
- * Gets global memories for a user (no work_item_id or contact_id).
+ * Gets global memories for a user (no work_item_id, contact_id, or relationship_id).
  */
 export async function getGlobalMemories(
   pool: Pool,
@@ -349,6 +358,7 @@ export async function getGlobalMemories(
     'user_email = $1',
     'work_item_id IS NULL',
     'contact_id IS NULL',
+    'relationship_id IS NULL',
     '(expires_at IS NULL OR expires_at > NOW())',
     'superseded_by IS NULL',
   ];
@@ -378,7 +388,7 @@ export async function getGlobalMemories(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -473,6 +483,11 @@ export async function searchMemories(
           semanticParams.push(options.contactId);
           semanticIdx++;
         }
+        if (options.relationshipId !== undefined) {
+          semanticConditions.push(`relationship_id = $${semanticIdx}`);
+          semanticParams.push(options.relationshipId);
+          semanticIdx++;
+        }
         if (options.memoryType !== undefined) {
           semanticConditions.push(`memory_type = $${semanticIdx}::memory_type`);
           semanticParams.push(options.memoryType);
@@ -490,7 +505,7 @@ export async function searchMemories(
 
         const result = await pool.query(
           `SELECT
-            id::text, user_email, work_item_id::text, contact_id::text,
+            id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
@@ -544,6 +559,11 @@ export async function searchMemories(
     textParams.push(options.contactId);
     textIdx++;
   }
+  if (options.relationshipId !== undefined) {
+    textConditions.push(`relationship_id = $${textIdx}`);
+    textParams.push(options.relationshipId);
+    textIdx++;
+  }
   if (options.memoryType !== undefined) {
     textConditions.push(`memory_type = $${textIdx}::memory_type`);
     textParams.push(options.memoryType);
@@ -560,7 +580,7 @@ export async function searchMemories(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,

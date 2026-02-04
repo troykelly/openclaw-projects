@@ -123,6 +123,9 @@ export async function searchMemoriesSemantic(
     offset?: number;
     memoryType?: string;
     workItemId?: string;
+    contactId?: string;
+    relationshipId?: string;
+    userEmail?: string;
     tags?: string[];
   } = {}
 ): Promise<{
@@ -130,7 +133,7 @@ export async function searchMemoriesSemantic(
   searchType: 'semantic' | 'text';
   queryEmbeddingProvider?: string;
 }> {
-  const { limit = 20, offset = 0, memoryType, workItemId, tags } = options;
+  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, userEmail, tags } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -167,6 +170,24 @@ export async function searchMemoriesSemantic(
   if (workItemId) {
     conditions.push(`m.work_item_id = $${paramIndex}`);
     params.push(workItemId);
+    paramIndex++;
+  }
+
+  if (contactId) {
+    conditions.push(`m.contact_id = $${paramIndex}`);
+    params.push(contactId);
+    paramIndex++;
+  }
+
+  if (relationshipId) {
+    conditions.push(`m.relationship_id = $${paramIndex}`);
+    params.push(relationshipId);
+    paramIndex++;
+  }
+
+  if (userEmail) {
+    conditions.push(`m.user_email = $${paramIndex}`);
+    params.push(userEmail);
     paramIndex++;
   }
 

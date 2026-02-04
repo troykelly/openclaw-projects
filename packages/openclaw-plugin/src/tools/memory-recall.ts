@@ -2,6 +2,7 @@
  * memory_recall tool implementation.
  * Provides semantic search through stored memories.
  * Tags filtering support added in Issue #492.
+ * Relationship scope filtering added in Issue #493.
  */
 
 import { z } from 'zod'
@@ -24,6 +25,10 @@ export const MemoryRecallParamsSchema = z.object({
   tags: z
     .array(z.string().min(1).max(100))
     .max(20, 'Maximum 20 tags per filter')
+    .optional(),
+  relationship_id: z
+    .string()
+    .uuid('relationship_id must be a valid UUID')
     .optional(),
 })
 export type MemoryRecallParams = z.infer<typeof MemoryRecallParamsSchema>
@@ -133,7 +138,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
   return {
     name: 'memory_recall',
     description:
-      'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics. Optionally filter by tags for categorical queries (e.g., ["music", "food"]).',
+      'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics. Optionally filter by tags for categorical queries (e.g., ["music", "food"]). Use relationship_id to scope search to a specific relationship between contacts.',
     parameters: MemoryRecallParamsSchema,
 
     async execute(params: MemoryRecallParams): Promise<MemoryRecallResult> {
@@ -146,7 +151,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         return { success: false, error: errorMessage }
       }
 
-      const { query, limit = config.maxRecallMemories, category, tags } = parseResult.data
+      const { query, limit = config.maxRecallMemories, category, tags, relationship_id } = parseResult.data
 
       // Sanitize query
       const sanitizedQuery = sanitizeQuery(query)
@@ -174,6 +179,9 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         }
         if (tags && tags.length > 0) {
           queryParams.set('tags', tags.join(','))
+        }
+        if (relationship_id) {
+          queryParams.set('relationship_id', relationship_id)
         }
 
         const path = `/api/memories/search?${queryParams.toString()}`
