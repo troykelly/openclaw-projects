@@ -11250,6 +11250,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'cursorPosition is required' });
     }
 
+    // Validate cursor position values (#694)
+    const { line, column } = body.cursorPosition;
+    if (!Number.isInteger(line) || !Number.isInteger(column)) {
+      return reply.code(400).send({ error: 'cursorPosition line and column must be integers' });
+    }
+    if (line < 0 || column < 0) {
+      return reply.code(400).send({ error: 'cursorPosition line and column must be non-negative' });
+    }
+    // Reasonable upper bounds to prevent abuse
+    const MAX_LINE = 1000000;
+    const MAX_COLUMN = 10000;
+    if (line > MAX_LINE || column > MAX_COLUMN) {
+      return reply.code(400).send({ error: 'cursorPosition values exceed maximum bounds' });
+    }
+
     const pool = createPool();
 
     try {
