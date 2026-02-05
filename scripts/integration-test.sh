@@ -173,10 +173,12 @@ wait_for_healthy() {
       return 1
     fi
 
-    # Check container health status
+    # Check container health status using docker compose ps for the specific service
+    local ps_json
+    ps_json=$(docker compose -f "$COMPOSE_FILE" ps "$service_name" --format json 2>/dev/null || echo "")
+
     local health_status
-    health_status=$(docker compose -f "$COMPOSE_FILE" ps --format json 2>/dev/null | \
-      jq -r --arg svc "$service_name" 'select(.Service == $svc) | .Health // .State' 2>/dev/null || echo "unknown")
+    health_status=$(echo "$ps_json" | jq -r '.Health // .State // "unknown"' 2>/dev/null || echo "unknown")
 
     if [[ "$health_status" == "healthy" ]]; then
       return 0
@@ -185,11 +187,9 @@ wait_for_healthy() {
     # For migrate service, check if it exited successfully
     if [[ "$service_name" == "migrate" ]]; then
       local exit_code
-      exit_code=$(docker compose -f "$COMPOSE_FILE" ps --format json 2>/dev/null | \
-        jq -r --arg svc "$service_name" 'select(.Service == $svc) | .ExitCode // -1' 2>/dev/null || echo "-1")
+      exit_code=$(echo "$ps_json" | jq -r '.ExitCode // -1' 2>/dev/null || echo "-1")
       local state
-      state=$(docker compose -f "$COMPOSE_FILE" ps --format json 2>/dev/null | \
-        jq -r --arg svc "$service_name" 'select(.Service == $svc) | .State' 2>/dev/null || echo "unknown")
+      state=$(echo "$ps_json" | jq -r '.State // "unknown"' 2>/dev/null || echo "unknown")
 
       if [[ "$state" == "exited" && "$exit_code" == "0" ]]; then
         return 0
