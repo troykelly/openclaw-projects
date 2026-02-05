@@ -545,24 +545,29 @@ export function NotesPage(): React.JSX.Element {
       )}
 
       {/* Share Dialog */}
-      {dialog.type === 'share' && (
-        <ShareDialogWrapper
-          noteId={dialog.noteId}
-          onClose={() => setDialog({ type: 'none' })}
-          onShare={async (email, permission) => {
-            await shareNoteMutation.mutateAsync({
-              noteId: dialog.noteId,
-              body: { email, permission },
-            });
-          }}
-          onRevoke={async (shareId) => {
-            await revokeShareMutation.mutateAsync({
-              noteId: dialog.noteId,
-              shareId,
-            });
-          }}
-        />
-      )}
+      {dialog.type === 'share' && (() => {
+        const noteToShare = notes.find((n) => n.id === dialog.noteId);
+        return (
+          <ShareDialogWrapper
+            noteId={dialog.noteId}
+            noteTitle={noteToShare?.title ?? 'Note'}
+            noteVisibility={noteToShare?.visibility ?? 'private'}
+            onClose={() => setDialog({ type: 'none' })}
+            onShare={async (email, permission) => {
+              await shareNoteMutation.mutateAsync({
+                noteId: dialog.noteId,
+                body: { email, permission },
+              });
+            }}
+            onRevoke={async (shareId) => {
+              await revokeShareMutation.mutateAsync({
+                noteId: dialog.noteId,
+                shareId,
+              });
+            }}
+          />
+        );
+      })()}
 
       {/* Delete Note Confirmation */}
       <Dialog
@@ -786,6 +791,8 @@ function NotebookFormDialog({
 
 interface ShareDialogWrapperProps {
   noteId: string;
+  noteTitle: string;
+  noteVisibility: NoteVisibility;
   onClose: () => void;
   onShare: (email: string, permission: 'read' | 'read_write') => Promise<void>;
   onRevoke: (shareId: string) => Promise<void>;
@@ -793,6 +800,8 @@ interface ShareDialogWrapperProps {
 
 function ShareDialogWrapper({
   noteId,
+  noteTitle,
+  noteVisibility,
   onClose,
   onShare,
   onRevoke,
@@ -814,19 +823,61 @@ function ShareDialogWrapper({
       }));
   }, [sharesData?.shares]);
 
+  // Create a minimal note object for ShareDialog
+  // ShareDialog manages its own loading states internally for add/remove operations
+  const noteForDialog: UINote = useMemo(
+    () => ({
+      id: noteId,
+      title: noteTitle,
+      content: '',
+      visibility: noteVisibility,
+      hideFromAgents: false,
+      isPinned: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: '',
+      version: 1,
+    }),
+    [noteId, noteTitle, noteVisibility]
+  );
+
+  // Handle share - convert permission format
+  const handleAddShare = useCallback(
+    async (email: string, permission: 'view' | 'edit') => {
+      await onShare(email, permission === 'edit' ? 'read_write' : 'read');
+    },
+    [onShare]
+  );
+
+  // Show loading skeleton while initial data loads
+  if (isLoading) {
+    return (
+      <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share "{noteTitle}"</DialogTitle>
+            <DialogDescription>Loading share information...</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Skeleton width="100%" height={40} />
+            <Skeleton width="100%" height={32} />
+            <Skeleton width="100%" height={32} />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <ShareDialog
       open={true}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      noteTitle="Note"
+      note={noteForDialog}
       shares={shares}
-      onShare={async (email, permission) => {
-        await onShare(email, permission === 'edit' ? 'read_write' : 'read');
-      }}
-      onRevoke={onRevoke}
-      loading={isLoading}
+      onAddShare={handleAddShare}
+      onRemoveShare={onRevoke}
     />
   );
 }
