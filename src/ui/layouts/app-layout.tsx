@@ -23,6 +23,11 @@ import type { SearchResponse, AppBootstrap, Note, Notebook } from '@/ui/lib/api-
 import { readBootstrap } from '@/ui/lib/work-item-utils';
 import { useNotes } from '@/ui/hooks/queries/use-notes';
 import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
+import {
+  matchNotesRoute,
+  matchWorkItemsRoute,
+  extractWorkItemId,
+} from '@/ui/lib/route-patterns';
 
 /** Map route pathname segments to sidebar section IDs. */
 function pathToSection(pathname: string): string {
@@ -88,29 +93,26 @@ function deriveBreadcrumbs(
     return [{ id: 'settings', label: 'Settings' }];
   }
 
-  // Notes routes - use actual names when available (#671)
-  if (pathname.startsWith('/notes') || pathname.startsWith('/notebooks')) {
+  // Notes routes - use shared route patterns (#673) with actual names (#671)
+  const notesMatch = matchNotesRoute(pathname);
+  if (notesMatch) {
     const notesCrumbs: BreadcrumbItem[] = [
       { id: 'notes', label: 'Notes', href: '/notes' },
     ];
 
-    // /notebooks/:notebookId/notes/:noteId
-    const notebookNoteMatch = /^\/notebooks\/([^/]+)\/notes\/([^/]+)\/?$/.exec(pathname);
-    if (notebookNoteMatch) {
+    if (notesMatch.type === 'notebookNote') {
       notesCrumbs.push(
         {
           id: 'notebook',
           label: notesContext?.notebookName ?? 'Notebook',
-          href: `/notebooks/${notebookNoteMatch[1]}`,
+          href: `/notebooks/${notesMatch.notebookId}`,
         },
         { id: 'note', label: notesContext?.noteName ?? 'Note' },
       );
       return notesCrumbs;
     }
 
-    // /notebooks/:notebookId
-    const notebookMatch = /^\/notebooks\/([^/]+)\/?$/.exec(pathname);
-    if (notebookMatch) {
+    if (notesMatch.type === 'notebook') {
       notesCrumbs.push({
         id: 'notebook',
         label: notesContext?.notebookName ?? 'Notebook',
@@ -118,9 +120,7 @@ function deriveBreadcrumbs(
       return notesCrumbs;
     }
 
-    // /notes/:noteId
-    const noteMatch = /^\/notes\/([^/]+)\/?$/.exec(pathname);
-    if (noteMatch) {
+    if (notesMatch.type === 'note') {
       notesCrumbs.push({ id: 'note', label: notesContext?.noteName ?? 'Note' });
       return notesCrumbs;
     }
@@ -137,34 +137,31 @@ function deriveBreadcrumbs(
     return crumbs;
   }
 
-  // /work-items/:id/timeline
-  const itemTimeline = /^\/work-items\/([^/]+)\/timeline\/?$/.exec(pathname);
-  if (itemTimeline) {
-    const id = itemTimeline[1];
-    crumbs.push(
-      { id: 'detail', label: bootstrap?.workItem?.title || id, href: `/work-items/${id}` },
-      { id: 'timeline', label: 'Timeline' },
-    );
-    return crumbs;
-  }
+  // Work items routes - use shared route patterns (#673)
+  const workItemsMatch = matchWorkItemsRoute(pathname);
+  if (workItemsMatch && workItemsMatch.id) {
+    const id = workItemsMatch.id;
 
-  // /work-items/:id/graph
-  const itemGraph = /^\/work-items\/([^/]+)\/graph\/?$/.exec(pathname);
-  if (itemGraph) {
-    const id = itemGraph[1];
-    crumbs.push(
-      { id: 'detail', label: bootstrap?.workItem?.title || id, href: `/work-items/${id}` },
-      { id: 'graph', label: 'Dependencies' },
-    );
-    return crumbs;
-  }
+    if (workItemsMatch.type === 'timeline') {
+      crumbs.push(
+        { id: 'detail', label: bootstrap?.workItem?.title || id, href: `/work-items/${id}` },
+        { id: 'timeline', label: 'Timeline' },
+      );
+      return crumbs;
+    }
 
-  // /work-items/:id
-  const itemDetail = /^\/work-items\/([^/]+)\/?$/.exec(pathname);
-  if (itemDetail) {
-    const id = itemDetail[1];
-    crumbs.push({ id: 'detail', label: bootstrap?.workItem?.title || id });
-    return crumbs;
+    if (workItemsMatch.type === 'graph') {
+      crumbs.push(
+        { id: 'detail', label: bootstrap?.workItem?.title || id, href: `/work-items/${id}` },
+        { id: 'graph', label: 'Dependencies' },
+      );
+      return crumbs;
+    }
+
+    if (workItemsMatch.type === 'detail') {
+      crumbs.push({ id: 'detail', label: bootstrap?.workItem?.title || id });
+      return crumbs;
+    }
   }
 
   return crumbs;
@@ -186,22 +183,19 @@ export function AppLayout(): React.JSX.Element {
     string | undefined
   >(undefined);
 
-  // Extract note/notebook IDs from URL for breadcrumb labels (#671)
+  // Extract note/notebook IDs from URL for breadcrumb labels (#671) using shared patterns (#673)
   const { noteId, notebookId } = useMemo(() => {
-    // /notebooks/:notebookId/notes/:noteId
-    const notebookNoteMatch = /^\/notebooks\/([^/]+)\/notes\/([^/]+)/.exec(location.pathname);
-    if (notebookNoteMatch) {
-      return { notebookId: notebookNoteMatch[1], noteId: notebookNoteMatch[2] };
-    }
-    // /notebooks/:notebookId
-    const notebookMatch = /^\/notebooks\/([^/]+)/.exec(location.pathname);
-    if (notebookMatch) {
-      return { notebookId: notebookMatch[1], noteId: undefined };
-    }
-    // /notes/:noteId
-    const noteMatch = /^\/notes\/([^/]+)/.exec(location.pathname);
-    if (noteMatch) {
-      return { notebookId: undefined, noteId: noteMatch[1] };
+    const notesMatch = matchNotesRoute(location.pathname);
+    if (notesMatch) {
+      if (notesMatch.type === 'notebookNote') {
+        return { notebookId: notesMatch.notebookId, noteId: notesMatch.noteId };
+      }
+      if (notesMatch.type === 'notebook') {
+        return { notebookId: notesMatch.notebookId, noteId: undefined };
+      }
+      if (notesMatch.type === 'note') {
+        return { notebookId: undefined, noteId: notesMatch.noteId };
+      }
     }
     return { notebookId: undefined, noteId: undefined };
   }, [location.pathname]);
@@ -314,11 +308,11 @@ export function AppLayout(): React.JSX.Element {
     handleSectionChange('search');
   }, [handleSectionChange]);
 
-  // Extract work item ID from current path for context
-  const currentWorkItemId = useMemo(() => {
-    const match = /^\/work-items\/([^/]+)/.exec(location.pathname);
-    return match?.[1];
-  }, [location.pathname]);
+  // Extract work item ID from current path for context - use shared utility (#673)
+  const currentWorkItemId = useMemo(
+    () => extractWorkItemId(location.pathname),
+    [location.pathname]
+  );
 
   const handleNewItem = useCallback(() => {
     if (currentWorkItemId) {
