@@ -375,6 +375,58 @@ describe('Shared secret authentication', () => {
     });
   });
 
+  describe('File share download skips auth (Issue #610)', () => {
+    const originalEnv = { ...process.env };
+
+    beforeEach(() => {
+      clearCachedSecret();
+      process.env.OPENCLAW_PROJECTS_AUTH_SECRET = 'some-secret';
+      delete process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
+    });
+
+    afterEach(async () => {
+      process.env.OPENCLAW_PROJECTS_AUTH_SECRET = originalEnv.OPENCLAW_PROJECTS_AUTH_SECRET;
+      process.env.OPENCLAW_PROJECTS_AUTH_DISABLED = originalEnv.OPENCLAW_PROJECTS_AUTH_DISABLED;
+      clearCachedSecret();
+      await resetRealtimeHub();
+    });
+
+    it('allows /api/files/shared/:token without bearer auth', async () => {
+      const app = buildServer();
+      await app.ready();
+
+      try {
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/files/shared/some-share-token',
+        });
+
+        // Should not be 401 - might be 403 (invalid token) or 503 (storage not configured)
+        // but NOT 401 (unauthorized) because this is a public endpoint
+        expect(response.statusCode).not.toBe(401);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('allows /api/files/shared/:token with long token without bearer auth', async () => {
+      const app = buildServer();
+      await app.ready();
+
+      try {
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/files/shared/abc123xyz789-long-share-token-with-dashes',
+        });
+
+        // Should not be 401 - might be 403 (invalid token) or 503 (storage not configured)
+        expect(response.statusCode).not.toBe(401);
+      } finally {
+        await app.close();
+      }
+    });
+  });
+
   describe('Development mode - auth disabled', () => {
     const originalEnv = { ...process.env };
 
