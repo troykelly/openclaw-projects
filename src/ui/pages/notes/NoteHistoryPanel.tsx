@@ -4,7 +4,9 @@
  *
  * Displays version history for a note with restore capability.
  * Extracted from NotesPage.tsx to reduce component size.
+ * Updated with restore functionality (#658).
  */
+import { useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import {
@@ -14,6 +16,7 @@ import {
 } from '@/ui/components/feedback';
 import { VersionHistory } from '@/ui/components/notes';
 import { useNoteVersions } from '@/ui/hooks/queries/use-notes';
+import { useRestoreNoteVersion } from '@/ui/hooks/mutations/use-note-mutations';
 
 interface NoteHistoryPanelProps {
   noteId: string;
@@ -21,7 +24,31 @@ interface NoteHistoryPanelProps {
 }
 
 export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
-  const { data: versionsData, isLoading, isError } = useNoteVersions(noteId);
+  const { data: versionsData, isLoading, isError, refetch } = useNoteVersions(noteId);
+  const restoreVersionMutation = useRestoreNoteVersion();
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // Handle version restore
+  const handleRestore = useCallback(
+    async (version: { version: number }) => {
+      setRestoreError(null);
+      try {
+        await restoreVersionMutation.mutateAsync({
+          id: noteId,
+          versionNumber: version.version,
+        });
+        // Refetch versions to show updated state
+        refetch();
+        // Close panel after successful restore
+        onClose();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to restore version';
+        setRestoreError(message);
+      }
+    },
+    [noteId, restoreVersionMutation, refetch, onClose]
+  );
 
   if (isLoading) {
     return (
@@ -75,14 +102,20 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
           <X className="size-4" />
         </Button>
       </div>
+      {/* Restore error display */}
+      {restoreError && (
+        <div
+          className="mx-4 mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+          role="alert"
+        >
+          {restoreError}
+        </div>
+      )}
       <div className="flex-1 overflow-auto">
         <VersionHistory
           versions={versions}
           currentVersion={versionsData.currentVersion}
-          onRestore={(version) => {
-            // TODO: Implement restore functionality (#658)
-            // This is tracked in a separate issue
-          }}
+          onRestore={handleRestore}
           className="h-full"
         />
       </div>
