@@ -438,4 +438,38 @@ html {
   .lexical-table-cell-resizer:hover {
     background: var(--color-primary);
   }
+
+  /* Mermaid diagram styles (#632) */
+  .mermaid-diagram {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-muted);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+
+  .mermaid-diagram.mermaid-rendered {
+    background-color: transparent;
+  }
+
+  .mermaid-diagram svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .mermaid-placeholder {
+    color: var(--color-muted-foreground);
+  }
+
+  /* Dark mode mermaid adjustments */
+  .dark .mermaid-diagram svg {
+    /* Invert dark diagrams for better visibility */
+    filter: invert(0.9) hue-rotate(180deg);
+  }
+
+  .dark .mermaid-diagram.mermaid-error {
+    filter: none;
+  }
 }

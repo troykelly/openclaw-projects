@@ -221,4 +221,101 @@ This is not a table`;
       expect(tableElement).not.toBeInTheDocument();
     });
   });
+
+  // Mermaid diagram tests for Issue #632
+  describe('Mermaid diagrams (#632)', () => {
+    it('renders mermaid placeholder in preview mode', () => {
+      const mermaidContent = '```mermaid\ngraph TD;\n  A-->B;\n```';
+      render(<LexicalNoteEditor mode="preview" initialContent={mermaidContent} />);
+
+      // Should render a mermaid-diagram container with placeholder
+      const mermaidElement = document.querySelector('.mermaid-diagram');
+      expect(mermaidElement).toBeInTheDocument();
+    });
+
+    it('stores mermaid code in data attribute', () => {
+      const mermaidContent = '```mermaid\nsequenceDiagram\n  A->>B: Hello\n```';
+      render(<LexicalNoteEditor mode="preview" initialContent={mermaidContent} />);
+
+      const mermaidElement = document.querySelector('[data-mermaid]');
+      expect(mermaidElement).toBeInTheDocument();
+      // The data attribute should contain the escaped mermaid code
+      const dataMermaid = mermaidElement?.getAttribute('data-mermaid');
+      expect(dataMermaid).toContain('sequenceDiagram');
+    });
+
+    it('shows loading placeholder for mermaid diagrams', () => {
+      const mermaidContent = '```mermaid\ngraph LR;\n  Start-->End;\n```';
+      render(<LexicalNoteEditor mode="preview" initialContent={mermaidContent} />);
+
+      // Should show loading placeholder initially
+      const placeholder = document.querySelector('.mermaid-placeholder');
+      expect(placeholder).toBeInTheDocument();
+      expect(placeholder?.textContent).toContain('Loading');
+    });
+
+    it('handles multiple mermaid diagrams', () => {
+      const mermaidContent = `
+# Diagrams
+
+\`\`\`mermaid
+graph TD;
+  A-->B;
+\`\`\`
+
+Some text in between.
+
+\`\`\`mermaid
+flowchart LR;
+  X-->Y;
+\`\`\`
+`;
+      render(<LexicalNoteEditor mode="preview" initialContent={mermaidContent} />);
+
+      // Should have two mermaid diagram containers
+      const mermaidElements = document.querySelectorAll('.mermaid-diagram');
+      expect(mermaidElements.length).toBe(2);
+    });
+
+    it('distinguishes mermaid from regular code blocks', () => {
+      const mixedContent = `
+\`\`\`javascript
+const x = 1;
+\`\`\`
+
+\`\`\`mermaid
+graph TD;
+  A-->B;
+\`\`\`
+`;
+      render(<LexicalNoteEditor mode="preview" initialContent={mixedContent} />);
+
+      // Should have one code block and one mermaid diagram
+      const codeElements = document.querySelectorAll('pre code.hljs');
+      const mermaidElements = document.querySelectorAll('.mermaid-diagram');
+
+      expect(codeElements.length).toBe(1);
+      expect(mermaidElements.length).toBe(1);
+    });
+
+    it('stores mermaid code safely without executing scripts', () => {
+      // Attempt XSS via mermaid code - the script should NOT execute
+      const maliciousContent = '```mermaid\ngraph TD;\n  A["<script>alert(1)</script>"]-->B;\n```';
+      render(<LexicalNoteEditor mode="preview" initialContent={maliciousContent} />);
+
+      // The mermaid element should exist and contain the code
+      const mermaidElement = document.querySelector('[data-mermaid]');
+      expect(mermaidElement).toBeInTheDocument();
+
+      // The script tag is stored in the data attribute but NOT as executable HTML.
+      // The data attribute value is decoded by the browser, but the script
+      // cannot execute because it's in an attribute, not in HTML content.
+      // Verify no script elements were created from the mermaid code.
+      const scriptElements = document.querySelectorAll('script');
+      const maliciousScripts = Array.from(scriptElements).filter(
+        (s) => s.textContent?.includes('alert')
+      );
+      expect(maliciousScripts.length).toBe(0);
+    });
+  });
 });
