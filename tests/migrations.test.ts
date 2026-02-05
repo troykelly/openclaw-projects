@@ -27,6 +27,13 @@ describe('Migrations', () => {
   });
 
   afterAll(async () => {
+    // Re-apply migrations to leave database in a clean state for other tests
+    // This is critical because the rollback test leaves the DB empty
+    try {
+      await runMigrate('up');
+    } catch (error) {
+      console.error('[migrations.test.ts] Failed to re-apply migrations in afterAll:', error);
+    }
     await pool.end();
   });
 
