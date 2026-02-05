@@ -11139,6 +11139,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notes/:id/presence - Join note presence (start viewing)
   // Security: user_email moved from query params to body (#689)
+  // Type validation added (#697)
   app.post('/api/notes/:id/presence', async (req, reply) => {
     const {
       joinNotePresence,
@@ -11146,12 +11147,36 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const params = req.params as { id: string };
     const body = req.body as {
-      userEmail?: string;
-      cursorPosition?: { line: number; column: number };
+      userEmail?: unknown;
+      cursorPosition?: unknown;
     } | null;
 
-    if (!body?.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required in request body' });
+    // Validate userEmail is a string (#697)
+    if (!body?.userEmail || typeof body.userEmail !== 'string') {
+      return reply.code(400).send({ error: 'userEmail is required in request body and must be a string' });
+    }
+
+    // Validate cursorPosition structure if provided (#697)
+    let validatedCursorPosition: { line: number; column: number } | undefined;
+    if (body.cursorPosition !== undefined) {
+      if (
+        typeof body.cursorPosition !== 'object' ||
+        body.cursorPosition === null ||
+        !('line' in body.cursorPosition) ||
+        !('column' in body.cursorPosition) ||
+        typeof (body.cursorPosition as Record<string, unknown>).line !== 'number' ||
+        typeof (body.cursorPosition as Record<string, unknown>).column !== 'number'
+      ) {
+        return reply.code(400).send({ error: 'cursorPosition must be an object with numeric line and column properties' });
+      }
+      const { line, column } = body.cursorPosition as { line: number; column: number };
+      if (!Number.isInteger(line) || !Number.isInteger(column)) {
+        return reply.code(400).send({ error: 'cursorPosition line and column must be integers' });
+      }
+      if (line < 0 || column < 0) {
+        return reply.code(400).send({ error: 'cursorPosition line and column must be non-negative' });
+      }
+      validatedCursorPosition = { line, column };
     }
 
     const pool = createPool();
@@ -11161,7 +11186,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         pool,
         params.id,
         body.userEmail,
-        body.cursorPosition
+        validatedCursorPosition
       );
       return reply.send({ collaborators });
     } catch (err) {
@@ -11177,17 +11202,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/notes/:id/presence - Leave note presence (stop viewing)
   // Security: user_email moved from query params to X-User-Email header (#689)
+  // Type validation added (#697)
   app.delete('/api/notes/:id/presence', async (req, reply) => {
     const {
       leaveNotePresence,
     } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
-    const userEmail = req.headers['x-user-email'] as string | undefined;
+    const userEmailHeader = req.headers['x-user-email'];
 
-    if (!userEmail) {
-      return reply.code(400).send({ error: 'X-User-Email header is required' });
+    // Validate header is a string (not array) and non-empty (#697)
+    if (!userEmailHeader || typeof userEmailHeader !== 'string') {
+      return reply.code(400).send({ error: 'X-User-Email header is required and must be a string' });
     }
+    const userEmail = userEmailHeader;
 
     const pool = createPool();
 
@@ -11201,17 +11229,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/:id/presence - Get current viewers
   // Security: user_email moved from query params to X-User-Email header (#689)
+  // Type validation added (#697)
   app.get('/api/notes/:id/presence', async (req, reply) => {
     const {
       getNotePresence,
     } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
-    const userEmail = req.headers['x-user-email'] as string | undefined;
+    const userEmailHeader = req.headers['x-user-email'];
 
-    if (!userEmail) {
-      return reply.code(400).send({ error: 'X-User-Email header is required' });
+    // Validate header is a string (not array) and non-empty (#697)
+    if (!userEmailHeader || typeof userEmailHeader !== 'string') {
+      return reply.code(400).send({ error: 'X-User-Email header is required and must be a string' });
     }
+    const userEmail = userEmailHeader;
 
     const pool = createPool();
 
@@ -11231,6 +11262,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PUT /api/notes/:id/presence/cursor - Update cursor position
   // Security: user_email moved from query params to body (#689)
+  // Type validation added (#697)
   app.put('/api/notes/:id/presence/cursor', async (req, reply) => {
     const {
       updateCursorPosition,
@@ -11238,20 +11270,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const params = req.params as { id: string };
     const body = req.body as {
-      userEmail?: string;
-      cursorPosition: { line: number; column: number };
+      userEmail?: unknown;
+      cursorPosition?: unknown;
     } | null;
 
-    if (!body?.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required in request body' });
+    // Validate userEmail is a string (#697)
+    if (!body?.userEmail || typeof body.userEmail !== 'string') {
+      return reply.code(400).send({ error: 'userEmail is required in request body and must be a string' });
     }
 
-    if (!body.cursorPosition) {
-      return reply.code(400).send({ error: 'cursorPosition is required' });
+    // Validate cursorPosition structure (#697)
+    if (
+      !body.cursorPosition ||
+      typeof body.cursorPosition !== 'object' ||
+      body.cursorPosition === null ||
+      !('line' in body.cursorPosition) ||
+      !('column' in body.cursorPosition) ||
+      typeof (body.cursorPosition as Record<string, unknown>).line !== 'number' ||
+      typeof (body.cursorPosition as Record<string, unknown>).column !== 'number'
+    ) {
+      return reply.code(400).send({ error: 'cursorPosition is required and must be an object with numeric line and column properties' });
     }
 
     // Validate cursor position values (#694)
-    const { line, column } = body.cursorPosition;
+    const { line, column } = body.cursorPosition as { line: number; column: number };
     if (!Number.isInteger(line) || !Number.isInteger(column)) {
       return reply.code(400).send({ error: 'cursorPosition line and column must be integers' });
     }
@@ -11264,11 +11306,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (line > MAX_LINE || column > MAX_COLUMN) {
       return reply.code(400).send({ error: 'cursorPosition values exceed maximum bounds' });
     }
+    const validatedCursorPosition = { line, column };
 
     const pool = createPool();
 
     try {
-      await updateCursorPosition(pool, params.id, body.userEmail, body.cursorPosition);
+      await updateCursorPosition(pool, params.id, body.userEmail, validatedCursorPosition);
       return reply.code(204).send();
     } finally {
       await pool.end();
