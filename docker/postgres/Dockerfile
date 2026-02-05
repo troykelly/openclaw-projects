@@ -77,6 +77,9 @@ RUN set -eux; \
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
     CMD pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}" || exit 1
 
-# Explicitly run as postgres user (UID 999)
-# The official postgres image already runs as this user, but we make it explicit
-USER postgres
+# Note: Do NOT add USER postgres here.
+# The official postgres entrypoint needs to run as root initially to:
+# 1. Set up data directory permissions on first run
+# 2. Run initdb
+# 3. Then switch to postgres user using gosu
+# Adding USER postgres breaks first-run initialization.
