@@ -8,6 +8,7 @@ const ROOT_DIR = resolve(__dirname, '../..');
 interface ComposeService {
   image?: string;
   command?: string | string[];
+  entrypoint?: string | string[];
   environment?: Record<string, string> | string[];
   ports?: string[];
   volumes?: string[];
@@ -51,25 +52,43 @@ describe('SeaweedFS in docker-compose.yml (production compose)', () => {
       expect(compose.services.seaweedfs.image).toMatch(/^chrislusf\/seaweedfs/);
     });
 
-    it('runs in single-server mode with S3 gateway', () => {
-      const command = compose.services.seaweedfs.command;
-      const cmdString = Array.isArray(command) ? command.join(' ') : command;
-      expect(cmdString).toContain('server');
-      expect(cmdString).toContain('-s3');
-      expect(cmdString).toContain('-s3.port=8333');
-      expect(cmdString).toContain('-ip.bind=0.0.0.0');
+    it('uses custom entrypoint for S3 authentication', () => {
+      const entrypoint = compose.services.seaweedfs.entrypoint;
+      const entrypointStr = Array.isArray(entrypoint) ? entrypoint.join(' ') : entrypoint;
+      expect(entrypointStr).toContain('/entrypoint.sh');
     });
 
-    it('maps port 8333 to host', () => {
+    it('mounts S3 config template and entrypoint script', () => {
+      const volumes = compose.services.seaweedfs.volumes || [];
+      const hasConfigTemplate = volumes.some((v: string) => v.includes('s3.json.template'));
+      const hasEntrypoint = volumes.some((v: string) => v.includes('entrypoint.sh'));
+      expect(hasConfigTemplate).toBe(true);
+      expect(hasEntrypoint).toBe(true);
+    });
+
+    it('has S3 authentication credentials in environment', () => {
+      const env = compose.services.seaweedfs.environment;
+      expect(env).toBeDefined();
+      if (typeof env === 'object' && !Array.isArray(env)) {
+        expect(env.S3_ACCESS_KEY).toBeDefined();
+        expect(env.S3_SECRET_KEY).toBeDefined();
+      }
+    });
+
+    it('maps port 8333 to localhost only for security', () => {
       const ports = compose.services.seaweedfs.ports || [];
-      const hasS3Port = ports.some((p: string) => p.includes('8333'));
-      expect(hasS3Port).toBe(true);
+      const s3Port = ports.find((p: string) => p.includes('8333'));
+      expect(s3Port).toBeDefined();
+      // Basic compose should bind to localhost only
+      expect(s3Port).toContain('127.0.0.1');
     });
 
     it('configures volume size limit from env var', () => {
-      const command = compose.services.seaweedfs.command;
-      const cmdString = Array.isArray(command) ? command.join(' ') : command;
-      expect(cmdString).toContain('-master.volumeSizeLimitMB');
+      const env = compose.services.seaweedfs.environment;
+      expect(env).toBeDefined();
+      if (typeof env === 'object' && !Array.isArray(env)) {
+        expect(env.SEAWEEDFS_VOLUME_SIZE_LIMIT_MB).toBeDefined();
+      }
     });
 
     it('has volume mount for data persistence', () => {
