@@ -65,11 +65,21 @@ services:
     image: chrislusf/seaweedfs:latest
     container_name: openclaw-seaweedfs
     restart: unless-stopped
-    command: "server -s3 -s3.port=8333 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-1000} -volume.max=10"
+    entrypoint: ["/docker-entrypoint-s3.sh"]
+    environment:
+      # S3 authentication credentials (must match API configuration)
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-openclaw}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      # Volume configuration
+      SEAWEEDFS_VOLUME_SIZE_LIMIT_MB: ${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-1000}
+      SEAWEEDFS_VOLUME_MAX: ${SEAWEEDFS_VOLUME_MAX:-10}
     ports:
-      - "${SEAWEEDFS_PORT:-8333}:8333"
+      # Bind to localhost only for security (basic compose runs behind proxy)
+      - "127.0.0.1:${SEAWEEDFS_PORT:-8333}:8333"
     volumes:
       - seaweedfs_data:/data
+      - ./docker/seaweedfs/s3.json.template:/etc/seaweedfs/s3.json.template:ro
+      - ./docker/seaweedfs/entrypoint.sh:/docker-entrypoint-s3.sh:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9333/cluster/status"]
       interval: 5s

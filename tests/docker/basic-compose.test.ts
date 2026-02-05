@@ -297,12 +297,10 @@ describe('seaweedfs service', () => {
     compose = parse(content) as ComposeFile;
   });
 
-  it('runs in single-server mode with S3 gateway', () => {
-    const command = compose.services.seaweedfs.command;
-    const cmdString = Array.isArray(command) ? command.join(' ') : command;
-    expect(cmdString).toContain('server');
-    expect(cmdString).toContain('-s3');
-    expect(cmdString).toContain('-s3.port=8333');
+  it('uses custom entrypoint for S3 gateway with authentication', () => {
+    const entrypoint = compose.services.seaweedfs.entrypoint;
+    const entrypointStr = Array.isArray(entrypoint) ? entrypoint.join(' ') : entrypoint;
+    expect(entrypointStr).toContain('/docker-entrypoint-s3.sh');
   });
 
   it('has security_opt no-new-privileges', () => {
