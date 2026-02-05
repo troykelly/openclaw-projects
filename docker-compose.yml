@@ -220,6 +220,8 @@ services:
       - /tmp:mode=1777,size=32M
       - /var/cache/nginx:mode=1777,size=32M
       - /var/run:mode=1777,size=8M
+      # Nginx entrypoint writes processed templates here
+      - /etc/nginx/conf.d:mode=1777,size=1M
     security_opt:
       - no-new-privileges:true
     cap_drop:
