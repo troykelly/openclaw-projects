@@ -174,6 +174,21 @@ export function NotesPage(): React.JSX.Element {
     return undefined;
   }, [notes, view]);
 
+  // Check if requested note exists after data loads (#667)
+  const noteNotFound = useMemo(() => {
+    // Only check when we're in detail/history view and notes have loaded
+    if (
+      (view.type === 'detail' || view.type === 'history') &&
+      !notesLoading &&
+      !notesError &&
+      notesData
+    ) {
+      // Note requested but not found in the data
+      return !notes.find((n) => n.id === view.noteId);
+    }
+    return false;
+  }, [view, notesLoading, notesError, notesData, notes]);
+
   // Get API note for current note (needed for save operations)
   const currentApiNote = useMemo(() => {
     if (view.type === 'detail' || view.type === 'history') {
@@ -435,7 +450,18 @@ export function NotesPage(): React.JSX.Element {
             </Button>
           </div>
 
-          {view.type === 'history' && currentNote ? (
+          {/* Note not found error state (#667) */}
+          {noteNotFound && view.type !== 'new' ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <ErrorState
+                type="not-found"
+                title="Note not found"
+                description="This note may have been deleted or you don't have access to it."
+                onRetry={handleBack}
+                retryLabel="Back to notes"
+              />
+            </div>
+          ) : view.type === 'history' && currentNote ? (
             <NoteHistoryPanel
               noteId={currentNote.id}
               onClose={handleCloseHistory}

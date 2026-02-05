@@ -194,7 +194,7 @@ export function useUpdateNotebook(): UseMutationResult<
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateNotebookVariables) =>
-      apiClient.put<Notebook>(`/api/notebooks/${id}`, body),
+      apiClient.put<Notebook>(`/api/notebooks/${encodeURIComponent(id)}`, body),
 
     onSuccess: (_, { id }) => {
       // Invalidate the specific notebook detail
@@ -256,7 +256,10 @@ export function useArchiveNotebook(): UseMutationResult<
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Notebook>(`/api/notebooks/${id}/archive`, {}),
+      apiClient.post<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}/archive`,
+        {}
+      ),
 
     onSuccess: (_, id) => {
       // Invalidate the specific notebook detail
@@ -318,7 +321,10 @@ export function useUnarchiveNotebook(): UseMutationResult<
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Notebook>(`/api/notebooks/${id}/unarchive`, {}),
+      apiClient.post<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}/unarchive`,
+        {}
+      ),
 
     onSuccess: (_, id) => {
       // Invalidate the specific notebook detail
@@ -393,7 +399,9 @@ export function useDeleteNotebook(): UseMutationResult<
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: DeleteNotebookVariables) =>
-      apiClient.delete(`/api/notebooks/${id}${deleteNotes ? '?deleteNotes=true' : ''}`),
+      apiClient.delete(
+        `/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`
+      ),
 
     onSuccess: (_, { id }) => {
       // Invalidate the specific notebook detail
@@ -481,7 +489,10 @@ export function useMoveNotesToNotebook(): UseMutationResult<
 
   return useMutation({
     mutationFn: ({ notebookId, body }: MoveNotesVariables) =>
-      apiClient.post<MoveNotesResponse>(`/api/notebooks/${notebookId}/notes`, body),
+      apiClient.post<MoveNotesResponse>(
+        `/api/notebooks/${encodeURIComponent(notebookId)}/notes`,
+        body
+      ),
 
     onSuccess: (_, { notebookId }) => {
       // Invalidate the target notebook

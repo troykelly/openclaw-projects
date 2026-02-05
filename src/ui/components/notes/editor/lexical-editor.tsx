@@ -41,8 +41,6 @@ import {
   CodeHighlightNode,
   registerCodeHighlighting,
   $createCodeNode,
-  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
-  getLanguageFriendlyName,
 } from '@lexical/code';
 import {
   $getSelection,
@@ -59,24 +57,29 @@ import {
 import { $setBlocksType } from '@lexical/selection';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { TOGGLE_LINK_COMMAND } from '@lexical/link';
-import { $getNodeByKey } from 'lexical';
 import {
   TableNode,
   TableRowNode,
   TableCellNode,
-  $createTableNodeWithDimensions,
-  $insertTableColumn,
-  $insertTableRow,
-  $deleteTableColumn,
-  $deleteTableRowAtIndex,
-  $getTableColumnIndexFromTableCellNode,
-  $getTableRowIndexFromTableCellNode,
-  registerTablePlugin,
   INSERT_TABLE_COMMAND,
 } from '@lexical/table';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
-import mermaid from 'mermaid';
+// Mermaid is loaded dynamically to reduce initial bundle size (~1MB).
+// See #685 for rationale: most users don't use diagrams, so we lazy load.
+import type mermaidType from 'mermaid';
 import katex from 'katex';
+/**
+ * KaTeX CSS (~25KB) is loaded globally when the editor component is first imported.
+ * This is an acceptable trade-off for the following reasons (#687):
+ *
+ * 1. The editor component is only loaded on notes pages (route-level code splitting)
+ * 2. Lazy loading CSS would cause layout shifts/FOUC when math content renders
+ * 3. The size is small compared to other dependencies (e.g., Mermaid ~1MB)
+ * 4. KaTeX styles are namespaced with .katex prefix, minimizing global CSS conflicts
+ *
+ * Alternative considered: Dynamic CSS injection when math is detected, but this
+ * would cause visible layout shifts as equations re-render after styles load.
+ */
 import 'katex/dist/katex.min.css';
 import hljs from 'highlight.js/lib/core';
 // Import common languages for syntax highlighting
@@ -112,13 +115,31 @@ hljs.registerLanguage('html', xml);
 hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('css', css);
 
-// Initialize Mermaid for diagram rendering
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'strict', // Prevent XSS
-  fontFamily: 'inherit',
-});
+/**
+ * Lazy-loaded Mermaid instance.
+ * Mermaid.js is ~1MB and includes D3.js and many sub-dependencies.
+ * Most users don't use diagrams, so we lazy load it only when needed (#685).
+ * The promise is cached so subsequent calls return the same instance.
+ */
+let mermaidPromise: Promise<typeof mermaidType> | null = null;
+let mermaidInitialized = false;
+
+async function getMermaid(): Promise<typeof mermaidType> {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then((m) => m.default);
+  }
+  const mermaid = await mermaidPromise;
+  if (!mermaidInitialized) {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'strict', // Prevent XSS
+      fontFamily: 'inherit',
+    });
+    mermaidInitialized = true;
+  }
+  return mermaid;
+}
 
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
@@ -141,8 +162,6 @@ import {
   Save,
   Loader2,
   Code,
-  Copy,
-  Check,
   FileCode,
   Table,
 } from 'lucide-react';
@@ -152,6 +171,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/ui/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/ui/components/ui/dialog';
+import { Input } from '@/ui/components/ui/input';
+import { Label } from '@/ui/components/ui/label';
 
 export type EditorMode = 'wysiwyg' | 'markdown' | 'preview';
 
@@ -201,6 +230,281 @@ function ToolbarButton({ icon, label, onClick, active, disabled }: ToolbarButton
 
 function ToolbarSeparator() {
   return <div className="w-px h-6 bg-border mx-1" />;
+}
+
+/**
+ * Allowed URL protocols for link insertion.
+ * Only http, https, mailto, and tel are considered safe.
+ */
+const ALLOWED_PROTOCOLS = ['http:', 'https:', 'mailto:', 'tel:'];
+
+/**
+ * Validate a URL for safe link insertion.
+ * Returns an error message if invalid, or null if valid.
+ */
+function validateUrl(url: string): string | null {
+  if (!url.trim()) {
+    return 'Please enter a URL';
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
+      return `Only ${ALLOWED_PROTOCOLS.map(p => p.replace(':', '')).join(', ')} links are allowed`;
+    }
+
+    return null;
+  } catch {
+    // If URL constructor fails, try adding https:// prefix
+    try {
+      const urlWithProtocol = `https://${url}`;
+      const parsedUrl = new URL(urlWithProtocol);
+
+      if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
+        return `Only ${ALLOWED_PROTOCOLS.map(p => p.replace(':', '')).join(', ')} links are allowed`;
+      }
+
+      return null;
+    } catch {
+      return 'Please enter a valid URL';
+    }
+  }
+}
+
+/**
+ * Normalize a URL for insertion.
+ * Adds https:// prefix if no protocol is provided.
+ */
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+
+  // Check if URL already has a protocol
+  if (/^[a-z]+:/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Add https:// prefix for URLs without protocol
+  return `https://${trimmed}`;
+}
+
+/**
+ * Dialog for inserting links with URL validation.
+ * Addresses issues #675 (replace prompt()) and #678 (URL validation).
+ */
+function LinkDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (url: string) => void;
+}): React.JSX.Element {
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (open) {
+      setUrl('');
+      setError(null);
+      // Small delay to ensure dialog is mounted
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const validationError = validateUrl(url);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const normalizedUrl = normalizeUrl(url);
+    onSubmit(normalizedUrl);
+    onOpenChange(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Insert Link</DialogTitle>
+          <DialogDescription>
+            Enter a URL to create a link. Supported protocols: http, https, mailto, tel.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="link-url">URL</Label>
+              <Input
+                id="link-url"
+                ref={inputRef}
+                type="text"
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="https://example.com"
+                aria-invalid={error ? 'true' : 'false'}
+                aria-describedby={error ? 'link-url-error' : undefined}
+              />
+              {error && (
+                <p id="link-url-error" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Insert Link</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Dialog for inserting tables with row/column input.
+ * Addresses issue #683 (replace prompt() for table insertion).
+ */
+function TableDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (rows: number, columns: number) => void;
+}): React.JSX.Element {
+  const [rows, setRows] = useState('3');
+  const [columns, setColumns] = useState('3');
+  const [error, setError] = useState<string | null>(null);
+  const rowsInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (open) {
+      setRows('3');
+      setColumns('3');
+      setError(null);
+      setTimeout(() => rowsInputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const rowCount = parseInt(rows, 10);
+    const colCount = parseInt(columns, 10);
+
+    if (isNaN(rowCount) || rowCount < 1 || rowCount > 50) {
+      setError('Rows must be a number between 1 and 50');
+      return;
+    }
+
+    if (isNaN(colCount) || colCount < 1 || colCount > 20) {
+      setError('Columns must be a number between 1 and 20');
+      return;
+    }
+
+    onSubmit(rowCount, colCount);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Insert Table</DialogTitle>
+          <DialogDescription>
+            Choose the number of rows and columns for your table.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="table-rows">Rows</Label>
+                <Input
+                  id="table-rows"
+                  ref={rowsInputRef}
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={rows}
+                  onChange={(e) => {
+                    setRows(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="3"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="table-columns">Columns</Label>
+                <Input
+                  id="table-columns"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={columns}
+                  onChange={(e) => {
+                    setColumns(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="3"
+                />
+              </div>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            {/* Visual preview */}
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground mb-2">Preview:</p>
+              <div
+                className="grid gap-0.5 max-w-[200px]"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(parseInt(columns) || 3, 10)}, 1fr)`
+                }}
+              >
+                {Array.from({ length: Math.min((parseInt(rows) || 3) * (parseInt(columns) || 3), 100) }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-4 border border-border ${i < (parseInt(columns) || 3) ? 'bg-muted' : ''}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Insert Table</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 /**
@@ -483,6 +787,10 @@ function ToolbarPlugin({
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
 
+  // Dialog state
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
+
   // Update toolbar state based on selection
   useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
@@ -529,12 +837,9 @@ function ToolbarPlugin({
     });
   };
 
-  const insertLink = () => {
-    const url = prompt('Enter URL:');
-    if (url) {
-      editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
-    }
-  };
+  const handleLinkSubmit = useCallback((url: string) => {
+    editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
+  }, [editor]);
 
   const insertCodeBlock = () => {
     editor.update(() => {
@@ -545,19 +850,13 @@ function ToolbarPlugin({
     });
   };
 
-  const insertTable = () => {
-    const rows = prompt('Number of rows:', '3');
-    const cols = prompt('Number of columns:', '3');
-    if (rows && cols) {
-      const rowCount = parseInt(rows, 10) || 3;
-      const colCount = parseInt(cols, 10) || 3;
-      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
-        rows: rowCount.toString(),
-        columns: colCount.toString(),
-        includeHeaders: true,
-      });
-    }
-  };
+  const handleTableSubmit = useCallback((rows: number, columns: number) => {
+    editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+      rows: rows.toString(),
+      columns: columns.toString(),
+      includeHeaders: true,
+    });
+  }, [editor]);
 
   const undo = () => editor.dispatchCommand(UNDO_COMMAND, undefined);
   const redo = () => editor.dispatchCommand(REDO_COMMAND, undefined);
@@ -640,7 +939,7 @@ function ToolbarPlugin({
       <ToolbarButton
         icon={<Link className="h-4 w-4" />}
         label="Insert Link"
-        onClick={insertLink}
+        onClick={() => setLinkDialogOpen(true)}
       />
       <ToolbarButton
         icon={<FileCode className="h-4 w-4" />}
@@ -650,7 +949,7 @@ function ToolbarPlugin({
       <ToolbarButton
         icon={<Table className="h-4 w-4" />}
         label="Insert Table"
-        onClick={insertTable}
+        onClick={() => setTableDialogOpen(true)}
       />
 
       <div className="flex-1" />
@@ -675,6 +974,18 @@ function ToolbarPlugin({
           </Button>
         </>
       )}
+
+      {/* Dialogs */}
+      <LinkDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        onSubmit={handleLinkSubmit}
+      />
+      <TableDialog
+        open={tableDialogOpen}
+        onOpenChange={setTableDialogOpen}
+        onSubmit={handleTableSubmit}
+      />
     </div>
   );
 }
@@ -852,6 +1163,8 @@ function escapeHtml(text: string): string {
  * Component to render mermaid diagrams after the preview HTML is mounted.
  * Scans for elements with data-mermaid attribute and renders the diagrams.
  *
+ * Mermaid is lazy-loaded (~1MB) only when diagrams are detected (#685).
+ *
  * Security: Mermaid is configured with securityLevel: 'strict' which sanitizes
  * the SVG output. Error messages are escaped before display.
  */
@@ -863,67 +1176,87 @@ function MermaidRenderer({ containerRef }: { containerRef: React.RefObject<HTMLD
     const mermaidElements = container.querySelectorAll('[data-mermaid]');
     if (mermaidElements.length === 0) return;
 
+    // Track if component is still mounted for async cleanup
+    let isMounted = true;
+
     // Render each mermaid diagram
-    mermaidElements.forEach(async (element, index) => {
-      const code = element.getAttribute('data-mermaid');
-      if (!code) return;
+    const renderDiagrams = async () => {
+      // Lazy load mermaid only when diagrams are present (#685)
+      const mermaid = await getMermaid();
 
-      // Decode HTML entities
-      const decodedCode = code
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"');
+      mermaidElements.forEach(async (element, index) => {
+        if (!isMounted) return;
 
-      try {
-        const id = `mermaid-diagram-${Date.now()}-${index}`;
-        // mermaid.render returns sanitized SVG when securityLevel: 'strict' is set
-        const { svg } = await mermaid.render(id, decodedCode);
+        const code = element.getAttribute('data-mermaid');
+        if (!code) return;
 
-        // Clear placeholder and insert SVG
-        while (element.firstChild) {
-          element.removeChild(element.firstChild);
+        // Decode HTML entities
+        const decodedCode = code
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"');
+
+        try {
+          const id = `mermaid-diagram-${Date.now()}-${index}`;
+          // mermaid.render returns sanitized SVG when securityLevel: 'strict' is set
+          const { svg } = await mermaid.render(id, decodedCode);
+
+          if (!isMounted) return;
+
+          // Clear placeholder and insert SVG
+          while (element.firstChild) {
+            element.removeChild(element.firstChild);
+          }
+          // Create a container for the SVG and set its content
+          // The SVG from mermaid.render is already sanitized with securityLevel: 'strict'
+          const svgContainer = document.createElement('div');
+          svgContainer.className = 'mermaid-svg-container';
+          // Using DOMParser to safely parse the SVG
+          const parser = new DOMParser();
+          const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
+          const svgElement = svgDoc.documentElement;
+          if (svgElement && svgElement.nodeName === 'svg') {
+            svgContainer.appendChild(document.importNode(svgElement, true));
+          }
+          element.appendChild(svgContainer);
+          element.classList.add('mermaid-rendered');
+        } catch (error) {
+          if (!isMounted) return;
+
+          // Show error message in the placeholder (escaped for safety)
+          console.error('[MermaidRenderer]', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+          // Clear placeholder
+          while (element.firstChild) {
+            element.removeChild(element.firstChild);
+          }
+
+          // Create error display using DOM methods (not innerHTML)
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'bg-destructive/10 text-destructive p-4 rounded-md text-sm';
+
+          const strongEl = document.createElement('strong');
+          strongEl.textContent = 'Mermaid diagram error:';
+          errorDiv.appendChild(strongEl);
+
+          const preEl = document.createElement('pre');
+          preEl.className = 'mt-2 text-xs overflow-auto';
+          preEl.textContent = errorMessage;
+          errorDiv.appendChild(preEl);
+
+          element.appendChild(errorDiv);
+          element.classList.add('mermaid-error');
         }
-        // Create a container for the SVG and set its content
-        // The SVG from mermaid.render is already sanitized with securityLevel: 'strict'
-        const svgContainer = document.createElement('div');
-        svgContainer.className = 'mermaid-svg-container';
-        // Using DOMParser to safely parse the SVG
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
-        const svgElement = svgDoc.documentElement;
-        if (svgElement && svgElement.nodeName === 'svg') {
-          svgContainer.appendChild(document.importNode(svgElement, true));
-        }
-        element.appendChild(svgContainer);
-        element.classList.add('mermaid-rendered');
-      } catch (error) {
-        // Show error message in the placeholder (escaped for safety)
-        console.error('[MermaidRenderer]', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      });
+    };
 
-        // Clear placeholder
-        while (element.firstChild) {
-          element.removeChild(element.firstChild);
-        }
+    renderDiagrams();
 
-        // Create error display using DOM methods (not innerHTML)
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'bg-destructive/10 text-destructive p-4 rounded-md text-sm';
-
-        const strongEl = document.createElement('strong');
-        strongEl.textContent = 'Mermaid diagram error:';
-        errorDiv.appendChild(strongEl);
-
-        const preEl = document.createElement('pre');
-        preEl.className = 'mt-2 text-xs overflow-auto';
-        preEl.textContent = errorMessage;
-        errorDiv.appendChild(preEl);
-
-        element.appendChild(errorDiv);
-        element.classList.add('mermaid-error');
-      }
-    });
+    return () => {
+      isMounted = false;
+    };
   }, [containerRef]);
 
   return null;

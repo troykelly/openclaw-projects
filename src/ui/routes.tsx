@@ -157,21 +157,21 @@ export const routes: RouteObject[] = [
         path: 'memory',
         element: lazy(MemoryPage),
       },
+      // Notes routes - consolidated using nested routes (#669)
+      // All routes render NotesPage which handles the different URL patterns
       {
         path: 'notes',
-        element: lazy(NotesPage),
-      },
-      {
-        path: 'notes/:noteId',
-        element: lazy(NotesPage),
+        children: [
+          { index: true, element: lazy(NotesPage) },
+          { path: ':noteId', element: lazy(NotesPage) },
+        ],
       },
       {
         path: 'notebooks/:notebookId',
-        element: lazy(NotesPage),
-      },
-      {
-        path: 'notebooks/:notebookId/notes/:noteId',
-        element: lazy(NotesPage),
+        children: [
+          { index: true, element: lazy(NotesPage) },
+          { path: 'notes/:noteId', element: lazy(NotesPage) },
+        ],
       },
       {
         path: 'settings',

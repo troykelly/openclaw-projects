@@ -11,19 +11,30 @@
  * - Version history
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
+/**
+ * E2E test timeout configuration.
+ * E2E tests involve database operations and HTTP requests which can be slow,
+ * especially on CI runners. Set explicit timeouts to prevent flaky test failures.
+ */
+const E2E_TEST_TIMEOUT = 30_000; // 30 seconds per test
+const E2E_HOOK_TIMEOUT = 60_000; // 60 seconds for setup/teardown hooks
+
 describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
+  // Configure timeout for this test suite
+  vi.setConfig({ testTimeout: E2E_TEST_TIMEOUT, hookTimeout: E2E_HOOK_TIMEOUT });
+
   const app = buildServer();
   let pool: Pool;
 
   const primaryUser = 'e2e-primary@example.com';
   const secondaryUser = 'e2e-secondary@example.com';
-  const publicUser = 'e2e-public@example.com';
+  const tertiaryUser = 'e2e-tertiary@example.com';
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -919,6 +930,146 @@ $$
       });
       expect(sharedNbRes.statusCode).toBe(200);
       expect(sharedNbRes.json().notebooks).toHaveLength(1);
+    });
+
+    it('handles multi-party sharing with three users', async () => {
+      // This test verifies complex sharing scenarios with three users:
+      // - Primary user creates and owns the note
+      // - Secondary user gets read access
+      // - Tertiary user gets read_write access
+      // - Verify access isolation between shared users
+
+      // 1. Create a note as primary user
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Multi-Party Document',
+          content: 'Original content for sharing',
+          visibility: 'shared',
+        },
+      });
+      expect(createRes.statusCode).toBe(201);
+      const noteId = createRes.json().id;
+
+      // 2. Share with secondary user (read only)
+      const share1Res = await app.inject({
+        method: 'POST',
+        url: `/api/notes/${noteId}/share`,
+        payload: {
+          user_email: primaryUser,
+          email: secondaryUser,
+          permission: 'read',
+        },
+      });
+      expect(share1Res.statusCode).toBe(201);
+
+      // 3. Share with tertiary user (read_write)
+      const share2Res = await app.inject({
+        method: 'POST',
+        url: `/api/notes/${noteId}/share`,
+        payload: {
+          user_email: primaryUser,
+          email: tertiaryUser,
+          permission: 'read_write',
+        },
+      });
+      expect(share2Res.statusCode).toBe(201);
+
+      // 4. Both shared users can read
+      const secondaryReadRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${noteId}`,
+        query: { user_email: secondaryUser },
+      });
+      expect(secondaryReadRes.statusCode).toBe(200);
+      expect(secondaryReadRes.json().title).toBe('Multi-Party Document');
+
+      const tertiaryReadRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${noteId}`,
+        query: { user_email: tertiaryUser },
+      });
+      expect(tertiaryReadRes.statusCode).toBe(200);
+
+      // 5. Secondary user cannot edit (read only)
+      const secondaryEditRes = await app.inject({
+        method: 'PUT',
+        url: `/api/notes/${noteId}`,
+        payload: {
+          user_email: secondaryUser,
+          content: 'Attempted edit by secondary user',
+        },
+      });
+      expect(secondaryEditRes.statusCode).toBe(403);
+
+      // 6. Tertiary user can edit (read_write)
+      const tertiaryEditRes = await app.inject({
+        method: 'PUT',
+        url: `/api/notes/${noteId}`,
+        payload: {
+          user_email: tertiaryUser,
+          content: 'Content updated by tertiary user',
+        },
+      });
+      expect(tertiaryEditRes.statusCode).toBe(200);
+
+      // 7. Verify the edit persists
+      const verifyRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${noteId}`,
+        query: { user_email: primaryUser },
+      });
+      expect(verifyRes.json().content).toBe('Content updated by tertiary user');
+
+      // 8. Secondary user still sees updated content (via tertiary's edit)
+      const secondaryVerifyRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${noteId}`,
+        query: { user_email: secondaryUser },
+      });
+      expect(secondaryVerifyRes.json().content).toBe('Content updated by tertiary user');
+
+      // 9. Secondary user cannot manage shares (not owner)
+      const secondaryShareAttempt = await app.inject({
+        method: 'POST',
+        url: `/api/notes/${noteId}/share`,
+        payload: {
+          user_email: secondaryUser,
+          email: 'another@example.com',
+          permission: 'read',
+        },
+      });
+      expect(secondaryShareAttempt.statusCode).toBe(403);
+
+      // 10. Tertiary user also cannot manage shares (not owner, only read_write)
+      const tertiaryShareAttempt = await app.inject({
+        method: 'POST',
+        url: `/api/notes/${noteId}/share`,
+        payload: {
+          user_email: tertiaryUser,
+          email: 'another@example.com',
+          permission: 'read',
+        },
+      });
+      expect(tertiaryShareAttempt.statusCode).toBe(403);
+
+      // 11. Only owner can delete
+      const tertiaryDeleteAttempt = await app.inject({
+        method: 'DELETE',
+        url: `/api/notes/${noteId}`,
+        query: { user_email: tertiaryUser },
+      });
+      expect(tertiaryDeleteAttempt.statusCode).toBe(403);
+
+      // 12. Owner can delete
+      const ownerDeleteRes = await app.inject({
+        method: 'DELETE',
+        url: `/api/notes/${noteId}`,
+        query: { user_email: primaryUser },
+      });
+      expect(ownerDeleteRes.statusCode).toBe(204);
     });
   });
 

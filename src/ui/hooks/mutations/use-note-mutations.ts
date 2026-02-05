@@ -184,7 +184,7 @@ export function useUpdateNote(): UseMutationResult<
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateNoteVariables) =>
-      apiClient.put<Note>(`/api/notes/${id}`, body),
+      apiClient.put<Note>(`/api/notes/${encodeURIComponent(id)}`, body),
 
     onSuccess: (note, { id }) => {
       // Invalidate the specific note detail
@@ -254,7 +254,8 @@ export function useDeleteNote(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/notes/${id}`),
+    mutationFn: (id: string) =>
+      apiClient.delete(`/api/notes/${encodeURIComponent(id)}`),
 
     onSuccess: (_, id) => {
       // Invalidate the specific note detail
@@ -317,7 +318,7 @@ export function useRestoreNote(): UseMutationResult<
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Note>(`/api/notes/${id}/restore`, {}),
+      apiClient.post<Note>(`/api/notes/${encodeURIComponent(id)}/restore`, {}),
 
     onSuccess: (note, id) => {
       // Invalidate the specific note detail
@@ -389,7 +390,7 @@ export function useRestoreNoteVersion(): UseMutationResult<
   return useMutation({
     mutationFn: ({ id, versionNumber }: RestoreNoteVersionVariables) =>
       apiClient.post<RestoreVersionResponse>(
-        `/api/notes/${id}/versions/${versionNumber}/restore`,
+        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore`,
         {}
       ),
 
