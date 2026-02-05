@@ -535,5 +535,264 @@ graph TD;
       // but when it does, safe https links should be preserved
       expect(screen.getByText(/characters/i)).toBeInTheDocument();
     });
+
+    it('sanitizes nested markdown injection attempts', () => {
+      // Attempt to inject javascript: URL via markdown link syntax
+      const maliciousContent = '](javascript:alert(1))';
+      render(<LexicalNoteEditor mode="preview" initialContent={maliciousContent} />);
+
+      // Should not contain javascript: URL
+      const jsLinks = document.querySelectorAll('a[href^="javascript:"]');
+      expect(jsLinks.length).toBe(0);
+    });
+
+    it('sanitizes base64-encoded data URLs', () => {
+      const maliciousContent = '<a href="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">Click</a>';
+      render(<LexicalNoteEditor mode="preview" initialContent={maliciousContent} />);
+
+      // data: URLs should be stripped
+      const dataLinks = document.querySelectorAll('a[href^="data:"]');
+      expect(dataLinks.length).toBe(0);
+    });
+
+    it('sanitizes vbscript URLs', () => {
+      const maliciousContent = '<a href="vbscript:msgbox(1)">Click</a>';
+      render(<LexicalNoteEditor mode="preview" initialContent={maliciousContent} />);
+
+      // vbscript: URLs should be stripped
+      const vbLinks = document.querySelectorAll('a[href^="vbscript:"]');
+      expect(vbLinks.length).toBe(0);
+    });
+
+    it('sanitizes object and embed tags', () => {
+      const maliciousContent = '<object data="malicious.swf"></object><embed src="malicious.swf">';
+      render(<LexicalNoteEditor mode="preview" initialContent={maliciousContent} />);
+
+      // object and embed tags should be removed
+      const objects = document.querySelectorAll('object');
+      const embeds = document.querySelectorAll('embed');
+      expect(objects.length).toBe(0);
+      expect(embeds.length).toBe(0);
+    });
+
+    it('sanitizes meta refresh tags', () => {
+      const maliciousContent = '<meta http-equiv="refresh" content="0;url=http://evil.com">';
+      render(<LexicalNoteEditor mode="preview" initialContent={maliciousContent} />);
+
+      // meta tags should be removed (not in ALLOWED_TAGS)
+      const metaTags = document.querySelectorAll('meta');
+      expect(metaTags.length).toBe(0);
+    });
+  });
+
+  // Editor functionality tests for Issue #679
+  describe('Editor functionality (#679)', () => {
+    it('handles empty initial content gracefully', () => {
+      render(<LexicalNoteEditor initialContent="" />);
+
+      // Should render without errors
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      expect(screen.getByText(/0 characters/i)).toBeInTheDocument();
+    });
+
+    it('handles undefined initial content', () => {
+      render(<LexicalNoteEditor />);
+
+      // Should render without errors
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('handles content with only whitespace', () => {
+      render(<LexicalNoteEditor mode="preview" initialContent="   \n\t\n   " />);
+
+      // Should render without errors
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('handles very long content without crashing', () => {
+      // Generate content with 10,000 characters
+      const longContent = 'a'.repeat(10000);
+      render(<LexicalNoteEditor mode="preview" initialContent={longContent} />);
+
+      // Should render without errors and show character count
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+      // Verify the content length is reflected in the count (may include additional chars from HTML)
+      const countText = screen.getByText(/\d+ characters/i);
+      expect(countText).toBeInTheDocument();
+    });
+
+    it('handles content with many paragraphs', () => {
+      const manyParagraphs = Array(100).fill('Paragraph text.').join('\n\n');
+      render(<LexicalNoteEditor mode="preview" initialContent={manyParagraphs} />);
+
+      // Should render without errors
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('handles special Unicode characters', () => {
+      const unicodeContent = '# 日本語 タイトル\n\n段落 with emoji 🎉 and symbols ©®™';
+      render(<LexicalNoteEditor mode="preview" initialContent={unicodeContent} />);
+
+      // Should render heading
+      const heading = document.querySelector('h1');
+      expect(heading).toBeInTheDocument();
+      expect(heading?.textContent).toContain('日本語');
+    });
+
+    it('handles zero-width characters', () => {
+      // Zero-width joiner and non-joiner characters
+      const zeroWidthContent = 'text\u200B\u200C\u200Dmore';
+      render(<LexicalNoteEditor mode="preview" initialContent={zeroWidthContent} />);
+
+      // Should render without errors
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('handles malformed markdown gracefully', () => {
+      // Incomplete/malformed markdown
+      const malformedContent = '# Unclosed\n\n**Bold without close\n\n```unclosed code';
+      render(<LexicalNoteEditor mode="preview" initialContent={malformedContent} />);
+
+      // Should render without crashing
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('handles deeply nested lists', () => {
+      const nestedLists = `
+* Level 1
+  * Level 2
+    * Level 3
+      * Level 4
+        * Level 5`;
+      render(<LexicalNoteEditor mode="preview" initialContent={nestedLists} />);
+
+      // Should render list items
+      const listItems = document.querySelectorAll('li');
+      expect(listItems.length).toBeGreaterThan(0);
+    });
+
+    it('handles consecutive special characters', () => {
+      const specialChars = '***___~~~```|||';
+      render(<LexicalNoteEditor mode="preview" initialContent={specialChars} />);
+
+      // Should render without errors
+      expect(screen.getByText(/characters/i)).toBeInTheDocument();
+    });
+
+    it('displays character count correctly', () => {
+      const content = 'Hello World!'; // 12 characters
+      render(<LexicalNoteEditor mode="preview" initialContent={content} />);
+
+      expect(screen.getByText(/12 characters/i)).toBeInTheDocument();
+    });
+
+    it('displays word count correctly', () => {
+      const content = 'one two three four five'; // 5 words
+      render(<LexicalNoteEditor mode="preview" initialContent={content} />);
+
+      expect(screen.getByText(/5 words/i)).toBeInTheDocument();
+    });
+
+    it('shows placeholder in wysiwyg mode', () => {
+      render(<LexicalNoteEditor placeholder="Custom placeholder text" />);
+
+      expect(screen.getByText('Custom placeholder text')).toBeInTheDocument();
+    });
+
+    it('shows save button in wysiwyg mode', () => {
+      // Save button is always rendered in toolbar when in edit mode
+      render(<LexicalNoteEditor onSave={vi.fn()} />);
+
+      // Should show save button with onSave
+      expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+    });
+
+    it('disables save button when saving is true', () => {
+      render(<LexicalNoteEditor onSave={vi.fn()} saving={true} />);
+
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      expect(saveButton).toBeDisabled();
+    });
+  });
+
+  // Mode switching tests for Issue #679
+  describe('Mode switching (#679)', () => {
+    it('starts in wysiwyg mode by default', () => {
+      render(<LexicalNoteEditor />);
+
+      // Edit button should be visible (indicating wysiwyg mode)
+      expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
+      // Markdown button should be available for switching
+      expect(screen.getByRole('button', { name: /markdown/i })).toBeInTheDocument();
+    });
+
+    it('starts in preview mode when specified', () => {
+      render(<LexicalNoteEditor mode="preview" initialContent="# Test" />);
+
+      // Should not show edit buttons (preview is read-only view)
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    });
+
+    it('shows textarea in markdown mode', () => {
+      render(<LexicalNoteEditor mode="markdown" initialContent="# Test" />);
+
+      // Should show textarea
+      const textarea = screen.getByRole('textbox');
+      expect(textarea).toBeInTheDocument();
+      expect(textarea).toHaveValue('# Test');
+    });
+
+    it('renders in readOnly mode without edit controls', () => {
+      render(<LexicalNoteEditor readOnly initialContent="# Read Only" />);
+
+      // Should not show any mode switching buttons
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /markdown/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // Accessibility tests for Issue #679
+  describe('Accessibility (#679)', () => {
+    it('has toolbar buttons in wysiwyg mode', () => {
+      render(<LexicalNoteEditor />);
+
+      // Check for toolbar buttons (they use tooltips for labels)
+      const buttons = screen.getAllByRole('button');
+      // Should have multiple toolbar buttons (undo, redo, bold, italic, etc.)
+      expect(buttons.length).toBeGreaterThan(5);
+    });
+
+    it('has aria-label on math expressions', () => {
+      const mathContent = '$E = mc^2$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      const mathElement = document.querySelector('[aria-label="mathematical equation"]');
+      expect(mathElement).toBeInTheDocument();
+    });
+
+    it('uses semantic HTML for headings', () => {
+      const content = '# H1\n\n## H2\n\n### H3';
+      render(<LexicalNoteEditor mode="preview" initialContent={content} />);
+
+      expect(document.querySelector('h1')).toBeInTheDocument();
+      expect(document.querySelector('h2')).toBeInTheDocument();
+      expect(document.querySelector('h3')).toBeInTheDocument();
+    });
+
+    it('uses semantic HTML for lists', () => {
+      const content = '* Item 1\n* Item 2';
+      render(<LexicalNoteEditor mode="preview" initialContent={content} />);
+
+      const listItems = document.querySelectorAll('li');
+      expect(listItems.length).toBe(2);
+    });
+
+    it('uses semantic HTML for blockquotes', () => {
+      const content = '> This is a quote';
+      render(<LexicalNoteEditor mode="preview" initialContent={content} />);
+
+      const blockquote = document.querySelector('blockquote');
+      expect(blockquote).toBeInTheDocument();
+    });
   });
 });
