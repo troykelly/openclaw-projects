@@ -1,6 +1,6 @@
 /**
  * Notes page component.
- * Part of Epic #338, Issues #624, #625, #664 (Error Boundary)
+ * Part of Epic #338, Issues #624, #625, #657, #660, #661, #663, #664, #665
  *
  * Primary notes interface with three-panel layout:
  * - Notebooks sidebar (collapsible)
@@ -16,7 +16,7 @@
  * - /notebooks/:notebookId/notes/:noteId - Note in context of notebook
  */
 import { useState, useCallback, useMemo, useEffect, useRef, type ErrorInfo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router';
+import { useParams, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { cn, validateUrlParam } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
@@ -33,6 +33,7 @@ import {
   SkeletonList,
   ErrorState,
   EmptyState,
+  useAnnounce,
 } from '@/ui/components/feedback';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ErrorBoundary } from '@/ui/components/error-boundary';
@@ -216,6 +217,9 @@ function NotesPageContent(): React.JSX.Element {
   const deleteNotebookMutation = useDeleteNotebook();
   const shareNoteMutation = useShareNoteWithUser();
   const revokeShareMutation = useRevokeNoteShare();
+
+  // Announce state changes to screen readers (#661)
+  const { announce, LiveRegion } = useAnnounce();
 
   // Transform data for UI components
   const notes: UINote[] = useMemo(
@@ -423,6 +427,108 @@ function NotesPageContent(): React.JSX.Element {
     }
   }, [dialog, deleteNotebookMutation, selectedNotebookId]);
 
+  // Share note handler with error handling (#660)
+  const handleShare = useCallback(
+    async (email: string, permission: 'read' | 'read_write') => {
+      if (dialog.type !== 'share') return;
+      try {
+        await shareNoteMutation.mutateAsync({
+          noteId: dialog.noteId,
+          body: { email, permission },
+        });
+        announce('Note shared successfully');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to share note';
+        announce(`Error: ${message}`);
+        throw error; // Re-throw to let ShareDialogWrapper handle UI state
+      }
+    },
+    [dialog, shareNoteMutation, announce]
+  );
+
+  // Revoke share handler with error handling (#660)
+  const handleRevoke = useCallback(
+    async (shareId: string) => {
+      if (dialog.type !== 'share') return;
+      try {
+        await revokeShareMutation.mutateAsync({
+          noteId: dialog.noteId,
+          shareId,
+        });
+        announce('Share access revoked');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to revoke share';
+        announce(`Error: ${message}`);
+        throw error; // Re-throw to let ShareDialogWrapper handle UI state
+      }
+    },
+    [dialog, revokeShareMutation, announce]
+  );
+
+  // Close share dialog handler (#665)
+  const handleCloseShareDialog = useCallback(() => {
+    setDialog({ type: 'none' });
+  }, []);
+
+  // Dialog close handler for delete note (#665)
+  const handleCloseDeleteNoteDialog = useCallback((open: boolean) => {
+    if (!open) setDialog({ type: 'none' });
+  }, []);
+
+  // Dialog close handler for new/edit notebook (#665)
+  const handleCloseNotebookDialog = useCallback((open: boolean) => {
+    if (!open) setDialog({ type: 'none' });
+  }, []);
+
+  // New notebook submit handler (#665)
+  const handleSubmitNewNotebook = useCallback(
+    async (data: Parameters<typeof createNotebookMutation.mutateAsync>[0]) => {
+      await createNotebookMutation.mutateAsync(data);
+      setDialog({ type: 'none' });
+    },
+    [createNotebookMutation]
+  );
+
+  // Edit notebook submit handler (#665)
+  const handleSubmitEditNotebook = useCallback(
+    async (data: Parameters<typeof updateNotebookMutation.mutateAsync>[0]['body']) => {
+      if (dialog.type === 'editNotebook') {
+        await updateNotebookMutation.mutateAsync({
+          id: dialog.notebook.id,
+          body: data,
+        });
+        setDialog({ type: 'none' });
+      }
+    },
+    [dialog, updateNotebookMutation]
+  );
+
+  // Cancel dialog handler (#665)
+  const handleCancelDialog = useCallback(() => {
+    setDialog({ type: 'none' });
+  }, []);
+
+  // Memoized handlers for NoteDetail to prevent re-renders (#665)
+  const handleShareCurrentNote = useMemo(
+    () => (currentNote ? () => handleShareNote(currentNote) : undefined),
+    [currentNote, handleShareNote]
+  );
+
+  const handleDeleteCurrentNote = useMemo(
+    () => (currentNote ? () => handleDeleteNote(currentNote) : undefined),
+    [currentNote, handleDeleteNote]
+  );
+
+  const handleTogglePinCurrentNote = useMemo(
+    () => (currentNote ? () => handleTogglePin(currentNote) : undefined),
+    [currentNote, handleTogglePin]
+  );
+
+  const handleViewHistoryIfDetail = useMemo(
+    () => (currentNote && view.type === 'detail' ? handleViewHistory : undefined),
+    [currentNote, view.type, handleViewHistory]
+  );
+
   // Loading state
   if (notesLoading || notebooksLoading) {
     return (
@@ -514,10 +620,15 @@ function NotesPageContent(): React.JSX.Element {
       {/* Note Detail/Editor Panel */}
       {showDetailPanel && (
         <div className="flex-1 flex flex-col">
-          {/* Mobile back button */}
+          {/* Mobile back button (#661) */}
           <div className="lg:hidden border-b p-2">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="mr-2 size-4" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBack}
+              aria-label="Go back to notes list"
+            >
+              <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
               Back to list
             </Button>
           </div>
@@ -544,26 +655,10 @@ function NotesPageContent(): React.JSX.Element {
               notebooks={notebooks}
               onSave={handleSaveNote}
               onBack={handleBack}
-              onShare={
-                currentNote
-                  ? () => handleShareNote(currentNote)
-                  : undefined
-              }
-              onViewHistory={
-                currentNote && view.type === 'detail'
-                  ? handleViewHistory
-                  : undefined
-              }
-              onDelete={
-                currentNote
-                  ? () => handleDeleteNote(currentNote)
-                  : undefined
-              }
-              onTogglePin={
-                currentNote
-                  ? () => handleTogglePin(currentNote)
-                  : undefined
-              }
+              onShare={handleShareCurrentNote}
+              onViewHistory={handleViewHistoryIfDetail}
+              onDelete={handleDeleteCurrentNote}
+              onTogglePin={handleTogglePinCurrentNote}
               isNew={view.type === 'new'}
               saving={createNoteMutation.isPending || updateNoteMutation.isPending}
               className="flex-1"
@@ -589,32 +684,22 @@ function NotesPageContent(): React.JSX.Element {
         </div>
       )}
 
-      {/* Share Dialog */}
+      {/* Share Dialog (#660, #663, #665) */}
       {dialog.type === 'share' && (
         <ShareDialogWrapper
           noteId={dialog.noteId}
-          onClose={() => setDialog({ type: 'none' })}
-          onShare={async (email, permission) => {
-            await shareNoteMutation.mutateAsync({
-              noteId: dialog.noteId,
-              body: { email, permission },
-            });
-          }}
-          onRevoke={async (shareId) => {
-            await revokeShareMutation.mutateAsync({
-              noteId: dialog.noteId,
-              shareId,
-            });
-          }}
+          onClose={handleCloseShareDialog}
+          onShare={handleShare}
+          onRevoke={handleRevoke}
+          isSharing={shareNoteMutation.isPending}
+          isRevoking={revokeShareMutation.isPending}
         />
       )}
 
-      {/* Delete Note Confirmation */}
+      {/* Delete Note Confirmation (#665) */}
       <Dialog
         open={dialog.type === 'deleteNote'}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ type: 'none' });
-        }}
+        onOpenChange={handleCloseDeleteNoteDialog}
       >
         <DialogContent className="sm:max-w-sm" data-testid="delete-note-dialog">
           <DialogHeader>
@@ -626,7 +711,7 @@ function NotesPageContent(): React.JSX.Element {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog({ type: 'none' })}>
+            <Button variant="outline" onClick={handleCancelDialog}>
               Cancel
             </Button>
             <Button
@@ -641,44 +726,27 @@ function NotesPageContent(): React.JSX.Element {
         </DialogContent>
       </Dialog>
 
-      {/* New Notebook Dialog */}
+      {/* New Notebook Dialog (#665) */}
       <NotebookFormDialog
         open={dialog.type === 'newNotebook'}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ type: 'none' });
-        }}
-        onSubmit={async (data) => {
-          await createNotebookMutation.mutateAsync(data);
-          setDialog({ type: 'none' });
-        }}
+        onOpenChange={handleCloseNotebookDialog}
+        onSubmit={handleSubmitNewNotebook}
         isSubmitting={createNotebookMutation.isPending}
       />
 
-      {/* Edit Notebook Dialog */}
+      {/* Edit Notebook Dialog (#665) */}
       <NotebookFormDialog
         open={dialog.type === 'editNotebook'}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ type: 'none' });
-        }}
+        onOpenChange={handleCloseNotebookDialog}
         notebook={dialog.type === 'editNotebook' ? dialog.notebook : undefined}
-        onSubmit={async (data) => {
-          if (dialog.type === 'editNotebook') {
-            await updateNotebookMutation.mutateAsync({
-              id: dialog.notebook.id,
-              body: data,
-            });
-            setDialog({ type: 'none' });
-          }
-        }}
+        onSubmit={handleSubmitEditNotebook}
         isSubmitting={updateNotebookMutation.isPending}
       />
 
-      {/* Delete Notebook Confirmation */}
+      {/* Delete Notebook Confirmation (#665) */}
       <Dialog
         open={dialog.type === 'deleteNotebook'}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ type: 'none' });
-        }}
+        onOpenChange={handleCloseNotebookDialog}
       >
         <DialogContent className="sm:max-w-sm" data-testid="delete-notebook-dialog">
           <DialogHeader>
@@ -690,7 +758,7 @@ function NotesPageContent(): React.JSX.Element {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog({ type: 'none' })}>
+            <Button variant="outline" onClick={handleCancelDialog}>
               Cancel
             </Button>
             <Button
@@ -704,6 +772,9 @@ function NotesPageContent(): React.JSX.Element {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Screen reader announcements (#661) */}
+      <LiveRegion />
     </div>
   );
 }
