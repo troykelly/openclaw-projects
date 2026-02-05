@@ -11133,6 +11133,125 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ============================================================================
+  // Note Presence API (Epic #338, Issue #634)
+  // ============================================================================
+
+  // POST /api/notes/:id/presence - Join note presence (start viewing)
+  app.post('/api/notes/:id/presence', async (req, reply) => {
+    const {
+      joinNotePresence,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+    const body = req.body as { cursorPosition?: { line: number; column: number } } | null;
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const collaborators = await joinNotePresence(
+        pool,
+        params.id,
+        query.user_email,
+        body?.cursorPosition
+      );
+      return reply.send({ collaborators });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'You do not have access to this note' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/notes/:id/presence - Leave note presence (stop viewing)
+  app.delete('/api/notes/:id/presence', async (req, reply) => {
+    const {
+      leaveNotePresence,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      await leaveNotePresence(pool, params.id, query.user_email);
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/notes/:id/presence - Get current viewers
+  app.get('/api/notes/:id/presence', async (req, reply) => {
+    const {
+      getNotePresence,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const collaborators = await getNotePresence(pool, params.id, query.user_email);
+      return reply.send({ collaborators });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      if (message === 'FORBIDDEN') {
+        return reply.code(403).send({ error: 'You do not have access to this note' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/notes/:id/presence/cursor - Update cursor position
+  app.put('/api/notes/:id/presence/cursor', async (req, reply) => {
+    const {
+      updateCursorPosition,
+    } = await import('./notes/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
+    const body = req.body as { cursorPosition: { line: number; column: number } } | null;
+
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
+    }
+
+    if (!body?.cursorPosition) {
+      return reply.code(400).send({ error: 'cursorPosition is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      await updateCursorPosition(pool, params.id, query.user_email, body.cursorPosition);
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Notebooks CRUD API (Epic #337, Issue #345)
 
   // GET /api/notebooks - List notebooks with filters
