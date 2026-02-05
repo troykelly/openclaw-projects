@@ -2,7 +2,7 @@
 set -eu
 
 # SeaweedFS entrypoint script for S3 authentication
-# Generates S3 config from environment variables using envsubst
+# Generates S3 config from environment variables using shell substitution
 # then starts SeaweedFS with the generated config
 
 # Configuration paths
@@ -31,7 +31,8 @@ validate_env() {
     fi
 }
 
-# Generate the S3 configuration from template
+# Generate the S3 configuration from template using shell substitution
+# Note: SeaweedFS image is Alpine-based and doesn't have envsubst
 generate_config() {
     # Check if template exists
     if [ ! -f "${TEMPLATE_FILE}" ]; then
@@ -39,8 +40,13 @@ generate_config() {
         exit 1
     fi
 
-    # Generate config using envsubst
-    envsubst '${S3_ACCESS_KEY} ${S3_SECRET_KEY}' \
+    # Generate config using sed substitution
+    # We escape special characters in secrets for sed safety
+    access_key_escaped=$(printf '%s\n' "${S3_ACCESS_KEY}" | sed 's/[&/\]/\\&/g')
+    secret_key_escaped=$(printf '%s\n' "${S3_SECRET_KEY}" | sed 's/[&/\]/\\&/g')
+
+    sed -e "s/\${S3_ACCESS_KEY}/${access_key_escaped}/g" \
+        -e "s/\${S3_SECRET_KEY}/${secret_key_escaped}/g" \
         < "${TEMPLATE_FILE}" \
         > "${OUTPUT_FILE}"
 
