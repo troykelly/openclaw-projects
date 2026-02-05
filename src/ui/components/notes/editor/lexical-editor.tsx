@@ -1,6 +1,6 @@
 /**
  * Lexical-based rich text editor for notes.
- * Part of Epic #338, Issues #629, #630, #631
+ * Part of Epic #338, Issues #629, #630, #631, #632
  *
  * Features:
  * - True WYSIWYG editing with Lexical
@@ -10,12 +10,13 @@
  * - Link support
  * - Syntax-highlighted code blocks (#630)
  * - Editable tables (#631)
+ * - Mermaid diagram support (#632)
  *
  * Security: Preview mode uses simple markdown-to-HTML conversion.
  * For production, sanitize HTML with DOMPurify to prevent XSS.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -73,6 +74,7 @@ import {
   INSERT_TABLE_COMMAND,
 } from '@lexical/table';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
+import mermaid from 'mermaid';
 import hljs from 'highlight.js/lib/core';
 // Import common languages for syntax highlighting
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -106,6 +108,14 @@ hljs.registerLanguage('yml', yaml);
 hljs.registerLanguage('html', xml);
 hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('css', css);
+
+// Initialize Mermaid for diagram rendering
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'strict', // Prevent XSS
+  fontFamily: 'inherit',
+});
 
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
@@ -228,9 +238,18 @@ function highlightCode(code: string, language?: string): string {
 function markdownToHtml(markdown: string): string {
   // First, extract and process code blocks to prevent them from being escaped
   const codeBlocks: Array<{ placeholder: string; html: string }> = [];
+  const mermaidBlocks: Array<{ placeholder: string; code: string }> = [];
   let blockIndex = 0;
+  let mermaidIndex = 0;
 
   let html = markdown.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+    // Handle Mermaid diagrams separately
+    if (lang?.toLowerCase() === 'mermaid') {
+      const placeholder = `__MERMAID_BLOCK_${mermaidIndex++}__`;
+      mermaidBlocks.push({ placeholder, code: code.trim() });
+      return placeholder;
+    }
+
     const placeholder = `__CODE_BLOCK_${blockIndex++}__`;
     const highlightedCode = highlightCode(code, lang);
     const langLabel = lang ? `<span class="text-xs text-muted-foreground absolute top-2 right-2">${lang}</span>` : '';
@@ -324,6 +343,20 @@ function markdownToHtml(markdown: string): string {
   // Restore tables
   for (const table of tables) {
     html = html.replace(table.placeholder, table.html);
+  }
+
+  // Restore mermaid blocks with placeholder div for rendering
+  // The actual rendering happens in MermaidRenderer component
+  for (const block of mermaidBlocks) {
+    const escapedCode = block.code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    html = html.replace(
+      block.placeholder,
+      `<div class="mermaid-diagram my-4" data-mermaid="${escapedCode}"><div class="mermaid-placeholder bg-muted p-4 rounded-md text-center text-muted-foreground">Loading diagram...</div></div>`
+    );
   }
 
   return html;
@@ -696,6 +729,99 @@ function onError(error: Error): void {
   console.error('[LexicalEditor]', error);
 }
 
+/**
+ * Escape HTML to prevent XSS when displaying error messages.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Component to render mermaid diagrams after the preview HTML is mounted.
+ * Scans for elements with data-mermaid attribute and renders the diagrams.
+ *
+ * Security: Mermaid is configured with securityLevel: 'strict' which sanitizes
+ * the SVG output. Error messages are escaped before display.
+ */
+function MermaidRenderer({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }): null {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const mermaidElements = container.querySelectorAll('[data-mermaid]');
+    if (mermaidElements.length === 0) return;
+
+    // Render each mermaid diagram
+    mermaidElements.forEach(async (element, index) => {
+      const code = element.getAttribute('data-mermaid');
+      if (!code) return;
+
+      // Decode HTML entities
+      const decodedCode = code
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"');
+
+      try {
+        const id = `mermaid-diagram-${Date.now()}-${index}`;
+        // mermaid.render returns sanitized SVG when securityLevel: 'strict' is set
+        const { svg } = await mermaid.render(id, decodedCode);
+
+        // Clear placeholder and insert SVG
+        while (element.firstChild) {
+          element.removeChild(element.firstChild);
+        }
+        // Create a container for the SVG and set its content
+        // The SVG from mermaid.render is already sanitized with securityLevel: 'strict'
+        const svgContainer = document.createElement('div');
+        svgContainer.className = 'mermaid-svg-container';
+        // Using DOMParser to safely parse the SVG
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
+        const svgElement = svgDoc.documentElement;
+        if (svgElement && svgElement.nodeName === 'svg') {
+          svgContainer.appendChild(document.importNode(svgElement, true));
+        }
+        element.appendChild(svgContainer);
+        element.classList.add('mermaid-rendered');
+      } catch (error) {
+        // Show error message in the placeholder (escaped for safety)
+        console.error('[MermaidRenderer]', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        // Clear placeholder
+        while (element.firstChild) {
+          element.removeChild(element.firstChild);
+        }
+
+        // Create error display using DOM methods (not innerHTML)
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'bg-destructive/10 text-destructive p-4 rounded-md text-sm';
+
+        const strongEl = document.createElement('strong');
+        strongEl.textContent = 'Mermaid diagram error:';
+        errorDiv.appendChild(strongEl);
+
+        const preEl = document.createElement('pre');
+        preEl.className = 'mt-2 text-xs overflow-auto';
+        preEl.textContent = errorMessage;
+        errorDiv.appendChild(preEl);
+
+        element.appendChild(errorDiv);
+        element.classList.add('mermaid-error');
+      }
+    });
+  }, [containerRef]);
+
+  return null;
+}
+
 export function LexicalNoteEditor({
   initialContent = '',
   onChange,
@@ -709,6 +835,7 @@ export function LexicalNoteEditor({
 }: LexicalEditorProps): React.JSX.Element {
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [markdownContent, setMarkdownContent] = useState(initialContent);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle markdown textarea changes
   const handleMarkdownChange = useCallback(
@@ -755,12 +882,15 @@ export function LexicalNoteEditor({
   if (readOnly || mode === 'preview') {
     return (
       <div className={cn('flex flex-col border rounded-lg overflow-hidden', className)}>
-        {/* NOTE: In production, sanitize previewHtml with DOMPurify */}
-        {/* eslint-disable-next-line react/no-danger */}
+        {/* Security: previewHtml should be sanitized with DOMPurify in production.
+            Mermaid diagrams are rendered separately with securityLevel: 'strict'. */}
         <div
+          ref={previewContainerRef}
           className="flex-1 min-h-[300px] p-4 prose prose-sm max-w-none overflow-auto"
+          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: previewHtml }}
         />
+        <MermaidRenderer containerRef={previewContainerRef} />
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground bg-muted/20">
           <span>{charCount} characters | {wordCount} words</span>
         </div>
