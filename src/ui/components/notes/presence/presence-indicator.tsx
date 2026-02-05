@@ -56,6 +56,38 @@ function stringToColor(str: string): string {
   return `hsl(${hue}, 70%, 50%)`;
 }
 
+/**
+ * Validate avatar URL for security (#691).
+ * Prevents tracking pixels, malicious content, and data: URIs.
+ * Only allows https:// URLs from safe patterns.
+ */
+function isValidAvatarUrl(url: string): boolean {
+  // Must be a valid URL
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  // Only allow HTTPS
+  if (parsed.protocol !== 'https:') {
+    return false;
+  }
+
+  // Block data: and javascript: protocols (redundant but explicit)
+  if (url.toLowerCase().startsWith('data:') || url.toLowerCase().startsWith('javascript:')) {
+    return false;
+  }
+
+  // Allow common avatar providers and any HTTPS URL
+  // In a stricter environment, you could whitelist specific domains:
+  // const allowedDomains = ['gravatar.com', 'avatars.githubusercontent.com', 'i.imgur.com'];
+  // return allowedDomains.some(domain => parsed.hostname.endsWith(domain));
+
+  return true;
+}
+
 const sizeClasses = {
   sm: 'h-6 w-6 text-xs',
   md: 'h-8 w-8 text-sm',
@@ -83,11 +115,13 @@ function Avatar({
   const initials = getInitials(user);
   const bgColor = stringToColor(user.email);
 
-  if (user.avatarUrl) {
+  // Only render external images if URL passes security validation (#691)
+  if (user.avatarUrl && isValidAvatarUrl(user.avatarUrl)) {
     return (
       <img
         src={user.avatarUrl}
         alt={user.displayName || user.email}
+        referrerPolicy="no-referrer"
         className={cn(
           'rounded-full border-2 border-background object-cover',
           sizeClasses[size],

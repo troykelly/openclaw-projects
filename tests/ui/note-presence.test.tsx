@@ -126,6 +126,126 @@ describe('PresenceIndicator', () => {
     expect(img).toHaveAttribute('alt', 'Avatar User');
   });
 
+  describe('Avatar URL Security (#691)', () => {
+    it('sets referrerPolicy="no-referrer" on avatar images', () => {
+      const viewerWithAvatar: NotePresenceUser = {
+        email: 'secure@example.com',
+        displayName: 'Secure User',
+        avatarUrl: 'https://example.com/avatar.jpg',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithAvatar]} />);
+
+      const img = screen.getByRole('img');
+      expect(img).toHaveAttribute('referrerPolicy', 'no-referrer');
+    });
+
+    it('rejects HTTP (non-HTTPS) avatar URLs', () => {
+      const viewerWithHttpUrl: NotePresenceUser = {
+        email: 'http@example.com',
+        displayName: 'HTTP User',
+        avatarUrl: 'http://example.com/avatar.jpg',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithHttpUrl]} />);
+
+      // Should fall back to initials, not render image
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getByText('HU')).toBeInTheDocument();
+    });
+
+    it('rejects data: URI avatar URLs', () => {
+      const viewerWithDataUri: NotePresenceUser = {
+        email: 'data@example.com',
+        displayName: 'Data User',
+        avatarUrl: 'data:image/png;base64,iVBORw0KGgo=',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithDataUri]} />);
+
+      // Should fall back to initials
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getByText('DU')).toBeInTheDocument();
+    });
+
+    it('rejects javascript: URI avatar URLs', () => {
+      const viewerWithJsUri: NotePresenceUser = {
+        email: 'js@example.com',
+        displayName: 'JS User',
+        avatarUrl: 'javascript:alert(1)',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithJsUri]} />);
+
+      // Should fall back to initials
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getByText('JU')).toBeInTheDocument();
+    });
+
+    it('rejects invalid/malformed URLs', () => {
+      const viewerWithInvalidUrl: NotePresenceUser = {
+        email: 'invalid@example.com',
+        displayName: 'Invalid User',
+        avatarUrl: 'not-a-valid-url',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithInvalidUrl]} />);
+
+      // Should fall back to initials
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getByText('IU')).toBeInTheDocument();
+    });
+
+    it('rejects blob: URLs', () => {
+      const viewerWithBlobUrl: NotePresenceUser = {
+        email: 'blob@example.com',
+        displayName: 'Blob User',
+        avatarUrl: 'blob:https://example.com/1234-5678',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithBlobUrl]} />);
+
+      // Should fall back to initials
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getByText('BU')).toBeInTheDocument();
+    });
+
+    it('rejects file: URLs', () => {
+      const viewerWithFileUrl: NotePresenceUser = {
+        email: 'file@example.com',
+        displayName: 'File User',
+        avatarUrl: 'file:///etc/passwd',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithFileUrl]} />);
+
+      // Should fall back to initials
+      expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(screen.getByText('FU')).toBeInTheDocument();
+    });
+
+    it('accepts valid HTTPS avatar URLs', () => {
+      const viewerWithHttpsUrl: NotePresenceUser = {
+        email: 'https@example.com',
+        displayName: 'HTTPS User',
+        avatarUrl: 'https://gravatar.com/avatar/abc123',
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      render(<PresenceIndicator viewers={[viewerWithHttpsUrl]} />);
+
+      const img = screen.getByRole('img');
+      expect(img).toHaveAttribute('src', 'https://gravatar.com/avatar/abc123');
+    });
+  });
+
   it('generates consistent colors from email', () => {
     const { rerender } = render(
       <PresenceIndicator viewers={[mockViewers[0]]} />
