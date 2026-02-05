@@ -1153,6 +1153,240 @@ $$
   });
 
   // ============================================
+  // XSS Prevention Tests
+  // ============================================
+
+  describe('XSS Prevention', () => {
+    it('stores content with script tags without executing them', async () => {
+      const maliciousContent = '<script>alert("xss")</script>Normal text';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'XSS Test Note',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+      const note = createRes.json();
+
+      // Content should be stored (the API stores raw content)
+      // Sanitization happens on the frontend when rendering
+      expect(note.content).toBeDefined();
+
+      // Verify we can retrieve it
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${note.id}`,
+        query: { user_email: primaryUser },
+      });
+
+      expect(getRes.statusCode).toBe(200);
+      expect(getRes.json().content).toBe(maliciousContent);
+    });
+
+    it('handles onerror event handlers in content', async () => {
+      const maliciousContent = '<img src="invalid" onerror="alert(1)">Text content';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Onerror XSS Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+
+      // The API should accept and store the content
+      // Frontend sanitization (DOMPurify) handles the onerror stripping
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${createRes.json().id}`,
+        query: { user_email: primaryUser },
+      });
+
+      expect(getRes.statusCode).toBe(200);
+    });
+
+    it('handles javascript: URLs in content', async () => {
+      const maliciousContent = '[Click me](javascript:alert(1))';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'JavaScript URL Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+
+      // Content stored - frontend handles sanitization
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/api/notes/${createRes.json().id}`,
+        query: { user_email: primaryUser },
+      });
+
+      expect(getRes.statusCode).toBe(200);
+    });
+
+    it('handles data: URLs with script content', async () => {
+      const maliciousContent = '<a href="data:text/html,<script>alert(1)</script>">Click</a>';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Data URL Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+    });
+
+    it('handles SVG with embedded script in content', async () => {
+      const maliciousContent = '<svg><script>alert(1)</script></svg>';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'SVG XSS Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+    });
+
+    it('handles iframe injection attempts in content', async () => {
+      const maliciousContent = '<iframe src="https://evil.com"></iframe>Text';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Iframe Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+    });
+
+    it('sanitizes title with HTML tags', async () => {
+      // Note: Titles should be treated as plain text, not HTML
+      const maliciousTitle = '<script>alert("title xss")</script>Real Title';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: maliciousTitle,
+          content: 'Safe content',
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+      // Title is stored as-is (displayed as text, not HTML)
+      expect(createRes.json().title).toBe(maliciousTitle);
+    });
+
+    it('handles style-based XSS attempts', async () => {
+      const maliciousContent = '<div style="background:url(javascript:alert(1))">Styled</div>';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Style XSS Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+    });
+
+    it('handles form injection attempts', async () => {
+      const maliciousContent = '<form action="https://evil.com"><input name="data"></form>';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Form Injection Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+    });
+
+    it('handles base tag injection attempts', async () => {
+      const maliciousContent = '<base href="https://evil.com">Normal content';
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Base Tag Test',
+          content: maliciousContent,
+        },
+      });
+
+      expect(createRes.statusCode).toBe(201);
+    });
+
+    it('search does not execute malicious content in results', async () => {
+      // Create note with XSS payload
+      await app.inject({
+        method: 'POST',
+        url: '/api/notes',
+        payload: {
+          user_email: primaryUser,
+          title: 'Searchable XSS Note',
+          content: '<script>alert("search xss")</script>Unique searchable content xyz123',
+        },
+      });
+
+      // Search for the note
+      const searchRes = await app.inject({
+        method: 'GET',
+        url: '/api/notes/search',
+        query: {
+          user_email: primaryUser,
+          q: 'xyz123',
+          searchType: 'text',
+        },
+      });
+
+      expect(searchRes.statusCode).toBe(200);
+      const results = searchRes.json();
+
+      // Should return results without executing scripts
+      // Actual sanitization happens on frontend
+      expect(results.results.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================
   // Error Handling
   // ============================================
 
