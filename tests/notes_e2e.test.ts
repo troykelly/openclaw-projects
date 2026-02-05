@@ -1251,27 +1251,27 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { user_email: primaryUser },
+        payload: { userEmail: primaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
       const joinData = joinRes.json();
-      expect(joinData.users).toBeInstanceOf(Array);
-      expect(joinData.users.some((u: { email: string }) => u.email === primaryUser)).toBe(true);
+      expect(joinData.collaborators).toBeInstanceOf(Array);
+      expect(joinData.collaborators.some((u: { email: string }) => u.email === primaryUser)).toBe(true);
 
       // 3. Get current viewers
       const getRes = await app.inject({
         method: 'GET',
         url: `/api/notes/${noteId}/presence`,
-        query: { user_email: primaryUser },
+        headers: { 'x-user-email': primaryUser },
       });
       expect(getRes.statusCode).toBe(200);
-      expect(getRes.json().users).toBeInstanceOf(Array);
+      expect(getRes.json().collaborators).toBeInstanceOf(Array);
 
       // 4. User leaves presence
       const leaveRes = await app.inject({
         method: 'DELETE',
         url: `/api/notes/${noteId}/presence`,
-        query: { user_email: primaryUser },
+        headers: { 'x-user-email': primaryUser },
       });
       expect(leaveRes.statusCode).toBe(204);
     });
@@ -1293,7 +1293,7 @@ $$
       await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { user_email: primaryUser },
+        payload: { userEmail: primaryUser },
       });
 
       // 3. Update cursor position
@@ -1301,8 +1301,8 @@ $$
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          user_email: primaryUser,
-          cursor_position: { line: 5, column: 10 },
+          userEmail: primaryUser,
+          cursorPosition: { line: 5, column: 10 },
         },
       });
       expect(cursorRes.statusCode).toBe(204);
@@ -1326,7 +1326,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { user_email: secondaryUser },
+        payload: { userEmail: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(403);
 
@@ -1334,7 +1334,7 @@ $$
       const getRes = await app.inject({
         method: 'GET',
         url: `/api/notes/${noteId}/presence`,
-        query: { user_email: secondaryUser },
+        headers: { 'x-user-email': secondaryUser },
       });
       expect(getRes.statusCode).toBe(403);
     });
@@ -1368,7 +1368,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { user_email: secondaryUser },
+        payload: { userEmail: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
 
@@ -1376,11 +1376,11 @@ $$
       const getRes = await app.inject({
         method: 'GET',
         url: `/api/notes/${noteId}/presence`,
-        query: { user_email: primaryUser },
+        headers: { 'x-user-email': primaryUser },
       });
       expect(getRes.statusCode).toBe(200);
-      const users = getRes.json().users;
-      expect(users.some((u: { email: string }) => u.email === secondaryUser)).toBe(true);
+      const collaborators = getRes.json().collaborators;
+      expect(collaborators.some((u: { email: string }) => u.email === secondaryUser)).toBe(true);
     });
 
     it('handles joining presence with initial cursor position', async () => {
@@ -1401,13 +1401,13 @@ $$
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          user_email: primaryUser,
-          cursor_position: { line: 1, column: 0 },
+          userEmail: primaryUser,
+          cursorPosition: { line: 1, column: 0 },
         },
       });
       expect(joinRes.statusCode).toBe(200);
-      const users = joinRes.json().users;
-      const currentUser = users.find((u: { email: string }) => u.email === primaryUser);
+      const collaborators = joinRes.json().collaborators;
+      const currentUser = collaborators.find((u: { email: string }) => u.email === primaryUser);
       expect(currentUser).toBeDefined();
       expect(currentUser.cursorPosition).toBeDefined();
     });
@@ -1419,7 +1419,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${fakeId}/presence`,
-        payload: { user_email: primaryUser },
+        payload: { userEmail: primaryUser },
       });
       // Should return 403 or 404 depending on implementation
       expect([403, 404]).toContain(joinRes.statusCode);
