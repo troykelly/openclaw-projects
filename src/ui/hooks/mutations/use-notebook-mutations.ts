@@ -2,7 +2,7 @@
  * TanStack Query mutation hooks for notebooks.
  *
  * Provides mutations for creating, updating, archiving, and deleting notebooks.
- * Includes cache invalidation for related queries.
+ * Includes optimized cache invalidation for related queries.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -35,13 +35,11 @@ export function useCreateNotebook() {
       apiClient.post<Notebook>('/api/notebooks', body),
 
     onSuccess: (notebook) => {
-      // Invalidate notebooks list queries
+      // Invalidate notebooks list and tree queries (both show notebook counts)
       queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-
-      // Invalidate tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
 
-      // If has parent, invalidate parent notebook
+      // If has parent, invalidate parent detail (for child counts)
       if (notebook.parentNotebookId) {
         queryClient.invalidateQueries({
           queryKey: notebookKeys.detail(notebook.parentNotebookId),
@@ -67,16 +65,17 @@ export function useUpdateNotebook() {
 
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateNotebookBody }) =>
-      apiClient.put<Notebook>(`/api/notebooks/${id}`, body),
+      apiClient.put<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}`,
+        body
+      ),
 
     onSuccess: (_, { id }) => {
       // Invalidate the specific notebook detail
       queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
 
-      // Invalidate notebooks list queries
+      // Invalidate list and tree (name/icon changes appear in both)
       queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-
-      // Invalidate tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
     },
   });
@@ -98,16 +97,17 @@ export function useArchiveNotebook() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Notebook>(`/api/notebooks/${id}/archive`, {}),
+      apiClient.post<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}/archive`,
+        {}
+      ),
 
     onSuccess: (_, id) => {
       // Invalidate the specific notebook detail
       queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
 
-      // Invalidate notebooks list queries
+      // Archived notebooks disappear from default lists and tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-
-      // Invalidate tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
     },
   });
@@ -129,16 +129,17 @@ export function useUnarchiveNotebook() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Notebook>(`/api/notebooks/${id}/unarchive`, {}),
+      apiClient.post<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}/unarchive`,
+        {}
+      ),
 
     onSuccess: (_, id) => {
       // Invalidate the specific notebook detail
       queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
 
-      // Invalidate notebooks list queries
+      // Unarchived notebooks reappear in lists and tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-
-      // Invalidate tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
     },
   });
@@ -160,19 +161,19 @@ export function useDeleteNotebook() {
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: { id: string; deleteNotes?: boolean }) =>
-      apiClient.delete(`/api/notebooks/${id}${deleteNotes ? '?deleteNotes=true' : ''}`),
+      apiClient.delete(
+        `/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`
+      ),
 
     onSuccess: (_, { id }) => {
       // Invalidate the specific notebook detail
       queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
 
-      // Invalidate notebooks list queries
+      // Deleted notebooks disappear from lists and tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-
-      // Invalidate tree
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
 
-      // Also invalidate notes since they may have been moved or deleted
+      // Notes may have been moved or deleted
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
     },
   });
@@ -194,19 +195,17 @@ export function useMoveNotesToNotebook() {
 
   return useMutation({
     mutationFn: ({ notebookId, body }: { notebookId: string; body: MoveNotesBody }) =>
-      apiClient.post<MoveNotesResponse>(`/api/notebooks/${notebookId}/notes`, body),
+      apiClient.post<MoveNotesResponse>(
+        `/api/notebooks/${encodeURIComponent(notebookId)}/notes`,
+        body
+      ),
 
-    onSuccess: (_, { notebookId }) => {
-      // Invalidate the target notebook
-      queryClient.invalidateQueries({
-        queryKey: notebookKeys.detail(notebookId),
-      });
-
-      // Invalidate all notebooks (source notebook may have changed)
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
+    onSuccess: () => {
+      // Note counts changed on both source and target notebooks
+      // Use broad invalidation since we don't know the source notebook
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
 
-      // Invalidate notes since they've been moved/copied
+      // Notes changed notebooks
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
     },
   });

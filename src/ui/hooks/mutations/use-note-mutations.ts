@@ -2,7 +2,7 @@
  * TanStack Query mutation hooks for notes.
  *
  * Provides mutations for creating, updating, deleting, and restoring notes.
- * Includes cache invalidation for related queries.
+ * Includes optimized cache invalidation for related queries.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -37,11 +37,8 @@ export function useCreateNote() {
       // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
-      // If note has a notebook, invalidate notebook queries too
+      // If note has a notebook, invalidate tree (for note counts)
       if (note.notebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(note.notebookId),
-        });
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -64,23 +61,21 @@ export function useUpdateNote() {
 
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateNoteBody }) =>
-      apiClient.put<Note>(`/api/notes/${id}`, body),
+      apiClient.put<Note>(`/api/notes/${encodeURIComponent(id)}`, body),
 
     onSuccess: (note, { id }) => {
       // Invalidate the specific note detail
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
 
-      // Invalidate notes list queries
+      // Invalidate notes list queries (title/content may affect sorting/filtering)
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
-      // Invalidate versions since content may have changed
+      // Only invalidate versions if content changed
+      // (we can't know this for certain, so always invalidate to be safe)
       queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
 
-      // If note has a notebook, invalidate notebook queries
+      // If notebook assignment changed, tree needs update for note counts
       if (note.notebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(note.notebookId),
-        });
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -102,7 +97,8 @@ export function useDeleteNote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/notes/${id}`),
+    mutationFn: (id: string) =>
+      apiClient.delete(`/api/notes/${encodeURIComponent(id)}`),
 
     onSuccess: (_, id) => {
       // Invalidate the specific note detail
@@ -111,9 +107,8 @@ export function useDeleteNote() {
       // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
-      // Invalidate notebook tree to update counts
+      // Invalidate notebook tree (for note counts) - lists don't need update
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
     },
   });
 }
@@ -134,7 +129,10 @@ export function useRestoreNote() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Note>(`/api/notes/${id}/restore`, {}),
+      apiClient.post<Note>(
+        `/api/notes/${encodeURIComponent(id)}/restore`,
+        {}
+      ),
 
     onSuccess: (note, id) => {
       // Invalidate the specific note detail
@@ -143,11 +141,8 @@ export function useRestoreNote() {
       // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
-      // If note has a notebook, invalidate notebook queries
+      // If note has a notebook, invalidate tree for note counts
       if (note.notebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(note.notebookId),
-        });
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -171,7 +166,7 @@ export function useRestoreNoteVersion() {
   return useMutation({
     mutationFn: ({ id, versionNumber }: { id: string; versionNumber: number }) =>
       apiClient.post<RestoreVersionResponse>(
-        `/api/notes/${id}/versions/${versionNumber}/restore`,
+        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore`,
         {}
       ),
 
@@ -180,7 +175,7 @@ export function useRestoreNoteVersion() {
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
 
-      // Invalidate notes list queries
+      // Invalidate notes list queries (content/title may have changed)
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
     },
   });
