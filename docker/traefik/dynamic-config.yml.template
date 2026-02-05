@@ -86,10 +86,11 @@ http:
   # Services
   services:
     # ModSecurity WAF service - proxies to API after inspection
+    # Note: Port 8080 required as the container runs unprivileged
     modsecurity-service:
       loadBalancer:
         servers:
-          - url: "http://modsecurity:80"
+          - url: "http://modsecurity:8080"
         healthCheck:
           path: /healthz
           interval: 10s
