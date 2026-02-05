@@ -135,7 +135,82 @@ type DialogState =
   | { type: 'editNotebook'; notebook: UINotebook }
   | { type: 'deleteNotebook'; notebook: UINotebook };
 
+// ---------------------------------------------------------------------------
+// Error Boundary
+// ---------------------------------------------------------------------------
+
+interface NotesPageErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+/**
+ * Error boundary for the NotesPage component.
+ * Catches runtime rendering errors and displays a recovery UI.
+ * Issue #664: Prevents white screen crash when child components throw.
+ */
+class NotesPageErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  NotesPageErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): NotesPageErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // In production, this would report to error tracking service
+    // For now, log only in development
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('[NotesPage] Error caught by boundary:', error, errorInfo);
+    }
+  }
+
+  handleReset = (): void => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div data-testid="page-notes" className="p-6">
+          <ErrorState
+            type="generic"
+            title="Something went wrong"
+            description={
+              import.meta.env.DEV && this.state.error
+                ? this.state.error.message
+                : 'An unexpected error occurred in the Notes page. Please try again.'
+            }
+            onRetry={this.handleReset}
+            retryLabel="Try again"
+          />
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+/**
+ * NotesPage wrapped with error boundary.
+ * This is the public export that routes.tsx imports.
+ */
 export function NotesPage(): React.JSX.Element {
+  return (
+    <NotesPageErrorBoundary>
+      <NotesPageContent />
+    </NotesPageErrorBoundary>
+  );
+}
+
+function NotesPageContent(): React.JSX.Element {
   // URL params for deep linking
   const { noteId: urlNoteId, notebookId: urlNotebookId } = useParams<{
     noteId?: string;
