@@ -11,13 +11,24 @@
  * - Version history
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
+/**
+ * E2E test timeout configuration.
+ * E2E tests involve database operations and HTTP requests which can be slow,
+ * especially on CI runners. Set explicit timeouts to prevent flaky test failures.
+ */
+const E2E_TEST_TIMEOUT = 30_000; // 30 seconds per test
+const E2E_HOOK_TIMEOUT = 60_000; // 60 seconds for setup/teardown hooks
+
 describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
+  // Configure timeout for this test suite
+  vi.setConfig({ testTimeout: E2E_TEST_TIMEOUT, hookTimeout: E2E_HOOK_TIMEOUT });
+
   const app = buildServer();
   let pool: Pool;
 
