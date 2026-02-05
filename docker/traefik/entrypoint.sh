@@ -1,5 +1,7 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+set -eu
+# Enable pipefail if available (bash/zsh), ignore on POSIX sh
+( set -o pipefail 2>/dev/null ) && set -o pipefail || true
 
 # Traefik dynamic config entrypoint script
 # Generates dynamic configuration from environment variables using envsubst
