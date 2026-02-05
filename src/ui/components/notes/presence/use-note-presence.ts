@@ -270,6 +270,30 @@ export function useNotePresence({
     };
   }, [autoJoin, join, leave]);
 
+  /**
+   * Cleanup stale presence viewers.
+   * Issue #700: Remove viewers who haven't updated their presence within the timeout period.
+   * This handles cases where the server cleanup hasn't broadcast leave events.
+   */
+  useEffect(() => {
+    const PRESENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes (matches server timeout)
+    const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setViewers((prev) => {
+        const filtered = prev.filter((viewer) => {
+          const lastSeen = new Date(viewer.lastSeenAt).getTime();
+          return now - lastSeen < PRESENCE_TIMEOUT_MS;
+        });
+        // Only update if something changed
+        return filtered.length === prev.length ? prev : filtered;
+      });
+    }, CLEANUP_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return {
     viewers,
     isConnected,
