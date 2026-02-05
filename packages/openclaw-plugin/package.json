@@ -5,6 +5,16 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./register": {
+      "types": "./dist/register-openclaw.d.ts",
+      "import": "./dist/register-openclaw.js"
+    }
+  },
   "files": [
     "dist",
     "openclaw.plugin.json",
@@ -12,11 +22,22 @@
   ],
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint placeholder'"
+    "lint": "echo 'lint placeholder'",
+    "prepublishOnly": "pnpm run clean && pnpm run build && pnpm run test && pnpm run typecheck"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/troykelly/openclaw-projects.git",
+    "directory": "packages/openclaw-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/troykelly/openclaw-projects/issues"
+  },
+  "homepage": "https://github.com/troykelly/openclaw-projects/tree/main/packages/openclaw-plugin#readme",
   "keywords": [
     "openclaw",
     "plugin",
