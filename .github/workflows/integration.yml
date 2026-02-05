@@ -69,6 +69,7 @@ jobs:
 
       - name: Pull or build container images
         run: |
+          set -o pipefail
           # Try to pull published images first (faster, works on main after merge)
           # If pull fails (e.g., PR branch where images aren't published yet), build locally
           if ! docker compose pull 2>&1 | tee /tmp/pull.log; then
