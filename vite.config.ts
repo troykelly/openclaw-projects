@@ -9,6 +9,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: path.join(__dirname, 'src', 'ui', 'app'),
   base: '/static/app/',
+  server: {
+    host: '::',
+  },
   build: {
     outDir: path.join(__dirname, 'src', 'api', 'static', 'app'),
     emptyOutDir: true,

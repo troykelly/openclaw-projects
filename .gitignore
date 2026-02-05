@@ -22,6 +22,7 @@ dist/
 build/
 coverage/
 .cache/
+src/api/static/
 
 # Tailwind CSS (v4 uses @theme in CSS, no config file needed)
 # Note: postcss.config.* and tailwind.config.* removed in favor of CSS-first config
