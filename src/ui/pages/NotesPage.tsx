@@ -149,6 +149,16 @@ export function NotesPage(): React.JSX.Element {
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
   const [selectedNotebookId, setSelectedNotebookId] = useState<string | undefined>(urlNotebookId);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Mutation error state for user feedback
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  // Auto-dismiss mutation errors after 5 seconds
+  useEffect(() => {
+    if (mutationError) {
+      const timer = setTimeout(() => setMutationError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [mutationError]);
 
   // Sync notebook ID from URL - separated from view sync to avoid race conditions (#668)
   useEffect(() => {
@@ -293,29 +303,36 @@ export function NotesPage(): React.JSX.Element {
       visibility: NoteVisibility;
       hideFromAgents: boolean;
     }) => {
-      if (view.type === 'new') {
-        const body: CreateNoteBody = {
-          title: data.title,
-          content: data.content,
-          notebookId: data.notebookId ?? selectedNotebookId,
-          visibility: data.visibility,
-          hideFromAgents: data.hideFromAgents,
-        };
-        const newNote = await createNoteMutation.mutateAsync(body);
-        setView({ type: 'detail', noteId: newNote.id });
-        // Update URL to include the new note ID
-        navigate(buildNotePath(newNote.id, newNote.notebookId ?? undefined), {
-          state: { internal: true },
-        });
-      } else if (view.type === 'detail' && currentApiNote) {
-        const body: UpdateNoteBody = {
-          title: data.title,
-          content: data.content,
-          notebookId: data.notebookId,
-          visibility: data.visibility,
-          hideFromAgents: data.hideFromAgents,
-        };
-        await updateNoteMutation.mutateAsync({ id: currentApiNote.id, body });
+      try {
+        setMutationError(null);
+        if (view.type === 'new') {
+          const body: CreateNoteBody = {
+            title: data.title,
+            content: data.content,
+            notebookId: data.notebookId ?? selectedNotebookId,
+            visibility: data.visibility,
+            hideFromAgents: data.hideFromAgents,
+          };
+          const newNote = await createNoteMutation.mutateAsync(body);
+          setView({ type: 'detail', noteId: newNote.id });
+          // Update URL to include the new note ID
+          navigate(buildNotePath(newNote.id, newNote.notebookId ?? undefined), {
+            state: { internal: true },
+          });
+        } else if (view.type === 'detail' && currentApiNote) {
+          const body: UpdateNoteBody = {
+            title: data.title,
+            content: data.content,
+            notebookId: data.notebookId,
+            visibility: data.visibility,
+            hideFromAgents: data.hideFromAgents,
+          };
+          await updateNoteMutation.mutateAsync({ id: currentApiNote.id, body });
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to save note';
+        setMutationError(message);
       }
     },
     [view, currentApiNote, selectedNotebookId, createNoteMutation, updateNoteMutation, navigate, buildNotePath]
@@ -330,11 +347,19 @@ export function NotesPage(): React.JSX.Element {
 
   const handleConfirmDeleteNote = useCallback(async () => {
     if (dialog.type === 'deleteNote') {
-      await deleteNoteMutation.mutateAsync(dialog.note.id);
-      setDialog({ type: 'none' });
-      setView({ type: 'list' });
-      // Navigate back to list view
-      navigate(buildNotePath(undefined), { state: { internal: true } });
+      try {
+        setMutationError(null);
+        await deleteNoteMutation.mutateAsync(dialog.note.id);
+        setDialog({ type: 'none' });
+        setView({ type: 'list' });
+        // Navigate back to list view
+        navigate(buildNotePath(undefined), { state: { internal: true } });
+      } catch (error) {
+        setDialog({ type: 'none' });
+        const message =
+          error instanceof Error ? error.message : 'Failed to delete note';
+        setMutationError(message);
+      }
     }
   }, [dialog, deleteNoteMutation, navigate, buildNotePath]);
 
@@ -344,10 +369,17 @@ export function NotesPage(): React.JSX.Element {
 
   const handleTogglePin = useCallback(
     async (note: UINote) => {
-      await updateNoteMutation.mutateAsync({
-        id: note.id,
-        body: { isPinned: !note.isPinned },
-      });
+      try {
+        setMutationError(null);
+        await updateNoteMutation.mutateAsync({
+          id: note.id,
+          body: { isPinned: !note.isPinned },
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to update pin status';
+        setMutationError(message);
+      }
     },
     [updateNoteMutation]
   );
@@ -378,13 +410,21 @@ export function NotesPage(): React.JSX.Element {
 
   const handleConfirmDeleteNotebook = useCallback(async () => {
     if (dialog.type === 'deleteNotebook') {
-      await deleteNotebookMutation.mutateAsync({
-        id: dialog.notebook.id,
-        deleteNotes: false,
-      });
-      setDialog({ type: 'none' });
-      if (selectedNotebookId === dialog.notebook.id) {
-        setSelectedNotebookId(undefined);
+      try {
+        setMutationError(null);
+        await deleteNotebookMutation.mutateAsync({
+          id: dialog.notebook.id,
+          deleteNotes: false,
+        });
+        setDialog({ type: 'none' });
+        if (selectedNotebookId === dialog.notebook.id) {
+          setSelectedNotebookId(undefined);
+        }
+      } catch (error) {
+        setDialog({ type: 'none' });
+        const message =
+          error instanceof Error ? error.message : 'Failed to delete notebook';
+        setMutationError(message);
       }
     }
   }, [dialog, deleteNotebookMutation, selectedNotebookId]);
@@ -442,7 +482,28 @@ export function NotesPage(): React.JSX.Element {
   const showDetailPanel = view.type === 'detail' || view.type === 'new' || view.type === 'history';
 
   return (
-    <div data-testid="page-notes" className="flex h-full overflow-hidden">
+    <div data-testid="page-notes" className="flex h-full overflow-hidden relative">
+      {/* Mutation error notification */}
+      {mutationError && (
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-50 max-w-md rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 shadow-lg"
+          role="alert"
+          data-testid="mutation-error-notification"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-destructive">{mutationError}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto p-1 text-destructive hover:text-destructive"
+              onClick={() => setMutationError(null)}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Notebooks Sidebar */}
       <NotebooksSidebar
         notebooks={notebooks}
