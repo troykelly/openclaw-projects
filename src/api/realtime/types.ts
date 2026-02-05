@@ -1,6 +1,6 @@
 /**
  * Real-time event types and interfaces.
- * Part of Issue #213.
+ * Part of Issues #213, #634 (note presence)
  */
 
 /**
@@ -20,7 +20,12 @@ export type RealtimeEventType =
   | 'notification:created'
   | 'connection:established'
   | 'connection:ping'
-  | 'connection:pong';
+  | 'connection:pong'
+  // Note presence events (#634)
+  | 'note:presence_joined'
+  | 'note:presence_left'
+  | 'note:presence_list'
+  | 'note:presence_cursor';
 
 /**
  * Real-time event message structure
@@ -87,6 +92,48 @@ export interface NotificationEventData {
 export interface ConnectionEventData {
   clientId: string;
   connectedAt?: string;
+}
+
+/**
+ * User presence information for notes (#634)
+ */
+export interface NotePresenceUser {
+  email: string;
+  displayName?: string;
+  avatarUrl?: string;
+  lastSeenAt: string;
+  cursorPosition?: {
+    line: number;
+    column: number;
+  };
+}
+
+/**
+ * Note presence joined/left event data
+ */
+export interface NotePresenceEventData {
+  noteId: string;
+  user: NotePresenceUser;
+}
+
+/**
+ * Note presence list event data
+ */
+export interface NotePresenceListEventData {
+  noteId: string;
+  users: NotePresenceUser[];
+}
+
+/**
+ * Note cursor position event data
+ */
+export interface NoteCursorEventData {
+  noteId: string;
+  userEmail: string;
+  cursorPosition: {
+    line: number;
+    column: number;
+  };
 }
 
 /**
