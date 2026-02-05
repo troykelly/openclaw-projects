@@ -159,6 +159,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/ui/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/ui/components/ui/dialog';
+import { Input } from '@/ui/components/ui/input';
+import { Label } from '@/ui/components/ui/label';
 
 export type EditorMode = 'wysiwyg' | 'markdown' | 'preview';
 
@@ -208,6 +218,281 @@ function ToolbarButton({ icon, label, onClick, active, disabled }: ToolbarButton
 
 function ToolbarSeparator() {
   return <div className="w-px h-6 bg-border mx-1" />;
+}
+
+/**
+ * Allowed URL protocols for link insertion.
+ * Only http, https, mailto, and tel are considered safe.
+ */
+const ALLOWED_PROTOCOLS = ['http:', 'https:', 'mailto:', 'tel:'];
+
+/**
+ * Validate a URL for safe link insertion.
+ * Returns an error message if invalid, or null if valid.
+ */
+function validateUrl(url: string): string | null {
+  if (!url.trim()) {
+    return 'Please enter a URL';
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
+      return `Only ${ALLOWED_PROTOCOLS.map(p => p.replace(':', '')).join(', ')} links are allowed`;
+    }
+
+    return null;
+  } catch {
+    // If URL constructor fails, try adding https:// prefix
+    try {
+      const urlWithProtocol = `https://${url}`;
+      const parsedUrl = new URL(urlWithProtocol);
+
+      if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
+        return `Only ${ALLOWED_PROTOCOLS.map(p => p.replace(':', '')).join(', ')} links are allowed`;
+      }
+
+      return null;
+    } catch {
+      return 'Please enter a valid URL';
+    }
+  }
+}
+
+/**
+ * Normalize a URL for insertion.
+ * Adds https:// prefix if no protocol is provided.
+ */
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+
+  // Check if URL already has a protocol
+  if (/^[a-z]+:/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Add https:// prefix for URLs without protocol
+  return `https://${trimmed}`;
+}
+
+/**
+ * Dialog for inserting links with URL validation.
+ * Addresses issues #675 (replace prompt()) and #678 (URL validation).
+ */
+function LinkDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (url: string) => void;
+}): React.JSX.Element {
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (open) {
+      setUrl('');
+      setError(null);
+      // Small delay to ensure dialog is mounted
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const validationError = validateUrl(url);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const normalizedUrl = normalizeUrl(url);
+    onSubmit(normalizedUrl);
+    onOpenChange(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Insert Link</DialogTitle>
+          <DialogDescription>
+            Enter a URL to create a link. Supported protocols: http, https, mailto, tel.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="link-url">URL</Label>
+              <Input
+                id="link-url"
+                ref={inputRef}
+                type="text"
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="https://example.com"
+                aria-invalid={error ? 'true' : 'false'}
+                aria-describedby={error ? 'link-url-error' : undefined}
+              />
+              {error && (
+                <p id="link-url-error" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Insert Link</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Dialog for inserting tables with row/column input.
+ * Addresses issue #683 (replace prompt() for table insertion).
+ */
+function TableDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (rows: number, columns: number) => void;
+}): React.JSX.Element {
+  const [rows, setRows] = useState('3');
+  const [columns, setColumns] = useState('3');
+  const [error, setError] = useState<string | null>(null);
+  const rowsInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (open) {
+      setRows('3');
+      setColumns('3');
+      setError(null);
+      setTimeout(() => rowsInputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const rowCount = parseInt(rows, 10);
+    const colCount = parseInt(columns, 10);
+
+    if (isNaN(rowCount) || rowCount < 1 || rowCount > 50) {
+      setError('Rows must be a number between 1 and 50');
+      return;
+    }
+
+    if (isNaN(colCount) || colCount < 1 || colCount > 20) {
+      setError('Columns must be a number between 1 and 20');
+      return;
+    }
+
+    onSubmit(rowCount, colCount);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Insert Table</DialogTitle>
+          <DialogDescription>
+            Choose the number of rows and columns for your table.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="table-rows">Rows</Label>
+                <Input
+                  id="table-rows"
+                  ref={rowsInputRef}
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={rows}
+                  onChange={(e) => {
+                    setRows(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="3"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="table-columns">Columns</Label>
+                <Input
+                  id="table-columns"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={columns}
+                  onChange={(e) => {
+                    setColumns(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="3"
+                />
+              </div>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            {/* Visual preview */}
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground mb-2">Preview:</p>
+              <div
+                className="grid gap-0.5 max-w-[200px]"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(parseInt(columns) || 3, 10)}, 1fr)`
+                }}
+              >
+                {Array.from({ length: Math.min((parseInt(rows) || 3) * (parseInt(columns) || 3), 100) }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-4 border border-border ${i < (parseInt(columns) || 3) ? 'bg-muted' : ''}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Insert Table</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 /**
@@ -490,6 +775,10 @@ function ToolbarPlugin({
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
 
+  // Dialog state
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
+
   // Update toolbar state based on selection
   useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
@@ -536,12 +825,9 @@ function ToolbarPlugin({
     });
   };
 
-  const insertLink = () => {
-    const url = prompt('Enter URL:');
-    if (url) {
-      editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
-    }
-  };
+  const handleLinkSubmit = useCallback((url: string) => {
+    editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
+  }, [editor]);
 
   const insertCodeBlock = () => {
     editor.update(() => {
@@ -552,19 +838,13 @@ function ToolbarPlugin({
     });
   };
 
-  const insertTable = () => {
-    const rows = prompt('Number of rows:', '3');
-    const cols = prompt('Number of columns:', '3');
-    if (rows && cols) {
-      const rowCount = parseInt(rows, 10) || 3;
-      const colCount = parseInt(cols, 10) || 3;
-      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
-        rows: rowCount.toString(),
-        columns: colCount.toString(),
-        includeHeaders: true,
-      });
-    }
-  };
+  const handleTableSubmit = useCallback((rows: number, columns: number) => {
+    editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+      rows: rows.toString(),
+      columns: columns.toString(),
+      includeHeaders: true,
+    });
+  }, [editor]);
 
   const undo = () => editor.dispatchCommand(UNDO_COMMAND, undefined);
   const redo = () => editor.dispatchCommand(REDO_COMMAND, undefined);
@@ -647,7 +927,7 @@ function ToolbarPlugin({
       <ToolbarButton
         icon={<Link className="h-4 w-4" />}
         label="Insert Link"
-        onClick={insertLink}
+        onClick={() => setLinkDialogOpen(true)}
       />
       <ToolbarButton
         icon={<FileCode className="h-4 w-4" />}
@@ -657,7 +937,7 @@ function ToolbarPlugin({
       <ToolbarButton
         icon={<Table className="h-4 w-4" />}
         label="Insert Table"
-        onClick={insertTable}
+        onClick={() => setTableDialogOpen(true)}
       />
 
       <div className="flex-1" />
@@ -682,6 +962,18 @@ function ToolbarPlugin({
           </Button>
         </>
       )}
+
+      {/* Dialogs */}
+      <LinkDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        onSubmit={handleLinkSubmit}
+      />
+      <TableDialog
+        open={tableDialogOpen}
+        onOpenChange={setTableDialogOpen}
+        onSubmit={handleTableSubmit}
+      />
     </div>
   );
 }
