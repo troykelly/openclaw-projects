@@ -87,18 +87,20 @@ jobs:
             fi
           fi
 
-      - name: Debug - Test db container startup
+      - name: Debug - Test db and seaweedfs startup only
         run: |
-          echo "=== Testing db container startup in foreground ==="
-          # Run db container in foreground with timeout to capture startup output
-          timeout 30 docker run --rm \
-            -e POSTGRES_USER=openclaw \
-            -e POSTGRES_PASSWORD=integrationtest123 \
-            -e POSTGRES_DB=openclaw \
-            ghcr.io/troykelly/openclaw-projects-db:latest \
-            postgres -c shared_preload_libraries=timescaledb,pg_cron -c cron.database_name=openclaw \
-            2>&1 | head -200 || true
-          echo "=== End db container test ==="
+          echo "=== Testing db + seaweedfs startup with compose ==="
+          # Start only db and seaweedfs (no dependencies on them)
+          docker compose up db seaweedfs --no-deps -d
+          echo "=== Containers started, waiting 15s... ==="
+          sleep 15
+          echo "=== Container status after 15s ==="
+          docker compose ps -a
+          echo "=== Container logs ==="
+          docker compose logs db --tail=100
+          echo "=== Stopping test containers ==="
+          docker compose down -v
+          echo "=== End debug ==="
 
       - name: Run integration tests
         run: |
