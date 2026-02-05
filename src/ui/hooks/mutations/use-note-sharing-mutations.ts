@@ -32,7 +32,10 @@ export function useShareNoteWithUser() {
 
   return useMutation({
     mutationFn: ({ noteId, body }: { noteId: string; body: CreateUserShareBody }) =>
-      apiClient.post<NoteUserShare>(`/api/notes/${noteId}/share`, body),
+      apiClient.post<NoteUserShare>(
+        `/api/notes/${encodeURIComponent(noteId)}/share`,
+        body
+      ),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares for this note
@@ -60,7 +63,10 @@ export function useCreateNoteShareLink() {
 
   return useMutation({
     mutationFn: ({ noteId, body }: { noteId: string; body: CreateLinkShareBody }) =>
-      apiClient.post<CreateLinkShareResponse>(`/api/notes/${noteId}/share/link`, body),
+      apiClient.post<CreateLinkShareResponse>(
+        `/api/notes/${encodeURIComponent(noteId)}/share/link`,
+        body
+      ),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares for this note
@@ -95,7 +101,11 @@ export function useUpdateNoteShare() {
       noteId: string;
       shareId: string;
       body: UpdateShareBody;
-    }) => apiClient.put<NoteShare>(`/api/notes/${noteId}/shares/${shareId}`, body),
+    }) =>
+      apiClient.put<NoteShare>(
+        `/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`,
+        body
+      ),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares for this note
@@ -120,7 +130,9 @@ export function useRevokeNoteShare() {
 
   return useMutation({
     mutationFn: ({ noteId, shareId }: { noteId: string; shareId: string }) =>
-      apiClient.delete(`/api/notes/${noteId}/shares/${shareId}`),
+      apiClient.delete(
+        `/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`
+      ),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares for this note

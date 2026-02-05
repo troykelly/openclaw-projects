@@ -96,7 +96,7 @@ export function useNotebook(
     queryKey: notebookKeys.detail(id),
     queryFn: ({ signal }) =>
       apiClient.get<Notebook>(
-        `/api/notebooks/${id}${queryString ? `?${queryString}` : ''}`,
+        `/api/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`,
         { signal }
       ),
     enabled: !!id,
@@ -132,7 +132,7 @@ export function useNotebookShares(id: string) {
     queryKey: notebookKeys.shares(id),
     queryFn: ({ signal }) =>
       apiClient.get<{ notebookId: string; shares: unknown[] }>(
-        `/api/notebooks/${id}/shares`,
+        `/api/notebooks/${encodeURIComponent(id)}/shares`,
         { signal }
       ),
     enabled: !!id,

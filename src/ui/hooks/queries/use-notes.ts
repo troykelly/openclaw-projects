@@ -100,7 +100,8 @@ export function useNotes(params?: ListNotesParams) {
 export function useNote(id: string) {
   return useQuery({
     queryKey: noteKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<Note>(`/api/notes/${id}`, { signal }),
+    queryFn: ({ signal }) =>
+      apiClient.get<Note>(`/api/notes/${encodeURIComponent(id)}`, { signal }),
     enabled: !!id,
   });
 }
@@ -129,7 +130,7 @@ export function useNoteVersions(
     queryKey: noteKeys.versions(id),
     queryFn: ({ signal }) =>
       apiClient.get<NoteVersionsResponse>(
-        `/api/notes/${id}/versions${queryString ? `?${queryString}` : ''}`,
+        `/api/notes/${encodeURIComponent(id)}/versions${queryString ? `?${queryString}` : ''}`,
         { signal }
       ),
     enabled: !!id,
@@ -147,9 +148,10 @@ export function useNoteVersion(id: string, versionNumber: number) {
   return useQuery({
     queryKey: noteKeys.version(id, versionNumber),
     queryFn: ({ signal }) =>
-      apiClient.get<NoteVersion>(`/api/notes/${id}/versions/${versionNumber}`, {
-        signal,
-      }),
+      apiClient.get<NoteVersion>(
+        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}`,
+        { signal }
+      ),
     enabled: !!id && versionNumber > 0,
   });
 }
@@ -167,7 +169,7 @@ export function useNoteVersionCompare(id: string, from: number, to: number) {
     queryKey: noteKeys.versionCompare(id, from, to),
     queryFn: ({ signal }) =>
       apiClient.get<CompareVersionsResponse>(
-        `/api/notes/${id}/versions/compare?from=${from}&to=${to}`,
+        `/api/notes/${encodeURIComponent(id)}/versions/compare?from=${from}&to=${to}`,
         { signal }
       ),
     enabled: !!id && from > 0 && to > 0 && from !== to,
@@ -184,7 +186,10 @@ export function useNoteShares(id: string) {
   return useQuery({
     queryKey: noteKeys.shares(id),
     queryFn: ({ signal }) =>
-      apiClient.get<NoteSharesResponse>(`/api/notes/${id}/shares`, { signal }),
+      apiClient.get<NoteSharesResponse>(
+        `/api/notes/${encodeURIComponent(id)}/shares`,
+        { signal }
+      ),
     enabled: !!id,
   });
 }

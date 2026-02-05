@@ -67,7 +67,7 @@ export function useUpdateNotebook() {
 
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateNotebookBody }) =>
-      apiClient.put<Notebook>(`/api/notebooks/${id}`, body),
+      apiClient.put<Notebook>(`/api/notebooks/${encodeURIComponent(id)}`, body),
 
     onSuccess: (_, { id }) => {
       // Invalidate the specific notebook detail
@@ -98,7 +98,10 @@ export function useArchiveNotebook() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Notebook>(`/api/notebooks/${id}/archive`, {}),
+      apiClient.post<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}/archive`,
+        {}
+      ),
 
     onSuccess: (_, id) => {
       // Invalidate the specific notebook detail
@@ -129,7 +132,10 @@ export function useUnarchiveNotebook() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Notebook>(`/api/notebooks/${id}/unarchive`, {}),
+      apiClient.post<Notebook>(
+        `/api/notebooks/${encodeURIComponent(id)}/unarchive`,
+        {}
+      ),
 
     onSuccess: (_, id) => {
       // Invalidate the specific notebook detail
@@ -160,7 +166,9 @@ export function useDeleteNotebook() {
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: { id: string; deleteNotes?: boolean }) =>
-      apiClient.delete(`/api/notebooks/${id}${deleteNotes ? '?deleteNotes=true' : ''}`),
+      apiClient.delete(
+        `/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`
+      ),
 
     onSuccess: (_, { id }) => {
       // Invalidate the specific notebook detail
@@ -194,7 +202,10 @@ export function useMoveNotesToNotebook() {
 
   return useMutation({
     mutationFn: ({ notebookId, body }: { notebookId: string; body: MoveNotesBody }) =>
-      apiClient.post<MoveNotesResponse>(`/api/notebooks/${notebookId}/notes`, body),
+      apiClient.post<MoveNotesResponse>(
+        `/api/notebooks/${encodeURIComponent(notebookId)}/notes`,
+        body
+      ),
 
     onSuccess: (_, { notebookId }) => {
       // Invalidate the target notebook
