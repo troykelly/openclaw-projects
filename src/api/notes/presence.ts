@@ -16,10 +16,45 @@ import {
 } from '../realtime/emitter.ts';
 
 /**
- * Presence timeout in minutes. Users who haven't updated
+ * Default presence timeout in minutes. Users who haven't updated
  * their presence within this time are considered inactive.
+ * Can be overridden via NOTE_PRESENCE_TIMEOUT_MINUTES environment variable (#698).
  */
-const PRESENCE_TIMEOUT_MINUTES = 5;
+const DEFAULT_PRESENCE_TIMEOUT_MINUTES = 5;
+
+/**
+ * Get the configured presence timeout in minutes.
+ * Reads from NOTE_PRESENCE_TIMEOUT_MINUTES env var with fallback to default.
+ * Value is clamped to range [1, 60] minutes for safety (#698).
+ *
+ * @returns Presence timeout in minutes
+ */
+export function getPresenceTimeoutMinutes(): number {
+  const envValue = process.env.NOTE_PRESENCE_TIMEOUT_MINUTES;
+  if (!envValue) {
+    return DEFAULT_PRESENCE_TIMEOUT_MINUTES;
+  }
+
+  const parsed = parseInt(envValue, 10);
+  if (isNaN(parsed)) {
+    console.warn(
+      `[Presence] Invalid NOTE_PRESENCE_TIMEOUT_MINUTES value: "${envValue}", using default: ${DEFAULT_PRESENCE_TIMEOUT_MINUTES}`
+    );
+    return DEFAULT_PRESENCE_TIMEOUT_MINUTES;
+  }
+
+  // Clamp to reasonable range: 1-60 minutes
+  const MIN_TIMEOUT = 1;
+  const MAX_TIMEOUT = 60;
+  if (parsed < MIN_TIMEOUT || parsed > MAX_TIMEOUT) {
+    console.warn(
+      `[Presence] NOTE_PRESENCE_TIMEOUT_MINUTES value ${parsed} out of range [${MIN_TIMEOUT}-${MAX_TIMEOUT}], clamping`
+    );
+    return Math.max(MIN_TIMEOUT, Math.min(MAX_TIMEOUT, parsed));
+  }
+
+  return parsed;
+}
 
 /**
  * Join note presence - mark user as viewing a note.
@@ -150,6 +185,7 @@ export async function getActiveCollaborators(
   noteId: string
 ): Promise<NotePresenceUser[]> {
   // Use parameterized query for interval to avoid SQL interpolation (#688)
+  // Timeout is configurable via environment variable (#698)
   const result = await pool.query(
     `SELECT
        nc.user_email as email,
@@ -159,7 +195,7 @@ export async function getActiveCollaborators(
      WHERE nc.note_id = $1
        AND nc.last_seen_at > NOW() - make_interval(mins => $2)
      ORDER BY nc.last_seen_at DESC`,
-    [noteId, PRESENCE_TIMEOUT_MINUTES]
+    [noteId, getPresenceTimeoutMinutes()]
   );
 
   return result.rows.map((row) => ({
@@ -205,11 +241,12 @@ export async function getNotePresence(
  */
 export async function cleanupStalePresence(pool: Pool): Promise<number> {
   // Use parameterized query for interval to avoid SQL interpolation (#688)
+  // Timeout is configurable via environment variable (#698)
   const result = await pool.query(
     `DELETE FROM note_collaborator
      WHERE last_seen_at < NOW() - make_interval(mins => $1)
      RETURNING note_id, user_email`,
-    [PRESENCE_TIMEOUT_MINUTES]
+    [getPresenceTimeoutMinutes()]
   );
 
   // Broadcast leave events for each removed user
