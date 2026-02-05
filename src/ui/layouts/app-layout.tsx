@@ -29,6 +29,8 @@ function pathToSection(pathname: string): string {
   if (pathname.startsWith('/timeline')) return 'timeline';
   if (pathname.startsWith('/contacts')) return 'people';
   if (pathname.startsWith('/communications')) return 'communications';
+  if (pathname.startsWith('/notes')) return 'notes';
+  if (pathname.startsWith('/notebooks')) return 'notes';
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/search')) return 'search';
   if (pathname.startsWith('/work-items') || pathname.startsWith('/kanban'))
@@ -44,6 +46,7 @@ const sectionRoutes: Record<string, string> = {
   timeline: '/timeline',
   people: '/contacts',
   communications: '/communications',
+  notes: '/notes',
   settings: '/settings',
 };
 
@@ -72,6 +75,39 @@ function deriveBreadcrumbs(
   }
   if (pathname.startsWith('/settings')) {
     return [{ id: 'settings', label: 'Settings' }];
+  }
+
+  // Notes routes
+  if (pathname.startsWith('/notes') || pathname.startsWith('/notebooks')) {
+    const notesCrumbs: BreadcrumbItem[] = [
+      { id: 'notes', label: 'Notes', href: '/notes' },
+    ];
+
+    // /notebooks/:notebookId/notes/:noteId
+    const notebookNoteMatch = /^\/notebooks\/([^/]+)\/notes\/([^/]+)\/?$/.exec(pathname);
+    if (notebookNoteMatch) {
+      notesCrumbs.push(
+        { id: 'notebook', label: 'Notebook', href: `/notebooks/${notebookNoteMatch[1]}` },
+        { id: 'note', label: 'Note' },
+      );
+      return notesCrumbs;
+    }
+
+    // /notebooks/:notebookId
+    const notebookMatch = /^\/notebooks\/([^/]+)\/?$/.exec(pathname);
+    if (notebookMatch) {
+      notesCrumbs.push({ id: 'notebook', label: 'Notebook' });
+      return notesCrumbs;
+    }
+
+    // /notes/:noteId
+    const noteMatch = /^\/notes\/([^/]+)\/?$/.exec(pathname);
+    if (noteMatch) {
+      notesCrumbs.push({ id: 'note', label: 'Note' });
+      return notesCrumbs;
+    }
+
+    return notesCrumbs;
   }
 
   const crumbs: BreadcrumbItem[] = [

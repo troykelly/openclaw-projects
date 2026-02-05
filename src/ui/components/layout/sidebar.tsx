@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, StickyNote } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
@@ -15,6 +15,7 @@ export interface NavItem {
 const defaultNavItems: NavItem[] = [
   { id: 'activity', label: 'Activity', icon: Bell },
   { id: 'projects', label: 'Projects', icon: Folder },
+  { id: 'notes', label: 'Notes', icon: StickyNote },
   { id: 'timeline', label: 'Timeline', icon: Calendar },
   { id: 'people', label: 'People', icon: Users },
 ];

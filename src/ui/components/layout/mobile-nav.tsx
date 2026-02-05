@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { Bell, Folder, Calendar, Users, Search } from 'lucide-react';
+import { Bell, Folder, Calendar, Users, Search, StickyNote } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import type { NavItem } from './sidebar';
 
 const defaultNavItems: NavItem[] = [
   { id: 'activity', label: 'Activity', icon: Bell },
   { id: 'projects', label: 'Projects', icon: Folder },
-  { id: 'timeline', label: 'Timeline', icon: Calendar },
+  { id: 'notes', label: 'Notes', icon: StickyNote },
   { id: 'people', label: 'People', icon: Users },
   { id: 'search', label: 'Search', icon: Search },
 ];
