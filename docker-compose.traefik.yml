@@ -33,13 +33,10 @@ services:
     image: traefik:3.6
     container_name: openclaw-traefik
     restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-      modsecurity:
-        condition: service_healthy
+    # Note: No depends_on - Traefik starts immediately and handles unhealthy backends
+    # gracefully by returning 502/503 until services are ready. This is standard
+    # reverse proxy behavior and allows faster startup. See docs/deployment.md
+    # for details on startup behavior.
     environment:
       # Required for entrypoint script
       DOMAIN: ${DOMAIN:?DOMAIN is required}

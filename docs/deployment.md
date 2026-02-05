@@ -280,6 +280,32 @@ The production deployment uses `docker-compose.traefik.yml` which includes:
 | Frontend | https://example.com | Web dashboard (also www.example.com) |
 | API | https://api.example.com | REST API (through ModSecurity WAF) |
 
+### Startup Behavior
+
+Traefik starts immediately without waiting for backend services to become healthy. This is standard reverse proxy behavior with several benefits:
+
+- **Faster startup**: Traefik can begin accepting connections and acquiring TLS certificates immediately
+- **Graceful degradation**: Returns 502/503 for backends that are not yet ready
+- **Independent restarts**: Backend services can restart without affecting Traefik's availability
+
+During startup, you may briefly see 502/503 errors until the backend services (api, app, modsecurity) pass their health checks. This typically resolves within 15-30 seconds.
+
+**Startup sequence:**
+1. All services start simultaneously
+2. Traefik acquires TLS certificates via ACME DNS-01
+3. Backend services complete their startup and health checks
+4. Traefik routes traffic once backends are healthy
+
+**Monitoring startup:**
+
+```bash
+# Watch all container health status
+watch docker compose -f docker-compose.traefik.yml ps
+
+# Check specific service health
+docker inspect --format='{{.State.Health.Status}}' openclaw-api
+```
+
 ---
 
 ## Environment Variable Reference
