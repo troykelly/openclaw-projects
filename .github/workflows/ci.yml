@@ -24,13 +24,14 @@ jobs:
           # The bind mount ends up non-writable for vscode, causing EACCES when tools create temp files in the repo.
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T -u root workspace bash -lc "chown -R vscode:vscode /workspaces/openclaw-projects"
 
-      - name: Install deps + run tests
+      - name: Install deps + build + run tests
         env:
           VOYAGERAI_API_KEY: ${{ secrets.VOYAGERAI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm install --frozen-lockfile"
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm app:build && pnpm css:build"
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
             -e VOYAGERAI_API_KEY \
             -e OPENAI_API_KEY \
