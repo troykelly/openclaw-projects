@@ -3,6 +3,7 @@
  *
  * Provides mutations for creating, updating, deleting, and restoring notes.
  * All mutations automatically invalidate relevant cached queries on success.
+ * Mutations include optimistic updates for better UX and proper error handling.
  *
  * @module use-note-mutations
  *
@@ -23,6 +24,15 @@
  *   }
  * );
  * ```
+ *
+ * @example Optimistic updates
+ * ```ts
+ * const { mutate } = useUpdateNote();
+ *
+ * // Update is applied immediately to the UI, then synced with server
+ * mutate({ id: 'note-123', body: { title: 'New Title' } });
+ * // If server rejects, UI automatically rolls back
+ * ```
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -30,6 +40,7 @@ import { apiClient } from '@/ui/lib/api-client.ts';
 import type { ApiRequestError } from '@/ui/lib/api-client.ts';
 import type {
   Note,
+  NotesResponse,
   CreateNoteBody,
   UpdateNoteBody,
   RestoreVersionResponse,
@@ -123,13 +134,15 @@ export function useCreateNote(): UseMutationResult<
       // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
-      // If note has a notebook, invalidate notebook queries too
+      // If note has a notebook, invalidate notebook tree (includes detail)
       if (note.notebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(note.notebookId),
-        });
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
+    },
+
+    onError: (error) => {
+      // Log error for debugging - consumers can add their own onError handlers
+      console.error('[useCreateNote] Failed to create note:', error.message);
     },
   });
 }
@@ -186,21 +199,64 @@ export function useUpdateNote(): UseMutationResult<
     mutationFn: ({ id, body }: UpdateNoteVariables) =>
       apiClient.put<Note>(`/api/notes/${encodeURIComponent(id)}`, body),
 
-    onSuccess: (note, { id }) => {
-      // Invalidate the specific note detail
+    onMutate: async ({ id, body }) => {
+      // Cancel outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: noteKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: noteKeys.lists() });
+
+      // Snapshot previous values for rollback
+      const previousNote = queryClient.getQueryData<Note>(noteKeys.detail(id));
+      const previousLists = queryClient.getQueriesData<NotesResponse>({
+        queryKey: noteKeys.lists(),
+      });
+
+      // Optimistically update the note detail
+      if (previousNote) {
+        queryClient.setQueryData<Note>(noteKeys.detail(id), {
+          ...previousNote,
+          ...body,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      // Optimistically update the note in all list queries
+      previousLists.forEach(([queryKey, data]) => {
+        if (data) {
+          queryClient.setQueryData<NotesResponse>(queryKey, {
+            ...data,
+            notes: data.notes.map((note) =>
+              note.id === id
+                ? { ...note, ...body, updatedAt: new Date().toISOString() }
+                : note
+            ),
+          });
+        }
+      });
+
+      return { previousNote, previousLists };
+    },
+
+    onError: (error, { id }, context) => {
+      // Roll back on error
+      if (context?.previousNote) {
+        queryClient.setQueryData(noteKeys.detail(id), context.previousNote);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      console.error('[useUpdateNote] Failed to update note:', error.message);
+    },
+
+    onSettled: (note, _error, { id }) => {
+      // Always refetch to ensure consistency with server
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-
-      // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
-
-      // Invalidate versions since content may have changed
       queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
 
-      // If note has a notebook, invalidate notebook queries
-      if (note.notebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(note.notebookId),
-        });
+      // If note has a notebook, invalidate notebook tree
+      if (note?.notebookId) {
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -257,16 +313,50 @@ export function useDeleteNote(): UseMutationResult<
     mutationFn: (id: string) =>
       apiClient.delete(`/api/notes/${encodeURIComponent(id)}`),
 
-    onSuccess: (_, id) => {
-      // Invalidate the specific note detail
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: noteKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: noteKeys.lists() });
+
+      // Snapshot previous values for rollback
+      const previousNote = queryClient.getQueryData<Note>(noteKeys.detail(id));
+      const previousLists = queryClient.getQueriesData<NotesResponse>({
+        queryKey: noteKeys.lists(),
+      });
+
+      // Optimistically remove from lists (soft delete - mark as deleted)
+      previousLists.forEach(([queryKey, data]) => {
+        if (data) {
+          queryClient.setQueryData<NotesResponse>(queryKey, {
+            ...data,
+            notes: data.notes.filter((note) => note.id !== id),
+            total: data.total - 1,
+          });
+        }
+      });
+
+      return { previousNote, previousLists };
+    },
+
+    onError: (error, id, context) => {
+      // Roll back on error
+      if (context?.previousNote) {
+        queryClient.setQueryData(noteKeys.detail(id), context.previousNote);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      console.error('[useDeleteNote] Failed to delete note:', error.message);
+    },
+
+    onSettled: (_, _error, id) => {
+      // Always refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-
-      // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
-
-      // Invalidate notebook tree to update counts
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
+      // Invalidate all notebook queries (tree includes lists)
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
     },
   });
 }
@@ -327,13 +417,14 @@ export function useRestoreNote(): UseMutationResult<
       // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
-      // If note has a notebook, invalidate notebook queries
+      // If note has a notebook, invalidate notebook tree (includes detail)
       if (note.notebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(note.notebookId),
-        });
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
+    },
+
+    onError: (error) => {
+      console.error('[useRestoreNote] Failed to restore note:', error.message);
     },
   });
 }
@@ -395,12 +486,17 @@ export function useRestoreNoteVersion(): UseMutationResult<
       ),
 
     onSuccess: (_, { id }) => {
-      // Invalidate note detail and versions
+      // Invalidate note detail, versions, and lists
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
-
-      // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+    },
+
+    onError: (error) => {
+      console.error(
+        '[useRestoreNoteVersion] Failed to restore version:',
+        error.message
+      );
     },
   });
 }

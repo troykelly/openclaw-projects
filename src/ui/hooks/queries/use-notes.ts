@@ -2,9 +2,23 @@
  * TanStack Query hooks for notes data fetching.
  *
  * Provides cached, deduplicated queries for notes, versions, and shares.
+ * Queries are configured with appropriate staleTime to reduce unnecessary
+ * refetching while keeping data reasonably fresh.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+
+/** Default stale time for note queries (5 minutes) */
+const NOTE_STALE_TIME = 5 * 60 * 1000;
+
+/** Stale time for note lists (30 seconds - changes more frequently) */
+const NOTE_LIST_STALE_TIME = 30 * 1000;
+
+/** Stale time for note versions (5 minutes - rarely changes except on update) */
+const NOTE_VERSIONS_STALE_TIME = 5 * 60 * 1000;
+
+/** Stale time for note shares (1 minute) */
+const NOTE_SHARES_STALE_TIME = 60 * 1000;
 import type {
   NotesResponse,
   Note,
@@ -79,12 +93,12 @@ function buildNotesQueryString(params?: ListNotesParams): string {
  * Fetch list of notes with optional filters.
  *
  * @param params - Optional filter/pagination params
- * @param options - Optional query options (e.g., enabled)
+ * @param options - Optional query options (e.g., enabled, staleTime)
  * @returns TanStack Query result with `NotesResponse`
  */
 export function useNotes(
   params?: ListNotesParams,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number }
 ) {
   const queryString = buildNotesQueryString(params);
 
@@ -93,6 +107,7 @@ export function useNotes(
     queryFn: ({ signal }) =>
       apiClient.get<NotesResponse>(`/api/notes${queryString}`, { signal }),
     enabled: options?.enabled,
+    staleTime: options?.staleTime ?? NOTE_LIST_STALE_TIME,
   });
 }
 
@@ -100,14 +115,16 @@ export function useNotes(
  * Fetch a single note by ID.
  *
  * @param id - Note UUID
+ * @param options - Optional query options (e.g., staleTime)
  * @returns TanStack Query result with `Note`
  */
-export function useNote(id: string) {
+export function useNote(id: string, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: noteKeys.detail(id),
     queryFn: ({ signal }) =>
       apiClient.get<Note>(`/api/notes/${encodeURIComponent(id)}`, { signal }),
     enabled: !!id,
+    staleTime: options?.staleTime ?? NOTE_STALE_TIME,
   });
 }
 
@@ -115,12 +132,12 @@ export function useNote(id: string) {
  * Fetch version history for a note.
  *
  * @param id - Note UUID
- * @param options - Optional pagination
+ * @param options - Optional pagination and staleTime
  * @returns TanStack Query result with `NoteVersionsResponse`
  */
 export function useNoteVersions(
   id: string,
-  options?: { limit?: number; offset?: number }
+  options?: { limit?: number; offset?: number; staleTime?: number }
 ) {
   const searchParams = new URLSearchParams();
   if (options?.limit !== undefined) {
@@ -139,6 +156,7 @@ export function useNoteVersions(
         { signal }
       ),
     enabled: !!id,
+    staleTime: options?.staleTime ?? NOTE_VERSIONS_STALE_TIME,
   });
 }
 
@@ -147,9 +165,14 @@ export function useNoteVersions(
  *
  * @param id - Note UUID
  * @param versionNumber - Version number to fetch
+ * @param options - Optional query options
  * @returns TanStack Query result with `NoteVersion`
  */
-export function useNoteVersion(id: string, versionNumber: number) {
+export function useNoteVersion(
+  id: string,
+  versionNumber: number,
+  options?: { staleTime?: number }
+) {
   return useQuery({
     queryKey: noteKeys.version(id, versionNumber),
     queryFn: ({ signal }) =>
@@ -158,6 +181,8 @@ export function useNoteVersion(id: string, versionNumber: number) {
         { signal }
       ),
     enabled: !!id && versionNumber > 0,
+    // Individual versions are immutable, so they can be cached indefinitely
+    staleTime: options?.staleTime ?? Infinity,
   });
 }
 
@@ -167,9 +192,15 @@ export function useNoteVersion(id: string, versionNumber: number) {
  * @param id - Note UUID
  * @param from - From version number
  * @param to - To version number
+ * @param options - Optional query options
  * @returns TanStack Query result with `CompareVersionsResponse`
  */
-export function useNoteVersionCompare(id: string, from: number, to: number) {
+export function useNoteVersionCompare(
+  id: string,
+  from: number,
+  to: number,
+  options?: { staleTime?: number }
+) {
   return useQuery({
     queryKey: noteKeys.versionCompare(id, from, to),
     queryFn: ({ signal }) =>
@@ -178,6 +209,8 @@ export function useNoteVersionCompare(id: string, from: number, to: number) {
         { signal }
       ),
     enabled: !!id && from > 0 && to > 0 && from !== to,
+    // Version comparisons are deterministic, can be cached indefinitely
+    staleTime: options?.staleTime ?? Infinity,
   });
 }
 
@@ -185,9 +218,10 @@ export function useNoteVersionCompare(id: string, from: number, to: number) {
  * Fetch shares for a note.
  *
  * @param id - Note UUID
+ * @param options - Optional query options
  * @returns TanStack Query result with `NoteSharesResponse`
  */
-export function useNoteShares(id: string) {
+export function useNoteShares(id: string, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: noteKeys.shares(id),
     queryFn: ({ signal }) =>
@@ -196,20 +230,23 @@ export function useNoteShares(id: string) {
         { signal }
       ),
     enabled: !!id,
+    staleTime: options?.staleTime ?? NOTE_SHARES_STALE_TIME,
   });
 }
 
 /**
  * Fetch notes shared with the current user.
  *
+ * @param options - Optional query options
  * @returns TanStack Query result with `SharedWithMeResponse`
  */
-export function useNotesSharedWithMe() {
+export function useNotesSharedWithMe(options?: { staleTime?: number }) {
   return useQuery({
     queryKey: noteKeys.sharedWithMe(),
     queryFn: ({ signal }) =>
       apiClient.get<SharedWithMeResponse>('/api/notes/shared-with-me', {
         signal,
       }),
+    staleTime: options?.staleTime ?? NOTE_SHARES_STALE_TIME,
   });
 }

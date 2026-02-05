@@ -4,6 +4,7 @@
  * Provides mutations for creating, updating, and revoking note shares.
  * Supports both user-based sharing (by email) and link-based sharing.
  * All mutations automatically invalidate relevant cached queries on success.
+ * Mutations include optimistic updates for better UX and proper error handling.
  *
  * @module use-note-sharing-mutations
  *
@@ -28,6 +29,15 @@
  *   }
  * );
  * ```
+ *
+ * @example Optimistic updates
+ * ```ts
+ * const { mutate } = useRevokeNoteShare();
+ *
+ * // Share is removed immediately from the UI, then synced with server
+ * mutate({ noteId: 'note-123', shareId: 'share-456' });
+ * // If server rejects, UI automatically rolls back
+ * ```
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -35,6 +45,7 @@ import { apiClient } from '@/ui/lib/api-client.ts';
 import type { ApiRequestError } from '@/ui/lib/api-client.ts';
 import type {
   NoteUserShare,
+  NoteSharesResponse,
   CreateUserShareBody,
   CreateLinkShareBody,
   CreateLinkShareResponse,
@@ -164,11 +175,16 @@ export function useShareNoteWithUser(): UseMutationResult<
       ),
 
     onSuccess: (_, { noteId }) => {
-      // Invalidate shares for this note
+      // Invalidate shares and note detail for this note
       queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
-
-      // Invalidate the note detail (visibility may have changed)
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
+    },
+
+    onError: (error) => {
+      console.error(
+        '[useShareNoteWithUser] Failed to share note:',
+        error.message
+      );
     },
   });
 }
@@ -245,11 +261,16 @@ export function useCreateNoteShareLink(): UseMutationResult<
       ),
 
     onSuccess: (_, { noteId }) => {
-      // Invalidate shares for this note
+      // Invalidate shares and note detail for this note
       queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
-
-      // Invalidate the note detail (visibility may have changed)
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
+    },
+
+    onError: (error) => {
+      console.error(
+        '[useCreateNoteShareLink] Failed to create share link:',
+        error.message
+      );
     },
   });
 }
@@ -319,18 +340,47 @@ export function useUpdateNoteShare(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      noteId,
-      shareId,
-      body,
-    }: UpdateNoteShareVariables) =>
+    mutationFn: ({ noteId, shareId, body }: UpdateNoteShareVariables) =>
       apiClient.put<NoteShare>(
         `/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`,
         body
       ),
 
-    onSuccess: (_, { noteId }) => {
-      // Invalidate shares for this note
+    onMutate: async ({ noteId, shareId, body }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: noteKeys.shares(noteId) });
+
+      // Snapshot previous value
+      const previousShares = queryClient.getQueryData<NoteSharesResponse>(
+        noteKeys.shares(noteId)
+      );
+
+      // Optimistically update the share
+      if (previousShares) {
+        queryClient.setQueryData<NoteSharesResponse>(noteKeys.shares(noteId), {
+          ...previousShares,
+          shares: previousShares.shares.map((share) =>
+            share.id === shareId ? { ...share, ...body } : share
+          ),
+        });
+      }
+
+      return { previousShares };
+    },
+
+    onError: (error, { noteId }, context) => {
+      // Roll back on error
+      if (context?.previousShares) {
+        queryClient.setQueryData(noteKeys.shares(noteId), context.previousShares);
+      }
+      console.error(
+        '[useUpdateNoteShare] Failed to update share:',
+        error.message
+      );
+    },
+
+    onSettled: (_, _error, { noteId }) => {
+      // Always refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
     },
   });
@@ -410,14 +460,41 @@ export function useRevokeNoteShare(): UseMutationResult<
         `/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`
       ),
 
-    onSuccess: (_, { noteId }) => {
-      // Invalidate shares for this note
+    onMutate: async ({ noteId, shareId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: noteKeys.shares(noteId) });
+
+      // Snapshot previous value
+      const previousShares = queryClient.getQueryData<NoteSharesResponse>(
+        noteKeys.shares(noteId)
+      );
+
+      // Optimistically remove the share
+      if (previousShares) {
+        queryClient.setQueryData<NoteSharesResponse>(noteKeys.shares(noteId), {
+          ...previousShares,
+          shares: previousShares.shares.filter((share) => share.id !== shareId),
+        });
+      }
+
+      return { previousShares };
+    },
+
+    onError: (error, { noteId }, context) => {
+      // Roll back on error
+      if (context?.previousShares) {
+        queryClient.setQueryData(noteKeys.shares(noteId), context.previousShares);
+      }
+      console.error(
+        '[useRevokeNoteShare] Failed to revoke share:',
+        error.message
+      );
+    },
+
+    onSettled: (_, _error, { noteId }) => {
+      // Always refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: noteKeys.shares(noteId) });
-
-      // Invalidate the note detail (visibility may have changed)
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(noteId) });
-
-      // Invalidate shared-with-me in case this was a share we were receiving
       queryClient.invalidateQueries({ queryKey: noteKeys.sharedWithMe() });
     },
   });

@@ -2,9 +2,23 @@
  * TanStack Query hooks for notebooks data fetching.
  *
  * Provides cached, deduplicated queries for notebooks and their tree structure.
+ * Queries are configured with appropriate staleTime to reduce unnecessary
+ * refetching while keeping data reasonably fresh.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
+
+/** Default stale time for notebook queries (5 minutes) */
+const NOTEBOOK_STALE_TIME = 5 * 60 * 1000;
+
+/** Stale time for notebook lists (1 minute - changes infrequently) */
+const NOTEBOOK_LIST_STALE_TIME = 60 * 1000;
+
+/** Stale time for notebook tree (1 minute - tree structure changes infrequently) */
+const NOTEBOOK_TREE_STALE_TIME = 60 * 1000;
+
+/** Stale time for notebook shares (1 minute) */
+const NOTEBOOK_SHARES_STALE_TIME = 60 * 1000;
 import type {
   NotebooksResponse,
   Notebook,
@@ -60,20 +74,23 @@ function buildNotebooksQueryString(params?: ListNotebooksParams): string {
  * Fetch list of notebooks with optional filters.
  *
  * @param params - Optional filter/pagination params
- * @param options - Optional query options (e.g., enabled)
+ * @param options - Optional query options (e.g., enabled, staleTime)
  * @returns TanStack Query result with `NotebooksResponse`
  */
 export function useNotebooks(
   params?: ListNotebooksParams,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number }
 ) {
   const queryString = buildNotebooksQueryString(params);
 
   return useQuery({
     queryKey: notebookKeys.list(params),
     queryFn: ({ signal }) =>
-      apiClient.get<NotebooksResponse>(`/api/notebooks${queryString}`, { signal }),
+      apiClient.get<NotebooksResponse>(`/api/notebooks${queryString}`, {
+        signal,
+      }),
     enabled: options?.enabled,
+    staleTime: options?.staleTime ?? NOTEBOOK_LIST_STALE_TIME,
   });
 }
 
@@ -81,12 +98,16 @@ export function useNotebooks(
  * Fetch a single notebook by ID.
  *
  * @param id - Notebook UUID
- * @param options - Optional includes (notes, children)
+ * @param options - Optional includes (notes, children) and staleTime
  * @returns TanStack Query result with `Notebook`
  */
 export function useNotebook(
   id: string,
-  options?: { includeNotes?: boolean; includeChildren?: boolean }
+  options?: {
+    includeNotes?: boolean;
+    includeChildren?: boolean;
+    staleTime?: number;
+  }
 ) {
   const searchParams = new URLSearchParams();
   if (options?.includeNotes) {
@@ -105,6 +126,7 @@ export function useNotebook(
         { signal }
       ),
     enabled: !!id,
+    staleTime: options?.staleTime ?? NOTEBOOK_STALE_TIME,
   });
 }
 
@@ -112,9 +134,13 @@ export function useNotebook(
  * Fetch notebooks as a tree structure.
  *
  * @param includeNoteCounts - Whether to include note counts
+ * @param options - Optional query options
  * @returns TanStack Query result with array of `NotebookTreeNode`
  */
-export function useNotebooksTree(includeNoteCounts = false) {
+export function useNotebooksTree(
+  includeNoteCounts = false,
+  options?: { staleTime?: number }
+) {
   const queryString = includeNoteCounts ? '?includeNoteCounts=true' : '';
 
   return useQuery({
@@ -123,6 +149,7 @@ export function useNotebooksTree(includeNoteCounts = false) {
       apiClient.get<NotebookTreeNode[]>(`/api/notebooks/tree${queryString}`, {
         signal,
       }),
+    staleTime: options?.staleTime ?? NOTEBOOK_TREE_STALE_TIME,
   });
 }
 
@@ -130,9 +157,13 @@ export function useNotebooksTree(includeNoteCounts = false) {
  * Fetch shares for a notebook.
  *
  * @param id - Notebook UUID
+ * @param options - Optional query options
  * @returns TanStack Query result with shares
  */
-export function useNotebookShares(id: string) {
+export function useNotebookShares(
+  id: string,
+  options?: { staleTime?: number }
+) {
   return useQuery({
     queryKey: notebookKeys.shares(id),
     queryFn: ({ signal }) =>
@@ -141,20 +172,23 @@ export function useNotebookShares(id: string) {
         { signal }
       ),
     enabled: !!id,
+    staleTime: options?.staleTime ?? NOTEBOOK_SHARES_STALE_TIME,
   });
 }
 
 /**
  * Fetch notebooks shared with the current user.
  *
+ * @param options - Optional query options
  * @returns TanStack Query result with `SharedWithMeResponse`
  */
-export function useNotebooksSharedWithMe() {
+export function useNotebooksSharedWithMe(options?: { staleTime?: number }) {
   return useQuery({
     queryKey: notebookKeys.sharedWithMe(),
     queryFn: ({ signal }) =>
       apiClient.get<SharedWithMeResponse>('/api/notebooks/shared-with-me', {
         signal,
       }),
+    staleTime: options?.staleTime ?? NOTEBOOK_SHARES_STALE_TIME,
   });
 }

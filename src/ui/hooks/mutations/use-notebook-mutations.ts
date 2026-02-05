@@ -3,6 +3,7 @@
  *
  * Provides mutations for creating, updating, archiving, and deleting notebooks.
  * All mutations automatically invalidate relevant cached queries on success.
+ * Mutations include optimistic updates for better UX and proper error handling.
  *
  * @module use-notebook-mutations
  *
@@ -23,6 +24,15 @@
  *   }
  * );
  * ```
+ *
+ * @example Optimistic updates
+ * ```ts
+ * const { mutate } = useUpdateNotebook();
+ *
+ * // Update is applied immediately to the UI, then synced with server
+ * mutate({ id: 'notebook-123', body: { name: 'New Name' } });
+ * // If server rejects, UI automatically rolls back
+ * ```
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -30,6 +40,8 @@ import { apiClient } from '@/ui/lib/api-client.ts';
 import type { ApiRequestError } from '@/ui/lib/api-client.ts';
 import type {
   Notebook,
+  NotebooksResponse,
+  NotebookTreeNode,
   CreateNotebookBody,
   UpdateNotebookBody,
   MoveNotesBody,
@@ -128,19 +140,16 @@ export function useCreateNotebook(): UseMutationResult<
     mutationFn: (body: CreateNotebookBody) =>
       apiClient.post<Notebook>('/api/notebooks', body),
 
-    onSuccess: (notebook) => {
-      // Invalidate notebooks list queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
+    onSuccess: () => {
+      // Invalidate all notebook queries (tree includes lists and details)
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+    },
 
-      // Invalidate tree
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
-
-      // If has parent, invalidate parent notebook
-      if (notebook.parentNotebookId) {
-        queryClient.invalidateQueries({
-          queryKey: notebookKeys.detail(notebook.parentNotebookId),
-        });
-      }
+    onError: (error) => {
+      console.error(
+        '[useCreateNotebook] Failed to create notebook:',
+        error.message
+      );
     },
   });
 }
@@ -185,6 +194,28 @@ export function useCreateNotebook(): UseMutationResult<
  * mutate({ id: 'notebook-123', body: { parentNotebookId: 'new-parent-456' } });
  * ```
  */
+/**
+ * Helper to recursively update a notebook in the tree structure.
+ */
+function updateNotebookInTree(
+  nodes: NotebookTreeNode[],
+  id: string,
+  updates: Partial<NotebookTreeNode>
+): NotebookTreeNode[] {
+  return nodes.map((node) => {
+    if (node.id === id) {
+      return { ...node, ...updates };
+    }
+    if (node.children.length > 0) {
+      return {
+        ...node,
+        children: updateNotebookInTree(node.children, id, updates),
+      };
+    }
+    return node;
+  });
+}
+
 export function useUpdateNotebook(): UseMutationResult<
   Notebook,
   ApiRequestError,
@@ -196,15 +227,89 @@ export function useUpdateNotebook(): UseMutationResult<
     mutationFn: ({ id, body }: UpdateNotebookVariables) =>
       apiClient.put<Notebook>(`/api/notebooks/${encodeURIComponent(id)}`, body),
 
-    onSuccess: (_, { id }) => {
-      // Invalidate the specific notebook detail
-      queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
+    onMutate: async ({ id, body }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: notebookKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: notebookKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: notebookKeys.tree() });
 
-      // Invalidate notebooks list queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
+      // Snapshot previous values for rollback
+      const previousNotebook = queryClient.getQueryData<Notebook>(
+        notebookKeys.detail(id)
+      );
+      const previousLists = queryClient.getQueriesData<NotebooksResponse>({
+        queryKey: notebookKeys.lists(),
+      });
+      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(
+        notebookKeys.tree()
+      );
 
-      // Invalidate tree
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+      // Optimistically update the notebook detail
+      if (previousNotebook) {
+        queryClient.setQueryData<Notebook>(notebookKeys.detail(id), {
+          ...previousNotebook,
+          ...body,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      // Optimistically update in list queries
+      previousLists.forEach(([queryKey, data]) => {
+        if (data) {
+          queryClient.setQueryData<NotebooksResponse>(queryKey, {
+            ...data,
+            notebooks: data.notebooks.map((nb) =>
+              nb.id === id
+                ? { ...nb, ...body, updatedAt: new Date().toISOString() }
+                : nb
+            ),
+          });
+        }
+      });
+
+      // Optimistically update in tree
+      if (previousTree) {
+        const treeUpdates: Partial<NotebookTreeNode> = {};
+        if (body.name !== undefined) treeUpdates.name = body.name;
+        if (body.icon !== undefined) treeUpdates.icon = body.icon;
+        if (body.color !== undefined) treeUpdates.color = body.color;
+
+        if (Object.keys(treeUpdates).length > 0) {
+          queryClient.setQueryData<NotebookTreeNode[]>(
+            notebookKeys.tree(),
+            updateNotebookInTree(previousTree, id, treeUpdates)
+          );
+        }
+      }
+
+      return { previousNotebook, previousLists, previousTree };
+    },
+
+    onError: (error, { id }, context) => {
+      // Roll back on error
+      if (context?.previousNotebook) {
+        queryClient.setQueryData(
+          notebookKeys.detail(id),
+          context.previousNotebook
+        );
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousTree) {
+        queryClient.setQueryData(notebookKeys.tree(), context.previousTree);
+      }
+      console.error(
+        '[useUpdateNotebook] Failed to update notebook:',
+        error.message
+      );
+    },
+
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
     },
   });
 }
@@ -261,15 +366,69 @@ export function useArchiveNotebook(): UseMutationResult<
         {}
       ),
 
-    onSuccess: (_, id) => {
-      // Invalidate the specific notebook detail
-      queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: notebookKeys.all });
 
-      // Invalidate notebooks list queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
+      // Snapshot previous values
+      const previousNotebook = queryClient.getQueryData<Notebook>(
+        notebookKeys.detail(id)
+      );
+      const previousLists = queryClient.getQueriesData<NotebooksResponse>({
+        queryKey: notebookKeys.lists(),
+      });
+      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(
+        notebookKeys.tree()
+      );
 
-      // Invalidate tree
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+      // Optimistically update the notebook to archived state
+      if (previousNotebook) {
+        queryClient.setQueryData<Notebook>(notebookKeys.detail(id), {
+          ...previousNotebook,
+          isArchived: true,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      // Optimistically remove from non-archived list queries
+      previousLists.forEach(([queryKey, data]) => {
+        if (data) {
+          queryClient.setQueryData<NotebooksResponse>(queryKey, {
+            ...data,
+            notebooks: data.notebooks.filter((nb) => nb.id !== id),
+            total: data.total - 1,
+          });
+        }
+      });
+
+      return { previousNotebook, previousLists, previousTree };
+    },
+
+    onError: (error, id, context) => {
+      // Roll back on error
+      if (context?.previousNotebook) {
+        queryClient.setQueryData(
+          notebookKeys.detail(id),
+          context.previousNotebook
+        );
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousTree) {
+        queryClient.setQueryData(notebookKeys.tree(), context.previousTree);
+      }
+      console.error(
+        '[useArchiveNotebook] Failed to archive notebook:',
+        error.message
+      );
+    },
+
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
     },
   });
 }
@@ -326,15 +485,16 @@ export function useUnarchiveNotebook(): UseMutationResult<
         {}
       ),
 
-    onSuccess: (_, id) => {
-      // Invalidate the specific notebook detail
-      queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
+    onSuccess: () => {
+      // Invalidate all notebook queries
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
+    },
 
-      // Invalidate notebooks list queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-
-      // Invalidate tree
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+    onError: (error) => {
+      console.error(
+        '[useUnarchiveNotebook] Failed to unarchive notebook:',
+        error.message
+      );
     },
   });
 }
@@ -390,6 +550,21 @@ export function useUnarchiveNotebook(): UseMutationResult<
  * };
  * ```
  */
+/**
+ * Helper to recursively remove a notebook from the tree structure.
+ */
+function removeNotebookFromTree(
+  nodes: NotebookTreeNode[],
+  id: string
+): NotebookTreeNode[] {
+  return nodes
+    .filter((node) => node.id !== id)
+    .map((node) => ({
+      ...node,
+      children: removeNotebookFromTree(node.children, id),
+    }));
+}
+
 export function useDeleteNotebook(): UseMutationResult<
   void,
   ApiRequestError,
@@ -403,17 +578,70 @@ export function useDeleteNotebook(): UseMutationResult<
         `/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`
       ),
 
-    onSuccess: (_, { id }) => {
-      // Invalidate the specific notebook detail
-      queryClient.invalidateQueries({ queryKey: notebookKeys.detail(id) });
+    onMutate: async ({ id }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: notebookKeys.all });
+      await queryClient.cancelQueries({ queryKey: noteKeys.lists() });
 
-      // Invalidate notebooks list queries
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
+      // Snapshot previous values
+      const previousNotebook = queryClient.getQueryData<Notebook>(
+        notebookKeys.detail(id)
+      );
+      const previousLists = queryClient.getQueriesData<NotebooksResponse>({
+        queryKey: notebookKeys.lists(),
+      });
+      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(
+        notebookKeys.tree()
+      );
 
-      // Invalidate tree
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
+      // Optimistically remove from list queries
+      previousLists.forEach(([queryKey, data]) => {
+        if (data) {
+          queryClient.setQueryData<NotebooksResponse>(queryKey, {
+            ...data,
+            notebooks: data.notebooks.filter((nb) => nb.id !== id),
+            total: data.total - 1,
+          });
+        }
+      });
 
-      // Also invalidate notes since they may have been moved or deleted
+      // Optimistically remove from tree
+      if (previousTree) {
+        queryClient.setQueryData<NotebookTreeNode[]>(
+          notebookKeys.tree(),
+          removeNotebookFromTree(previousTree, id)
+        );
+      }
+
+      return { previousNotebook, previousLists, previousTree };
+    },
+
+    onError: (error, { id }, context) => {
+      // Roll back on error
+      if (context?.previousNotebook) {
+        queryClient.setQueryData(
+          notebookKeys.detail(id),
+          context.previousNotebook
+        );
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousTree) {
+        queryClient.setQueryData(notebookKeys.tree(), context.previousTree);
+      }
+      console.error(
+        '[useDeleteNotebook] Failed to delete notebook:',
+        error.message
+      );
+    },
+
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      // Use prefix invalidation to catch all notebook and note queries
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
     },
   });
@@ -494,18 +722,17 @@ export function useMoveNotesToNotebook(): UseMutationResult<
         body
       ),
 
-    onSuccess: (_, { notebookId }) => {
-      // Invalidate the target notebook
-      queryClient.invalidateQueries({
-        queryKey: notebookKeys.detail(notebookId),
-      });
-
-      // Invalidate all notebooks (source notebook may have changed)
-      queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
-
-      // Invalidate notes since they've been moved/copied
+    onSuccess: () => {
+      // Invalidate all notebook and note queries using prefix invalidation
+      queryClient.invalidateQueries({ queryKey: notebookKeys.all });
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+    },
+
+    onError: (error) => {
+      console.error(
+        '[useMoveNotesToNotebook] Failed to move notes:',
+        error.message
+      );
     },
   });
 }
