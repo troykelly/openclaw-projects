@@ -15,6 +15,24 @@ import { useActivity, activityKeys } from '../../src/ui/hooks/queries/use-activi
 import { useContacts, contactKeys } from '../../src/ui/hooks/queries/use-contacts.ts';
 import { useWorkItemMemories, useMemories, memoryKeys } from '../../src/ui/hooks/queries/use-memories.ts';
 import { useNotifications, useUnreadNotificationCount, notificationKeys } from '../../src/ui/hooks/queries/use-notifications.ts';
+import {
+  useNotes,
+  useNote,
+  useNoteVersions,
+  useNoteVersion,
+  useNoteVersionCompare,
+  useNoteShares,
+  useNotesSharedWithMe,
+  noteKeys,
+} from '../../src/ui/hooks/queries/use-notes.ts';
+import {
+  useNotebooks,
+  useNotebook,
+  useNotebooksTree,
+  useNotebookShares,
+  useNotebooksSharedWithMe,
+  notebookKeys,
+} from '../../src/ui/hooks/queries/use-notebooks.ts';
 
 // Save original fetch
 const originalFetch = globalThis.fetch;
@@ -81,6 +99,30 @@ describe('Query Key Factories', () => {
     expect(notificationKeys.all).toEqual(['notifications']);
     expect(notificationKeys.list()).toEqual(['notifications', 'list']);
     expect(notificationKeys.unreadCount()).toEqual(['notifications', 'unread-count']);
+  });
+
+  it('noteKeys should produce correct key arrays', () => {
+    expect(noteKeys.all).toEqual(['notes']);
+    expect(noteKeys.lists()).toEqual(['notes', 'list']);
+    expect(noteKeys.list({ notebookId: 'nb-1' })).toEqual(['notes', 'list', { notebookId: 'nb-1' }]);
+    expect(noteKeys.details()).toEqual(['notes', 'detail']);
+    expect(noteKeys.detail('note-1')).toEqual(['notes', 'detail', 'note-1']);
+    expect(noteKeys.versions('note-1')).toEqual(['notes', 'versions', 'note-1']);
+    expect(noteKeys.version('note-1', 2)).toEqual(['notes', 'versions', 'note-1', 2]);
+    expect(noteKeys.versionCompare('note-1', 1, 2)).toEqual(['notes', 'versions', 'note-1', 'compare', 1, 2]);
+    expect(noteKeys.shares('note-1')).toEqual(['notes', 'shares', 'note-1']);
+    expect(noteKeys.sharedWithMe()).toEqual(['notes', 'shared-with-me']);
+  });
+
+  it('notebookKeys should produce correct key arrays', () => {
+    expect(notebookKeys.all).toEqual(['notebooks']);
+    expect(notebookKeys.lists()).toEqual(['notebooks', 'list']);
+    expect(notebookKeys.list({ parentId: 'parent-1' })).toEqual(['notebooks', 'list', { parentId: 'parent-1' }]);
+    expect(notebookKeys.details()).toEqual(['notebooks', 'detail']);
+    expect(notebookKeys.detail('nb-1')).toEqual(['notebooks', 'detail', 'nb-1']);
+    expect(notebookKeys.tree()).toEqual(['notebooks', 'tree']);
+    expect(notebookKeys.shares('nb-1')).toEqual(['notebooks', 'shares', 'nb-1']);
+    expect(notebookKeys.sharedWithMe()).toEqual(['notebooks', 'shared-with-me']);
   });
 });
 
@@ -346,6 +388,513 @@ describe('useUnreadNotificationCount', () => {
     expect(result.current.data).toEqual({ count: 5 });
     expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/notifications/unread-count',
+      expect.any(Object),
+    );
+  });
+});
+
+// ============================================
+// Notes Query Hooks Tests (Issue #653)
+// ============================================
+
+describe('useNotes', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch notes without params', async () => {
+    const data = { notes: [{ id: 'n1', title: 'Note 1' }], total: 1 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotes(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes',
+      expect.any(Object),
+    );
+  });
+
+  it('should append notebookId to query string', async () => {
+    const data = { notes: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotes({ notebookId: 'nb-123' }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notes?notebookId=nb-123',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should append multiple tags to query string', async () => {
+    const data = { notes: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotes({ tags: ['tag1', 'tag2'] }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notes?tags=tag1&tags=tag2',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should append visibility filter to query string', async () => {
+    const data = { notes: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotes({ visibility: 'private' }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notes?visibility=private',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should append pagination params to query string', async () => {
+    const data = { notes: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotes({ limit: 10, offset: 20 }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notes?limit=10&offset=20',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should append sorting params to query string', async () => {
+    const data = { notes: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotes({ sortBy: 'title', sortOrder: 'asc' }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notes?sortBy=title&sortOrder=asc',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should handle error responses', async () => {
+    mockFetchResponse({ message: 'Server error' }, 500);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotes(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeDefined();
+  });
+});
+
+describe('useNote', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch a single note by ID', async () => {
+    const data = { id: 'note-1', title: 'Test Note', content: 'Content' };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNote('note-1'), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes/note-1',
+      expect.any(Object),
+    );
+  });
+
+  it('should not fetch when id is empty', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNote(''), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('useNoteVersions', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch versions for a note', async () => {
+    const data = { versions: [{ id: 'v1', versionNumber: 1 }] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersions('note-1'), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes/note-1/versions',
+      expect.any(Object),
+    );
+  });
+
+  it('should append pagination params', async () => {
+    const data = { versions: [] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNoteVersions('note-1', { limit: 5, offset: 10 }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notes/note-1/versions?limit=5&offset=10',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should not fetch when id is empty', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersions(''), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useNoteVersion', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch a specific version', async () => {
+    const data = { id: 'v2', versionNumber: 2, title: 'Version 2' };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersion('note-1', 2), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes/note-1/versions/2',
+      expect.any(Object),
+    );
+  });
+
+  it('should not fetch when id is empty', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersion('', 1), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('should not fetch when version is 0 or negative', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersion('note-1', 0), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useNoteVersionCompare', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should compare two versions', async () => {
+    const data = { from: { versionNumber: 1 }, to: { versionNumber: 2 }, diff: { titleChanged: true } };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersionCompare('note-1', 1, 2), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes/note-1/versions/compare?from=1&to=2',
+      expect.any(Object),
+    );
+  });
+
+  it('should not fetch when versions are same', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteVersionCompare('note-1', 2, 2), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useNoteShares', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch shares for a note', async () => {
+    const data = { noteId: 'note-1', shares: [{ id: 's1', email: 'user@example.com' }] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteShares('note-1'), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes/note-1/shares',
+      expect.any(Object),
+    );
+  });
+
+  it('should not fetch when id is empty', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNoteShares(''), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useNotesSharedWithMe', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch notes shared with current user', async () => {
+    const data = { notes: [{ id: 'n1', title: 'Shared Note' }] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotesSharedWithMe(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notes/shared-with-me',
+      expect.any(Object),
+    );
+  });
+});
+
+// ============================================
+// Notebooks Query Hooks Tests (Issue #653)
+// ============================================
+
+describe('useNotebooks', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch notebooks without params', async () => {
+    const data = { notebooks: [{ id: 'nb1', name: 'Notebook 1' }], total: 1 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebooks(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notebooks',
+      expect.any(Object),
+    );
+  });
+
+  it('should append parentId to query string', async () => {
+    const data = { notebooks: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotebooks({ parentId: 'parent-1' }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notebooks?parentId=parent-1',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should append includeArchived to query string', async () => {
+    const data = { notebooks: [], total: 0 };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotebooks({ includeArchived: true }), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notebooks?includeArchived=true',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should handle error responses', async () => {
+    mockFetchResponse({ message: 'Server error' }, 500);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebooks(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeDefined();
+  });
+});
+
+describe('useNotebook', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch a single notebook by ID', async () => {
+    const data = { id: 'nb-1', name: 'Test Notebook' };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebook('nb-1'), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notebooks/nb-1',
+      expect.any(Object),
+    );
+  });
+
+  it('should append include options to query string', async () => {
+    const data = { id: 'nb-1', name: 'Notebook', notes: [], children: [] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(
+      () => useNotebook('nb-1', { includeNotes: true, includeChildren: true }),
+      { wrapper: Wrapper }
+    );
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notebooks/nb-1?includeNotes=true&includeChildren=true',
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('should not fetch when id is empty', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebook(''), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('useNotebooksTree', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch notebooks tree structure', async () => {
+    const data = [{ id: 'nb1', name: 'Root', children: [] }];
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebooksTree(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notebooks/tree',
+      expect.any(Object),
+    );
+  });
+
+  it('should append includeNoteCounts when true', async () => {
+    const data = [];
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    renderHook(() => useNotebooksTree(true), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/notebooks/tree?includeNoteCounts=true',
+        expect.any(Object),
+      );
+    });
+  });
+});
+
+describe('useNotebookShares', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch shares for a notebook', async () => {
+    const data = { notebookId: 'nb-1', shares: [] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebookShares('nb-1'), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notebooks/nb-1/shares',
+      expect.any(Object),
+    );
+  });
+
+  it('should not fetch when id is empty', async () => {
+    mockFetchResponse({});
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebookShares(''), { wrapper: Wrapper });
+
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useNotebooksSharedWithMe', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('should fetch notebooks shared with current user', async () => {
+    const data = { notebooks: [{ id: 'nb1', name: 'Shared Notebook' }] };
+    mockFetchResponse(data);
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useNotebooksSharedWithMe(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(data);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/notebooks/shared-with-me',
       expect.any(Object),
     );
   });
