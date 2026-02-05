@@ -259,7 +259,8 @@ describe('Routes use React.lazy for code splitting', () => {
     expect(root.children!.length).toBeGreaterThan(0);
     for (const child of root.children!) {
       // Every child should have an element (either Navigate or Suspense-wrapped)
-      expect(child.element).toBeDefined();
+      // or have children (nested routes like /notes and /notebooks/:id)
+      expect(child.element || child.children).toBeDefined();
     }
   });
 
@@ -586,10 +587,21 @@ describe('Code splitting verification', () => {
     );
 
     for (const route of pageRoutes) {
-      const el = route.element as React.ReactElement;
-      expect(el).toBeDefined();
-      // Each page route element should be wrapped in Suspense
-      expect(el.type).toBe(React.Suspense);
+      // Routes can have either element (direct) or children (nested routes)
+      if (route.children) {
+        // For nested routes, check each child has a Suspense-wrapped element
+        for (const child of route.children) {
+          if (child.element) {
+            const el = child.element as React.ReactElement;
+            expect(el.type).toBe(React.Suspense);
+          }
+        }
+      } else {
+        const el = route.element as React.ReactElement;
+        expect(el).toBeDefined();
+        // Each page route element should be wrapped in Suspense
+        expect(el.type).toBe(React.Suspense);
+      }
     }
   });
 });
