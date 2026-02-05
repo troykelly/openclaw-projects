@@ -143,6 +143,9 @@ The basic deployment uses `docker-compose.yml` for localhost or behind-proxy dep
 - Docker 24+ and Docker Compose v2
 - 2GB RAM minimum (4GB recommended)
 - Existing reverse proxy (optional, for production)
+- **For semantic search:** API key for one embedding provider (OpenAI, VoyageAI, or Google Gemini)
+
+> **Note:** The embedding provider is required for the memory system's semantic search capabilities. Without it, memory storage works but semantic search (`memory_recall`) will not return results. See [Embedding Provider Configuration](#embedding-provider-configuration) for setup.
 
 ### Steps
 
@@ -175,13 +178,23 @@ The basic deployment uses `docker-compose.yml` for localhost or behind-proxy dep
    sed -i "s/^OPENCLAW_PROJECTS_AUTH_SECRET=.*/OPENCLAW_PROJECTS_AUTH_SECRET=${AUTH_SECRET}/" .env
    ```
 
-4. **Start the services:**
+4. **(Recommended) Configure embedding provider for semantic search:**
+
+   ```bash
+   # Choose one provider (openai, voyageai, or gemini)
+   echo "EMBEDDING_PROVIDER=openai" >> .env
+   echo "OPENAI_API_KEY=sk-your-key-here" >> .env
+   ```
+
+   Without an embedding provider, memory storage works but semantic search returns no results.
+
+5. **Start the services:**
 
    ```bash
    docker compose up -d
    ```
 
-5. **Verify deployment:**
+6. **Verify deployment:**
 
    ```bash
    # Check all services are running
@@ -520,6 +533,42 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 | `OPENCLAW_PROJECTS_AUTH_DISABLED` | `false` | Disable auth (NOT RECOMMENDED for production) |
 
 At least one of `OPENCLAW_PROJECTS_AUTH_SECRET`, `_FILE`, or `_COMMAND` must be set for production deployments. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=true` only for local development.
+
+### Embedding Providers (for Semantic Search)
+
+The memory system uses vector embeddings for semantic search. Without an embedding provider, memories can be stored but `memory_recall` semantic search will not return results.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBEDDING_PROVIDER` | (empty) | Provider to use: `openai`, `voyageai`, or `gemini` |
+| `OPENAI_API_KEY` | (empty) | OpenAI API key for embeddings |
+| `OPENAI_API_KEY_FILE` | (empty) | Load OpenAI key from file |
+| `OPENAI_API_KEY_COMMAND` | (empty) | Load OpenAI key from command |
+| `VOYAGERAI_API_KEY` | (empty) | VoyageAI API key |
+| `VOYAGERAI_API_KEY_FILE` | (empty) | Load VoyageAI key from file |
+| `GEMINI_API_KEY` | (empty) | Google Gemini API key |
+| `GEMINI_API_KEY_FILE` | (empty) | Load Gemini key from file |
+
+**Which provider to choose:**
+
+| Provider | Model | Pros | Cons |
+|----------|-------|------|------|
+| **OpenAI** | text-embedding-ada-002 | Most widely used, good quality | Requires OpenAI account |
+| **VoyageAI** | voyage-2 | High quality, competitive pricing | Newer provider |
+| **Gemini** | text-embedding-004 | Google ecosystem integration | Requires Google Cloud |
+
+**What works without an embedding provider:**
+
+- Task/project management (work items, contacts)
+- File storage and sharing
+- Basic memory storage (`memory_store`)
+- All non-semantic features
+
+**What requires an embedding provider:**
+
+- Semantic memory search (`memory_recall`)
+- Auto-recall context for agent conversations
+- Similar memory discovery
 
 ---
 
