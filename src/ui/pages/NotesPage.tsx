@@ -81,6 +81,10 @@ import type {
   Note as UINote,
   Notebook as UINotebook,
 } from '@/ui/components/notes/types';
+import {
+  validateNote,
+  getValidationErrorMessage,
+} from '@/ui/lib/validation';
 
 export function NotesPage(): React.JSX.Element {
   // URL params for deep linking
@@ -255,6 +259,18 @@ export function NotesPage(): React.JSX.Element {
       visibility: NoteVisibility;
       hideFromAgents: boolean;
     }) => {
+      // Client-side validation before API call (#656)
+      const validation = validateNote({
+        title: data.title,
+        content: data.content,
+        notebookId: data.notebookId,
+      });
+
+      if (!validation.valid) {
+        // Throw error with validation message for consumer to handle
+        throw new Error(getValidationErrorMessage(validation));
+      }
+
       if (view.type === 'new') {
         const body: CreateNoteBody = {
           title: data.title,

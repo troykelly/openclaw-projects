@@ -3,6 +3,7 @@
  * Part of Epic #338, Issue #659 (component splitting).
  *
  * Extracted from NotesPage.tsx to reduce component size.
+ * Updated with client-side validation (#656).
  */
 import * as React from 'react';
 import { useState } from 'react';
@@ -23,6 +24,13 @@ import type {
   UpdateNotebookBody,
 } from '@/ui/lib/api-types';
 import type { Notebook as UINotebook } from '@/ui/components/notes/types';
+import {
+  validateNotebook,
+  getValidationErrorMessage,
+} from '@/ui/lib/validation';
+
+/** Default color for new notebooks (indigo-500) */
+const DEFAULT_NOTEBOOK_COLOR = '#6366f1';
 
 interface NotebookFormDialogProps {
   open: boolean;
@@ -41,19 +49,35 @@ export function NotebookFormDialog({
 }: NotebookFormDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState(DEFAULT_NOTEBOOK_COLOR);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
       setName(notebook?.name ?? '');
       setDescription(notebook?.description ?? '');
-      setColor(notebook?.color ?? '#6366f1');
+      setColor(notebook?.color ?? DEFAULT_NOTEBOOK_COLOR);
+      setValidationError(null);
     }
   }, [open, notebook]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side validation before API call
+    const validation = validateNotebook({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      color,
+    });
+
+    if (!validation.valid) {
+      setValidationError(getValidationErrorMessage(validation));
+      return;
+    }
+
+    setValidationError(null);
     await onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -61,7 +85,13 @@ export function NotebookFormDialog({
     });
   };
 
-  const isValid = name.trim().length > 0;
+  // Validate on input change to provide real-time feedback
+  const validation = validateNotebook({
+    name: name.trim(),
+    description: description.trim() || undefined,
+    color,
+  });
+  const isValid = validation.valid;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,6 +148,17 @@ export function NotebookFormDialog({
               <span className="text-sm text-muted-foreground">{color}</span>
             </div>
           </div>
+
+          {/* Validation error display */}
+          {validationError && (
+            <div
+              className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+              role="alert"
+              data-testid="notebook-validation-error"
+            >
+              {validationError}
+            </div>
+          )}
 
           <DialogFooter>
             <Button
