@@ -689,6 +689,80 @@ export interface MoveNotesResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Notebook Sharing
+// ---------------------------------------------------------------------------
+
+/** Base notebook share record */
+interface BaseNotebookShare {
+  id: string;
+  notebookId: string;
+  permission: SharePermission;
+  expiresAt: string | null;
+  createdByEmail: string;
+  createdAt: string;
+  lastAccessedAt: string | null;
+}
+
+/** Notebook user share record */
+export interface NotebookUserShare extends BaseNotebookShare {
+  type: 'user';
+  sharedWithEmail: string;
+}
+
+/** Notebook link share record */
+export interface NotebookLinkShare extends BaseNotebookShare {
+  type: 'link';
+  token: string;
+}
+
+/** Union of notebook share types */
+export type NotebookShare = NotebookUserShare | NotebookLinkShare;
+
+/** Response from GET /api/notebooks/:id/shares */
+export interface NotebookSharesResponse {
+  notebookId: string;
+  shares: NotebookShare[];
+}
+
+/** Body for POST /api/notebooks/:id/share (user share) */
+export interface CreateNotebookUserShareBody {
+  email: string;
+  permission?: SharePermission;
+  expiresAt?: string | null;
+}
+
+/** Body for POST /api/notebooks/:id/share/link */
+export interface CreateNotebookLinkShareBody {
+  permission?: SharePermission;
+  expiresAt?: string | null;
+}
+
+/** Response from POST /api/notebooks/:id/share/link */
+export interface CreateNotebookLinkShareResponse extends NotebookLinkShare {
+  url: string;
+}
+
+/** Body for PUT /api/notebooks/:id/shares/:shareId */
+export interface UpdateNotebookShareBody {
+  permission?: SharePermission;
+  expiresAt?: string | null;
+}
+
+/** Entry in shared-with-me notebooks list */
+export interface NotebookSharedWithMeEntry {
+  id: string;
+  name: string;
+  sharedByEmail: string;
+  permission: SharePermission;
+  sharedAt: string;
+}
+
+/** Response from GET /api/notebooks/shared-with-me */
+export interface NotebooksSharedWithMeResponse {
+  notebooks: NotebookSharedWithMeEntry[];
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 

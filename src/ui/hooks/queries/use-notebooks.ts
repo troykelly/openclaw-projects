@@ -11,6 +11,7 @@ import type {
   ListNotebooksParams,
   NotebookTreeNode,
   SharedWithMeResponse,
+  NotebookSharesResponse,
 } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for notebooks. */
@@ -136,7 +137,7 @@ export function useNotebookShares(id: string) {
   return useQuery({
     queryKey: notebookKeys.shares(id),
     queryFn: ({ signal }) =>
-      apiClient.get<{ notebookId: string; shares: unknown[] }>(
+      apiClient.get<NotebookSharesResponse>(
         `/api/notebooks/${encodeURIComponent(id)}/shares`,
         { signal }
       ),
