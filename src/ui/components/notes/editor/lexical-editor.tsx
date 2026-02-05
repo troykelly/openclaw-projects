@@ -1,6 +1,6 @@
 /**
  * Lexical-based rich text editor for notes.
- * Part of Epic #338, Issues #629, #630
+ * Part of Epic #338, Issues #629, #630, #631
  *
  * Features:
  * - True WYSIWYG editing with Lexical
@@ -9,6 +9,7 @@
  * - Keyboard shortcuts
  * - Link support
  * - Syntax-highlighted code blocks (#630)
+ * - Editable tables (#631)
  *
  * Security: Preview mode uses simple markdown-to-HTML conversion.
  * For production, sanitize HTML with DOMPurify to prevent XSS.
@@ -57,6 +58,21 @@ import { $setBlocksType } from '@lexical/selection';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { $getNodeByKey } from 'lexical';
+import {
+  TableNode,
+  TableRowNode,
+  TableCellNode,
+  $createTableNodeWithDimensions,
+  $insertTableColumn,
+  $insertTableRow,
+  $deleteTableColumn,
+  $deleteTableRowAtIndex,
+  $getTableColumnIndexFromTableCellNode,
+  $getTableRowIndexFromTableCellNode,
+  registerTablePlugin,
+  INSERT_TABLE_COMMAND,
+} from '@lexical/table';
+import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import hljs from 'highlight.js/lib/core';
 // Import common languages for syntax highlighting
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -115,6 +131,7 @@ import {
   Copy,
   Check,
   FileCode,
+  Table,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -224,6 +241,50 @@ function markdownToHtml(markdown: string): string {
     return placeholder;
   });
 
+  // Extract and process markdown tables
+  // Table format: | Header 1 | Header 2 | \n |---|---| \n | Cell 1 | Cell 2 |
+  const tables: Array<{ placeholder: string; html: string }> = [];
+  let tableIndex = 0;
+
+  // Add a trailing newline to help with regex matching, will be trimmed later
+  const normalizedHtml = html + '\n';
+  html = normalizedHtml.replace(/(\|[^\n]+\|\n\|[-:\s|]+\|\n(?:\|[^\n]+\|(?:\n|$))+)/g, (tableContent) => {
+    const lines = tableContent.trim().split('\n');
+    if (lines.length < 2) return tableContent;
+
+    // Check if second line is separator (|---|---|)
+    const separatorLine = lines[1];
+    if (!separatorLine.match(/^\|[-:\s|]+\|$/)) return tableContent;
+
+    const placeholder = `__TABLE_${tableIndex++}__`;
+    let tableHtml = '<table class="border-collapse border border-border my-4 w-full">';
+
+    // Parse header row
+    const headerCells = lines[0].split('|').filter(cell => cell.trim() !== '');
+    tableHtml += '<thead><tr class="border-b border-border">';
+    for (const cell of headerCells) {
+      tableHtml += `<th class="bg-muted font-semibold border border-border p-2 text-sm text-left">${cell.trim()}</th>`;
+    }
+    tableHtml += '</tr></thead>';
+
+    // Parse data rows (skip separator line)
+    tableHtml += '<tbody>';
+    for (let i = 2; i < lines.length; i++) {
+      const cells = lines[i].split('|').filter(cell => cell.trim() !== '');
+      if (cells.length > 0) {
+        tableHtml += '<tr class="border-b border-border">';
+        for (const cell of cells) {
+          tableHtml += `<td class="border border-border p-2 text-sm">${cell.trim()}</td>`;
+        }
+        tableHtml += '</tr>';
+      }
+    }
+    tableHtml += '</tbody></table>';
+
+    tables.push({ placeholder, html: tableHtml });
+    return '\n' + placeholder + '\n';
+  }).trim();
+
   // Now escape remaining HTML
   html = html
     .replace(/&/g, '&amp;')
@@ -258,6 +319,11 @@ function markdownToHtml(markdown: string): string {
   // Restore code blocks
   for (const block of codeBlocks) {
     html = html.replace(block.placeholder, block.html);
+  }
+
+  // Restore tables
+  for (const table of tables) {
+    html = html.replace(table.placeholder, table.html);
   }
 
   return html;
@@ -337,6 +403,20 @@ function ToolbarPlugin({
         $setBlocksType(selection, () => $createCodeNode('javascript'));
       }
     });
+  };
+
+  const insertTable = () => {
+    const rows = prompt('Number of rows:', '3');
+    const cols = prompt('Number of columns:', '3');
+    if (rows && cols) {
+      const rowCount = parseInt(rows, 10) || 3;
+      const colCount = parseInt(cols, 10) || 3;
+      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+        rows: rowCount.toString(),
+        columns: colCount.toString(),
+        includeHeaders: true,
+      });
+    }
   };
 
   const undo = () => editor.dispatchCommand(UNDO_COMMAND, undefined);
@@ -426,6 +506,11 @@ function ToolbarPlugin({
         icon={<FileCode className="h-4 w-4" />}
         label="Code Block"
         onClick={insertCodeBlock}
+      />
+      <ToolbarButton
+        icon={<Table className="h-4 w-4" />}
+        label="Insert Table"
+        onClick={insertTable}
       />
 
       <div className="flex-1" />
@@ -567,6 +652,11 @@ const theme = {
     code: 'bg-muted px-1 py-0.5 rounded text-sm font-mono',
   },
   code: 'bg-muted p-3 rounded-md overflow-x-auto my-3 font-mono text-sm block',
+  // Table styling
+  table: 'border-collapse border border-border my-4 w-full',
+  tableRow: 'border-b border-border',
+  tableCell: 'border border-border p-2 text-sm',
+  tableCellHeader: 'bg-muted font-semibold border border-border p-2 text-sm',
   // Code highlight token classes for Prism/Lexical syntax highlighting
   codeHighlight: {
     atrule: 'text-purple-600 dark:text-purple-400',
@@ -658,7 +748,7 @@ export function LexicalNoteEditor({
     namespace: 'NoteEditor',
     theme,
     onError,
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode, CodeNode, CodeHighlightNode],
+    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode, CodeNode, CodeHighlightNode, TableNode, TableRowNode, TableCellNode],
     editable: !readOnly,
   };
 
@@ -814,6 +904,7 @@ export function LexicalNoteEditor({
           <HistoryPlugin />
           <ListPlugin />
           <LinkPlugin />
+          <TablePlugin />
           <CodeHighlightPlugin />
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
           <InitialContentPlugin initialContent={initialContent} />

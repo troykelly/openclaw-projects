@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  * Tests for Lexical note editor.
- * Part of Epic #338, Issues #629, #630
+ * Part of Epic #338, Issues #629, #630, #631
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -157,6 +157,68 @@ describe('LexicalNoteEditor', () => {
       expect(codeElement).toBeInTheDocument();
       // The content should preserve newlines and indentation
       expect(codeElement?.textContent).toContain('console.log');
+    });
+  });
+
+  // Table tests for Issue #631
+  describe('Tables (#631)', () => {
+    it('renders markdown tables in preview mode', () => {
+      const tableContent = `| Header 1 | Header 2 |
+|----------|----------|
+| Cell 1   | Cell 2   |`;
+      render(<LexicalNoteEditor mode="preview" initialContent={tableContent} />);
+
+      // Should render a table element
+      const tableElement = document.querySelector('table');
+      expect(tableElement).toBeInTheDocument();
+    });
+
+    it('renders table headers correctly', () => {
+      const tableContent = `| Name | Age |
+|------|-----|
+| John | 30  |`;
+      render(<LexicalNoteEditor mode="preview" initialContent={tableContent} />);
+
+      // Should have thead with th elements
+      const headerCells = document.querySelectorAll('th');
+      expect(headerCells.length).toBe(2);
+      expect(headerCells[0].textContent).toBe('Name');
+      expect(headerCells[1].textContent).toBe('Age');
+    });
+
+    it('renders table body cells correctly', () => {
+      const tableContent = `| Name | Age |
+|------|-----|
+| John | 30  |
+| Jane | 25  |`;
+      render(<LexicalNoteEditor mode="preview" initialContent={tableContent} />);
+
+      // Should have tbody with td elements
+      const bodyCells = document.querySelectorAll('td');
+      expect(bodyCells.length).toBe(4);
+      expect(bodyCells[0].textContent).toBe('John');
+      expect(bodyCells[1].textContent).toBe('30');
+    });
+
+    it('renders multiple column tables', () => {
+      const tableContent = `| A | B | C | D |
+|---|---|---|---|
+| 1 | 2 | 3 | 4 |`;
+      render(<LexicalNoteEditor mode="preview" initialContent={tableContent} />);
+
+      const headerCells = document.querySelectorAll('th');
+      expect(headerCells.length).toBe(4);
+    });
+
+    it('does not parse non-table content as table', () => {
+      // Content that looks similar but isn't a valid table
+      const nonTableContent = `| Just some text |
+This is not a table`;
+      render(<LexicalNoteEditor mode="preview" initialContent={nonTableContent} />);
+
+      // Should not render a table
+      const tableElement = document.querySelector('table');
+      expect(tableElement).not.toBeInTheDocument();
     });
   });
 });
