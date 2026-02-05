@@ -59,6 +59,9 @@ const SearchPage = React.lazy(() =>
 const NotFoundPage = React.lazy(() =>
   import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage }))
 );
+const NotesPage = React.lazy(() =>
+  import('@/ui/pages/NotesPage.js').then((m) => ({ default: m.NotesPage }))
+);
 
 /** Loading fallback shown while lazy-loaded pages are being fetched. */
 function PageLoader(): React.JSX.Element {
@@ -153,6 +156,22 @@ export const routes: RouteObject[] = [
       {
         path: 'memory',
         element: lazy(MemoryPage),
+      },
+      {
+        path: 'notes',
+        element: lazy(NotesPage),
+      },
+      {
+        path: 'notes/:noteId',
+        element: lazy(NotesPage),
+      },
+      {
+        path: 'notebooks/:notebookId',
+        element: lazy(NotesPage),
+      },
+      {
+        path: 'notebooks/:notebookId/notes/:noteId',
+        element: lazy(NotesPage),
       },
       {
         path: 'settings',

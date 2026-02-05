@@ -18,7 +18,7 @@ import {
   Users,
   Globe,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import {

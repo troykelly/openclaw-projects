@@ -15,7 +15,7 @@ import {
   FileText,
   FolderOpen,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import {
