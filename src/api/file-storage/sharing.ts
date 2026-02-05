@@ -91,6 +91,20 @@ export class ShareLinkError extends Error {
 }
 
 /**
+ * Sanitize filename for use in Content-Disposition header.
+ * Removes control characters and escapes quotes/backslashes to prevent
+ * header injection attacks (Issue #612).
+ *
+ * @param filename - The original filename to sanitize
+ * @returns Sanitized filename safe for use in Content-Disposition header
+ */
+export function sanitizeFilenameForHeader(filename: string): string {
+  return filename
+    .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control characters (CR, LF, NUL, etc.)
+    .replace(/["\\]/g, (c) => '\\' + c);  // Escape quotes and backslashes
+}
+
+/**
  * Create a shareable download link for a file.
  *
  * The share mode is determined by FILE_SHARE_MODE environment variable:
