@@ -2,6 +2,7 @@
  * TanStack Query hooks for notes data fetching.
  *
  * Provides cached, deduplicated queries for notes, versions, and shares.
+ * Includes staleTime configuration to reduce unnecessary refetching.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -15,6 +16,27 @@ import type {
   NoteSharesResponse,
   SharedWithMeResponse,
 } from '@/ui/lib/api-types.ts';
+
+/**
+ * Stale time constants for notes queries.
+ * These values balance freshness with network efficiency.
+ */
+export const NOTE_STALE_TIMES = {
+  /** List queries - refreshed more frequently (10 seconds). */
+  list: 10 * 1000,
+  /** Detail queries - moderate freshness (30 seconds). */
+  detail: 30 * 1000,
+  /** Version history - rarely changes after creation (5 minutes). */
+  versions: 5 * 60 * 1000,
+  /** Individual version - immutable, long cache (10 minutes). */
+  version: 10 * 60 * 1000,
+  /** Version comparison - computed from immutable data (10 minutes). */
+  versionCompare: 10 * 60 * 1000,
+  /** Shares - moderate freshness (30 seconds). */
+  shares: 30 * 1000,
+  /** Shared with me - moderate freshness (30 seconds). */
+  sharedWithMe: 30 * 1000,
+} as const;
 
 /** Query key factory for notes. */
 export const noteKeys = {
@@ -88,6 +110,7 @@ export function useNotes(params?: ListNotesParams) {
     queryKey: noteKeys.list(params),
     queryFn: ({ signal }) =>
       apiClient.get<NotesResponse>(`/api/notes${queryString}`, { signal }),
+    staleTime: NOTE_STALE_TIMES.list,
   });
 }
 
@@ -100,8 +123,10 @@ export function useNotes(params?: ListNotesParams) {
 export function useNote(id: string) {
   return useQuery({
     queryKey: noteKeys.detail(id),
-    queryFn: ({ signal }) => apiClient.get<Note>(`/api/notes/${id}`, { signal }),
+    queryFn: ({ signal }) =>
+      apiClient.get<Note>(`/api/notes/${encodeURIComponent(id)}`, { signal }),
     enabled: !!id,
+    staleTime: NOTE_STALE_TIMES.detail,
   });
 }
 
@@ -129,10 +154,11 @@ export function useNoteVersions(
     queryKey: noteKeys.versions(id),
     queryFn: ({ signal }) =>
       apiClient.get<NoteVersionsResponse>(
-        `/api/notes/${id}/versions${queryString ? `?${queryString}` : ''}`,
+        `/api/notes/${encodeURIComponent(id)}/versions${queryString ? `?${queryString}` : ''}`,
         { signal }
       ),
     enabled: !!id,
+    staleTime: NOTE_STALE_TIMES.versions,
   });
 }
 
@@ -147,10 +173,12 @@ export function useNoteVersion(id: string, versionNumber: number) {
   return useQuery({
     queryKey: noteKeys.version(id, versionNumber),
     queryFn: ({ signal }) =>
-      apiClient.get<NoteVersion>(`/api/notes/${id}/versions/${versionNumber}`, {
-        signal,
-      }),
+      apiClient.get<NoteVersion>(
+        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}`,
+        { signal }
+      ),
     enabled: !!id && versionNumber > 0,
+    staleTime: NOTE_STALE_TIMES.version,
   });
 }
 
@@ -167,10 +195,11 @@ export function useNoteVersionCompare(id: string, from: number, to: number) {
     queryKey: noteKeys.versionCompare(id, from, to),
     queryFn: ({ signal }) =>
       apiClient.get<CompareVersionsResponse>(
-        `/api/notes/${id}/versions/compare?from=${from}&to=${to}`,
+        `/api/notes/${encodeURIComponent(id)}/versions/compare?from=${from}&to=${to}`,
         { signal }
       ),
     enabled: !!id && from > 0 && to > 0 && from !== to,
+    staleTime: NOTE_STALE_TIMES.versionCompare,
   });
 }
 
@@ -184,8 +213,12 @@ export function useNoteShares(id: string) {
   return useQuery({
     queryKey: noteKeys.shares(id),
     queryFn: ({ signal }) =>
-      apiClient.get<NoteSharesResponse>(`/api/notes/${id}/shares`, { signal }),
+      apiClient.get<NoteSharesResponse>(
+        `/api/notes/${encodeURIComponent(id)}/shares`,
+        { signal }
+      ),
     enabled: !!id,
+    staleTime: NOTE_STALE_TIMES.shares,
   });
 }
 
@@ -201,5 +234,6 @@ export function useNotesSharedWithMe() {
       apiClient.get<SharedWithMeResponse>('/api/notes/shared-with-me', {
         signal,
       }),
+    staleTime: NOTE_STALE_TIMES.sharedWithMe,
   });
 }

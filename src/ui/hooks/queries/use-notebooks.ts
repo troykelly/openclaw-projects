@@ -2,6 +2,7 @@
  * TanStack Query hooks for notebooks data fetching.
  *
  * Provides cached, deduplicated queries for notebooks and their tree structure.
+ * Includes staleTime configuration to reduce unnecessary refetching.
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
@@ -12,6 +13,23 @@ import type {
   NotebookTreeNode,
   SharedWithMeResponse,
 } from '@/ui/lib/api-types.ts';
+
+/**
+ * Stale time constants for notebooks queries.
+ * These values balance freshness with network efficiency.
+ */
+export const NOTEBOOK_STALE_TIMES = {
+  /** List queries - refreshed more frequently (10 seconds). */
+  list: 10 * 1000,
+  /** Detail queries - moderate freshness (30 seconds). */
+  detail: 30 * 1000,
+  /** Tree structure - moderate freshness (30 seconds). */
+  tree: 30 * 1000,
+  /** Shares - moderate freshness (30 seconds). */
+  shares: 30 * 1000,
+  /** Shared with me - moderate freshness (30 seconds). */
+  sharedWithMe: 30 * 1000,
+} as const;
 
 /** Query key factory for notebooks. */
 export const notebookKeys = {
@@ -69,6 +87,7 @@ export function useNotebooks(params?: ListNotebooksParams) {
     queryKey: notebookKeys.list(params),
     queryFn: ({ signal }) =>
       apiClient.get<NotebooksResponse>(`/api/notebooks${queryString}`, { signal }),
+    staleTime: NOTEBOOK_STALE_TIMES.list,
   });
 }
 
@@ -96,10 +115,11 @@ export function useNotebook(
     queryKey: notebookKeys.detail(id),
     queryFn: ({ signal }) =>
       apiClient.get<Notebook>(
-        `/api/notebooks/${id}${queryString ? `?${queryString}` : ''}`,
+        `/api/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`,
         { signal }
       ),
     enabled: !!id,
+    staleTime: NOTEBOOK_STALE_TIMES.detail,
   });
 }
 
@@ -118,6 +138,7 @@ export function useNotebooksTree(includeNoteCounts = false) {
       apiClient.get<NotebookTreeNode[]>(`/api/notebooks/tree${queryString}`, {
         signal,
       }),
+    staleTime: NOTEBOOK_STALE_TIMES.tree,
   });
 }
 
@@ -132,10 +153,11 @@ export function useNotebookShares(id: string) {
     queryKey: notebookKeys.shares(id),
     queryFn: ({ signal }) =>
       apiClient.get<{ notebookId: string; shares: unknown[] }>(
-        `/api/notebooks/${id}/shares`,
+        `/api/notebooks/${encodeURIComponent(id)}/shares`,
         { signal }
       ),
     enabled: !!id,
+    staleTime: NOTEBOOK_STALE_TIMES.shares,
   });
 }
 
@@ -151,5 +173,6 @@ export function useNotebooksSharedWithMe() {
       apiClient.get<SharedWithMeResponse>('/api/notebooks/shared-with-me', {
         signal,
       }),
+    staleTime: NOTEBOOK_STALE_TIMES.sharedWithMe,
   });
 }
