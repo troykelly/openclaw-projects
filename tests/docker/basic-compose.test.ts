@@ -153,8 +153,10 @@ describe('db service', () => {
     expect(compose.services.db.security_opt).toContain('no-new-privileges:true');
   });
 
-  it('has cap_drop ALL', () => {
-    expect(compose.services.db.cap_drop).toContain('ALL');
+  it('does not have cap_drop (PostgreSQL needs capabilities for initialization)', () => {
+    // PostgreSQL requires more capabilities than other services for initialization
+    // (directory permissions, initdb, user switching with gosu)
+    expect(compose.services.db.cap_drop).toBeUndefined();
   });
 
   it('has resource limits', () => {
