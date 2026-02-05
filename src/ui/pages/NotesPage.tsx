@@ -150,27 +150,36 @@ export function NotesPage(): React.JSX.Element {
   const [selectedNotebookId, setSelectedNotebookId] = useState<string | undefined>(urlNotebookId);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Sync URL params with state on mount and URL changes
+  // Sync notebook ID from URL - separated from view sync to avoid race conditions (#668)
   useEffect(() => {
-    // Handle notebook ID from URL
-    if (urlNotebookId && urlNotebookId !== selectedNotebookId) {
-      setSelectedNotebookId(urlNotebookId);
-    } else if (!urlNotebookId && selectedNotebookId && location.pathname === '/notes') {
-      // Reset notebook selection when navigating to /notes
-      setSelectedNotebookId(undefined);
-    }
+    // Only react to URL changes, using functional update to avoid stale state
+    setSelectedNotebookId((current) => {
+      if (urlNotebookId !== current) {
+        return urlNotebookId;
+      }
+      return current;
+    });
+  }, [urlNotebookId]);
 
-    // Handle note ID from URL
+  // Sync note view state from URL - separated from notebook sync (#668)
+  useEffect(() => {
     if (urlNoteId) {
       setView({ type: 'detail', noteId: urlNoteId });
-    } else if (view.type === 'detail' || view.type === 'history') {
-      // If no noteId in URL but we're in detail view, go back to list
-      // (only if coming from URL change, not internal state)
-      if (!location.state?.internal) {
-        setView({ type: 'list' });
-      }
+    } else {
+      // Use functional update to check current state without adding to deps
+      setView((current) => {
+        // If in detail/history view and URL has no noteId, go back to list
+        // (skip if this is an internal navigation via location.state)
+        if (
+          (current.type === 'detail' || current.type === 'history') &&
+          !location.state?.internal
+        ) {
+          return { type: 'list' };
+        }
+        return current;
+      });
     }
-  }, [urlNoteId, urlNotebookId, location.pathname, location.state]);
+  }, [urlNoteId, location.state]);
 
   // Query hooks
   const {
