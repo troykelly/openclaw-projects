@@ -140,7 +140,7 @@ if ! docker compose -f "$COMPOSE_FILE" pull 2>&1 | tee /tmp/pull.log; then
   if grep -q "manifest unknown" /tmp/pull.log; then
     log_warn "Published images not available, building locally..."
     # Build images directly since compose file uses image: not build:
-    docker build -f "${PROJECT_ROOT}/docker/db/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-db:latest "$PROJECT_ROOT"
+    docker build -f "${PROJECT_ROOT}/docker/postgres/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-db:latest "$PROJECT_ROOT"
     docker build -f "${PROJECT_ROOT}/docker/migrate/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-migrate:latest "$PROJECT_ROOT"
     docker build -f "${PROJECT_ROOT}/docker/api/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-api:latest "$PROJECT_ROOT"
     docker build -f "${PROJECT_ROOT}/docker/app/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-app:latest "$PROJECT_ROOT"

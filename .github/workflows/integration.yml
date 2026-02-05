@@ -75,7 +75,7 @@ jobs:
             if grep -q "manifest unknown" /tmp/pull.log; then
               echo "::notice::Published images not available for this branch, building locally..."
               # Build images directly since compose file uses image: not build:
-              docker build -f docker/db/Dockerfile -t ghcr.io/troykelly/openclaw-projects-db:latest .
+              docker build -f docker/postgres/Dockerfile -t ghcr.io/troykelly/openclaw-projects-db:latest .
               docker build -f docker/migrate/Dockerfile -t ghcr.io/troykelly/openclaw-projects-migrate:latest .
               docker build -f docker/api/Dockerfile -t ghcr.io/troykelly/openclaw-projects-api:latest .
               docker build -f docker/app/Dockerfile -t ghcr.io/troykelly/openclaw-projects-app:latest .
