@@ -208,45 +208,45 @@ wait_for_healthy() {
 log_info "  Waiting for database..."
 if wait_for_healthy "db"; then
   log_success "  Database is healthy"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # Wait for SeaweedFS
 log_info "  Waiting for SeaweedFS..."
 if wait_for_healthy "seaweedfs"; then
   log_success "  SeaweedFS is healthy"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # Wait for migrations to complete
 log_info "  Waiting for migrations..."
 if wait_for_healthy "migrate"; then
   log_success "  Migrations completed successfully"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # Wait for API
 log_info "  Waiting for API..."
 if wait_for_healthy "api"; then
   log_success "  API is healthy"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # Wait for frontend app
 log_info "  Waiting for frontend app..."
 if wait_for_healthy "app"; then
   log_success "  Frontend app is healthy"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # =============================================================================
@@ -261,15 +261,15 @@ if [[ "$API_RESPONSE" != "FAILED" ]]; then
   # Check if response indicates healthy status
   if echo "$API_RESPONSE" | jq -e '.status == "ok" or .status == "healthy" or .healthy == true' >/dev/null 2>&1; then
     log_success "API /health endpoint returns healthy status"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   else
     # Accept any 200 response as healthy
     log_success "API /health endpoint responds (200 OK)"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   fi
 else
   log_error "API /health endpoint is not responding at $API_HEALTH_URL"
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # =============================================================================
@@ -284,15 +284,15 @@ if [[ "$FRONTEND_RESPONSE" != "FAILED" ]]; then
   # Check if response contains HTML
   if echo "$FRONTEND_RESPONSE" | grep -qi "<!doctype html\|<html"; then
     log_success "Frontend serves HTML content"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   else
     log_error "Frontend response does not contain HTML"
     echo "Response preview: $(echo "$FRONTEND_RESPONSE" | head -c 200)"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
 else
   log_error "Frontend is not responding at $FRONTEND_URL"
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # =============================================================================
@@ -324,29 +324,29 @@ PUT_RESPONSE=$(curl -sf -X PUT \
 
 if [[ "$PUT_RESPONSE" == "OK" ]]; then
   log_success "SeaweedFS S3 PUT operation succeeded"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 
   # Try to GET the object back
   GET_RESPONSE=$(curl -sf "${S3_ENDPOINT}/${TEST_BUCKET}/${TEST_KEY}" 2>/dev/null || echo "FAILED")
 
   if [[ "$GET_RESPONSE" == "$TEST_CONTENT" ]]; then
     log_success "SeaweedFS S3 GET operation succeeded (content verified)"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   elif [[ "$GET_RESPONSE" != "FAILED" ]]; then
     log_success "SeaweedFS S3 GET operation succeeded"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   else
     log_error "SeaweedFS S3 GET operation failed"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
 
   # Clean up: delete the test object
   curl -sf -X DELETE "${S3_ENDPOINT}/${TEST_BUCKET}/${TEST_KEY}" 2>/dev/null || true
 else
   log_error "SeaweedFS S3 PUT operation failed"
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
   # Still count GET as failed since PUT failed
-  ((TESTS_FAILED++))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # =============================================================================
@@ -361,7 +361,7 @@ DB_CHECK=$(docker compose -f "$COMPOSE_FILE" exec -T db \
 
 if [[ "$DB_CHECK" != "FAILED" && "$DB_CHECK" -gt 0 ]]; then
   log_success "Database has $DB_CHECK clean migrations applied"
-  ((TESTS_PASSED++))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
 else
   # Alternative check: see if any tables exist
   TABLE_COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T db \
@@ -370,11 +370,11 @@ else
 
   if [[ "$TABLE_COUNT" -gt 0 ]]; then
     log_success "Database has $TABLE_COUNT tables in public schema"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   else
     log_error "Database migration verification failed"
     docker compose -f "$COMPOSE_FILE" logs migrate 2>&1 | tail -30
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
 fi
 
@@ -387,10 +387,10 @@ for table in "${ESSENTIAL_TABLES[@]}"; do
 
   if [[ -n "$TABLE_EXISTS" ]]; then
     log_success "Essential table '$table' exists"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
   else
     log_error "Essential table '$table' is missing"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
   fi
 done
 
