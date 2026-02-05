@@ -604,6 +604,33 @@ const relationshipQuerySchema: JSONSchema = {
 }
 
 /**
+ * File share tool JSON Schema
+ */
+const fileShareSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    fileId: {
+      type: 'string',
+      description: 'The file ID to create a share link for',
+      format: 'uuid',
+    },
+    expiresIn: {
+      type: 'integer',
+      description: 'Link expiry time in seconds (default: 3600, max: 604800)',
+      minimum: 60,
+      maximum: 604800,
+      default: 3600,
+    },
+    maxDownloads: {
+      type: 'integer',
+      description: 'Optional maximum number of downloads',
+      minimum: 1,
+    },
+  },
+  required: ['fileId'],
+}
+
+/**
  * Create tool execution handlers
  */
 function createToolHandlers(state: PluginState) {
@@ -1680,6 +1707,128 @@ function createToolHandlers(state: PluginState) {
         return { success: false, error: 'Failed to query relationships' }
       }
     },
+
+    async file_share(params: Record<string, unknown>): Promise<ToolResult> {
+      const { fileId, expiresIn = 3600, maxDownloads } = params as {
+        fileId: string
+        expiresIn?: number
+        maxDownloads?: number
+      }
+
+      if (!fileId) {
+        return {
+          success: false,
+          error: 'fileId is required',
+        }
+      }
+
+      // Validate expiresIn range
+      if (expiresIn < 60 || expiresIn > 604800) {
+        return {
+          success: false,
+          error: 'expiresIn must be between 60 and 604800 seconds (1 minute to 7 days)',
+        }
+      }
+
+      logger.info('file_share invoked', {
+        userId,
+        fileId,
+        expiresIn,
+        maxDownloads,
+      })
+
+      try {
+        const body: Record<string, unknown> = { expiresIn }
+        if (maxDownloads !== undefined) {
+          body.maxDownloads = maxDownloads
+        }
+
+        const response = await apiClient.post<{
+          shareToken: string
+          url: string
+          expiresAt: string
+          expiresIn: number
+          filename: string
+          contentType: string
+          sizeBytes: number
+        }>(
+          `/api/files/${fileId}/share`,
+          body,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('file_share API error', {
+            userId,
+            fileId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to create share link',
+          }
+        }
+
+        const { url, shareToken, expiresAt, filename, contentType, sizeBytes } = response.data
+
+        logger.debug('file_share completed', {
+          userId,
+          fileId,
+          shareToken,
+          expiresAt,
+        })
+
+        // Format file size
+        const formatSize = (bytes: number): string => {
+          if (bytes < 1024) return `${bytes} B`
+          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+          if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+          return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+        }
+
+        // Format duration
+        const formatDuration = (seconds: number): string => {
+          if (seconds < 60) return `${seconds} seconds`
+          if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes`
+          if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours`
+          return `${Math.floor(seconds / 86400)} days`
+        }
+
+        const expiryText = formatDuration(expiresIn)
+        const sizeText = formatSize(sizeBytes)
+        const downloadLimit = maxDownloads ? ` (max ${maxDownloads} downloads)` : ''
+
+        return {
+          success: true,
+          data: {
+            content: `Share link created for "${filename}" (${sizeText}). ` +
+              `Valid for ${expiryText}${downloadLimit}.\n\nURL: ${url}`,
+            details: {
+              url,
+              shareToken,
+              expiresAt,
+              expiresIn,
+              filename,
+              contentType,
+              sizeBytes,
+              userId,
+            },
+          },
+        }
+      } catch (error) {
+        logger.error('file_share failed', {
+          userId,
+          fileId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'An unexpected error occurred while creating share link.',
+        }
+      }
+    },
   }
 }
 
@@ -1885,6 +2034,15 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginApi
       parameters: relationshipQuerySchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.relationship_query(params)
+        return toAgentToolResult(result)
+      },
+    },
+    {
+      name: 'file_share',
+      description: 'Generate a shareable download link for a file. Use when you need to share a file with someone outside the system. The link is time-limited and can be configured with an expiry time and optional download limit.',
+      parameters: fileShareSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.file_share(params)
         return toAgentToolResult(result)
       },
     },
@@ -2113,4 +2271,5 @@ export const schemas = {
   threadGet: threadGetSchema,
   relationshipSet: relationshipSetSchema,
   relationshipQuery: relationshipQuerySchema,
+  fileShare: fileShareSchema,
 }

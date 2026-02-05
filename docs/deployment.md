@@ -902,6 +902,62 @@ docker volume ls | grep seaweedfs
 docker volume inspect openclaw-projects_seaweedfs_data
 ```
 
+### File Sharing Configuration
+
+The file sharing system supports two modes for generating download links:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FILE_SHARE_MODE` | `presigned` | Share mode: `presigned` or `proxy` |
+| `S3_EXTERNAL_ENDPOINT` | (empty) | Public URL for S3 presigned URLs |
+
+**Mode: `presigned` (Default)**
+
+Uses S3 presigned URLs pointing directly to the storage backend. This is more scalable as file downloads bypass the API server, but requires SeaweedFS (or your S3 backend) to be externally accessible.
+
+```bash
+FILE_SHARE_MODE=presigned
+S3_EXTERNAL_ENDPOINT=https://files.example.com
+```
+
+For presigned mode with Traefik, you need to expose SeaweedFS:
+
+```yaml
+# docker-compose.override.yml
+services:
+  seaweedfs:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.files.rule=Host(`files.${DOMAIN}`)"
+      - "traefik.http.routers.files.entrypoints=websecure"
+      - "traefik.http.routers.files.tls.certResolver=letsencrypt"
+      - "traefik.http.services.files.loadbalancer.server.port=8333"
+```
+
+**Mode: `proxy`**
+
+Uses database-backed tokens and proxies downloads through the API server. SeaweedFS stays internal and is not exposed externally, but adds API load for file downloads.
+
+```bash
+FILE_SHARE_MODE=proxy
+```
+
+This mode:
+- Generates unique tokens stored in the database
+- Creates URLs like `https://api.example.com/api/files/shared/{token}`
+- Supports download limits (`maxDownloads` parameter)
+- Proxies file content through the API server
+
+**Which mode to choose:**
+
+| Consideration | Presigned | Proxy |
+|---------------|-----------|-------|
+| **Scalability** | Better - downloads bypass API | Lower - API handles all downloads |
+| **Security** | Requires exposing storage | Storage stays internal |
+| **Setup complexity** | Requires Traefik routing | Works out of the box |
+| **Download limits** | Not supported | Supported |
+| **Use case** | Large files, high download volume | Security-sensitive, simple setup |
+
 ### Using External S3 (AWS, MinIO, etc.)
 
 To use external S3 instead of SeaweedFS:

@@ -493,6 +493,51 @@ Get a specific thread with full message history.
 }
 ```
 
+## File Tools
+
+### file_share
+
+Generate a shareable download link for a stored file. The link is time-limited and can optionally have a download limit.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| fileId | string | Yes | UUID of the file to share |
+| expiresIn | integer | No | Link expiry time in seconds (default: 3600, min: 60, max: 604800) |
+| maxDownloads | integer | No | Optional maximum number of downloads |
+
+**Returns:**
+
+```typescript
+{
+  url: string;          // The shareable download URL
+  shareToken: string;   // Token for reference/revocation
+  expiresAt: string;    // ISO 8601 expiration timestamp
+  expiresIn: number;    // Seconds until expiration
+  filename: string;     // Original filename
+  contentType: string;  // MIME type
+  sizeBytes: number;    // File size in bytes
+}
+```
+
+**Example:**
+
+```
+User: Can you share that PDF I uploaded?
+Agent: Let me create a download link for that file...
+[file_share] fileId: "550e8400-e29b-41d4-a716-446655440000", expiresIn: 86400
+Result: Share link created for "report.pdf" (1.2 MB). Valid for 24 hours.
+URL: https://api.example.com/api/files/shared/abc123xyz...
+```
+
+**Notes:**
+
+- Links are database-backed tokens, not direct S3 presigned URLs
+- SeaweedFS stays internal; the API proxies downloads
+- Expired links return 403 Forbidden
+- Revocation can be done via the API (not exposed via tool yet)
+
 ## Error Handling
 
 All tools return errors in a consistent format:

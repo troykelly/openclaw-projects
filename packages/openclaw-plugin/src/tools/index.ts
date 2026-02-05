@@ -211,6 +211,16 @@ export {
   type NotebookToolOptions,
 } from './notebooks.js'
 
+// File sharing tools
+export {
+  createFileShareTool,
+  FileShareParamsSchema,
+  type FileShareParams,
+  type FileShareTool,
+  type FileShareResult,
+  type FileShareToolOptions,
+} from './file-share.js'
+
 /** Tool factory types */
 export interface ToolFactoryOptions {
   // Common options for tool factories

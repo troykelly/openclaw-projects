@@ -38,6 +38,9 @@ import {
   FileTooLargeError,
   FileNotFoundError,
   DEFAULT_MAX_FILE_SIZE_BYTES,
+  createFileShare,
+  downloadFileByShareToken,
+  ShareLinkError,
 } from './file-storage/index.ts';
 import {
   getAuthorizationUrl,
@@ -3310,6 +3313,95 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(204).send();
     } catch (error) {
       await pool.end();
+      throw error;
+    }
+  });
+
+  // ============================================
+  // File Sharing (Issue #584)
+  // ============================================
+
+  // POST /api/files/:id/share - Create a shareable download link for a file
+  app.post('/api/files/:id/share', async (req, reply) => {
+    const storage = getFileStorage();
+    if (!storage) {
+      return reply.code(503).send({
+        error: 'File storage not configured',
+        message: 'S3 storage environment variables are not set',
+      });
+    }
+
+    const params = req.params as { id: string };
+    const body = req.body as { expiresIn?: number; maxDownloads?: number } | null;
+    const expiresIn = body?.expiresIn ?? 3600;
+    const maxDownloads = body?.maxDownloads;
+
+    // Validate expiresIn range
+    if (expiresIn < 60 || expiresIn > 604800) {
+      return reply.code(400).send({
+        error: 'Invalid expiresIn',
+        message: 'expiresIn must be between 60 and 604800 seconds (1 minute to 7 days)',
+      });
+    }
+
+    const pool = createPool();
+    const email = await getSessionEmail(req);
+
+    try {
+      const result = await createFileShare(pool, storage, {
+        fileId: params.id,
+        expiresIn,
+        maxDownloads,
+        createdBy: email ?? 'agent',
+      });
+      await pool.end();
+
+      return reply.send(result);
+    } catch (error) {
+      await pool.end();
+
+      if (error instanceof FileNotFoundError) {
+        return reply.code(404).send({ error: 'File not found' });
+      }
+
+      throw error;
+    }
+  });
+
+  // GET /api/files/shared/:token - Download a file via share token (no auth required)
+  app.get('/api/files/shared/:token', async (req, reply) => {
+    const storage = getFileStorage();
+    if (!storage) {
+      return reply.code(503).send({
+        error: 'File storage not configured',
+        message: 'S3 storage environment variables are not set',
+      });
+    }
+
+    const params = req.params as { token: string };
+    const pool = createPool();
+
+    try {
+      const result = await downloadFileByShareToken(pool, storage, params.token);
+      await pool.end();
+
+      return reply
+        .code(200)
+        .header('Content-Type', result.metadata.contentType)
+        .header('Content-Disposition', `attachment; filename="${result.metadata.originalFilename}"`)
+        .header('Content-Length', result.data.length)
+        .send(result.data);
+    } catch (error) {
+      await pool.end();
+
+      if (error instanceof ShareLinkError) {
+        return reply.code(403).send({ error: error.message });
+      }
+
+      if (error instanceof FileNotFoundError) {
+        return reply.code(404).send({ error: 'File not found' });
+      }
+
       throw error;
     }
   });
