@@ -1,19 +1,24 @@
 /**
  * Share dialog wrapper component.
- * Part of Epic #338, Issue #659 (component splitting).
+ * Part of Epic #338, Issues #659, #660, #663, #665 (component splitting, error handling, loading states).
  *
  * Wraps the ShareDialog component with API data fetching.
  * Extracted from NotesPage.tsx to reduce component size.
  */
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { ShareDialog } from '@/ui/components/notes';
-import { useNoteShares } from '@/ui/hooks/queries/use-notes';
+import { useNoteShares, useNote } from '@/ui/hooks/queries/use-notes';
+import type { Note } from '@/ui/components/notes';
 
 interface ShareDialogWrapperProps {
   noteId: string;
   onClose: () => void;
   onShare: (email: string, permission: 'read' | 'read_write') => Promise<void>;
   onRevoke: (shareId: string) => Promise<void>;
+  /** External loading state for share operation (#663) */
+  isSharing?: boolean;
+  /** External loading state for revoke operation (#663) */
+  isRevoking?: boolean;
 }
 
 export function ShareDialogWrapper({
@@ -21,8 +26,11 @@ export function ShareDialogWrapper({
   onClose,
   onShare,
   onRevoke,
+  isSharing,
+  isRevoking,
 }: ShareDialogWrapperProps) {
-  const { data: sharesData, isLoading } = useNoteShares(noteId);
+  const { data: sharesData, isLoading: sharesLoading } = useNoteShares(noteId);
+  const { data: noteData, isLoading: noteLoading } = useNote(noteId);
 
   // Transform API shares to UI shares
   const shares = useMemo(() => {
@@ -39,19 +47,37 @@ export function ShareDialogWrapper({
       }));
   }, [sharesData?.shares]);
 
+  // Create a minimal note object for the ShareDialog (#663)
+  const note: Note = useMemo(() => ({
+    id: noteId,
+    title: noteData?.title ?? 'Note',
+    content: noteData?.content ?? '',
+    visibility: noteData?.visibility ?? 'private',
+    hideFromAgents: noteData?.hideFromAgents ?? false,
+    isPinned: noteData?.isPinned ?? false,
+    createdAt: noteData?.createdAt ? new Date(noteData.createdAt) : new Date(),
+    updatedAt: noteData?.updatedAt ? new Date(noteData.updatedAt) : new Date(),
+  }), [noteId, noteData]);
+
+  // Memoized close handler (#665)
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open) onClose();
+  }, [onClose]);
+
+  // Memoized share handler with permission conversion (#665)
+  const handleShare = useCallback(async (email: string, permission: 'view' | 'edit') => {
+    await onShare(email, permission === 'edit' ? 'read_write' : 'read');
+  }, [onShare]);
+
   return (
     <ShareDialog
       open={true}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      noteTitle="Note"
+      onOpenChange={handleOpenChange}
+      note={note}
       shares={shares}
-      onShare={async (email, permission) => {
-        await onShare(email, permission === 'edit' ? 'read_write' : 'read');
-      }}
-      onRevoke={onRevoke}
-      loading={isLoading}
+      onAddShare={handleShare}
+      onRemoveShare={onRevoke}
+      className={isSharing || isRevoking ? 'pointer-events-auto' : undefined}
     />
   );
 }
