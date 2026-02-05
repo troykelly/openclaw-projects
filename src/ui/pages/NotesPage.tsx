@@ -1,6 +1,6 @@
 /**
  * Notes page component.
- * Part of Epic #338, Issue #624
+ * Part of Epic #338, Issues #624, #625
  *
  * Primary notes interface with three-panel layout:
  * - Notebooks sidebar (collapsible)
@@ -8,10 +8,17 @@
  * - Note detail/editor panel
  *
  * Responsive: mobile uses stacked view, desktop uses side-by-side panels.
+ *
+ * URL structure:
+ * - /notes - All notes
+ * - /notes/:noteId - Direct link to specific note
+ * - /notebooks/:notebookId - Notes in specific notebook
+ * - /notebooks/:notebookId/notes/:noteId - Note in context of notebook
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router';
 import { Plus, X, ArrowLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import {
   Dialog,
@@ -129,11 +136,41 @@ type DialogState =
   | { type: 'deleteNotebook'; notebook: UINotebook };
 
 export function NotesPage(): React.JSX.Element {
+  // URL params for deep linking
+  const { noteId: urlNoteId, notebookId: urlNotebookId } = useParams<{
+    noteId?: string;
+    notebookId?: string;
+  }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // View state
   const [view, setView] = useState<ViewState>({ type: 'list' });
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
-  const [selectedNotebookId, setSelectedNotebookId] = useState<string | undefined>();
+  const [selectedNotebookId, setSelectedNotebookId] = useState<string | undefined>(urlNotebookId);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Sync URL params with state on mount and URL changes
+  useEffect(() => {
+    // Handle notebook ID from URL
+    if (urlNotebookId && urlNotebookId !== selectedNotebookId) {
+      setSelectedNotebookId(urlNotebookId);
+    } else if (!urlNotebookId && selectedNotebookId && location.pathname === '/notes') {
+      // Reset notebook selection when navigating to /notes
+      setSelectedNotebookId(undefined);
+    }
+
+    // Handle note ID from URL
+    if (urlNoteId) {
+      setView({ type: 'detail', noteId: urlNoteId });
+    } else if (view.type === 'detail' || view.type === 'history') {
+      // If no noteId in URL but we're in detail view, go back to list
+      // (only if coming from URL change, not internal state)
+      if (!location.state?.internal) {
+        setView({ type: 'list' });
+      }
+    }
+  }, [urlNoteId, urlNotebookId, location.pathname, location.state]);
 
   // Query hooks
   const {
@@ -189,15 +226,45 @@ export function NotesPage(): React.JSX.Element {
     return undefined;
   }, [notesData?.notes, view]);
 
-  // Handlers
-  const handleSelectNotebook = useCallback((notebook: UINotebook | null) => {
-    setSelectedNotebookId(notebook?.id);
-    setView({ type: 'list' });
-  }, []);
+  // Build URL path based on current state
+  const buildNotePath = useCallback(
+    (noteId?: string, nbId?: string) => {
+      const notebookId = nbId ?? selectedNotebookId;
+      if (notebookId && noteId) {
+        return `/notebooks/${notebookId}/notes/${noteId}`;
+      } else if (notebookId) {
+        return `/notebooks/${notebookId}`;
+      } else if (noteId) {
+        return `/notes/${noteId}`;
+      }
+      return '/notes';
+    },
+    [selectedNotebookId]
+  );
 
-  const handleNoteClick = useCallback((note: UINote) => {
-    setView({ type: 'detail', noteId: note.id });
-  }, []);
+  // Handlers
+  const handleSelectNotebook = useCallback(
+    (notebook: UINotebook | null) => {
+      setSelectedNotebookId(notebook?.id);
+      setView({ type: 'list' });
+      // Update URL
+      if (notebook) {
+        navigate(`/notebooks/${notebook.id}`, { state: { internal: true } });
+      } else {
+        navigate('/notes', { state: { internal: true } });
+      }
+    },
+    [navigate]
+  );
+
+  const handleNoteClick = useCallback(
+    (note: UINote) => {
+      setView({ type: 'detail', noteId: note.id });
+      // Update URL
+      navigate(buildNotePath(note.id, note.notebookId), { state: { internal: true } });
+    },
+    [navigate, buildNotePath]
+  );
 
   const handleAddNote = useCallback(() => {
     setView({ type: 'new' });
@@ -205,7 +272,9 @@ export function NotesPage(): React.JSX.Element {
 
   const handleBack = useCallback(() => {
     setView({ type: 'list' });
-  }, []);
+    // Update URL to remove noteId
+    navigate(buildNotePath(undefined), { state: { internal: true } });
+  }, [navigate, buildNotePath]);
 
   const handleSaveNote = useCallback(
     async (data: {
@@ -225,6 +294,10 @@ export function NotesPage(): React.JSX.Element {
         };
         const newNote = await createNoteMutation.mutateAsync(body);
         setView({ type: 'detail', noteId: newNote.id });
+        // Update URL to include the new note ID
+        navigate(buildNotePath(newNote.id, newNote.notebookId ?? undefined), {
+          state: { internal: true },
+        });
       } else if (view.type === 'detail' && currentApiNote) {
         const body: UpdateNoteBody = {
           title: data.title,
@@ -236,7 +309,7 @@ export function NotesPage(): React.JSX.Element {
         await updateNoteMutation.mutateAsync({ id: currentApiNote.id, body });
       }
     },
-    [view, currentApiNote, selectedNotebookId, createNoteMutation, updateNoteMutation]
+    [view, currentApiNote, selectedNotebookId, createNoteMutation, updateNoteMutation, navigate, buildNotePath]
   );
 
   const handleDeleteNote = useCallback(
@@ -251,8 +324,10 @@ export function NotesPage(): React.JSX.Element {
       await deleteNoteMutation.mutateAsync(dialog.note.id);
       setDialog({ type: 'none' });
       setView({ type: 'list' });
+      // Navigate back to list view
+      navigate(buildNotePath(undefined), { state: { internal: true } });
     }
-  }, [dialog, deleteNoteMutation]);
+  }, [dialog, deleteNoteMutation, navigate, buildNotePath]);
 
   const handleShareNote = useCallback((note: UINote) => {
     setDialog({ type: 'share', noteId: note.id });

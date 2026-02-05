@@ -21,7 +21,7 @@ import {
   Loader2,
   BookOpen,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Badge } from '@/ui/components/ui/badge';

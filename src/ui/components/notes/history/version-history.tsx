@@ -15,7 +15,7 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
