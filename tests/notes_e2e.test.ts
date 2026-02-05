@@ -41,25 +41,68 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
   });
 
   /**
-   * Helper to create a session cookie for authenticated requests
+   * Helper to create a session cookie for authenticated requests.
+   * Includes validation and clear error messages for debugging test failures.
+   *
+   * @param email - The email address to authenticate
+   * @returns The session cookie string (e.g., "session=abc123")
+   * @throws Error if authentication request fails or response is malformed
    */
   async function getSessionCookie(email: string): Promise<string> {
+    // Step 1: Request the magic link
     const request = await app.inject({
       method: 'POST',
       url: '/api/auth/request-link',
       payload: { email },
     });
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
 
+    if (request.statusCode !== 200) {
+      throw new Error(
+        `Auth request failed for ${email}: status ${request.statusCode}, body: ${request.body}`
+      );
+    }
+
+    const requestJson = request.json() as { loginUrl?: string };
+    if (!requestJson.loginUrl) {
+      throw new Error(
+        `Auth request for ${email} did not return loginUrl. Response: ${JSON.stringify(requestJson)}`
+      );
+    }
+
+    const token = new URL(requestJson.loginUrl).searchParams.get('token');
+    if (!token) {
+      throw new Error(
+        `Auth URL for ${email} did not contain token. URL: ${requestJson.loginUrl}`
+      );
+    }
+
+    // Step 2: Consume the magic link to get a session
     const consume = await app.inject({
       method: 'GET',
       url: `/api/auth/consume?token=${token}`,
       headers: { accept: 'application/json' },
     });
 
+    if (consume.statusCode !== 200) {
+      throw new Error(
+        `Auth consume failed for ${email}: status ${consume.statusCode}, body: ${consume.body}`
+      );
+    }
+
     const setCookie = consume.headers['set-cookie'];
+    if (!setCookie) {
+      throw new Error(
+        `Auth consume for ${email} did not return set-cookie header. Headers: ${JSON.stringify(consume.headers)}`
+      );
+    }
+
     const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+    if (!cookieHeader) {
+      throw new Error(
+        `Auth consume for ${email} returned empty set-cookie. Value: ${JSON.stringify(setCookie)}`
+      );
+    }
+
     return cookieHeader.split(';')[0];
   }
 
