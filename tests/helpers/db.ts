@@ -71,6 +71,7 @@ const APPLICATION_TABLES = [
   'webhook_outbox',
   'internal_job',
   // File storage
+  'file_share',
   'file_attachment',
   // Embedding settings
   'embedding_usage',
