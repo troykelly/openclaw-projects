@@ -9,12 +9,12 @@
  */
 
 import type {
-  OpenClawPluginAPI,
+  OpenClawPluginApi,
   PluginInitializer,
   ToolDefinition,
   JSONSchema,
-  ToolContext,
   ToolResult,
+  AgentToolResult,
   PluginHookBeforeAgentStartEvent,
   PluginHookAgentContext,
   PluginHookBeforeAgentStartResult,
@@ -65,6 +65,26 @@ interface PluginState {
   logger: Logger
   apiClient: ApiClient
   userId: string
+}
+
+/**
+ * Convert internal ToolResult format to AgentToolResult format expected by OpenClaw Gateway.
+ *
+ * The Gateway expects: { content: [{ type: "text", text: "..." }] }
+ * Our handlers return: { success: boolean, data?: { content: string, ... }, error?: string }
+ */
+function toAgentToolResult(result: ToolResult): AgentToolResult {
+  if (result.success && result.data) {
+    return {
+      content: [{ type: 'text' as const, text: result.data.content }],
+    }
+  }
+
+  // For errors, format the error message
+  const errorText = result.error ?? 'An unexpected error occurred'
+  return {
+    content: [{ type: 'text' as const, text: `Error: ${errorText}` }],
+  }
 }
 
 /**
@@ -1669,7 +1689,7 @@ function createToolHandlers(state: PluginState) {
  * This is the main entry point for the plugin using the OpenClaw API pattern.
  * Registers all tools, hooks, and CLI commands via the provided API object.
  */
-export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI) => {
+export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginApi) => {
   // Validate and resolve configuration
   const rawConfig = validateRawConfig(api.config)
   const config = await resolveConfigSecrets(rawConfig)
@@ -1694,121 +1714,179 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginAPI
   // Create tool handlers
   const handlers = createToolHandlers(state)
 
-  // Register all 19 tools
+  // Register all 19 tools with correct OpenClaw Gateway execute signature
+  // Signature: (toolCallId: string, params: T, signal?: AbortSignal, onUpdate?: (partial: any) => void) => AgentToolResult
   const tools: ToolDefinition[] = [
     {
       name: 'memory_recall',
       description: 'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics.',
       parameters: memoryRecallSchema,
-      execute: (params) => handlers.memory_recall(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.memory_recall(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'memory_store',
       description: 'Store a new memory for future reference. Use when the user shares important preferences, facts, or decisions.',
       parameters: memoryStoreSchema,
-      execute: (params) => handlers.memory_store(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.memory_store(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'memory_forget',
       description: 'Remove a memory by ID or search query. Use when information is outdated or the user requests deletion.',
       parameters: memoryForgetSchema,
-      execute: (params) => handlers.memory_forget(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.memory_forget(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'project_list',
       description: 'List projects for the user. Use to see what projects exist or filter by status.',
       parameters: projectListSchema,
-      execute: (params) => handlers.project_list(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.project_list(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'project_get',
       description: 'Get details about a specific project. Use when you need full project information.',
       parameters: projectGetSchema,
-      execute: (params) => handlers.project_get(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.project_get(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'project_create',
       description: 'Create a new project. Use when the user wants to start tracking a new initiative.',
       parameters: projectCreateSchema,
-      execute: (params) => handlers.project_create(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.project_create(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'todo_list',
       description: 'List todos, optionally filtered by project or status. Use to see pending tasks.',
       parameters: todoListSchema,
-      execute: (params) => handlers.todo_list(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.todo_list(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'todo_create',
       description: 'Create a new todo item. Use when the user wants to track a task.',
       parameters: todoCreateSchema,
-      execute: (params) => handlers.todo_create(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.todo_create(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'todo_complete',
       description: 'Mark a todo as complete. Use when a task is done.',
       parameters: todoCompleteSchema,
-      execute: (params) => handlers.todo_complete(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.todo_complete(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'contact_search',
       description: 'Search contacts by name, email, or other fields. Use to find people.',
       parameters: contactSearchSchema,
-      execute: (params) => handlers.contact_search(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_search(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'contact_get',
       description: 'Get details about a specific contact. Use when you need full contact information.',
       parameters: contactGetSchema,
-      execute: (params) => handlers.contact_get(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_get(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'contact_create',
       description: 'Create a new contact. Use when the user mentions someone new to track.',
       parameters: contactCreateSchema,
-      execute: (params) => handlers.contact_create(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.contact_create(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'sms_send',
       description: 'Send an SMS message to a phone number. Use when you need to notify someone via text message. Requires the recipient phone number in E.164 format (e.g., +15551234567).',
       parameters: smsSendSchema,
-      execute: (params) => handlers.sms_send(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.sms_send(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'email_send',
       description: 'Send an email message. Use when you need to communicate via email. Requires the recipient email address, subject, and body.',
       parameters: emailSendSchema,
-      execute: (params) => handlers.email_send(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.email_send(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'message_search',
       description: 'Search message history semantically. Use when you need to find past conversations, messages about specific topics, or communications with contacts. Supports filtering by channel (SMS/email) and contact.',
       parameters: messageSearchSchema,
-      execute: (params) => handlers.message_search(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.message_search(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'thread_list',
       description: 'List message threads (conversations). Use to see recent conversations with contacts. Can filter by channel (SMS/email) or contact.',
       parameters: threadListSchema,
-      execute: (params) => handlers.thread_list(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.thread_list(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'thread_get',
       description: 'Get a thread with its message history. Use to view the full conversation in a thread.',
       parameters: threadGetSchema,
-      execute: (params) => handlers.thread_get(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.thread_get(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'relationship_set',
       description: "Record a relationship between two people, groups, or organisations. Examples: 'Troy is Alex\\'s partner', 'Sam is a member of The Kelly Household', 'Troy works for Acme Corp'. The system handles directionality and type matching automatically.",
       parameters: relationshipSetSchema,
-      execute: (params) => handlers.relationship_set(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.relationship_set(params)
+        return toAgentToolResult(result)
+      },
     },
     {
       name: 'relationship_query',
       description: "Query a contact's relationships. Returns all relationships including family, partners, group memberships, professional connections, etc. Handles directional relationships automatically.",
       parameters: relationshipQuerySchema,
-      execute: (params) => handlers.relationship_query(params),
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.relationship_query(params)
+        return toAgentToolResult(result)
+      },
     },
   ]
 

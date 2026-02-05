@@ -43,7 +43,7 @@ export interface ToolContext {
   requestId?: string
 }
 
-/** Tool execution result */
+/** Tool execution result (internal format used by handlers) */
 export interface ToolResult {
   success: boolean
   data?: {
@@ -53,6 +53,29 @@ export interface ToolResult {
   error?: string
 }
 
+/**
+ * AgentToolResult - The format OpenClaw Gateway expects from tool execute functions.
+ * This is the standard return type for all tool executions.
+ */
+export interface AgentToolResult {
+  content: Array<{ type: 'text'; text: string }>
+}
+
+/**
+ * Tool execute function signature as expected by OpenClaw Gateway.
+ *
+ * @param toolCallId - Unique identifier for this tool call
+ * @param params - Tool parameters (validated against JSON Schema)
+ * @param signal - Optional AbortSignal for cancellation
+ * @param onUpdate - Optional callback for streaming partial results
+ */
+export type AgentToolExecute<T = Record<string, unknown>> = (
+  toolCallId: string,
+  params: T,
+  signal?: AbortSignal,
+  onUpdate?: (partial: unknown) => void
+) => Promise<AgentToolResult>
+
 /** Tool definition for api.registerTool() */
 export interface ToolDefinition {
   /** Tool name (snake_case) */
@@ -61,8 +84,8 @@ export interface ToolDefinition {
   description: string
   /** JSON Schema for tool parameters */
   parameters: JSONSchema
-  /** Tool execution function */
-  execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>
+  /** Tool execution function (OpenClaw Gateway signature) */
+  execute: AgentToolExecute
 }
 
 // ── OpenClaw Hook Contract Types ─────────────────────────────────────────────
@@ -167,7 +190,7 @@ export interface ServiceDefinition {
 }
 
 /** OpenClaw Plugin API provided to plugins */
-export interface OpenClawPluginAPI {
+export interface OpenClawPluginApi {
   /** Current plugin configuration (validated against configSchema) */
   config: Record<string, unknown>
 
@@ -239,7 +262,7 @@ export interface OpenClawPluginAPI {
 }
 
 /** Plugin initialization function signature */
-export type PluginInitializer = (api: OpenClawPluginAPI) => void | Promise<void>
+export type PluginInitializer = (api: OpenClawPluginApi) => void | Promise<void>
 
 /** Object-based plugin definition (alternative to function export) */
 export interface PluginDefinition {
@@ -248,3 +271,8 @@ export interface PluginDefinition {
   configSchema?: JSONSchema
   register: PluginInitializer
 }
+
+/**
+ * @deprecated Use OpenClawPluginApi instead. This alias is for backwards compatibility only.
+ */
+export type OpenClawPluginAPI = OpenClawPluginApi

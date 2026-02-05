@@ -1,13 +1,14 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { registerOpenClaw, schemas } from '../src/register-openclaw.js'
 import type {
-  OpenClawPluginAPI,
+  OpenClawPluginApi,
   ToolDefinition,
   HookHandler,
   PluginHookBeforeAgentStartEvent,
   PluginHookAgentContext,
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
+  AgentToolResult,
 } from '../src/types/openclaw-api.js'
 
 // Mock fs and child_process for secret resolution
@@ -15,7 +16,7 @@ vi.mock('node:fs')
 vi.mock('node:child_process')
 
 describe('OpenClaw 2026 API Registration', () => {
-  let mockApi: OpenClawPluginAPI
+  let mockApi: OpenClawPluginApi
   let registeredTools: ToolDefinition[]
   let registeredHooks: Map<string, HookHandler>
   let registeredOnHooks: Map<string, Function>
@@ -461,6 +462,124 @@ describe('OpenClaw 2026 API Registration', () => {
 
       for (const tool of registeredTools) {
         expect(typeof tool.execute).toBe('function')
+      }
+    })
+
+    it('should have execute functions with correct OpenClaw Gateway signature', async () => {
+      const originalFetch = globalThis.fetch
+      globalThis.fetch = vi.fn().mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          memories: [{ id: '1', content: 'test', category: 'fact', score: 0.9 }],
+        }),
+      })) as unknown as typeof fetch
+
+      try {
+        await registerOpenClaw(mockApi)
+
+        const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
+        expect(memoryRecall).toBeDefined()
+
+        // Call execute with the correct OpenClaw Gateway signature:
+        // (toolCallId: string, params: T, signal?: AbortSignal, onUpdate?: (partial: any) => void) => AgentToolResult
+        const result = await memoryRecall!.execute(
+          'test-tool-call-id',
+          { query: 'test query' },
+          undefined,
+          undefined
+        )
+
+        // Result should be AgentToolResult format: { content: [{ type: "text", text: "..." }] }
+        expect(result).toHaveProperty('content')
+        expect(Array.isArray(result.content)).toBe(true)
+        expect(result.content.length).toBeGreaterThan(0)
+        expect(result.content[0]).toHaveProperty('type', 'text')
+        expect(result.content[0]).toHaveProperty('text')
+        expect(typeof result.content[0].text).toBe('string')
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+
+    it('should return AgentToolResult format for errors', async () => {
+      // First, register with a working fetch to get the plugin set up
+      const originalFetch = globalThis.fetch
+
+      // Use a mock config without retries
+      mockApi.config = {
+        ...mockApi.config,
+        maxRetries: 0,  // Disable retries
+      }
+
+      // Mock that returns a client error (no retries on 4xx)
+      globalThis.fetch = vi.fn().mockImplementation(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'Bad request', message: 'Invalid query' }),
+      })) as unknown as typeof fetch
+
+      try {
+        await registerOpenClaw(mockApi)
+
+        const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
+        expect(memoryRecall).toBeDefined()
+
+        // Call with toolCallId as first argument
+        const result = await memoryRecall!.execute(
+          'error-test-id',
+          { query: 'test' },
+          undefined,
+          undefined
+        )
+
+        // Even errors should return AgentToolResult format
+        expect(result).toHaveProperty('content')
+        expect(Array.isArray(result.content)).toBe(true)
+        expect(result.content[0]).toHaveProperty('type', 'text')
+        expect(result.content[0]).toHaveProperty('text')
+        // Error text should contain "Error"
+        expect(result.content[0].text).toContain('Error')
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    }, 10000)
+
+    it('should NOT receive toolCallId as params (bug that was fixed)', async () => {
+      const originalFetch = globalThis.fetch
+      let receivedParams: Record<string, unknown> | undefined
+
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        // Extract query params to verify what was sent
+        const urlObj = new URL(url)
+        const queryParam = urlObj.searchParams.get('q')
+        receivedParams = { query: queryParam }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ memories: [] }),
+        }
+      }) as unknown as typeof fetch
+
+      try {
+        await registerOpenClaw(mockApi)
+
+        const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
+        expect(memoryRecall).toBeDefined()
+
+        // Call with toolCallId as first arg, params as second
+        await memoryRecall!.execute(
+          'my-tool-call-id',
+          { query: 'actual search query' },
+          undefined,
+          undefined
+        )
+
+        // The query should be 'actual search query', NOT 'my-tool-call-id'
+        expect(receivedParams?.query).toBe('actual search query')
+        expect(receivedParams?.query).not.toBe('my-tool-call-id')
+      } finally {
+        globalThis.fetch = originalFetch
       }
     })
   })

@@ -1,6 +1,6 @@
 # OpenClaw Hook Contract Reference
 
-**Source**: OpenClaw gateway `src/plugins/types.ts` (validated 2026-02-04)
+**Source**: OpenClaw gateway `src/plugins/types.ts` (validated 2026-02-05)
 **Epic**: #486 — Relationship-Aware Preferences and Memory Auto-Surfacing
 
 ## Plugin Registration API
@@ -86,8 +86,6 @@ type PluginHookBeforeAgentStartResult = {
 };
 ```
 
-**Key insight**: The event contains `prompt` — the user's actual message. Our current code ignores this and uses a hardcoded query.
-
 ### agent_end (Auto-Capture)
 
 ```typescript
@@ -135,36 +133,38 @@ type PluginHookBeforeToolCallResult = {
 };
 ```
 
-## Differences Between Our Types and Actual OpenClaw
-
-| Aspect | Our Code (`types/openclaw-api.ts`) | Actual OpenClaw |
-|--------|-----------------------------------|-----------------|
-| API type name | `OpenClawPluginAPI` | `OpenClawPluginApi` |
-| Hook registration | `api.registerHook('beforeAgentStart', ...)` | `api.on('before_agent_start', ...)` |
-| Hook event names | camelCase: `beforeAgentStart` | snake_case: `before_agent_start` |
-| Hook handler | `(event: T) => Promise<T \| null \| void>` | `(event, ctx) => Result \| void` (typed per hook) |
-| Hook return | Generic `T` (we return `{ injectedContext }`) | Specific result types (`{ prependContext }`) |
-| Tool registration | `api.registerTool(ToolDefinition)` | `api.registerTool(AnyAgentTool \| Factory, opts?)` |
-| Plugin config | `api.config: Record<string, unknown>` | `api.config: OpenClawConfig` (full gateway config) |
-| Logger | Custom `Logger` interface | `PluginLogger` with `debug?`, `info`, `warn`, `error` |
-| Plugin kind | Not supported | `kind?: "memory"` for memory plugins |
-
-## Memory Plugin Slot
-
-OpenClaw supports `kind: "memory"` plugins. This is a plugin slot specifically for memory management. The `register-openclaw.ts` code does NOT use this — it registers tools directly. Consider using the memory plugin slot for tighter integration.
-
-## Required Changes for Our Plugin
-
-1. **Fix hook registration**: Change `api.registerHook('beforeAgentStart', ...)` to `api.on('before_agent_start', ...)`
-2. **Use event.prompt**: Replace hardcoded `'relevant context for this conversation'` with `event.prompt`
-3. **Fix return format**: Return `{ prependContext: '...' }` instead of `{ injectedContext: '...' }`
-4. **Add context parameter**: Handler receives `(event, ctx)` — use `ctx.sessionKey` for user identification
-5. **Type the event**: Use `PluginHookBeforeAgentStartEvent` instead of `unknown`
-6. **Fix agent_end hook**: Use `api.on('agent_end', ...)` and properly handle `event.messages`
-
 ## Tool Registration
 
-OpenClaw uses `AnyAgentTool` from `@mariozechner/pi-agent-core`, not our custom `ToolDefinition`. The actual tool type uses TypeBox schemas rather than plain JSON Schema objects. Our current approach of passing objects with `{ name, description, parameters, execute }` may work if the gateway's `registerTool` normalizes, but this should be validated.
+### Tool Execute Signature
+
+OpenClaw Gateway expects tools to have this execute signature:
+
+```typescript
+type AgentToolExecute<T = Record<string, unknown>> = (
+  toolCallId: string,
+  params: T,
+  signal?: AbortSignal,
+  onUpdate?: (partial: unknown) => void
+) => Promise<AgentToolResult>;
+
+// Return format
+type AgentToolResult = {
+  content: Array<{ type: 'text'; text: string }>;
+};
+```
+
+**Important**: The first argument is `toolCallId`, NOT the params object. The params are the second argument.
+
+### Tool Definition
+
+```typescript
+interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: JSONSchema;
+  execute: AgentToolExecute;
+}
+```
 
 ## Plugin API Fields
 
@@ -193,3 +193,19 @@ type OpenClawPluginApi = {
   on: (...) => void;               // Modern hook registration
 };
 ```
+
+## Memory Plugin Slot
+
+OpenClaw supports `kind: "memory"` plugins. This is a plugin slot specifically for memory management. The `register-openclaw.ts` code does NOT use this — it registers tools directly. Consider using the memory plugin slot for tighter integration.
+
+## Implementation Status
+
+Our plugin implementation (`packages/openclaw-plugin/src/register-openclaw.ts`) correctly implements:
+
+- [x] Hook registration via `api.on()` with snake_case names
+- [x] Uses `event.prompt` for semantic memory search
+- [x] Returns `{ prependContext }` format from hooks
+- [x] Tool execute signature: `(toolCallId, params, signal?, onUpdate?) => AgentToolResult`
+- [x] Returns `{ content: [{ type: "text", text: "..." }] }` from tool execution
+- [x] Type name `OpenClawPluginApi` (not `API`)
+- [x] Fallback to legacy `registerHook` for older gateways
