@@ -41,6 +41,7 @@ import {
   createFileShare,
   downloadFileByShareToken,
   ShareLinkError,
+  sanitizeFilenameForHeader,
 } from './file-storage/index.ts';
 import {
   getAuthorizationUrl,
@@ -3213,10 +3214,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await downloadFile(pool, storage, params.id);
       await pool.end();
 
+      const safeFilename = sanitizeFilenameForHeader(result.metadata.originalFilename);
       return reply
         .code(200)
         .header('Content-Type', result.metadata.contentType)
-        .header('Content-Disposition', `attachment; filename="${result.metadata.originalFilename}"`)
+        .header('Content-Disposition', `attachment; filename="${safeFilename}"`)
         .header('Content-Length', result.data.length)
         .send(result.data);
     } catch (error) {
@@ -3385,10 +3387,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await downloadFileByShareToken(pool, storage, params.token);
       await pool.end();
 
+      const safeFilename = sanitizeFilenameForHeader(result.metadata.originalFilename);
       return reply
         .code(200)
         .header('Content-Type', result.metadata.contentType)
-        .header('Content-Disposition', `attachment; filename="${result.metadata.originalFilename}"`)
+        .header('Content-Disposition', `attachment; filename="${safeFilename}"`)
         .header('Content-Length', result.data.length)
         .send(result.data);
     } catch (error) {
