@@ -357,6 +357,338 @@ export interface CalendarEventsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Notes
+// ---------------------------------------------------------------------------
+
+/** Note visibility levels */
+export type NoteVisibility = 'private' | 'shared' | 'public';
+
+/** Embedding status for notes */
+export type NoteEmbeddingStatus = 'pending' | 'complete' | 'failed' | 'skipped';
+
+/** Single note from GET /api/notes or GET /api/notes/:id */
+export interface Note {
+  id: string;
+  notebookId: string | null;
+  userEmail: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  tags: string[];
+  isPinned: boolean;
+  sortOrder: number;
+  visibility: NoteVisibility;
+  hideFromAgents: boolean;
+  embeddingStatus: NoteEmbeddingStatus;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  notebook?: { id: string; name: string } | null;
+  versionCount?: number;
+}
+
+/** Response from GET /api/notes */
+export interface NotesResponse {
+  notes: Note[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Query params for GET /api/notes */
+export interface ListNotesParams {
+  notebookId?: string;
+  tags?: string[];
+  visibility?: NoteVisibility;
+  search?: string;
+  isPinned?: boolean;
+  includeDeleted?: boolean;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'createdAt' | 'updatedAt' | 'title';
+  sortOrder?: 'asc' | 'desc';
+}
+
+/** Body for POST /api/notes */
+export interface CreateNoteBody {
+  title: string;
+  content?: string;
+  notebookId?: string;
+  tags?: string[];
+  visibility?: NoteVisibility;
+  hideFromAgents?: boolean;
+  summary?: string;
+  isPinned?: boolean;
+}
+
+/** Body for PUT /api/notes/:id */
+export interface UpdateNoteBody {
+  title?: string;
+  content?: string;
+  notebookId?: string | null;
+  tags?: string[];
+  visibility?: NoteVisibility;
+  hideFromAgents?: boolean;
+  summary?: string | null;
+  isPinned?: boolean;
+  sortOrder?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Note Versions
+// ---------------------------------------------------------------------------
+
+/** Summary of a note version */
+export interface NoteVersionSummary {
+  id: string;
+  versionNumber: number;
+  title: string;
+  changedByEmail: string | null;
+  changeType: string;
+  contentLength: number;
+  createdAt: string;
+}
+
+/** Full note version with content */
+export interface NoteVersion {
+  id: string;
+  noteId: string;
+  versionNumber: number;
+  title: string;
+  content: string;
+  summary: string | null;
+  changedByEmail: string | null;
+  changeType: string;
+  contentLength: number;
+  createdAt: string;
+}
+
+/** Response from GET /api/notes/:id/versions */
+export interface NoteVersionsResponse {
+  noteId: string;
+  currentVersion: number;
+  versions: NoteVersionSummary[];
+  total: number;
+}
+
+/** Diff statistics */
+export interface DiffStats {
+  additions: number;
+  deletions: number;
+  changes: number;
+}
+
+/** Diff result between versions */
+export interface DiffResult {
+  titleChanged: boolean;
+  titleDiff: string | null;
+  contentChanged: boolean;
+  contentDiff: string;
+  stats: DiffStats;
+}
+
+/** Response from GET /api/notes/:id/versions/compare */
+export interface CompareVersionsResponse {
+  noteId: string;
+  from: {
+    versionNumber: number;
+    title: string;
+    createdAt: string;
+  };
+  to: {
+    versionNumber: number;
+    title: string;
+    createdAt: string;
+  };
+  diff: DiffResult;
+}
+
+/** Response from POST /api/notes/:id/versions/:versionNumber/restore */
+export interface RestoreVersionResponse {
+  noteId: string;
+  restoredFromVersion: number;
+  newVersion: number;
+  title: string;
+  message: string;
+}
+
+// ---------------------------------------------------------------------------
+// Note Sharing
+// ---------------------------------------------------------------------------
+
+/** Share permission level */
+export type SharePermission = 'read' | 'read_write';
+
+/** Base share record */
+interface BaseNoteShare {
+  id: string;
+  noteId: string;
+  permission: SharePermission;
+  expiresAt: string | null;
+  createdByEmail: string;
+  createdAt: string;
+  lastAccessedAt: string | null;
+}
+
+/** User share record */
+export interface NoteUserShare extends BaseNoteShare {
+  type: 'user';
+  sharedWithEmail: string;
+}
+
+/** Link share record */
+export interface NoteLinkShare extends BaseNoteShare {
+  type: 'link';
+  token: string;
+  isSingleView: boolean;
+  viewCount: number;
+  maxViews: number | null;
+}
+
+/** Union of share types */
+export type NoteShare = NoteUserShare | NoteLinkShare;
+
+/** Response from GET /api/notes/:id/shares */
+export interface NoteSharesResponse {
+  noteId: string;
+  shares: NoteShare[];
+}
+
+/** Body for POST /api/notes/:id/share (user share) */
+export interface CreateUserShareBody {
+  email: string;
+  permission?: SharePermission;
+  expiresAt?: string | null;
+}
+
+/** Body for POST /api/notes/:id/share/link */
+export interface CreateLinkShareBody {
+  permission?: SharePermission;
+  isSingleView?: boolean;
+  maxViews?: number | null;
+  expiresAt?: string | null;
+}
+
+/** Response from POST /api/notes/:id/share/link */
+export interface CreateLinkShareResponse extends NoteLinkShare {
+  url: string;
+}
+
+/** Body for PUT /api/notes/:id/shares/:shareId */
+export interface UpdateShareBody {
+  permission?: SharePermission;
+  expiresAt?: string | null;
+}
+
+/** Entry in shared-with-me list */
+export interface SharedWithMeEntry {
+  id: string;
+  title: string;
+  sharedByEmail: string;
+  permission: SharePermission;
+  sharedAt: string;
+}
+
+/** Response from GET /api/notes/shared-with-me */
+export interface SharedWithMeResponse {
+  notes: SharedWithMeEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Notebooks
+// ---------------------------------------------------------------------------
+
+/** Minimal note info for notebook expansion */
+export interface NotebookNote {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+/** Notebook from GET /api/notebooks or GET /api/notebooks/:id */
+export interface Notebook {
+  id: string;
+  userEmail: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  parentNotebookId: string | null;
+  sortOrder: number;
+  isArchived: boolean;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  noteCount?: number;
+  childCount?: number;
+  parent?: { id: string; name: string } | null;
+  children?: Notebook[];
+  notes?: NotebookNote[];
+}
+
+/** Response from GET /api/notebooks */
+export interface NotebooksResponse {
+  notebooks: Notebook[];
+  total: number;
+}
+
+/** Query params for GET /api/notebooks */
+export interface ListNotebooksParams {
+  parentId?: string | null;
+  includeArchived?: boolean;
+  includeNoteCounts?: boolean;
+  includeChildCounts?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+/** Tree node for notebook hierarchy */
+export interface NotebookTreeNode {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  noteCount?: number;
+  children: NotebookTreeNode[];
+}
+
+/** Response from GET /api/notebooks/tree */
+export interface NotebookTreeResponse {
+  notebooks: NotebookTreeNode[];
+}
+
+/** Body for POST /api/notebooks */
+export interface CreateNotebookBody {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  parentNotebookId?: string;
+}
+
+/** Body for PUT /api/notebooks/:id */
+export interface UpdateNotebookBody {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  parentNotebookId?: string | null;
+  sortOrder?: number;
+}
+
+/** Body for POST /api/notebooks/:id/notes (move/copy notes) */
+export interface MoveNotesBody {
+  noteIds: string[];
+  action: 'move' | 'copy';
+}
+
+/** Response from POST /api/notebooks/:id/notes */
+export interface MoveNotesResponse {
+  moved: string[];
+  failed: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
