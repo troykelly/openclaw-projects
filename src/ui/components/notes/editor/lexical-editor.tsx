@@ -230,32 +230,38 @@ function getOrLoadLanguage(lang: string): string | undefined {
 }
 
 /**
- * Lazy-loaded Mermaid instance.
+ * Lazy-loaded Mermaid instance with theme support.
  * Mermaid.js is ~1MB and includes D3.js and many sub-dependencies.
  * Most users don't use diagrams, so we lazy load it only when needed (#685).
  * The promise is cached so subsequent calls return the same instance.
+ *
+ * Theme support (#686): Uses Mermaid's built-in 'dark' theme for dark mode
+ * instead of CSS filter inversion, providing better color accuracy.
  */
 let mermaidPromise: Promise<typeof mermaidType> | null = null;
-let mermaidInitialized = false;
+let lastInitializedTheme: 'dark' | 'default' | null = null;
 
-async function getMermaid(): Promise<typeof mermaidType> {
+async function getMermaid(isDark: boolean = false): Promise<typeof mermaidType> {
   if (!mermaidPromise) {
     mermaidPromise = import('mermaid').then((m) => m.default);
   }
   const mermaid = await mermaidPromise;
-  if (!mermaidInitialized) {
+  const theme = isDark ? 'dark' : 'default';
+  // Re-initialize if theme changed or not yet initialized (#686)
+  if (lastInitializedTheme !== theme) {
     mermaid.initialize({
       startOnLoad: false,
-      theme: 'default',
+      theme,
       securityLevel: 'strict', // Prevent XSS
       fontFamily: 'inherit',
     });
-    mermaidInitialized = true;
+    lastInitializedTheme = theme;
   }
   return mermaid;
 }
 
 import { cn } from '@/ui/lib/utils';
+import { useDarkMode } from '@/ui/hooks/use-dark-mode';
 import { Button } from '@/ui/components/ui/button';
 import {
   Bold,
@@ -1295,11 +1301,18 @@ function escapeHtml(text: string): string {
  * Scans for elements with data-mermaid attribute and renders the diagrams.
  *
  * Mermaid is lazy-loaded (~1MB) only when diagrams are detected (#685).
+ * Uses Mermaid's built-in theme support for dark mode (#686).
  *
  * Security: Mermaid is configured with securityLevel: 'strict' which sanitizes
  * the SVG output. Error messages are escaped before display.
  */
-function MermaidRenderer({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }): null {
+function MermaidRenderer({
+  containerRef,
+  isDark = false,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  isDark?: boolean;
+}): null {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -1312,8 +1325,8 @@ function MermaidRenderer({ containerRef }: { containerRef: React.RefObject<HTMLD
 
     // Render each mermaid diagram
     const renderDiagrams = async () => {
-      // Lazy load mermaid only when diagrams are present (#685)
-      const mermaid = await getMermaid();
+      // Lazy load mermaid with current theme only when diagrams are present (#685, #686)
+      const mermaid = await getMermaid(isDark);
 
       mermaidElements.forEach(async (element, index) => {
         if (!isMounted) return;
@@ -1388,7 +1401,7 @@ function MermaidRenderer({ containerRef }: { containerRef: React.RefObject<HTMLD
     return () => {
       isMounted = false;
     };
-  }, [containerRef]);
+  }, [containerRef, isDark]);
 
   return null;
 }
@@ -1407,6 +1420,8 @@ export function LexicalNoteEditor({
   const [mode, setMode] = useState<EditorMode>(initialMode);
   const [markdownContent, setMarkdownContent] = useState(initialContent);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  // Use dark mode state for Mermaid theme (#686)
+  const { isDark } = useDarkMode();
 
   // Handle markdown textarea changes
   const handleMarkdownChange = useCallback(
@@ -1460,7 +1475,7 @@ export function LexicalNoteEditor({
           // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: previewHtml }}
         />
-        <MermaidRenderer containerRef={previewContainerRef} />
+        <MermaidRenderer containerRef={previewContainerRef} isDark={isDark} />
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground bg-muted/20">
           <span>{charCount} characters | {wordCount} words</span>
         </div>
