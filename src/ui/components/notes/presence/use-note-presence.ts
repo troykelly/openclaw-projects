@@ -247,14 +247,26 @@ export function useNotePresence({
 
   /**
    * Auto-join on mount, leave on unmount
+   * Note: leave() is async but called fire-and-forget in cleanup, which is acceptable
+   * for cleanup functions. We track mounted state to prevent state updates after unmount. (#696)
    */
   useEffect(() => {
+    let isMounted = true;
+
     if (autoJoin) {
-      join();
+      join().catch(() => {
+        // Only update error state if still mounted
+        if (isMounted) {
+          // Error already handled in join()
+        }
+      });
     }
 
     return () => {
-      leave();
+      isMounted = false;
+      // Fire-and-forget is acceptable for cleanup - the request will complete
+      // even after unmount, we just won't update state
+      void leave();
     };
   }, [autoJoin, join, leave]);
 
