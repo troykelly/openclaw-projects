@@ -81,6 +81,11 @@ import type {
   Note as UINote,
   Notebook as UINotebook,
 } from '@/ui/components/notes/types';
+import {
+  validateNote,
+  validateNotebook,
+  getValidationErrorMessage,
+} from '@/ui/lib/validation';
 
 /**
  * Transform API Note to UI Note type.
@@ -293,6 +298,18 @@ export function NotesPage(): React.JSX.Element {
       visibility: NoteVisibility;
       hideFromAgents: boolean;
     }) => {
+      // Client-side validation before API call
+      const validation = validateNote({
+        title: data.title,
+        content: data.content,
+        notebookId: data.notebookId,
+      });
+
+      if (!validation.valid) {
+        // Throw error with validation message for consumer to handle
+        throw new Error(getValidationErrorMessage(validation));
+      }
+
       if (view.type === 'new') {
         const body: CreateNoteBody = {
           title: data.title,
@@ -685,6 +702,7 @@ function NotebookFormDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#6366f1');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Reset form when dialog opens
   React.useEffect(() => {
@@ -692,11 +710,26 @@ function NotebookFormDialog({
       setName(notebook?.name ?? '');
       setDescription(notebook?.description ?? '');
       setColor(notebook?.color ?? '#6366f1');
+      setValidationError(null);
     }
   }, [open, notebook]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side validation before API call
+    const validation = validateNotebook({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      color,
+    });
+
+    if (!validation.valid) {
+      setValidationError(getValidationErrorMessage(validation));
+      return;
+    }
+
+    setValidationError(null);
     await onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -704,7 +737,13 @@ function NotebookFormDialog({
     });
   };
 
-  const isValid = name.trim().length > 0;
+  // Validate on input change to provide real-time feedback
+  const validation = validateNotebook({
+    name: name.trim(),
+    description: description.trim() || undefined,
+    color,
+  });
+  const isValid = validation.valid;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -761,6 +800,17 @@ function NotebookFormDialog({
               <span className="text-sm text-muted-foreground">{color}</span>
             </div>
           </div>
+
+          {/* Validation error display */}
+          {validationError && (
+            <div
+              className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+              role="alert"
+              data-testid="notebook-validation-error"
+            >
+              {validationError}
+            </div>
+          )}
 
           <DialogFooter>
             <Button
