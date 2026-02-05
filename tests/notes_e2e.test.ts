@@ -17,6 +17,142 @@ import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
+// ============================================
+// Response Type Definitions for E2E Tests
+// ============================================
+
+/** Note visibility options */
+type NoteVisibility = 'private' | 'shared' | 'public';
+
+/** Note share permission levels */
+type SharePermission = 'read' | 'read_write' | 'admin';
+
+/** Base note response from API */
+interface NoteResponse {
+  id: string;
+  title: string;
+  content: string | null;
+  notebookId: string | null;
+  userEmail: string;
+  visibility: NoteVisibility;
+  isPinned: boolean;
+  hideFromAgents: boolean;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Notebook response from API */
+interface NotebookResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  userEmail: string;
+  parentNotebookId: string | null;
+  noteCount: number;
+  createdAt: string;
+  updatedAt: string;
+  notes?: NoteResponse[];
+  children?: NotebookResponse[];
+}
+
+/** Note share response from API */
+interface NoteShareResponse {
+  id: string;
+  noteId: string;
+  sharedWithEmail: string;
+  permission: SharePermission;
+  createdAt: string;
+}
+
+/** Share link response from API */
+interface ShareLinkResponse {
+  id: string;
+  noteId: string;
+  token: string;
+  url: string;
+  permission: SharePermission;
+  expiresAt: string | null;
+  isSingleView: boolean;
+  createdAt: string;
+}
+
+/** Shared note access response */
+interface SharedNoteAccessResponse {
+  note: NoteResponse;
+  permission: SharePermission;
+}
+
+/** Note version response from API */
+interface NoteVersionResponse {
+  id: string;
+  noteId: string;
+  versionNumber: number;
+  title: string;
+  content: string | null;
+  createdAt: string;
+  createdBy: string;
+}
+
+/** Version comparison response */
+interface VersionCompareResponse {
+  from: NoteVersionResponse;
+  to: NoteVersionResponse;
+  diff: {
+    titleChanged: boolean;
+    contentChanged: boolean;
+    tagsChanged: boolean;
+  };
+}
+
+/** Notes list response from API */
+interface NotesListResponse {
+  notes: NoteResponse[];
+  total: number;
+}
+
+/** Notebooks list response from API */
+interface NotebooksListResponse {
+  notebooks: NotebookResponse[];
+}
+
+/** Notebook tree response from API */
+interface NotebookTreeResponse {
+  notebooks: (NotebookResponse & { children: NotebookResponse[] })[];
+}
+
+/** Note versions list response from API */
+interface NoteVersionsListResponse {
+  versions: NoteVersionResponse[];
+}
+
+/** Search result item */
+interface SearchResultItem {
+  id: string;
+  title: string;
+  content: string | null;
+  score?: number;
+}
+
+/** Search response from API */
+interface SearchResponse {
+  results: SearchResultItem[];
+  total: number;
+}
+
+/** API error response */
+interface ErrorResponse {
+  error: string;
+  message?: string;
+}
+
+/** Move/copy notes response */
+interface MoveNotesResponse {
+  moved: string[];
+}
+
 describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
   const app = buildServer();
   let pool: Pool;
@@ -92,7 +228,8 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         url: '/api/notes',
         payload: { user_email: primaryUser, title: 'Navigation Test' },
       });
-      const noteId = createRes.json().id;
+      const note = createRes.json<NoteResponse>();
+      const noteId = note.id;
 
       const res = await app.inject({
         method: 'GET',
@@ -123,7 +260,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Test Notebook' },
       });
-      const notebookId = nbRes.json().id;
+      const notebookId = nbRes.json<NotebookResponse>().id;
 
       const res = await app.inject({
         method: 'GET',
@@ -156,7 +293,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       });
 
       expect(nbRes.statusCode).toBe(201);
-      const notebook = nbRes.json();
+      const notebook = nbRes.json<NotebookResponse>();
       expect(notebook.name).toBe('Project Notes');
       expect(notebook.noteCount).toBe(0);
 
@@ -174,7 +311,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       });
 
       expect(note1Res.statusCode).toBe(201);
-      const note1 = note1Res.json();
+      const note1 = note1Res.json<NoteResponse>();
       expect(note1.notebookId).toBe(notebook.id);
 
       const note2Res = await app.inject({
@@ -199,7 +336,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       });
 
       expect(nbGetRes.statusCode).toBe(200);
-      expect(nbGetRes.json().notes).toHaveLength(2);
+      expect(nbGetRes.json<NotebookResponse>().notes).toHaveLength(2);
 
       // 4. Update a note
       const updateRes = await app.inject({
@@ -213,7 +350,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       });
 
       expect(updateRes.statusCode).toBe(200);
-      expect(updateRes.json().title).toBe('Updated Meeting Notes');
+      expect(updateRes.json<NoteResponse>().title).toBe('Updated Meeting Notes');
 
       // 5. Delete a note
       const deleteRes = await app.inject({
@@ -231,7 +368,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         query: { user_email: primaryUser, notebook_id: notebook.id },
       });
 
-      expect(listRes.json().notes).toHaveLength(1);
+      expect(listRes.json<NotesListResponse>().notes).toHaveLength(1);
 
       // 7. Restore the deleted note
       const restoreRes = await app.inject({
@@ -249,7 +386,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         query: { user_email: primaryUser, notebook_id: notebook.id },
       });
 
-      expect(listRes2.json().notes).toHaveLength(2);
+      expect(listRes2.json<NotesListResponse>().notes).toHaveLength(2);
 
       // 9. Delete the notebook (moves notes to root)
       const nbDeleteRes = await app.inject({
@@ -267,7 +404,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         query: { user_email: primaryUser },
       });
 
-      const notes = finalListRes.json().notes;
+      const notes = finalListRes.json<NotesListResponse>().notes;
       expect(notes).toHaveLength(2);
       expect(notes.every((n: { notebookId: string | null }) => n.notebookId === null)).toBe(true);
     });
@@ -279,7 +416,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Root' },
       });
-      const rootId = rootRes.json().id;
+      const rootId = rootRes.json<NotebookResponse>().id;
 
       // 2. Create child notebook
       const childRes = await app.inject({
@@ -291,8 +428,9 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
           parent_notebook_id: rootId,
         },
       });
-      const childId = childRes.json().id;
-      expect(childRes.json().parentNotebookId).toBe(rootId);
+      const childNotebook = childRes.json<NotebookResponse>();
+      const childId = childNotebook.id;
+      expect(childNotebook.parentNotebookId).toBe(rootId);
 
       // 3. Create grandchild notebook
       const grandchildRes = await app.inject({
@@ -304,7 +442,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
           parent_notebook_id: childId,
         },
       });
-      expect(grandchildRes.json().parentNotebookId).toBe(childId);
+      expect(grandchildRes.json<NotebookResponse>().parentNotebookId).toBe(childId);
 
       // 4. Get tree view
       const treeRes = await app.inject({
@@ -314,7 +452,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       });
 
       expect(treeRes.statusCode).toBe(200);
-      const tree = treeRes.json();
+      const tree = treeRes.json<NotebookTreeResponse>();
       expect(tree.notebooks).toHaveLength(1);
       expect(tree.notebooks[0].name).toBe('Root');
       expect(tree.notebooks[0].children).toHaveLength(1);
@@ -733,7 +871,7 @@ $$
       });
 
       expect(shareRes.statusCode).toBe(201);
-      const share = shareRes.json();
+      const share = shareRes.json<NoteShareResponse>();
       expect(share.sharedWithEmail).toBe(secondaryUser);
 
       // 4. Secondary user can now access
@@ -743,7 +881,7 @@ $$
         query: { user_email: secondaryUser },
       });
       expect(afterShareRes.statusCode).toBe(200);
-      expect(afterShareRes.json().title).toBe('Shared Document');
+      expect(afterShareRes.json<NoteResponse>().title).toBe('Shared Document');
 
       // 5. Verify in shared-with-me list
       const sharedListRes = await app.inject({
@@ -752,7 +890,7 @@ $$
         query: { user_email: secondaryUser },
       });
       expect(sharedListRes.statusCode).toBe(200);
-      expect(sharedListRes.json().notes).toHaveLength(1);
+      expect(sharedListRes.json<NotesListResponse>().notes).toHaveLength(1);
 
       // 6. Secondary user cannot edit with read permission
       const editRes = await app.inject({
@@ -815,7 +953,7 @@ $$
           content: 'Content accessible via link',
         },
       });
-      const noteId = createRes.json().id;
+      const noteId = createRes.json<NoteResponse>().id;
 
       // 2. Create share link
       const linkRes = await app.inject({
@@ -825,7 +963,7 @@ $$
       });
 
       expect(linkRes.statusCode).toBe(201);
-      const link = linkRes.json();
+      const link = linkRes.json<ShareLinkResponse>();
       expect(link.token).toBeDefined();
       expect(link.url).toContain(link.token);
 
@@ -836,7 +974,7 @@ $$
       });
 
       expect(accessRes.statusCode).toBe(200);
-      const sharedNote = accessRes.json();
+      const sharedNote = accessRes.json<SharedNoteAccessResponse>();
       expect(sharedNote.note.title).toBe('Link Shared Note');
       expect(sharedNote.permission).toBe('read');
     });
@@ -852,7 +990,7 @@ $$
           content: 'View once',
         },
       });
-      const noteId = createRes.json().id;
+      const noteId = createRes.json<NoteResponse>().id;
 
       // 2. Create single-view link
       const linkRes = await app.inject({
@@ -863,7 +1001,7 @@ $$
           isSingleView: true,
         },
       });
-      const token = linkRes.json().token;
+      const token = linkRes.json<ShareLinkResponse>().token;
 
       // 3. First access works
       const access1Res = await app.inject({
@@ -887,7 +1025,7 @@ $$
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Shared Notebook' },
       });
-      const notebookId = nbRes.json().id;
+      const notebookId = nbRes.json<NotebookResponse>().id;
 
       await app.inject({
         method: 'POST',
@@ -918,7 +1056,7 @@ $$
         query: { user_email: secondaryUser },
       });
       expect(sharedNbRes.statusCode).toBe(200);
-      expect(sharedNbRes.json().notebooks).toHaveLength(1);
+      expect(sharedNbRes.json<NotebooksListResponse>().notebooks).toHaveLength(1);
     });
   });
 
@@ -938,7 +1076,7 @@ $$
           content: 'Original content v1',
         },
       });
-      const noteId = createRes.json().id;
+      const noteId = createRes.json<NoteResponse>().id;
 
       // 2. Edit the note multiple times
       await app.inject({
@@ -969,7 +1107,7 @@ $$
       });
 
       expect(versionsRes.statusCode).toBe(200);
-      const versions = versionsRes.json();
+      const versions = versionsRes.json<NoteVersionsListResponse>();
       expect(versions.versions.length).toBeGreaterThanOrEqual(2);
 
       // 4. Get specific version
@@ -980,7 +1118,7 @@ $$
       });
 
       expect(v1Res.statusCode).toBe(200);
-      const v1 = v1Res.json();
+      const v1 = v1Res.json<NoteVersionResponse>();
       expect(v1.versionNumber).toBe(1);
       expect(v1.title).toBe('Version Test');
       expect(v1.content).toBe('Original content v1');
@@ -997,7 +1135,7 @@ $$
       });
 
       expect(compareRes.statusCode).toBe(200);
-      const diff = compareRes.json();
+      const diff = compareRes.json<VersionCompareResponse>();
       expect(diff.diff.titleChanged).toBe(true);
       expect(diff.diff.contentChanged).toBe(true);
 
@@ -1009,7 +1147,7 @@ $$
       });
 
       expect(restoreRes.statusCode).toBe(200);
-      expect(restoreRes.json().title).toBe('Version Test');
+      expect(restoreRes.json<NoteResponse>().title).toBe('Version Test');
 
       // 7. Verify note content was restored
       const noteRes = await app.inject({
@@ -1018,8 +1156,9 @@ $$
         query: { user_email: primaryUser },
       });
 
-      expect(noteRes.json().title).toBe('Version Test');
-      expect(noteRes.json().content).toBe('Original content v1');
+      const restoredNote = noteRes.json<NoteResponse>();
+      expect(restoredNote.title).toBe('Version Test');
+      expect(restoredNote.content).toBe('Original content v1');
 
       // 8. Verify new version was created (non-destructive restore)
       const finalVersionsRes = await app.inject({
@@ -1029,7 +1168,7 @@ $$
       });
 
       // Should have more versions now (restore creates a new version)
-      expect(finalVersionsRes.json().versions.length).toBeGreaterThan(versions.versions.length);
+      expect(finalVersionsRes.json<NoteVersionsListResponse>().versions.length).toBeGreaterThan(versions.versions.length);
     });
   });
 
@@ -1165,7 +1304,7 @@ $$
         payload: { title: 'Test' },
       });
       expect(res1.statusCode).toBe(400);
-      expect(res1.json().error).toContain('user_email');
+      expect(res1.json<ErrorResponse>().error).toContain('user_email');
 
       // Missing title
       const res2 = await app.inject({
@@ -1174,7 +1313,7 @@ $$
         payload: { user_email: primaryUser },
       });
       expect(res2.statusCode).toBe(400);
-      expect(res2.json().error).toContain('title');
+      expect(res2.json<ErrorResponse>().error).toContain('title');
     });
 
     it('returns 400 for invalid visibility', async () => {
@@ -1188,7 +1327,7 @@ $$
         },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('visibility');
+      expect(res.json<ErrorResponse>().error).toContain('visibility');
     });
 
     it('returns 404 for non-existent resources', async () => {
@@ -1222,7 +1361,7 @@ $$
           visibility: 'private',
         },
       });
-      const noteId = createRes.json().id;
+      const noteId = createRes.json<NoteResponse>().id;
 
       // Try to delete as secondary user
       const deleteRes = await app.inject({
@@ -1242,7 +1381,7 @@ $$
           title: 'Test Note',
         },
       });
-      const noteId = createRes.json().id;
+      const noteId = createRes.json<NoteResponse>().id;
 
       // First share
       await app.inject({
@@ -1279,14 +1418,14 @@ $$
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Source' },
       });
-      const nb1Id = nb1Res.json().id;
+      const nb1Id = nb1Res.json<NotebookResponse>().id;
 
       const nb2Res = await app.inject({
         method: 'POST',
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Target' },
       });
-      const nb2Id = nb2Res.json().id;
+      const nb2Id = nb2Res.json<NotebookResponse>().id;
 
       // Create note in first notebook
       const noteRes = await app.inject({
@@ -1298,7 +1437,7 @@ $$
           notebook_id: nb1Id,
         },
       });
-      const noteId = noteRes.json().id;
+      const noteId = noteRes.json<NoteResponse>().id;
 
       // Move to second notebook
       const moveRes = await app.inject({
@@ -1312,7 +1451,7 @@ $$
       });
 
       expect(moveRes.statusCode).toBe(200);
-      expect(moveRes.json().moved).toContain(noteId);
+      expect(moveRes.json<MoveNotesResponse>().moved).toContain(noteId);
 
       // Verify note is now in second notebook
       const checkRes = await app.inject({
@@ -1320,7 +1459,7 @@ $$
         url: `/api/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
-      expect(checkRes.json().notebookId).toBe(nb2Id);
+      expect(checkRes.json<NoteResponse>().notebookId).toBe(nb2Id);
     });
 
     it('copies notes to another notebook', async () => {
@@ -1330,7 +1469,7 @@ $$
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Target' },
       });
-      const nbId = nbRes.json().id;
+      const nbId = nbRes.json<NotebookResponse>().id;
 
       // Create note (no notebook)
       const noteRes = await app.inject({
@@ -1342,7 +1481,7 @@ $$
           content: 'Original content',
         },
       });
-      const originalId = noteRes.json().id;
+      const originalId = noteRes.json<NoteResponse>().id;
 
       // Copy to notebook
       const copyRes = await app.inject({
@@ -1356,7 +1495,7 @@ $$
       });
 
       expect(copyRes.statusCode).toBe(200);
-      const copiedId = copyRes.json().moved[0];
+      const copiedId = copyRes.json<MoveNotesResponse>().moved[0];
       expect(copiedId).not.toBe(originalId); // New ID
 
       // Verify original unchanged
@@ -1365,7 +1504,7 @@ $$
         url: `/api/notes/${originalId}`,
         query: { user_email: primaryUser },
       });
-      expect(origCheck.json().notebookId).toBeNull();
+      expect(origCheck.json<NoteResponse>().notebookId).toBeNull();
 
       // Verify copy in notebook
       const copyCheck = await app.inject({
@@ -1373,8 +1512,9 @@ $$
         url: `/api/notes/${copiedId}`,
         query: { user_email: primaryUser },
       });
-      expect(copyCheck.json().notebookId).toBe(nbId);
-      expect(copyCheck.json().title).toBe('Original Note');
+      const copiedNote = copyCheck.json<NoteResponse>();
+      expect(copiedNote.notebookId).toBe(nbId);
+      expect(copiedNote.title).toBe('Original Note');
     });
   });
 });
