@@ -832,8 +832,19 @@ const theme = {
   },
 };
 
+/**
+ * Error handler for Lexical editor.
+ * Logs errors only in development to avoid leaking internal state in production.
+ * Issue #676: Production error handling should use error tracking service.
+ */
 function onError(error: Error): void {
-  console.error('[LexicalEditor]', error);
+  // Only log in development to avoid information leakage in production
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.error('[LexicalEditor]', error);
+  }
+  // In production, this would report to error tracking service (e.g., Sentry)
+  // captureException(error, { tags: { component: 'LexicalEditor' } });
 }
 
 /**
@@ -899,7 +910,11 @@ function MermaidRenderer({ containerRef }: { containerRef: React.RefObject<HTMLD
         element.classList.add('mermaid-rendered');
       } catch (error) {
         // Show error message in the placeholder (escaped for safety)
-        console.error('[MermaidRenderer]', error);
+        // Log in development only to avoid information leakage in production
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('[MermaidRenderer]', error);
+        }
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
         // Clear placeholder
