@@ -39,7 +39,8 @@ jobs:
   integration-test:
     name: Compose Stack Integration Test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Allow extra time for building images locally on PR branches
+    timeout-minutes: 30
 
     env:
       # Test environment configuration
@@ -66,9 +67,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull container images
+      - name: Pull or build container images
         run: |
-          docker compose pull --quiet || echo "Some images may need to be built"
+          # Try to pull published images first (faster, works on main after merge)
+          # If pull fails (e.g., PR branch where images aren't published yet), build locally
+          if ! docker compose pull 2>&1 | tee /tmp/pull.log; then
+            if grep -q "manifest unknown" /tmp/pull.log; then
+              echo "::notice::Published images not available for this branch, building locally..."
+              docker compose build
+            else
+              echo "::error::Pull failed for unexpected reason"
+              cat /tmp/pull.log
+              exit 1
+            fi
+          fi
 
       - name: Run integration tests
         run: |
