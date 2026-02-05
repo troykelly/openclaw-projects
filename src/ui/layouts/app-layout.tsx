@@ -19,8 +19,10 @@ import {
   type CreatedWorkItem,
 } from '@/ui/components/work-item-create';
 import { apiClient } from '@/ui/lib/api-client';
-import type { SearchResponse, AppBootstrap } from '@/ui/lib/api-types';
+import type { SearchResponse, AppBootstrap, Note, Notebook } from '@/ui/lib/api-types';
 import { readBootstrap } from '@/ui/lib/work-item-utils';
+import { useNotes } from '@/ui/hooks/queries/use-notes';
+import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
 
 /** Map route pathname segments to sidebar section IDs. */
 function pathToSection(pathname: string): string {
@@ -51,12 +53,21 @@ const sectionRoutes: Record<string, string> = {
 };
 
 /**
+ * Context for notes breadcrumbs - provides actual names instead of generic labels (#671)
+ */
+interface NotesBreadcrumbContext {
+  noteName?: string;
+  notebookName?: string;
+}
+
+/**
  * Derive breadcrumbs from the current pathname and bootstrap data.
  * Returns an array of breadcrumb items for the AppShell header.
  */
 function deriveBreadcrumbs(
   pathname: string,
   bootstrap: AppBootstrap | null,
+  notesContext?: NotesBreadcrumbContext,
 ): BreadcrumbItem[] {
   if (pathname.startsWith('/dashboard')) {
     return [{ id: 'dashboard', label: 'Dashboard' }];
@@ -77,7 +88,7 @@ function deriveBreadcrumbs(
     return [{ id: 'settings', label: 'Settings' }];
   }
 
-  // Notes routes
+  // Notes routes - use actual names when available (#671)
   if (pathname.startsWith('/notes') || pathname.startsWith('/notebooks')) {
     const notesCrumbs: BreadcrumbItem[] = [
       { id: 'notes', label: 'Notes', href: '/notes' },
@@ -87,8 +98,12 @@ function deriveBreadcrumbs(
     const notebookNoteMatch = /^\/notebooks\/([^/]+)\/notes\/([^/]+)\/?$/.exec(pathname);
     if (notebookNoteMatch) {
       notesCrumbs.push(
-        { id: 'notebook', label: 'Notebook', href: `/notebooks/${notebookNoteMatch[1]}` },
-        { id: 'note', label: 'Note' },
+        {
+          id: 'notebook',
+          label: notesContext?.notebookName ?? 'Notebook',
+          href: `/notebooks/${notebookNoteMatch[1]}`,
+        },
+        { id: 'note', label: notesContext?.noteName ?? 'Note' },
       );
       return notesCrumbs;
     }
@@ -96,14 +111,17 @@ function deriveBreadcrumbs(
     // /notebooks/:notebookId
     const notebookMatch = /^\/notebooks\/([^/]+)\/?$/.exec(pathname);
     if (notebookMatch) {
-      notesCrumbs.push({ id: 'notebook', label: 'Notebook' });
+      notesCrumbs.push({
+        id: 'notebook',
+        label: notesContext?.notebookName ?? 'Notebook',
+      });
       return notesCrumbs;
     }
 
     // /notes/:noteId
     const noteMatch = /^\/notes\/([^/]+)\/?$/.exec(pathname);
     if (noteMatch) {
-      notesCrumbs.push({ id: 'note', label: 'Note' });
+      notesCrumbs.push({ id: 'note', label: notesContext?.noteName ?? 'Note' });
       return notesCrumbs;
     }
 
@@ -168,14 +186,59 @@ export function AppLayout(): React.JSX.Element {
     string | undefined
   >(undefined);
 
+  // Extract note/notebook IDs from URL for breadcrumb labels (#671)
+  const { noteId, notebookId } = useMemo(() => {
+    // /notebooks/:notebookId/notes/:noteId
+    const notebookNoteMatch = /^\/notebooks\/([^/]+)\/notes\/([^/]+)/.exec(location.pathname);
+    if (notebookNoteMatch) {
+      return { notebookId: notebookNoteMatch[1], noteId: notebookNoteMatch[2] };
+    }
+    // /notebooks/:notebookId
+    const notebookMatch = /^\/notebooks\/([^/]+)/.exec(location.pathname);
+    if (notebookMatch) {
+      return { notebookId: notebookMatch[1], noteId: undefined };
+    }
+    // /notes/:noteId
+    const noteMatch = /^\/notes\/([^/]+)/.exec(location.pathname);
+    if (noteMatch) {
+      return { notebookId: undefined, noteId: noteMatch[1] };
+    }
+    return { notebookId: undefined, noteId: undefined };
+  }, [location.pathname]);
+
+  // Fetch notes data only when on notes routes (for breadcrumb names)
+  const isNotesRoute = location.pathname.startsWith('/notes') || location.pathname.startsWith('/notebooks');
+  const { data: notesData } = useNotes(
+    { notebookId },
+    { enabled: isNotesRoute && Boolean(noteId) }
+  );
+  const { data: notebooksData } = useNotebooks(
+    { includeNoteCounts: false },
+    { enabled: isNotesRoute && Boolean(notebookId) }
+  );
+
+  // Build notes context for breadcrumbs
+  const notesContext = useMemo<NotesBreadcrumbContext | undefined>(() => {
+    if (!isNotesRoute) return undefined;
+
+    const noteName = noteId
+      ? notesData?.notes.find((n: Note) => n.id === noteId)?.title
+      : undefined;
+    const notebookName = notebookId
+      ? notebooksData?.notebooks.find((nb: Notebook) => nb.id === notebookId)?.name
+      : undefined;
+
+    return { noteName, notebookName };
+  }, [isNotesRoute, noteId, notebookId, notesData?.notes, notebooksData?.notebooks]);
+
   const activeSection = useMemo(
     () => pathToSection(location.pathname),
     [location.pathname],
   );
 
   const breadcrumbs = useMemo(
-    () => deriveBreadcrumbs(location.pathname, bootstrap),
-    [location.pathname, bootstrap],
+    () => deriveBreadcrumbs(location.pathname, bootstrap, notesContext),
+    [location.pathname, bootstrap, notesContext],
   );
 
   const handleSectionChange = useCallback(

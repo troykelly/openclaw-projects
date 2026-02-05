@@ -60,15 +60,20 @@ function buildNotebooksQueryString(params?: ListNotebooksParams): string {
  * Fetch list of notebooks with optional filters.
  *
  * @param params - Optional filter/pagination params
+ * @param options - Optional query options (e.g., enabled)
  * @returns TanStack Query result with `NotebooksResponse`
  */
-export function useNotebooks(params?: ListNotebooksParams) {
+export function useNotebooks(
+  params?: ListNotebooksParams,
+  options?: { enabled?: boolean }
+) {
   const queryString = buildNotebooksQueryString(params);
 
   return useQuery({
     queryKey: notebookKeys.list(params),
     queryFn: ({ signal }) =>
       apiClient.get<NotebooksResponse>(`/api/notebooks${queryString}`, { signal }),
+    enabled: options?.enabled,
   });
 }
 

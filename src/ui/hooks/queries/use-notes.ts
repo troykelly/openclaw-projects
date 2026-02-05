@@ -79,15 +79,20 @@ function buildNotesQueryString(params?: ListNotesParams): string {
  * Fetch list of notes with optional filters.
  *
  * @param params - Optional filter/pagination params
+ * @param options - Optional query options (e.g., enabled)
  * @returns TanStack Query result with `NotesResponse`
  */
-export function useNotes(params?: ListNotesParams) {
+export function useNotes(
+  params?: ListNotesParams,
+  options?: { enabled?: boolean }
+) {
   const queryString = buildNotesQueryString(params);
 
   return useQuery({
     queryKey: noteKeys.list(params),
     queryFn: ({ signal }) =>
       apiClient.get<NotesResponse>(`/api/notes${queryString}`, { signal }),
+    enabled: options?.enabled,
   });
 }
 
