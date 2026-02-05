@@ -98,16 +98,18 @@ export function useNotePresence({
 
   /**
    * Join note presence via API
+   * Security: userEmail sent in body instead of query params (#689)
    */
   const join = useCallback(async () => {
     if (hasJoinedRef.current) return;
 
     try {
       const response = await fetch(
-        `${apiUrl}/notes/${noteId}/presence?user_email=${encodeURIComponent(userEmail)}`,
+        `${apiUrl}/notes/${noteId}/presence`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userEmail }),
         }
       );
 
@@ -128,14 +130,18 @@ export function useNotePresence({
 
   /**
    * Leave note presence via API
+   * Security: userEmail sent in header instead of query params (#689)
    */
   const leave = useCallback(async () => {
     if (!hasJoinedRef.current) return;
 
     try {
       await fetch(
-        `${apiUrl}/notes/${noteId}/presence?user_email=${encodeURIComponent(userEmail)}`,
-        { method: 'DELETE' }
+        `${apiUrl}/notes/${noteId}/presence`,
+        {
+          method: 'DELETE',
+          headers: { 'X-User-Email': userEmail },
+        }
       );
       hasJoinedRef.current = false;
       setIsConnected(false);
@@ -147,15 +153,16 @@ export function useNotePresence({
 
   /**
    * Update cursor position via API
+   * Security: userEmail sent in body instead of query params (#689)
    */
   const updateCursor = useCallback(async (position: { line: number; column: number }) => {
     try {
       await fetch(
-        `${apiUrl}/notes/${noteId}/presence/cursor?user_email=${encodeURIComponent(userEmail)}`,
+        `${apiUrl}/notes/${noteId}/presence/cursor`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cursorPosition: position }),
+          body: JSON.stringify({ userEmail, cursorPosition: position }),
         }
       );
     } catch (err) {

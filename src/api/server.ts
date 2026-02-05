@@ -11138,17 +11138,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ============================================================================
 
   // POST /api/notes/:id/presence - Join note presence (start viewing)
+  // Security: user_email moved from query params to body (#689)
   app.post('/api/notes/:id/presence', async (req, reply) => {
     const {
       joinNotePresence,
     } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
-    const body = req.body as { cursorPosition?: { line: number; column: number } } | null;
+    const body = req.body as {
+      userEmail?: string;
+      cursorPosition?: { line: number; column: number };
+    } | null;
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    if (!body?.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required in request body' });
     }
 
     const pool = createPool();
@@ -11157,8 +11160,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const collaborators = await joinNotePresence(
         pool,
         params.id,
-        query.user_email,
-        body?.cursorPosition
+        body.userEmail,
+        body.cursorPosition
       );
       return reply.send({ collaborators });
     } catch (err) {
@@ -11173,22 +11176,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/notes/:id/presence - Leave note presence (stop viewing)
+  // Security: user_email moved from query params to X-User-Email header (#689)
   app.delete('/api/notes/:id/presence', async (req, reply) => {
     const {
       leaveNotePresence,
     } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
+    const userEmail = req.headers['x-user-email'] as string | undefined;
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    if (!userEmail) {
+      return reply.code(400).send({ error: 'X-User-Email header is required' });
     }
 
     const pool = createPool();
 
     try {
-      await leaveNotePresence(pool, params.id, query.user_email);
+      await leaveNotePresence(pool, params.id, userEmail);
       return reply.code(204).send();
     } finally {
       await pool.end();
@@ -11196,22 +11200,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/notes/:id/presence - Get current viewers
+  // Security: user_email moved from query params to X-User-Email header (#689)
   app.get('/api/notes/:id/presence', async (req, reply) => {
     const {
       getNotePresence,
     } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
+    const userEmail = req.headers['x-user-email'] as string | undefined;
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    if (!userEmail) {
+      return reply.code(400).send({ error: 'X-User-Email header is required' });
     }
 
     const pool = createPool();
 
     try {
-      const collaborators = await getNotePresence(pool, params.id, query.user_email);
+      const collaborators = await getNotePresence(pool, params.id, userEmail);
       return reply.send({ collaborators });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -11225,27 +11230,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PUT /api/notes/:id/presence/cursor - Update cursor position
+  // Security: user_email moved from query params to body (#689)
   app.put('/api/notes/:id/presence/cursor', async (req, reply) => {
     const {
       updateCursorPosition,
     } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
-    const body = req.body as { cursorPosition: { line: number; column: number } } | null;
+    const body = req.body as {
+      userEmail?: string;
+      cursorPosition: { line: number; column: number };
+    } | null;
 
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
+    if (!body?.userEmail) {
+      return reply.code(400).send({ error: 'userEmail is required in request body' });
     }
 
-    if (!body?.cursorPosition) {
+    if (!body.cursorPosition) {
       return reply.code(400).send({ error: 'cursorPosition is required' });
     }
 
     const pool = createPool();
 
     try {
-      await updateCursorPosition(pool, params.id, query.user_email, body.cursorPosition);
+      await updateCursorPosition(pool, params.id, body.userEmail, body.cursorPosition);
       return reply.code(204).send();
     } finally {
       await pool.end();
