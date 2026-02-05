@@ -2,18 +2,32 @@
  * TanStack Query mutation hooks for notes.
  *
  * Provides mutations for creating, updating, deleting, and restoring notes.
- * Includes cache invalidation for related queries.
+ * Includes cache invalidation and optimistic updates for better UX.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type {
   Note,
+  NotesResponse,
   CreateNoteBody,
   UpdateNoteBody,
   RestoreVersionResponse,
 } from '@/ui/lib/api-types.ts';
 import { noteKeys } from '@/ui/hooks/queries/use-notes.ts';
 import { notebookKeys } from '@/ui/hooks/queries/use-notebooks.ts';
+
+/** Variables for useUpdateNote mutation. */
+export interface UpdateNoteVariables {
+  /** The note ID to update. */
+  id: string;
+  /** Partial update body. */
+  body: UpdateNoteBody;
+}
+
+/** Context returned from onMutate for rollback. */
+interface UpdateNoteContext {
+  previousNote: Note | undefined;
+}
 
 /**
  * Create a new note.
@@ -51,6 +65,9 @@ export function useCreateNote() {
 /**
  * Update an existing note.
  *
+ * Supports optimistic updates for title, content, tags, and isPinned changes
+ * to provide instant UI feedback while the server request is in flight.
+ *
  * @returns TanStack mutation
  *
  * @example
@@ -63,21 +80,49 @@ export function useUpdateNote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: UpdateNoteBody }) =>
-      apiClient.put<Note>(`/api/notes/${id}`, body),
+    mutationFn: ({ id, body }: UpdateNoteVariables) =>
+      apiClient.put<Note>(`/api/notes/${encodeURIComponent(id)}`, body),
 
-    onSuccess: (note, { id }) => {
-      // Invalidate the specific note detail
+    onMutate: async ({ id, body }): Promise<UpdateNoteContext> => {
+      // Cancel in-flight queries for this note
+      await queryClient.cancelQueries({ queryKey: noteKeys.detail(id) });
+
+      // Snapshot the previous value
+      const previousNote = queryClient.getQueryData<Note>(noteKeys.detail(id));
+
+      // Optimistically update the detail cache
+      if (previousNote) {
+        const optimisticNote: Note = {
+          ...previousNote,
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.content !== undefined ? { content: body.content } : {}),
+          ...(body.tags !== undefined ? { tags: body.tags } : {}),
+          ...(body.isPinned !== undefined ? { isPinned: body.isPinned } : {}),
+          ...(body.visibility !== undefined ? { visibility: body.visibility } : {}),
+          ...(body.summary !== undefined ? { summary: body.summary } : {}),
+          updatedAt: new Date().toISOString(),
+        };
+        queryClient.setQueryData(noteKeys.detail(id), optimisticNote);
+      }
+
+      return { previousNote };
+    },
+
+    onError: (_error, { id }, context) => {
+      // Roll back on error
+      if (context?.previousNote) {
+        queryClient.setQueryData(noteKeys.detail(id), context.previousNote);
+      }
+    },
+
+    onSettled: (note, _error, { id }) => {
+      // Always refetch to ensure server state is accurate
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-
-      // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
-
-      // Invalidate versions since content may have changed
       queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
 
       // If note has a notebook, invalidate notebook queries
-      if (note.notebookId) {
+      if (note?.notebookId) {
         queryClient.invalidateQueries({
           queryKey: notebookKeys.detail(note.notebookId),
         });
@@ -87,8 +132,17 @@ export function useUpdateNote() {
   });
 }
 
+/** Context returned from onMutate for delete rollback. */
+interface DeleteNoteContext {
+  previousNote: Note | undefined;
+  previousLists: Map<string, NotesResponse>;
+}
+
 /**
  * Soft delete a note.
+ *
+ * Supports optimistic updates to immediately remove the note from lists
+ * and mark it as deleted in the detail view.
  *
  * @returns TanStack mutation
  *
@@ -102,16 +156,66 @@ export function useDeleteNote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/notes/${id}`),
+    mutationFn: (id: string) =>
+      apiClient.delete(`/api/notes/${encodeURIComponent(id)}`),
 
-    onSuccess: (_, id) => {
-      // Invalidate the specific note detail
+    onMutate: async (id): Promise<DeleteNoteContext> => {
+      // Cancel in-flight queries
+      await queryClient.cancelQueries({ queryKey: noteKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: noteKeys.lists() });
+
+      // Snapshot the previous values
+      const previousNote = queryClient.getQueryData<Note>(noteKeys.detail(id));
+      const previousLists = new Map<string, NotesResponse>();
+
+      // Get all note list queries and snapshot them
+      const listQueries = queryClient.getQueriesData<NotesResponse>({
+        queryKey: noteKeys.lists(),
+      });
+      for (const [key, data] of listQueries) {
+        if (data) {
+          previousLists.set(JSON.stringify(key), data);
+        }
+      }
+
+      // Optimistically mark note as deleted in detail cache
+      if (previousNote) {
+        queryClient.setQueryData(noteKeys.detail(id), {
+          ...previousNote,
+          deletedAt: new Date().toISOString(),
+        });
+      }
+
+      // Optimistically remove from all list caches
+      for (const [key, data] of listQueries) {
+        if (data?.notes) {
+          queryClient.setQueryData(key, {
+            ...data,
+            notes: data.notes.filter((note) => note.id !== id),
+            total: Math.max(0, data.total - 1),
+          });
+        }
+      }
+
+      return { previousNote, previousLists };
+    },
+
+    onError: (_error, id, context) => {
+      // Roll back on error
+      if (context?.previousNote) {
+        queryClient.setQueryData(noteKeys.detail(id), context.previousNote);
+      }
+      if (context?.previousLists) {
+        for (const [keyStr, data] of context.previousLists) {
+          queryClient.setQueryData(JSON.parse(keyStr), data);
+        }
+      }
+    },
+
+    onSettled: (_, _error, id) => {
+      // Always refetch to ensure server state is accurate
       queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
-
-      // Invalidate notes list queries
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
-
-      // Invalidate notebook tree to update counts
       queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       queryClient.invalidateQueries({ queryKey: notebookKeys.lists() });
     },
@@ -134,7 +238,7 @@ export function useRestoreNote() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiClient.post<Note>(`/api/notes/${id}/restore`, {}),
+      apiClient.post<Note>(`/api/notes/${encodeURIComponent(id)}/restore`, {}),
 
     onSuccess: (note, id) => {
       // Invalidate the specific note detail
@@ -171,7 +275,7 @@ export function useRestoreNoteVersion() {
   return useMutation({
     mutationFn: ({ id, versionNumber }: { id: string; versionNumber: number }) =>
       apiClient.post<RestoreVersionResponse>(
-        `/api/notes/${id}/versions/${versionNumber}/restore`,
+        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore`,
         {}
       ),
 
