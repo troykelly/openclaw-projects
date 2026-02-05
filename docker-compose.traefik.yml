@@ -367,6 +367,10 @@ services:
       VOYAGERAI_API_KEY_FILE: ${VOYAGERAI_API_KEY_FILE:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_API_KEY_FILE: ${GEMINI_API_KEY_FILE:-}
+      # SMS (Twilio) - optional
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
     expose:
       - "3001"
     healthcheck:
