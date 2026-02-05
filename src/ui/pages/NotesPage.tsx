@@ -15,9 +15,9 @@
  * - /notebooks/:notebookId - Notes in specific notebook
  * - /notebooks/:notebookId/notes/:noteId - Note in context of notebook
  */
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { Plus, X, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import {
@@ -28,9 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/ui/components/ui/dialog';
-import { Input } from '@/ui/components/ui/input';
-import { Label } from '@/ui/components/ui/label';
-import { Textarea } from '@/ui/components/ui/textarea';
 import {
   Skeleton,
   SkeletonList,
@@ -43,13 +40,11 @@ import { Card, CardContent } from '@/ui/components/ui/card';
 import {
   NotesList,
   NoteDetail,
-  ShareDialog,
-  VersionHistory,
 } from '@/ui/components/notes';
 import { NotebooksSidebar } from '@/ui/components/notebooks/notebooks-sidebar';
 
 // Query hooks
-import { useNotes, useNoteVersions } from '@/ui/hooks/queries/use-notes';
+import { useNotes } from '@/ui/hooks/queries/use-notes';
 import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
 import {
   useCreateNote,
@@ -65,75 +60,27 @@ import {
   useShareNoteWithUser,
   useRevokeNoteShare,
 } from '@/ui/hooks/mutations/use-note-sharing-mutations';
-import { useNoteShares } from '@/ui/hooks/queries/use-notes';
+
+// Extracted components (#659)
+import {
+  NotebookFormDialog,
+  ShareDialogWrapper,
+  NoteHistoryPanel,
+  toUINote,
+  toUINotebook,
+} from './notes';
+import type { ViewState, DialogState } from './notes';
 
 // Types
 import type {
-  Note as ApiNote,
-  Notebook as ApiNotebook,
   NoteVisibility,
   CreateNoteBody,
   UpdateNoteBody,
-  CreateNotebookBody,
-  UpdateNotebookBody,
 } from '@/ui/lib/api-types';
 import type {
   Note as UINote,
   Notebook as UINotebook,
 } from '@/ui/components/notes/types';
-
-/**
- * Transform API Note to UI Note type.
- * The UI components expect slightly different field names/types.
- */
-function toUINote(apiNote: ApiNote): UINote {
-  return {
-    id: apiNote.id,
-    title: apiNote.title,
-    content: apiNote.content,
-    notebookId: apiNote.notebookId ?? undefined,
-    notebookTitle: apiNote.notebook?.name,
-    visibility: apiNote.visibility,
-    hideFromAgents: apiNote.hideFromAgents,
-    isPinned: apiNote.isPinned,
-    tags: apiNote.tags,
-    createdAt: new Date(apiNote.createdAt),
-    updatedAt: new Date(apiNote.updatedAt),
-    createdBy: apiNote.userEmail,
-    version: apiNote.versionCount ?? 1,
-  };
-}
-
-/**
- * Transform API Notebook to UI Notebook type.
- */
-function toUINotebook(apiNotebook: ApiNotebook): UINotebook {
-  return {
-    id: apiNotebook.id,
-    name: apiNotebook.name,
-    description: apiNotebook.description ?? undefined,
-    color: apiNotebook.color ?? undefined,
-    noteCount: apiNotebook.noteCount ?? 0,
-    createdAt: new Date(apiNotebook.createdAt),
-    updatedAt: new Date(apiNotebook.updatedAt),
-  };
-}
-
-/** View state for the page */
-type ViewState =
-  | { type: 'list' }
-  | { type: 'new' }
-  | { type: 'detail'; noteId: string }
-  | { type: 'history'; noteId: string };
-
-/** Dialog state */
-type DialogState =
-  | { type: 'none' }
-  | { type: 'share'; noteId: string }
-  | { type: 'deleteNote'; note: UINote }
-  | { type: 'newNotebook' }
-  | { type: 'editNotebook'; notebook: UINotebook }
-  | { type: 'deleteNotebook'; notebook: UINotebook };
 
 export function NotesPage(): React.JSX.Element {
   // URL params for deep linking
@@ -663,245 +610,3 @@ export function NotesPage(): React.JSX.Element {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helper Components
-// ---------------------------------------------------------------------------
-
-interface NotebookFormDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  notebook?: UINotebook;
-  onSubmit: (data: CreateNotebookBody | UpdateNotebookBody) => Promise<void>;
-  isSubmitting: boolean;
-}
-
-function NotebookFormDialog({
-  open,
-  onOpenChange,
-  notebook,
-  onSubmit,
-  isSubmitting,
-}: NotebookFormDialogProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState('#6366f1');
-
-  // Reset form when dialog opens
-  React.useEffect(() => {
-    if (open) {
-      setName(notebook?.name ?? '');
-      setDescription(notebook?.description ?? '');
-      setColor(notebook?.color ?? '#6366f1');
-    }
-  }, [open, notebook]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSubmit({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      color,
-    });
-  };
-
-  const isValid = name.trim().length > 0;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" data-testid="notebook-form-dialog">
-        <DialogHeader>
-          <DialogTitle>
-            {notebook ? 'Edit Notebook' : 'New Notebook'}
-          </DialogTitle>
-          <DialogDescription>
-            {notebook
-              ? 'Update the notebook details below.'
-              : 'Create a new notebook to organize your notes.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="notebook-name">
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="notebook-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="My Notebook"
-              required
-              data-testid="notebook-name-input"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notebook-description">Description</Label>
-            <Textarea
-              id="notebook-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description..."
-              rows={2}
-              data-testid="notebook-description-input"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notebook-color">Color</Label>
-            <div className="flex items-center gap-2">
-              <input
-                id="notebook-color"
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-9 w-12 cursor-pointer rounded border"
-                data-testid="notebook-color-input"
-              />
-              <span className="text-sm text-muted-foreground">{color}</span>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!isValid || isSubmitting}
-              data-testid="notebook-form-submit"
-            >
-              {notebook ? 'Save' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface ShareDialogWrapperProps {
-  noteId: string;
-  onClose: () => void;
-  onShare: (email: string, permission: 'read' | 'read_write') => Promise<void>;
-  onRevoke: (shareId: string) => Promise<void>;
-}
-
-function ShareDialogWrapper({
-  noteId,
-  onClose,
-  onShare,
-  onRevoke,
-}: ShareDialogWrapperProps) {
-  const { data: sharesData, isLoading } = useNoteShares(noteId);
-
-  // Transform API shares to UI shares
-  const shares = useMemo(() => {
-    if (!sharesData?.shares) return [];
-    return sharesData.shares
-      .filter((s): s is Extract<typeof s, { type: 'user' }> => s.type === 'user')
-      .map((s) => ({
-        id: s.id,
-        noteId: s.noteId,
-        sharedWithEmail: s.sharedWithEmail,
-        permission: s.permission === 'read_write' ? 'edit' as const : 'view' as const,
-        createdAt: new Date(s.createdAt),
-        createdBy: s.createdByEmail,
-      }));
-  }, [sharesData?.shares]);
-
-  return (
-    <ShareDialog
-      open={true}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      noteTitle="Note"
-      shares={shares}
-      onShare={async (email, permission) => {
-        await onShare(email, permission === 'edit' ? 'read_write' : 'read');
-      }}
-      onRevoke={onRevoke}
-      loading={isLoading}
-    />
-  );
-}
-
-interface NoteHistoryPanelProps {
-  noteId: string;
-  onClose: () => void;
-}
-
-function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
-  const { data: versionsData, isLoading, isError } = useNoteVersions(noteId);
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <Skeleton width={200} height={24} />
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="size-4" />
-          </Button>
-        </div>
-        <SkeletonList count={5} variant="text" />
-      </div>
-    );
-  }
-
-  if (isError || !versionsData) {
-    return (
-      <div className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Version History</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="size-4" />
-          </Button>
-        </div>
-        <ErrorState
-          type="generic"
-          title="Failed to load versions"
-          description="Unable to load version history for this note."
-        />
-      </div>
-    );
-  }
-
-  // Transform to UI version format
-  const versions = versionsData.versions.map((v) => ({
-    id: v.id,
-    noteId: versionsData.noteId,
-    version: v.versionNumber,
-    title: v.title,
-    content: '', // Content not in summary
-    changedBy: v.changedByEmail ?? 'Unknown',
-    changedAt: new Date(v.createdAt),
-    changeReason: v.changeType,
-  }));
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">Version History</h2>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-      <div className="flex-1 overflow-auto">
-        <VersionHistory
-          versions={versions}
-          currentVersion={versionsData.currentVersion}
-          onRestore={(version) => {
-            // TODO: Implement restore functionality
-            console.log('Restore version:', version);
-          }}
-          className="h-full"
-        />
-      </div>
-    </div>
-  );
-}
