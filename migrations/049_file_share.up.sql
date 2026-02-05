@@ -61,11 +61,12 @@ CREATE OR REPLACE FUNCTION validate_file_share_token(
 DECLARE
   v_share RECORD;
 BEGIN
-  -- Find the share
+  -- Find the share (FOR UPDATE locks the row to prevent race conditions)
   SELECT fs.file_attachment_id, fs.expires_at, fs.download_count, fs.max_downloads
   INTO v_share
   FROM file_share fs
-  WHERE fs.share_token = p_token;
+  WHERE fs.share_token = p_token
+  FOR UPDATE;
 
   IF v_share IS NULL THEN
     RETURN QUERY SELECT NULL::uuid, false, 'Invalid or expired share link'::text;
