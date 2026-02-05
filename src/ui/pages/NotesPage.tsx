@@ -18,7 +18,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
-import { cn } from '@/ui/lib/utils';
+import { cn, validateUrlParam } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import {
   Dialog,
@@ -87,13 +87,24 @@ import {
 } from '@/ui/lib/validation';
 
 export function NotesPage(): React.JSX.Element {
-  // URL params for deep linking
-  const { noteId: urlNoteId, notebookId: urlNotebookId } = useParams<{
+  // URL params for deep linking - validate to prevent malformed URLs
+  const { noteId: rawNoteId, notebookId: rawNotebookId } = useParams<{
     noteId?: string;
     notebookId?: string;
   }>();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Validate URL params - only accept valid UUIDs (#666)
+  const urlNoteId = validateUrlParam(rawNoteId);
+  const urlNotebookId = validateUrlParam(rawNotebookId);
+
+  // Redirect to /notes if URL params are invalid (#666)
+  useEffect(() => {
+    if ((rawNoteId && !urlNoteId) || (rawNotebookId && !urlNotebookId)) {
+      navigate('/notes', { replace: true });
+    }
+  }, [rawNoteId, rawNotebookId, urlNoteId, urlNotebookId, navigate]);
 
   // View state
   const [view, setView] = useState<ViewState>({ type: 'list' });
