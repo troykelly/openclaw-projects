@@ -1,6 +1,6 @@
 /**
  * Lexical-based rich text editor for notes.
- * Part of Epic #338, Issue #629
+ * Part of Epic #338, Issues #629, #630
  *
  * Features:
  * - True WYSIWYG editing with Lexical
@@ -8,6 +8,7 @@
  * - Formatting toolbar
  * - Keyboard shortcuts
  * - Link support
+ * - Syntax-highlighted code blocks (#630)
  *
  * Security: Preview mode uses simple markdown-to-HTML conversion.
  * For production, sanitize HTML with DOMPurify to prevent XSS.
@@ -32,7 +33,14 @@ import {
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
-import { CodeNode } from '@lexical/code';
+import {
+  CodeNode,
+  CodeHighlightNode,
+  registerCodeHighlighting,
+  $createCodeNode,
+  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
+  getLanguageFriendlyName,
+} from '@lexical/code';
 import {
   $getSelection,
   $isRangeSelection,
@@ -48,6 +56,40 @@ import {
 import { $setBlocksType } from '@lexical/selection';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { TOGGLE_LINK_COMMAND } from '@lexical/link';
+import { $getNodeByKey } from 'lexical';
+import hljs from 'highlight.js/lib/core';
+// Import common languages for syntax highlighting
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import python from 'highlight.js/lib/languages/python';
+import go from 'highlight.js/lib/languages/go';
+import rust from 'highlight.js/lib/languages/rust';
+import sql from 'highlight.js/lib/languages/sql';
+import bash from 'highlight.js/lib/languages/bash';
+import json from 'highlight.js/lib/languages/json';
+import yaml from 'highlight.js/lib/languages/yaml';
+import xml from 'highlight.js/lib/languages/xml';
+import css from 'highlight.js/lib/languages/css';
+
+// Register languages
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('js', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('ts', typescript);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('py', python);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('sh', bash);
+hljs.registerLanguage('shell', bash);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('yml', yaml);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('css', css);
 
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
@@ -70,6 +112,9 @@ import {
   Save,
   Loader2,
   Code,
+  Copy,
+  Check,
+  FileCode,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -129,11 +174,58 @@ function ToolbarSeparator() {
 }
 
 /**
+ * Highlight code using highlight.js.
+ * Returns highlighted HTML or escaped plain text if language not supported.
+ */
+function highlightCode(code: string, language?: string): string {
+  const trimmedCode = code.trim();
+  const escapedCode = trimmedCode
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  if (!language) {
+    // Try auto-detection
+    try {
+      const result = hljs.highlightAuto(trimmedCode);
+      return result.value;
+    } catch {
+      return escapedCode;
+    }
+  }
+
+  // Try highlighting with specified language
+  try {
+    const result = hljs.highlight(trimmedCode, { language: language.toLowerCase() });
+    return result.value;
+  } catch {
+    // Language not supported, return escaped plain text
+    return escapedCode;
+  }
+}
+
+/**
  * Simple markdown to HTML conversion for preview mode.
  * NOTE: In production, sanitize output with DOMPurify before rendering.
  */
 function markdownToHtml(markdown: string): string {
-  let html = markdown
+  // First, extract and process code blocks to prevent them from being escaped
+  const codeBlocks: Array<{ placeholder: string; html: string }> = [];
+  let blockIndex = 0;
+
+  let html = markdown.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+    const placeholder = `__CODE_BLOCK_${blockIndex++}__`;
+    const highlightedCode = highlightCode(code, lang);
+    const langLabel = lang ? `<span class="text-xs text-muted-foreground absolute top-2 right-2">${lang}</span>` : '';
+    codeBlocks.push({
+      placeholder,
+      html: `<div class="relative group my-3"><pre class="bg-muted p-3 rounded-md overflow-x-auto"><code class="text-sm hljs">${highlightedCode}</code></pre>${langLabel}</div>`,
+    });
+    return placeholder;
+  });
+
+  // Now escape remaining HTML
+  html = html
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -149,13 +241,8 @@ function markdownToHtml(markdown: string): string {
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   html = html.replace(/~~(.*?)~~/g, '<del>$1</del>');
 
-  // Code blocks
-  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, _lang, code) => {
-    return `<pre class="bg-muted p-3 rounded-md overflow-x-auto my-3"><code class="text-sm">${code.trim()}</code></pre>`;
-  });
-
   // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>');
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm font-mono">$1</code>');
 
   // Blockquotes
   html = html.replace(/^&gt; (.*$)/gm, '<blockquote class="border-l-4 border-muted-foreground/30 pl-4 my-2 italic">$1</blockquote>');
@@ -167,6 +254,11 @@ function markdownToHtml(markdown: string): string {
   // Paragraphs
   html = html.replace(/\n\n/g, '</p><p class="my-2">');
   html = `<p class="my-2">${html}</p>`;
+
+  // Restore code blocks
+  for (const block of codeBlocks) {
+    html = html.replace(block.placeholder, block.html);
+  }
 
   return html;
 }
@@ -236,6 +328,15 @@ function ToolbarPlugin({
     if (url) {
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
     }
+  };
+
+  const insertCodeBlock = () => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        $setBlocksType(selection, () => $createCodeNode('javascript'));
+      }
+    });
   };
 
   const undo = () => editor.dispatchCommand(UNDO_COMMAND, undefined);
@@ -320,6 +421,11 @@ function ToolbarPlugin({
         icon={<Link className="h-4 w-4" />}
         label="Insert Link"
         onClick={insertLink}
+      />
+      <ToolbarButton
+        icon={<FileCode className="h-4 w-4" />}
+        label="Code Block"
+        onClick={insertCodeBlock}
       />
 
       <div className="flex-1" />
@@ -419,6 +525,17 @@ function AutoFocusPlugin(): null {
   return null;
 }
 
+/** Plugin to enable code highlighting in code blocks. */
+function CodeHighlightPlugin(): null {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return registerCodeHighlighting(editor);
+  }, [editor]);
+
+  return null;
+}
+
 /** Lexical theme for styling editor content. */
 const theme = {
   ltr: 'text-left',
@@ -450,6 +567,39 @@ const theme = {
     code: 'bg-muted px-1 py-0.5 rounded text-sm font-mono',
   },
   code: 'bg-muted p-3 rounded-md overflow-x-auto my-3 font-mono text-sm block',
+  // Code highlight token classes for Prism/Lexical syntax highlighting
+  codeHighlight: {
+    atrule: 'text-purple-600 dark:text-purple-400',
+    attr: 'text-yellow-600 dark:text-yellow-400',
+    boolean: 'text-purple-600 dark:text-purple-400',
+    builtin: 'text-cyan-600 dark:text-cyan-400',
+    cdata: 'text-gray-500 dark:text-gray-400',
+    char: 'text-green-600 dark:text-green-400',
+    class: 'text-yellow-600 dark:text-yellow-400',
+    'class-name': 'text-yellow-600 dark:text-yellow-400',
+    comment: 'text-gray-500 dark:text-gray-400 italic',
+    constant: 'text-purple-600 dark:text-purple-400',
+    deleted: 'text-red-600 dark:text-red-400',
+    doctype: 'text-gray-500 dark:text-gray-400',
+    entity: 'text-red-600 dark:text-red-400',
+    function: 'text-blue-600 dark:text-blue-400',
+    important: 'text-red-600 dark:text-red-400 font-bold',
+    inserted: 'text-green-600 dark:text-green-400',
+    keyword: 'text-purple-600 dark:text-purple-400',
+    namespace: 'text-gray-600 dark:text-gray-400',
+    number: 'text-orange-600 dark:text-orange-400',
+    operator: 'text-pink-600 dark:text-pink-400',
+    prolog: 'text-gray-500 dark:text-gray-400',
+    property: 'text-blue-600 dark:text-blue-400',
+    punctuation: 'text-gray-600 dark:text-gray-400',
+    regex: 'text-orange-600 dark:text-orange-400',
+    selector: 'text-green-600 dark:text-green-400',
+    string: 'text-green-600 dark:text-green-400',
+    symbol: 'text-purple-600 dark:text-purple-400',
+    tag: 'text-red-600 dark:text-red-400',
+    url: 'text-cyan-600 dark:text-cyan-400',
+    variable: 'text-orange-600 dark:text-orange-400',
+  },
 };
 
 function onError(error: Error): void {
@@ -508,7 +658,7 @@ export function LexicalNoteEditor({
     namespace: 'NoteEditor',
     theme,
     onError,
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode, CodeNode],
+    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode, CodeNode, CodeHighlightNode],
     editable: !readOnly,
   };
 
@@ -664,6 +814,7 @@ export function LexicalNoteEditor({
           <HistoryPlugin />
           <ListPlugin />
           <LinkPlugin />
+          <CodeHighlightPlugin />
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
           <InitialContentPlugin initialContent={initialContent} />
           <ContentSyncPlugin onChange={handleLexicalChange} onSave={handleSave} />
