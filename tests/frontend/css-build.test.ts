@@ -16,10 +16,13 @@ describe('Tailwind CSS Build', () => {
   let cssContent: string;
 
   beforeAll(() => {
-    // Find the CSS file in the build output
+    // Find the main CSS file in the build output.
+    // The main CSS file starts with "index-" and contains the Tailwind utilities.
+    // Other CSS files (like NotesPage-*.css) may contain component-specific styles.
     const assetsDir = join(__dirname, '../../src/api/static/app/assets');
     const files = readdirSync(assetsDir);
-    const cssFile = files.find(f => f.endsWith('.css'));
+    const cssFile = files.find(f => f.startsWith('index-') && f.endsWith('.css'))
+      || files.find(f => f.endsWith('.css'));
 
     if (!cssFile) {
       throw new Error('No CSS file found in build output. Run `pnpm app:build` first.');

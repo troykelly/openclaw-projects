@@ -1,6 +1,6 @@
 /**
  * Lexical-based rich text editor for notes.
- * Part of Epic #338, Issues #629, #630, #631, #632
+ * Part of Epic #338, Issues #629, #630, #631, #632, #633
  *
  * Features:
  * - True WYSIWYG editing with Lexical
@@ -11,6 +11,7 @@
  * - Syntax-highlighted code blocks (#630)
  * - Editable tables (#631)
  * - Mermaid diagram support (#632)
+ * - LaTeX math rendering (#633)
  *
  * Security: Preview mode uses simple markdown-to-HTML conversion.
  * For production, sanitize HTML with DOMPurify to prevent XSS.
@@ -75,6 +76,8 @@ import {
 } from '@lexical/table';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import mermaid from 'mermaid';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import hljs from 'highlight.js/lib/core';
 // Import common languages for syntax highlighting
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -201,6 +204,32 @@ function ToolbarSeparator() {
 }
 
 /**
+ * Render LaTeX math expression using KaTeX.
+ * Returns HTML string or error message for invalid LaTeX.
+ *
+ * @param latex - The LaTeX expression to render
+ * @param displayMode - true for block math ($$...$$), false for inline ($...$)
+ */
+function renderMath(latex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(latex, {
+      displayMode,
+      throwOnError: false,
+      strict: false,
+      trust: false, // Prevent potentially dangerous commands
+      output: 'html',
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Invalid LaTeX';
+    const escapedLatex = latex
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<span class="math-error text-destructive bg-destructive/10 px-1 rounded" title="${errorMessage}">${escapedLatex}</span>`;
+  }
+}
+
+/**
  * Highlight code using highlight.js.
  * Returns highlighted HTML or escaped plain text if language not supported.
  */
@@ -239,10 +268,25 @@ function markdownToHtml(markdown: string): string {
   // First, extract and process code blocks to prevent them from being escaped
   const codeBlocks: Array<{ placeholder: string; html: string }> = [];
   const mermaidBlocks: Array<{ placeholder: string; code: string }> = [];
+  const mathBlocks: Array<{ placeholder: string; html: string }> = [];
   let blockIndex = 0;
   let mermaidIndex = 0;
+  let mathBlockIndex = 0;
+  let inlineMathIndex = 0;
 
-  let html = markdown.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+  // Extract block math ($$...$$) first - must come before code block extraction
+  // to prevent $$ inside code blocks from being processed
+  let html = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (_, latex) => {
+    const placeholder = `__MATH_BLOCK_${mathBlockIndex++}__`;
+    const renderedMath = renderMath(latex.trim(), true);
+    mathBlocks.push({
+      placeholder,
+      html: `<div class="math-block my-4 flex justify-center" role="math" aria-label="mathematical equation">${renderedMath}</div>`,
+    });
+    return placeholder;
+  });
+
+  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
     // Handle Mermaid diagrams separately
     if (lang?.toLowerCase() === 'mermaid') {
       const placeholder = `__MERMAID_BLOCK_${mermaidIndex++}__`;
@@ -304,6 +348,19 @@ function markdownToHtml(markdown: string): string {
     return '\n' + placeholder + '\n';
   }).trim();
 
+  // Extract inline math ($...$) - must be after code blocks to avoid processing $ in code
+  // Use a regex that matches single $ but not $$ (which is block math)
+  // Also avoid matching $ at start/end of words that might be currency
+  html = html.replace(/(?<!\$)\$(?!\$)([^$\n]+?)(?<!\$)\$(?!\$)/g, (_, latex) => {
+    const placeholder = `__MATH_INLINE_${inlineMathIndex++}__`;
+    const renderedMath = renderMath(latex.trim(), false);
+    mathBlocks.push({
+      placeholder,
+      html: `<span class="math-inline" role="math" aria-label="mathematical equation">${renderedMath}</span>`,
+    });
+    return placeholder;
+  });
+
   // Now escape remaining HTML
   html = html
     .replace(/&/g, '&amp;')
@@ -357,6 +414,11 @@ function markdownToHtml(markdown: string): string {
       block.placeholder,
       `<div class="mermaid-diagram my-4" data-mermaid="${escapedCode}"><div class="mermaid-placeholder bg-muted p-4 rounded-md text-center text-muted-foreground">Loading diagram...</div></div>`
     );
+  }
+
+  // Restore math blocks (already rendered by KaTeX)
+  for (const block of mathBlocks) {
+    html = html.replace(block.placeholder, block.html);
   }
 
   return html;

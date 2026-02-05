@@ -472,4 +472,36 @@ html {
   .dark .mermaid-diagram.mermaid-error {
     filter: none;
   }
+
+  /* KaTeX math styles (#633) */
+  .math-block {
+    overflow-x: auto;
+    padding: 1rem;
+  }
+
+  .math-inline {
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .math-error {
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+
+  /* KaTeX dark mode adjustments */
+  .dark .katex {
+    color: var(--color-foreground);
+  }
+
+  .dark .katex .mord,
+  .dark .katex .mop,
+  .dark .katex .mbin,
+  .dark .katex .mrel,
+  .dark .katex .mopen,
+  .dark .katex .mclose,
+  .dark .katex .mpunct,
+  .dark .katex .minner {
+    color: var(--color-foreground);
+  }
 }

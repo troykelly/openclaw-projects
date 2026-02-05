@@ -318,4 +318,97 @@ graph TD;
       expect(maliciousScripts.length).toBe(0);
     });
   });
+
+  // LaTeX math tests for Issue #633
+  describe('LaTeX math (#633)', () => {
+    it('renders inline math with single dollar signs', () => {
+      const mathContent = 'The equation $E = mc^2$ is famous.';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      // Should render a math-inline span with katex content
+      const mathElement = document.querySelector('.math-inline');
+      expect(mathElement).toBeInTheDocument();
+      expect(mathElement?.querySelector('.katex')).toBeInTheDocument();
+    });
+
+    it('renders block math with double dollar signs', () => {
+      const mathContent = '$$\\int_0^\\infty e^{-x^2} dx$$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      // Should render a math-block div with katex content
+      const mathElement = document.querySelector('.math-block');
+      expect(mathElement).toBeInTheDocument();
+      expect(mathElement?.querySelector('.katex-display')).toBeInTheDocument();
+    });
+
+    it('renders Greek letters', () => {
+      const mathContent = '$\\alpha + \\beta = \\gamma$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      const mathElement = document.querySelector('.math-inline .katex');
+      expect(mathElement).toBeInTheDocument();
+    });
+
+    it('renders fractions', () => {
+      const mathContent = '$\\frac{1}{2}$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      const mathElement = document.querySelector('.math-inline .katex');
+      expect(mathElement).toBeInTheDocument();
+      // KaTeX renders fractions - check for fraction-related content
+      // The class name varies between versions, so just verify katex rendered
+      expect(mathElement?.textContent).toContain('1');
+      expect(mathElement?.textContent).toContain('2');
+    });
+
+    it('renders sums and integrals', () => {
+      const mathContent = '$$\\sum_{i=0}^{n} i^2$$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      const mathElement = document.querySelector('.math-block .katex');
+      expect(mathElement).toBeInTheDocument();
+    });
+
+    it('handles multiple math expressions', () => {
+      const mathContent = 'Inline $x$ and $y$ with block $$z = x + y$$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      // Should have two inline math and one block math
+      const inlineMath = document.querySelectorAll('.math-inline');
+      const blockMath = document.querySelectorAll('.math-block');
+
+      expect(inlineMath.length).toBe(2);
+      expect(blockMath.length).toBe(1);
+    });
+
+    it('has accessible role=math attribute', () => {
+      const mathContent = '$E = mc^2$';
+      render(<LexicalNoteEditor mode="preview" initialContent={mathContent} />);
+
+      const mathElement = document.querySelector('[role="math"]');
+      expect(mathElement).toBeInTheDocument();
+    });
+
+    it('does not process dollar signs in code blocks', () => {
+      const codeContent = '```javascript\nconst price = $100;\n```';
+      render(<LexicalNoteEditor mode="preview" initialContent={codeContent} />);
+
+      // Should render as code, not math
+      const codeElement = document.querySelector('code.hljs');
+      expect(codeElement).toBeInTheDocument();
+      // Should not have any math elements
+      const mathElements = document.querySelectorAll('.math-inline, .math-block');
+      expect(mathElements.length).toBe(0);
+    });
+
+    it('handles invalid LaTeX gracefully', () => {
+      // Invalid LaTeX that would throw an error
+      const invalidMath = '$\\invalidcommand$';
+      render(<LexicalNoteEditor mode="preview" initialContent={invalidMath} />);
+
+      // Should render something (KaTeX's throwOnError: false handles this)
+      const mathElement = document.querySelector('.math-inline');
+      expect(mathElement).toBeInTheDocument();
+    });
+  });
 });
