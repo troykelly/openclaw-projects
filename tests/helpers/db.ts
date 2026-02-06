@@ -69,6 +69,7 @@ const APPLICATION_TABLES = [
   'note',
   'notebook',
   // Skill Store (Epic #794)
+  'skill_store_activity',
   'skill_store_schedule',
   'skill_store_item',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
