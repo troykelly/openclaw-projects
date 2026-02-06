@@ -171,24 +171,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     decorateReply: false,
   });
 
-  const appFrontendIndexHtml = readFileSync(
-    path.join(__dirname, 'static', 'app', 'index.html'),
-    'utf8'
-  );
+  const appFrontendIndexPath = path.join(__dirname, 'static', 'app', 'index.html');
+  // In production, cache the index.html for performance.
+  // In development, re-read on each request to pick up rebuilds without server restart.
+  const isDev = process.env.NODE_ENV !== 'production';
+  let cachedAppFrontendIndexHtml: string | null = isDev ? null : readFileSync(appFrontendIndexPath, 'utf8');
+
+  function getAppFrontendIndexHtml(): string {
+    if (isDev || !cachedAppFrontendIndexHtml) {
+      cachedAppFrontendIndexHtml = readFileSync(appFrontendIndexPath, 'utf8');
+    }
+    return cachedAppFrontendIndexHtml;
+  }
 
   function renderAppFrontendHtml(bootstrap: unknown | null): string {
-    if (!bootstrap) return appFrontendIndexHtml;
+    const html = getAppFrontendIndexHtml();
+    if (!bootstrap) return html;
 
     // Embed bootstrap JSON in the HTML response so Fastify inject tests can assert on data
     // without needing to execute client-side JS.
     const json = JSON.stringify(bootstrap).replace(/<\//g, '<\\/');
     const injection = `\n<script id="app-bootstrap" type="application/json">${json}</script>\n`;
 
-    if (appFrontendIndexHtml.includes('</body>')) {
-      return appFrontendIndexHtml.replace('</body>', `${injection}</body>`);
+    if (html.includes('</body>')) {
+      return html.replace('</body>', `${injection}</body>`);
     }
 
-    return `${appFrontendIndexHtml}${injection}`;
+    return `${html}${injection}`;
   }
 
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
