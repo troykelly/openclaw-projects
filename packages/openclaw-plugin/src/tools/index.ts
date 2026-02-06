@@ -221,6 +221,26 @@ export {
   type FileShareToolOptions,
 } from './file-share.js'
 
+// Skill Store tools (Issue #800)
+export {
+  createSkillStorePutTool,
+  createSkillStoreGetTool,
+  createSkillStoreListTool,
+  createSkillStoreDeleteTool,
+  SkillStorePutParamsSchema,
+  SkillStoreGetParamsSchema,
+  SkillStoreListParamsSchema,
+  SkillStoreDeleteParamsSchema,
+  type SkillStorePutParams,
+  type SkillStoreGetParams,
+  type SkillStoreListParams,
+  type SkillStoreDeleteParams,
+  type SkillStoreTool,
+  type SkillStoreToolResult,
+  type SkillStoreItem,
+  type SkillStoreToolOptions,
+} from './skill-store.js'
+
 /** Tool factory types */
 export interface ToolFactoryOptions {
   // Common options for tool factories

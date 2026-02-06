@@ -45,6 +45,10 @@ import {
   ThreadGetParamsSchema,
   RelationshipSetParamsSchema,
   RelationshipQueryParamsSchema,
+  SkillStorePutParamsSchema,
+  SkillStoreGetParamsSchema,
+  SkillStoreListParamsSchema,
+  SkillStoreDeleteParamsSchema,
   MemoryCategory,
   ProjectStatus,
 } from './tools/index.js'
@@ -628,6 +632,209 @@ const fileShareSchema: JSONSchema = {
     },
   },
   required: ['fileId'],
+}
+
+/**
+ * Skill store put tool JSON Schema
+ */
+const skillStorePutSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    skill_id: {
+      type: 'string',
+      description: 'Identifier for the skill (alphanumeric, hyphens, underscores)',
+      minLength: 1,
+      maxLength: 100,
+      pattern: '^[a-zA-Z0-9_-]+$',
+    },
+    collection: {
+      type: 'string',
+      description: 'Collection name for grouping items (default: _default)',
+      maxLength: 200,
+    },
+    key: {
+      type: 'string',
+      description: 'Unique key within the collection for upsert behavior',
+      maxLength: 500,
+    },
+    title: {
+      type: 'string',
+      description: 'Human-readable title',
+      maxLength: 500,
+    },
+    summary: {
+      type: 'string',
+      description: 'Brief summary of the item',
+      maxLength: 2000,
+    },
+    content: {
+      type: 'string',
+      description: 'Full text content',
+      maxLength: 50000,
+    },
+    data: {
+      type: 'object',
+      description: 'Arbitrary JSON data payload (max 1MB serialized)',
+    },
+    media_url: {
+      type: 'string',
+      description: 'URL to associated media',
+      format: 'uri',
+    },
+    media_type: {
+      type: 'string',
+      description: 'MIME type of associated media',
+      maxLength: 100,
+    },
+    source_url: {
+      type: 'string',
+      description: 'URL of the original source',
+      format: 'uri',
+    },
+    tags: {
+      type: 'array',
+      description: 'Tags for categorization (max 50)',
+      items: { type: 'string', maxLength: 100 },
+    },
+    priority: {
+      type: 'integer',
+      description: 'Priority value (0-100)',
+      minimum: 0,
+      maximum: 100,
+    },
+    expires_at: {
+      type: 'string',
+      description: 'Expiry date in ISO 8601 format',
+      format: 'date-time',
+    },
+    pinned: {
+      type: 'boolean',
+      description: 'Whether the item is pinned',
+    },
+    user_email: {
+      type: 'string',
+      description: 'Email of the user who owns this item',
+      format: 'email',
+    },
+  },
+  required: ['skill_id'],
+}
+
+/**
+ * Skill store get tool JSON Schema
+ */
+const skillStoreGetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      description: 'UUID of the item to retrieve',
+      format: 'uuid',
+    },
+    skill_id: {
+      type: 'string',
+      description: 'Skill identifier (used with key for composite lookup)',
+      maxLength: 100,
+    },
+    collection: {
+      type: 'string',
+      description: 'Collection name (used with skill_id + key)',
+      maxLength: 200,
+    },
+    key: {
+      type: 'string',
+      description: 'Key within the collection (used with skill_id for composite lookup)',
+      maxLength: 500,
+    },
+  },
+}
+
+/**
+ * Skill store list tool JSON Schema
+ */
+const skillStoreListSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    skill_id: {
+      type: 'string',
+      description: 'Skill identifier to list items for',
+      minLength: 1,
+      maxLength: 100,
+      pattern: '^[a-zA-Z0-9_-]+$',
+    },
+    collection: {
+      type: 'string',
+      description: 'Filter by collection name',
+      maxLength: 200,
+    },
+    status: {
+      type: 'string',
+      description: 'Filter by item status',
+      enum: ['active', 'archived', 'processing'],
+    },
+    tags: {
+      type: 'array',
+      description: 'Filter by tags',
+      items: { type: 'string', maxLength: 100 },
+    },
+    since: {
+      type: 'string',
+      description: 'Only return items updated after this ISO 8601 date',
+      format: 'date-time',
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of items to return',
+      minimum: 1,
+      maximum: 200,
+      default: 50,
+    },
+    offset: {
+      type: 'integer',
+      description: 'Number of items to skip for pagination',
+      minimum: 0,
+    },
+    order_by: {
+      type: 'string',
+      description: 'Field to order results by',
+      enum: ['created_at', 'updated_at', 'title', 'priority'],
+    },
+    user_email: {
+      type: 'string',
+      description: 'Filter by user email',
+      format: 'email',
+    },
+  },
+  required: ['skill_id'],
+}
+
+/**
+ * Skill store delete tool JSON Schema
+ */
+const skillStoreDeleteSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      description: 'UUID of the item to delete',
+      format: 'uuid',
+    },
+    skill_id: {
+      type: 'string',
+      description: 'Skill identifier (used with key for composite lookup)',
+      maxLength: 100,
+    },
+    collection: {
+      type: 'string',
+      description: 'Collection name (used with skill_id + key)',
+      maxLength: 200,
+    },
+    key: {
+      type: 'string',
+      description: 'Key within the collection (used with skill_id for composite lookup)',
+      maxLength: 500,
+    },
+  },
 }
 
 /**
@@ -1829,6 +2036,305 @@ function createToolHandlers(state: PluginState) {
         }
       }
     },
+
+    async skill_store_put(params: Record<string, unknown>): Promise<ToolResult> {
+      const { skill_id, collection, key, title, summary, content, data, media_url, media_type, source_url, tags, priority, expires_at, pinned, user_email } = params as {
+        skill_id: string
+        collection?: string
+        key?: string
+        title?: string
+        summary?: string
+        content?: string
+        data?: Record<string, unknown>
+        media_url?: string
+        media_type?: string
+        source_url?: string
+        tags?: string[]
+        priority?: number
+        expires_at?: string
+        pinned?: boolean
+        user_email?: string
+      }
+
+      if (!skill_id) {
+        return { success: false, error: 'skill_id is required' }
+      }
+
+      logger.info('skill_store_put invoked', {
+        userId,
+        skillId: skill_id,
+        collection,
+        key,
+        hasData: data !== undefined,
+      })
+
+      try {
+        const payload: Record<string, unknown> = { skill_id }
+        if (collection) payload.collection = collection
+        if (key) payload.key = key
+        if (title) payload.title = title
+        if (summary) payload.summary = summary
+        if (content) payload.content = content
+        if (data !== undefined) payload.data = data
+        if (media_url) payload.media_url = media_url
+        if (media_type) payload.media_type = media_type
+        if (source_url) payload.source_url = source_url
+        if (tags) payload.tags = tags
+        if (priority !== undefined) payload.priority = priority
+        if (expires_at) payload.expires_at = expires_at
+        if (pinned !== undefined) payload.pinned = pinned
+        if (user_email) payload.user_email = user_email
+
+        const response = await apiClient.post<{
+          id: string
+          skill_id: string
+          collection: string
+          key: string | null
+          title: string | null
+          status: string
+        }>(
+          '/api/skill-store/items',
+          payload,
+          { userId }
+        )
+
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to store item' }
+        }
+
+        const item = response.data
+        const keyInfo = item.key ? ` (key: ${item.key})` : ''
+        const titleInfo = item.title ? `: "${item.title}"` : ''
+
+        return {
+          success: true,
+          data: {
+            content: `Stored item in ${item.collection}${keyInfo}${titleInfo} (ID: ${item.id})`,
+            details: {
+              id: item.id,
+              skill_id: item.skill_id,
+              collection: item.collection,
+              key: item.key,
+              status: item.status,
+              userId,
+            },
+          },
+        }
+      } catch (error) {
+        logger.error('skill_store_put failed', { error })
+        return { success: false, error: 'Failed to store item in skill store' }
+      }
+    },
+
+    async skill_store_get(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id, skill_id, collection, key } = params as {
+        id?: string
+        skill_id?: string
+        collection?: string
+        key?: string
+      }
+
+      if (!id && (!skill_id || !key)) {
+        return { success: false, error: 'Either id or (skill_id + key) must be provided' }
+      }
+
+      logger.info('skill_store_get invoked', {
+        userId,
+        id,
+        skillId: skill_id,
+        key,
+      })
+
+      try {
+        let response
+
+        if (id) {
+          response = await apiClient.get<Record<string, unknown>>(
+            `/api/skill-store/items/${id}`,
+            { userId }
+          )
+        } else {
+          const queryParams = new URLSearchParams({ skill_id: skill_id!, key: key! })
+          if (collection) queryParams.set('collection', collection)
+          response = await apiClient.get<Record<string, unknown>>(
+            `/api/skill-store/items/by-key?${queryParams}`,
+            { userId }
+          )
+        }
+
+        if (!response.success) {
+          if (response.error.status === 404) {
+            return { success: false, error: 'Item not found' }
+          }
+          return { success: false, error: response.error.message || 'Failed to get item' }
+        }
+
+        const item = response.data as Record<string, unknown>
+        const lines: string[] = []
+        lines.push(`Item: ${item.id} [${item.status}]`)
+        if (item.title) lines.push(`Title: ${item.title}`)
+        if (item.summary) lines.push(`Summary: ${item.summary}`)
+        if (item.content) {
+          const contentStr = String(item.content)
+          lines.push(`Content: ${contentStr.length > 200 ? contentStr.substring(0, 200) + '...' : contentStr}`)
+        }
+        lines.push(`Collection: ${item.collection}`)
+        if (item.key) lines.push(`Key: ${item.key}`)
+
+        return {
+          success: true,
+          data: { content: lines.join('\n'), details: { item, userId } },
+        }
+      } catch (error) {
+        logger.error('skill_store_get failed', { error })
+        return { success: false, error: 'Failed to get item from skill store' }
+      }
+    },
+
+    async skill_store_list(params: Record<string, unknown>): Promise<ToolResult> {
+      const { skill_id, collection, status, tags, since, limit = 50, offset, order_by, user_email } = params as {
+        skill_id: string
+        collection?: string
+        status?: string
+        tags?: string[]
+        since?: string
+        limit?: number
+        offset?: number
+        order_by?: string
+        user_email?: string
+      }
+
+      if (!skill_id) {
+        return { success: false, error: 'skill_id is required' }
+      }
+
+      logger.info('skill_store_list invoked', {
+        userId,
+        skillId: skill_id,
+        collection,
+        limit,
+      })
+
+      try {
+        const queryParams = new URLSearchParams({ skill_id })
+        if (collection) queryParams.set('collection', collection)
+        if (status) queryParams.set('status', status)
+        if (tags && tags.length > 0) queryParams.set('tags', tags.join(','))
+        if (since) queryParams.set('since', since)
+        if (limit !== undefined) queryParams.set('limit', String(limit))
+        if (offset !== undefined) queryParams.set('offset', String(offset))
+        if (order_by) queryParams.set('order_by', order_by)
+        if (user_email) queryParams.set('user_email', user_email)
+
+        const response = await apiClient.get<{
+          items: Array<{ id: string; collection: string; key: string | null; title: string | null; status: string }>
+          total: number
+          has_more: boolean
+        }>(
+          `/api/skill-store/items?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to list items' }
+        }
+
+        const { items, total, has_more } = response.data
+        const content = items.length > 0
+          ? items.map((item) => {
+              const keyStr = item.key ? ` (key: ${item.key})` : ''
+              const titleStr = item.title ? `: ${item.title}` : ''
+              return `- [${item.status}] ${item.collection}${keyStr}${titleStr}`
+            }).join('\n')
+          : 'No items found.'
+
+        const summary = `Found ${total} item${total !== 1 ? 's' : ''}${has_more ? ' (more available)' : ''}`
+
+        return {
+          success: true,
+          data: { content: `${summary}\n${content}`, details: { items, total, has_more, userId } },
+        }
+      } catch (error) {
+        logger.error('skill_store_list failed', { error })
+        return { success: false, error: 'Failed to list items in skill store' }
+      }
+    },
+
+    async skill_store_delete(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id, skill_id, collection, key } = params as {
+        id?: string
+        skill_id?: string
+        collection?: string
+        key?: string
+      }
+
+      if (!id && (!skill_id || !key)) {
+        return { success: false, error: 'Either id or (skill_id + key) must be provided' }
+      }
+
+      logger.info('skill_store_delete invoked', {
+        userId,
+        id,
+        skillId: skill_id,
+        key,
+      })
+
+      try {
+        if (id) {
+          const response = await apiClient.delete(
+            `/api/skill-store/items/${id}`,
+            { userId }
+          )
+          if (!response.success) {
+            if (response.error.status === 404) {
+              return { success: false, error: 'Item not found' }
+            }
+            return { success: false, error: response.error.message || 'Failed to delete item' }
+          }
+          return {
+            success: true,
+            data: { content: `Deleted item ${id}`, details: { id, userId } },
+          }
+        }
+
+        // Delete by key: look up first, then delete by ID
+        const queryParams = new URLSearchParams({ skill_id: skill_id!, key: key! })
+        if (collection) queryParams.set('collection', collection)
+
+        const getResponse = await apiClient.get<{ id: string }>(
+          `/api/skill-store/items/by-key?${queryParams}`,
+          { userId }
+        )
+
+        if (!getResponse.success) {
+          if (getResponse.error.status === 404) {
+            return { success: false, error: 'Item not found' }
+          }
+          return { success: false, error: getResponse.error.message || 'Failed to find item for deletion' }
+        }
+
+        const itemId = getResponse.data.id
+        const deleteResponse = await apiClient.delete(
+          `/api/skill-store/items/${itemId}`,
+          { userId }
+        )
+
+        if (!deleteResponse.success) {
+          return { success: false, error: deleteResponse.error.message || 'Failed to delete item' }
+        }
+
+        return {
+          success: true,
+          data: {
+            content: `Deleted item ${key} from ${collection || '_default'} (ID: ${itemId})`,
+            details: { id: itemId, skill_id, collection, key, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('skill_store_delete failed', { error })
+        return { success: false, error: 'Failed to delete item from skill store' }
+      }
+    },
   }
 }
 
@@ -2043,6 +2549,42 @@ export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginApi
       parameters: fileShareSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.file_share(params)
+        return toAgentToolResult(result)
+      },
+    },
+    {
+      name: 'skill_store_put',
+      description: 'Store or update data in the skill store. Use for persisting skill state, configuration, cached results, or any structured data. When a key is provided, existing items with the same (skill_id, collection, key) are updated.',
+      parameters: skillStorePutSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.skill_store_put(params)
+        return toAgentToolResult(result)
+      },
+    },
+    {
+      name: 'skill_store_get',
+      description: 'Retrieve an item from the skill store by ID or by composite key (skill_id + collection + key). Returns the full item including data payload.',
+      parameters: skillStoreGetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.skill_store_get(params)
+        return toAgentToolResult(result)
+      },
+    },
+    {
+      name: 'skill_store_list',
+      description: 'List items in the skill store with filtering and pagination. Requires skill_id. Can filter by collection, status, tags, date range, and user email.',
+      parameters: skillStoreListSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.skill_store_list(params)
+        return toAgentToolResult(result)
+      },
+    },
+    {
+      name: 'skill_store_delete',
+      description: 'Delete an item from the skill store by ID or by composite key (skill_id + collection + key). Performs a soft delete by default.',
+      parameters: skillStoreDeleteSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.skill_store_delete(params)
         return toAgentToolResult(result)
       },
     },
@@ -2272,4 +2814,8 @@ export const schemas = {
   relationshipSet: relationshipSetSchema,
   relationshipQuery: relationshipQuerySchema,
   fileShare: fileShareSchema,
+  skillStorePut: skillStorePutSchema,
+  skillStoreGet: skillStoreGetSchema,
+  skillStoreList: skillStoreListSchema,
+  skillStoreDelete: skillStoreDeleteSchema,
 }
