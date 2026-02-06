@@ -220,6 +220,134 @@ async function handleNudgeJob(
 }
 
 /**
+ * Handle skill_store.scheduled_process job.
+ * Reads schedule, fires webhook via webhook_outbox, updates last_run_at/status.
+ * Respects max_retries from payload; after max consecutive failures, auto-disables.
+ */
+async function handleScheduledProcessJob(
+  pool: Pool,
+  job: InternalJob
+): Promise<JobProcessorResult> {
+  const payload = job.payload as {
+    schedule_id?: string;
+    skill_id?: string;
+    collection?: string | null;
+    webhook_url?: string;
+    webhook_headers?: Record<string, string>;
+    payload_template?: Record<string, unknown>;
+    max_retries?: number;
+    consecutive_failures?: number;
+    manual_trigger?: boolean;
+  };
+
+  if (!payload.schedule_id) {
+    return {
+      success: false,
+      error: 'Invalid job payload: missing schedule_id',
+    };
+  }
+
+  // Verify schedule still exists
+  const scheduleResult = await pool.query(
+    `SELECT id::text as id, skill_id, collection, webhook_url, webhook_headers,
+            payload_template, max_retries, enabled
+     FROM skill_store_schedule WHERE id = $1`,
+    [payload.schedule_id]
+  );
+
+  if (scheduleResult.rows.length === 0) {
+    return {
+      success: false,
+      error: `Schedule ${payload.schedule_id} not found`,
+    };
+  }
+
+  const schedule = scheduleResult.rows[0] as {
+    id: string;
+    skill_id: string;
+    collection: string | null;
+    webhook_url: string;
+    webhook_headers: Record<string, string>;
+    payload_template: Record<string, unknown>;
+    max_retries: number;
+    enabled: boolean;
+  };
+
+  // Check if auto-disable threshold has been reached
+  const consecutiveFailures = (payload.consecutive_failures ?? 0) as number;
+  const maxRetries = payload.max_retries ?? schedule.max_retries ?? 5;
+
+  if (consecutiveFailures >= maxRetries) {
+    // Auto-disable the schedule after max_retries consecutive failures
+    await pool.query(
+      `UPDATE skill_store_schedule
+       SET enabled = false, last_run_status = 'failed', last_run_at = NOW()
+       WHERE id = $1`,
+      [schedule.id]
+    );
+
+    console.warn(
+      `[Jobs] Auto-disabled schedule ${schedule.id} after ${consecutiveFailures} consecutive failures`
+    );
+
+    return { success: true };
+  }
+
+  // Build the webhook payload: merge payload_template + runtime data
+  const webhookBody: Record<string, unknown> = {
+    ...(schedule.payload_template || {}),
+    skill_id: schedule.skill_id,
+    collection: schedule.collection,
+    schedule_id: schedule.id,
+    triggered_at: new Date().toISOString(),
+  };
+
+  if (payload.manual_trigger) {
+    webhookBody.manual_trigger = true;
+  }
+
+  try {
+    // Enqueue to webhook_outbox for reliable delivery
+    const idempotencyKey = `schedule:${schedule.id}:${new Date().toISOString().slice(0, 16)}`;
+    await enqueueWebhook(
+      pool,
+      'skill_store.scheduled_process',
+      schedule.webhook_url,
+      webhookBody,
+      {
+        headers: schedule.webhook_headers || undefined,
+        idempotencyKey,
+      }
+    );
+
+    // Update schedule with success
+    await pool.query(
+      `UPDATE skill_store_schedule
+       SET last_run_at = NOW(), last_run_status = 'success'
+       WHERE id = $1`,
+      [schedule.id]
+    );
+
+    return { success: true };
+  } catch (error) {
+    const err = error as Error;
+
+    // Update schedule with failure
+    await pool.query(
+      `UPDATE skill_store_schedule
+       SET last_run_at = NOW(), last_run_status = 'failed'
+       WHERE id = $1`,
+      [schedule.id]
+    );
+
+    return {
+      success: false,
+      error: `Failed to enqueue webhook for schedule ${schedule.id}: ${err.message}`,
+    };
+  }
+}
+
+/**
  * Get handler for a job kind.
  */
 function getJobHandler(
@@ -239,6 +367,8 @@ function getJobHandler(
       return (job) => handleMessageEmbedJob(pool, job);
     case 'skill_store.embed':
       return (job) => handleSkillStoreEmbedJob(pool, job);
+    case 'skill_store.scheduled_process':
+      return (job) => handleScheduledProcessJob(pool, job);
     default:
       return null;
   }
