@@ -1630,7 +1630,74 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Build dynamic WHERE clause
+    // Issue #808: If entityType is 'skill_store', query only skill_store_activity.
+    // If no entityType filter, UNION both tables. Otherwise query work_item_activity only.
+    const isSkillStoreOnly = query.entityType === 'skill_store';
+    const includeSkillStore = !query.entityType || isSkillStoreOnly;
+
+    if (isSkillStoreOnly) {
+      // Skill store activity only (Issue #808)
+      const conditions: string[] = [];
+      const params: (string | number)[] = [];
+      let paramIndex = 1;
+
+      if (query.actionType) {
+        conditions.push(`sa.activity_type::text = $${paramIndex}`);
+        params.push(query.actionType);
+        paramIndex++;
+      }
+
+      if (query.since) {
+        conditions.push(`sa.created_at > $${paramIndex}`);
+        params.push(query.since);
+        paramIndex++;
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as count FROM skill_store_activity sa ${whereClause}`,
+        params
+      );
+      const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+
+      params.push(limit);
+      params.push(offset);
+
+      const result = await pool.query(
+        `SELECT sa.id::text as id,
+                sa.activity_type::text as type,
+                NULL as work_item_id,
+                sa.description as work_item_title,
+                'skill_store' as entity_type,
+                NULL as actor_email,
+                sa.description,
+                sa.created_at,
+                sa.read_at,
+                sa.skill_id,
+                sa.collection,
+                sa.metadata
+           FROM skill_store_activity sa
+           ${whereClause}
+          ORDER BY sa.created_at DESC
+          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        params
+      );
+      await pool.end();
+
+      const response: {
+        items: unknown[];
+        pagination?: { page: number; limit: number; total: number; hasMore: boolean };
+      } = { items: result.rows };
+
+      if (page !== null) {
+        response.pagination = { page, limit, total, hasMore: offset + result.rows.length < total };
+      }
+
+      return reply.send(response);
+    }
+
+    // Build dynamic WHERE clause for work_item_activity
     const conditions: string[] = [];
     const params: (string | number)[] = [];
     let paramIndex = 1;
@@ -1671,13 +1738,35 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // Issue #808: When no entityType filter, UNION skill_store_activity into the feed
+    const skillStoreUnion = includeSkillStore
+      ? `UNION ALL
+         SELECT sa.id::text as id,
+                sa.activity_type::text as type,
+                NULL::text as work_item_id,
+                sa.description as work_item_title,
+                'skill_store' as entity_type,
+                NULL::text as actor_email,
+                sa.description,
+                sa.created_at,
+                sa.read_at
+           FROM skill_store_activity sa`
+      : '';
+
+    const skillStoreCountUnion = includeSkillStore
+      ? `UNION ALL SELECT sa.id FROM skill_store_activity sa`
+      : '';
+
     // Get total count for pagination
     const countResult = await pool.query(
       `${projectIdCTE}
-       SELECT COUNT(*) as count
-         FROM work_item_activity a
-         JOIN work_item w ON w.id = a.work_item_id
-         ${whereClause}`,
+       SELECT COUNT(*) as count FROM (
+         SELECT a.id
+           FROM work_item_activity a
+           JOIN work_item w ON w.id = a.work_item_id
+           ${whereClause}
+         ${skillStoreCountUnion}
+       ) combined`,
       params
     );
     const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
@@ -1688,19 +1777,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const result = await pool.query(
       `${projectIdCTE}
-       SELECT a.id::text as id,
-              a.activity_type::text as type,
-              a.work_item_id::text as work_item_id,
-              w.title as work_item_title,
-              w.work_item_kind::text as entity_type,
-              a.actor_email,
-              a.description,
-              a.created_at,
-              a.read_at
-         FROM work_item_activity a
-         JOIN work_item w ON w.id = a.work_item_id
-         ${whereClause}
-        ORDER BY a.created_at DESC
+       SELECT * FROM (
+         SELECT a.id::text as id,
+                a.activity_type::text as type,
+                a.work_item_id::text as work_item_id,
+                w.title as work_item_title,
+                w.work_item_kind::text as entity_type,
+                a.actor_email,
+                a.description,
+                a.created_at,
+                a.read_at
+           FROM work_item_activity a
+           JOIN work_item w ON w.id = a.work_item_id
+           ${whereClause}
+         ${skillStoreUnion}
+       ) combined
+        ORDER BY created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       params
     );
@@ -13121,6 +13213,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const row = upsertResult.rows[0];
         const wasInsert = row._was_insert;
         delete row._was_insert;
+
+        // Emit activity event (Issue #808)
+        await pool.query(
+          `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+           VALUES ($1::skill_store_activity_type, $2, $3, $4, $5::jsonb)`,
+          [
+            wasInsert ? 'item_created' : 'item_updated',
+            skillId, collection,
+            wasInsert ? `Created item: ${title || key || row.id}` : `Updated item: ${title || key || row.id}`,
+            JSON.stringify({ item_id: row.id, key, title }),
+          ]
+        );
+
         return reply.code(wasInsert ? 201 : 200).send(row);
       }
 
@@ -13135,6 +13240,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [skillId, collection, key, title, summary, content, data, tags,
          priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
       );
+
+      // Emit activity event (Issue #808)
+      const insertedRow = insertResult.rows[0] as { id: string };
+      await pool.query(
+        `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+         VALUES ('item_created'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+        [skillId, collection, `Created item: ${title || insertedRow.id}`, JSON.stringify({ item_id: insertedRow.id, key, title })]
+      );
+
       return reply.code(201).send(insertResult.rows[0]);
     } finally {
       await pool.end();
@@ -13273,6 +13387,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         throw err;
       }
 
+      // Emit single summary activity event for bulk operation (Issue #808)
+      if (results.length > 0) {
+        const firstItem = items[0] as Record<string, unknown>;
+        const bulkSkillId = firstItem.skill_id as string;
+        const bulkCollection = (firstItem.collection as string) || '_default';
+        await pool.query(
+          `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+           VALUES ('items_bulk_created'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+          [bulkSkillId, bulkCollection, `Bulk created ${results.length} items`, JSON.stringify({ count: results.length, collection: bulkCollection })]
+        );
+      }
+
       return reply.send({ items: results, created: results.length });
     } finally {
       await pool.end();
@@ -13329,7 +13455,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          WHERE ${conditions.join(' AND ')}`,
         params
       );
-      return reply.send({ deleted: result.rowCount ?? 0 });
+
+      // Emit summary activity event for bulk delete (Issue #808)
+      const deletedCount = result.rowCount ?? 0;
+      if (deletedCount > 0) {
+        await pool.query(
+          `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+           VALUES ('items_bulk_deleted'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+          [skillId, collection || null, `Bulk deleted ${deletedCount} items`, JSON.stringify({ count: deletedCount, collection })]
+        );
+      }
+
+      return reply.send({ deleted: deletedCount });
     } finally {
       await pool.end();
     }
@@ -13549,6 +13686,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
       }
+
+      // Emit activity event (Issue #808)
+      const updatedItem = result.rows[0] as { id: string; skill_id: string; collection: string; title: string | null };
+      await pool.query(
+        `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+         VALUES ('item_updated'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+        [updatedItem.skill_id, updatedItem.collection, `Updated item: ${updatedItem.title || updatedItem.id}`, JSON.stringify({ item_id: updatedItem.id })]
+      );
+
       return reply.send(result.rows[0]);
     } finally {
       await pool.end();
@@ -13567,6 +13713,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const permanent = query.permanent === 'true';
     const pool = createPool();
     try {
+      // Fetch item info for activity event before deletion (Issue #808)
+      const itemInfo = await pool.query(
+        `SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1`,
+        [params.id]
+      );
+
       let result;
       if (permanent) {
         result = await pool.query(
@@ -13585,6 +13737,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if ((result.rowCount ?? 0) === 0) {
         return reply.code(404).send({ error: 'not found' });
       }
+
+      // Emit activity event (Issue #808)
+      if (itemInfo.rows.length > 0) {
+        const item = itemInfo.rows[0] as { skill_id: string; collection: string; title: string | null };
+        await pool.query(
+          `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+           VALUES ('item_deleted'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+          [item.skill_id, item.collection, `Deleted item: ${item.title || params.id}`, JSON.stringify({ item_id: params.id, permanent })]
+        );
+      }
+
       return reply.code(204).send();
     } finally {
       await pool.end();
@@ -14120,6 +14283,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         ]
       );
 
+      // Emit activity event (Issue #808)
+      await pool.query(
+        `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+         VALUES ('schedule_triggered'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+        [schedule.skill_id, schedule.collection, `Manually triggered schedule`, JSON.stringify({ schedule_id: schedule.id })]
+      );
+
       return reply.code(202).send({
         job_id: (jobResult.rows[0] as { id: string }).id,
         message: 'Schedule triggered, job enqueued for processing',
@@ -14156,6 +14326,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Schedule not found' });
       }
 
+      const schedule = result.rows[0] as { id: string; skill_id: string; collection: string | null };
+
+      // Emit activity event (Issue #808)
+      await pool.query(
+        `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+         VALUES ('schedule_paused'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+        [schedule.skill_id, schedule.collection, `Paused schedule`, JSON.stringify({ schedule_id: schedule.id })]
+      );
+
       return reply.send(result.rows[0]);
     } finally {
       await pool.end();
@@ -14188,6 +14367,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Schedule not found' });
       }
+
+      const schedule = result.rows[0] as { id: string; skill_id: string; collection: string | null };
+
+      // Emit activity event (Issue #808)
+      await pool.query(
+        `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
+         VALUES ('schedule_resumed'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
+        [schedule.skill_id, schedule.collection, `Resumed schedule`, JSON.stringify({ schedule_id: schedule.id })]
+      );
 
       return reply.send(result.rows[0]);
     } finally {
