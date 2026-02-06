@@ -81,10 +81,14 @@ If these conflict, **ask Troy** before proceeding.
 
 - **Claude Code = implementation.**
 - **Codex CLI = review (security + blind spots).**
-- **Ralph (ralph-loop) = long-running autonomy.**
+- **Ralph (ralph-loop) = long-running sequential autonomy.**
   - If working through multiple issues autonomously, start ralph-loop with:
     - `--max-iterations` (required)
     - a strict completion promise emitted only when truly complete.
+- **Agent Teams = parallel coordination (experimental).**
+  - For parallel work across independent issues/epics, use Claude Code agent teams.
+  - Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set in devcontainer).
+  - See the Agent Teams section below for rules and constraints.
 
 ---
 
@@ -131,6 +135,84 @@ Workers SHOULD use REST-only endpoints:
 - `gh api repos/<owner>/<repo>/issues/<num>/comments`
 - `gh pr view <num> --json ...`
 - `gh pr checks <num> --watch`
+
+---
+
+## Agent Teams (Experimental)
+
+Agent teams coordinate multiple Claude Code instances working in parallel. A team lead manages a shared task list, spawns teammates, and synthesizes results. Teammates work independently, each in its own context window and worktree.
+
+> **Prerequisite:** Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set in devcontainer environment).
+
+### When to Use Agent Teams
+
+| Scenario | Tool |
+|----------|------|
+| Sequential single-issue work | Ralph-loop (no team needed) |
+| Sequential multi-issue work | Ralph-loop sequential mode |
+| 3+ independent issues that can parallel | **Agent teams** |
+| Debugging with competing hypotheses | **Agent teams** |
+| Code review from multiple perspectives | **Agent teams** |
+| Quick focused subtask within a session | Subagents (Task tool) |
+
+### Agent Teams vs Ralph-Loop vs Subagents
+
+| Feature | Ralph-loop | Agent Teams | Subagents |
+|---------|-----------|-------------|-----------|
+| **Purpose** | Session persistence | Parallel coordination | Quick focused tasks |
+| **Parallelism** | No (sequential) | Yes (multiple teammates) | Yes (within session) |
+| **Communication** | N/A | Direct messaging between teammates | Report back to caller only |
+| **Task tracking** | Manual | Shared task list with dependencies | None |
+| **Token cost** | Low | High (each teammate = separate instance) | Medium |
+| **Complementary** | Can wrap team lead | Can use with ralph-loop | Used by teammates |
+
+### Team Structure
+
+| Role | Where It Runs | What It Does |
+|------|---------------|--------------|
+| **Team Lead** | Root repository or coordination worktree | Creates team, spawns teammates, manages tasks, coordinates phases |
+| **Teammates** | Isolated worktrees in `/tmp` | Implements issues, communicates via team messaging |
+
+### Rules for Teammates
+
+All existing worktree and worker rules apply to teammates:
+
+- Each teammate MUST work in an isolated worktree in `/tmp`
+- One issue per teammate (or one epic per teammate for iteration-scale work)
+- REST-only GitHub API (no GraphQL) — same as worker constraints
+- Teammates read `CLAUDE.md` automatically (and all referenced docs)
+- Teammates do NOT inherit the lead's conversation history — include issue-specific context in spawn prompts
+- Clean up worktrees after PR merge
+
+### Team Lifecycle
+
+1. **Create team** — lead uses TeamCreate to set up shared task list
+2. **Create tasks** — lead creates tasks with dependencies (Phase 1 unblocked, Phase 2 blocked by Phase 1, etc.)
+3. **Spawn teammates** — lead spawns teammates via Task tool with `team_name` parameter
+4. **Teammates claim work** — teammates pick up unblocked, unassigned tasks
+5. **Communication** — teammates message lead on completion or blockers
+6. **Phase transitions** — when blocking tasks complete, dependent tasks auto-unblock
+7. **Shutdown** — lead sends shutdown requests, teammates approve
+8. **Cleanup** — lead runs TeamDelete after all teammates shut down
+
+### Limitations
+
+- No nested teams (teammates cannot create sub-teams)
+- No session resumption for in-process teammates
+- One team per session
+- Split-pane mode not available in VS Code integrated terminal (use in-process mode)
+- Token usage scales with number of active teammates
+- Task status may lag — verify manually if work appears stuck
+
+### Cost Guidance
+
+Agent teams use significantly more tokens than sequential work. Use them when:
+
+- 3+ issues can genuinely run in parallel
+- Coordination benefits outweigh token costs
+- Work items are self-contained enough to avoid file conflicts
+
+For 2 issues or simple sequential work, ralph-loop alone is more cost-effective.
 
 ---
 

@@ -4,12 +4,13 @@ Use this template for autonomous work on an initiative - a strategic goal spanni
 
 ## Execution Modes
 
-| Mode             | When to Use                                    | Scale         |
-| ---------------- | ---------------------------------------------- | ------------- |
-| **Sequential**   | Strict phase dependencies, limited parallelism | Days          |
-| **Orchestrated** | Multiple independent iterations/phases         | Days to weeks |
+| Mode | When to Use | Scale | How |
+|------|-------------|-------|-----|
+| **Sequential** | Strict phase dependencies, limited parallelism | Days | Single Ralph instance |
+| **Agent Teams** (recommended) | Multiple independent iterations/phases | Days to weeks | Team lead coordinates teammates |
+| **Legacy Orchestrated** (fallback) | Agent teams unavailable | Days to weeks | Ralph orchestrator spawns CLI workers |
 
-Initiatives almost always benefit from orchestration due to their scale.
+Initiatives almost always benefit from parallel coordination due to their scale.
 
 ## Command (Sequential Mode)
 
@@ -117,9 +118,123 @@ Output <promise>INITIATIVE COMPLETE</promise> when:
 " --completion-promise "INITIATIVE COMPLETE" --max-iterations 500
 ```
 
-## Command (Orchestrated Mode)
+## Agent Teams Mode (Recommended for Parallel Work)
 
-Use for large initiatives with parallel iteration opportunities.
+Use when multiple iterations or epics within a phase can run in parallel. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set in devcontainer).
+
+> **Note on nesting:** Agent teams do not support nested teams (teammates cannot create sub-teams). The lead must create ALL tasks as a flat list with dependencies. Iterations and epics become task groupings, not sub-orchestrators.
+
+Give this prompt to Claude Code to create and coordinate the team:
+
+```
+Create an agent team for this initiative.
+
+## Initiative: <INITIATIVE NAME>
+
+### Strategic Goal
+<Business objective this initiative achieves, success metrics>
+
+### Phase Structure
+
+#### Phase 1: Foundation (lead handles sequentially)
+Must complete before any parallel work.
+- #<ISSUE1> - Core infrastructure
+- #<ISSUE2> - Base dependencies
+
+#### Phase 2: Feature Development (teammates work in parallel)
+
+**Iteration 2A** → assign to teammate:
+- Epic: <Name>
+  - #<ISSUE3> - <Title>
+  - #<ISSUE4> - <Title>
+
+**Iteration 2B** → assign to teammate:
+- Epic: <Name>
+  - #<ISSUE5> - <Title>
+  - #<ISSUE6> - <Title>
+
+**Iteration 2C** → assign to teammate:
+- Standalone issues:
+  - #<ISSUE7> - <Title>
+  - #<ISSUE8> - <Title>
+
+#### Phase 3: Integration (lead handles after Phase 2)
+After all Phase 2 iterations complete.
+- #<ISSUE9> - Integration testing
+- #<ISSUE10> - Final polish
+
+### Team Setup
+- Spawn one teammate per iteration (not per issue)
+- Each teammate works through their iteration's issues sequentially in worktrees
+- Use delegate mode during Phase 2 (lead coordinates only)
+- Require plan approval for teammates before they start coding
+
+### Rules for ALL agents
+- Follow CODING.md without exception
+- Every agent works in an isolated worktree: `/tmp/worktree-issue-<number>-<slug>`
+- One issue = one worktree = one branch = one PR
+- Teammates use REST-only GitHub API (no GraphQL)
+- Clean up worktree immediately after PR merge
+- Update GitHub issues with progress as you work
+
+### Task Structure (flat, with dependencies)
+Create ALL tasks upfront with dependencies:
+- Phase 1 tasks: unblocked (lead executes these)
+- Phase 2 iteration tasks: each blocked by Phase 1 completion
+  - Create one task per iteration (teammate works through its issues)
+- Phase 3 tasks: blocked by ALL Phase 2 tasks
+
+### Process
+1. Lead: create team and full task list with dependencies
+2. Lead: execute Phase 1 foundation issues in worktrees
+3. Lead: mark Phase 1 tasks complete (unblocks Phase 2)
+4. Lead: spawn teammates for Phase 2 iterations
+5. Teammates: claim iteration tasks, work through issues sequentially in worktrees
+6. Teammates: message lead on iteration completion or blockers
+7. Lead: after all Phase 2 tasks complete, execute Phase 3
+8. Lead: shut down teammates, clean up team
+
+### Phase Transitions
+After completing each phase:
+1. Verify all phase objectives met
+2. Document any technical debt incurred
+3. Update initiative tracking issue with phase summary
+
+### Progress Tracking
+Maintain initiative status:
+- Phase: X/Y
+- Active teammates: N
+- Issues completed: X/Y total
+- Blockers: [list]
+- Next milestone: [description]
+
+### Completion
+Initiative is complete when:
+- ALL phases completed
+- ALL issues merged to main
+- ALL worktrees cleaned up
+- Main branch stable (CI green)
+- Initiative tracking issue updated with final summary
+```
+
+### Key Differences from Sequential Mode
+
+- Iteration-level parallelism (each iteration runs as a separate teammate)
+- Shared task list with phase-based dependencies
+- Automatic phase transition when blocking tasks complete
+- Direct communication between teammates and lead for blockers
+- Significantly faster for initiatives with independent iterations (60%+ time reduction)
+
+### Limitations for Initiatives
+
+- **No nested teams**: Teammates cannot create sub-teams. Each teammate handles one iteration sequentially — they cannot parallelize within their own iteration.
+- **Flat task structure**: All tasks must be created by the lead upfront. Iterations are not sub-orchestrators.
+- **Token cost**: Large initiatives with many teammates use significantly more tokens. Monitor usage.
+- **Lead persistence**: For multi-day initiatives, the lead session must remain active. Consider running the lead inside a ralph-loop for persistence (advanced — see notes).
+
+## Command (Legacy Orchestrated Mode)
+
+> **Fallback mode.** Use only when agent teams are unavailable. Prefer Agent Teams mode — it provides shared task tracking, teammate communication, and graceful shutdown instead of fire-and-forget worker spawning.
 
 ```bash
 /ralph-loop:ralph-loop "
@@ -278,23 +393,25 @@ Replace:
 - Phase structure - Organize by delivery milestones and dependencies
 - Iterations - Group related work within phases
 - Issue list - All issues in scope
-- Worker assignments - Group by independence and skill area
+- Worker/teammate assignments - Group by independence and skill area
 
 ## Notes
 
-- Very high `--max-iterations` (500+) for initiatives
+- Very high `--max-iterations` (500+) for initiatives in ralph-loop modes
 - May run for extended periods (many hours to days)
-- Monitor periodically: `grep '^iteration:' .claude/ralph-loop.local.md`
+- Monitor ralph-loop periodically: `grep '^iteration:' .claude/ralph-loop.local.md`
 - Can `/ralph-loop:cancel-ralph` and resume with remaining work
 - Consider creating a GitHub tracking issue for the initiative itself
 - Phase boundaries are natural checkpoints for `/ralph-loop:cancel-ralph`
-- Orchestrated mode can reduce total time by 60%+ for large initiatives
+- Agent teams mode uses more tokens but significantly reduces total time
+- Agent teams require `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
+- **Advanced**: For multi-day initiatives, you can run the agent team lead inside a ralph-loop for session persistence. This is complementary (ralph-loop = persistence, agent teams = parallelism) but is an unverified combination — use with caution.
 
 ## Template Selection Guide
 
-| Scope                               | Template      | Typical Duration | Max Iterations |
-| ----------------------------------- | ------------- | ---------------- | -------------- |
-| 1 issue                             | issue.md      | Hours            | 50             |
-| 3-5 related issues                  | epic.md       | Half day         | 100            |
-| Multiple epics (sprint-sized)       | iteration.md  | Day              | 200            |
-| Strategic capability (multi-sprint) | initiative.md | Multiple days    | 500+           |
+| Scope | Template | Typical Duration | Max Iterations | Agent Teams? |
+|-------|----------|------------------|----------------|-------------|
+| 1 issue | issue.md | Hours | 50 | No |
+| 3-5 related issues | epic.md | Half day | 100 | Yes (parallel batch) |
+| Multiple epics (sprint-sized) | iteration.md | Day | 200 | Yes (parallel epics) |
+| Strategic capability (multi-sprint) | initiative.md | Multiple days | 500+ | Yes (parallel iterations) |

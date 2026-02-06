@@ -159,6 +159,11 @@ If you have not read them in this environment, stop and read them.
   - always set `--max-iterations`
   - only emit the completion promise when the work is truly complete
   - use templates from `docs/ralph-templates/` (issue, epic, iteration, initiative)
+- For **parallel work** across independent issues, prefer **agent teams** (experimental):
+  - A team lead coordinates, teammates work independently in separate worktrees
+  - Shared task list with dependencies handles phasing and ordering
+  - Enable via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set in devcontainer)
+  - See `AGENTS.md` for agent team rules and `docs/ralph-templates/` for team templates
 
 ### Worktree Discipline (MANDATORY)
 
@@ -175,7 +180,7 @@ git worktree remove /tmp/worktree-issue-<NUMBER>-<slug>
 git branch -d issue/<NUMBER>-<slug>
 ```
 
-This enables parallel agents and prevents filesystem conflicts. See `AGENTS.md` for full worktree policy.
+This enables parallel agents (including agent teams) and prevents filesystem conflicts. See `AGENTS.md` for full worktree policy.
 
 ---
 

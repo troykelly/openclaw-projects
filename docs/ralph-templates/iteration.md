@@ -4,10 +4,11 @@ Use this template for autonomous work on an iteration - a sprint-sized body of w
 
 ## Execution Modes
 
-| Mode             | When to Use                           | How                                           |
-| ---------------- | ------------------------------------- | --------------------------------------------- |
-| **Sequential**   | Limited parallelization opportunities | Single Ralph processes epics/issues in order  |
-| **Orchestrated** | Multiple independent epics or issues  | Orchestrator spawns workers for parallel work |
+| Mode | When to Use | How |
+|------|-------------|-----|
+| **Sequential** | Limited parallelization opportunities | Single Ralph processes epics/issues in order |
+| **Agent Teams** (recommended) | 2+ independent epics or issue groups | Team lead coordinates teammates per epic |
+| **Legacy Orchestrated** (fallback) | Agent teams unavailable | Ralph orchestrator spawns CLI workers |
 
 ## Command (Sequential Mode)
 
@@ -94,9 +95,105 @@ Output <promise>ITERATION COMPLETE</promise> when:
 " --completion-promise "ITERATION COMPLETE" --max-iterations 200
 ```
 
-## Command (Orchestrated Mode)
+## Agent Teams Mode (Recommended for Parallel Work)
 
-Use when epics or issues within the iteration can be parallelized.
+Use when 2+ epics or issue groups can be worked on simultaneously. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set in devcontainer).
+
+Give this prompt to Claude Code to create and coordinate the team:
+
+```
+Create an agent team for this iteration.
+
+## Iteration: <ITERATION NAME>
+
+### Goal
+<High-level objective for this iteration>
+
+### Scope
+
+#### Phase 1: Foundation (lead handles sequentially)
+- #<ISSUE1> - <Title> (must complete first)
+
+#### Phase 2: Parallel Epics (teammates work simultaneously)
+
+**Epic A** → assign to teammate:
+- #<ISSUE2> - <Title>
+- #<ISSUE3> - <Title>
+
+**Epic B** → assign to teammate:
+- #<ISSUE4> - <Title>
+- #<ISSUE5> - <Title>
+
+**Standalone** → assign to teammate:
+- #<ISSUE6> - <Title>
+
+#### Phase 3: Integration (lead handles after Phase 2)
+- #<ISSUE7> - <Title> (depends on Phase 2)
+
+### Team Setup
+- Spawn one teammate per epic/group (not per issue)
+- Each teammate works through their epic's issues sequentially in worktrees
+- Use delegate mode during Phase 2 (lead coordinates only)
+- Require plan approval for teammates before they start coding
+
+### Rules for ALL agents
+- Follow CODING.md without exception
+- Every agent works in an isolated worktree: `/tmp/worktree-issue-<number>-<slug>`
+- One issue = one worktree = one branch = one PR
+- Teammates use REST-only GitHub API (no GraphQL)
+- Clean up worktree immediately after PR merge
+- Update GitHub issues with progress as you work
+
+### Task Dependencies
+Create tasks with these dependencies:
+- Phase 1 tasks: unblocked (lead executes)
+- Phase 2 epic tasks: blocked by Phase 1 completion
+- Phase 3 tasks: blocked by all Phase 2 tasks
+
+### Process
+1. Lead: create team and task list with dependencies
+2. Lead: execute Phase 1 foundation issues in worktrees
+3. Lead: spawn teammates for Phase 2 epics
+4. Teammates: claim epic tasks, work through issues sequentially in worktrees
+5. Teammates: message lead on epic completion or blockers
+6. Lead: after all Phase 2 tasks complete, execute Phase 3 integration
+7. Lead: shut down teammates, clean up team
+
+### Progress Tracking
+After each phase:
+- Issues completed: X/Y total
+- Epics completed: X/Y
+- Blockers identified
+
+### Completion
+Iteration is complete when:
+- ALL phases completed
+- ALL issues merged to main
+- ALL worktrees cleaned up
+- Main branch stable (CI green)
+```
+
+### Key Differences from Sequential Mode
+
+- Each epic runs as a separate teammate, working in parallel
+- Shared task list with dependencies automates phase transitions
+- Teammates self-report completion, lead coordinates phase boundaries
+- Significantly faster for iterations with independent epics
+
+### When to Use
+
+| Scenario | Mode |
+|----------|------|
+| 3-5 issues, all dependent | Sequential |
+| 2+ independent epics, agent teams available | **Agent Teams** |
+| Multiple standalone issues | **Agent Teams** |
+| Tight deadline, parallel opportunities | **Agent Teams** |
+| Simple linear work | Sequential |
+| Agent teams unavailable | Legacy Orchestrated |
+
+## Command (Legacy Orchestrated Mode)
+
+> **Fallback mode.** Use only when agent teams are unavailable. Prefer Agent Teams mode — it provides shared task tracking, teammate communication, and graceful shutdown instead of fire-and-forget worker spawning.
 
 ```bash
 /ralph-loop:ralph-loop "
@@ -218,19 +315,10 @@ Replace:
 
 ## Notes
 
-- Very high `--max-iterations` (200+) for large iterations
+- Very high `--max-iterations` (200+) for large iterations in ralph-loop modes
 - May run for extended periods (hours)
-- Monitor periodically: `grep '^iteration:' .claude/ralph-loop.local.md`
+- Monitor ralph-loop periodically: `grep '^iteration:' .claude/ralph-loop.local.md`
 - Can `/ralph-loop:cancel-ralph` and resume later with remaining issues
 - Consider breaking into smaller epics if iteration is too large
-- Orchestrated mode can reduce total time by 50%+ with parallel epics
-
-## When to Use Orchestrated Mode
-
-| Scenario                               | Recommendation |
-| -------------------------------------- | -------------- |
-| 3-5 issues, all dependent              | Sequential     |
-| 5+ issues, 2+ independent epics        | Orchestrated   |
-| Multiple standalone issues             | Orchestrated   |
-| Tight deadline, parallel opportunities | Orchestrated   |
-| Simple linear work                     | Sequential     |
+- Agent teams mode uses more tokens but provides better coordination and faster completion
+- Agent teams require `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`

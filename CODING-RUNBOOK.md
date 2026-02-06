@@ -99,9 +99,51 @@ Output <promise>ISSUE 123 COMPLETE</promise> when:
 
 See `docs/ralph-templates/` for ready-to-use templates:
 
-- `iteration.md` - Multi-issue initiative work
-- `epic.md` - Grouped feature development
 - `issue.md` - Single issue implementation
+- `epic.md` - Grouped feature development (supports agent teams)
+- `iteration.md` - Multi-issue sprint work (supports agent teams)
+- `initiative.md` - Strategic multi-phase work (supports agent teams)
+
+#### Agent Teams for parallel work
+
+Agent teams complement ralph-loop by adding parallel coordination. Ralph-loop keeps a session alive; agent teams coordinate multiple sessions working simultaneously.
+
+**When to use which:**
+
+| Need | Tool |
+|------|------|
+| Keep working until done (single session) | Ralph-loop |
+| Parallel work across independent issues | Agent teams |
+| Long-running parallel work | Agent teams (lead optionally in ralph-loop) |
+| Quick focused subtask within a session | Subagents (Task tool) |
+
+**How to start an agent team:**
+
+Tell Claude Code to create a team in natural language:
+
+```
+Create an agent team for this epic. Spawn 3 teammates:
+- One for issue #101 (backend API)
+- One for issue #102 (frontend components)
+- One for issue #103 (test coverage)
+Each teammate should work in their own worktree in /tmp.
+```
+
+Claude creates the team with a shared task list, spawns teammates, and coordinates.
+
+**Key differences from ralph-loop orchestration:**
+
+- Teammates communicate directly (not fire-and-forget)
+- Shared task list with dependency tracking
+- Teammates self-claim next tasks after completing work
+- Graceful shutdown protocol
+- Works within the devcontainer (in-process mode)
+
+**Prerequisites:**
+
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` must be set (configured in devcontainer)
+
+See `docs/ralph-templates/` for agent team templates (epic, iteration, initiative all include an agent teams mode).
 
 ---
 

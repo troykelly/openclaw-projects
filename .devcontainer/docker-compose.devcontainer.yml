@@ -14,6 +14,8 @@ services:
       S3_ACCESS_KEY: openclaw
       S3_SECRET_KEY: openclaw
       S3_FORCE_PATH_STYLE: "true"
+      # Claude Code agent teams (experimental) — enables parallel coordination
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
     volumes:
       - ..:/workspaces/openclaw-projects:cached
       - /var/run/docker.sock:/var/run/docker.sock
