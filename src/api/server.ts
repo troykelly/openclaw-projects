@@ -13199,6 +13199,495 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Skill Store Schedule Management API (Issue #802) ──────────────
+
+  /**
+   * Validate a cron expression is well-formed and runs at >= 5 minute intervals.
+   * Returns null if valid, or an error message string if invalid.
+   */
+  function validateCronExpression(expr: string): string | null {
+    if (!expr || typeof expr !== 'string' || expr.trim().length === 0) {
+      return 'cron_expression is required';
+    }
+
+    const parts = expr.trim().split(/\s+/);
+    if (parts.length !== 5) {
+      return 'cron_expression must be a standard 5-field cron expression (minute hour day month weekday)';
+    }
+
+    const minuteField = parts[0];
+
+    // Reject every-minute pattern
+    if (minuteField === '*') {
+      return 'cron_expression fires every minute, which is not allowed. Minimum interval is 5 minutes.';
+    }
+
+    // Check for step patterns like */N where N < 5
+    const stepMatch = minuteField.match(/^\*\/(\d+)$/);
+    if (stepMatch) {
+      const step = parseInt(stepMatch[1], 10);
+      if (step < 5) {
+        return `cron_expression fires more frequently than every 5 minutes (every ${step} minutes). Minimum interval is 5 minutes.`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Validate that a timezone string is a valid IANA timezone.
+   */
+  function isValidTimezone(tz: string): boolean {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Validate a webhook URL.
+   * In production, requires https://. In dev/test, also allows http://.
+   */
+  function validateWebhookUrl(url: string): string | null {
+    if (!url || typeof url !== 'string' || url.trim().length === 0) {
+      return 'webhook_url is required';
+    }
+
+    try {
+      const parsed = new URL(url);
+      const isProduction = process.env.NODE_ENV === 'production';
+
+      if (isProduction && parsed.protocol !== 'https:') {
+        return 'webhook_url must use https:// in production';
+      }
+
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return 'webhook_url must use http:// or https://';
+      }
+
+      return null;
+    } catch {
+      return 'webhook_url must be a valid URL';
+    }
+  }
+
+  // POST /api/skill-store/schedules - Create a schedule (Issue #802)
+  app.post('/api/skill-store/schedules', async (req, reply) => {
+    const body = req.body as {
+      skill_id?: string;
+      collection?: string | null;
+      cron_expression?: string;
+      timezone?: string;
+      webhook_url?: string;
+      webhook_headers?: Record<string, string>;
+      payload_template?: Record<string, unknown>;
+      enabled?: boolean;
+      max_retries?: number;
+    };
+
+    if (!body?.skill_id || typeof body.skill_id !== 'string' || body.skill_id.trim().length === 0) {
+      return reply.code(400).send({ error: 'skill_id is required' });
+    }
+
+    if (!body.cron_expression) {
+      return reply.code(400).send({ error: 'cron_expression is required' });
+    }
+
+    if (!body.webhook_url) {
+      return reply.code(400).send({ error: 'webhook_url is required' });
+    }
+
+    // Validate cron expression
+    const cronError = validateCronExpression(body.cron_expression);
+    if (cronError) {
+      return reply.code(400).send({ error: cronError });
+    }
+
+    // Validate timezone if provided
+    const timezone = body.timezone || 'UTC';
+    if (!isValidTimezone(timezone)) {
+      return reply.code(400).send({ error: `Invalid timezone: ${timezone}. Must be a valid IANA timezone.` });
+    }
+
+    // Validate webhook URL
+    const webhookError = validateWebhookUrl(body.webhook_url);
+    if (webhookError) {
+      return reply.code(400).send({ error: webhookError });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO skill_store_schedule
+         (skill_id, collection, cron_expression, timezone, webhook_url, webhook_headers, payload_template, enabled, max_retries)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
+         RETURNING
+           id::text as id, skill_id, collection,
+           cron_expression, timezone, webhook_url,
+           webhook_headers, payload_template,
+           enabled, max_retries,
+           last_run_at, next_run_at, last_run_status,
+           created_at, updated_at`,
+        [
+          body.skill_id.trim(),
+          body.collection || null,
+          body.cron_expression.trim(),
+          timezone,
+          body.webhook_url.trim(),
+          JSON.stringify(body.webhook_headers || {}),
+          JSON.stringify(body.payload_template || {}),
+          body.enabled !== undefined ? body.enabled : true,
+          body.max_retries !== undefined ? body.max_retries : 5,
+        ]
+      );
+
+      return reply.code(201).send(result.rows[0]);
+    } catch (err) {
+      const error = err as Error;
+      if (error.message?.includes('duplicate key')) {
+        return reply.code(409).send({ error: 'Schedule with this skill_id, collection, and cron_expression already exists' });
+      }
+      if (error.message?.includes('fires more frequently') || error.message?.includes('fires every minute')) {
+        return reply.code(400).send({ error: error.message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/skill-store/schedules - List schedules (Issue #802)
+  app.get('/api/skill-store/schedules', async (req, reply) => {
+    const query = req.query as {
+      skill_id?: string;
+      enabled?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const conditions: string[] = [];
+    const params: (string | number | boolean)[] = [];
+    let paramIndex = 1;
+
+    if (query.skill_id) {
+      conditions.push(`skill_id = $${paramIndex}`);
+      params.push(query.skill_id);
+      paramIndex++;
+    }
+
+    if (query.enabled !== undefined) {
+      conditions.push(`enabled = $${paramIndex}`);
+      params.push(query.enabled === 'true');
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as count FROM skill_store_schedule ${whereClause}`,
+        params
+      );
+      const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+
+      const selectParams = [...params, limit, offset];
+      const result = await pool.query(
+        `SELECT
+           id::text as id, skill_id, collection,
+           cron_expression, timezone, webhook_url,
+           webhook_headers, payload_template,
+           enabled, max_retries,
+           last_run_at, next_run_at, last_run_status,
+           created_at, updated_at
+         FROM skill_store_schedule
+         ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        selectParams
+      );
+
+      return reply.send({ schedules: result.rows, total });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/skill-store/schedules/:id - Update a schedule (Issue #802)
+  app.patch('/api/skill-store/schedules/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid schedule ID format' });
+    }
+
+    const body = req.body as {
+      cron_expression?: string;
+      timezone?: string;
+      webhook_url?: string;
+      webhook_headers?: Record<string, string>;
+      payload_template?: Record<string, unknown>;
+      enabled?: boolean;
+      max_retries?: number;
+    };
+
+    // Validate cron expression if being updated
+    if (body.cron_expression !== undefined) {
+      const cronError = validateCronExpression(body.cron_expression);
+      if (cronError) {
+        return reply.code(400).send({ error: cronError });
+      }
+    }
+
+    // Validate timezone if being updated
+    if (body.timezone !== undefined) {
+      if (!isValidTimezone(body.timezone)) {
+        return reply.code(400).send({ error: `Invalid timezone: ${body.timezone}. Must be a valid IANA timezone.` });
+      }
+    }
+
+    // Validate webhook URL if being updated
+    if (body.webhook_url !== undefined) {
+      const webhookError = validateWebhookUrl(body.webhook_url);
+      if (webhookError) {
+        return reply.code(400).send({ error: webhookError });
+      }
+    }
+
+    // Build dynamic SET clause
+    const setClauses: string[] = [];
+    const params: (string | number | boolean)[] = [];
+    let paramIndex = 1;
+
+    if (body.cron_expression !== undefined) {
+      setClauses.push(`cron_expression = $${paramIndex}`);
+      params.push(body.cron_expression.trim());
+      paramIndex++;
+    }
+    if (body.timezone !== undefined) {
+      setClauses.push(`timezone = $${paramIndex}`);
+      params.push(body.timezone);
+      paramIndex++;
+    }
+    if (body.webhook_url !== undefined) {
+      setClauses.push(`webhook_url = $${paramIndex}`);
+      params.push(body.webhook_url.trim());
+      paramIndex++;
+    }
+    if (body.webhook_headers !== undefined) {
+      setClauses.push(`webhook_headers = $${paramIndex}::jsonb`);
+      params.push(JSON.stringify(body.webhook_headers));
+      paramIndex++;
+    }
+    if (body.payload_template !== undefined) {
+      setClauses.push(`payload_template = $${paramIndex}::jsonb`);
+      params.push(JSON.stringify(body.payload_template));
+      paramIndex++;
+    }
+    if (body.enabled !== undefined) {
+      setClauses.push(`enabled = $${paramIndex}`);
+      params.push(body.enabled);
+      paramIndex++;
+    }
+    if (body.max_retries !== undefined) {
+      setClauses.push(`max_retries = $${paramIndex}`);
+      params.push(body.max_retries);
+      paramIndex++;
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No valid fields to update' });
+    }
+
+    params.push(id);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_schedule
+         SET ${setClauses.join(', ')}
+         WHERE id = $${paramIndex}
+         RETURNING
+           id::text as id, skill_id, collection,
+           cron_expression, timezone, webhook_url,
+           webhook_headers, payload_template,
+           enabled, max_retries,
+           last_run_at, next_run_at, last_run_status,
+           created_at, updated_at`,
+        params
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Schedule not found' });
+      }
+
+      return reply.send(result.rows[0]);
+    } catch (err) {
+      const error = err as Error;
+      if (error.message?.includes('fires more frequently') || error.message?.includes('fires every minute')) {
+        return reply.code(400).send({ error: error.message });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/skill-store/schedules/:id - Delete a schedule (Issue #802)
+  app.delete('/api/skill-store/schedules/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid schedule ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id`,
+        [id]
+      );
+
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Schedule not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/skill-store/schedules/:id/trigger - Manually trigger a schedule (Issue #802)
+  app.post('/api/skill-store/schedules/:id/trigger', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid schedule ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      // Fetch schedule details
+      const scheduleResult = await pool.query(
+        `SELECT id::text as id, skill_id, collection, webhook_url, webhook_headers, payload_template, max_retries
+         FROM skill_store_schedule WHERE id = $1`,
+        [id]
+      );
+
+      if (scheduleResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Schedule not found' });
+      }
+
+      const schedule = scheduleResult.rows[0] as {
+        id: string;
+        skill_id: string;
+        collection: string | null;
+        webhook_url: string;
+        webhook_headers: Record<string, string>;
+        payload_template: Record<string, unknown>;
+        max_retries: number;
+      };
+
+      // Enqueue a job for immediate processing
+      const jobResult = await pool.query(
+        `INSERT INTO internal_job (kind, payload, run_at)
+         VALUES ('skill_store.scheduled_process', $1::jsonb, NOW())
+         RETURNING id::text as id`,
+        [
+          JSON.stringify({
+            schedule_id: schedule.id,
+            skill_id: schedule.skill_id,
+            collection: schedule.collection,
+            webhook_url: schedule.webhook_url,
+            webhook_headers: schedule.webhook_headers,
+            payload_template: schedule.payload_template,
+            max_retries: schedule.max_retries,
+            manual_trigger: true,
+          }),
+        ]
+      );
+
+      return reply.code(202).send({
+        job_id: (jobResult.rows[0] as { id: string }).id,
+        message: 'Schedule triggered, job enqueued for processing',
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/skill-store/schedules/:id/pause - Pause a schedule (Issue #802)
+  app.post('/api/skill-store/schedules/:id/pause', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid schedule ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_schedule SET enabled = false
+         WHERE id = $1
+         RETURNING
+           id::text as id, skill_id, collection,
+           cron_expression, timezone, webhook_url,
+           webhook_headers, payload_template,
+           enabled, max_retries,
+           last_run_at, next_run_at, last_run_status,
+           created_at, updated_at`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Schedule not found' });
+      }
+
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/skill-store/schedules/:id/resume - Resume a schedule (Issue #802)
+  app.post('/api/skill-store/schedules/:id/resume', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid schedule ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_schedule SET enabled = true
+         WHERE id = $1
+         RETURNING
+           id::text as id, skill_id, collection,
+           cron_expression, timezone, webhook_url,
+           webhook_headers, payload_template,
+           enabled, max_retries,
+           last_run_at, next_run_at, last_run_status,
+           created_at, updated_at`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Schedule not found' });
+      }
+
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
