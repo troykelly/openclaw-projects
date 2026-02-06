@@ -13557,25 +13557,81 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/skill-store/collections — List collections with counts
   app.get('/api/skill-store/collections', async (req, reply) => {
-    const query = req.query as { skill_id?: string };
+    const query = req.query as { skill_id?: string; user_email?: string };
     if (!query.skill_id) {
       return reply.code(400).send({ error: 'skill_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
+      const conditions = ['skill_id = $1'];
+      const values: string[] = [query.skill_id];
+      let paramIndex = 2;
+
+      if (query.user_email) {
+        conditions.push(`user_email = $${paramIndex}`);
+        values.push(query.user_email);
+        paramIndex++;
+      }
+
+      const whereClause = conditions.join(' AND ');
+
       const result = await pool.query(
         `SELECT collection,
                 COUNT(*) FILTER (WHERE deleted_at IS NULL)::int AS count,
                 MAX(created_at) FILTER (WHERE deleted_at IS NULL) AS latest_at
          FROM skill_store_item
-         WHERE skill_id = $1
+         WHERE ${whereClause}
          GROUP BY collection
          HAVING COUNT(*) FILTER (WHERE deleted_at IS NULL) > 0
          ORDER BY collection`,
-        [query.skill_id]
+        values
       );
       return reply.send({ collections: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/skill-store/aggregate — Aggregation operations (Issue #801)
+  app.get('/api/skill-store/aggregate', async (req, reply) => {
+    const query = req.query as {
+      skill_id?: string;
+      operation?: string;
+      collection?: string;
+      since?: string;
+      until?: string;
+      user_email?: string;
+    };
+
+    if (!query.skill_id) {
+      return reply.code(400).send({ error: 'skill_id query parameter is required' });
+    }
+    if (!query.operation) {
+      return reply.code(400).send({ error: 'operation query parameter is required' });
+    }
+
+    const validOps = ['count', 'count_by_tag', 'count_by_status', 'latest', 'oldest'];
+    if (!validOps.includes(query.operation)) {
+      return reply.code(400).send({ error: `Invalid operation. Must be one of: ${validOps.join(', ')}` });
+    }
+
+    const skillStoreAggregate = await import('./skill-store/aggregate.ts');
+
+    const pool = createPool();
+    try {
+      const result = await skillStoreAggregate.aggregateSkillStoreItems(pool, {
+        skill_id: query.skill_id,
+        operation: query.operation as 'count' | 'count_by_tag' | 'count_by_status' | 'latest' | 'oldest',
+        collection: query.collection,
+        since: query.since,
+        until: query.until,
+        user_email: query.user_email,
+      });
+      return reply.send({ result });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
     } finally {
       await pool.end();
     }

@@ -624,3 +624,441 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
     },
   }
 }
+
+// ── Search, Collections, Aggregate tools (Issue #801) ─────────────────
+
+/** Zod schema for skill_store_search parameters */
+export const SkillStoreSearchParamsSchema = z.object({
+  skill_id: SkillIdSchema,
+  query: z
+    .string()
+    .min(1, 'Search query cannot be empty'),
+  collection: z.string().max(200).optional(),
+  tags: z.array(z.string().max(100)).max(50).optional(),
+  semantic: z.boolean().optional(),
+  min_similarity: z.number().min(0).max(1).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  user_email: z.string().email().optional(),
+})
+export type SkillStoreSearchParams = z.infer<typeof SkillStoreSearchParamsSchema>
+
+/** Zod schema for skill_store_collections parameters */
+export const SkillStoreCollectionsParamsSchema = z.object({
+  skill_id: SkillIdSchema,
+  user_email: z.string().email().optional(),
+})
+export type SkillStoreCollectionsParams = z.infer<typeof SkillStoreCollectionsParamsSchema>
+
+/** Zod schema for skill_store_aggregate parameters */
+export const SkillStoreAggregateParamsSchema = z.object({
+  skill_id: SkillIdSchema,
+  collection: z.string().max(200).optional(),
+  operation: z.enum(['count', 'count_by_tag', 'count_by_status', 'latest', 'oldest']),
+  since: z.string().datetime().optional(),
+  until: z.string().datetime().optional(),
+  user_email: z.string().email().optional(),
+})
+export type SkillStoreAggregateParams = z.infer<typeof SkillStoreAggregateParamsSchema>
+
+/** Search result from API (full-text mode) */
+interface SearchApiResult {
+  id: string
+  skill_id: string
+  collection: string
+  key: string | null
+  title: string | null
+  summary: string | null
+  content: string | null
+  data: Record<string, unknown>
+  tags: string[]
+  status: string
+  priority: number
+  user_email: string | null
+  created_at: string
+  updated_at: string
+  relevance?: number
+  similarity?: number
+  score?: number
+}
+
+/** Full-text search API response */
+interface FullTextSearchApiResponse {
+  results: SearchApiResult[]
+  total: number
+}
+
+/** Semantic search API response */
+interface SemanticSearchApiResponse {
+  results: SearchApiResult[]
+  search_type: 'semantic' | 'text' | 'hybrid'
+  query_embedding_provider?: string
+  semantic_weight?: number
+}
+
+/** Collections API response */
+interface CollectionsApiResponse {
+  collections: Array<{
+    collection: string
+    count: number
+    latest_at: string | null
+  }>
+}
+
+/** Aggregate API response */
+interface AggregateApiResponse {
+  result: Record<string, unknown>
+}
+
+/**
+ * Format search results for display.
+ */
+function formatSearchResults(results: SearchApiResult[]): string {
+  if (results.length === 0) {
+    return 'No items found matching your query.'
+  }
+
+  return results
+    .map((r) => {
+      const title = r.title || r.key || r.id
+      const score = r.relevance ?? r.similarity ?? r.score
+      const scoreStr = score !== undefined ? ` (${Math.round(Number(score) * 100)}%)` : ''
+      const collection = r.collection !== '_default' ? ` [${r.collection}]` : ''
+      const summary = r.summary
+        ? `: ${truncateForPreview(r.summary)}`
+        : r.content
+          ? `: ${truncateForPreview(r.content)}`
+          : ''
+      return `- ${title}${collection}${scoreStr}${summary}`
+    })
+    .join('\n')
+}
+
+/**
+ * Format aggregate result for display based on operation type.
+ */
+function formatAggregateResult(operation: string, result: Record<string, unknown>): string {
+  switch (operation) {
+    case 'count':
+      return `Total items: ${result.count}`
+
+    case 'count_by_tag': {
+      const tags = result.tags as Array<{ tag: string; count: number }> | undefined
+      if (!tags || tags.length === 0) return 'No tags found.'
+      return tags.map((t) => `- ${t.tag}: ${t.count}`).join('\n')
+    }
+
+    case 'count_by_status': {
+      const statuses = result.statuses as Array<{ status: string; count: number }> | undefined
+      if (!statuses || statuses.length === 0) return 'No items found.'
+      return statuses.map((s) => `- ${s.status}: ${s.count}`).join('\n')
+    }
+
+    case 'latest':
+    case 'oldest': {
+      const item = result.item as Record<string, unknown> | null | undefined
+      if (!item) return 'No items found.'
+      const title = (item.title as string) || (item.key as string) || (item.id as string)
+      const date = (item.created_at as string) || ''
+      return `${operation === 'latest' ? 'Most recent' : 'Oldest'}: ${title} (${date})`
+    }
+
+    default:
+      return JSON.stringify(result)
+  }
+}
+
+/**
+ * Create the skill_store_search tool.
+ */
+export function createSkillStoreSearchTool(options: SkillStoreToolOptions): SkillStoreTool {
+  const { client, logger, userId } = options
+
+  return {
+    name: 'skill_store_search',
+    description:
+      'Search skill store items by text or semantic similarity. Use when looking for stored data, ' +
+      'notes, or content by topic. Supports full-text search (default) and optional semantic/vector search ' +
+      'with graceful fallback to text when embeddings are not available.',
+    parameters: SkillStoreSearchParamsSchema,
+
+    async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
+      const parseResult = SkillStoreSearchParamsSchema.safeParse(params)
+      if (!parseResult.success) {
+        const errorMessage = parseResult.error.errors
+          .map((e) => `${e.path.join('.')}: ${e.message}`)
+          .join(', ')
+        return { success: false, error: errorMessage }
+      }
+
+      const validated = parseResult.data
+
+      logger.info('skill_store_search invoked', {
+        userId,
+        skillId: validated.skill_id,
+        queryLength: validated.query.length,
+        semantic: !!validated.semantic,
+        collection: validated.collection,
+      })
+
+      try {
+        const useSemantic = !!validated.semantic
+
+        // Build request body
+        const body: Record<string, unknown> = {
+          skill_id: validated.skill_id,
+          query: validated.query,
+        }
+        if (validated.collection) body.collection = validated.collection
+        if (validated.tags) body.tags = validated.tags
+        if (validated.limit !== undefined) body.limit = validated.limit
+        if (validated.user_email) body.user_email = validated.user_email
+
+        if (useSemantic) {
+          if (validated.min_similarity !== undefined) body.min_similarity = validated.min_similarity
+
+          const response = await client.post<SemanticSearchApiResponse>(
+            '/api/skill-store/search/semantic',
+            body,
+            { userId }
+          )
+
+          if (!response.success) {
+            logger.error('skill_store_search semantic API error', {
+              userId,
+              status: response.error.status,
+              code: response.error.code,
+            })
+            return {
+              success: false,
+              error: response.error.message || 'Failed to search items',
+            }
+          }
+
+          const { results, search_type, query_embedding_provider } = response.data
+
+          const content = formatSearchResults(results)
+
+          return {
+            success: true,
+            data: {
+              content,
+              details: {
+                results,
+                search_type,
+                query_embedding_provider,
+                userId,
+              },
+            },
+          }
+        }
+
+        // Full-text search
+        const response = await client.post<FullTextSearchApiResponse>(
+          '/api/skill-store/search',
+          body,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('skill_store_search API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to search items',
+          }
+        }
+
+        const { results, total } = response.data
+
+        const content = formatSearchResults(results)
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: { results, total, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('skill_store_search failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return { success: false, error: sanitizeErrorMessage(error) }
+      }
+    },
+  }
+}
+
+/**
+ * Create the skill_store_collections tool.
+ */
+export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions): SkillStoreTool {
+  const { client, logger, userId } = options
+
+  return {
+    name: 'skill_store_collections',
+    description:
+      'List all collections for a skill with item counts. Use to discover what data categories exist ' +
+      'and how many items each collection contains.',
+    parameters: SkillStoreCollectionsParamsSchema,
+
+    async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
+      const parseResult = SkillStoreCollectionsParamsSchema.safeParse(params)
+      if (!parseResult.success) {
+        const errorMessage = parseResult.error.errors
+          .map((e) => `${e.path.join('.')}: ${e.message}`)
+          .join(', ')
+        return { success: false, error: errorMessage }
+      }
+
+      const validated = parseResult.data
+
+      logger.info('skill_store_collections invoked', {
+        userId,
+        skillId: validated.skill_id,
+      })
+
+      try {
+        const queryParams = new URLSearchParams({
+          skill_id: validated.skill_id,
+        })
+        if (validated.user_email) {
+          queryParams.set('user_email', validated.user_email)
+        }
+
+        const response = await client.get<CollectionsApiResponse>(
+          `/api/skill-store/collections?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('skill_store_collections API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to list collections',
+          }
+        }
+
+        const { collections } = response.data
+
+        if (collections.length === 0) {
+          return {
+            success: true,
+            data: {
+              content: 'No collections found for this skill.',
+              details: { collections: [], userId },
+            },
+          }
+        }
+
+        const content = collections
+          .map((c) => `- ${c.collection}: ${c.count} item${c.count !== 1 ? 's' : ''}`)
+          .join('\n')
+
+        const totalItems = collections.reduce((sum, c) => sum + c.count, 0)
+
+        return {
+          success: true,
+          data: {
+            content: `${collections.length} collection${collections.length !== 1 ? 's' : ''} (${totalItems} total items)\n${content}`,
+            details: { collections, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('skill_store_collections failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return { success: false, error: sanitizeErrorMessage(error) }
+      }
+    },
+  }
+}
+
+/**
+ * Create the skill_store_aggregate tool.
+ */
+export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): SkillStoreTool {
+  const { client, logger, userId } = options
+
+  return {
+    name: 'skill_store_aggregate',
+    description:
+      'Run simple aggregations on skill store items. Useful for understanding data volume, ' +
+      'distribution, and boundaries. Operations: count (total items), count_by_tag, count_by_status, ' +
+      'latest (most recent item), oldest (first item).',
+    parameters: SkillStoreAggregateParamsSchema,
+
+    async execute(params: Record<string, unknown>): Promise<SkillStoreToolResult> {
+      const parseResult = SkillStoreAggregateParamsSchema.safeParse(params)
+      if (!parseResult.success) {
+        const errorMessage = parseResult.error.errors
+          .map((e) => `${e.path.join('.')}: ${e.message}`)
+          .join(', ')
+        return { success: false, error: errorMessage }
+      }
+
+      const validated = parseResult.data
+
+      logger.info('skill_store_aggregate invoked', {
+        userId,
+        skillId: validated.skill_id,
+        operation: validated.operation,
+        collection: validated.collection,
+      })
+
+      try {
+        const queryParams = new URLSearchParams({
+          skill_id: validated.skill_id,
+          operation: validated.operation,
+        })
+        if (validated.collection) queryParams.set('collection', validated.collection)
+        if (validated.since) queryParams.set('since', validated.since)
+        if (validated.until) queryParams.set('until', validated.until)
+        if (validated.user_email) queryParams.set('user_email', validated.user_email)
+
+        const response = await client.get<AggregateApiResponse>(
+          `/api/skill-store/aggregate?${queryParams}`,
+          { userId }
+        )
+
+        if (!response.success) {
+          logger.error('skill_store_aggregate API error', {
+            userId,
+            status: response.error.status,
+            code: response.error.code,
+          })
+          return {
+            success: false,
+            error: response.error.message || 'Failed to aggregate items',
+          }
+        }
+
+        const { result } = response.data
+        const content = formatAggregateResult(validated.operation, result)
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: { result, operation: validated.operation, userId },
+          },
+        }
+      } catch (error) {
+        logger.error('skill_store_aggregate failed', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return { success: false, error: sanitizeErrorMessage(error) }
+      }
+    },
+  }
+}
