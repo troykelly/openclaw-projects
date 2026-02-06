@@ -68,6 +68,8 @@ const APPLICATION_TABLES = [
   'notebook_share',
   'note',
   'notebook',
+  // Skill Store (Epic #794)
+  'skill_store_item',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
