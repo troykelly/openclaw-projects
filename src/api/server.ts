@@ -6,7 +6,7 @@ import fastifyStatic from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import { createHash, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from '../db.ts';
@@ -175,10 +175,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // In production, cache the index.html for performance.
   // In development, re-read on each request to pick up rebuilds without server restart.
   const isDev = process.env.NODE_ENV !== 'production';
-  let cachedAppFrontendIndexHtml: string | null = isDev ? null : readFileSync(appFrontendIndexPath, 'utf8');
+  let cachedAppFrontendIndexHtml: string | null = isDev
+    ? null
+    : existsSync(appFrontendIndexPath) ? readFileSync(appFrontendIndexPath, 'utf8') : null;
 
-  function getAppFrontendIndexHtml(): string {
+  function getAppFrontendIndexHtml(): string | null {
     if (isDev || !cachedAppFrontendIndexHtml) {
+      if (!existsSync(appFrontendIndexPath)) return null;
       cachedAppFrontendIndexHtml = readFileSync(appFrontendIndexPath, 'utf8');
     }
     return cachedAppFrontendIndexHtml;
@@ -186,6 +189,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   function renderAppFrontendHtml(bootstrap: unknown | null): string {
     const html = getAppFrontendIndexHtml();
+    if (!html) {
+      return '<!doctype html><html><head><title>OpenClaw Projects</title></head>'
+        + '<body><p>Frontend assets not available. If running in Docker Compose, '
+        + 'access the frontend via the <code>app</code> container.</p></body></html>';
+    }
     if (!bootstrap) return html;
 
     // Embed bootstrap JSON in the HTML response so Fastify inject tests can assert on data
