@@ -93,7 +93,7 @@ export async function createNote(
   userEmail: string
 ): Promise<Note> {
   // Import embedding integration lazily to avoid circular deps
-  const { triggerNoteEmbedding } = await import('../embeddings/note-integration.js');
+  const { triggerNoteEmbedding } = await import('../embeddings/note-integration.ts');
 
   const visibility = input.visibility ?? 'private';
 
@@ -457,7 +457,7 @@ export async function updateNote(
     input.hideFromAgents !== undefined
   ) {
     // Import embedding integration lazily
-    import('../embeddings/note-integration.js')
+    import('../embeddings/note-integration.ts')
       .then(({ triggerNoteEmbedding }) => triggerNoteEmbedding(pool, note.id))
       .catch((err) =>
         console.error(`[Embeddings] Failed to import embedding module:`, err)

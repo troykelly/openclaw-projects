@@ -431,7 +431,7 @@ async function multiScopeMemorySearch(
   let queryEmbedding: number[] | null = null;
 
   try {
-    const { embeddingService } = await import('../embeddings/service.js');
+    const { embeddingService } = await import('../embeddings/service.ts');
 
     if (embeddingService.isConfigured()) {
       const embResult = await embeddingService.embed(prompt);

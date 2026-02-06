@@ -1562,7 +1562,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/settings/embeddings', async (req, reply) => {
     const pool = createPool();
     try {
-      const { getEmbeddingSettings } = await import('./embeddings/settings.js');
+      const { getEmbeddingSettings } = await import('./embeddings/settings.ts');
       const settings = await getEmbeddingSettings(pool);
       return reply.send(settings);
     } finally {
@@ -1596,7 +1596,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const { updateBudgetSettings, getEmbeddingSettings } = await import('./embeddings/settings.js');
+      const { updateBudgetSettings, getEmbeddingSettings } = await import('./embeddings/settings.ts');
       await updateBudgetSettings(pool, body);
       const settings = await getEmbeddingSettings(pool);
       return reply.send(settings);
@@ -1606,7 +1606,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.post('/api/settings/embeddings/test', async (req, reply) => {
-    const { testProviderConnection } = await import('./embeddings/settings.js');
+    const { testProviderConnection } = await import('./embeddings/settings.ts');
     const result = await testProviderConnection();
     return reply.send(result);
   });
@@ -2531,7 +2531,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (body.recurrence_natural) {
       // Parse natural language recurrence
-      const { parseNaturalLanguage } = await import('./recurrence/parser.js');
+      const { parseNaturalLanguage } = await import('./recurrence/parser.ts');
       const parseResult = parseNaturalLanguage(body.recurrence_natural);
       if (parseResult.isRecurring && parseResult.rrule) {
         recurrenceRule = parseResult.rrule;
@@ -3569,7 +3569,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    const { getRecurrenceInfo, describeRrule } = await import('./recurrence/index.js');
+    const { getRecurrenceInfo, describeRrule } = await import('./recurrence/index.ts');
 
     try {
       const info = await getRecurrenceInfo(pool, params.id);
@@ -3608,7 +3608,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       let recurrenceRule: string | undefined;
 
       if (body.recurrence_natural) {
-        const { parseNaturalLanguage } = await import('./recurrence/parser.js');
+        const { parseNaturalLanguage } = await import('./recurrence/parser.ts');
         const parseResult = parseNaturalLanguage(body.recurrence_natural);
         if (parseResult.isRecurring && parseResult.rrule) {
           recurrenceRule = parseResult.rrule;
@@ -3634,7 +3634,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      const { updateRecurrence, getRecurrenceInfo, describeRrule } = await import('./recurrence/index.js');
+      const { updateRecurrence, getRecurrenceInfo, describeRrule } = await import('./recurrence/index.ts');
 
       const updated = await updateRecurrence(pool, params.id, {
         recurrenceRule,
@@ -3672,7 +3672,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { stopRecurrence } = await import('./recurrence/index.js');
+      const { stopRecurrence } = await import('./recurrence/index.ts');
       const stopped = await stopRecurrence(pool, params.id);
 
       await pool.end();
@@ -3699,7 +3699,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { getInstances } = await import('./recurrence/index.js');
+      const { getInstances } = await import('./recurrence/index.ts');
 
       const instances = await getInstances(pool, params.id, {
         limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -3728,7 +3728,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { getTemplates } = await import('./recurrence/index.js');
+      const { getTemplates } = await import('./recurrence/index.ts');
 
       const templates = await getTemplates(pool, {
         limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -3756,7 +3756,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { generateUpcomingInstances } = await import('./recurrence/index.js');
+      const { generateUpcomingInstances } = await import('./recurrence/index.ts');
 
       const result = await generateUpcomingInstances(
         pool,
@@ -3793,7 +3793,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { queryAuditLog } = await import('./audit/index.js');
+      const { queryAuditLog } = await import('./audit/index.ts');
 
       const options: Parameters<typeof queryAuditLog>[1] = {
         entityType: query.entityType,
@@ -3866,7 +3866,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { getEntityAuditLog } = await import('./audit/index.js');
+      const { getEntityAuditLog } = await import('./audit/index.ts');
 
       const entries = await getEntityAuditLog(pool, params.type, params.id, {
         limit: query.limit ? parseInt(query.limit, 10) : undefined,
@@ -3894,7 +3894,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const { purgeOldEntries } = await import('./audit/index.js');
+      const { purgeOldEntries } = await import('./audit/index.ts');
 
       const retentionDays = body.retentionDays || 90;
       if (retentionDays < 1 || retentionDays > 3650) {
@@ -5310,7 +5310,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Build dynamic query
     const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const params: (string | number | string[])[] = [];
     let paramIndex = 1;
 
     if (search) {

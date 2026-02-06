@@ -4,6 +4,7 @@
  */
 
 import type { Pool } from 'pg';
+import type { IncomingPhoneNumberInstance } from 'twilio/lib/rest/api/v2010/account/incomingPhoneNumber.js';
 import { isTwilioConfigured, requireTwilioClient } from './config.ts';
 
 /**
@@ -166,16 +167,9 @@ export async function getPhoneNumberDetails(
  * Format a Twilio IncomingPhoneNumber instance to our details format.
  */
 function formatPhoneNumberDetails(
-  num: ReturnType<
-    typeof import('twilio').Twilio.prototype.incomingPhoneNumbers.get
-  > extends (sid: string) => infer R
-    ? R extends { fetch: () => Promise<infer T> }
-      ? T
-      : never
-    : never
+  num: IncomingPhoneNumberInstance
 ): PhoneNumberDetails {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const n = num as any;
+  const n = num;
   return {
     phoneNumber: n.phoneNumber,
     friendlyName: n.friendlyName,

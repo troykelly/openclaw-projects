@@ -556,7 +556,7 @@ function AboutSection() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">License</span>
-              <span className="text-sm font-medium">ISC</span>
+              <span className="text-sm font-medium">MIT</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between">

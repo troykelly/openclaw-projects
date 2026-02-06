@@ -219,7 +219,7 @@ export async function semanticSearch(
   } = options;
 
   // Import embedding service lazily
-  const { embeddingService } = await import('../embeddings/service.js');
+  const { embeddingService } = await import('../embeddings/service.ts');
 
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {

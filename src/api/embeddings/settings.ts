@@ -343,7 +343,7 @@ export async function testProviderConnection(): Promise<{
 
   try {
     // Dynamic import to avoid circular dependencies
-    const { createProvider } = await import('./providers/index.js');
+    const { createProvider } = await import('./providers/index.ts');
     const provider = createProvider(summary.provider);
 
     const start = Date.now();

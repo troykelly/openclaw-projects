@@ -1,6 +1,7 @@
 {
-  "name": "@troykelly/openclaw-projects",
-  "version": "1.0.0",
+  "name": "@troykelly/openclaw-projects-server",
+  "version": "0.0.1",
+  "private": true,
   "description": "Postgres-backed project + task management system",
   "type": "module",
   "scripts": {
@@ -27,8 +28,8 @@
     "dev:link": "./scripts/dev-setup.sh --link"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Troy Kelly",
+  "license": "MIT",
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",

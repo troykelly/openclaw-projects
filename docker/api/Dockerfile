@@ -56,7 +56,7 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.vendor="Troy Kelly" \
-      org.opencontainers.image.licenses="ISC"
+      org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 

@@ -158,7 +158,7 @@ export async function searchMemoriesSemantic(
 
   // Build query
   const conditions: string[] = [];
-  const params: (string | number)[] = [];
+  const params: (string | number | string[])[] = [];
   let paramIndex = 1;
 
   if (memoryType) {

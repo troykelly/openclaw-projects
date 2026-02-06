@@ -517,10 +517,11 @@ export function NoteDetail({
         )}
       </div>
 
-      {/* Editor */}
+      {/* Editor - key forces remount when switching notes (#786) */}
       <div className="flex-1 overflow-hidden">
         <NoteEditor
-          initialContent={content}
+          key={note?.id ?? 'new'}
+          initialContent={note?.content ?? ''}
           onChange={handleContentChange}
           saving={saveStatus === 'saving'}
           autoFocus={isNew}

@@ -559,7 +559,7 @@ describe('SettingsPage', () => {
 
       await waitForLoaded();
 
-      expect(screen.getByText('ISC')).toBeInTheDocument();
+      expect(screen.getByText('MIT')).toBeInTheDocument();
     });
 
     it('shows documentation link', async () => {
