@@ -1,22 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
-import { existsSync } from 'fs';
+import { createTestPool } from './helpers/db.ts';
 import { runMigrate, migrationCount } from './helpers/migrate.ts';
 
 describe('Migrations', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
-    const host = process.env.PGHOST || defaultHost;
-
-    pool = new Pool({
-      host,
-      port: parseInt(process.env.PGPORT || '5432', 10),
-      user: process.env.PGUSER || 'openclaw',
-      password: process.env.PGPASSWORD || 'openclaw',
-      database: process.env.PGDATABASE || 'openclaw',
-    });
+    pool = createTestPool();
 
     // Reset migrations before tests (best-effort)
     try {
@@ -93,15 +84,7 @@ describe('Migrations', () => {
     // After dropping objects, reconnect to avoid any cached query plans
     // referencing now-dropped relations.
     await pool.end();
-    const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
-    const host = process.env.PGHOST || defaultHost;
-    pool = new Pool({
-      host,
-      port: parseInt(process.env.PGPORT || '5432', 10),
-      user: process.env.PGUSER || 'openclaw',
-      password: process.env.PGPASSWORD || 'openclaw',
-      database: process.env.PGDATABASE || 'openclaw',
-    });
+    pool = createTestPool();
 
     const result = await pool.query(`
       SELECT EXISTS (

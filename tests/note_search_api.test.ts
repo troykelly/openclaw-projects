@@ -38,7 +38,7 @@ describe('Note Search API', () => {
 
   beforeAll(async () => {
     app = await buildServer();
-    pool = createPool();
+    pool = createPool({ max: 3 });
 
     // Clean up any existing test data
     await pool.query(`DELETE FROM note WHERE user_email LIKE 'search-%@example.com'`);

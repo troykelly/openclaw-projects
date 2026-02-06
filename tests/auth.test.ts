@@ -97,7 +97,7 @@ describe('Magic-link auth + sessions', () => {
     const token = new URL(loginUrl).searchParams.get('token');
 
     // Manually expire the token in the database
-    const pool = createPool();
+    const pool = createPool({ max: 3 });
     await pool.query(
       `UPDATE auth_magic_link
           SET expires_at = now() - interval '1 minute'
@@ -205,7 +205,7 @@ describe('Magic-link auth + sessions', () => {
     const sessionCookie = cookieHeader.split(';')[0];
 
     // Manually expire the session
-    const pool = createPool();
+    const pool = createPool({ max: 3 });
     await pool.query(
       `UPDATE auth_session
           SET expires_at = now() - interval '1 minute'
@@ -244,7 +244,7 @@ describe('Magic-link auth + sessions', () => {
     const sessionCookie = cookieHeader.split(';')[0];
 
     // Manually revoke the session
-    const pool = createPool();
+    const pool = createPool({ max: 3 });
     await pool.query(
       `UPDATE auth_session
           SET revoked_at = now()

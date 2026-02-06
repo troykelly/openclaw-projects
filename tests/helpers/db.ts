@@ -19,6 +19,7 @@ export function getPoolConfig(): PoolConfig {
     user: process.env.PGUSER || 'openclaw',
     password: process.env.PGPASSWORD || 'openclaw',
     database: process.env.PGDATABASE || 'openclaw',
+    max: 3,
   };
 }
 

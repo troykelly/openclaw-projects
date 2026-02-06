@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
-import { existsSync } from 'fs';
+import { createTestPool } from './helpers/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
 
 describe('Required Postgres extensions', () => {
@@ -8,16 +8,7 @@ describe('Required Postgres extensions', () => {
 
   beforeAll(async () => {
     await runMigrate('up');
-
-    const defaultHost = existsSync('/.dockerenv') ? 'postgres' : 'localhost';
-
-    pool = new Pool({
-      host: process.env.PGHOST || defaultHost,
-      port: parseInt(process.env.PGPORT || '5432', 10),
-      user: process.env.PGUSER || 'openclaw',
-      password: process.env.PGPASSWORD || 'openclaw',
-      database: process.env.PGDATABASE || 'openclaw',
-    });
+    pool = createTestPool();
   });
 
   afterAll(async () => {

@@ -90,7 +90,7 @@ async function applySql(pool: Pool, file: string): Promise<void> {
  * Uses `schema_migrations` as the source of truth.
  */
 export async function runMigrate(direction: 'up' | 'down', steps?: number): Promise<string> {
-  const pool = new Pool({ connectionString: DATABASE_URL });
+  const pool = new Pool({ connectionString: DATABASE_URL, max: 3 });
 
   try {
     return await withAdvisoryLock(pool, async () => {
