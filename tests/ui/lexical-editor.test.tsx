@@ -58,11 +58,11 @@ describe('LexicalNoteEditor', () => {
     expect(screen.getByRole('button', { name: /markdown/i })).toBeInTheDocument();
   });
 
-  it('shows save button when onSave is provided', () => {
-    const onSave = vi.fn();
-    render(<LexicalNoteEditor onSave={onSave} />);
+  it('shows saving indicator when saving is true', () => {
+    // #775: Autosave replaces manual save button - verify saving indicator shows
+    render(<LexicalNoteEditor saving={true} />);
 
-    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+    expect(screen.getByText(/saving/i)).toBeInTheDocument();
   });
 
   it('shows character and word count', () => {
@@ -699,19 +699,20 @@ graph TD;
       expect(screen.getByText('Custom placeholder text')).toBeInTheDocument();
     });
 
-    it('shows save button in wysiwyg mode', () => {
-      // Save button is always rendered in toolbar when in edit mode
-      render(<LexicalNoteEditor onSave={vi.fn()} />);
+    it('shows toolbar in wysiwyg mode', () => {
+      // #775: Save button removed, autosave replaces it - verify toolbar exists
+      render(<LexicalNoteEditor />);
 
-      // Should show save button with onSave
-      expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+      // Should have multiple toolbar buttons (undo, redo, bold, italic, etc.)
+      const buttons = screen.getAllByRole('button');
+      expect(buttons.length).toBeGreaterThan(5);
     });
 
-    it('disables save button when saving is true', () => {
-      render(<LexicalNoteEditor onSave={vi.fn()} saving={true} />);
+    it('shows saving indicator when saving is true', () => {
+      // #775: Autosave shows "Saving..." indicator instead of disabled button
+      render(<LexicalNoteEditor saving={true} />);
 
-      const saveButton = screen.getByRole('button', { name: /save/i });
-      expect(saveButton).toBeDisabled();
+      expect(screen.getByText(/saving/i)).toBeInTheDocument();
     });
   });
 

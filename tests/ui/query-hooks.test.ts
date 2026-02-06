@@ -37,6 +37,19 @@ import {
 // Save original fetch
 const originalFetch = globalThis.fetch;
 
+// Mock user email for authenticated requests
+const TEST_USER_EMAIL = 'test@example.com';
+
+// Create a mock UserContext for testing hooks that require authentication
+const MockUserContext = React.createContext<{ email: string | null; isLoading: boolean; isAuthenticated: boolean } | null>(null);
+
+// We need to mock the useUserEmail hook to return our test email
+vi.mock('../../src/ui/contexts/user-context', () => ({
+  useUserEmail: () => TEST_USER_EMAIL,
+  useUser: () => ({ email: TEST_USER_EMAIL, isLoading: false, isAuthenticated: true }),
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -412,7 +425,7 @@ describe('useNotes', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/notes',
+      '/api/notes?user_email=test%40example.com',
       expect.any(Object),
     );
   });
@@ -426,7 +439,7 @@ describe('useNotes', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notes?notebookId=nb-123',
+        '/api/notes?user_email=test%40example.com&notebookId=nb-123',
         expect.any(Object),
       );
     });
@@ -441,7 +454,7 @@ describe('useNotes', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notes?tags=tag1&tags=tag2',
+        '/api/notes?user_email=test%40example.com&tags=tag1&tags=tag2',
         expect.any(Object),
       );
     });
@@ -456,7 +469,7 @@ describe('useNotes', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notes?visibility=private',
+        '/api/notes?user_email=test%40example.com&visibility=private',
         expect.any(Object),
       );
     });
@@ -471,7 +484,7 @@ describe('useNotes', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notes?limit=10&offset=20',
+        '/api/notes?user_email=test%40example.com&limit=10&offset=20',
         expect.any(Object),
       );
     });
@@ -486,7 +499,7 @@ describe('useNotes', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notes?sortBy=title&sortOrder=asc',
+        '/api/notes?user_email=test%40example.com&sortBy=title&sortOrder=asc',
         expect.any(Object),
       );
     });
@@ -518,7 +531,7 @@ describe('useNote', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/notes/note-1',
+      '/api/notes/note-1?user_email=test%40example.com',
       expect.any(Object),
     );
   });
@@ -718,7 +731,7 @@ describe('useNotebooks', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/notebooks',
+      '/api/notebooks?user_email=test%40example.com',
       expect.any(Object),
     );
   });
@@ -732,7 +745,7 @@ describe('useNotebooks', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notebooks?parentId=parent-1',
+        '/api/notebooks?user_email=test%40example.com&parentId=parent-1',
         expect.any(Object),
       );
     });
@@ -747,7 +760,7 @@ describe('useNotebooks', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notebooks?includeArchived=true',
+        '/api/notebooks?user_email=test%40example.com&includeArchived=true',
         expect.any(Object),
       );
     });
@@ -779,7 +792,7 @@ describe('useNotebook', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/notebooks/nb-1',
+      '/api/notebooks/nb-1?user_email=test%40example.com',
       expect.any(Object),
     );
   });
@@ -796,7 +809,7 @@ describe('useNotebook', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notebooks/nb-1?includeNotes=true&includeChildren=true',
+        '/api/notebooks/nb-1?user_email=test%40example.com&includeNotes=true&includeChildren=true',
         expect.any(Object),
       );
     });
@@ -828,7 +841,7 @@ describe('useNotebooksTree', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(data);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/notebooks/tree',
+      '/api/notebooks/tree?user_email=test%40example.com',
       expect.any(Object),
     );
   });
@@ -842,7 +855,7 @@ describe('useNotebooksTree', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/notebooks/tree?includeNoteCounts=true',
+        '/api/notebooks/tree?user_email=test%40example.com&includeNoteCounts=true',
         expect.any(Object),
       );
     });

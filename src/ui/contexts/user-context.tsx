@@ -72,9 +72,13 @@ export function useUser(): UserContextValue {
 
 /**
  * Hook to get just the current user's email.
- * Returns null if not authenticated or still loading.
+ * Returns null if not authenticated, still loading, or outside UserProvider.
+ *
+ * Unlike useUser(), this hook does NOT throw if used outside a UserProvider.
+ * This allows query/mutation hooks to be mounted safely and just disable
+ * themselves when there's no authenticated user context.
  */
 export function useUserEmail(): string | null {
-  const { email } = useUser();
-  return email;
+  const context = useContext(UserContext);
+  return context?.email ?? null;
 }
