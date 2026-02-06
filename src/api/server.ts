@@ -12578,6 +12578,627 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Skill Store CRUD API (Issue #797) ─────────────────────────────
+
+  /** Maximum serialized size of the data field (1MB). */
+  const SKILL_STORE_DATA_MAX_BYTES = 1_048_576;
+
+  /**
+   * Validate that the serialized JSON size of a data field does not exceed 1MB.
+   * Returns true when valid (within limit), false when too large.
+   */
+  function isSkillStoreDataWithinLimit(data: unknown): boolean {
+    if (data === undefined || data === null) return true;
+    return JSON.stringify(data).length <= SKILL_STORE_DATA_MAX_BYTES;
+  }
+
+  /** Column list returned by skill store queries. */
+  const SKILL_STORE_SELECT_COLS = `
+    id::text AS id,
+    skill_id,
+    collection,
+    key,
+    title,
+    summary,
+    content,
+    data,
+    media_url,
+    media_type,
+    source_url,
+    status::text AS status,
+    tags,
+    priority,
+    expires_at,
+    pinned,
+    embedding_status,
+    user_email,
+    created_by,
+    deleted_at,
+    created_at,
+    updated_at`;
+
+  // POST /api/skill-store/items — Create or upsert
+  app.post('/api/skill-store/items', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const skillId = body.skill_id as string | undefined;
+    if (!skillId || typeof skillId !== 'string' || skillId.trim().length === 0) {
+      return reply.code(400).send({ error: 'skill_id is required' });
+    }
+
+    if (!isSkillStoreDataWithinLimit(body.data)) {
+      return reply.code(400).send({ error: 'data field exceeds maximum size of 1MB' });
+    }
+
+    const collection = (body.collection as string) || '_default';
+    const key = (body.key as string | undefined) ?? null;
+    const title = (body.title as string | undefined) ?? null;
+    const summary = (body.summary as string | undefined) ?? null;
+    const content = (body.content as string | undefined) ?? null;
+    const data = body.data !== undefined ? JSON.stringify(body.data) : '{}';
+    const tags = Array.isArray(body.tags) ? body.tags : [];
+    const priority = typeof body.priority === 'number' ? body.priority : null;
+    const mediaUrl = (body.media_url as string | undefined) ?? null;
+    const mediaType = (body.media_type as string | undefined) ?? null;
+    const sourceUrl = (body.source_url as string | undefined) ?? null;
+    const userEmail = (body.user_email as string | undefined) ?? null;
+    const expiresAt = (body.expires_at as string | undefined) ?? null;
+    const pinned = typeof body.pinned === 'boolean' ? body.pinned : false;
+
+    const pool = createPool();
+    try {
+      // If key is provided, attempt upsert
+      if (key) {
+        const upsertResult = await pool.query(
+          `INSERT INTO skill_store_item
+             (skill_id, collection, key, title, summary, content, data, tags,
+              priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
+                   $9, $10, $11, $12, $13, $14, $15)
+           ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
+           DO UPDATE SET
+             title = EXCLUDED.title,
+             summary = EXCLUDED.summary,
+             content = EXCLUDED.content,
+             data = EXCLUDED.data,
+             tags = EXCLUDED.tags,
+             priority = EXCLUDED.priority,
+             media_url = EXCLUDED.media_url,
+             media_type = EXCLUDED.media_type,
+             source_url = EXCLUDED.source_url,
+             user_email = EXCLUDED.user_email,
+             expires_at = EXCLUDED.expires_at,
+             pinned = EXCLUDED.pinned
+           RETURNING ${SKILL_STORE_SELECT_COLS},
+             (xmax = 0) AS _was_insert`,
+          [skillId, collection, key, title, summary, content, data, tags,
+           priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+        );
+
+        const row = upsertResult.rows[0];
+        const wasInsert = row._was_insert;
+        delete row._was_insert;
+        return reply.code(wasInsert ? 201 : 200).send(row);
+      }
+
+      // No key — always insert
+      const insertResult = await pool.query(
+        `INSERT INTO skill_store_item
+           (skill_id, collection, key, title, summary, content, data, tags,
+            priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
+                 $9, $10, $11, $12, $13, $14, $15)
+         RETURNING ${SKILL_STORE_SELECT_COLS}`,
+        [skillId, collection, key, title, summary, content, data, tags,
+         priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+      );
+      return reply.code(201).send(insertResult.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/skill-store/items/by-key — Get by composite key
+  // Registered BEFORE the :id route so Fastify matches it first
+  app.get('/api/skill-store/items/by-key', async (req, reply) => {
+    const query = req.query as Record<string, string | undefined>;
+    const skillId = query.skill_id;
+    const collection = query.collection || '_default';
+    const key = query.key;
+
+    if (!skillId) {
+      return reply.code(400).send({ error: 'skill_id query parameter is required' });
+    }
+    if (!key) {
+      return reply.code(400).send({ error: 'key query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT ${SKILL_STORE_SELECT_COLS}
+         FROM skill_store_item
+         WHERE skill_id = $1 AND collection = $2 AND key = $3 AND deleted_at IS NULL`,
+        [skillId, collection, key]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/skill-store/items/bulk — Bulk create/upsert
+  app.post('/api/skill-store/items/bulk', async (req, reply) => {
+    const body = req.body as { items?: unknown[] } | null;
+    if (!body || !Array.isArray(body.items)) {
+      return reply.code(400).send({ error: 'items array is required' });
+    }
+
+    if (body.items.length === 0) {
+      return reply.code(400).send({ error: 'items array must not be empty' });
+    }
+
+    if (body.items.length > 100) {
+      return reply.code(400).send({ error: 'Maximum 100 items per bulk request' });
+    }
+
+    // Validate all items before inserting
+    const items = body.items as Record<string, unknown>[];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item || typeof item !== 'object') {
+        return reply.code(400).send({ error: `Item at index ${i} is invalid` });
+      }
+      if (!item.skill_id || typeof item.skill_id !== 'string') {
+        return reply.code(400).send({ error: `Item at index ${i}: skill_id is required` });
+      }
+      if (!isSkillStoreDataWithinLimit(item.data)) {
+        return reply.code(400).send({ error: `Item at index ${i}: data field exceeds maximum size of 1MB` });
+      }
+    }
+
+    const pool = createPool();
+    try {
+      const results: unknown[] = [];
+      // Process each item in a transaction
+      await pool.query('BEGIN');
+      try {
+        for (const item of items) {
+          const skillId = item.skill_id as string;
+          const collection = (item.collection as string) || '_default';
+          const key = (item.key as string | undefined) ?? null;
+          const title = (item.title as string | undefined) ?? null;
+          const summary = (item.summary as string | undefined) ?? null;
+          const content = (item.content as string | undefined) ?? null;
+          const data = item.data !== undefined ? JSON.stringify(item.data) : '{}';
+          const tags = Array.isArray(item.tags) ? item.tags : [];
+          const priority = typeof item.priority === 'number' ? item.priority : null;
+          const mediaUrl = (item.media_url as string | undefined) ?? null;
+          const mediaType = (item.media_type as string | undefined) ?? null;
+          const sourceUrl = (item.source_url as string | undefined) ?? null;
+          const userEmail = (item.user_email as string | undefined) ?? null;
+          const expiresAt = (item.expires_at as string | undefined) ?? null;
+          const pinned = typeof item.pinned === 'boolean' ? item.pinned : false;
+
+          let result;
+          if (key) {
+            result = await pool.query(
+              `INSERT INTO skill_store_item
+                 (skill_id, collection, key, title, summary, content, data, tags,
+                  priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+               VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
+                       $9, $10, $11, $12, $13, $14, $15)
+               ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
+               DO UPDATE SET
+                 title = EXCLUDED.title,
+                 summary = EXCLUDED.summary,
+                 content = EXCLUDED.content,
+                 data = EXCLUDED.data,
+                 tags = EXCLUDED.tags,
+                 priority = EXCLUDED.priority,
+                 media_url = EXCLUDED.media_url,
+                 media_type = EXCLUDED.media_type,
+                 source_url = EXCLUDED.source_url,
+                 user_email = EXCLUDED.user_email,
+                 expires_at = EXCLUDED.expires_at,
+                 pinned = EXCLUDED.pinned
+               RETURNING ${SKILL_STORE_SELECT_COLS}`,
+              [skillId, collection, key, title, summary, content, data, tags,
+               priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+            );
+          } else {
+            result = await pool.query(
+              `INSERT INTO skill_store_item
+                 (skill_id, collection, key, title, summary, content, data, tags,
+                  priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+               VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
+                       $9, $10, $11, $12, $13, $14, $15)
+               RETURNING ${SKILL_STORE_SELECT_COLS}`,
+              [skillId, collection, key, title, summary, content, data, tags,
+               priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+            );
+          }
+          results.push(result.rows[0]);
+        }
+        await pool.query('COMMIT');
+      } catch (err) {
+        await pool.query('ROLLBACK');
+        throw err;
+      }
+
+      return reply.send({ items: results, created: results.length });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/skill-store/items/bulk — Bulk soft delete by filter
+  app.delete('/api/skill-store/items/bulk', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const skillId = body.skill_id as string | undefined;
+    if (!skillId) {
+      return reply.code(400).send({ error: 'skill_id is required' });
+    }
+
+    // Require at least one additional filter
+    const collection = body.collection as string | undefined;
+    const tags = Array.isArray(body.tags) ? body.tags as string[] : undefined;
+    const status = body.status as string | undefined;
+
+    if (!collection && !tags && !status) {
+      return reply.code(400).send({ error: 'At least one additional filter (collection, tags, or status) is required besides skill_id' });
+    }
+
+    const conditions: string[] = ['skill_id = $1', 'deleted_at IS NULL'];
+    const params: (string | string[])[] = [skillId];
+    let paramIdx = 2;
+
+    if (collection) {
+      conditions.push(`collection = $${paramIdx}`);
+      params.push(collection);
+      paramIdx++;
+    }
+
+    if (tags) {
+      conditions.push(`tags @> $${paramIdx}`);
+      params.push(tags);
+      paramIdx++;
+    }
+
+    if (status) {
+      conditions.push(`status::text = $${paramIdx}`);
+      params.push(status);
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_item SET deleted_at = now()
+         WHERE ${conditions.join(' AND ')}`,
+        params
+      );
+      return reply.send({ deleted: result.rowCount ?? 0 });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/skill-store/items/:id/archive — Set status to 'archived'
+  app.post('/api/skill-store/items/:id/archive', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid UUID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_item SET status = 'archived'
+         WHERE id = $1 AND deleted_at IS NULL
+         RETURNING ${SKILL_STORE_SELECT_COLS}`,
+        [params.id]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/skill-store/items/:id — Get by UUID
+  app.get('/api/skill-store/items/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { include_deleted?: string };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid UUID format' });
+    }
+
+    const includeDeleted = query.include_deleted === 'true';
+    const deletedFilter = includeDeleted ? '' : 'AND deleted_at IS NULL';
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT ${SKILL_STORE_SELECT_COLS}
+         FROM skill_store_item
+         WHERE id = $1 ${deletedFilter}`,
+        [params.id]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/skill-store/items — List items
+  app.get('/api/skill-store/items', async (req, reply) => {
+    const query = req.query as Record<string, string | undefined>;
+    const skillId = query.skill_id;
+
+    if (!skillId) {
+      return reply.code(400).send({ error: 'skill_id query parameter is required' });
+    }
+
+    const limit = Math.min(parseInt(query.limit || '50', 10), 200);
+    const offset = parseInt(query.offset || '0', 10);
+    const collection = query.collection;
+    const status = query.status;
+    const tagsFilter = query.tags ? query.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : null;
+    const since = query.since;
+    const until = query.until;
+    const userEmail = query.user_email;
+    const orderBy = query.order_by || 'created_at';
+
+    const allowedOrderBy = ['created_at', 'updated_at', 'title', 'priority'];
+    const safeOrderBy = allowedOrderBy.includes(orderBy) ? orderBy : 'created_at';
+
+    const conditions: string[] = ['skill_id = $1', 'deleted_at IS NULL'];
+    const params: (string | number | string[])[] = [skillId];
+    let paramIdx = 2;
+
+    if (collection) {
+      conditions.push(`collection = $${paramIdx}`);
+      params.push(collection);
+      paramIdx++;
+    }
+
+    if (status) {
+      conditions.push(`status::text = $${paramIdx}`);
+      params.push(status);
+      paramIdx++;
+    }
+
+    if (tagsFilter && tagsFilter.length > 0) {
+      conditions.push(`tags @> $${paramIdx}`);
+      params.push(tagsFilter);
+      paramIdx++;
+    }
+
+    if (since) {
+      conditions.push(`created_at >= $${paramIdx}`);
+      params.push(since);
+      paramIdx++;
+    }
+
+    if (until) {
+      conditions.push(`created_at <= $${paramIdx}`);
+      params.push(until);
+      paramIdx++;
+    }
+
+    if (userEmail) {
+      conditions.push(`user_email = $${paramIdx}`);
+      params.push(userEmail);
+      paramIdx++;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const pool = createPool();
+    try {
+      // Get total count
+      const countResult = await pool.query(
+        `SELECT COUNT(*) AS total FROM skill_store_item WHERE ${whereClause}`,
+        params
+      );
+      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+      // Get paginated results
+      const dataParams = [...params, limit, offset];
+      const result = await pool.query(
+        `SELECT ${SKILL_STORE_SELECT_COLS}
+         FROM skill_store_item
+         WHERE ${whereClause}
+         ORDER BY ${safeOrderBy} DESC
+         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+        dataParams
+      );
+
+      return reply.send({
+        items: result.rows,
+        total,
+        has_more: offset + result.rows.length < total,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/skill-store/items/:id — Partial update
+  app.patch('/api/skill-store/items/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid UUID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    if (body.data !== undefined && !isSkillStoreDataWithinLimit(body.data)) {
+      return reply.code(400).send({ error: 'data field exceeds maximum size of 1MB' });
+    }
+
+    // Build dynamic SET clause
+    const setClauses: string[] = [];
+    const queryParams: unknown[] = [];
+    let paramIdx = 1;
+
+    const mutableFields: Record<string, (v: unknown) => unknown> = {
+      title: (v) => v,
+      summary: (v) => v,
+      content: (v) => v,
+      data: (v) => JSON.stringify(v),
+      tags: (v) => v,
+      priority: (v) => v,
+      media_url: (v) => v,
+      media_type: (v) => v,
+      source_url: (v) => v,
+      status: (v) => v,
+      user_email: (v) => v,
+      expires_at: (v) => v,
+      pinned: (v) => v,
+    };
+
+    for (const [field, transform] of Object.entries(mutableFields)) {
+      if (body[field] !== undefined) {
+        const castSuffix = field === 'data' ? '::jsonb' : field === 'status' ? '::skill_store_item_status' : '';
+        setClauses.push(`${field} = $${paramIdx}${castSuffix}`);
+        queryParams.push(transform(body[field]));
+        paramIdx++;
+      }
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    queryParams.push(params.id);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_item
+         SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND deleted_at IS NULL
+         RETURNING ${SKILL_STORE_SELECT_COLS}`,
+        queryParams
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/skill-store/items/:id — Soft or hard delete
+  app.delete('/api/skill-store/items/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { permanent?: string };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid UUID format' });
+    }
+
+    const permanent = query.permanent === 'true';
+    const pool = createPool();
+    try {
+      let result;
+      if (permanent) {
+        result = await pool.query(
+          'DELETE FROM skill_store_item WHERE id = $1 RETURNING id',
+          [params.id]
+        );
+      } else {
+        result = await pool.query(
+          `UPDATE skill_store_item SET deleted_at = now()
+           WHERE id = $1 AND deleted_at IS NULL
+           RETURNING id`,
+          [params.id]
+        );
+      }
+
+      if ((result.rowCount ?? 0) === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/skill-store/collections — List collections with counts
+  app.get('/api/skill-store/collections', async (req, reply) => {
+    const query = req.query as { skill_id?: string };
+    if (!query.skill_id) {
+      return reply.code(400).send({ error: 'skill_id query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT collection,
+                COUNT(*) FILTER (WHERE deleted_at IS NULL)::int AS count,
+                MAX(created_at) FILTER (WHERE deleted_at IS NULL) AS latest_at
+         FROM skill_store_item
+         WHERE skill_id = $1
+         GROUP BY collection
+         HAVING COUNT(*) FILTER (WHERE deleted_at IS NULL) > 0
+         ORDER BY collection`,
+        [query.skill_id]
+      );
+      return reply.send({ collections: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/skill-store/collections/:name — Soft delete a collection
+  app.delete('/api/skill-store/collections/:name', async (req, reply) => {
+    const params = req.params as { name: string };
+    const query = req.query as { skill_id?: string };
+
+    if (!query.skill_id) {
+      return reply.code(400).send({ error: 'skill_id query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE skill_store_item SET deleted_at = now()
+         WHERE skill_id = $1 AND collection = $2 AND deleted_at IS NULL`,
+        [query.skill_id, params.name]
+      );
+      return reply.send({ deleted: result.rowCount ?? 0 });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
