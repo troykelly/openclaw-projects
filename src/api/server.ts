@@ -12412,6 +12412,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // GET /api/admin/skill-store/skills/:skill_id/quota — Quota usage vs limits (Issue #805)
+  app.get('/api/admin/skill-store/skills/:skill_id/quota', async (req, reply) => {
+    const { skill_id } = req.params as { skill_id: string };
+    const skillStoreQuotas = await import('./skill-store/quotas.ts');
+    const pool = createPool();
+    try {
+      const usage = await skillStoreQuotas.getSkillStoreQuotaUsage(pool, skill_id);
+      return reply.send(usage);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // DELETE /api/admin/skill-store/skills/:skill_id - Hard purge all data for a skill
   app.delete('/api/admin/skill-store/skills/:skill_id', async (req, reply) => {
     const { skill_id } = req.params as { skill_id: string };
@@ -13054,6 +13067,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Quota checks (Issue #805)
+      const skillStoreQuotas = await import('./skill-store/quotas.ts');
+
+      // Check item quota
+      const itemQuota = await skillStoreQuotas.checkItemQuota(pool, skillId);
+      if (!itemQuota.allowed) {
+        return reply.code(429).send({
+          error: 'Item quota exceeded',
+          current: itemQuota.current,
+          limit: itemQuota.limit,
+        });
+      }
+
+      // Check collection quota (only if this would create a new collection)
+      const collectionQuota = await skillStoreQuotas.checkCollectionQuota(pool, skillId, collection);
+      if (!collectionQuota.allowed) {
+        return reply.code(429).send({
+          error: 'Collection quota exceeded',
+          current: collectionQuota.current,
+          limit: collectionQuota.limit,
+        });
+      }
+
       // If key is provided, attempt upsert
       if (key) {
         const upsertResult = await pool.query(
@@ -13779,6 +13815,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Quota check (Issue #805)
+      const skillStoreQuotas = await import('./skill-store/quotas.ts');
+      const scheduleQuota = await skillStoreQuotas.checkScheduleQuota(pool, body.skill_id.trim());
+      if (!scheduleQuota.allowed) {
+        return reply.code(429).send({
+          error: 'Schedule quota exceeded',
+          current: scheduleQuota.current,
+          limit: scheduleQuota.limit,
+        });
+      }
+
       const result = await pool.query(
         `INSERT INTO skill_store_schedule
          (skill_id, collection, cron_expression, timezone, webhook_url, webhook_headers, payload_template, enabled, max_retries)
