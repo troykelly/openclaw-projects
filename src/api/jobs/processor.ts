@@ -20,6 +20,7 @@ import {
 import { handleSmsSendJob } from '../twilio/sms-outbound.ts';
 import { handleEmailSendJob } from '../postmark/email-outbound.ts';
 import { handleMessageEmbedJob } from '../embeddings/message-integration.ts';
+import { handleSkillStoreEmbedJob } from '../embeddings/skill-store-integration.ts';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;
@@ -236,6 +237,8 @@ function getJobHandler(
       return (job) => handleEmailSendJob(pool, job);
     case 'message.embed':
       return (job) => handleMessageEmbedJob(pool, job);
+    case 'skill_store.embed':
+      return (job) => handleSkillStoreEmbedJob(pool, job);
     default:
       return null;
   }

@@ -12056,6 +12056,53 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Skill Store Embeddings Admin Endpoints (Issue #799)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/admin/skill-store/embeddings/status - Get skill store embedding statistics
+  app.get('/api/admin/skill-store/embeddings/status', async (req, reply) => {
+    const skillStoreEmbeddings = await import('./embeddings/skill-store-integration.ts');
+
+    const pool = createPool();
+
+    try {
+      const stats = await skillStoreEmbeddings.getSkillStoreEmbeddingStats(pool);
+      return reply.send(stats);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/admin/skill-store/embeddings/backfill - Backfill skill store item embeddings
+  app.post('/api/admin/skill-store/embeddings/backfill', async (req, reply) => {
+    const skillStoreEmbeddings = await import('./embeddings/skill-store-integration.ts');
+
+    const body = req.body as {
+      batch_size?: number;
+    };
+
+    const batchSize = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
+
+    const pool = createPool();
+
+    try {
+      const result = await skillStoreEmbeddings.backfillSkillStoreEmbeddings(pool, {
+        batchSize,
+      });
+      return reply.code(202).send({
+        status: 'completed',
+        enqueued: result.enqueued,
+        skipped: result.skipped,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // POST /api/notes/search/semantic - Semantic search for notes (legacy endpoint from #349)
   app.post('/api/notes/search/semantic', async (req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
