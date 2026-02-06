@@ -6278,8 +6278,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset,
       });
 
+      // Redact headers in outbox entries to prevent credential leakage (Issue #823)
+      const { redactWebhookHeaders } = await import('./webhooks/ssrf.ts');
+      const redactedEntries = result.entries.map((entry) => ({
+        ...entry,
+        headers: redactWebhookHeaders(entry.headers as Record<string, string>) ?? {},
+      }));
+
       return reply.send({
-        entries: result.entries,
+        entries: redactedEntries,
         total: result.total,
         limit,
         offset,

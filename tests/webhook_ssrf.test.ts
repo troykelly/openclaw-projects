@@ -127,6 +127,32 @@ describe('SSRF Protection (Issue #823)', () => {
       });
     });
 
+    describe('blocks IPv4-mapped IPv6 addresses', () => {
+      it('blocks ::ffff:127.0.0.1 (loopback)', () => {
+        const result = validateSsrf('http://[::ffff:127.0.0.1]/secret');
+        expect(result).not.toBeNull();
+        expect(result).toContain('loopback');
+      });
+
+      it('blocks ::ffff:10.0.0.1 (private)', () => {
+        const result = validateSsrf('http://[::ffff:10.0.0.1]/api');
+        expect(result).not.toBeNull();
+        expect(result).toContain('private');
+      });
+
+      it('blocks ::ffff:192.168.1.1 (private)', () => {
+        const result = validateSsrf('http://[::ffff:192.168.1.1]/api');
+        expect(result).not.toBeNull();
+        expect(result).toContain('private');
+      });
+
+      it('blocks ::ffff:169.254.169.254 (link-local/metadata)', () => {
+        const result = validateSsrf('http://[::ffff:169.254.169.254]/');
+        expect(result).not.toBeNull();
+        expect(result).toContain('link-local');
+      });
+    });
+
     describe('blocks unspecified addresses', () => {
       it('blocks 0.0.0.0', () => {
         const result = validateSsrf('http://0.0.0.0/api');

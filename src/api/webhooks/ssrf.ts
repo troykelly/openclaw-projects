@@ -73,10 +73,18 @@ function isPrivateIPv6(ip: string): string | null {
       normalized.startsWith('fea') || normalized.startsWith('feb')) {
     return 'link-local (IPv6)';
   }
-  // IPv4-mapped IPv6: ::ffff:x.x.x.x
+  // IPv4-mapped IPv6 in dotted-decimal form: ::ffff:x.x.x.x
   const v4Mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (v4Mapped) {
     return isPrivateIPv4(v4Mapped[1]);
+  }
+  // IPv4-mapped IPv6 in hex form: ::ffff:HHHH:HHHH (Node.js URL parser normalizes to this)
+  const v4MappedHex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (v4MappedHex) {
+    const high = parseInt(v4MappedHex[1], 16);
+    const low = parseInt(v4MappedHex[2], 16);
+    const ipv4 = `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
+    return isPrivateIPv4(ipv4);
   }
   return null;
 }
