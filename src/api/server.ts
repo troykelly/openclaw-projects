@@ -12057,6 +12057,131 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Skill Store Search Endpoints (Issue #798)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // POST /api/skill-store/search - Full-text search
+  app.post('/api/skill-store/search', async (req, reply) => {
+    const skillStoreSearch = await import('./skill-store/search.ts');
+
+    const body = req.body as {
+      skill_id?: string;
+      query?: string;
+      collection?: string;
+      tags?: string[];
+      status?: string;
+      user_email?: string;
+      limit?: number;
+      offset?: number;
+    };
+
+    if (!body?.skill_id) {
+      return reply.code(400).send({ error: 'skill_id is required' });
+    }
+    if (!body?.query) {
+      return reply.code(400).send({ error: 'query is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      const result = await skillStoreSearch.searchSkillStoreFullText(pool, {
+        skill_id: body.skill_id,
+        query: body.query,
+        collection: body.collection,
+        tags: body.tags,
+        status: body.status,
+        user_email: body.user_email,
+        limit: body.limit ?? 20,
+        offset: body.offset ?? 0,
+      });
+
+      return reply.send({
+        results: result.results,
+        total: result.total,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/skill-store/search/semantic - Semantic (vector) search with full-text fallback
+  app.post('/api/skill-store/search/semantic', async (req, reply) => {
+    const skillStoreSearch = await import('./skill-store/search.ts');
+
+    const body = req.body as {
+      skill_id?: string;
+      query?: string;
+      collection?: string;
+      tags?: string[];
+      status?: string;
+      user_email?: string;
+      min_similarity?: number;
+      limit?: number;
+      offset?: number;
+      semantic_weight?: number;
+    };
+
+    if (!body?.skill_id) {
+      return reply.code(400).send({ error: 'skill_id is required' });
+    }
+    if (!body?.query) {
+      return reply.code(400).send({ error: 'query is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Use hybrid search if semantic_weight is provided, otherwise pure semantic
+      if (body.semantic_weight !== undefined) {
+        const result = await skillStoreSearch.searchSkillStoreHybrid(pool, {
+          skill_id: body.skill_id,
+          query: body.query,
+          collection: body.collection,
+          tags: body.tags,
+          status: body.status,
+          user_email: body.user_email,
+          min_similarity: body.min_similarity ?? 0.3,
+          limit: body.limit ?? 20,
+          semantic_weight: body.semantic_weight,
+        });
+
+        return reply.send({
+          results: result.results,
+          search_type: result.searchType,
+          semantic_weight: result.semantic_weight,
+        });
+      }
+
+      const result = await skillStoreSearch.searchSkillStoreSemantic(pool, {
+        skill_id: body.skill_id,
+        query: body.query,
+        collection: body.collection,
+        tags: body.tags,
+        status: body.status,
+        user_email: body.user_email,
+        min_similarity: body.min_similarity ?? 0.3,
+        limit: body.limit ?? 20,
+        offset: body.offset ?? 0,
+      });
+
+      return reply.send({
+        results: result.results,
+        search_type: result.searchType,
+        query_embedding_provider: result.queryEmbeddingProvider,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Skill Store Embeddings Admin Endpoints (Issue #799)
   // ─────────────────────────────────────────────────────────────────────────────
 
