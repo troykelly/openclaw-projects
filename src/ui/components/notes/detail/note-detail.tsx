@@ -1,12 +1,16 @@
 /**
  * Note detail and editor view component.
- * Part of Epic #338, Issue #354
+ * Part of Epic #338, Issues #354, #774, #775
+ *
+ * Features:
+ * - Auto-generated title for new notes (e.g., "Feb 6, 2026 11:00")
+ * - Throttled autosave (saves 2 seconds after last change)
+ * - Save status indicator (Saved/Saving/Error)
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   ArrowLeft,
-  Save,
   Share2,
   History,
   MoreVertical,
@@ -20,11 +24,14 @@ import {
   Globe,
   Loader2,
   BookOpen,
+  Check,
+  AlertCircle,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import { Badge } from '@/ui/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,8 +54,30 @@ import {
 } from '@/ui/components/ui/tooltip';
 import { Switch } from '@/ui/components/ui/switch';
 import { Label } from '@/ui/components/ui/label';
-import { NoteEditor, type EditorMode } from '../editor';
+import { NoteEditor } from '../editor';
 import type { Note, NoteVisibility, Notebook } from '../types';
+
+/** Autosave delay in milliseconds (2 seconds) */
+const AUTOSAVE_DELAY_MS = 2000;
+
+/** Save status for the indicator */
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+/**
+ * Generate a human-friendly note title from the current date/time.
+ * Format: "Feb 6, 2026 11:00"
+ */
+function generateAutoTitle(): string {
+  const now = new Date();
+  return now.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
 
 export interface NoteDetailProps {
   note?: Note;
@@ -83,29 +112,52 @@ export function NoteDetail({
   saving = false,
   className,
 }: NoteDetailProps) {
-  const [title, setTitle] = useState(note?.title || '');
+  // Auto-generate title for new notes
+  const autoTitle = useMemo(() => generateAutoTitle(), []);
+
+  const [title, setTitle] = useState(note?.title || (isNew ? autoTitle : ''));
   const [content, setContent] = useState(note?.content || '');
   const [notebookId, setNotebookId] = useState(note?.notebookId);
   const [visibility, setVisibility] = useState<NoteVisibility>(note?.visibility || 'private');
   const [hideFromAgents, setHideFromAgents] = useState(note?.hideFromAgents || false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Track changes
-  useEffect(() => {
-    if (!note) {
-      setHasChanges(title.trim() !== '' || content.trim() !== '');
-      return;
+  // Track whether we've created the note yet (for new notes)
+  const [noteCreated, setNoteCreated] = useState(!isNew);
+
+  // Refs for autosave
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedRef = useRef<{
+    title: string;
+    content: string;
+    notebookId?: string;
+    visibility: NoteVisibility;
+    hideFromAgents: boolean;
+  } | null>(note ? {
+    title: note.title,
+    content: note.content,
+    notebookId: note.notebookId,
+    visibility: note.visibility,
+    hideFromAgents: note.hideFromAgents,
+  } : null);
+
+  // Check if there are unsaved changes
+  const hasChanges = useMemo(() => {
+    if (!lastSavedRef.current) {
+      // For new notes, any content counts as a change
+      return title.trim() !== '' || content.trim() !== '';
     }
-    const changed =
-      title !== note.title ||
-      content !== note.content ||
-      notebookId !== note.notebookId ||
-      visibility !== note.visibility ||
-      hideFromAgents !== note.hideFromAgents;
-    setHasChanges(changed);
-  }, [note, title, content, notebookId, visibility, hideFromAgents]);
+    return (
+      title !== lastSavedRef.current.title ||
+      content !== lastSavedRef.current.content ||
+      notebookId !== lastSavedRef.current.notebookId ||
+      visibility !== lastSavedRef.current.visibility ||
+      hideFromAgents !== lastSavedRef.current.hideFromAgents
+    );
+  }, [title, content, notebookId, visibility, hideFromAgents]);
 
-  // Reset when note changes
+  // Reset when note changes (e.g., navigating to different note)
   useEffect(() => {
     if (note) {
       setTitle(note.title);
@@ -113,20 +165,87 @@ export function NoteDetail({
       setNotebookId(note.notebookId);
       setVisibility(note.visibility);
       setHideFromAgents(note.hideFromAgents);
+      setNoteCreated(true);
+      lastSavedRef.current = {
+        title: note.title,
+        content: note.content,
+        notebookId: note.notebookId,
+        visibility: note.visibility,
+        hideFromAgents: note.hideFromAgents,
+      };
+      setSaveStatus('idle');
+      setSaveError(null);
     }
   }, [note]);
 
-  const handleSave = useCallback(async () => {
+  // Perform the actual save
+  const performSave = useCallback(async () => {
     if (!onSave) return;
-    await onSave({
-      title: title.trim() || 'Untitled',
+
+    const currentTitle = title.trim() || autoTitle;
+    const data = {
+      title: currentTitle,
       content,
       notebookId,
       visibility,
       hideFromAgents,
-    });
-    setHasChanges(false);
-  }, [onSave, title, content, notebookId, visibility, hideFromAgents]);
+    };
+
+    setSaveStatus('saving');
+    setSaveError(null);
+
+    try {
+      await onSave(data);
+      lastSavedRef.current = data;
+      setNoteCreated(true);
+      setSaveStatus('saved');
+
+      // Reset to idle after 3 seconds
+      setTimeout(() => {
+        setSaveStatus((current) => (current === 'saved' ? 'idle' : current));
+      }, 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Save failed';
+      setSaveError(message);
+      setSaveStatus('error');
+    }
+  }, [onSave, title, content, notebookId, visibility, hideFromAgents, autoTitle]);
+
+  // Schedule autosave when changes occur
+  useEffect(() => {
+    // Don't autosave if there's no onSave handler or no changes
+    if (!onSave || !hasChanges) {
+      return;
+    }
+
+    // Clear existing timer
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    // For new notes, require at least some content before first save
+    if (!noteCreated && !title.trim() && !content.trim()) {
+      return;
+    }
+
+    // Schedule autosave
+    autosaveTimerRef.current = setTimeout(() => {
+      performSave();
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [onSave, hasChanges, noteCreated, title, content, performSave]);
+
+  // Sync with external saving state
+  useEffect(() => {
+    if (saving) {
+      setSaveStatus('saving');
+    }
+  }, [saving]);
 
   const handleContentChange = useCallback((newContent: string) => {
     setContent(newContent);
@@ -140,6 +259,58 @@ export function NoteDetail({
         return <Users className="size-4" />;
       case 'public':
         return <Globe className="size-4" />;
+    }
+  };
+
+  // Save status indicator component
+  const SaveStatusIndicator = () => {
+    switch (saveStatus) {
+      case 'saving':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            <span>Saving...</span>
+          </div>
+        );
+      case 'saved':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+            <Check className="size-3" />
+            <span>Saved</span>
+          </div>
+        );
+      case 'error':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1.5 text-xs text-destructive cursor-help">
+                  <AlertCircle className="size-3" />
+                  <span>Error saving</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{saveError || 'Failed to save note'}</p>
+                <p className="text-xs text-muted-foreground mt-1">Changes will be retried automatically</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      default:
+        if (hasChanges) {
+          return (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CloudOff className="size-3" />
+              <span>Unsaved</span>
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Cloud className="size-3" />
+            <span>All changes saved</span>
+          </div>
+        );
     }
   };
 
@@ -157,12 +328,15 @@ export function NoteDetail({
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Note title..."
+          placeholder={autoTitle}
           className="flex-1 border-0 bg-transparent text-lg font-semibold focus-visible:ring-0 px-0"
         />
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Save status indicator */}
+          <SaveStatusIndicator />
+
           {/* Visibility selector */}
           <TooltipProvider>
             <Tooltip>
@@ -227,21 +401,6 @@ export function NoteDetail({
                 <TooltipContent>Version history</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )}
-
-          {/* Save button */}
-          {onSave && (
-            <Button
-              onClick={handleSave}
-              disabled={saving || !hasChanges}
-            >
-              {saving ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 size-4" />
-              )}
-              {saving ? 'Saving...' : 'Save'}
-            </Button>
           )}
 
           {/* More actions */}
@@ -349,19 +508,11 @@ export function NoteDetail({
         <NoteEditor
           initialContent={content}
           onChange={handleContentChange}
-          onSave={handleSave}
-          saving={saving}
+          saving={saveStatus === 'saving'}
           autoFocus={isNew}
           className="h-full border-0 rounded-none"
         />
       </div>
-
-      {/* Unsaved changes indicator */}
-      {hasChanges && (
-        <div className="border-t px-4 py-2 bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-700 dark:text-amber-400">
-          You have unsaved changes
-        </div>
-      )}
     </div>
   );
 }

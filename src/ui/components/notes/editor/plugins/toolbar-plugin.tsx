@@ -21,7 +21,6 @@ import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { $createCodeNode } from '@lexical/code';
 import { INSERT_TABLE_COMMAND } from '@lexical/table';
-import { Button } from '@/ui/components/ui/button';
 import {
   Bold,
   Italic,
@@ -36,8 +35,6 @@ import {
   Heading3,
   Undo,
   Redo,
-  Save,
-  Loader2,
   FileCode,
   Table,
 } from 'lucide-react';
@@ -47,10 +44,7 @@ import { LinkDialog } from '../dialogs/link-dialog';
 import { TableDialog } from '../dialogs/table-dialog';
 import type { ToolbarPluginProps } from '../types';
 
-export function ToolbarPlugin({
-  onSave,
-  saving,
-}: ToolbarPluginProps): React.JSX.Element {
+export function ToolbarPlugin(): React.JSX.Element {
   const [editor] = useLexicalComposerContext();
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
@@ -221,29 +215,6 @@ export function ToolbarPlugin({
         label="Insert Table"
         onClick={() => setTableDialogOpen(true)}
       />
-
-      <div className="flex-1" />
-
-      {onSave && (
-        <>
-          <ToolbarSeparator />
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={onSave}
-            disabled={saving}
-            className="h-8"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-1" />
-            )}
-            Save
-          </Button>
-        </>
-      )}
 
       {/* Dialogs */}
       <LinkDialog

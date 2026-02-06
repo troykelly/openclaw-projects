@@ -48,13 +48,12 @@ import 'katex/dist/katex.min.css';
 import { cn } from '@/ui/lib/utils';
 import { useDarkMode } from '@/ui/hooks/use-dark-mode';
 import { Button } from '@/ui/components/ui/button';
-import { Code, Eye, Edit, Save, Loader2 } from 'lucide-react';
+import { Code, Eye, Edit } from 'lucide-react';
 
 // Import modular components
 import { theme, onError } from './config/theme';
 import { sanitizeHtml } from './utils/sanitize';
 import { markdownToHtml } from './utils/markdown-to-html';
-import { ToolbarSeparator } from './components/toolbar-separator';
 import { MermaidRenderer } from './components/mermaid-renderer';
 import { ToolbarPlugin } from './plugins/toolbar-plugin';
 import { InitialContentPlugin } from './plugins/initial-content-plugin';
@@ -69,7 +68,6 @@ export type { LexicalEditorProps, EditorMode };
 export function LexicalNoteEditor({
   initialContent = '',
   onChange,
-  onSave,
   readOnly = false,
   mode: initialMode = 'wysiwyg',
   placeholder = 'Start writing...',
@@ -101,12 +99,6 @@ export function LexicalNoteEditor({
     },
     [onChange]
   );
-
-  const handleSave = useCallback(async () => {
-    if (onSave) {
-      await onSave(markdownContent);
-    }
-  }, [onSave, markdownContent]);
 
   // Preview HTML - sanitized with DOMPurify to prevent XSS (#674)
   const previewHtml = mode === 'preview' || readOnly ? sanitizeHtml(markdownToHtml(markdownContent)) : '';
@@ -180,28 +172,6 @@ export function LexicalNoteEditor({
             </Button>
           </div>
 
-          <div className="flex-1" />
-
-          {onSave && (
-            <>
-              <ToolbarSeparator />
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={handleSave}
-                disabled={saving}
-                className="h-8"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-1" />
-                )}
-                Save
-              </Button>
-            </>
-          )}
         </div>
 
         <textarea
@@ -224,7 +194,7 @@ export function LexicalNoteEditor({
   return (
     <div className={cn('flex flex-col border rounded-lg overflow-hidden', className)}>
       <LexicalComposer initialConfig={initialConfig}>
-        <ToolbarPlugin onSave={handleSave} saving={saving} />
+        <ToolbarPlugin />
 
         {/* Mode switcher in toolbar */}
         <div className="flex items-center justify-end gap-1 px-2 py-1 border-b bg-muted/20">
@@ -283,7 +253,7 @@ export function LexicalNoteEditor({
           <CodeHighlightPlugin />
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
           <InitialContentPlugin initialContent={initialContent} />
-          <ContentSyncPlugin onChange={handleLexicalChange} onSave={handleSave} />
+          <ContentSyncPlugin onChange={handleLexicalChange} />
           {autoFocus && <AutoFocusPlugin />}
         </div>
 

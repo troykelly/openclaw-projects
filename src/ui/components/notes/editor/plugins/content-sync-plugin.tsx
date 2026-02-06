@@ -1,10 +1,11 @@
 /**
- * Plugin to sync content changes and handle save shortcut.
- * Part of Epic #338, Issue #757
+ * Plugin to sync content changes.
+ * Part of Epic #338, Issues #757, #775
+ *
+ * Note: Save shortcut (Ctrl+S) is no longer handled here since we use autosave.
  */
 
-import React, { useEffect, useCallback } from 'react';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import React, { useCallback } from 'react';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import type { EditorState } from 'lexical';
@@ -12,23 +13,7 @@ import type { ContentSyncPluginProps } from '../types';
 
 export function ContentSyncPlugin({
   onChange,
-  onSave,
 }: ContentSyncPluginProps): React.JSX.Element {
-  const [editor] = useLexicalComposerContext();
-
-  // Handle Ctrl+S for save
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        onSave?.();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSave]);
-
   // Export to markdown on change
   const handleChange = useCallback(
     (editorState: EditorState) => {
