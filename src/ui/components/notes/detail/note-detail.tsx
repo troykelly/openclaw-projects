@@ -126,8 +126,9 @@ export function NoteDetail({
   // Track whether we've created the note yet (for new notes)
   const [noteCreated, setNoteCreated] = useState(!isNew);
 
-  // Refs for autosave
+  // Refs for autosave and status reset timers
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<{
     title: string;
     content: string;
@@ -200,21 +201,34 @@ export function NoteDetail({
       setNoteCreated(true);
       setSaveStatus('saved');
 
-      // Reset to idle after 3 seconds
-      setTimeout(() => {
+      // Reset to idle after 3 seconds (use ref to prevent memory leak on unmount)
+      if (statusResetTimerRef.current) {
+        clearTimeout(statusResetTimerRef.current);
+      }
+      statusResetTimerRef.current = setTimeout(() => {
         setSaveStatus((current) => (current === 'saved' ? 'idle' : current));
       }, 3000);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Save failed';
-      setSaveError(message);
+      // Log detailed error for debugging, show generic message to user
+      console.error('[NoteDetail] Save failed:', error);
+      setSaveError('Unable to save. Please try again.');
       setSaveStatus('error');
     }
   }, [onSave, title, content, notebookId, visibility, hideFromAgents, autoTitle]);
 
+  // Cleanup status reset timer on unmount
+  useEffect(() => {
+    return () => {
+      if (statusResetTimerRef.current) {
+        clearTimeout(statusResetTimerRef.current);
+      }
+    };
+  }, []);
+
   // Schedule autosave when changes occur
   useEffect(() => {
-    // Don't autosave if there's no onSave handler or no changes
-    if (!onSave || !hasChanges) {
+    // Don't autosave if there's no onSave handler, no changes, or already saving
+    if (!onSave || !hasChanges || saveStatus === 'saving') {
       return;
     }
 
@@ -238,7 +252,7 @@ export function NoteDetail({
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [onSave, hasChanges, noteCreated, title, content, performSave]);
+  }, [onSave, hasChanges, noteCreated, title, content, performSave, saveStatus]);
 
   // Sync with external saving state
   useEffect(() => {

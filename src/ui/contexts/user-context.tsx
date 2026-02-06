@@ -80,5 +80,8 @@ export function useUser(): UserContextValue {
  */
 export function useUserEmail(): string | null {
   const context = useContext(UserContext);
+  if (process.env.NODE_ENV === 'development' && !context) {
+    console.warn('[useUserEmail] Called outside UserProvider - returning null');
+  }
   return context?.email ?? null;
 }
