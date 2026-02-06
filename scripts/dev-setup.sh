@@ -5,7 +5,11 @@
 # Options:
 #   --reset    Reset database and run migrations
 #   --seed     Seed sample data
-#   --link     Generate magic link for EMAIL
+#   --link     Generate magic link for EMAIL (single-use token)
+#
+# Magic Link Notes:
+#   Tokens are single-use for security. Once consumed, they cannot be reused.
+#   Do not test with curl/programmatic HTTP calls before using in browser.
 
 set -e
 
@@ -148,6 +152,11 @@ if [ -n "$LINK_EMAIL" ]; then
   echo "  Magic Link (valid for 1 hour):"
   echo "  http://localhost:3000/api/auth/consume?token=$TOKEN"
   echo "=============================================="
+  echo ""
+  echo "  IMPORTANT: This token is SINGLE-USE by design."
+  echo "  - Do NOT test with curl/wget before opening in browser"
+  echo "  - The token is consumed on first use and cannot be reused"
+  echo "  - If you need to test programmatically, generate a new link"
   echo ""
 fi
 
