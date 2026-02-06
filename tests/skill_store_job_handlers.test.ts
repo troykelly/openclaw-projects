@@ -235,36 +235,21 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       expect(job.rows[0].completed_at).not.toBeNull();
     });
 
-    it('auto-disables schedule after max_retries consecutive failures', async () => {
+    it('auto-disables schedule after max_retries consecutive failures (Issue #825)', async () => {
       const schedule = await createSchedule({
         max_retries: 2,
       });
 
-      // Set the schedule to show 2 consecutive failures (at the max)
+      // Set consecutive_failures in DB to match max_retries (Issue #825: read from DB, not payload)
       await pool.query(
         `UPDATE skill_store_schedule
-         SET last_run_status = 'failed'
+         SET consecutive_failures = 2, last_run_status = 'failed'
          WHERE id = $1`,
         [schedule.id]
       );
 
-      // Enqueue a job with consecutive_failures count at max
-      await pool.query(
-        `INSERT INTO internal_job (kind, payload, run_at)
-         VALUES ('skill_store.scheduled_process', $1::jsonb, NOW())`,
-        [
-          JSON.stringify({
-            schedule_id: schedule.id,
-            skill_id: schedule.skill_id,
-            collection: schedule.collection,
-            webhook_url: schedule.webhook_url,
-            webhook_headers: schedule.webhook_headers ?? {},
-            payload_template: schedule.payload_template ?? {},
-            max_retries: 2,
-            consecutive_failures: 2,
-          }),
-        ]
-      );
+      // Enqueue a job — processor should read consecutive_failures from the schedule row
+      await enqueueScheduledJob(schedule);
 
       await processJobs(pool, 10);
 
@@ -277,28 +262,20 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       expect(updated.rows[0].last_run_status).toBe('failed');
     });
 
-    it('does not auto-disable when consecutive failures below max_retries', async () => {
+    it('does not auto-disable when consecutive failures below max_retries (Issue #825)', async () => {
       const schedule = await createSchedule({
         max_retries: 5,
       });
 
-      // Enqueue with failures below threshold
+      // Set consecutive_failures in DB below threshold
       await pool.query(
-        `INSERT INTO internal_job (kind, payload, run_at)
-         VALUES ('skill_store.scheduled_process', $1::jsonb, NOW())`,
-        [
-          JSON.stringify({
-            schedule_id: schedule.id,
-            skill_id: schedule.skill_id,
-            collection: schedule.collection,
-            webhook_url: schedule.webhook_url,
-            webhook_headers: schedule.webhook_headers ?? {},
-            payload_template: schedule.payload_template ?? {},
-            max_retries: 5,
-            consecutive_failures: 2,
-          }),
-        ]
+        `UPDATE skill_store_schedule
+         SET consecutive_failures = 2
+         WHERE id = $1`,
+        [schedule.id]
       );
+
+      await enqueueScheduledJob(schedule);
 
       await processJobs(pool, 10);
 
@@ -308,6 +285,42 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
         [schedule.id]
       );
       expect(updated.rows[0].enabled).toBe(true);
+    });
+
+    it('resets consecutive_failures to 0 on success (Issue #825)', async () => {
+      const schedule = await createSchedule({
+        max_retries: 5,
+      });
+
+      // Simulate prior failures
+      await pool.query(
+        `UPDATE skill_store_schedule
+         SET consecutive_failures = 3, last_run_status = 'failed'
+         WHERE id = $1`,
+        [schedule.id]
+      );
+
+      await enqueueScheduledJob(schedule);
+      await processJobs(pool, 10);
+
+      // consecutive_failures should be reset to 0 after successful enqueue
+      const updated = await pool.query(
+        `SELECT consecutive_failures, last_run_status
+         FROM skill_store_schedule WHERE id = $1`,
+        [schedule.id]
+      );
+      expect(updated.rows[0].consecutive_failures).toBe(0);
+      expect(updated.rows[0].last_run_status).toBe('success');
+    });
+
+    it('consecutive_failures column exists and defaults to 0 (Issue #825)', async () => {
+      const schedule = await createSchedule();
+
+      const result = await pool.query(
+        `SELECT consecutive_failures FROM skill_store_schedule WHERE id = $1`,
+        [schedule.id]
+      );
+      expect(result.rows[0].consecutive_failures).toBe(0);
     });
   });
 

@@ -247,10 +247,10 @@ async function handleScheduledProcessJob(
     };
   }
 
-  // Verify schedule still exists
+  // Verify schedule still exists and read current state from DB
   const scheduleResult = await pool.query(
     `SELECT id::text as id, skill_id, collection, webhook_url, webhook_headers,
-            payload_template, max_retries, enabled
+            payload_template, max_retries, enabled, consecutive_failures
      FROM skill_store_schedule WHERE id = $1`,
     [payload.schedule_id]
   );
@@ -271,11 +271,13 @@ async function handleScheduledProcessJob(
     payload_template: Record<string, unknown>;
     max_retries: number;
     enabled: boolean;
+    consecutive_failures: number;
   };
 
-  // Check if auto-disable threshold has been reached
-  const consecutiveFailures = (payload.consecutive_failures ?? 0) as number;
-  const maxRetries = payload.max_retries ?? schedule.max_retries ?? 5;
+  // Read consecutive_failures from DB (Issue #825: was previously read from
+  // payload where it was never set, making auto-disable dead code)
+  const consecutiveFailures = schedule.consecutive_failures;
+  const maxRetries = schedule.max_retries;
 
   if (consecutiveFailures >= maxRetries) {
     // Auto-disable the schedule after max_retries consecutive failures
@@ -320,10 +322,10 @@ async function handleScheduledProcessJob(
       }
     );
 
-    // Update schedule with success
+    // Update schedule with success; reset consecutive_failures (Issue #825)
     await pool.query(
       `UPDATE skill_store_schedule
-       SET last_run_at = NOW(), last_run_status = 'success'
+       SET last_run_at = NOW(), last_run_status = 'success', consecutive_failures = 0
        WHERE id = $1`,
       [schedule.id]
     );
@@ -332,10 +334,11 @@ async function handleScheduledProcessJob(
   } catch (error) {
     const err = error as Error;
 
-    // Update schedule with failure
+    // Update schedule with failure; increment consecutive_failures (Issue #825)
     await pool.query(
       `UPDATE skill_store_schedule
-       SET last_run_at = NOW(), last_run_status = 'failed'
+       SET last_run_at = NOW(), last_run_status = 'failed',
+           consecutive_failures = consecutive_failures + 1
        WHERE id = $1`,
       [schedule.id]
     );
