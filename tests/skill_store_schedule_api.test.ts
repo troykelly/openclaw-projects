@@ -86,7 +86,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
       expect(body.collection).toBe('articles');
       expect(body.timezone).toBe('America/New_York');
       expect(body.payload_template).toEqual({ key: 'value' });
-      expect(body.webhook_headers).toEqual({ 'X-Custom': 'header' });
+      expect(body.webhook_headers).toEqual({ 'X-Custom': '***' });
       expect(body.max_retries).toBe(3);
       expect(body.enabled).toBe(false);
     });
@@ -190,11 +190,38 @@ describe('Skill Store Schedule API (Issue #802)', () => {
 
     it('allows http:// webhook URLs in test/dev environment', async () => {
       const res = await createSchedule({
+        webhook_url: 'http://external-dev.example.com:3000/hook',
+      });
+
+      // In test env, http should be allowed (but not localhost due to SSRF)
+      expect(res.statusCode).toBe(201);
+    });
+
+    it('rejects localhost webhook URLs (SSRF protection)', async () => {
+      const res = await createSchedule({
         webhook_url: 'http://localhost:3000/hook',
       });
 
-      // In test env, http should be allowed
-      expect(res.statusCode).toBe(201);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('SSRF protection');
+    });
+
+    it('rejects private IP webhook URLs (SSRF protection)', async () => {
+      const res = await createSchedule({
+        webhook_url: 'https://192.168.1.1/hook',
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('SSRF protection');
+    });
+
+    it('rejects cloud metadata endpoint (SSRF protection)', async () => {
+      const res = await createSchedule({
+        webhook_url: 'http://169.254.169.254/latest/meta-data/',
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('SSRF protection');
     });
 
     it('rejects duplicate (skill_id, collection, cron_expression)', async () => {
@@ -264,6 +291,28 @@ describe('Skill Store Schedule API (Issue #802)', () => {
       expect(schedule.last_run_status).toBeDefined(); // null or string
       expect(schedule.created_at).toBeDefined();
       expect(schedule.updated_at).toBeDefined();
+    });
+
+    it('redacts webhook_headers values in list response (Issue #823)', async () => {
+      await createSchedule({
+        skill_id: 'secret-skill',
+        webhook_headers: {
+          Authorization: 'Bearer super-secret-token',
+          'X-API-Key': 'my-api-key',
+        },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/skill-store/schedules?skill_id=secret-skill',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const schedule = res.json().schedules[0];
+      expect(schedule.webhook_headers).toEqual({
+        Authorization: '***',
+        'X-API-Key': '***',
+      });
     });
 
     it('filters by skill_id', async () => {

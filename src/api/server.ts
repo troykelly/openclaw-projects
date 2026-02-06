@@ -13,6 +13,7 @@ import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
+import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import {
   EmbeddingHealthChecker,
   generateMemoryEmbedding,
@@ -6277,8 +6278,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset,
       });
 
+      // Redact headers in outbox entries to prevent credential leakage (Issue #823)
+      const { redactWebhookHeaders } = await import('./webhooks/ssrf.ts');
+      const redactedEntries = result.entries.map((entry) => ({
+        ...entry,
+        headers: redactWebhookHeaders(entry.headers as Record<string, string>) ?? {},
+      }));
+
       return reply.send({
-        entries: result.entries,
+        entries: redactedEntries,
         total: result.total,
         limit,
         offset,
@@ -13906,6 +13914,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
+   * Redact sensitive values in webhook_headers before sending in API responses.
+   * Preserves header names but masks values. (Issue #823)
+   */
+  function redactScheduleRow(row: Record<string, unknown>): Record<string, unknown> {
+    if (!row || !row.webhook_headers) return row;
+    const headers = row.webhook_headers as Record<string, string>;
+    const redacted: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers)) {
+      redacted[key] = typeof value === 'string' && value.length > 0 ? '***' : value;
+    }
+    return { ...row, webhook_headers: redacted };
+  }
+
+  /**
    * Validate a webhook URL.
    * In production, requires https://. In dev/test, also allows http://.
    */
@@ -13924,6 +13946,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
         return 'webhook_url must use http:// or https://';
+      }
+
+      // SSRF protection: block private/internal network targets (Issue #823)
+      const ssrfError = ssrfValidateSsrf(url);
+      if (ssrfError) {
+        return ssrfError;
       }
 
       return null;
@@ -14013,7 +14041,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         ]
       );
 
-      return reply.code(201).send(result.rows[0]);
+      return reply.code(201).send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
     } catch (err) {
       const error = err as Error;
       if (error.message?.includes('duplicate key')) {
@@ -14082,7 +14110,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         selectParams
       );
 
-      return reply.send({ schedules: result.rows, total });
+      return reply.send({ schedules: result.rows.map((r) => redactScheduleRow(r as Record<string, unknown>)), total });
     } finally {
       await pool.end();
     }
@@ -14196,7 +14224,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Schedule not found' });
       }
 
-      return reply.send(result.rows[0]);
+      return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
     } catch (err) {
       const error = err as Error;
       if (error.message?.includes('fires more frequently') || error.message?.includes('fires every minute')) {
@@ -14335,7 +14363,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [schedule.skill_id, schedule.collection, `Paused schedule`, JSON.stringify({ schedule_id: schedule.id })]
       );
 
-      return reply.send(result.rows[0]);
+      return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
     } finally {
       await pool.end();
     }
@@ -14377,7 +14405,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [schedule.skill_id, schedule.collection, `Resumed schedule`, JSON.stringify({ schedule_id: schedule.id })]
       );
 
-      return reply.send(result.rows[0]);
+      return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
     } finally {
       await pool.end();
     }

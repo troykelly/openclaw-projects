@@ -11,6 +11,7 @@ import type {
   DispatchStats,
 } from './types.ts';
 import { getOpenClawConfig } from './config.ts';
+import { isAbsoluteUrl } from './ssrf.ts';
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
@@ -45,12 +46,24 @@ export async function dispatchWebhook(
     };
   }
 
-  const url = `${config.gatewayUrl}${entry.destination}`;
+  // Absolute URLs (user-supplied webhook_url) are dispatched directly.
+  // Relative paths (internal hooks like /hooks/agent) are prefixed with gatewayUrl.
+  const isExternal = isAbsoluteUrl(entry.destination);
+  const url = isExternal ? entry.destination : `${config.gatewayUrl}${entry.destination}`;
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${config.hookToken}`,
-    ...entry.headers,
   };
+
+  if (isExternal) {
+    // External webhooks: use ONLY the entry's headers (user-supplied credentials).
+    // Never send our internal hookToken to external URLs.
+    Object.assign(headers, entry.headers);
+  } else {
+    // Internal gateway webhooks: use hookToken, then overlay entry headers.
+    headers.Authorization = `Bearer ${config.hookToken}`;
+    Object.assign(headers, entry.headers);
+  }
 
   try {
     const controller = new AbortController();
