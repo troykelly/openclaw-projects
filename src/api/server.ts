@@ -12103,6 +12103,238 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Skill Store Admin Endpoints (Issue #804)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/admin/skill-store/stats - Global stats
+  app.get('/api/admin/skill-store/stats', async (_req, reply) => {
+    const pool = createPool();
+
+    try {
+      // Total items (excluding soft-deleted)
+      const totalResult = await pool.query(
+        `SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL`
+      );
+      const totalItems = totalResult.rows[0].total;
+
+      // Counts by status (excluding soft-deleted)
+      const statusResult = await pool.query(
+        `SELECT status, count(*)::int AS count
+         FROM skill_store_item
+         WHERE deleted_at IS NULL
+         GROUP BY status`
+      );
+      const byStatus: Record<string, number> = { active: 0, archived: 0, processing: 0 };
+      for (const row of statusResult.rows) {
+        byStatus[row.status] = row.count;
+      }
+
+      // Counts by skill (excluding soft-deleted)
+      const skillResult = await pool.query(
+        `SELECT skill_id, count(*)::int AS count
+         FROM skill_store_item
+         WHERE deleted_at IS NULL
+         GROUP BY skill_id
+         ORDER BY count DESC`
+      );
+      const bySkill = skillResult.rows.map((r: { skill_id: string; count: number }) => ({
+        skill_id: r.skill_id,
+        count: r.count,
+      }));
+
+      // Storage estimate using pg_total_relation_size for the table
+      const storageResult = await pool.query(
+        `SELECT pg_total_relation_size('skill_store_item')::bigint AS total_bytes`
+      );
+      const storageEstimate = {
+        total_bytes: Number(storageResult.rows[0].total_bytes),
+      };
+
+      return reply.send({
+        total_items: totalItems,
+        by_status: byStatus,
+        by_skill: bySkill,
+        storage_estimate: storageEstimate,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/admin/skill-store/skills - List all skill_ids with counts
+  app.get('/api/admin/skill-store/skills', async (_req, reply) => {
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `SELECT
+           skill_id,
+           count(*)::int AS item_count,
+           count(DISTINCT collection)::int AS collection_count,
+           max(updated_at) AS last_activity
+         FROM skill_store_item
+         WHERE deleted_at IS NULL
+         GROUP BY skill_id
+         ORDER BY item_count DESC`
+      );
+
+      return reply.send({
+        skills: result.rows.map((r: { skill_id: string; item_count: number; collection_count: number; last_activity: string }) => ({
+          skill_id: r.skill_id,
+          item_count: r.item_count,
+          collection_count: r.collection_count,
+          last_activity: r.last_activity,
+        })),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/admin/skill-store/skills/:skill_id - Detailed view of a skill
+  // Register BEFORE the parametric route in DELETE to avoid conflicts
+  app.get('/api/admin/skill-store/skills/:skill_id', async (req, reply) => {
+    const { skill_id } = req.params as { skill_id: string };
+    const pool = createPool();
+
+    try {
+      // Check if skill exists
+      const existsResult = await pool.query(
+        `SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`,
+        [skill_id]
+      );
+      if (existsResult.rows[0].cnt === 0) {
+        return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
+      }
+
+      // Total items
+      const totalResult = await pool.query(
+        `SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`,
+        [skill_id]
+      );
+
+      // By status
+      const statusResult = await pool.query(
+        `SELECT status, count(*)::int AS count
+         FROM skill_store_item
+         WHERE skill_id = $1 AND deleted_at IS NULL
+         GROUP BY status`,
+        [skill_id]
+      );
+      const byStatus: Record<string, number> = { active: 0, archived: 0, processing: 0 };
+      for (const row of statusResult.rows) {
+        byStatus[row.status] = row.count;
+      }
+
+      // Collections breakdown
+      const collectionsResult = await pool.query(
+        `SELECT collection, count(*)::int AS count
+         FROM skill_store_item
+         WHERE skill_id = $1 AND deleted_at IS NULL
+         GROUP BY collection
+         ORDER BY count DESC`,
+        [skill_id]
+      );
+
+      // Embedding status breakdown
+      const embeddingResult = await pool.query(
+        `SELECT embedding_status, count(*)::int AS count
+         FROM skill_store_item
+         WHERE skill_id = $1 AND deleted_at IS NULL
+         GROUP BY embedding_status`,
+        [skill_id]
+      );
+      const embeddingStatus: Record<string, number> = { complete: 0, pending: 0, failed: 0 };
+      for (const row of embeddingResult.rows) {
+        if (row.embedding_status) {
+          embeddingStatus[row.embedding_status] = row.count;
+        }
+      }
+
+      // Schedules for this skill
+      const schedulesResult = await pool.query(
+        `SELECT id, collection, cron_expression, timezone, enabled,
+                last_run_status, last_run_at, next_run_at, created_at
+         FROM skill_store_schedule
+         WHERE skill_id = $1
+         ORDER BY created_at DESC`,
+        [skill_id]
+      );
+
+      return reply.send({
+        skill_id,
+        total_items: totalResult.rows[0].total,
+        by_status: byStatus,
+        collections: collectionsResult.rows.map((r: { collection: string; count: number }) => ({
+          collection: r.collection,
+          count: r.count,
+        })),
+        embedding_status: embeddingStatus,
+        schedules: schedulesResult.rows,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/admin/skill-store/skills/:skill_id - Hard purge all data for a skill
+  app.delete('/api/admin/skill-store/skills/:skill_id', async (req, reply) => {
+    const { skill_id } = req.params as { skill_id: string };
+    const confirmHeader = (req.headers as Record<string, string | undefined>)['x-confirm-delete'];
+
+    if (confirmHeader !== 'true') {
+      return reply.code(400).send({
+        error: 'X-Confirm-Delete: true header is required for hard purge operations',
+      });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Check if skill has any data at all (including soft-deleted)
+      const existsResult = await pool.query(
+        `SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1`,
+        [skill_id]
+      );
+      if (existsResult.rows[0].cnt === 0) {
+        return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
+      }
+
+      // Hard delete all items for this skill (including soft-deleted)
+      const deleteResult = await pool.query(
+        `DELETE FROM skill_store_item WHERE skill_id = $1`,
+        [skill_id]
+      );
+
+      // Also delete schedules for this skill
+      const scheduleResult = await pool.query(
+        `DELETE FROM skill_store_schedule WHERE skill_id = $1`,
+        [skill_id]
+      );
+
+      return reply.send({
+        skill_id,
+        deleted_count: deleteResult.rowCount ?? 0,
+        deleted_schedules: scheduleResult.rowCount ?? 0,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return reply.code(500).send({ error: message });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // POST /api/notes/search/semantic - Semantic search for notes (legacy endpoint from #349)
   app.post('/api/notes/search/semantic', async (req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
