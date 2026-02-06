@@ -1,4 +1,4 @@
--- Migration 052: Fix scheduling engine reliability (Rollback)
+-- Migration 053: Fix scheduling engine reliability (Rollback)
 -- Part of Epic #794, Issue #825
 
 -- Restore original function (without FOR UPDATE SKIP LOCKED, without consecutive_failures)

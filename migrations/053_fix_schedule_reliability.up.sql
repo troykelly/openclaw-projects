@@ -1,4 +1,4 @@
--- Migration 052: Fix scheduling engine reliability
+-- Migration 053: Fix scheduling engine reliability
 -- Part of Epic #794, Issue #825
 --
 -- Fixes:
