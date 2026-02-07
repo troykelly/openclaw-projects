@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "RUN_E2E=true vitest run packages/openclaw-plugin/tests/e2e",
+    "test:playwright": "pnpm run css:build && pnpm run app:build && playwright test",
     "test:e2e:setup": "docker-compose -f docker-compose.test.yml up -d && ./scripts/wait-for-services.sh",
     "test:e2e:teardown": "docker-compose -f docker-compose.test.yml down -v",
     "db:up": "docker compose -f .devcontainer/docker-compose.devcontainer.yml up -d postgres seaweedfs",
@@ -32,6 +33,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/cli": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",

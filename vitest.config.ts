@@ -11,6 +11,9 @@ export default defineConfig({
     // to per-file temp databases, this could be re-enabled.
     fileParallelism: false,
 
+    // Exclude Playwright E2E tests (they use their own runner) and all node_modules
+    exclude: ['tests/e2e-playwright/**', 'node_modules/**', '**/node_modules/**'],
+
     // UI component tests use jsdom environment
     environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
     // setup-api.ts disables bearer token auth for tests

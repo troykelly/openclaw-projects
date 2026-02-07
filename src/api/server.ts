@@ -210,6 +210,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
+    // E2E browser test bypass: requires both auth disabled AND the explicit
+    // session email env var (set only in playwright.config.ts webServer env).
+    const e2eEmail = process.env.OPENCLAW_E2E_SESSION_EMAIL;
+    if (e2eEmail && isAuthDisabled()) return e2eEmail;
+
     const email = await getSessionEmail(req);
     if (email) return email;
     reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLoginPage());
@@ -1472,6 +1477,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.get('/api/me', async (req, reply) => {
+    // E2E browser test bypass (same guard as requireDashboardSession)
+    const e2eEmail = process.env.OPENCLAW_E2E_SESSION_EMAIL;
+    if (e2eEmail && isAuthDisabled()) return reply.send({ email: e2eEmail });
+
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'unauthorized' });
     return reply.send({ email });
