@@ -350,5 +350,70 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       // Embedding may succeed or fail depending on embedding service config,
       // but the handler dispatch itself should work
     });
+
+    it('sets terminal status for items with no embeddable content (Issue #830)', async () => {
+      // Create an item with NO title, summary, or content
+      await pool.query(
+        `INSERT INTO skill_store_item (skill_id, collection, title, content)
+         VALUES ('test-skill', 'empty-col', NULL, NULL)`
+      );
+
+      const itemResult = await pool.query(
+        `SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'empty-col' LIMIT 1`
+      );
+      const itemId = (itemResult.rows[0] as { id: string }).id;
+
+      // Enqueue an embed job for this empty item
+      await pool.query(
+        `INSERT INTO internal_job (kind, payload, run_at)
+         VALUES ('skill_store.embed', $1::jsonb, NOW())`,
+        [JSON.stringify({ item_id: itemId })]
+      );
+
+      await processJobs(pool, 10);
+
+      // Item should have a terminal embedding_status (not 'pending')
+      const updated = await pool.query(
+        `SELECT embedding_status FROM skill_store_item WHERE id = $1`,
+        [itemId]
+      );
+      const status = updated.rows[0].embedding_status;
+      // Must NOT be 'pending' or NULL — those would cause infinite backfill
+      expect(status).not.toBe('pending');
+      expect(status).not.toBeNull();
+      expect(status).toBe('skipped');
+    });
+
+    it('does not re-enqueue skipped items on backfill (Issue #830)', async () => {
+      // Create an item with no content and mark it as skipped
+      await pool.query(
+        `INSERT INTO skill_store_item (skill_id, collection, title, content, embedding_status)
+         VALUES ('test-skill', 'skip-col', NULL, NULL, 'skipped')`
+      );
+
+      const itemResult = await pool.query(
+        `SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'skip-col' LIMIT 1`
+      );
+      const itemId = (itemResult.rows[0] as { id: string }).id;
+
+      // Import and run backfill
+      const { backfillSkillStoreEmbeddings } = await import(
+        '../src/api/embeddings/skill-store-integration.ts'
+      );
+      const result = await backfillSkillStoreEmbeddings(pool);
+
+      // The skipped item should not be re-enqueued
+      expect(result.enqueued).toBe(0);
+
+      // Verify no jobs were created for this item
+      const jobs = await pool.query(
+        `SELECT id FROM internal_job
+         WHERE kind = 'skill_store.embed'
+           AND payload->>'item_id' = $1
+           AND completed_at IS NULL`,
+        [itemId]
+      );
+      expect(jobs.rows).toHaveLength(0);
+    });
   });
 });

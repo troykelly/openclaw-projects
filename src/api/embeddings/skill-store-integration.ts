@@ -13,7 +13,7 @@ import { EmbeddingError } from './errors.ts';
 import type { InternalJob, JobProcessorResult } from '../jobs/types.ts';
 
 /** Embedding status for skill store item records. */
-export type SkillStoreEmbeddingStatus = 'complete' | 'pending' | 'failed';
+export type SkillStoreEmbeddingStatus = 'complete' | 'pending' | 'failed' | 'skipped';
 
 /** Shape of a skill store item row for embedding purposes. */
 export interface SkillStoreItemForEmbedding {
@@ -216,8 +216,8 @@ export async function handleSkillStoreEmbedJob(
 
   const item = result.rows[0] as SkillStoreItemForEmbedding;
 
-  // Skip if already complete
-  if (item.embedding_status === 'complete') {
+  // Skip if already in a terminal state
+  if (item.embedding_status === 'complete' || item.embedding_status === 'skipped') {
     return { success: true };
   }
 
@@ -225,7 +225,12 @@ export async function handleSkillStoreEmbedJob(
   const text = buildSkillStoreEmbeddingText(item);
 
   if (!text || text.trim().length === 0) {
-    // Nothing to embed — mark as pending (no text content)
+    // Nothing to embed — set terminal 'skipped' status to prevent
+    // infinite backfill re-enqueue (Issue #830)
+    await pool.query(
+      `UPDATE skill_store_item SET embedding_status = 'skipped' WHERE id = $1`,
+      [item.id]
+    );
     return { success: true };
   }
 
@@ -306,6 +311,11 @@ export async function backfillSkillStoreEmbeddings(
     const text = buildSkillStoreEmbeddingText(row);
 
     if (!text || text.trim().length === 0) {
+      // Set terminal 'skipped' status to prevent infinite re-enqueue (Issue #830)
+      await pool.query(
+        `UPDATE skill_store_item SET embedding_status = 'skipped' WHERE id = $1`,
+        [row.id]
+      );
       skipped++;
       continue;
     }
