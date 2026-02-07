@@ -524,6 +524,117 @@ describe('Skill Store Tools (Issue #800)', () => {
     })
   })
 
+  // ── Input validation fixes (Issue #829) ─────────────────────────────
+
+  describe('Issue #829 fixes', () => {
+    describe('collection format validation', () => {
+      it('rejects collection with path traversal', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          collection: '../etc/passwd',
+        }).success).toBe(false)
+      })
+
+      it('rejects collection with control characters', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          collection: 'bad\x00collection',
+        }).success).toBe(false)
+      })
+
+      it('rejects collection with spaces', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          collection: 'has spaces',
+        }).success).toBe(false)
+      })
+
+      it('rejects collection with newlines', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          collection: 'line\nbreak',
+        }).success).toBe(false)
+      })
+
+      it('accepts valid collection names', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          collection: 'my-collection_v2.0:latest',
+        }).success).toBe(true)
+      })
+    })
+
+    describe('key format validation', () => {
+      it('rejects key with control characters', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          key: 'bad\x00key',
+        }).success).toBe(false)
+      })
+
+      it('rejects key with newlines', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          key: 'line\nbreak',
+        }).success).toBe(false)
+      })
+
+      it('accepts valid key names', () => {
+        expect(SkillStorePutParamsSchema.safeParse({
+          skill_id: 'test',
+          key: 'user:settings/theme@v2',
+        }).success).toBe(true)
+      })
+    })
+
+    describe('credential detection on data field', () => {
+      it('warns when data field contains potential credentials', async () => {
+        const tool = createSkillStorePutTool(toolOptions)
+
+        vi.mocked(mockApiClient.post).mockResolvedValue({
+          success: true,
+          data: {
+            id: '123',
+            skill_id: 'test',
+            collection: '_default',
+            key: null,
+            title: null,
+            summary: null,
+            content: null,
+            data: { api_key: 'sk-abcdefghijklmnopqrstuvwxyz' },
+            status: 'active',
+            tags: [],
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        })
+
+        await tool.execute({
+          skill_id: 'test',
+          data: { api_key: 'sk-abcdefghijklmnopqrstuvwxyz' },
+        })
+
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'Potential credential detected in skill_store_put',
+          expect.objectContaining({ userId: 'agent-1' })
+        )
+      })
+    })
+
+    describe('config is optional in tool options', () => {
+      it('tools work without config property', async () => {
+        const optionsWithoutConfig = {
+          client: mockApiClient,
+          logger: mockLogger,
+          userId: 'agent-1',
+        }
+        // Should not throw — config is optional
+        const tool = createSkillStorePutTool(optionsWithoutConfig as SkillStoreToolOptions)
+        expect(tool.name).toBe('skill_store_put')
+      })
+    })
+  })
+
   // ── Zod schema validation ────────────────────────────────────────────
 
   describe('Schema validation', () => {

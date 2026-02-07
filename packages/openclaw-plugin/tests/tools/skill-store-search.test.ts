@@ -808,6 +808,102 @@ describe('Skill Store Search Tools (Issue #801)', () => {
     })
   })
 
+  // ── Issue #829 fixes ──────────────────────────────────────────────
+
+  describe('Issue #829 fixes', () => {
+    describe('search query max length', () => {
+      it('rejects query over 2000 characters', () => {
+        expect(SkillStoreSearchParamsSchema.safeParse({
+          skill_id: 'test',
+          query: 'a'.repeat(2001),
+        }).success).toBe(false)
+      })
+
+      it('accepts query at 2000 characters', () => {
+        expect(SkillStoreSearchParamsSchema.safeParse({
+          skill_id: 'test',
+          query: 'a'.repeat(2000),
+        }).success).toBe(true)
+      })
+    })
+
+    describe('aggregate handles malformed API responses', () => {
+      const tool = createSkillStoreAggregateTool(toolOptions)
+
+      it('handles count_by_tag with non-array tags', async () => {
+        vi.mocked(mockApiClient.get).mockResolvedValue({
+          success: true,
+          data: { result: { tags: 'not-an-array' } },
+        })
+
+        const result = await tool.execute({
+          skill_id: 'test',
+          operation: 'count_by_tag',
+        })
+
+        // Should not crash, should return a safe fallback
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.data.content).toBeTruthy()
+        }
+      })
+
+      it('handles count_by_status with non-array statuses', async () => {
+        vi.mocked(mockApiClient.get).mockResolvedValue({
+          success: true,
+          data: { result: { statuses: 'not-an-array' } },
+        })
+
+        const result = await tool.execute({
+          skill_id: 'test',
+          operation: 'count_by_status',
+        })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.data.content).toBeTruthy()
+        }
+      })
+
+      it('handles latest with non-object item', async () => {
+        vi.mocked(mockApiClient.get).mockResolvedValue({
+          success: true,
+          data: { result: { item: 'not-an-object' } },
+        })
+
+        const result = await tool.execute({
+          skill_id: 'test',
+          operation: 'latest',
+        })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.data.content).toBeTruthy()
+        }
+      })
+    })
+
+    describe('collection format validation in search', () => {
+      it('rejects collection with path traversal', () => {
+        expect(SkillStoreSearchParamsSchema.safeParse({
+          skill_id: 'test',
+          query: 'hello',
+          collection: '../secrets',
+        }).success).toBe(false)
+      })
+    })
+
+    describe('collection format validation in aggregate', () => {
+      it('rejects collection with path traversal', () => {
+        expect(SkillStoreAggregateParamsSchema.safeParse({
+          skill_id: 'test',
+          operation: 'count',
+          collection: '../secrets',
+        }).success).toBe(false)
+      })
+    })
+  })
+
   // ── Schema exports ──────────────────────────────────────────────────
 
   describe('Schema exports', () => {
