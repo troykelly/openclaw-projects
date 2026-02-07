@@ -361,4 +361,52 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       expect(activity.rows).toHaveLength(1);
     });
   });
+
+  // ===========================================================================
+  // Issue #831: Activity non-emission on failed operations
+  // ===========================================================================
+  describe('Activity non-emission on failure (Issue #831)', () => {
+    it('does NOT emit activity when item creation fails (400)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skill-store/items',
+        payload: { title: 'Missing skill_id' },
+      });
+      expect(res.statusCode).toBe(400);
+
+      const activity = await pool.query(
+        `SELECT count(*)::int AS cnt FROM skill_store_activity`
+      );
+      expect(activity.rows[0].cnt).toBe(0);
+    });
+
+    it('does NOT emit activity when PATCH targets non-existent item', async () => {
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/skill-store/items/${fakeId}`,
+        payload: { title: 'Nope' },
+      });
+      expect(res.statusCode).toBe(404);
+
+      const activity = await pool.query(
+        `SELECT count(*)::int AS cnt FROM skill_store_activity`
+      );
+      expect(activity.rows[0].cnt).toBe(0);
+    });
+
+    it('does NOT emit activity when DELETE targets non-existent item', async () => {
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/api/skill-store/items/${fakeId}`,
+      });
+      expect(res.statusCode).toBe(404);
+
+      const activity = await pool.query(
+        `SELECT count(*)::int AS cnt FROM skill_store_activity`
+      );
+      expect(activity.rows[0].cnt).toBe(0);
+    });
+  });
 });

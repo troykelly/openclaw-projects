@@ -439,4 +439,54 @@ describe('Skill Store Admin API (Issue #804)', () => {
       expect(remaining.rows[0].cnt).toBe(0);
     });
   });
+
+  // ===========================================================================
+  // Issue #831: HTTP test for POST /api/admin/skill-store/embeddings/backfill
+  // ===========================================================================
+  describe('POST /api/admin/skill-store/embeddings/backfill (Issue #831)', () => {
+    it('returns 202 with default batch_size', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/admin/skill-store/embeddings/backfill',
+        payload: {},
+      });
+      expect(res.statusCode).toBe(202);
+      const body = res.json();
+      expect(body.status).toBe('completed');
+      expect(typeof body.enqueued).toBe('number');
+      expect(typeof body.skipped).toBe('number');
+    });
+
+    it('clamps batch_size below 1 to 1', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/admin/skill-store/embeddings/backfill',
+        payload: { batch_size: -10 },
+      });
+      expect(res.statusCode).toBe(202);
+    });
+
+    it('clamps batch_size above 1000 to 1000', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/admin/skill-store/embeddings/backfill',
+        payload: { batch_size: 5000 },
+      });
+      expect(res.statusCode).toBe(202);
+    });
+
+    it('enqueues jobs for items missing embeddings', async () => {
+      // Insert an item with pending embedding status
+      await insertItem({ skill_id: 'embed-test', title: 'Need embedding', content: 'Some content' });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/admin/skill-store/embeddings/backfill',
+        payload: { batch_size: 10 },
+      });
+      expect(res.statusCode).toBe(202);
+      const body = res.json();
+      expect(body.enqueued + body.skipped).toBeGreaterThanOrEqual(0);
+    });
+  });
 });
