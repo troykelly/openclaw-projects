@@ -34,11 +34,29 @@ const SkillIdSchema = z
   .max(100, 'skill_id must be 100 characters or less')
   .regex(/^[a-zA-Z0-9_-]+$/, 'skill_id must contain only alphanumeric characters, hyphens, and underscores')
 
+/**
+ * Validate collection name: alphanumeric, hyphens, underscores, dots, colons.
+ * Prevents path traversal, control characters, and injection.
+ */
+const CollectionSchema = z
+  .string()
+  .max(200, 'collection must be 200 characters or less')
+  .regex(/^[a-zA-Z0-9_.:-]+$/, 'collection must contain only alphanumeric characters, hyphens, underscores, dots, and colons')
+
+/**
+ * Validate key name: printable ASCII, no control characters.
+ * Keys can contain slashes, @, #, and other common safe chars.
+ */
+const KeySchema = z
+  .string()
+  .max(500, 'key must be 500 characters or less')
+  .regex(/^[a-zA-Z0-9_.:\-/@# ]+$/, 'key must contain only alphanumeric characters, hyphens, underscores, dots, colons, slashes, @, #, and spaces')
+
 /** Zod schema for skill_store_put parameters */
 export const SkillStorePutParamsSchema = z.object({
   skill_id: SkillIdSchema,
-  collection: z.string().max(200).optional(),
-  key: z.string().max(500).optional(),
+  collection: CollectionSchema.optional(),
+  key: KeySchema.optional(),
   title: z.string().max(500).optional(),
   summary: z.string().max(2000).optional(),
   content: z.string().max(50000).optional(),
@@ -58,15 +76,15 @@ export type SkillStorePutParams = z.infer<typeof SkillStorePutParamsSchema>
 export const SkillStoreGetParamsSchema = z.object({
   id: z.string().uuid().optional(),
   skill_id: SkillIdSchema.optional(),
-  collection: z.string().max(200).optional(),
-  key: z.string().max(500).optional(),
+  collection: CollectionSchema.optional(),
+  key: KeySchema.optional(),
 })
 export type SkillStoreGetParams = z.infer<typeof SkillStoreGetParamsSchema>
 
 /** Zod schema for skill_store_list parameters */
 export const SkillStoreListParamsSchema = z.object({
   skill_id: SkillIdSchema,
-  collection: z.string().max(200).optional(),
+  collection: CollectionSchema.optional(),
   status: z.enum(['active', 'archived', 'processing']).optional(),
   tags: z.array(z.string().max(100)).optional(),
   since: z.string().datetime().optional(),
@@ -81,8 +99,8 @@ export type SkillStoreListParams = z.infer<typeof SkillStoreListParamsSchema>
 export const SkillStoreDeleteParamsSchema = z.object({
   id: z.string().uuid().optional(),
   skill_id: SkillIdSchema.optional(),
-  collection: z.string().max(200).optional(),
-  key: z.string().max(500).optional(),
+  collection: CollectionSchema.optional(),
+  key: KeySchema.optional(),
 })
 export type SkillStoreDeleteParams = z.infer<typeof SkillStoreDeleteParamsSchema>
 
@@ -129,7 +147,7 @@ export type SkillStoreToolResult = SkillStoreToolSuccess | SkillStoreToolFailure
 export interface SkillStoreToolOptions {
   client: ApiClient
   logger: Logger
-  config: PluginConfig
+  config?: PluginConfig
   userId: string
 }
 
@@ -216,8 +234,11 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
         }
       }
 
-      // Check for potential credentials in content fields
+      // Check for potential credentials in content fields and data
       const textFields = [validated.title, validated.summary, validated.content].filter(Boolean) as string[]
+      if (validated.data !== undefined) {
+        textFields.push(JSON.stringify(validated.data))
+      }
       for (const text of textFields) {
         if (mayContainCredentials(text)) {
           logger.warn('Potential credential detected in skill_store_put', {
@@ -632,8 +653,9 @@ export const SkillStoreSearchParamsSchema = z.object({
   skill_id: SkillIdSchema,
   query: z
     .string()
-    .min(1, 'Search query cannot be empty'),
-  collection: z.string().max(200).optional(),
+    .min(1, 'Search query cannot be empty')
+    .max(2000, 'Search query must be 2000 characters or less'),
+  collection: CollectionSchema.optional(),
   tags: z.array(z.string().max(100)).max(50).optional(),
   semantic: z.boolean().optional(),
   min_similarity: z.number().min(0).max(1).optional(),
@@ -652,7 +674,7 @@ export type SkillStoreCollectionsParams = z.infer<typeof SkillStoreCollectionsPa
 /** Zod schema for skill_store_aggregate parameters */
 export const SkillStoreAggregateParamsSchema = z.object({
   skill_id: SkillIdSchema,
-  collection: z.string().max(200).optional(),
+  collection: CollectionSchema.optional(),
   operation: z.enum(['count', 'count_by_tag', 'count_by_status', 'latest', 'oldest']),
   since: z.string().datetime().optional(),
   until: z.string().datetime().optional(),
@@ -742,23 +764,32 @@ function formatAggregateResult(operation: string, result: Record<string, unknown
       return `Total items: ${result.count}`
 
     case 'count_by_tag': {
-      const tags = result.tags as Array<{ tag: string; count: number }> | undefined
-      if (!tags || tags.length === 0) return 'No tags found.'
-      return tags.map((t) => `- ${t.tag}: ${t.count}`).join('\n')
+      const tags = result.tags
+      if (!Array.isArray(tags) || tags.length === 0) return 'No tags found.'
+      return tags
+        .filter((t): t is { tag: string; count: number } =>
+          t != null && typeof t === 'object' && 'tag' in t && 'count' in t)
+        .map((t) => `- ${t.tag}: ${t.count}`)
+        .join('\n') || 'No tags found.'
     }
 
     case 'count_by_status': {
-      const statuses = result.statuses as Array<{ status: string; count: number }> | undefined
-      if (!statuses || statuses.length === 0) return 'No items found.'
-      return statuses.map((s) => `- ${s.status}: ${s.count}`).join('\n')
+      const statuses = result.statuses
+      if (!Array.isArray(statuses) || statuses.length === 0) return 'No items found.'
+      return statuses
+        .filter((s): s is { status: string; count: number } =>
+          s != null && typeof s === 'object' && 'status' in s && 'count' in s)
+        .map((s) => `- ${s.status}: ${s.count}`)
+        .join('\n') || 'No items found.'
     }
 
     case 'latest':
     case 'oldest': {
-      const item = result.item as Record<string, unknown> | null | undefined
-      if (!item) return 'No items found.'
-      const title = (item.title as string) || (item.key as string) || (item.id as string)
-      const date = (item.created_at as string) || ''
+      const item = result.item
+      if (item == null || typeof item !== 'object') return 'No items found.'
+      const record = item as Record<string, unknown>
+      const title = String(record.title || record.key || record.id || 'Unknown')
+      const date = String(record.created_at || '')
       return `${operation === 'latest' ? 'Most recent' : 'Oldest'}: ${title} (${date})`
     }
 
