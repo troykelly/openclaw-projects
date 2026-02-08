@@ -5,7 +5,7 @@
 set -e
 
 BACKEND_URL="${E2E_API_URL:-http://localhost:3001}"
-TIMEOUT="${E2E_TIMEOUT:-60}"
+TIMEOUT="${E2E_TIMEOUT:-180}"
 INTERVAL=2
 
 echo "Waiting for backend at $BACKEND_URL..."
