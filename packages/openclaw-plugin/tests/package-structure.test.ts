@@ -78,8 +78,13 @@ describe('Package Structure', () => {
       expect(manifest).toHaveProperty('id')
       expect(manifest).toHaveProperty('name')
       expect(manifest).toHaveProperty('description')
-      expect(manifest).toHaveProperty('version')
       expect(manifest).toHaveProperty('configSchema')
+    })
+
+    it('should not have version field (inherits from package.json)', () => {
+      const manifestPath = join(packageRoot, 'openclaw.plugin.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      expect(manifest).not.toHaveProperty('version')
     })
 
     it('should not have main field (entry point comes from package.json)', () => {
@@ -112,6 +117,13 @@ describe('Package Structure', () => {
       const packagePath = join(packageRoot, 'package.json')
       const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
       expect(pkg.name).toBe('@troykelly/openclaw-projects')
+    })
+
+    it('should have a production-ready version (>= 1.0.0)', () => {
+      const packagePath = join(packageRoot, 'package.json')
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      const [major] = pkg.version.split('.').map(Number)
+      expect(major).toBeGreaterThanOrEqual(1)
     })
 
     it('should have zod as dependency', () => {
