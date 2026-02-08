@@ -1,0 +1,104 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 160
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "noUnusedFunctionParameters": "warn",
+        "useExhaustiveDependencies": "warn",
+        "useParseIntRadix": "warn",
+        "noSwitchDeclarations": "warn",
+        "noVoidTypeReturn": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noArrayIndexKey": "warn",
+        "noControlCharactersInRegex": "warn",
+        "noGlobalIsNan": "warn",
+        "noImplicitAnyLet": "warn",
+        "noConfusingVoidType": "warn",
+        "noPrototypeBuiltins": "warn",
+        "useIterableCallbackReturn": "warn",
+        "noAssignInExpressions": "warn",
+        "noEmptyInterface": "warn"
+      },
+      "complexity": {
+        "noForEach": "off",
+        "noUselessFragments": "warn",
+        "useLiteralKeys": "warn",
+        "useOptionalChain": "warn",
+        "useArrowFunction": "warn",
+        "noUselessSwitchCase": "warn",
+        "noBannedTypes": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "warn",
+        "useImportType": "warn",
+        "noParameterAssign": "off",
+        "useDefaultParameterLast": "warn",
+        "useTemplate": "warn",
+        "useNodejsImportProtocol": "warn",
+        "useExponentiationOperator": "warn",
+        "noUnusedTemplateLiteral": "warn",
+        "useNumberNamespace": "warn",
+        "useConst": "warn",
+        "useSelfClosingElements": "warn",
+        "useAsConstAssertion": "warn"
+      },
+      "a11y": {
+        "useKeyWithClickEvents": "warn",
+        "useButtonType": "warn",
+        "noStaticElementInteractions": "warn",
+        "useSemanticElements": "warn",
+        "noLabelWithoutControl": "warn",
+        "noSvgWithoutTitle": "warn",
+        "noNoninteractiveTabindex": "warn",
+        "useAnchorContent": "warn",
+        "noAriaUnsupportedElements": "warn",
+        "noRedundantRoles": "warn",
+        "useAriaPropsSupportedByRole": "warn",
+        "noAutofocus": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": false,
+      "tailwindDirectives": true
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}
