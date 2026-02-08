@@ -169,15 +169,43 @@ describe('Secrets Module', () => {
         await expect(resolveSecret(config)).rejects.toThrow(/Command failed/)
       })
 
-      it('should throw when command times out', async () => {
+      it('should throw timeout message when command is killed with SIGTERM', async () => {
         vi.mocked(childProcess.execSync).mockImplementation(() => {
-          const error = new Error('Command timed out') as Error & { killed: boolean }
+          const error = new Error('Command timed out') as Error & {
+            killed: boolean
+            signal: string
+          }
           error.killed = true
+          error.signal = 'SIGTERM'
           throw error
         })
 
         const config: SecretConfig = { command: 'slow-command' }
-        await expect(resolveSecret(config)).rejects.toThrow(/timed out/)
+        await expect(resolveSecret(config)).rejects.toThrow(/timed out after 5000ms/)
+      })
+
+      it('should throw distinct message when command is killed with non-SIGTERM signal', async () => {
+        vi.mocked(childProcess.execSync).mockImplementation(() => {
+          const error = new Error('Killed') as Error & {
+            killed: boolean
+            signal: string
+          }
+          error.killed = true
+          error.signal = 'SIGKILL'
+          throw error
+        })
+
+        const config: SecretConfig = { command: 'oom-command' }
+        await expect(resolveSecret(config)).rejects.toThrow(/killed.*SIGKILL/)
+      })
+
+      it('should produce useful error when a non-Error is thrown', async () => {
+        vi.mocked(childProcess.execSync).mockImplementation(() => {
+          throw 'string-error-value'
+        })
+
+        const config: SecretConfig = { command: 'bad-command' }
+        await expect(resolveSecret(config)).rejects.toThrow(/string-error-value/)
       })
     })
 
@@ -448,15 +476,43 @@ describe('Secrets Module', () => {
         expect(() => resolveSecretSync(config)).toThrow(/Command failed/)
       })
 
-      it('should throw when command times out', () => {
+      it('should throw timeout message when command is killed with SIGTERM', () => {
         vi.mocked(childProcess.execSync).mockImplementation(() => {
-          const error = new Error('Command timed out') as Error & { killed: boolean }
+          const error = new Error('Command timed out') as Error & {
+            killed: boolean
+            signal: string
+          }
           error.killed = true
+          error.signal = 'SIGTERM'
           throw error
         })
 
         const config: SecretConfig = { command: 'slow-command' }
-        expect(() => resolveSecretSync(config)).toThrow(/timed out/)
+        expect(() => resolveSecretSync(config)).toThrow(/timed out after 5000ms/)
+      })
+
+      it('should throw distinct message when command is killed with non-SIGTERM signal', () => {
+        vi.mocked(childProcess.execSync).mockImplementation(() => {
+          const error = new Error('Killed') as Error & {
+            killed: boolean
+            signal: string
+          }
+          error.killed = true
+          error.signal = 'SIGKILL'
+          throw error
+        })
+
+        const config: SecretConfig = { command: 'oom-command' }
+        expect(() => resolveSecretSync(config)).toThrow(/killed.*SIGKILL/)
+      })
+
+      it('should produce useful error when a non-Error is thrown', () => {
+        vi.mocked(childProcess.execSync).mockImplementation(() => {
+          throw 'string-error-value'
+        })
+
+        const config: SecretConfig = { command: 'bad-command' }
+        expect(() => resolveSecretSync(config)).toThrow(/string-error-value/)
       })
     })
 
