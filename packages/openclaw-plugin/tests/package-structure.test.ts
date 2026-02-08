@@ -123,7 +123,6 @@ describe('Package Structure', () => {
       const packagePath = join(packageRoot, 'package.json')
       const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
       expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/)
-      expect(pkg.version).toBe('0.0.3')
     })
 
     it('should have zod as dependency', () => {
@@ -173,10 +172,9 @@ describe('Package Structure', () => {
       expect(pkg.openclaw.extensions).toContain('dist/register-openclaw.js')
     })
 
-    it('should have openclaw.extensions entries that match files in the package', () => {
+    it('should have openclaw.extensions entries that are non-empty strings', () => {
       const packagePath = join(packageRoot, 'package.json')
       const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
-      // All extension entries should be non-empty strings
       for (const entry of pkg.openclaw.extensions) {
         expect(typeof entry).toBe('string')
         expect(entry.trim().length).toBeGreaterThan(0)

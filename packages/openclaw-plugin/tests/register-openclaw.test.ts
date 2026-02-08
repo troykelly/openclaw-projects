@@ -68,8 +68,8 @@ describe('OpenClaw 2026 API Registration', () => {
   })
 
   describe('registration', () => {
-    it('should register all 27 tools', async () => {
-      await registerOpenClaw(mockApi)
+    it('should register all 27 tools', () => {
+      registerOpenClaw(mockApi)
 
       expect(registeredTools).toHaveLength(27)
       const toolNames = registeredTools.map((t) => t.name)
@@ -102,49 +102,49 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(toolNames).toContain('skill_store_aggregate')
     })
 
-    it('should register before_agent_start hook via api.on() when autoRecall is true', async () => {
-      await registerOpenClaw(mockApi)
+    it('should register before_agent_start hook via api.on() when autoRecall is true', () => {
+      registerOpenClaw(mockApi)
 
       expect(registeredOnHooks.has('before_agent_start')).toBe(true)
       expect(typeof registeredOnHooks.get('before_agent_start')).toBe('function')
     })
 
-    it('should register agent_end hook via api.on() when autoCapture is true', async () => {
-      await registerOpenClaw(mockApi)
+    it('should register agent_end hook via api.on() when autoCapture is true', () => {
+      registerOpenClaw(mockApi)
 
       expect(registeredOnHooks.has('agent_end')).toBe(true)
       expect(typeof registeredOnHooks.get('agent_end')).toBe('function')
     })
 
-    it('should NOT use legacy registerHook for hooks', async () => {
-      await registerOpenClaw(mockApi)
+    it('should NOT use legacy registerHook for hooks', () => {
+      registerOpenClaw(mockApi)
 
       // Should NOT register hooks via the legacy registerHook method
       expect(registeredHooks.has('beforeAgentStart')).toBe(false)
       expect(registeredHooks.has('agentEnd')).toBe(false)
     })
 
-    it('should not register hooks when disabled', async () => {
+    it('should not register hooks when disabled', () => {
       mockApi.config = {
         ...mockApi.config,
         autoRecall: false,
         autoCapture: false,
       }
 
-      await registerOpenClaw(mockApi)
+      registerOpenClaw(mockApi)
 
       expect(registeredOnHooks.has('before_agent_start')).toBe(false)
       expect(registeredOnHooks.has('agent_end')).toBe(false)
     })
 
-    it('should register CLI commands', async () => {
-      await registerOpenClaw(mockApi)
+    it('should register CLI commands', () => {
+      registerOpenClaw(mockApi)
 
       expect(cliCallback).not.toBeNull()
     })
 
-    it('should log registration success', async () => {
-      await registerOpenClaw(mockApi)
+    it('should log registration success', () => {
+      registerOpenClaw(mockApi)
 
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
@@ -154,12 +154,12 @@ describe('OpenClaw 2026 API Registration', () => {
       )
     })
 
-    it('should fall back to registerHook if api.on is not available', async () => {
+    it('should fall back to registerHook if api.on is not available', () => {
       // Simulate older OpenClaw runtime without api.on
       const legacyApi = { ...mockApi }
       delete (legacyApi as Record<string, unknown>).on
 
-      await registerOpenClaw(legacyApi)
+      registerOpenClaw(legacyApi)
 
       // Should have fallen back to registerHook
       expect(registeredHooks.has('beforeAgentStart')).toBe(true)
@@ -185,7 +185,7 @@ describe('OpenClaw 2026 API Registration', () => {
       }) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
@@ -229,7 +229,7 @@ describe('OpenClaw 2026 API Registration', () => {
       }) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
@@ -265,7 +265,7 @@ describe('OpenClaw 2026 API Registration', () => {
       }) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
@@ -297,7 +297,7 @@ describe('OpenClaw 2026 API Registration', () => {
       ) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
@@ -322,7 +322,7 @@ describe('OpenClaw 2026 API Registration', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error')) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
@@ -352,7 +352,7 @@ describe('OpenClaw 2026 API Registration', () => {
       })) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('agent_end') as (
           event: PluginHookAgentEndEvent,
@@ -378,7 +378,7 @@ describe('OpenClaw 2026 API Registration', () => {
     })
 
     it('should not throw on empty messages', async () => {
-      await registerOpenClaw(mockApi)
+      registerOpenClaw(mockApi)
 
       const hook = registeredOnHooks.get('agent_end') as (
         event: PluginHookAgentEndEvent,
@@ -406,7 +406,7 @@ describe('OpenClaw 2026 API Registration', () => {
       }) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const hook = registeredOnHooks.get('agent_end') as (
           event: PluginHookAgentEndEvent,
@@ -435,8 +435,8 @@ describe('OpenClaw 2026 API Registration', () => {
   })
 
   describe('tool definitions', () => {
-    it('should have valid JSON Schema for all tools', async () => {
-      await registerOpenClaw(mockApi)
+    it('should have valid JSON Schema for all tools', () => {
+      registerOpenClaw(mockApi)
 
       for (const tool of registeredTools) {
         expect(tool.parameters).toBeDefined()
@@ -446,8 +446,8 @@ describe('OpenClaw 2026 API Registration', () => {
       }
     })
 
-    it('should have required properties marked correctly', async () => {
-      await registerOpenClaw(mockApi)
+    it('should have required properties marked correctly', () => {
+      registerOpenClaw(mockApi)
 
       const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
       expect(memoryRecall?.parameters.required).toContain('query')
@@ -467,8 +467,8 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(relationshipQuery?.parameters.required).toContain('contact')
     })
 
-    it('should have executable functions', async () => {
-      await registerOpenClaw(mockApi)
+    it('should have executable functions', () => {
+      registerOpenClaw(mockApi)
 
       for (const tool of registeredTools) {
         expect(typeof tool.execute).toBe('function')
@@ -486,7 +486,7 @@ describe('OpenClaw 2026 API Registration', () => {
       })) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
         expect(memoryRecall).toBeDefined()
@@ -530,7 +530,7 @@ describe('OpenClaw 2026 API Registration', () => {
       })) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
         expect(memoryRecall).toBeDefined()
@@ -572,7 +572,7 @@ describe('OpenClaw 2026 API Registration', () => {
       }) as unknown as typeof fetch
 
       try {
-        await registerOpenClaw(mockApi)
+        registerOpenClaw(mockApi)
 
         const memoryRecall = registeredTools.find((t) => t.name === 'memory_recall')
         expect(memoryRecall).toBeDefined()
