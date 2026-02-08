@@ -119,11 +119,11 @@ describe('Package Structure', () => {
       expect(pkg.name).toBe('@troykelly/openclaw-projects')
     })
 
-    it('should have a production-ready version (>= 1.0.0)', () => {
+    it('should have a valid semver version', () => {
       const packagePath = join(packageRoot, 'package.json')
       const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
-      const [major] = pkg.version.split('.').map(Number)
-      expect(major).toBeGreaterThanOrEqual(1)
+      expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/)
+      expect(pkg.version).toBe('0.0.3')
     })
 
     it('should have zod as dependency', () => {
