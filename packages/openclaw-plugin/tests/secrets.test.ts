@@ -662,6 +662,26 @@ describe('Secrets Module', () => {
       })
     })
 
+    describe('shared cache with async path', () => {
+      it('should share cache between resolveSecretSync and resolveSecret', async () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('shared-secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+
+        // Sync call populates cache
+        const syncResult = resolveSecretSync(config, 'sharedKey')
+
+        // Async call should hit the same cache
+        const asyncResult = await resolveSecret(config, 'sharedKey')
+
+        expect(syncResult).toBe('shared-secret')
+        expect(asyncResult).toBe('shared-secret')
+        expect(fs.readFileSync).toHaveBeenCalledTimes(1)
+      })
+    })
+
     describe('return type', () => {
       it('should NOT return a Promise', () => {
         const config: SecretConfig = { direct: 'test-value' }
