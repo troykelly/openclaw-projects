@@ -623,6 +623,38 @@ describe('OpenClaw 2026 API Registration', () => {
     })
   })
 
+  describe('synchronous registration', () => {
+    it('should NOT return a Promise (not thenable)', () => {
+      const result = registerOpenClaw(mockApi)
+      // The return value must NOT be a Promise or thenable
+      // OpenClaw's loader checks: if (result && typeof result.then === "function")
+      // and logs a warning if true, meaning async registration is ignored
+      expect(result).not.toBeInstanceOf(Promise)
+      if (result !== undefined && result !== null) {
+        expect(typeof (result as Record<string, unknown>).then).not.toBe('function')
+      }
+    })
+
+    it('should register all tools synchronously during register() call', () => {
+      registerOpenClaw(mockApi)
+      // All tools must be registered by the time register() returns
+      expect(registeredTools).toHaveLength(27)
+    })
+
+    it('should register hooks synchronously during register() call', () => {
+      registerOpenClaw(mockApi)
+      // Hooks must be registered by the time register() returns
+      expect(registeredOnHooks.has('before_agent_start')).toBe(true)
+      expect(registeredOnHooks.has('agent_end')).toBe(true)
+    })
+
+    it('should register CLI commands synchronously during register() call', () => {
+      registerOpenClaw(mockApi)
+      // CLI must be registered by the time register() returns
+      expect(cliCallback).not.toBeNull()
+    })
+  })
+
   describe('default export', () => {
     it('should be a function', async () => {
       const { default: defaultExport } = await import('../src/register-openclaw.js')

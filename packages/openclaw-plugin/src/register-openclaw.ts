@@ -20,7 +20,7 @@ import type {
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
 } from './types/openclaw-api.js'
-import { validateRawConfig, resolveConfigSecrets, redactConfig, type PluginConfig } from './config.js'
+import { validateRawConfig, resolveConfigSecretsSync, redactConfig, type PluginConfig } from './config.js'
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
 import { extractContext, getUserScopeKey } from './context.js'
@@ -2195,10 +2195,13 @@ function createToolHandlers(state: PluginState) {
  * This is the main entry point for the plugin using the OpenClaw API pattern.
  * Registers all tools, hooks, and CLI commands via the provided API object.
  */
-export const registerOpenClaw: PluginInitializer = async (api: OpenClawPluginApi) => {
-  // Validate and resolve configuration
+export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
+  // Validate and resolve configuration synchronously.
+  // OpenClaw's loader does NOT await the register function — it checks if the
+  // result is thenable and logs a warning. All registrations must happen
+  // synchronously during this call.
   const rawConfig = validateRawConfig(api.config)
-  const config = await resolveConfigSecrets(rawConfig)
+  const config = resolveConfigSecretsSync(rawConfig)
 
   // Create logger and API client
   const logger = api.logger ?? createLogger('openclaw-projects')
