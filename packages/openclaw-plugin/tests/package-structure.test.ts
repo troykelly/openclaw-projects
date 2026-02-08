@@ -79,8 +79,13 @@ describe('Package Structure', () => {
       expect(manifest).toHaveProperty('name')
       expect(manifest).toHaveProperty('description')
       expect(manifest).toHaveProperty('version')
-      expect(manifest).toHaveProperty('main')
       expect(manifest).toHaveProperty('configSchema')
+    })
+
+    it('should not have main field (entry point comes from package.json)', () => {
+      const manifestPath = join(packageRoot, 'openclaw.plugin.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      expect(manifest).not.toHaveProperty('main')
     })
 
     it('should have configSchema with required apiUrl and flexible apiKey', () => {
