@@ -162,6 +162,51 @@ export async function resolveSecret(
 }
 
 /**
+ * Resolves a secret synchronously using the configured method.
+ *
+ * Same priority and behavior as resolveSecret, but fully synchronous.
+ * Used during plugin registration where blocking I/O is acceptable
+ * and the caller (OpenClaw loader) does not await the result.
+ *
+ * @param config - Secret configuration
+ * @param cacheKey - Optional key to cache the resolved secret
+ * @returns The resolved secret, or undefined if not configured
+ */
+export function resolveSecretSync(
+  config: SecretConfig,
+  cacheKey?: string
+): string | undefined {
+  // Check cache first
+  if (cacheKey && secretCache.has(cacheKey)) {
+    return secretCache.get(cacheKey)
+  }
+
+  let resolved: string | undefined
+
+  // Priority 1: Command
+  if (config.command && config.command.trim()) {
+    const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT
+    resolved = resolveFromCommand(config.command, timeout)
+  }
+  // Priority 2: File
+  else if (config.file && config.file.trim()) {
+    resolved = resolveFromFile(config.file)
+  }
+  // Priority 3: Direct
+  else if (config.direct !== undefined) {
+    const trimmed = config.direct.trim()
+    resolved = trimmed.length > 0 ? trimmed : undefined
+  }
+
+  // Cache if resolved and cacheKey provided
+  if (resolved && cacheKey) {
+    secretCache.set(cacheKey, resolved)
+  }
+
+  return resolved
+}
+
+/**
  * Resolves multiple secrets in parallel.
  *
  * @param configs - Map of secret names to configurations

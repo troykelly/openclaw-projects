@@ -354,10 +354,11 @@ export {
   validateRawConfig,
   safeValidateRawConfig,
   resolveConfigSecrets,
+  resolveConfigSecretsSync,
   redactConfig,
 } from './config.js'
 export type { SecretConfig } from './secrets.js'
-export { resolveSecret, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js'
+export { resolveSecret, resolveSecretSync, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js'
 export type { Logger } from './logger.js'
 export { createLogger, redactSensitive } from './logger.js'
 export type { ApiClient, ApiResponse, ApiError } from './api-client.js'
