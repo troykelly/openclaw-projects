@@ -178,10 +178,17 @@ describe('Package Structure', () => {
   })
 
   describe('Skills Directory', () => {
-    it('should have skillsDir declared in manifest', () => {
+    it('should have skills field as an array in manifest', () => {
       const manifestPath = join(packageRoot, 'openclaw.plugin.json')
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-      expect(manifest.skillsDir).toBe('skills')
+      expect(Array.isArray(manifest.skills)).toBe(true)
+      expect(manifest.skills).toContain('skills')
+    })
+
+    it('should not have the deprecated skillsDir field', () => {
+      const manifestPath = join(packageRoot, 'openclaw.plugin.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      expect(manifest).not.toHaveProperty('skillsDir')
     })
 
     it('should have skills directory', () => {
