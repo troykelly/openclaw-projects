@@ -54,7 +54,7 @@ describe('Secrets Module', () => {
 
     describe('file reference', () => {
       it('should read secret from file', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret-from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -65,7 +65,7 @@ describe('Secrets Module', () => {
       })
 
       it('should trim whitespace from file contents', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('  secret-from-file\n')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -76,7 +76,7 @@ describe('Secrets Module', () => {
 
       it('should expand ~ in file path', async () => {
         const homeDir = os.homedir()
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret-from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -91,7 +91,7 @@ describe('Secrets Module', () => {
 
       it('should warn when file is world-readable', async () => {
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o644 } as fs.Stats)
 
@@ -104,7 +104,7 @@ describe('Secrets Module', () => {
 
       it('should log warning when statSync throws (not silent)', async () => {
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret')
         vi.mocked(fs.statSync).mockImplementation(() => {
           throw new Error('ELOOP: too many levels of symbolic links')
@@ -122,21 +122,26 @@ describe('Secrets Module', () => {
       })
 
       it('should throw when file does not exist', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(false)
+        vi.mocked(fs.readFileSync).mockImplementation(() => {
+          const err = new Error("ENOENT: no such file or directory, open '/path/to/nonexistent'") as NodeJS.ErrnoException
+          err.code = 'ENOENT'
+          throw err
+        })
 
         const config: SecretConfig = { file: '/path/to/nonexistent' }
-        await expect(resolveSecret(config)).rejects.toThrow(/does not exist/)
+        await expect(resolveSecret(config)).rejects.toThrow(/Secret file does not exist.*\/path\/to\/nonexistent/)
       })
 
-      it('should throw when file read fails', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+      it('should throw with context when file read fails (EACCES)', async () => {
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
         vi.mocked(fs.readFileSync).mockImplementation(() => {
-          throw new Error('Permission denied')
+          const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException
+          err.code = 'EACCES'
+          throw err
         })
 
         const config: SecretConfig = { file: '/path/to/secret' }
-        await expect(resolveSecret(config)).rejects.toThrow(/Permission denied/)
+        await expect(resolveSecret(config)).rejects.toThrow(/Failed to read secret file.*EACCES/)
       })
     })
 
@@ -231,7 +236,7 @@ describe('Secrets Module', () => {
     describe('priority: command > file > direct', () => {
       it('should prefer command over file and direct', async () => {
         vi.mocked(childProcess.execSync).mockReturnValue('from-command')
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -245,7 +250,7 @@ describe('Secrets Module', () => {
       })
 
       it('should prefer file over direct when command not provided', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -266,7 +271,7 @@ describe('Secrets Module', () => {
 
     describe('caching', () => {
       it('should cache resolved secrets', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -280,7 +285,7 @@ describe('Secrets Module', () => {
       })
 
       it('should not cache when cacheKey is not provided', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('uncached-secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -292,7 +297,7 @@ describe('Secrets Module', () => {
       })
 
       it('should clear cache when clearSecretCache is called', async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -330,7 +335,7 @@ describe('Secrets Module', () => {
 
     it('should handle mixed resolution methods', async () => {
       vi.mocked(childProcess.execSync).mockReturnValue('from-command')
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockReturnValue('from-file')
       vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -349,7 +354,7 @@ describe('Secrets Module', () => {
     })
 
     it('should cache all resolved secrets', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
       vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -368,7 +373,7 @@ describe('Secrets Module', () => {
 
   describe('security', () => {
     it('should not include secrets in error messages', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockImplementation(() => {
         throw new Error('Failed to read')
       })
@@ -411,7 +416,7 @@ describe('Secrets Module', () => {
 
     describe('file reference', () => {
       it('should read secret from file synchronously', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret-from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -422,7 +427,7 @@ describe('Secrets Module', () => {
       })
 
       it('should trim whitespace from file contents', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('  secret-from-file\n')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -433,7 +438,7 @@ describe('Secrets Module', () => {
 
       it('should expand ~ in file path', () => {
         const homeDir = os.homedir()
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret-from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -448,7 +453,7 @@ describe('Secrets Module', () => {
 
       it('should warn when file is world-readable', () => {
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o644 } as fs.Stats)
 
@@ -461,7 +466,7 @@ describe('Secrets Module', () => {
 
       it('should log warning when statSync throws (not silent)', () => {
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('secret')
         vi.mocked(fs.statSync).mockImplementation(() => {
           throw new Error('ELOOP: too many levels of symbolic links')
@@ -479,21 +484,26 @@ describe('Secrets Module', () => {
       })
 
       it('should throw when file does not exist', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(false)
+        vi.mocked(fs.readFileSync).mockImplementation(() => {
+          const err = new Error("ENOENT: no such file or directory, open '/path/to/nonexistent'") as NodeJS.ErrnoException
+          err.code = 'ENOENT'
+          throw err
+        })
 
         const config: SecretConfig = { file: '/path/to/nonexistent' }
-        expect(() => resolveSecretSync(config)).toThrow(/does not exist/)
+        expect(() => resolveSecretSync(config)).toThrow(/Secret file does not exist.*\/path\/to\/nonexistent/)
       })
 
-      it('should throw when file read fails', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+      it('should throw with context when file read fails (EACCES)', () => {
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
         vi.mocked(fs.readFileSync).mockImplementation(() => {
-          throw new Error('Permission denied')
+          const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException
+          err.code = 'EACCES'
+          throw err
         })
 
         const config: SecretConfig = { file: '/path/to/secret' }
-        expect(() => resolveSecretSync(config)).toThrow(/Permission denied/)
+        expect(() => resolveSecretSync(config)).toThrow(/Failed to read secret file.*EACCES/)
       })
     })
 
@@ -588,7 +598,7 @@ describe('Secrets Module', () => {
     describe('priority: command > file > direct', () => {
       it('should prefer command over file and direct', () => {
         vi.mocked(childProcess.execSync).mockReturnValue('from-command')
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -602,7 +612,7 @@ describe('Secrets Module', () => {
       })
 
       it('should prefer file over direct when command not provided', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('from-file')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -623,7 +633,7 @@ describe('Secrets Module', () => {
 
     describe('caching', () => {
       it('should cache resolved secrets', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -637,7 +647,7 @@ describe('Secrets Module', () => {
       })
 
       it('should not cache when cacheKey is not provided', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('uncached-secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -649,7 +659,7 @@ describe('Secrets Module', () => {
       })
 
       it('should clear cache when clearSecretCache is called', () => {
-        vi.mocked(fs.existsSync).mockReturnValue(true)
+
         vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
         vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 

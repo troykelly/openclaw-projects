@@ -615,7 +615,7 @@ describe('Config Schema', () => {
     })
 
     it('should resolve apiKey from file', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockReturnValue('file-api-key\n')
       vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -659,7 +659,7 @@ describe('Config Schema', () => {
     })
 
     it('should resolve all Twilio credentials', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockImplementation((path) => {
         if (String(path).includes('sid')) return 'twilio-sid'
         if (String(path).includes('token')) return 'twilio-token'
@@ -781,7 +781,7 @@ describe('Config Schema', () => {
     })
 
     it('should resolve apiKey from file', () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockReturnValue('file-api-key\n')
       vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -826,7 +826,7 @@ describe('Config Schema', () => {
 
     it('should resolve all six secret fields', () => {
       vi.mocked(childProcess.execSync).mockReturnValue('cmd-api-key')
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockImplementation((path) => {
         const p = String(path)
         if (p.includes('postmark_token')) return 'pm-token'
@@ -867,7 +867,7 @@ describe('Config Schema', () => {
     })
 
     it('should resolve Twilio credentials from files', () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockImplementation((path) => {
         if (String(path).includes('sid')) return 'twilio-sid'
         if (String(path).includes('token')) return 'twilio-token'
@@ -944,7 +944,7 @@ describe('Config Schema', () => {
     })
 
     it('should throw when apiKey resolves to whitespace only', () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockReturnValue('   \n')
       vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
 
@@ -995,7 +995,7 @@ describe('Config Schema', () => {
     })
 
     it('should propagate readFileSync failure errors', () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true)
+
       vi.mocked(fs.readFileSync).mockImplementation(() => {
         throw new Error('EACCES: permission denied')
       })
