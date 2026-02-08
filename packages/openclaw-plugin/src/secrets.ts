@@ -15,7 +15,7 @@
  */
 
 import { execSync } from 'node:child_process'
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -109,17 +109,17 @@ function resolveFromCommand(command: string, timeout: number): string {
 function resolveFromFile(filePath: string): string {
   const expandedPath = expandTilde(filePath)
 
-  if (!existsSync(expandedPath)) {
-    throw new Error(`Secret file does not exist: ${expandedPath}`)
-  }
-
   checkFilePermissions(expandedPath)
 
   try {
     const content = readFileSync(expandedPath, 'utf-8')
     return content.trim()
   } catch (error) {
-    throw new Error(`Failed to read secret file: ${(error as Error).message}`)
+    const err = error instanceof Error ? error : new Error(String(error))
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`Secret file does not exist: ${expandedPath}`)
+    }
+    throw new Error(`Failed to read secret file: ${err.message}`)
   }
 }
 
