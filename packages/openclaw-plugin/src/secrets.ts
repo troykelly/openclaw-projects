@@ -87,11 +87,17 @@ function resolveFromCommand(command: string, timeout: number): string {
     })
     return result.trim()
   } catch (error) {
-    const err = error as Error & { killed?: boolean }
-    if (err.killed) {
+    const err = error as Error & { killed?: boolean; signal?: string }
+    if (err.killed && err.signal === 'SIGTERM') {
       throw new Error(`Secret command timed out after ${timeout}ms`)
     }
-    throw new Error(`Secret command failed: ${err.message}`)
+    if (err.killed) {
+      throw new Error(
+        `Secret command was killed (signal: ${err.signal ?? 'unknown'})`
+      )
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Secret command failed: ${message}`)
   }
 }
 
