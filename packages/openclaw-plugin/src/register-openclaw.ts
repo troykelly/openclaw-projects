@@ -20,6 +20,7 @@ import type {
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
 } from './types/openclaw-api.js'
+import { ZodError } from 'zod'
 import { validateRawConfig, resolveConfigSecretsSync, redactConfig, type PluginConfig } from './config.js'
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
@@ -2200,11 +2201,34 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // OpenClaw's loader does NOT await the register function — it checks if the
   // result is thenable and logs a warning. All registrations must happen
   // synchronously during this call.
-  const rawConfig = validateRawConfig(api.config)
-  const config = resolveConfigSecretsSync(rawConfig)
-
-  // Create logger and API client
   const logger = api.logger ?? createLogger('openclaw-projects')
+
+  let rawConfig
+  try {
+    rawConfig = validateRawConfig(api.config)
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      const issues = error.issues
+        .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+        .join('\n')
+      logger.error(`[openclaw-projects] Invalid plugin configuration:\n${issues}`)
+    } else {
+      logger.error(
+        `[openclaw-projects] Invalid plugin configuration: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+    return
+  }
+
+  let config: PluginConfig
+  try {
+    config = resolveConfigSecretsSync(rawConfig)
+  } catch (error: unknown) {
+    logger.error(
+      `[openclaw-projects] Failed to resolve secrets: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return
+  }
   const apiClient = createApiClient({ config, logger })
 
   // Extract context and user ID

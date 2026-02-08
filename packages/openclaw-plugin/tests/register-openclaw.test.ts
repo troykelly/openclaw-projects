@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { registerOpenClaw, schemas } from '../src/register-openclaw.js'
+import { clearSecretCache } from '../src/secrets.js'
 import type {
   OpenClawPluginApi,
   ToolDefinition,
@@ -27,6 +28,7 @@ describe('OpenClaw 2026 API Registration', () => {
     registeredHooks = new Map()
     registeredOnHooks = new Map()
     cliCallback = null
+    clearSecretCache()
 
     mockApi = {
       config: {
@@ -652,6 +654,79 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi)
       // CLI must be registered by the time register() returns
       expect(cliCallback).not.toBeNull()
+    })
+  })
+
+  describe('graceful error handling on config failures', () => {
+    it('should not throw when config validation fails (ZodError)', () => {
+      // Provide invalid config that will fail Zod validation
+      mockApi.config = { invalid: 'not a valid config' }
+
+      // Must not throw — should return gracefully
+      expect(() => registerOpenClaw(mockApi)).not.toThrow()
+    })
+
+    it('should log a human-readable error when config validation fails', () => {
+      // Missing required fields will produce ZodError
+      mockApi.config = { apiUrl: 'not-a-url' }
+
+      registerOpenClaw(mockApi)
+
+      expect(mockApi.logger.error).toHaveBeenCalled()
+      const errorCall = vi.mocked(mockApi.logger.error).mock.calls[0]
+      expect(errorCall[0]).toContain('Invalid plugin configuration')
+    })
+
+    it('should not register any tools when config validation fails', () => {
+      mockApi.config = { invalid: 'bad config' }
+
+      registerOpenClaw(mockApi)
+
+      expect(registeredTools).toHaveLength(0)
+    })
+
+    it('should not throw when secret resolution fails', () => {
+      // Provide valid raw config but with a command that will fail
+      mockApi.config = {
+        apiUrl: 'https://api.example.com',
+        apiKeyCommand: 'nonexistent-command-that-will-fail',
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+      }
+
+      // Must not throw — should return gracefully
+      expect(() => registerOpenClaw(mockApi)).not.toThrow()
+    })
+
+    it('should log an actionable error when secret resolution fails', () => {
+      mockApi.config = {
+        apiUrl: 'https://api.example.com',
+        apiKeyCommand: 'nonexistent-command-that-will-fail',
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+      }
+
+      registerOpenClaw(mockApi)
+
+      expect(mockApi.logger.error).toHaveBeenCalled()
+      const errorCall = vi.mocked(mockApi.logger.error).mock.calls[0]
+      expect(errorCall[0]).toContain('Failed to resolve')
+    })
+
+    it('should not register any tools when secret resolution fails', () => {
+      mockApi.config = {
+        apiUrl: 'https://api.example.com',
+        apiKeyCommand: 'nonexistent-command-that-will-fail',
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+      }
+
+      registerOpenClaw(mockApi)
+
+      expect(registeredTools).toHaveLength(0)
     })
   })
 
