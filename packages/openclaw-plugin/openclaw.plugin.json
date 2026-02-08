@@ -4,7 +4,6 @@
   "description": "Memory provider with projects, todos, and contacts integration",
   "version": "2.1.0",
   "kind": "memory",
-  "main": "dist/index.js",
   "skills": ["skills"],
   "configSchema": {
     "type": "object",
