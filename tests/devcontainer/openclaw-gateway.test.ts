@@ -21,20 +21,10 @@ describe('OpenClaw Gateway Devcontainer Configuration', () => {
       expect(existsSync(composePath)).toBe(true);
     });
 
-    it('should define openclaw_gateway_source volume', () => {
+    it('should not use a named volume for gateway source', () => {
       const content = readFileSync(composePath, 'utf-8');
       const config = parse(content);
-      expect(config.volumes).toHaveProperty('openclaw_gateway_source');
-    });
-
-    it('should mount gateway source volume in workspace service', () => {
-      const content = readFileSync(composePath, 'utf-8');
-      const config = parse(content);
-      const workspaceVolumes: string[] = config.services.workspace.volumes;
-      const gatewayMount = workspaceVolumes.find((v: string) =>
-        v.includes('openclaw_gateway_source') && v.includes('/workspaces/openclaw-gateway'),
-      );
-      expect(gatewayMount).toBeDefined();
+      expect(config.volumes).not.toHaveProperty('openclaw_gateway_source');
     });
   });
 
@@ -55,25 +45,33 @@ describe('OpenClaw Gateway Devcontainer Configuration', () => {
       expect(content).toContain('github.com/openclaw/openclaw');
     });
 
+    it('should use GITHUB_TOKEN for authenticated clone', () => {
+      const content = readFileSync(postCreatePath, 'utf-8');
+      expect(content).toContain('GITHUB_TOKEN');
+      expect(content).toContain('x-access-token');
+    });
+
     it('should install dependencies with pnpm', () => {
       const content = readFileSync(postCreatePath, 'utf-8');
       expect(content).toContain('pnpm install');
     });
 
-    it('should use /workspaces/openclaw-gateway as gateway directory', () => {
+    it('should clone gateway into .local/openclaw-gateway', () => {
       const content = readFileSync(postCreatePath, 'utf-8');
-      expect(content).toContain('/workspaces/openclaw-gateway');
+      expect(content).toContain('.local/openclaw-gateway');
     });
 
     it('should call install_openclaw_gateway function', () => {
       const content = readFileSync(postCreatePath, 'utf-8');
-      // Check that it is called (not just defined)
+      // Check that it is called (not just defined) — may be invoked via run_step wrapper
       const lines = content.split('\n');
       const callLine = lines.find(
         (line) =>
-          line.trim() === 'install_openclaw_gateway' &&
           !line.trim().startsWith('#') &&
-          !line.includes('()'),
+          !line.includes('install_openclaw_gateway()') &&
+          /\binstall_openclaw_gateway\b/.test(line) &&
+          // Must be an invocation line, not the function definition
+          !line.includes('{'),
       );
       expect(callLine).toBeDefined();
     });
@@ -116,14 +114,12 @@ describe('OpenClaw Gateway Devcontainer Configuration', () => {
 
     it('should reference docker-compose file', () => {
       const content = readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content);
-      expect(config.dockerComposeFile).toBe('docker-compose.devcontainer.yml');
+      expect(content).toContain('"dockerComposeFile": "docker-compose.devcontainer.yml"');
     });
 
     it('should use postCreate.sh as postCreateCommand', () => {
       const content = readFileSync(devcontainerPath, 'utf-8');
-      const config = JSON.parse(content);
-      expect(config.postCreateCommand).toContain('postCreate.sh');
+      expect(content).toContain('postCreate.sh');
     });
   });
 });

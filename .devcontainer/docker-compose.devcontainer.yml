@@ -19,7 +19,6 @@ services:
     volumes:
       - ..:/workspaces/openclaw-projects:cached
       - /var/run/docker.sock:/var/run/docker.sock
-      - openclaw_gateway_source:/workspaces/openclaw-gateway
     command: sleep infinity
     depends_on:
       postgres:
@@ -70,4 +69,3 @@ services:
 volumes:
   openclaw_projects_postgres_data:
   openclaw_projects_seaweedfs_data:
-  openclaw_gateway_source:

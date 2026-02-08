@@ -11,6 +11,9 @@ dist/
 # Claude Code local files
 .claude/
 
+# Local dev artifacts (OpenClaw gateway clone, etc.)
+.local/
+
 # IDE and editor directories
 .idea/
 .vscode/

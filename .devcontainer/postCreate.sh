@@ -1,24 +1,31 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# postCreate.sh — devcontainer setup for openclaw-projects
+#
+# Each step is independent: one failure does not block others.
+# A summary is printed at the end showing what succeeded / failed.
+# ---------------------------------------------------------------------------
+
+RESULTS=()
 
 log() { echo "[postCreate] $*"; }
 
-# Ensure common user-local paths are available for this session.
-mkdir -p "$HOME/.local/bin"
-export PATH="$HOME/.claude/bin:$HOME/.local/bin:$PATH"
-
-log "Starting devcontainer postCreate setup..."
-
-log "Verifying prerequisites"
-command -v curl >/dev/null
-command -v jq >/dev/null
-command -v op >/dev/null || {
-  log "WARN: op not found on PATH (expected via Dockerfile)."
+# Run a named step, record pass/fail. Failures do NOT abort the script.
+run_step() {
+  local name="$1"; shift
+  log "--- $name ---"
+  if "$@"; then
+    RESULTS+=("  OK  $name")
+  else
+    RESULTS+=("  FAIL $name")
+  fi
 }
 
-command -v gunzip >/dev/null 2>&1 || {
-  log "WARN: gunzip not found; rust-analyzer install fallback may fail."
-}
+# ---------------------------------------------------------------------------
+# Steps
+# ---------------------------------------------------------------------------
 
 install_claude_code() {
   if command -v claude >/dev/null 2>&1; then
@@ -49,11 +56,10 @@ install_codex_binary() {
   local arch
   arch=$(uname -m)
 
-  # Map uname arch to the naming used by openai/codex releases.
   local want_arch
   case "$arch" in
-    x86_64|amd64) want_arch="x86_64" ;;
-    aarch64|arm64) want_arch="aarch64" ;;
+    x86_64|amd64)  want_arch="x86_64"  ;;
+    aarch64|arm64)  want_arch="aarch64" ;;
     *)
       log "ERROR: Unsupported architecture for codex binary install: ${arch}"
       return 1
@@ -63,7 +69,6 @@ install_codex_binary() {
   local release_json
   release_json=$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest)
 
-  # Prefer the tar.gz linux build (avoids needing zstd).
   local asset_url
   asset_url=$(echo "$release_json" | jq -r --arg a "$want_arch" '
     .assets[]
@@ -90,92 +95,67 @@ install_codex_binary() {
   local codex_path
   codex_path=$(find "$tmp" -maxdepth 2 -type f \( -name codex -o -name 'codex-*linux*' -o -name 'codex-*unknown-linux-*' \) | head -n 1)
   if [[ -z "$codex_path" ]]; then
-    log "ERROR: Could not find extracted codex binary in tarball. Contents:";
+    log "ERROR: Could not find extracted codex binary in tarball. Contents:"
     find "$tmp" -maxdepth 2 -type f -print | sed 's#^#  - #' || true
     return 1
   fi
 
   chmod +x "$codex_path"
 
-  # Install system-wide so it is available regardless of shell init.
   log "Installing codex to /usr/local/bin (sudo)"
   sudo install -m 0755 "$codex_path" /usr/local/bin/codex
 
   log "Codex installed: $(/usr/local/bin/codex --version 2>/dev/null || true)"
 }
 
-install_plugins_user_scope() {
+install_plugins() {
   if ! command -v claude >/dev/null 2>&1; then
     log "Skipping plugin installation: 'claude' not found."
     return 0
   fi
 
-  # Official marketplace is named claude-plugins-official.
-  # Use the CLI (non-interactive):
-  #   claude plugin install <plugin>@claude-plugins-official --scope user
+  claude plugin marketplace add anthropics/claude-plugins-official || true
+
   local plugins=(
-    frontend-design
+    circleback
+    claude-code-setup
+    claude-md-management
     code-review
-    github
-    feature-dev
     code-simplifier
-    ralph-loop
     commit-commands
-    playwright
-    security-guidance
-    pr-review-toolkit
-    agent-sdk-dev
-    superpowers
-    plugin-dev
+    feature-dev
+    frontend-design
+    github
     hookify
     linear
+    playground
+    playwright
+    pr-review-toolkit
+    pyright-lsp
+    ralph-loop
+    security-guidance
     sentry
-    rust-analyzer-lsp
-    claude-md-management
-    claude-code-setup
-    circleback
-    pinecone
+    stripe
+    superpowers
+    typescript-lsp
   )
 
-  # LSP plugins require the corresponding language server binary in PATH.
-  # rust-analyzer-lsp requires rust-analyzer.
-  log "Ensuring rust-analyzer is installed (required for rust-analyzer-lsp)"
-  if ! command -v rust-analyzer >/dev/null 2>&1; then
-    if command -v curl >/dev/null 2>&1; then
-      # Install rust-analyzer directly (static binary) from the upstream releases.
-      # We avoid apt packaging differences between distros/images.
-      local ra_url="https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz"
-      case "$(uname -m)" in
-        x86_64|amd64) ra_url="https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz" ;;
-        aarch64|arm64) ra_url="https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-aarch64-unknown-linux-gnu.gz" ;;
-      esac
-      log "Downloading rust-analyzer from: $ra_url"
-      curl -fsSL "$ra_url" | gunzip -c | sudo tee /usr/local/bin/rust-analyzer >/dev/null
-      sudo chmod +x /usr/local/bin/rust-analyzer
-    fi
-  fi
-  if command -v rust-analyzer >/dev/null 2>&1; then
-    log "rust-analyzer available: $(rust-analyzer --version 2>/dev/null || true)"
-  else
-    log "WARN: rust-analyzer not installed; rust-analyzer-lsp plugin may show errors until installed."
-  fi
-
-  log "Installing Claude Code plugins to user scope (~/.claude/settings.json)"
-
-  for p in "${plugins[@]}"; do
-    log "Installing plugin: ${p}@claude-plugins-official"
-    if claude plugin install "${p}@claude-plugins-official" --scope user; then
-      true
-    else
-      log "WARN: Failed to install plugin ${p}. If Claude isn't authenticated yet, authenticate then rerun: bash .devcontainer/postCreate.sh"
+  local failed=0
+  for plugin in "${plugins[@]}"; do
+    if ! claude plugin install "${plugin}@claude-plugins-official"; then
+      log "WARN: Failed to install plugin: ${plugin}"
+      ((failed++)) || true
     fi
   done
+
+  if ((failed > 0)); then
+    log "WARN: ${failed}/${#plugins[@]} plugin(s) failed to install."
+  else
+    log "All ${#plugins[@]} plugins installed."
+  fi
 }
 
 restore_cloud_credentials() {
-  # Environment variables are loaded via docker-compose env_file directive.
-
-  # Restore Google Cloud ADC if all required values exist
   if [[ -n "${GOOGLE_CLOUD_REFRESH_TOKEN:-}" && -n "${GOOGLE_CLOUD_CLIENT_ID:-}" && -n "${GOOGLE_CLOUD_CLIENT_SECRET:-}" ]]; then
     log "Restoring Google Cloud Application Default Credentials"
     mkdir -p "$HOME/.config/gcloud"
@@ -194,7 +174,6 @@ EOF
     log "Google Cloud ADC restored"
   fi
 
-  # Restore Azure CLI credentials via service principal
   if [[ -n "${AZURE_CLIENT_ID:-}" && -n "${AZURE_CLIENT_SECRET:-}" && -n "${AZURE_TENANT_ID:-}" ]]; then
     log "Logging in to Azure with service principal"
     if az login --service-principal \
@@ -210,11 +189,22 @@ EOF
 }
 
 install_openclaw_gateway() {
-  local gateway_dir="/workspaces/openclaw-gateway"
+  # Clone into .local/ inside the repo (gitignored) to avoid Docker volume permission issues.
+  local repo_root
+  repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+  local gateway_dir="${repo_root}/.local/openclaw-gateway"
+
+  # Use GITHUB_TOKEN for authentication (the repo is private).
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    log "WARN: GITHUB_TOKEN is not set — cannot clone OpenClaw gateway (private repo)."
+    log "WARN: Set GITHUB_TOKEN in .env and rebuild the devcontainer."
+    return 1
+  fi
+
+  local auth_url="https://x-access-token:${GITHUB_TOKEN}@github.com/openclaw/openclaw.git"
 
   if [[ -f "$gateway_dir/package.json" ]]; then
     log "OpenClaw gateway source already present at $gateway_dir"
-    # Ensure dependencies are installed (volume may persist but node_modules may not)
     if [[ ! -d "$gateway_dir/node_modules" ]]; then
       log "Installing OpenClaw gateway dependencies..."
       (cd "$gateway_dir" && pnpm install --frozen-lockfile 2>/dev/null || pnpm install) || {
@@ -225,10 +215,12 @@ install_openclaw_gateway() {
     return 0
   fi
 
+  mkdir -p "$(dirname "$gateway_dir")"
+
   log "Cloning OpenClaw gateway from source..."
-  if ! git clone --depth 1 https://github.com/openclaw/openclaw.git "$gateway_dir" 2>/dev/null; then
+  if ! git clone --depth 1 "$auth_url" "$gateway_dir" 2>&1; then
     log "WARN: Failed to clone OpenClaw gateway. Integration testing will be unavailable."
-    log "WARN: You can manually clone: git clone https://github.com/openclaw/openclaw.git $gateway_dir"
+    log "WARN: Verify GITHUB_TOKEN has access to github.com/openclaw/openclaw"
     return 1
   fi
 
@@ -248,10 +240,87 @@ install_openclaw_gateway() {
   log "OpenClaw gateway installed at $gateway_dir"
 }
 
-install_claude_code
-install_codex_binary
-install_plugins_user_scope
-restore_cloud_credentials
-install_openclaw_gateway
+configure_codex_mcp() {
+  if ! command -v claude >/dev/null 2>&1; then
+    log "Skipping Codex MCP: 'claude' not found."
+    return 0
+  fi
+  if ! command -v codex >/dev/null 2>&1; then
+    log "Skipping Codex MCP: 'codex' not found."
+    return 0
+  fi
 
-log "postCreate setup complete."
+  log "Adding Codex MCP server"
+  claude mcp add --transport stdio --scope user codex -- codex mcp-server || {
+    log "Codex MCP server already configured (or add failed)"
+    return 0
+  }
+}
+
+configure_claude_permissions() {
+  if ! command -v claude >/dev/null 2>&1; then
+    log "Skipping Claude permissions: 'claude' not found."
+    return 0
+  fi
+
+  log "Configuring Claude Code permissions (bypass for sandboxed container)"
+  local settings="$HOME/.claude/settings.json"
+  if [ -f "$settings" ]; then
+    node -e "
+      const fs = require('fs');
+      const s = JSON.parse(fs.readFileSync('$settings', 'utf8'));
+      s.permissions = { ...s.permissions, defaultMode: 'bypassPermissions' };
+      fs.writeFileSync('$settings', JSON.stringify(s, null, 2) + '\n');
+    "
+  else
+    mkdir -p "$(dirname "$settings")"
+    echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
+  fi
+}
+
+configure_codex_cli() {
+  log "Configuring Codex CLI (no sandbox/approvals for MCP mode)"
+  mkdir -p "$HOME/.codex"
+  cat > "$HOME/.codex/config.toml" <<'CODEXEOF'
+# Equivalent to --dangerously-bypass-approvals-and-sandbox
+# Required: MCP subprocess has no interactive terminal for approval prompts.
+approval_policy = "never"
+sandbox_policy = "danger-full-access"
+sandbox_permissions = ["disk-full-read-access"]
+CODEXEOF
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+main() {
+  mkdir -p "$HOME/.local/bin"
+  export PATH="$HOME/.claude/bin:$HOME/.local/bin:$PATH"
+
+  log "Starting devcontainer postCreate setup..."
+
+  # Verify basic prerequisites.
+  command -v curl >/dev/null || { log "ERROR: curl not found"; return 1; }
+  command -v jq   >/dev/null || { log "ERROR: jq not found";   return 1; }
+
+  run_step "Claude Code"          install_claude_code
+  run_step "Codex binary"         install_codex_binary
+  run_step "Claude plugins"       install_plugins
+  run_step "Cloud credentials"    restore_cloud_credentials
+  run_step "OpenClaw gateway"     install_openclaw_gateway
+  run_step "Codex MCP server"     configure_codex_mcp
+  run_step "Claude permissions"   configure_claude_permissions
+  run_step "Codex CLI config"     configure_codex_cli
+
+  # Summary
+  log ""
+  log "========== Setup Summary =========="
+  for r in "${RESULTS[@]}"; do
+    log "$r"
+  done
+  log "==================================="
+  log "postCreate setup complete."
+}
+
+main "$@"

@@ -6,11 +6,12 @@
 # Set OPENCLAW_GATEWAY_PORT to change the port.
 #
 # Prerequisites:
-#   - OpenClaw source at /workspaces/openclaw-gateway (installed by postCreate.sh)
+#   - OpenClaw source at .local/openclaw-gateway (installed by postCreate.sh)
 #   - Dependencies installed (pnpm install)
 set -euo pipefail
 
-GATEWAY_DIR="/workspaces/openclaw-gateway"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GATEWAY_DIR="${REPO_ROOT}/.local/openclaw-gateway"
 GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 
 if [[ ! -f "$GATEWAY_DIR/package.json" ]]; then
