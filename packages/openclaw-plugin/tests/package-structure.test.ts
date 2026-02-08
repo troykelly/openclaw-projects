@@ -134,6 +134,31 @@ describe('Package Structure', () => {
       const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
       expect(pkg.scripts).toHaveProperty('build')
     })
+
+    it('should have openclaw.extensions field for plugin installer discovery', () => {
+      const packagePath = join(packageRoot, 'package.json')
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      expect(pkg.openclaw).toBeDefined()
+      expect(pkg.openclaw.extensions).toBeDefined()
+      expect(Array.isArray(pkg.openclaw.extensions)).toBe(true)
+      expect(pkg.openclaw.extensions.length).toBeGreaterThan(0)
+    })
+
+    it('should list dist/register-openclaw.js as an openclaw extension entry point', () => {
+      const packagePath = join(packageRoot, 'package.json')
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      expect(pkg.openclaw.extensions).toContain('dist/register-openclaw.js')
+    })
+
+    it('should have openclaw.extensions entries that match files in the package', () => {
+      const packagePath = join(packageRoot, 'package.json')
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      // All extension entries should be non-empty strings
+      for (const entry of pkg.openclaw.extensions) {
+        expect(typeof entry).toBe('string')
+        expect(entry.trim().length).toBeGreaterThan(0)
+      }
+    })
   })
 
   describe('.npmignore security', () => {
