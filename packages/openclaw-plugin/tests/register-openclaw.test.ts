@@ -594,6 +594,138 @@ describe('OpenClaw 2026 API Registration', () => {
     })
   })
 
+  describe('CLI status command error handling', () => {
+    /**
+     * Helper to extract the registered status action from the CLI callback.
+     * Creates a separate mock command per registered command name so that
+     * later .action() calls don't overwrite the status action.
+     */
+    function extractStatusAction(): () => Promise<void> {
+      expect(cliCallback).not.toBeNull()
+
+      const actions = new Map<string, () => Promise<void>>()
+      const mockProgram = {
+        command: vi.fn((name: string) => {
+          const cmd = {
+            description: vi.fn().mockReturnThis(),
+            action: vi.fn((fn: () => Promise<void>) => {
+              actions.set(name, fn)
+              return cmd
+            }),
+            argument: vi.fn().mockReturnThis(),
+            option: vi.fn().mockReturnThis(),
+          }
+          return cmd
+        }),
+      }
+
+      cliCallback!({ program: mockProgram })
+      const statusAction = actions.get('status')
+      expect(statusAction).toBeDefined()
+      return statusAction!
+    }
+
+    it('should use console.error (not console.log) for API errors', async () => {
+      const originalFetch = globalThis.fetch
+      // Return a non-OK response so apiClient.get returns {success: false}
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: new Headers(),
+        json: async () => ({ message: 'Service Unavailable' }),
+      }) as unknown as typeof fetch
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      try {
+        mockApi.config = { ...mockApi.config, maxRetries: 0 }
+        registerOpenClaw(mockApi)
+
+        const statusAction = extractStatusAction()
+        await statusAction()
+
+        // console.error should be called with the status error (from our fix)
+        const errorCalls = errorSpy.mock.calls
+        const statusErrorCall = errorCalls.find((args) =>
+          args.some((arg) => typeof arg === 'string' && arg.includes('Plugin Status'))
+        )
+        expect(statusErrorCall).toBeDefined()
+
+        // console.log should NOT be called with error output
+        const logCalls = logSpy.mock.calls
+        const hasStatusErrorInLog = logCalls.some((args) =>
+          args.some((arg) => typeof arg === 'string' && arg.includes('Plugin Status') && arg.includes('Error'))
+        )
+        expect(hasStatusErrorInLog).toBe(false)
+      } finally {
+        globalThis.fetch = originalFetch
+        errorSpy.mockRestore()
+        logSpy.mockRestore()
+      }
+    })
+
+    it('should include error details in status error output', async () => {
+      const originalFetch = globalThis.fetch
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: new Headers(),
+        json: async () => ({ message: 'Service Unavailable' }),
+      }) as unknown as typeof fetch
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      try {
+        mockApi.config = { ...mockApi.config, maxRetries: 0 }
+        registerOpenClaw(mockApi)
+
+        const statusAction = extractStatusAction()
+        await statusAction()
+
+        // Find the Plugin Status error call and check it includes details
+        const errorCalls = errorSpy.mock.calls
+        const statusErrorCall = errorCalls.find((args) =>
+          args.some((arg) => typeof arg === 'string' && arg.includes('Plugin Status'))
+        )
+        expect(statusErrorCall).toBeDefined()
+
+        const statusMessage = statusErrorCall!.join(' ')
+        expect(statusMessage).toContain('Service Unavailable')
+      } finally {
+        globalThis.fetch = originalFetch
+        errorSpy.mockRestore()
+      }
+    })
+
+    it('should include error message when catch block is reached', async () => {
+      const originalFetch = globalThis.fetch
+      // Make fetch reject to trigger the catch block
+      globalThis.fetch = vi.fn().mockRejectedValue(
+        new Error('ECONNREFUSED')
+      ) as unknown as typeof fetch
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      try {
+        mockApi.config = { ...mockApi.config, maxRetries: 0 }
+        registerOpenClaw(mockApi)
+
+        const statusAction = extractStatusAction()
+        await statusAction()
+
+        // All error output should contain the error details
+        const allErrorOutput = errorSpy.mock.calls.map((args) => args.join(' ')).join('\n')
+        expect(allErrorOutput).toContain('ECONNREFUSED')
+      } finally {
+        globalThis.fetch = originalFetch
+        errorSpy.mockRestore()
+      }
+    })
+  })
+
   describe('JSON Schemas export', () => {
     it('should export all tool schemas', () => {
       expect(schemas.memoryRecall).toBeDefined()

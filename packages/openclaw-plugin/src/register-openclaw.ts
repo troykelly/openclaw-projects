@@ -2661,9 +2661,14 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       .action(async () => {
         try {
           const response = await apiClient.get('/api/health', { userId })
-          console.log('Plugin Status:', response.success ? 'Connected' : 'Error')
-        } catch {
-          console.log('Plugin Status: Error - Unable to connect')
+          if (response.success) {
+            console.log('Plugin Status: Connected')
+          } else {
+            console.error(`Plugin Status: Error - ${response.error.message}`)
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          console.error(`Plugin Status: Error - Unable to connect: ${message}`)
         }
       })
 

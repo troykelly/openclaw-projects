@@ -64,8 +64,10 @@ function checkFilePermissions(filePath: string): void {
           filePath
       )
     }
-  } catch {
-    // Ignore permission check errors - file read will fail if there's an issue
+  } catch (error) {
+    console.warn(
+      `[Secrets] Could not check permissions for ${filePath}: ${(error as Error).message}`
+    )
   }
 }
 
