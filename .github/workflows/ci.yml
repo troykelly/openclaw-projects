@@ -28,6 +28,10 @@ jobs:
         run: |
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm install --frozen-lockfile"
 
+      - name: Lint
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm run lint"
+
       - name: Typecheck
         run: |
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm build"

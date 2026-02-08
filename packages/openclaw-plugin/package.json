@@ -26,7 +26,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint placeholder'",
+    "lint": "biome lint .",
     "prepublishOnly": "pnpm run clean && pnpm run build && pnpm run test && pnpm run typecheck"
   },
   "repository": {
