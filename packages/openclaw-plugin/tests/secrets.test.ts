@@ -421,6 +421,16 @@ describe('Secrets Module', () => {
         expect(fs.readFileSync).toHaveBeenCalledWith('/path/to/secret', 'utf-8')
       })
 
+      it('should trim whitespace from file contents', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('  secret-from-file\n')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        const result = resolveSecretSync(config)
+        expect(result).toBe('secret-from-file')
+      })
+
       it('should expand ~ in file path', () => {
         const homeDir = os.homedir()
         vi.mocked(fs.existsSync).mockReturnValue(true)
@@ -433,6 +443,19 @@ describe('Secrets Module', () => {
         expect(fs.readFileSync).toHaveBeenCalledWith(
           path.join(homeDir, '.secrets', 'api_key'),
           'utf-8'
+        )
+      })
+
+      it('should warn when file is world-readable', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o644 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        resolveSecretSync(config)
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('world-readable')
         )
       })
 
@@ -479,6 +502,14 @@ describe('Secrets Module', () => {
         vi.mocked(childProcess.execSync).mockReturnValue('secret-from-command')
 
         const config: SecretConfig = { command: 'echo secret-from-command' }
+        const result = resolveSecretSync(config)
+        expect(result).toBe('secret-from-command')
+      })
+
+      it('should trim whitespace from command output', () => {
+        vi.mocked(childProcess.execSync).mockReturnValue('  secret-from-command\n')
+
+        const config: SecretConfig = { command: 'echo secret' }
         const result = resolveSecretSync(config)
         expect(result).toBe('secret-from-command')
       })
@@ -582,6 +613,12 @@ describe('Secrets Module', () => {
         const result = resolveSecretSync(config)
         expect(result).toBe('from-file')
       })
+
+      it('should use direct when command and file not provided', () => {
+        const config: SecretConfig = { direct: 'from-direct' }
+        const result = resolveSecretSync(config)
+        expect(result).toBe('from-direct')
+      })
     })
 
     describe('caching', () => {
@@ -597,6 +634,31 @@ describe('Secrets Module', () => {
         expect(result1).toBe('cached-secret')
         expect(result2).toBe('cached-secret')
         expect(fs.readFileSync).toHaveBeenCalledTimes(1)
+      })
+
+      it('should not cache when cacheKey is not provided', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('uncached-secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        resolveSecretSync(config)
+        resolveSecretSync(config)
+
+        expect(fs.readFileSync).toHaveBeenCalledTimes(2)
+      })
+
+      it('should clear cache when clearSecretCache is called', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('cached-secret')
+        vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        resolveSecretSync(config, 'syncClearKey')
+        clearSecretCache()
+        resolveSecretSync(config, 'syncClearKey')
+
+        expect(fs.readFileSync).toHaveBeenCalledTimes(2)
       })
     })
 
