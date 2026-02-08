@@ -7,6 +7,7 @@ import {
   safeValidateConfig,
   redactConfig,
   resolveConfigSecrets,
+  resolveConfigSecretsSync,
   type PluginConfig,
   type RawPluginConfig,
 } from '../src/config.js'
@@ -756,6 +757,346 @@ describe('Config Schema', () => {
         'echo test-key',
         expect.objectContaining({ timeout: 10000 })
       )
+    })
+  })
+
+  describe('resolveConfigSecretsSync', () => {
+    it('should resolve direct apiKey', () => {
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'direct-api-key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiKey).toBe('direct-api-key')
+    })
+
+    it('should resolve apiKey from file', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockReturnValue('file-api-key\n')
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyFile: '/path/to/api_key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiKey).toBe('file-api-key')
+    })
+
+    it('should resolve apiKey from command', () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('command-api-key\n')
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyCommand: 'op read op://test/api_key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiKey).toBe('command-api-key')
+    })
+
+    it('should resolve all six secret fields', () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('cmd-api-key')
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        const p = String(path)
+        if (p.includes('postmark_token')) return 'pm-token'
+        if (p.includes('postmark_from')) return 'noreply@example.com'
+        if (p.includes('sid')) return 'twilio-sid'
+        if (p.includes('token')) return 'twilio-token'
+        if (p.includes('phone')) return '+15551234567'
+        return ''
+      })
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyCommand: 'op read op://test/api_key',
+        twilioAccountSidFile: '/path/to/twilio_sid',
+        twilioAuthTokenFile: '/path/to/twilio_token',
+        twilioPhoneNumberFile: '/path/to/twilio_phone',
+        postmarkTokenFile: '/path/to/postmark_token',
+        postmarkFromEmailFile: '/path/to/postmark_from',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiKey).toBe('cmd-api-key')
+      expect(resolved.twilioAccountSid).toBe('twilio-sid')
+      expect(resolved.twilioAuthToken).toBe('twilio-token')
+      expect(resolved.twilioPhoneNumber).toBe('+15551234567')
+      expect(resolved.postmarkToken).toBe('pm-token')
+      expect(resolved.postmarkFromEmail).toBe('noreply@example.com')
+    })
+
+    it('should resolve Twilio credentials from files', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockImplementation((path) => {
+        if (String(path).includes('sid')) return 'twilio-sid'
+        if (String(path).includes('token')) return 'twilio-token'
+        if (String(path).includes('phone')) return '+15551234567'
+        return ''
+      })
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        twilioAccountSidFile: '/path/to/twilio_sid',
+        twilioAuthTokenFile: '/path/to/twilio_token',
+        twilioPhoneNumberFile: '/path/to/twilio_phone',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.twilioAccountSid).toBe('twilio-sid')
+      expect(resolved.twilioAuthToken).toBe('twilio-token')
+      expect(resolved.twilioPhoneNumber).toBe('+15551234567')
+    })
+
+    it('should resolve Postmark credentials', () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('postmark-token-from-1password')
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        postmarkTokenCommand: 'op read op://test/postmark_token',
+        postmarkFromEmail: 'noreply@example.com',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.postmarkToken).toBe('postmark-token-from-1password')
+      expect(resolved.postmarkFromEmail).toBe('noreply@example.com')
+    })
+
+    it('should throw when apiKey resolves to empty string', () => {
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: '   ', // empty after trim
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      expect(() => resolveConfigSecretsSync(rawConfig)).toThrow(
+        /Failed to resolve API key/
+      )
+    })
+
+    it('should throw when apiKey resolves to whitespace only', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockReturnValue('   \n')
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyFile: '/path/to/empty_key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      expect(() => resolveConfigSecretsSync(rawConfig)).toThrow(
+        /Failed to resolve API key/
+      )
+    })
+
+    it('should propagate execSync timeout errors', () => {
+      const timeoutError = new Error('Command timed out') as Error & { killed: boolean }
+      timeoutError.killed = true
+      vi.mocked(childProcess.execSync).mockImplementation(() => {
+        throw timeoutError
+      })
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyCommand: 'slow-command',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      expect(() => resolveConfigSecretsSync(rawConfig)).toThrow(
+        /timed out/
+      )
+    })
+
+    it('should propagate readFileSync failure errors', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockImplementation(() => {
+        throw new Error('EACCES: permission denied')
+      })
+      vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyFile: '/path/to/unreadable_key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      expect(() => resolveConfigSecretsSync(rawConfig)).toThrow(
+        /Failed to read secret file/
+      )
+    })
+
+    it('should produce a config that passes validateConfig (Zod validation)', () => {
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKey: 'valid-api-key',
+        secretCommandTimeout: 5000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      // Verify the resolved config passes Zod validation
+      const validated = PluginConfigSchema.parse(resolved)
+      expect(validated.apiUrl).toBe('https://example.com')
+      expect(validated.apiKey).toBe('valid-api-key')
+      expect(validated.secretCommandTimeout).toBe(5000)
+      expect(validated.autoRecall).toBe(true)
+      expect(validated.autoCapture).toBe(true)
+      expect(validated.userScoping).toBe('agent')
+    })
+
+    it('should pass secretCommandTimeout through to resolveSecretSync', () => {
+      vi.mocked(childProcess.execSync).mockReturnValue('test-key')
+
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://example.com',
+        apiKeyCommand: 'echo test-key',
+        secretCommandTimeout: 10000,
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+        maxRecallMemories: 5,
+        minRecallScore: 0.7,
+        timeout: 30000,
+        maxRetries: 3,
+        debug: false,
+      }
+
+      resolveConfigSecretsSync(rawConfig)
+      expect(childProcess.execSync).toHaveBeenCalledWith(
+        'echo test-key',
+        expect.objectContaining({ timeout: 10000 })
+      )
+    })
+
+    it('should preserve non-secret config fields in resolved output', () => {
+      const rawConfig: RawPluginConfig = {
+        apiUrl: 'https://api.custom.com',
+        apiKey: 'test-key',
+        secretCommandTimeout: 7000,
+        autoRecall: false,
+        autoCapture: false,
+        userScoping: 'session',
+        maxRecallMemories: 10,
+        minRecallScore: 0.5,
+        timeout: 15000,
+        maxRetries: 1,
+        debug: true,
+        baseUrl: 'https://app.custom.com',
+      }
+
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiUrl).toBe('https://api.custom.com')
+      expect(resolved.secretCommandTimeout).toBe(7000)
+      expect(resolved.autoRecall).toBe(false)
+      expect(resolved.autoCapture).toBe(false)
+      expect(resolved.userScoping).toBe('session')
+      expect(resolved.maxRecallMemories).toBe(10)
+      expect(resolved.minRecallScore).toBe(0.5)
+      expect(resolved.timeout).toBe(15000)
+      expect(resolved.maxRetries).toBe(1)
+      expect(resolved.debug).toBe(true)
+      expect(resolved.baseUrl).toBe('https://app.custom.com')
     })
   })
 })
