@@ -102,6 +102,25 @@ describe('Secrets Module', () => {
         )
       })
 
+      it('should log warning when statSync throws (not silent)', async () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('secret')
+        vi.mocked(fs.statSync).mockImplementation(() => {
+          throw new Error('ELOOP: too many levels of symbolic links')
+        })
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        await resolveSecret(config)
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Could not check permissions')
+        )
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('ELOOP')
+        )
+      })
+
       it('should throw when file does not exist', async () => {
         vi.mocked(fs.existsSync).mockReturnValue(false)
 
@@ -414,6 +433,25 @@ describe('Secrets Module', () => {
         expect(fs.readFileSync).toHaveBeenCalledWith(
           path.join(homeDir, '.secrets', 'api_key'),
           'utf-8'
+        )
+      })
+
+      it('should log warning when statSync throws (not silent)', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.mocked(fs.readFileSync).mockReturnValue('secret')
+        vi.mocked(fs.statSync).mockImplementation(() => {
+          throw new Error('ELOOP: too many levels of symbolic links')
+        })
+
+        const config: SecretConfig = { file: '/path/to/secret' }
+        resolveSecretSync(config)
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Could not check permissions')
+        )
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('ELOOP')
         )
       })
 
