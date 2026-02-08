@@ -82,7 +82,7 @@ describe('Package Structure', () => {
       expect(manifest).toHaveProperty('configSchema')
     })
 
-    it('should not have main field (entry point comes from package.json)', () => {
+    it('should not have main field (entry point comes from package.json openclaw.extensions)', () => {
       const manifestPath = join(packageRoot, 'openclaw.plugin.json')
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
       expect(manifest).not.toHaveProperty('main')
@@ -138,6 +138,12 @@ describe('Package Structure', () => {
       const packagePath = join(packageRoot, 'package.json')
       const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
       expect(pkg.scripts).toHaveProperty('build')
+    })
+
+    it('should have main field for Node.js module resolution', () => {
+      const packagePath = join(packageRoot, 'package.json')
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      expect(pkg.main).toBe('dist/index.js')
     })
 
     it('should have openclaw.extensions field for plugin installer discovery', () => {
