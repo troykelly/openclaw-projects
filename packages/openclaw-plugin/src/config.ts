@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod'
-import { resolveSecret, type SecretConfig } from './secrets.js'
+import { resolveSecret, resolveSecretSync, type SecretConfig } from './secrets.js'
 
 /** User scoping strategies for memory isolation */
 export const UserScopingSchema = z.enum(['agent', 'identity', 'session'])
@@ -328,6 +328,76 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
       resolveSecret(buildSecretConfig(rawConfig, 'postmarkToken', timeout), 'postmarkToken'),
       resolveSecret(buildSecretConfig(rawConfig, 'postmarkFromEmail', timeout), 'postmarkFromEmail'),
     ])
+
+  // Build the resolved config
+  const resolvedConfig: PluginConfig = {
+    apiUrl: rawConfig.apiUrl,
+    apiKey,
+    twilioAccountSid,
+    twilioAuthToken,
+    twilioPhoneNumber,
+    postmarkToken,
+    postmarkFromEmail,
+    secretCommandTimeout: timeout,
+    autoRecall: rawConfig.autoRecall,
+    autoCapture: rawConfig.autoCapture,
+    userScoping: rawConfig.userScoping,
+    maxRecallMemories: rawConfig.maxRecallMemories,
+    minRecallScore: rawConfig.minRecallScore,
+    timeout: rawConfig.timeout,
+    maxRetries: rawConfig.maxRetries,
+    debug: rawConfig.debug,
+    baseUrl: rawConfig.baseUrl,
+  }
+
+  // Validate the resolved config
+  return validateConfig(resolvedConfig)
+}
+
+/**
+ * Resolves all secrets synchronously to produce a resolved config.
+ *
+ * Used during plugin registration where blocking I/O is acceptable.
+ * OpenClaw's loader does not await the register function, so all
+ * config resolution must complete synchronously.
+ *
+ * @param rawConfig - The raw plugin configuration with secret references
+ * @returns The resolved plugin configuration with actual secret values
+ * @throws If required secrets cannot be resolved
+ */
+export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConfig {
+  const timeout = rawConfig.secretCommandTimeout
+
+  // Resolve API key (required)
+  const apiKey = resolveSecretSync(
+    buildSecretConfig(rawConfig, 'apiKey', timeout),
+    'apiKey'
+  )
+  if (!apiKey) {
+    throw new Error('Failed to resolve API key from config')
+  }
+
+  // Resolve optional secrets
+  const twilioAccountSid = resolveSecretSync(
+    buildSecretConfig(rawConfig, 'twilioAccountSid', timeout),
+    'twilioAccountSid'
+  )
+  const twilioAuthToken = resolveSecretSync(
+    buildSecretConfig(rawConfig, 'twilioAuthToken', timeout),
+    'twilioAuthToken'
+  )
+  const twilioPhoneNumber = resolveSecretSync(
+    buildSecretConfig(rawConfig, 'twilioPhoneNumber', timeout),
+    'twilioPhoneNumber'
+  )
+  const postmarkToken = resolveSecretSync(
+    buildSecretConfig(rawConfig, 'postmarkToken', timeout),
+    'postmarkToken'
+  )
+  const postmarkFromEmail = resolveSecretSync(
+    buildSecretConfig(rawConfig, 'postmarkFromEmail', timeout),
+    'postmarkFromEmail'
+  )
 
   // Build the resolved config
   const resolvedConfig: PluginConfig = {
