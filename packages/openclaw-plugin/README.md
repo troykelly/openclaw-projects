@@ -1,375 +1,320 @@
 # @troykelly/openclaw-projects
 
-An [OpenClaw](https://docs.openclaw.ai/) plugin that connects agents to the openclaw-projects backend for project management, memory, todos, and contacts.
+An [OpenClaw](https://docs.openclaw.ai/) plugin that connects agents to the openclaw-projects backend for project management, memory, todos, contacts, and communications.
 
 > **Note:** This is a third-party plugin — not part of OpenClaw itself. It provides OpenClaw agents with tools to interact with the [openclaw-projects](https://github.com/troykelly/openclaw-projects) backend service.
 
 ## Features
 
-- **Memory Management**: Store, recall, and forget memories with semantic search
+- **Memory Management**: Store, recall, and forget memories with semantic search (pgvector)
 - **Project Management**: List, get, and create projects
 - **Todo Management**: Manage todos with completion tracking
-- **Contact Management**: Search, get, and create contacts
+- **Contact Management**: Search, get, and create contacts with relationship mapping
+- **Communications**: Send SMS (Twilio) and email (Postmark) directly from agents
+- **Message History**: Search and browse message threads across channels
+- **Skill Store**: Persist and query structured data for agent skills
 - **Auto-Recall**: Automatically inject relevant context into conversations
 - **Auto-Capture**: Capture important information from completed conversations
-- **CLI Commands**: Debug and manage the plugin from the command line
-- **Multi-User Support**: Flexible user scoping (agent, session, identity)
+- **Bundled Skills**: 4 ready-to-use skills for common workflows
 
 ## Installation
+
+### Via OpenClaw CLI (recommended)
+
+```bash
+openclaw plugins install @troykelly/openclaw-projects
+```
+
+Then configure the plugin in your OpenClaw config file (`~/.openclaw/config.yaml` or equivalent):
+
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: https://your-backend.example.com
+        apiKey: your-api-key
+```
+
+### Via npm (for programmatic use)
 
 ```bash
 pnpm add @troykelly/openclaw-projects
 ```
 
-## Quick Start
+This method is for integrating the plugin programmatically outside of the OpenClaw runtime. Most users should use the OpenClaw CLI method above.
 
-```typescript
-import { register } from '@troykelly/openclaw-projects'
+## Verification
 
-const plugin = register({
-  config: {
-    apiUrl: 'https://your-backend.example.com',
-    apiKey: process.env.OPENCLAW_API_KEY,
-  },
-})
+After installation, verify the plugin is loaded:
 
-// Use tools
-const result = await plugin.tools.memoryRecall.execute({
-  query: 'user preferences',
-})
+```bash
+openclaw plugins info openclaw-projects
+```
+
+Check that the plugin is healthy and can reach the backend:
+
+```bash
+openclaw plugins doctor
 ```
 
 ## Configuration
 
+Configure the plugin in your OpenClaw config file or pass config programmatically.
+
+### Required Settings
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `apiUrl` | string | Backend API URL (must be HTTPS in production) |
+| `apiKey` | string | API authentication key (direct value) |
+
+You must provide the API key via one of three methods:
+
+| Method | Config Key | Description |
+|--------|-----------|-------------|
+| Direct value | `apiKey` | Plaintext key (for development only) |
+| File reference | `apiKeyFile` | Path to file containing key (e.g., `~/.secrets/api_key`) |
+| Command | `apiKeyCommand` | Shell command to retrieve key (e.g., `op read op://Personal/openclaw/api_key`) |
+
+### Optional Settings
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `apiUrl` | string | **required** | Backend API URL |
-| `apiKey` | string | **required** | API authentication key |
-| `autoRecall` | boolean | `true` | Enable auto-recall hook |
-| `autoCapture` | boolean | `true` | Enable auto-capture hook |
-| `userScoping` | string | `'agent'` | User scoping mode |
-| `maxRecallMemories` | number | `5` | Max memories to return |
-| `minRecallScore` | number | `0.7` | Minimum similarity score |
-| `timeout` | number | `30000` | API timeout (ms) |
-| `maxRetries` | number | `3` | Max retry attempts |
-| `debug` | boolean | `false` | Enable debug logging |
+| `autoRecall` | boolean | `true` | Inject relevant memories at conversation start |
+| `autoCapture` | boolean | `true` | Capture important info from completed conversations |
+| `userScoping` | string | `'agent'` | User scoping mode (`agent`, `session`, `identity`) |
+| `maxRecallMemories` | number | `5` | Max memories to inject in auto-recall |
+| `minRecallScore` | number | `0.7` | Minimum similarity score for auto-recall (0-1) |
+| `timeout` | number | `30000` | API request timeout (ms) |
+| `maxRetries` | number | `3` | Max retry attempts for failed requests |
+| `debug` | boolean | `false` | Enable debug logging (never logs secrets) |
+
+### Secret Management
+
+All secret fields (API key, Twilio credentials, Postmark token) support three resolution methods. The plugin resolves secrets in priority order: command > file > direct value.
+
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: https://your-backend.example.com
+        # Option 1: Direct value (development only)
+        apiKey: sk-dev-key-here
+        # Option 2: File reference
+        # apiKeyFile: ~/.secrets/openclaw-api-key
+        # Option 3: Command (e.g., 1Password CLI)
+        # apiKeyCommand: op read op://Personal/openclaw/api_key
+```
+
+### Twilio SMS (optional)
+
+To enable SMS sending, add Twilio credentials using the same direct/file/command pattern:
+
+```yaml
+        twilioAccountSid: AC...
+        twilioAuthToken: your-auth-token
+        twilioPhoneNumber: "+15551234567"
+```
+
+### Postmark Email (optional)
+
+To enable email sending, add Postmark credentials:
+
+```yaml
+        postmarkToken: your-postmark-token
+        postmarkFromEmail: noreply@example.com
+```
 
 ### User Scoping Modes
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `agent` | Scope by agent ID | Single user per agent |
-| `session` | Scope by session key | Maximum isolation |
+| `agent` | Scope by agent ID | Single user per agent (default) |
+| `session` | Scope by session key | Maximum isolation between sessions |
 | `identity` | Scope by canonical identity | Shared identity across agents |
-
-### Environment Variables
-
-```bash
-OPENCLAW_API_URL=https://your-backend.example.com
-OPENCLAW_API_KEY=your-api-key
-```
 
 ## Tools
 
+The plugin registers 27 tools that agents can use. Tools are automatically available to any agent with the plugin enabled.
+
 ### Memory Tools
 
-#### `memory_recall`
-Search memories semantically.
-
-```typescript
-const result = await plugin.tools.memoryRecall.execute({
-  query: 'user preferences for notifications',
-  limit: 10,           // optional, default: 5
-  category: 'preference', // optional filter
-})
-```
-
-#### `memory_store`
-Save information to long-term memory.
-
-```typescript
-const result = await plugin.tools.memoryStore.execute({
-  text: 'User prefers dark mode',
-  category: 'preference', // preference, fact, decision, context, other
-  importance: 0.8,        // optional, 0-1
-})
-```
-
-#### `memory_forget`
-Delete memories (GDPR data portability).
-
-```typescript
-// By ID
-const result = await plugin.tools.memoryForget.execute({
-  memoryId: '123e4567-e89b-12d3-a456-426614174000',
-})
-
-// By query (bulk delete)
-const result = await plugin.tools.memoryForget.execute({
-  query: 'outdated preferences',
-  confirm: true, // required for bulk delete
-})
-```
+| Tool | Description |
+|------|-------------|
+| `memory_recall` | Search memories semantically by query |
+| `memory_store` | Store a new memory (preference, fact, decision, context) |
+| `memory_forget` | Delete memories by ID or search query |
 
 ### Project Tools
 
-#### `project_list`
-List projects with optional filtering.
-
-```typescript
-const result = await plugin.tools.projectList.execute({
-  status: 'active', // optional: active, completed, archived, on_hold
-  limit: 20,        // optional
-})
-```
-
-#### `project_get`
-Get a specific project by ID.
-
-```typescript
-const result = await plugin.tools.projectGet.execute({
-  id: '123e4567-e89b-12d3-a456-426614174000',
-})
-```
-
-#### `project_create`
-Create a new project.
-
-```typescript
-const result = await plugin.tools.projectCreate.execute({
-  name: 'Home Renovation',
-  description: 'Kitchen remodel project', // optional
-  status: 'active', // optional
-})
-```
+| Tool | Description |
+|------|-------------|
+| `project_list` | List projects with optional status filter |
+| `project_get` | Get full details of a specific project |
+| `project_create` | Create a new project |
 
 ### Todo Tools
 
-#### `todo_list`
-List todos with optional filtering.
-
-```typescript
-const result = await plugin.tools.todoList.execute({
-  projectId: '123e4567-e89b-12d3-a456-426614174000', // optional
-  completed: false, // optional
-  limit: 50,        // optional
-})
-```
-
-#### `todo_create`
-Create a new todo.
-
-```typescript
-const result = await plugin.tools.todoCreate.execute({
-  title: 'Buy groceries',
-  projectId: '123e4567-e89b-12d3-a456-426614174000', // optional
-  dueDate: '2024-01-15', // optional, ISO 8601
-})
-```
-
-#### `todo_complete`
-Mark a todo as complete.
-
-```typescript
-const result = await plugin.tools.todoComplete.execute({
-  id: '123e4567-e89b-12d3-a456-426614174000',
-})
-```
+| Tool | Description |
+|------|-------------|
+| `todo_list` | List todos, optionally filtered by project or status |
+| `todo_create` | Create a new todo item |
+| `todo_complete` | Mark a todo as complete |
 
 ### Contact Tools
 
-#### `contact_search`
-Search contacts.
+| Tool | Description |
+|------|-------------|
+| `contact_search` | Search contacts by name, email, or other fields |
+| `contact_get` | Get full details of a specific contact |
+| `contact_create` | Create a new contact |
 
-```typescript
-const result = await plugin.tools.contactSearch.execute({
-  query: 'Alice',
-  limit: 10, // optional
-})
+### Communication Tools
+
+| Tool | Description |
+|------|-------------|
+| `sms_send` | Send an SMS message (requires Twilio config) |
+| `email_send` | Send an email message (requires Postmark config) |
+| `message_search` | Search message history semantically |
+| `thread_list` | List message threads (conversations) |
+| `thread_get` | Get a thread with full message history |
+
+### Relationship Tools
+
+| Tool | Description |
+|------|-------------|
+| `relationship_set` | Record a relationship between contacts |
+| `relationship_query` | Query a contact's relationships |
+
+### Skill Store Tools
+
+| Tool | Description |
+|------|-------------|
+| `skill_store_put` | Store or update data in the skill store |
+| `skill_store_get` | Retrieve an item by ID or composite key |
+| `skill_store_list` | List items with filtering and pagination |
+| `skill_store_delete` | Delete an item (soft delete) |
+| `skill_store_search` | Search items by text or semantic similarity |
+| `skill_store_collections` | List all collections with item counts |
+| `skill_store_aggregate` | Run aggregations on skill store items |
+
+### Other Tools
+
+| Tool | Description |
+|------|-------------|
+| `file_share` | Generate a time-limited shareable download link |
+
+## Skills
+
+The plugin includes 4 bundled skills that agents can invoke as high-level workflows. Skills combine multiple tools to accomplish common tasks.
+
+### `contact-lookup`
+
+Look up contact information and recent communications.
+
+```
+/contact-lookup name="Alice Smith"
 ```
 
-#### `contact_get`
-Get a specific contact by ID.
+Searches contacts, retrieves details, shows recent messages, related projects/tasks, and stored memories about the person.
 
-```typescript
-const result = await plugin.tools.contactGet.execute({
-  id: '123e4567-e89b-12d3-a456-426614174000',
-})
+### `daily-summary`
+
+Get a summary of today's tasks, messages, and activities.
+
+```
+/daily-summary
 ```
 
-#### `contact_create`
-Create a new contact.
+Shows tasks due today, recent messages, upcoming deadlines, and items requiring attention.
 
-```typescript
-const result = await plugin.tools.contactCreate.execute({
-  name: 'Alice Smith',
-  email: 'alice@example.com', // optional
-  phone: '+1-555-123-4567',   // optional
-})
+### `project-status`
+
+Get a status overview of a specific project.
+
 ```
+/project-status project="Home Renovation"
+```
+
+Shows project overview, task breakdown with completion percentage, recent activity, blockers, and recommended next steps.
+
+### `send-reminder`
+
+Send a reminder message to a contact via SMS or email.
+
+```
+/send-reminder contact="Alice" message="Don't forget the meeting tomorrow" channel="sms"
+```
+
+Looks up the contact, verifies their endpoint, sends the message, and confirms delivery.
 
 ## Lifecycle Hooks
 
-### `beforeAgentStart` (Auto-Recall)
+### `before_agent_start` (Auto-Recall)
 
-Automatically fetches relevant context before the agent processes a prompt.
+When `autoRecall` is enabled (default), the plugin automatically searches for relevant memories before each conversation. It uses the user's prompt for semantic search and injects matching memories as context via `prependContext`.
 
-```typescript
-const context = await plugin.hooks.beforeAgentStart({
-  prompt: 'What are my notification preferences?',
-})
+### `agent_end` (Auto-Capture)
 
-if (context) {
-  // Prepend context.prependContext to the conversation
-}
-```
-
-### `agentEnd` (Auto-Capture)
-
-Automatically captures important information after a conversation ends.
-
-```typescript
-await plugin.hooks.agentEnd({
-  messages: [
-    { role: 'user', content: 'Remember I prefer email notifications' },
-    { role: 'assistant', content: 'Noted! I will remember your preference.' },
-  ],
-})
-```
-
-## CLI Commands
-
-The plugin provides CLI command handlers that can be registered with OpenClaw:
-
-### `status`
-Check API connectivity.
-
-```typescript
-const result = await plugin.cli.status()
-// { success: true, message: 'API is healthy (latency: 50ms)', data: { ... } }
-```
-
-### `users`
-Show user scoping configuration.
-
-```typescript
-const result = await plugin.cli.users()
-// { success: true, data: { scopingMode: 'agent', description: '...', currentUserId: '...' } }
-```
-
-### `recall`
-Search memories from CLI.
-
-```typescript
-const result = await plugin.cli.recall({ query: 'preferences', limit: 10 })
-// { success: true, data: { memories: [...], query: '...', limit: 10 } }
-```
-
-### `stats`
-Show memory statistics.
-
-```typescript
-const result = await plugin.cli.stats()
-// { success: true, data: { totalMemories: 42, byCategory: { ... } } }
-```
-
-### `export`
-Export all memories (GDPR data portability).
-
-```typescript
-const result = await plugin.cli.export({ output: '/path/to/export.json' })
-// { success: true, data: { memories: [...], exportedAt: '...', userId: '...' } }
-```
-
-## Health Check
-
-```typescript
-const health = await plugin.healthCheck()
-if (!health.healthy) {
-  console.error('Plugin unhealthy:', health.error)
-}
-```
+When `autoCapture` is enabled (default), the plugin automatically analyzes completed conversations and stores important information (preferences, facts, decisions) as memories for future recall.
 
 ## Security
 
-### API Key Management
+### Secret Management
 
-- Store API keys in environment variables, never in code
-- Use secrets management in production (Vault, AWS Secrets Manager, etc.)
-- Rotate keys regularly
+- Use file references or command execution for secrets in production
+- Direct values are for development only
+- The plugin supports 1Password CLI, Vault, AWS Secrets Manager, or any command-line tool
+- Secret files are checked for world-readable permissions (warns if `chmod 644`)
 
 ### Data Isolation
 
 - All data is scoped to the configured user scope
 - Cross-user access is prevented at the API level
-- Audit logs track all data access
-
-### Sensitive Content
-
-- The plugin filters sensitive content (API keys, passwords, credit cards)
-- PII is not logged at info level
-- Error messages are sanitized to prevent information leakage
 
 ### HTTPS
 
-- Use HTTPS in production
-- HTTP is only recommended for local development
+- HTTPS is required in production (`NODE_ENV=production`)
+- HTTP is permitted for local development only
 
-## Error Handling
+### Sensitive Content
 
-All tool executions return a result object:
-
-```typescript
-interface ToolResult {
-  success: boolean
-  content?: string   // Human-readable response
-  data?: unknown     // Structured data
-  error?: string     // Error message if success is false
-}
-```
+- Secrets are never logged (config is redacted in logs)
+- Error messages are sanitized to prevent information leakage
 
 ## Troubleshooting
 
-### Connection Issues
+### Plugin not loading
 
-```typescript
-// Check health
-const health = await plugin.healthCheck()
-console.log('Healthy:', health.healthy, 'Error:', health.error)
+Verify the plugin is installed and the manifest is detected:
 
-// Check status via CLI
-const status = await plugin.cli.status()
-console.log('Status:', status.message, 'Latency:', status.data?.latencyMs)
+```bash
+openclaw plugins info openclaw-projects
 ```
 
-### No Memories Found
+### Connection issues
+
+Check that the backend API is reachable:
+
+```bash
+openclaw plugins doctor
+```
+
+### No memories found
 
 - Verify the user scoping mode matches your setup
 - Check that memories were stored for the same user scope
 - Try broadening your search query
 
-### API Errors
+### API errors
 
-- Verify API URL is correct and accessible
-- Check API key is valid
+- Verify `apiUrl` is correct and accessible
+- Check that the API key is valid
 - Review network connectivity
-
-## API Reference
-
-Full TypeScript types are exported:
-
-```typescript
-import type {
-  PluginConfig,
-  PluginInstance,
-  MemoryRecallParams,
-  MemoryStoreParams,
-  ProjectListParams,
-  TodoCreateParams,
-  ContactSearchParams,
-  // ... and more
-} from '@troykelly/openclaw-projects'
-```
 
 ## Contributing
 
@@ -385,5 +330,6 @@ MIT
 ## Links
 
 - [OpenClaw Documentation](https://docs.openclaw.ai/)
+- [OpenClaw Plugin Guide](https://docs.openclaw.ai/plugins)
 - [openclaw-projects Backend](https://github.com/troykelly/openclaw-projects)
 - [Report Issues](https://github.com/troykelly/openclaw-projects/issues)
