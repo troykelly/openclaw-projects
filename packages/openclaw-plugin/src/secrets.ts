@@ -34,7 +34,12 @@ export interface SecretConfig {
   commandTimeout?: number
 }
 
-/** Cache for resolved secrets */
+/**
+ * Cache for resolved secrets.
+ * Intentionally shared between async (resolveSecret) and sync (resolveSecretSync) paths.
+ * This is safe because resolveSecretSync runs during synchronous plugin registration
+ * (blocking the event loop), and resolveSecret runs afterward in async contexts.
+ */
 const secretCache = new Map<string, string>()
 
 /**

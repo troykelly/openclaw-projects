@@ -2632,12 +2632,17 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // Register background notification service (Issue #325)
   // Create a simple event emitter for notifications
   // In production, this would be provided by the OpenClaw runtime
+  logger.warn('No runtime event emitter available — using stub. Notification events will be logged but not dispatched.')
   const eventEmitter = {
     emit: (event: string, payload: unknown) => {
-      logger.debug('Notification event emitted', { event, payload })
+      logger.debug('Notification event emitted (stub)', { event, payload })
     },
-    on: (_event: string, _handler: (payload: unknown) => void) => {},
-    off: (_event: string, _handler: (payload: unknown) => void) => {},
+    on: (_event: string, _handler: (payload: unknown) => void) => {
+      logger.debug('Event handler registered on stub emitter (will not fire)')
+    },
+    off: (_event: string, _handler: (payload: unknown) => void) => {
+      logger.debug('Event handler removed from stub emitter')
+    },
   }
 
   const notificationService = createNotificationService({

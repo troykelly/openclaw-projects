@@ -968,8 +968,9 @@ describe('Config Schema', () => {
     })
 
     it('should propagate execSync timeout errors', () => {
-      const timeoutError = new Error('Command timed out') as Error & { killed: boolean }
+      const timeoutError = new Error('Command timed out') as Error & { killed: boolean; signal: string }
       timeoutError.killed = true
+      timeoutError.signal = 'SIGTERM'
       vi.mocked(childProcess.execSync).mockImplementation(() => {
         throw timeoutError
       })
