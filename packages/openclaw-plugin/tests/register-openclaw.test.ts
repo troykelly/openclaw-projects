@@ -30,7 +30,8 @@ describe('OpenClaw 2026 API Registration', () => {
     clearSecretCache()
 
     mockApi = {
-      config: {
+      config: {},
+      pluginConfig: {
         apiUrl: 'https://api.example.com',
         apiKey: 'test-key',
         autoRecall: true,
@@ -124,8 +125,8 @@ describe('OpenClaw 2026 API Registration', () => {
     })
 
     it('should not register hooks when disabled', () => {
-      mockApi.config = {
-        ...mockApi.config,
+      mockApi.pluginConfig = {
+        ...mockApi.pluginConfig,
         autoRecall: false,
         autoCapture: false,
       }
@@ -516,8 +517,8 @@ describe('OpenClaw 2026 API Registration', () => {
       const originalFetch = globalThis.fetch
 
       // Use a mock config without retries
-      mockApi.config = {
-        ...mockApi.config,
+      mockApi.pluginConfig = {
+        ...mockApi.pluginConfig,
         maxRetries: 0,  // Disable retries
       }
 
@@ -638,7 +639,7 @@ describe('OpenClaw 2026 API Registration', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
       try {
-        mockApi.config = { ...mockApi.config, maxRetries: 0 }
+        mockApi.pluginConfig = { ...mockApi.pluginConfig, maxRetries: 0 }
         registerOpenClaw(mockApi)
 
         const statusAction = extractStatusAction()
@@ -677,7 +678,7 @@ describe('OpenClaw 2026 API Registration', () => {
       vi.spyOn(console, 'log').mockImplementation(() => {})
 
       try {
-        mockApi.config = { ...mockApi.config, maxRetries: 0 }
+        mockApi.pluginConfig = { ...mockApi.pluginConfig, maxRetries: 0 }
         registerOpenClaw(mockApi)
 
         const statusAction = extractStatusAction()
@@ -709,7 +710,7 @@ describe('OpenClaw 2026 API Registration', () => {
       vi.spyOn(console, 'log').mockImplementation(() => {})
 
       try {
-        mockApi.config = { ...mockApi.config, maxRetries: 0 }
+        mockApi.pluginConfig = { ...mockApi.pluginConfig, maxRetries: 0 }
         registerOpenClaw(mockApi)
 
         const statusAction = extractStatusAction()
@@ -788,10 +789,47 @@ describe('OpenClaw 2026 API Registration', () => {
     })
   })
 
+  describe('pluginConfig vs config resolution', () => {
+    it('should prefer api.pluginConfig over api.config', () => {
+      // Simulate real Gateway: api.config is the full gateway config,
+      // api.pluginConfig is the plugin-specific config
+      mockApi.config = { gateway: { port: 8080 }, plugins: {} }
+      mockApi.pluginConfig = {
+        apiUrl: 'https://api.example.com',
+        apiKey: 'test-key',
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+      }
+
+      registerOpenClaw(mockApi)
+
+      // Should succeed — reads pluginConfig, not the full gateway config
+      expect(registeredTools).toHaveLength(27)
+    })
+
+    it('should fall back to api.config when api.pluginConfig is undefined', () => {
+      // Simulate older SDK or test environment that puts config in api.config
+      mockApi.pluginConfig = undefined
+      mockApi.config = {
+        apiUrl: 'https://api.example.com',
+        apiKey: 'test-key',
+        autoRecall: true,
+        autoCapture: true,
+        userScoping: 'agent',
+      }
+
+      registerOpenClaw(mockApi)
+
+      // Should succeed via fallback
+      expect(registeredTools).toHaveLength(27)
+    })
+  })
+
   describe('graceful error handling on config failures', () => {
     it('should not throw when config validation fails (ZodError)', () => {
       // Provide invalid config that will fail Zod validation
-      mockApi.config = { invalid: 'not a valid config' }
+      mockApi.pluginConfig = { invalid: 'not a valid config' }
 
       // Must not throw — should return gracefully
       expect(() => registerOpenClaw(mockApi)).not.toThrow()
@@ -799,7 +837,7 @@ describe('OpenClaw 2026 API Registration', () => {
 
     it('should log a human-readable error when config validation fails', () => {
       // Missing required fields will produce ZodError
-      mockApi.config = { apiUrl: 'not-a-url' }
+      mockApi.pluginConfig = { apiUrl: 'not-a-url' }
 
       registerOpenClaw(mockApi)
 
@@ -809,7 +847,7 @@ describe('OpenClaw 2026 API Registration', () => {
     })
 
     it('should not register any tools when config validation fails', () => {
-      mockApi.config = { invalid: 'bad config' }
+      mockApi.pluginConfig = { invalid: 'bad config' }
 
       registerOpenClaw(mockApi)
 
@@ -818,7 +856,7 @@ describe('OpenClaw 2026 API Registration', () => {
 
     it('should not throw when secret resolution fails', () => {
       // Provide valid raw config but with a command that will fail
-      mockApi.config = {
+      mockApi.pluginConfig = {
         apiUrl: 'https://api.example.com',
         apiKeyCommand: 'nonexistent-command-that-will-fail',
         autoRecall: true,
@@ -831,7 +869,7 @@ describe('OpenClaw 2026 API Registration', () => {
     })
 
     it('should log an actionable error when secret resolution fails', () => {
-      mockApi.config = {
+      mockApi.pluginConfig = {
         apiUrl: 'https://api.example.com',
         apiKeyCommand: 'nonexistent-command-that-will-fail',
         autoRecall: true,
@@ -847,7 +885,7 @@ describe('OpenClaw 2026 API Registration', () => {
     })
 
     it('should not register any tools when secret resolution fails', () => {
-      mockApi.config = {
+      mockApi.pluginConfig = {
         apiUrl: 'https://api.example.com',
         apiKeyCommand: 'nonexistent-command-that-will-fail',
         autoRecall: true,

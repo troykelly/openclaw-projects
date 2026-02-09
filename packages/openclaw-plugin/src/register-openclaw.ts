@@ -2170,9 +2170,14 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // synchronously during this call.
   const logger = api.logger ?? createLogger('openclaw-projects')
 
+  // The SDK provides plugin-specific config via api.pluginConfig (from
+  // plugins.entries.<id>.config). Fall back to api.config for older SDKs
+  // or test environments that put plugin config there directly.
+  const pluginCfg = api.pluginConfig ?? api.config
+
   let rawConfig: RawPluginConfig
   try {
-    rawConfig = validateRawConfig(api.config)
+    rawConfig = validateRawConfig(pluginCfg)
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       const issues = error.issues
