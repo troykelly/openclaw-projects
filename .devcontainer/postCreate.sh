@@ -176,9 +176,10 @@ EOF
 
   if [[ -n "${AZURE_CLIENT_ID:-}" && -n "${AZURE_CLIENT_SECRET:-}" && -n "${AZURE_TENANT_ID:-}" ]]; then
     log "Logging in to Azure with service principal"
-    if az login --service-principal \
+    # Use stdin to pass password to avoid credential exposure in process list
+    if echo "${AZURE_CLIENT_SECRET}" | az login --service-principal \
         -u "${AZURE_CLIENT_ID}" \
-        -p "${AZURE_CLIENT_SECRET}" \
+        --password /dev/stdin \
         --tenant "${AZURE_TENANT_ID}" \
         --allow-no-subscriptions >/dev/null 2>&1; then
       log "Azure CLI authenticated as service principal"
