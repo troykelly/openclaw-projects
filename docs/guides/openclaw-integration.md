@@ -131,12 +131,6 @@ Add the plugin configuration to your OpenClaw config file (`~/.openclaw/config.y
 
 ```yaml
 plugins:
-  # slots assigns plugins to named capability slots that the gateway
-  # routes tool calls to (e.g. "memory", "tasks").  Setting the
-  # "memory" slot here tells OpenClaw to use openclaw-projects for
-  # all memory-related operations (store, recall, search).
-  slots:
-    memory: openclaw-projects
   entries:
     openclaw-projects:
       enabled: true

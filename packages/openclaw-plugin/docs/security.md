@@ -8,37 +8,53 @@ This document outlines security recommendations for deploying and using the Open
 
 Direct secret values in configuration files are a security risk:
 
-```json
-// BAD - Never do this in production
-{
-  "apiKey": "sk-abc123..."
-}
+```yaml
+# BAD - Never do this in production
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiKey: "sk-abc123..."
 ```
 
 ### Use Secret Managers (Recommended)
 
 Use the `*Command` options to integrate with secret managers:
 
-```json
-// GOOD - 1Password CLI
-{
-  "apiKeyCommand": "op read op://Vault/openclaw/api_key"
-}
+```yaml
+# GOOD - 1Password CLI
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiKeyCommand: "op read op://Vault/openclaw/api_key"
+```
 
-// GOOD - AWS Secrets Manager
-{
-  "apiKeyCommand": "aws secretsmanager get-secret-value --secret-id openclaw/api-key --query SecretString --output text"
-}
+```yaml
+# GOOD - AWS Secrets Manager
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiKeyCommand: "aws secretsmanager get-secret-value --secret-id openclaw/api-key --query SecretString --output text"
+```
 
-// GOOD - HashiCorp Vault
-{
-  "apiKeyCommand": "vault kv get -field=api_key secret/openclaw"
-}
+```yaml
+# GOOD - HashiCorp Vault
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiKeyCommand: "vault kv get -field=api_key secret/openclaw"
+```
 
-// GOOD - macOS Keychain
-{
-  "apiKeyCommand": "security find-generic-password -s 'openclaw-api-key' -w"
-}
+```yaml
+# GOOD - macOS Keychain
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiKeyCommand: "security find-generic-password -s 'openclaw-api-key' -w"
 ```
 
 ### Use File-Based Secrets
@@ -51,10 +67,12 @@ echo "your-api-key" > ~/.secrets/openclaw-api-key
 chmod 600 ~/.secrets/openclaw-api-key
 ```
 
-```json
-{
-  "apiKeyFile": "~/.secrets/openclaw-api-key"
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiKeyFile: "~/.secrets/openclaw-api-key"
 ```
 
 The plugin will warn if secret files have overly permissive permissions.
@@ -74,16 +92,22 @@ Regularly rotate API keys and credentials:
 
 The plugin enforces HTTPS for `apiUrl` in production:
 
-```json
-// Production - HTTPS required
-{
-  "apiUrl": "https://api.example.com"
-}
+```yaml
+# Production - HTTPS required
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiUrl: "https://api.example.com"
+```
 
-// Development only - HTTP allowed
-{
-  "apiUrl": "http://localhost:3000"
-}
+```yaml
+# Development only - HTTP allowed
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        apiUrl: "http://localhost:3000"
 ```
 
 ### Certificate Validation
@@ -132,10 +156,12 @@ The plugin sanitizes sensitive data in logs:
 
 Enable debug logging only when troubleshooting:
 
-```json
-{
-  "debug": false  // Keep false in production
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        debug: false  # Keep false in production
 ```
 
 ## Access Control
@@ -144,10 +170,12 @@ Enable debug logging only when troubleshooting:
 
 Configure appropriate user scoping based on your security requirements:
 
-```json
-{
-  "userScoping": "agent"  // Default - memories shared per user
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        userScoping: agent  # Default - memories shared per user
 ```
 
 Options:
