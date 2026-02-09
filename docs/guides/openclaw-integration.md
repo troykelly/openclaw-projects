@@ -140,33 +140,25 @@ The plugin is automatically configured via environment variables:
 
 ### External Gateway
 
-Add the plugin configuration to your OpenClaw config file:
+Add the plugin configuration to your OpenClaw config file (`~/.openclaw/config.yaml`):
 
-```jsonc
-// ~/.openclaw/config.json
-{
-  "plugins": {
-    "slots": {
-      // Set openclaw-projects as the memory provider
-      "memory": "openclaw-projects"
-    },
-    "entries": {
-      "openclaw-projects": {
-        "enabled": true,
-        "config": {
-          // Your deployed API URL
-          "apiUrl": "https://api.your-domain.com",
-          // Authentication (choose one method)
-          "apiKey": "your-shared-auth-secret",
-          // Or load from file (for Docker secrets)
-          // "apiKeyFile": "~/.secrets/openclaw-projects-api-key",
-          // Or load from command (for 1Password, etc.)
-          // "apiKeyCommand": "op read 'op://vault/openclaw-projects/api-key'"
-        }
-      }
-    }
-  }
-}
+```yaml
+plugins:
+  slots:
+    # Set openclaw-projects as the memory provider
+    memory: openclaw-projects
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        # Your deployed API URL
+        apiUrl: https://api.your-domain.com
+        # Authentication (choose one method)
+        apiKey: your-shared-auth-secret
+        # Or load from file (for Docker secrets)
+        # apiKeyFile: ~/.secrets/openclaw-projects-api-key
+        # Or load from command (for 1Password, etc.)
+        # apiKeyCommand: "op read 'op://vault/openclaw-projects/api-key'"
 ```
 
 Restart your gateway:
