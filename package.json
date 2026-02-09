@@ -29,7 +29,8 @@
     "dev:link": "./scripts/dev-setup.sh --link",
     "lint": "biome lint .",
     "lint:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "setup": "./scripts/setup.sh"
   },
   "keywords": [],
   "author": "Troy Kelly",
