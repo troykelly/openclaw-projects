@@ -216,8 +216,11 @@ export interface ServiceDefinition {
 
 /** OpenClaw Plugin API provided to plugins */
 export interface OpenClawPluginApi {
-  /** Current plugin configuration (validated against configSchema) */
+  /** Full OpenClaw gateway configuration */
   config: Record<string, unknown>
+
+  /** Plugin-specific configuration from plugins.entries.<id>.config */
+  pluginConfig?: Record<string, unknown>
 
   /** Logger instance */
   logger: Logger
