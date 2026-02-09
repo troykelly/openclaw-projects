@@ -34,28 +34,7 @@ install_claude_code() {
   fi
 
   log "Installing Claude Code via official installer (https://claude.ai/install.sh)"
-
-  # Download to temp file first for security (avoid piping directly to bash)
-  local install_script
-  install_script=$(mktemp)
-  trap 'rm -f "${install_script:-}"' RETURN
-
-  log "Downloading Claude Code installer..."
-  if ! curl -fsSL --max-time 60 https://claude.ai/install.sh -o "$install_script"; then
-    log "ERROR: Failed to download Claude Code installer"
-    return 1
-  fi
-
-  # Verify the script starts with a shebang and basic sanity check
-  if ! head -n 1 "$install_script" | grep -q '^#!.*bash'; then
-    log "ERROR: Downloaded installer does not appear to be a bash script"
-    return 1
-  fi
-
-  # NOTE: Anthropic does not currently provide checksums for install.sh
-  # Consider adding verification if/when available
-  log "Executing Claude Code installer..."
-  bash "$install_script"
+  curl -fsSL https://claude.ai/install.sh | bash
 
   export PATH="$HOME/.claude/bin:$HOME/.local/bin:$PATH"
 
@@ -88,47 +67,7 @@ install_codex_binary() {
   esac
 
   local release_json
-  local attempt=0
-  local max_attempts=3
-  local http_code
-
-  log "Fetching codex release info from GitHub API..."
-  while ((attempt < max_attempts)); do
-    ((attempt++))
-
-    # Capture both HTTP status code and response body
-    local response
-    response=$(curl -fsSL -w "\n%{http_code}" --max-time 30 \
-      https://api.github.com/repos/openai/codex/releases/latest 2>/dev/null || echo -e "\n000")
-
-    http_code=$(echo "$response" | tail -n 1)
-    release_json=$(echo "$response" | head -n -1)
-
-    if [[ "$http_code" == "200" ]] && [[ -n "$release_json" ]]; then
-      log "Successfully fetched codex release info"
-      break
-    fi
-
-    # Handle specific HTTP error codes
-    if [[ "$http_code" == "429" ]]; then
-      log "WARN: GitHub API rate limit hit (attempt $attempt/$max_attempts)"
-    elif [[ "$http_code" == "000" ]]; then
-      log "WARN: Network error connecting to GitHub API (attempt $attempt/$max_attempts)"
-    else
-      log "WARN: GitHub API request failed with HTTP $http_code (attempt $attempt/$max_attempts)"
-    fi
-
-    if ((attempt < max_attempts)); then
-      local sleep_time=$((attempt * 2))
-      log "Retrying in ${sleep_time}s..."
-      sleep "$sleep_time"
-    fi
-  done
-
-  if [[ -z "${release_json:-}" ]] || [[ "$http_code" != "200" ]]; then
-    log "ERROR: Failed to fetch codex release info after $max_attempts attempts (HTTP $http_code)"
-    return 1
-  fi
+  release_json=$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest)
 
   local asset_url
   asset_url=$(echo "$release_json" | jq -r --arg a "$want_arch" '
@@ -145,27 +84,37 @@ install_codex_binary() {
 
   local tmp
   tmp=$(mktemp -d)
-  trap 'rm -rf "${tmp:-}"' RETURN
 
   log "Downloading: $asset_url"
-  curl -fsSL "$asset_url" -o "$tmp/codex.tar.gz"
+  if ! curl -fsSL "$asset_url" -o "$tmp/codex.tar.gz"; then
+    rm -rf "$tmp"
+    return 1
+  fi
 
   log "Extracting codex"
-  tar -xzf "$tmp/codex.tar.gz" -C "$tmp"
+  if ! tar -xzf "$tmp/codex.tar.gz" -C "$tmp"; then
+    rm -rf "$tmp"
+    return 1
+  fi
 
   local codex_path
   codex_path=$(find "$tmp" -maxdepth 2 -type f \( -name codex -o -name 'codex-*linux*' -o -name 'codex-*unknown-linux-*' \) | head -n 1)
   if [[ -z "$codex_path" ]]; then
     log "ERROR: Could not find extracted codex binary in tarball. Contents:"
     find "$tmp" -maxdepth 2 -type f -print | sed 's#^#  - #' || true
+    rm -rf "$tmp"
     return 1
   fi
 
   chmod +x "$codex_path"
 
   log "Installing codex to /usr/local/bin (sudo)"
-  sudo install -m 0755 "$codex_path" /usr/local/bin/codex
+  if ! sudo install -m 0755 "$codex_path" /usr/local/bin/codex; then
+    rm -rf "$tmp"
+    return 1
+  fi
 
+  rm -rf "$tmp"
   log "Codex installed: $(/usr/local/bin/codex --version 2>/dev/null || true)"
 }
 
@@ -237,10 +186,9 @@ EOF
 
   if [[ -n "${AZURE_CLIENT_ID:-}" && -n "${AZURE_CLIENT_SECRET:-}" && -n "${AZURE_TENANT_ID:-}" ]]; then
     log "Logging in to Azure with service principal"
-    # Use stdin to pass password to avoid credential exposure in process list
-    if echo "${AZURE_CLIENT_SECRET}" | az login --service-principal \
+    if az login --service-principal \
         -u "${AZURE_CLIENT_ID}" \
-        --password /dev/stdin \
+        -p "${AZURE_CLIENT_SECRET}" \
         --tenant "${AZURE_TENANT_ID}" \
         --allow-no-subscriptions >/dev/null 2>&1; then
       log "Azure CLI authenticated as service principal"
@@ -265,23 +213,16 @@ install_openclaw_gateway() {
 
   local auth_url="https://x-access-token:${GITHUB_TOKEN}@github.com/openclaw/openclaw.git"
 
-  # Check if gateway already cloned - handle TOCTOU defensively
   if [[ -f "$gateway_dir/package.json" ]]; then
     log "OpenClaw gateway source already present at $gateway_dir"
     if [[ ! -d "$gateway_dir/node_modules" ]]; then
       log "Installing OpenClaw gateway dependencies..."
-      # TOCTOU mitigation: cd might fail if directory disappears, so check exit code
-      if (cd "$gateway_dir" 2>/dev/null && pnpm install --frozen-lockfile 2>/dev/null || pnpm install); then
-        return 0
-      else
-        log "WARN: Failed to install OpenClaw gateway dependencies (directory may have been modified)"
-        log "WARN: Will attempt fresh clone"
-        rm -rf "$gateway_dir"
-        # Fall through to clone below
-      fi
-    else
-      return 0
+      (cd "$gateway_dir" && pnpm install --frozen-lockfile 2>/dev/null || pnpm install) || {
+        log "WARN: Failed to install OpenClaw gateway dependencies"
+        return 1
+      }
     fi
+    return 0
   fi
 
   mkdir -p "$(dirname "$gateway_dir")"
@@ -327,17 +268,6 @@ configure_codex_mcp() {
 }
 
 configure_claude_permissions() {
-  # SECURITY NOTE: Claude Code permissions are set to 'bypassPermissions' mode.
-  # This is SAFE in the devcontainer context because:
-  # 1. DevContainer runs in isolated Docker container with network isolation
-  # 2. Container has limited access to host system (only mounted volumes)
-  # 3. This is a development environment, not production
-  # 4. Bypassing permissions improves developer experience in safe sandbox
-  # 5. DevContainer security boundary protects host system
-  #
-  # DO NOT use 'bypassPermissions' in untrusted or production environments.
-  # In production, use 'ask' mode to require explicit approval for each action.
-
   if ! command -v claude >/dev/null 2>&1; then
     log "Skipping Claude permissions: 'claude' not found."
     return 0
@@ -345,27 +275,13 @@ configure_claude_permissions() {
 
   log "Configuring Claude Code permissions (bypass for sandboxed container)"
   local settings="$HOME/.claude/settings.json"
-
-  # Check if node is available before attempting to use it
-  if ! command -v node >/dev/null 2>&1; then
-    log "WARN: node not available, cannot safely merge settings - will overwrite if file exists"
-    mkdir -p "$(dirname "$settings")"
-    echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
-    return 0
-  fi
-
   if [ -f "$settings" ]; then
-    # Use node to merge settings (preserves existing configuration)
-    if ! node -e "
+    node -e "
       const fs = require('fs');
       const s = JSON.parse(fs.readFileSync('$settings', 'utf8'));
       s.permissions = { ...s.permissions, defaultMode: 'bypassPermissions' };
       fs.writeFileSync('$settings', JSON.stringify(s, null, 2) + '\n');
-    " 2>/dev/null; then
-      log "WARN: Node script failed to merge settings, overwriting file"
-      mkdir -p "$(dirname "$settings")"
-      echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
-    fi
+    "
   else
     mkdir -p "$(dirname "$settings")"
     echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
@@ -373,35 +289,11 @@ configure_claude_permissions() {
 }
 
 configure_codex_cli() {
-  # SECURITY NOTE: Codex CLI is configured with no approvals/sandbox for MCP mode.
-  # This is SAFE in the devcontainer context because:
-  # 1. DevContainer runs in isolated Docker container
-  # 2. Container network is isolated from host network
-  # 3. Container filesystem is isolated (only specific volumes mounted)
-  # 4. MCP subprocess has no interactive terminal for approval prompts
-  # 5. This is a development environment with controlled code execution
-  # 6. DevContainer provides the security boundary, not Codex sandbox
-  #
-  # Security guarantees from devcontainer:
-  # - Host credentials not accessible (unless explicitly mounted)
-  # - Host network not accessible (container network namespace)
-  # - Host filesystem protected (only project directory mounted)
-  # - Container runs as non-root user (vscode)
-  #
-  # DO NOT use these settings outside of sandboxed development environments.
-  # In production or untrusted contexts, enable sandbox and require approvals.
-  #
-  # Threat model: Assumes devcontainer is trusted development environment.
-  # Does NOT protect against malicious code running inside container.
-  # DOES protect host system from container processes.
-
   log "Configuring Codex CLI (no sandbox/approvals for MCP mode)"
   mkdir -p "$HOME/.codex"
   cat > "$HOME/.codex/config.toml" <<'CODEXEOF'
-# WARNING: Only safe in isolated devcontainer - DO NOT use in production
 # Equivalent to --dangerously-bypass-approvals-and-sandbox
 # Required: MCP subprocess has no interactive terminal for approval prompts.
-# Security boundary: DevContainer isolation, not Codex sandbox
 approval_policy = "never"
 sandbox_policy = "danger-full-access"
 sandbox_permissions = ["disk-full-read-access"]

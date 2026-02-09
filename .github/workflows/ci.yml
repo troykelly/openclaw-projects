@@ -22,6 +22,19 @@ jobs:
           severity: warning
           format: tty
 
+  postCreate-test:
+    name: postCreate.sh Integration Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run postCreate integration test
+        run: |
+          chmod +x .devcontainer/test-postCreate.sh
+          ./.devcontainer/test-postCreate.sh
+
   test:
     runs-on: ubuntu-latest
 
