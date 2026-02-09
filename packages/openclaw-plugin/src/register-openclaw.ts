@@ -2219,7 +2219,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // Create tool handlers
   const handlers = createToolHandlers(state)
 
-  // Register all 19 tools with correct OpenClaw Gateway execute signature
+  // Register all 27 tools with correct OpenClaw Gateway execute signature
   // Signature: (toolCallId: string, params: T, signal?: AbortSignal, onUpdate?: (partial: any) => void) => AgentToolResult
   const tools: ToolDefinition[] = [
     {
