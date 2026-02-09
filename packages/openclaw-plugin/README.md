@@ -71,10 +71,9 @@ plugins:
       enabled: true
       config:
         apiUrl: http://localhost:3000
-        apiKey: <AUTH_SECRET from your .env file>
 ```
 
-Copy the `OPENCLAW_PROJECTS_AUTH_SECRET` value from the `.env` file generated in step 1.
+The quickstart compose disables authentication by default, so no `apiKey` is needed. When you later switch to a production compose file with auth enabled, add `apiKey` with the `OPENCLAW_PROJECTS_AUTH_SECRET` value from your `.env` file. See [Configuration](#configuration) for details.
 
 ### 6. Verify the connection
 
@@ -98,8 +97,20 @@ If the status shows unhealthy, see [Troubleshooting](#troubleshooting) below.
 
 - See [Configuration](#configuration) for optional settings (embedding providers, SMS, email)
 - See [Tools](#tools) for the 27 available agent tools
-- For production deployment, use `docker-compose.yml` (basic) or `docker-compose.traefik.yml` (with TLS)
+- See [Which compose file?](#which-compose-file) to choose the right deployment for your needs
 - For the full deployment guide, see [docs/installation.md](docs/installation.md)
+
+### Which compose file?
+
+| File | Auth | Use case |
+|------|------|----------|
+| `docker-compose.quickstart.yml` | Disabled | Local development and testing (recommended for getting started) |
+| `docker-compose.yml` | Enabled | Basic production deployment without TLS |
+| `docker-compose.traefik.yml` | Enabled | Production with automatic TLS, HTTP/3, and WAF |
+| `docker-compose.full.yml` | Enabled | All services including frontend and optional integrations |
+| `docker-compose.test.yml` | Disabled | CI and automated testing |
+
+Start with `docker-compose.quickstart.yml`. When you are ready for production, switch to `docker-compose.yml` or `docker-compose.traefik.yml` and configure your `apiKey` in the plugin config.
 
 ## Features
 

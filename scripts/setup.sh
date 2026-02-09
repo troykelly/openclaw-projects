@@ -618,8 +618,9 @@ printf "    Embedding:         %s\n" "${ENV_VALUES[EMBEDDING_PROVIDER]:-not conf
 
 printf "\n  ${BOLD}Next steps:${RESET}\n"
 printf "    1. Review the generated .env file\n"
-printf "    2. Start services:\n"
-printf "       docker compose up -d\n"
-printf "    3. Or use the quickstart compose file:\n"
+printf "    2. Start services with the quickstart compose (recommended):\n"
 printf "       docker compose -f docker-compose.quickstart.yml up -d\n"
+printf "    3. Verify the API is running:\n"
+printf "       curl http://localhost:3000/health\n"
+printf "\n  For production, use docker-compose.yml or docker-compose.traefik.yml instead.\n"
 printf "\n"
