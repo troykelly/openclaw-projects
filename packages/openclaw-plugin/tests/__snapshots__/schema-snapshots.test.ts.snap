@@ -1,0 +1,1348 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `35`;
+
+exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`] = `
+[
+  "contact_create",
+  "contact_get",
+  "contact_search",
+  "email_send",
+  "file_share",
+  "memory_forget",
+  "memory_recall",
+  "memory_store",
+  "message_search",
+  "note_create",
+  "note_delete",
+  "note_get",
+  "note_search",
+  "note_update",
+  "notebook_create",
+  "notebook_get",
+  "notebook_list",
+  "project_create",
+  "project_get",
+  "project_list",
+  "relationship_query",
+  "relationship_set",
+  "skill_store_aggregate",
+  "skill_store_collections",
+  "skill_store_delete",
+  "skill_store_get",
+  "skill_store_list",
+  "skill_store_put",
+  "skill_store_search",
+  "sms_send",
+  "thread_get",
+  "thread_list",
+  "todo_complete",
+  "todo_create",
+  "todo_list",
+]
+`;
+
+exports[`Schema Snapshots > Manifest configSchema > configSchema should match snapshot 1`] = `
+{
+  "anyOf": [
+    {
+      "required": [
+        "apiKey",
+      ],
+    },
+    {
+      "required": [
+        "apiKeyFile",
+      ],
+    },
+    {
+      "required": [
+        "apiKeyCommand",
+      ],
+    },
+  ],
+  "properties": {
+    "apiKey": {
+      "description": "API authentication key (direct value, least secure)",
+      "type": "string",
+    },
+    "apiKeyCommand": {
+      "description": "Command to execute to get API key (e.g., op read op://Personal/openclaw/api_key)",
+      "type": "string",
+    },
+    "apiKeyFile": {
+      "description": "Path to file containing API key (e.g., ~/.secrets/api_key)",
+      "type": "string",
+    },
+    "apiUrl": {
+      "description": "Backend API URL (must be HTTPS in production)",
+      "type": "string",
+    },
+    "autoCapture": {
+      "default": true,
+      "description": "Automatically capture important information as memories",
+      "type": "boolean",
+    },
+    "autoRecall": {
+      "default": true,
+      "description": "Automatically recall relevant memories on conversation start",
+      "type": "boolean",
+    },
+    "postmarkFromEmail": {
+      "description": "Postmark From Email address (direct value)",
+      "format": "email",
+      "type": "string",
+    },
+    "postmarkFromEmailCommand": {
+      "description": "Command to get Postmark From Email",
+      "type": "string",
+    },
+    "postmarkFromEmailFile": {
+      "description": "Path to file containing Postmark From Email",
+      "type": "string",
+    },
+    "postmarkToken": {
+      "description": "Postmark API Token (direct value)",
+      "type": "string",
+    },
+    "postmarkTokenCommand": {
+      "description": "Command to get Postmark Token",
+      "type": "string",
+    },
+    "postmarkTokenFile": {
+      "description": "Path to file containing Postmark Token",
+      "type": "string",
+    },
+    "secretCommandTimeout": {
+      "default": 5000,
+      "description": "Timeout for secret command execution in milliseconds",
+      "maximum": 30000,
+      "minimum": 1000,
+      "type": "integer",
+    },
+    "twilioAccountSid": {
+      "description": "Twilio Account SID (direct value)",
+      "type": "string",
+    },
+    "twilioAccountSidCommand": {
+      "description": "Command to get Twilio Account SID",
+      "type": "string",
+    },
+    "twilioAccountSidFile": {
+      "description": "Path to file containing Twilio Account SID",
+      "type": "string",
+    },
+    "twilioAuthToken": {
+      "description": "Twilio Auth Token (direct value)",
+      "type": "string",
+    },
+    "twilioAuthTokenCommand": {
+      "description": "Command to get Twilio Auth Token",
+      "type": "string",
+    },
+    "twilioAuthTokenFile": {
+      "description": "Path to file containing Twilio Auth Token",
+      "type": "string",
+    },
+    "twilioPhoneNumber": {
+      "description": "Twilio Phone Number (direct value)",
+      "type": "string",
+    },
+    "twilioPhoneNumberCommand": {
+      "description": "Command to get Twilio Phone Number",
+      "type": "string",
+    },
+    "twilioPhoneNumberFile": {
+      "description": "Path to file containing Twilio Phone Number",
+      "type": "string",
+    },
+    "userScoping": {
+      "default": "agent",
+      "description": "How to scope user memories",
+      "enum": [
+        "agent",
+        "identity",
+        "session",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "apiUrl",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Manifest configSchema > full manifest structure (excluding configSchema) should match snapshot 1`] = `
+{
+  "description": "Memory provider with projects, todos, and contacts integration",
+  "id": "openclaw-projects",
+  "kind": "memory",
+  "name": "OpenClaw Projects Plugin",
+  "skills": [
+    "skills",
+  ],
+}
+`;
+
+exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should match snapshot 1`] = `
+{
+  "apiKey": {
+    "helpText": "Direct API key value (least secure, for development)",
+    "label": "API Key",
+    "placeholder": "sk-...",
+    "sensitive": true,
+  },
+  "apiKeyCommand": {
+    "helpText": "Command to retrieve API key (e.g., 1Password CLI)",
+    "label": "API Key Command",
+    "placeholder": "op read op://Personal/openclaw/api_key",
+  },
+  "apiKeyFile": {
+    "helpText": "Path to a file containing your API key",
+    "label": "API Key File",
+    "placeholder": "~/.secrets/openclaw-api-key",
+  },
+  "apiUrl": {
+    "helpText": "The URL of your OpenClaw Projects backend API",
+    "label": "Backend URL",
+    "placeholder": "https://api.openclaw-projects.example.com",
+  },
+  "autoCapture": {
+    "group": "Memory",
+    "helpText": "Automatically store important information as memories",
+    "label": "Auto-Capture",
+  },
+  "autoRecall": {
+    "group": "Memory",
+    "helpText": "Automatically inject relevant memories at conversation start",
+    "label": "Auto-Recall",
+  },
+  "postmarkFromEmail": {
+    "group": "Postmark Email",
+    "label": "Postmark From Email",
+    "placeholder": "noreply@example.com",
+  },
+  "postmarkFromEmailCommand": {
+    "group": "Postmark Email",
+    "label": "Postmark From Email Command",
+  },
+  "postmarkFromEmailFile": {
+    "group": "Postmark Email",
+    "label": "Postmark From Email File",
+  },
+  "postmarkToken": {
+    "group": "Postmark Email",
+    "label": "Postmark Token",
+    "sensitive": true,
+  },
+  "postmarkTokenCommand": {
+    "group": "Postmark Email",
+    "label": "Postmark Token Command",
+  },
+  "postmarkTokenFile": {
+    "group": "Postmark Email",
+    "label": "Postmark Token File",
+  },
+  "secretCommandTimeout": {
+    "group": "Advanced",
+    "helpText": "Timeout in milliseconds for secret retrieval commands",
+    "label": "Secret Command Timeout",
+  },
+  "twilioAccountSid": {
+    "group": "Twilio SMS",
+    "label": "Twilio Account SID",
+    "sensitive": true,
+  },
+  "twilioAccountSidCommand": {
+    "group": "Twilio SMS",
+    "label": "Twilio Account SID Command",
+  },
+  "twilioAccountSidFile": {
+    "group": "Twilio SMS",
+    "label": "Twilio Account SID File",
+  },
+  "twilioAuthToken": {
+    "group": "Twilio SMS",
+    "label": "Twilio Auth Token",
+    "sensitive": true,
+  },
+  "twilioAuthTokenCommand": {
+    "group": "Twilio SMS",
+    "label": "Twilio Auth Token Command",
+  },
+  "twilioAuthTokenFile": {
+    "group": "Twilio SMS",
+    "label": "Twilio Auth Token File",
+  },
+  "twilioPhoneNumber": {
+    "group": "Twilio SMS",
+    "label": "Twilio Phone Number",
+    "placeholder": "+15551234567",
+    "sensitive": true,
+  },
+  "twilioPhoneNumberCommand": {
+    "group": "Twilio SMS",
+    "label": "Twilio Phone Number Command",
+  },
+  "twilioPhoneNumberFile": {
+    "group": "Twilio SMS",
+    "label": "Twilio Phone Number File",
+  },
+  "userScoping": {
+    "group": "Memory",
+    "helpText": "How to isolate memories between users",
+    "label": "User Scoping",
+  },
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > contact_create parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "email": {
+      "type": "string",
+    },
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+    "notes": {
+      "maxLength": 2000,
+      "type": "string",
+    },
+    "phone": {
+      "type": "string",
+    },
+  },
+  "required": [
+    "name",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > contact_get parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "id": {
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > contact_search parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "limit": {
+      "maximum": 50,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "query": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "query",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > email_send parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "body": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "htmlBody": {
+      "type": "string",
+    },
+    "idempotencyKey": {
+      "type": "string",
+    },
+    "subject": {
+      "maxLength": 998,
+      "minLength": 1,
+      "type": "string",
+    },
+    "threadId": {
+      "type": "string",
+    },
+    "to": {
+      "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+      "type": "string",
+    },
+  },
+  "required": [
+    "to",
+    "subject",
+    "body",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > file_share parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "expiresIn": {
+      "default": 3600,
+      "maximum": 604800,
+      "minimum": 60,
+      "type": "integer",
+    },
+    "fileId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "maxDownloads": {
+      "minimum": 1,
+      "type": "integer",
+    },
+  },
+  "required": [
+    "fileId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_forget parameter schema should match snapshot 1`] = `
+{
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_recall parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "category": {
+      "enum": [
+        "preference",
+        "fact",
+        "decision",
+        "context",
+        "other",
+      ],
+      "type": "string",
+    },
+    "limit": {
+      "maximum": 20,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "query": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "type": "string",
+    },
+    "relationship_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string",
+      },
+      "type": "array",
+    },
+  },
+  "required": [
+    "query",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_store parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "category": {
+      "enum": [
+        "preference",
+        "fact",
+        "decision",
+        "context",
+        "other",
+      ],
+      "type": "string",
+    },
+    "importance": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number",
+    },
+    "relationship_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "text": {
+      "maxLength": 5000,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "text",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > message_search parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "channel": {
+      "default": "all",
+      "enum": [
+        "sms",
+        "email",
+        "all",
+      ],
+      "type": "string",
+    },
+    "contactId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "includeThread": {
+      "default": false,
+      "type": "boolean",
+    },
+    "limit": {
+      "default": 10,
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "query": {
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "query",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > note_create parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "content": {
+      "maxLength": 100000,
+      "minLength": 1,
+      "type": "string",
+    },
+    "notebookId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "summary": {
+      "maxLength": 1000,
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "title": {
+      "maxLength": 500,
+      "minLength": 1,
+      "type": "string",
+    },
+    "visibility": {
+      "default": "private",
+      "enum": [
+        "private",
+        "shared",
+        "public",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "title",
+    "content",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > note_delete parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "noteId": {
+      "format": "uuid",
+      "type": "string",
+    },
+  },
+  "required": [
+    "noteId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > note_get parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "includeVersions": {
+      "default": false,
+      "type": "boolean",
+    },
+    "noteId": {
+      "format": "uuid",
+      "type": "string",
+    },
+  },
+  "required": [
+    "noteId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > note_search parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "limit": {
+      "default": 20,
+      "maximum": 50,
+      "minimum": 1,
+      "type": "number",
+    },
+    "notebookId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "offset": {
+      "default": 0,
+      "minimum": 0,
+      "type": "number",
+    },
+    "query": {
+      "maxLength": 500,
+      "minLength": 1,
+      "type": "string",
+    },
+    "searchType": {
+      "default": "hybrid",
+      "enum": [
+        "hybrid",
+        "text",
+        "semantic",
+      ],
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "visibility": {
+      "enum": [
+        "private",
+        "shared",
+        "public",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "query",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > note_update parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "content": {
+      "maxLength": 100000,
+      "minLength": 1,
+      "type": "string",
+    },
+    "isPinned": {
+      "type": "boolean",
+    },
+    "noteId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "notebookId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "summary": {
+      "maxLength": 1000,
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "title": {
+      "maxLength": 500,
+      "minLength": 1,
+      "type": "string",
+    },
+    "visibility": {
+      "enum": [
+        "private",
+        "shared",
+        "public",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "noteId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > notebook_create parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "description": {
+      "maxLength": 1000,
+      "type": "string",
+    },
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "name",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > notebook_get parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "includeNotes": {
+      "default": false,
+      "type": "boolean",
+    },
+    "notebookId": {
+      "format": "uuid",
+      "type": "string",
+    },
+  },
+  "required": [
+    "notebookId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > notebook_list parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "includeArchived": {
+      "default": false,
+      "type": "boolean",
+    },
+    "limit": {
+      "default": 50,
+      "maximum": 100,
+      "minimum": 1,
+      "type": "number",
+    },
+    "offset": {
+      "default": 0,
+      "minimum": 0,
+      "type": "number",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > project_create parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "description": {
+      "maxLength": 2000,
+      "type": "string",
+    },
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "name",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > project_get parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "id": {
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > project_list parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "offset": {
+      "minimum": 0,
+      "type": "integer",
+    },
+    "status": {
+      "enum": [
+        "active",
+        "completed",
+        "archived",
+      ],
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > relationship_query parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "contact": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+    "type_filter": {
+      "maxLength": 200,
+      "type": "string",
+    },
+  },
+  "required": [
+    "contact",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > relationship_set parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "contact_a": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+    "contact_b": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+    "notes": {
+      "maxLength": 2000,
+      "type": "string",
+    },
+    "relationship": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "contact_a",
+    "contact_b",
+    "relationship",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_aggregate parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "collection": {
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "type": "string",
+    },
+    "operation": {
+      "enum": [
+        "count",
+        "count_by_tag",
+        "count_by_status",
+        "latest",
+        "oldest",
+      ],
+      "type": "string",
+    },
+    "since": {
+      "type": "string",
+    },
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+    "until": {
+      "type": "string",
+    },
+    "user_email": {
+      "format": "email",
+      "type": "string",
+    },
+  },
+  "required": [
+    "skill_id",
+    "operation",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_collections parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+    "user_email": {
+      "format": "email",
+      "type": "string",
+    },
+  },
+  "required": [
+    "skill_id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_delete parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "collection": {
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "type": "string",
+    },
+    "id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "key": {
+      "maxLength": 500,
+      "pattern": "^[a-zA-Z0-9_.:\\-/@# ]+$",
+      "type": "string",
+    },
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_get parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "collection": {
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "type": "string",
+    },
+    "id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "key": {
+      "maxLength": 500,
+      "pattern": "^[a-zA-Z0-9_.:\\-/@# ]+$",
+      "type": "string",
+    },
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_list parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "collection": {
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "type": "string",
+    },
+    "limit": {
+      "maximum": 200,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "offset": {
+      "minimum": 0,
+      "type": "integer",
+    },
+    "order_by": {
+      "enum": [
+        "created_at",
+        "updated_at",
+        "title",
+        "priority",
+      ],
+      "type": "string",
+    },
+    "since": {
+      "type": "string",
+    },
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+    "status": {
+      "enum": [
+        "active",
+        "archived",
+        "processing",
+      ],
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "maxLength": 100,
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "user_email": {
+      "format": "email",
+      "type": "string",
+    },
+  },
+  "required": [
+    "skill_id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_put parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "collection": {
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "type": "string",
+    },
+    "content": {
+      "maxLength": 50000,
+      "type": "string",
+    },
+    "data": {
+      "type": "object",
+    },
+    "expires_at": {
+      "type": "string",
+    },
+    "key": {
+      "maxLength": 500,
+      "pattern": "^[a-zA-Z0-9_.:\\-/@# ]+$",
+      "type": "string",
+    },
+    "media_type": {
+      "maxLength": 100,
+      "type": "string",
+    },
+    "media_url": {
+      "format": "uri",
+      "type": "string",
+    },
+    "pinned": {
+      "type": "boolean",
+    },
+    "priority": {
+      "maximum": 100,
+      "minimum": 0,
+      "type": "integer",
+    },
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+    "source_url": {
+      "format": "uri",
+      "type": "string",
+    },
+    "summary": {
+      "maxLength": 2000,
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "maxLength": 100,
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "title": {
+      "maxLength": 500,
+      "type": "string",
+    },
+    "user_email": {
+      "format": "email",
+      "type": "string",
+    },
+  },
+  "required": [
+    "skill_id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > skill_store_search parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "collection": {
+      "maxLength": 200,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "type": "string",
+    },
+    "limit": {
+      "maximum": 200,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "min_similarity": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number",
+    },
+    "query": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string",
+    },
+    "semantic": {
+      "type": "boolean",
+    },
+    "skill_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "type": "string",
+    },
+    "tags": {
+      "items": {
+        "maxLength": 100,
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "user_email": {
+      "format": "email",
+      "type": "string",
+    },
+  },
+  "required": [
+    "skill_id",
+    "query",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > sms_send parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "body": {
+      "maxLength": 1600,
+      "minLength": 1,
+      "type": "string",
+    },
+    "idempotencyKey": {
+      "type": "string",
+    },
+    "to": {
+      "pattern": "^\\+[1-9]\\d{1,14}$",
+      "type": "string",
+    },
+  },
+  "required": [
+    "to",
+    "body",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > thread_get parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "messageLimit": {
+      "default": 50,
+      "maximum": 200,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "threadId": {
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "threadId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > thread_list parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "channel": {
+      "enum": [
+        "sms",
+        "email",
+      ],
+      "type": "string",
+    },
+    "contactId": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "limit": {
+      "default": 20,
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer",
+    },
+  },
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > todo_complete parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "id": {
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > todo_create parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "dueDate": {
+      "type": "string",
+    },
+    "projectId": {
+      "type": "string",
+    },
+    "title": {
+      "maxLength": 500,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "title",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > todo_list parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "completed": {
+      "type": "boolean",
+    },
+    "limit": {
+      "maximum": 200,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "offset": {
+      "minimum": 0,
+      "type": "integer",
+    },
+    "projectId": {
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;
