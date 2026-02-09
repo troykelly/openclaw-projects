@@ -80,6 +80,26 @@ jobs:
             -e GEMINI_API_KEY \
             workspace bash -lc "cd /workspaces/openclaw-projects && pnpm -s test"
 
+      - name: Start E2E services
+        run: |
+          docker compose -f docker-compose.test.yml up -d --build
+
+      - name: Wait for E2E services
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
+            workspace bash -lc "cd /workspaces/openclaw-projects && bash scripts/wait-for-services.sh"
+
+      - name: Run E2E tests
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
+            -e RUN_E2E=true \
+            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm run test:e2e"
+
+      - name: Teardown E2E services
+        if: always()
+        run: |
+          docker compose -f docker-compose.test.yml down -v
+
       - name: Shutdown
         if: always()
         run: |
