@@ -22,20 +22,8 @@ RUN set -eux; \
   apt-get install -y --no-install-recommends nodejs; \
   rm -rf /var/lib/apt/lists/*
 
-# Docker CLI (outside-of-docker / docker-sock) support.
-# Install ONLY the client bits (no daemon) from Docker's official apt repo:
-# - docker-ce-cli provides `docker`
-# - docker-compose-plugin provides `docker compose`
-# - docker-buildx-plugin is commonly expected by modern compose builds
-RUN set -eux; \
-  install -m 0755 -d /etc/apt/keyrings; \
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc; \
-  chmod a+r /etc/apt/keyrings/docker.asc; \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
-    > /etc/apt/sources.list.d/docker.list; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin docker-buildx-plugin; \
-  rm -rf /var/lib/apt/lists/*
+# Docker CLI is now provided by the docker-outside-of-docker devcontainer feature.
+# See devcontainer.json: ghcr.io/devcontainers/features/docker-outside-of-docker:1
 
 # Ensure pnpm exists even when host mounts are not present.
 RUN npm install -g pnpm

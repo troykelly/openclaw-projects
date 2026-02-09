@@ -18,7 +18,14 @@ services:
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
     volumes:
       - ..:/workspaces/openclaw-projects:cached
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Docker-outside-of-Docker: mount host socket to docker-host.sock.
+      # The DooD feature's socat proxy creates /var/run/docker.sock with
+      # proper group permissions (docker group, mode 660) for non-root users.
+      # See: https://github.com/devcontainers/features/issues/444
+      - /var/run/docker.sock:/var/run/docker-host.sock
+    # Required: DooD feature entrypoint is NOT auto-merged with Docker Compose.
+    # This starts the socat proxy before exec'ing into `command`.
+    entrypoint: /usr/local/share/docker-init.sh
     command: sleep infinity
     depends_on:
       postgres:
