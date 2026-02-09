@@ -4,6 +4,17 @@
  * These types define the contract between plugins and the OpenClaw Gateway runtime.
  * Based on OpenClaw 2026 plugin architecture.
  *
+ * All types are defined locally because the `openclaw/plugin-sdk` public API
+ * does not export the individual hook types (PluginHookName, etc.) — they exist
+ * only as internal types within the SDK's plugins/types.d.ts. Importing from
+ * deep internal paths would be fragile and could break on any SDK update.
+ *
+ * The SDK's OpenClawPluginApi type is exported but uses different shapes
+ * (e.g., AnyAgentTool vs our ToolDefinition, OpenClawConfig vs Record<string, unknown>).
+ *
+ * See tests/sdk-type-compatibility.test.ts for compile-time checks that verify
+ * our local types remain compatible with the SDK's definitions.
+ *
  * Reference: docs/knowledge/openclaw-hook-contract.md
  */
 
@@ -56,6 +67,11 @@ export interface ToolResult {
 /**
  * AgentToolResult - The format OpenClaw Gateway expects from tool execute functions.
  * This is the standard return type for all tool executions.
+ *
+ * Note: The SDK's AgentToolResult (from @mariozechner/pi-agent-core) uses
+ * `(TextContent | ImageContent)[]` which is a different shape. Our simplified
+ * version uses `{ type: 'text'; text: string }[]` to avoid pulling in the
+ * pi-agent-core dependency.
  */
 export interface AgentToolResult {
   content: Array<{ type: 'text'; text: string }>
@@ -76,7 +92,13 @@ export type AgentToolExecute<T = Record<string, unknown>> = (
   onUpdate?: (partial: unknown) => void
 ) => Promise<AgentToolResult>
 
-/** Tool definition for api.registerTool() */
+/**
+ * Tool definition for api.registerTool().
+ *
+ * Note: The SDK uses AnyAgentTool (from @mariozechner/pi-agent-core) which
+ * extends Tool<TSchema> with TypeBox schemas. Our simplified version uses
+ * plain JSON Schema objects to avoid the TypeBox/pi-agent-core dependency.
+ */
 export interface ToolDefinition {
   /** Tool name (snake_case) */
   name: string
@@ -90,6 +112,9 @@ export interface ToolDefinition {
 
 // ── OpenClaw Hook Contract Types ─────────────────────────────────────────────
 // These match the actual OpenClaw Gateway hook contract.
+// The SDK defines these in plugins/types.d.ts but does not export them via
+// the openclaw/plugin-sdk public API. They are defined locally here and
+// verified against the SDK via tests/sdk-type-compatibility.test.ts.
 // See: docs/knowledge/openclaw-hook-contract.md
 
 /**
