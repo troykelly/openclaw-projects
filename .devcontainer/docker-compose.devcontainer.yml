@@ -18,10 +18,32 @@ services:
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
     volumes:
       - ..:/workspaces/openclaw-projects:cached
-      # Docker-outside-of-Docker: mount host socket to docker-host.sock.
-      # The DooD feature's socat proxy creates /var/run/docker.sock with
-      # proper group permissions (docker group, mode 660) for non-root users.
-      # See: https://github.com/devcontainers/features/issues/444
+      # ┌─────────────────────────────────────────────────────────────────┐
+      # │ Docker-outside-of-Docker (DooD) Security Model                  │
+      # ├─────────────────────────────────────────────────────────────────┤
+      # │ This mount exposes the host Docker daemon to the devcontainer   │
+      # │ via /var/run/docker.sock. The DooD feature's socat proxy        │
+      # │ creates proper group permissions (docker group, mode 660) for   │
+      # │ non-root users. See: https://github.com/devcontainers/features/issues/444
+      # │                                                                  │
+      # │ SECURITY IMPLICATIONS:                                           │
+      # │ • Any code in this container has root-equivalent host access    │
+      # │ • Can spawn privileged containers and bind-mount host paths     │
+      # │ • Malicious npm packages can compromise the host system         │
+      # │                                                                  │
+      # │ This is standard practice for devcontainers (VS Code, GitHub    │
+      # │ Codespaces all use DooD) and accepted for local development     │
+      # │ environments. CI runners use ephemeral VMs where socket         │
+      # │ exposure is isolated and standard.                              │
+      # │                                                                  │
+      # │ MITIGATION:                                                      │
+      # │ • No --privileged flag used in any container                    │
+      # │ • CI runs in ephemeral GitHub Actions VMs (isolated)            │
+      # │ • Production deployments do NOT expose Docker socket            │
+      # │ • Review dependencies and only use trusted packages             │
+      # │                                                                  │
+      # │ For details: docs/development/devcontainer-security.md          │
+      # └─────────────────────────────────────────────────────────────────┘
       - /var/run/docker.sock:/var/run/docker-host.sock
     # Required: DooD feature entrypoint is NOT auto-merged with Docker Compose.
     # This starts the socat proxy before exec'ing into `command`.
