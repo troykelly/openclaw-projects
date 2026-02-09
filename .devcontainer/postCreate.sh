@@ -88,7 +88,47 @@ install_codex_binary() {
   esac
 
   local release_json
-  release_json=$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest)
+  local attempt=0
+  local max_attempts=3
+  local http_code
+
+  log "Fetching codex release info from GitHub API..."
+  while ((attempt < max_attempts)); do
+    ((attempt++))
+
+    # Capture both HTTP status code and response body
+    local response
+    response=$(curl -fsSL -w "\n%{http_code}" --max-time 30 \
+      https://api.github.com/repos/openai/codex/releases/latest 2>/dev/null || echo -e "\n000")
+
+    http_code=$(echo "$response" | tail -n 1)
+    release_json=$(echo "$response" | head -n -1)
+
+    if [[ "$http_code" == "200" ]] && [[ -n "$release_json" ]]; then
+      log "Successfully fetched codex release info"
+      break
+    fi
+
+    # Handle specific HTTP error codes
+    if [[ "$http_code" == "429" ]]; then
+      log "WARN: GitHub API rate limit hit (attempt $attempt/$max_attempts)"
+    elif [[ "$http_code" == "000" ]]; then
+      log "WARN: Network error connecting to GitHub API (attempt $attempt/$max_attempts)"
+    else
+      log "WARN: GitHub API request failed with HTTP $http_code (attempt $attempt/$max_attempts)"
+    fi
+
+    if ((attempt < max_attempts)); then
+      local sleep_time=$((attempt * 2))
+      log "Retrying in ${sleep_time}s..."
+      sleep "$sleep_time"
+    fi
+  done
+
+  if [[ -z "${release_json:-}" ]] || [[ "$http_code" != "200" ]]; then
+    log "ERROR: Failed to fetch codex release info after $max_attempts attempts (HTTP $http_code)"
+    return 1
+  fi
 
   local asset_url
   asset_url=$(echo "$release_json" | jq -r --arg a "$want_arch" '
