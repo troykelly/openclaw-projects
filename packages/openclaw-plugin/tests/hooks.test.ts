@@ -380,6 +380,63 @@ describe('lifecycle hooks', () => {
           expect(JSON.stringify(body)).not.toContain('sk-1234567890')
         }
       })
+
+      it('should consistently detect sensitive content across consecutive calls (no stale lastIndex)', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: { captured: 0 },
+        })
+        const client = { ...mockApiClient, post: mockPost }
+
+        const hook = createAutoCaptureHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          userId: 'agent-1',
+        })
+
+        const sensitiveMessage = { role: 'user', content: 'password=hunter2' }
+
+        // Call multiple times with the same sensitive content.
+        // Before the fix, stateful /g regexes would alternate between
+        // detecting and missing the pattern due to stale lastIndex.
+        for (let i = 0; i < 5; i++) {
+          mockPost.mockClear()
+          await hook({ messages: [sensitiveMessage] })
+          // The sensitive message should be filtered every single time,
+          // so either the API is not called at all or the content is redacted
+          if (mockPost.mock.calls.length > 0) {
+            const body = mockPost.mock.calls[0][1]
+            expect(JSON.stringify(body)).not.toContain('hunter2')
+          }
+        }
+      })
+
+      it('should consistently detect API key patterns across consecutive calls', async () => {
+        const mockPost = vi.fn().mockResolvedValue({
+          success: true,
+          data: { captured: 0 },
+        })
+        const client = { ...mockApiClient, post: mockPost }
+
+        const hook = createAutoCaptureHook({
+          client: client as unknown as ApiClient,
+          logger: mockLogger,
+          config: mockConfig,
+          userId: 'agent-1',
+        })
+
+        const sensitiveMessage = { role: 'user', content: 'Here is sk-abcdef1234567890 my key' }
+
+        for (let i = 0; i < 5; i++) {
+          mockPost.mockClear()
+          await hook({ messages: [sensitiveMessage] })
+          if (mockPost.mock.calls.length > 0) {
+            const body = mockPost.mock.calls[0][1]
+            expect(JSON.stringify(body)).not.toContain('sk-abcdef1234567890')
+          }
+        }
+      })
     })
 
     describe('timeout protection', () => {

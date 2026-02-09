@@ -15,10 +15,10 @@ const DEFAULT_CAPTURE_TIMEOUT_MS = 10000
 
 /** Patterns that indicate sensitive content to filter */
 const SENSITIVE_PATTERNS = [
-  /\b(?:password|passwd|pwd)\s*[:=]\s*\S+/gi,
-  /\b(?:api[_-]?key|apikey)\s*[:=]\s*\S+/gi,
-  /\bsk-[a-zA-Z0-9]{10,}/g, // API keys (10+ chars after sk-)
-  /\b(?:secret|token)\s*[:=]\s*\S+/gi,
+  /\b(?:password|passwd|pwd)\s*[:=]\s*\S+/i,
+  /\b(?:api[_-]?key|apikey)\s*[:=]\s*\S+/i,
+  /\bsk-[a-zA-Z0-9]{10,}/, // API keys (10+ chars after sk-)
+  /\b(?:secret|token)\s*[:=]\s*\S+/i,
   /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, // Credit card numbers
   /\b\d{3}-\d{2}-\d{4}\b/, // SSN
 ]
@@ -93,7 +93,8 @@ function containsSensitiveContent(content: string): boolean {
 function filterSensitiveContent(content: string): string {
   let filtered = content
   for (const pattern of SENSITIVE_PATTERNS) {
-    filtered = filtered.replace(pattern, '[REDACTED]')
+    const globalPattern = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`)
+    filtered = filtered.replace(globalPattern, '[REDACTED]')
   }
   return filtered
 }
