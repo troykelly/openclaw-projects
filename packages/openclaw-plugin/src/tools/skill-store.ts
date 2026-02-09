@@ -373,9 +373,12 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
             { userId }
           )
         } else {
+          // Guard above ensures skill_id and key are defined when id is absent
+          const skillId = validated.skill_id as string
+          const key = validated.key as string
           const queryParams = new URLSearchParams({
-            skill_id: validated.skill_id!,
-            key: validated.key!,
+            skill_id: skillId,
+            key,
           })
           if (validated.collection) {
             queryParams.set('collection', validated.collection)
@@ -585,9 +588,12 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
         }
 
         // Delete by key: first look up the item, then delete by ID
+        // Guard above ensures skill_id and key are defined when id is absent
+        const skillId = validated.skill_id as string
+        const key = validated.key as string
         const queryParams = new URLSearchParams({
-          skill_id: validated.skill_id!,
-          key: validated.key!,
+          skill_id: skillId,
+          key,
         })
         if (validated.collection) {
           queryParams.set('collection', validated.collection)
