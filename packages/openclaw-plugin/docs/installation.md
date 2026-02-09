@@ -69,17 +69,16 @@ You should see `openclaw-projects` in the list.
 
 Create or update your OpenClaw configuration. See [Configuration Reference](./configuration.md) for all options.
 
-Minimum required configuration:
+Minimum required configuration (`~/.openclaw/config.yaml`):
 
-```json
-{
-  "plugins": {
-    "openclaw-projects": {
-      "apiUrl": "https://api.your-backend.example.com",
-      "apiKey": "your-api-key"
-    }
-  }
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: https://api.your-backend.example.com
+        apiKey: your-api-key
 ```
 
 ### 3. Test the Connection

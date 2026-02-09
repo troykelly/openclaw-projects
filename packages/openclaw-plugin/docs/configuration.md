@@ -4,17 +4,18 @@ This document describes all configuration options for the OpenClaw Projects Plug
 
 ## Configuration File
 
-The plugin is configured through your OpenClaw configuration file:
+The plugin is configured through your OpenClaw configuration file (`~/.openclaw/config.yaml`):
 
-```json
-{
-  "plugins": {
-    "openclaw-projects": {
-      // Configuration options here
-    }
-  }
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        # Configuration options here
 ```
+
+All options listed below go under the `plugins.entries.openclaw-projects.config` key.
 
 ## API Connection
 
@@ -239,52 +240,49 @@ Base URL for the web application. Used for generating links to notes and noteboo
 
 ### Development (Simple)
 
-```json
-{
-  "plugins": {
-    "openclaw-projects": {
-      "apiUrl": "http://localhost:3000",
-      "apiKey": "dev-key-123"
-    }
-  }
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: http://localhost:3000
+        apiKey: dev-key-123
 ```
 
 ### Production (Secure)
 
-```json
-{
-  "plugins": {
-    "openclaw-projects": {
-      "apiUrl": "https://api.openclaw-projects.example.com",
-      "apiKeyCommand": "op read op://Production/openclaw/api_key",
-      "twilioAccountSidCommand": "op read op://Production/twilio/account_sid",
-      "twilioAuthTokenCommand": "op read op://Production/twilio/auth_token",
-      "twilioPhoneNumberCommand": "op read op://Production/twilio/phone_number",
-      "postmarkTokenCommand": "op read op://Production/postmark/server_token",
-      "postmarkFromEmail": "noreply@example.com",
-      "autoRecall": true,
-      "autoCapture": true,
-      "userScoping": "agent"
-    }
-  }
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: https://api.openclaw-projects.example.com
+        apiKeyCommand: op read op://Production/openclaw/api_key
+        twilioAccountSidCommand: op read op://Production/twilio/account_sid
+        twilioAuthTokenCommand: op read op://Production/twilio/auth_token
+        twilioPhoneNumberCommand: op read op://Production/twilio/phone_number
+        postmarkTokenCommand: op read op://Production/postmark/server_token
+        postmarkFromEmail: noreply@example.com
+        autoRecall: true
+        autoCapture: true
+        userScoping: agent
 ```
 
 ### File-Based Secrets
 
-```json
-{
-  "plugins": {
-    "openclaw-projects": {
-      "apiUrl": "https://api.openclaw-projects.example.com",
-      "apiKeyFile": "~/.secrets/openclaw/api-key",
-      "twilioAccountSidFile": "~/.secrets/twilio/account-sid",
-      "twilioAuthTokenFile": "~/.secrets/twilio/auth-token",
-      "twilioPhoneNumberFile": "~/.secrets/twilio/phone-number"
-    }
-  }
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: https://api.openclaw-projects.example.com
+        apiKeyFile: ~/.secrets/openclaw/api-key
+        twilioAccountSidFile: ~/.secrets/twilio/account-sid
+        twilioAuthTokenFile: ~/.secrets/twilio/auth-token
+        twilioPhoneNumberFile: ~/.secrets/twilio/phone-number
 ```
 
 ## Environment Variables
