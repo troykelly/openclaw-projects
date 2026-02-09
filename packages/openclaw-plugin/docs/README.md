@@ -23,15 +23,14 @@ openclaw plugins install @troykelly/openclaw-projects
 
 Create or edit your OpenClaw configuration to add the plugin:
 
-```json
-{
-  "plugins": {
-    "openclaw-projects": {
-      "apiUrl": "https://api.your-backend.example.com",
-      "apiKeyFile": "~/.secrets/openclaw-api-key"
-    }
-  }
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: "https://api.your-backend.example.com"
+        apiKeyFile: "~/.secrets/openclaw-api-key"
 ```
 
 ### 3. Verify Installation
