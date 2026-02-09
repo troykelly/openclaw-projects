@@ -1,10 +1,16 @@
 # Docker Compose configuration for E2E testing
-# Part of Epic #310, Issue #326
+# Part of Epic #310, Issue #326, #958
 #
 # Usage:
-#   docker-compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml up -d
 #   pnpm run test:e2e
-#   docker-compose -f docker-compose.test.yml down -v
+#   docker compose -f docker-compose.test.yml down -v
+#
+# IMPORTANT: When running from inside devcontainer via Docker-outside-of-Docker (DooD),
+# bind mounts will NOT work as expected because sibling containers mount from the HOST
+# filesystem, not the devcontainer filesystem. This compose file correctly uses build
+# contexts (which copy files during image build) and does NOT use bind mounts. Do not
+# add bind mounts to this file.
 
 services:
   postgres-test:
@@ -46,7 +52,7 @@ services:
       postgres-test:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health/live || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10

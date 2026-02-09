@@ -1,6 +1,6 @@
 #!/bin/bash
 # Wait for E2E test services to become healthy
-# Part of Epic #310, Issue #326
+# Part of Epic #310, Issue #326, #958
 
 set -e
 
@@ -20,8 +20,8 @@ while true; do
     exit 1
   fi
 
-  # Check backend health
-  if curl -sf "${BACKEND_URL}/api/health" > /dev/null 2>&1; then
+  # Check backend liveness (always returns 200 when server is running)
+  if curl -sf "${BACKEND_URL}/api/health/live" > /dev/null 2>&1; then
     echo "Backend is healthy!"
     break
   fi
