@@ -11,6 +11,11 @@
 # filesystem, not the devcontainer filesystem. This compose file correctly uses build
 # contexts (which copy files during image build) and does NOT use bind mounts. Do not
 # add bind mounts to this file.
+#
+# SeaweedFS (S3 storage) is NOT required for E2E tests. The backend API starts successfully
+# without S3 configuration - file storage features simply return null/unavailable when not
+# configured. S3 config is validated at runtime (createS3StorageFromEnv returns null if
+# S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY env vars are missing).
 
 services:
   postgres-test:
