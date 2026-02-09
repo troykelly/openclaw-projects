@@ -43,6 +43,9 @@ export function createTestLogger(): Logger {
 /**
  * Create a valid minimal Gateway config for loading the plugin.
  * Uses direct secret values (no file/command resolution in tests per spec).
+ *
+ * The loader expects a full OpenClaw config, not just plugins section.
+ * We provide minimal required fields to avoid validation errors.
  */
 export function createTestConfig(overrides?: {
   apiUrl?: string;
@@ -56,6 +59,14 @@ export function createTestConfig(overrides?: {
   const pluginPath = getPluginPath();
 
   return {
+    // Minimal agent config to satisfy loader validation
+    agent: {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4',
+    },
+    // Empty channels array to satisfy config validation
+    channels: [],
+    // Plugin configuration
     plugins: {
       enabled: overrides?.enabled ?? true,
       load: {

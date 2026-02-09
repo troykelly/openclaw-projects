@@ -4,8 +4,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { loadOpenClawPlugins } from 'openclaw/dist/plugins/loader.js';
+// Import from actual openclaw bundled file via vitest alias
+// The function is exported but minified (as 't'), so we import the whole module
+import * as openclawLoader from 'openclaw/dist/plugins/loader.js';
 import { createTestLogger, createTestConfig } from './setup.js';
+
+// Extract the loader function (exported as minified name 't')
+const loadOpenClawPlugins = (openclawLoader as any).loadOpenClawPlugins || (openclawLoader as any).t;
 
 describe('Gateway Plugin Loading', () => {
   it('should load plugin via loadOpenClawPlugins() with load.paths', () => {
