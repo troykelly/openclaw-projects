@@ -81,10 +81,12 @@ describe('Package Structure', () => {
       expect(manifest).toHaveProperty('configSchema')
     })
 
-    it('should not have version field (inherits from package.json)', () => {
+    it('should have version field matching package.json', () => {
       const manifestPath = join(packageRoot, 'openclaw.plugin.json')
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-      expect(manifest).not.toHaveProperty('version')
+      const packagePath = join(packageRoot, 'package.json')
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
+      expect(manifest.version).toBe(pkg.version)
     })
 
     it('should not have main field (entry point comes from package.json openclaw.extensions)', () => {
