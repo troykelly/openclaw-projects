@@ -53,22 +53,37 @@ The plugin provides tools for memory, projects, todos, and contacts that agents 
 
 Deploy openclaw-projects using Docker Compose:
 
-### Quick Start (Basic)
+### Quick Start
+
+1. Run the setup wizard to generate a `.env` file with random secrets:
 
 ```bash
-cp .env.example .env
-# Edit .env with POSTGRES_PASSWORD, COOKIE_SECRET, S3_SECRET_KEY
-docker compose up -d
+./scripts/setup.sh
 ```
 
-Services will be available at:
-- API: http://localhost:3000
-- Frontend: http://localhost:8080
+For CI or unattended setup, use `./scripts/setup.sh --non-interactive`.
+
+2. Start services with the quickstart compose file:
+
+```bash
+docker compose -f docker-compose.quickstart.yml up -d
+```
+
+3. Verify the API is running:
+
+```bash
+curl http://localhost:3000/health
+# Expected: {"status":"ok"}
+```
+
+The API will be available at http://localhost:3000. Auth is disabled by default in the quickstart compose for easy local development.
+
+For the full plugin setup guide, see [packages/openclaw-plugin/README.md](packages/openclaw-plugin/README.md).
 
 ### Production (with TLS, HTTP/3, WAF)
 
 ```bash
-cp .env.example .env
+./scripts/setup.sh
 # Edit .env with DOMAIN, ACME_EMAIL, DNS credentials
 docker compose -f docker-compose.traefik.yml up -d
 ```
