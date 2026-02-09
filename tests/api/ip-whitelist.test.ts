@@ -237,10 +237,7 @@ describe('IP Whitelist', () => {
 
       await middleware(req, reply);
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[TestProvider]'),
-        expect.objectContaining({ ip: '10.0.0.1' })
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[TestProvider]'), expect.objectContaining({ ip: '10.0.0.1' }));
       warnSpy.mockRestore();
     });
 

@@ -2,21 +2,8 @@ import * as React from 'react';
 import { useCallback, useState } from 'react';
 import { X, Trash2, FolderTree, CheckCircle2, AlertCircle, Circle, Clock } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { useBulkSelection } from '@/ui/hooks/use-bulk-selection';
 
 export type BulkAction = 'status' | 'priority' | 'parent' | 'delete';
@@ -30,11 +17,7 @@ interface BulkActionBarProps {
 const defaultStatuses = ['backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled'];
 const defaultPriorities = ['P0', 'P1', 'P2', 'P3', 'P4'];
 
-export function BulkActionBar({
-  onAction,
-  availableStatuses = defaultStatuses,
-  availablePriorities = defaultPriorities,
-}: BulkActionBarProps) {
+export function BulkActionBar({ onAction, availableStatuses = defaultStatuses, availablePriorities = defaultPriorities }: BulkActionBarProps) {
   const { count, hasSelection, deselectAll, selectedIds } = useBulkSelection();
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -48,7 +31,7 @@ export function BulkActionBar({
         setIsLoading(false);
       }
     },
-    [onAction]
+    [onAction],
   );
 
   const handlePriorityChange = useCallback(
@@ -60,7 +43,7 @@ export function BulkActionBar({
         setIsLoading(false);
       }
     },
-    [onAction]
+    [onAction],
   );
 
   const handleDelete = useCallback(async () => {
@@ -98,13 +81,7 @@ export function BulkActionBar({
       >
         <div className="flex items-center gap-2 border-r border-border pr-3">
           <span className="text-sm font-medium">{count} selected</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={deselectAll}
-            className="size-6 p-0"
-            aria-label="Clear selection"
-          >
+          <Button variant="ghost" size="sm" onClick={deselectAll} className="size-6 p-0" aria-label="Clear selection">
             <X className="size-4" />
           </Button>
         </div>
@@ -138,13 +115,7 @@ export function BulkActionBar({
           </SelectContent>
         </Select>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowDeleteConfirm(true)}
-          disabled={isLoading}
-          className="text-destructive hover:text-destructive"
-        >
+        <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(true)} disabled={isLoading} className="text-destructive hover:text-destructive">
           <Trash2 className="mr-1 size-4" />
           Delete
         </Button>
@@ -154,10 +125,7 @@ export function BulkActionBar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete {count} items?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. All selected items and their children will be
-              permanently deleted.
-            </DialogDescription>
+            <DialogDescription>This action cannot be undone. All selected items and their children will be permanently deleted.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>

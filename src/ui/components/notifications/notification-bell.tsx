@@ -2,11 +2,7 @@ import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, Check, X, User, MessageSquare, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/ui/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { cn } from '@/ui/lib/utils';
 
@@ -78,9 +74,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
       await fetch(`/api/notifications/${id}/read?userEmail=${encodeURIComponent(userEmail)}`, {
         method: 'POST',
       });
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
-      );
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -92,9 +86,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
       await fetch(`/api/notifications/read-all?userEmail=${encodeURIComponent(userEmail)}`, {
         method: 'POST',
       });
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
       setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
@@ -175,21 +167,14 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="font-semibold">Notifications</h3>
           {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={markAllAsRead}
-            >
+            <Button variant="ghost" size="sm" className="text-xs" onClick={markAllAsRead}>
               Mark all read
             </Button>
           )}
         </div>
         <ScrollArea className="h-[400px]">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              Loading...
-            </div>
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">Loading...</div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-sm text-muted-foreground">
               <Bell className="mb-2 size-8 opacity-50" />
@@ -200,10 +185,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={cn(
-                    'group relative px-4 py-3 hover:bg-muted/50 cursor-pointer',
-                    !notification.readAt && 'bg-muted/30'
-                  )}
+                  className={cn('group relative px-4 py-3 hover:bg-muted/50 cursor-pointer', !notification.readAt && 'bg-muted/30')}
                   onClick={() => {
                     if (!notification.readAt) {
                       markAsRead(notification.id);
@@ -213,19 +195,11 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
                   data-testid="notification-item"
                 >
                   <div className="flex gap-3">
-                    <div className="mt-0.5">
-                      {getNotificationIcon(notification.notificationType)}
-                    </div>
+                    <div className="mt-0.5">{getNotificationIcon(notification.notificationType)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-tight">
-                        {notification.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        {formatTime(notification.createdAt)}
-                      </p>
+                      <p className="text-sm font-medium leading-tight">{notification.title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{notification.message}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{formatTime(notification.createdAt)}</p>
                     </div>
                     <Button
                       variant="ghost"
@@ -240,9 +214,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
                       <X className="size-3" />
                     </Button>
                   </div>
-                  {!notification.readAt && (
-                    <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />
-                  )}
+                  {!notification.readAt && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />}
                 </div>
               ))}
             </div>

@@ -57,7 +57,7 @@ describe('Work Item Calendar API (issue #125)', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'webhook', $2)
        RETURNING id::text as id`,
-      [endpointId, `calendar-${Date.now()}`]
+      [endpointId, `calendar-${Date.now()}`],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -74,7 +74,7 @@ describe('Work Item Calendar API (issue #125)', () => {
       attendees?: Array<{ email: string; name?: string; status?: string }>;
       organizer?: { email: string; name?: string };
       meetingLink?: string;
-    }
+    },
   ): Promise<string> {
     const raw = {
       type: 'calendar_event',
@@ -92,20 +92,16 @@ describe('Work Item Calendar API (issue #125)', () => {
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
        VALUES ($1, $2, 'inbound', $3, $4)
        RETURNING id::text as id`,
-      [threadId, `event-${Date.now()}`, eventData.description ?? 'Event', JSON.stringify(raw)]
+      [threadId, `event-${Date.now()}`, eventData.description ?? 'Event', JSON.stringify(raw)],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
-  async function linkCalendarToWorkItem(
-    wiId: string,
-    threadId: string,
-    messageId: string
-  ): Promise<void> {
+  async function linkCalendarToWorkItem(wiId: string, threadId: string, messageId: string): Promise<void> {
     await pool.query(
       `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
        VALUES ($1, $2, $3, 'follow_up')`,
-      [wiId, threadId, messageId]
+      [wiId, threadId, messageId],
     );
   }
 
@@ -220,7 +216,7 @@ describe('Work Item Calendar API (issue #125)', () => {
             title: 'Quick Meeting',
             startTime: new Date().toISOString(),
           }),
-        ]
+        ],
       );
       const eventId = (result.rows[0] as { id: string }).id;
       await linkCalendarToWorkItem(workItemId, threadId, eventId);
@@ -269,7 +265,7 @@ describe('Work Item Calendar API (issue #125)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
          VALUES ($1, $2, 'inbound', 'Regular message', $3)
          RETURNING id::text as id`,
-        [threadId, `regular-${Date.now()}`, JSON.stringify({ type: 'message' })]
+        [threadId, `regular-${Date.now()}`, JSON.stringify({ type: 'message' })],
       );
       const regularMsgId = (regularResult.rows[0] as { id: string }).id;
       await linkCalendarToWorkItem(workItemId2, threadId, regularMsgId);

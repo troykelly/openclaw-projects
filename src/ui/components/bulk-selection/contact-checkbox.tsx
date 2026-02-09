@@ -13,12 +13,7 @@ export interface ContactCheckboxProps {
   className?: string;
 }
 
-export function ContactCheckbox({
-  contactId,
-  isSelected,
-  onToggle,
-  className,
-}: ContactCheckboxProps) {
+export function ContactCheckbox({ contactId, isSelected, onToggle, className }: ContactCheckboxProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -29,11 +24,7 @@ export function ContactCheckbox({
 
   return (
     <div className={cn('flex items-center', className)} onClick={handleClick}>
-      <Checkbox
-        checked={isSelected}
-        onCheckedChange={handleChange}
-        aria-label={`Select contact`}
-      />
+      <Checkbox checked={isSelected} onCheckedChange={handleChange} aria-label={`Select contact`} />
     </div>
   );
 }

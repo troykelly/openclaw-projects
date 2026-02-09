@@ -95,7 +95,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       `INSERT INTO auth_session (email, expires_at)
        VALUES ($1, NOW() + INTERVAL '1 hour')
        RETURNING id::text`,
-      [email]
+      [email],
     );
     return result.rows[0].id;
   }
@@ -103,14 +103,11 @@ describe('File Share Ownership Check (Issue #615)', () => {
   /**
    * Helper to create a file attachment in the database.
    */
-  async function createFileInDb(
-    fileId: string,
-    uploadedBy: string | null
-  ): Promise<void> {
+  async function createFileInDb(fileId: string, uploadedBy: string | null): Promise<void> {
     await pool.query(
       `INSERT INTO file_attachment (id, storage_key, original_filename, content_type, size_bytes, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [fileId, `test/${fileId}.txt`, 'test.txt', 'text/plain', 100, uploadedBy]
+      [fileId, `test/${fileId}.txt`, 'test.txt', 'text/plain', 100, uploadedBy],
     );
   }
 
@@ -136,7 +133,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       expect(body).toHaveProperty('expiresAt');
     });
 
-    it('returns 403 when trying to share another user\'s file', async () => {
+    it("returns 403 when trying to share another user's file", async () => {
       const ownerEmail = 'owner@example.com';
       const attackerEmail = 'attacker@example.com';
       const fileId = '22222222-2222-2222-2222-222222222222';

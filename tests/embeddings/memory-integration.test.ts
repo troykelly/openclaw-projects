@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
-import {
-  generateMemoryEmbedding,
-  searchMemoriesSemantic,
-  backfillMemoryEmbeddings,
-} from '../../src/api/embeddings/memory-integration.ts';
+import { generateMemoryEmbedding, searchMemoriesSemantic, backfillMemoryEmbeddings } from '../../src/api/embeddings/memory-integration.ts';
 import { embeddingService } from '../../src/api/embeddings/service.ts';
 import { runMigrate } from '../helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from '../helpers/db.ts';
@@ -12,11 +8,7 @@ import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 describe('Memory Embedding Integration', () => {
   let pool: Pool;
 
-  const hasApiKey = !!(
-    process.env.VOYAGERAI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.GEMINI_API_KEY
-  );
+  const hasApiKey = !!(process.env.VOYAGERAI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -38,7 +30,7 @@ describe('Memory Embedding Integration', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -47,16 +39,12 @@ describe('Memory Embedding Integration', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'User Preference', 'User prefers dark mode', 'note')
          RETURNING id::text as id`,
-        [workItemId]
+        [workItemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
       // Generate embedding
-      const status = await generateMemoryEmbedding(
-        pool,
-        memoryId,
-        'User Preference\n\nUser prefers dark mode'
-      );
+      const status = await generateMemoryEmbedding(pool, memoryId, 'User Preference\n\nUser prefers dark mode');
 
       expect(status).toBe('complete');
 
@@ -64,7 +52,7 @@ describe('Memory Embedding Integration', () => {
       const result = await pool.query(
         `SELECT embedding_status, embedding_provider, embedding_model, embedding
          FROM memory WHERE id = $1`,
-        [memoryId]
+        [memoryId],
       );
 
       expect(result.rows[0]).toMatchObject({
@@ -90,7 +78,7 @@ describe('Memory Embedding Integration', () => {
         const workItem = await pool.query(
           `INSERT INTO work_item (title, description, kind)
            VALUES ('Test Project', 'Test description', 'project')
-           RETURNING id::text as id`
+           RETURNING id::text as id`,
         );
         const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -99,7 +87,7 @@ describe('Memory Embedding Integration', () => {
           `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, 'Test Memory', 'Test content', 'note')
            RETURNING id::text as id`,
-          [workItemId]
+          [workItemId],
         );
         const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -109,10 +97,7 @@ describe('Memory Embedding Integration', () => {
         expect(status).toBe('pending');
 
         // Verify status was updated
-        const result = await pool.query(
-          `SELECT embedding_status FROM memory WHERE id = $1`,
-          [memoryId]
-        );
+        const result = await pool.query(`SELECT embedding_status FROM memory WHERE id = $1`, [memoryId]);
         expect((result.rows[0] as { embedding_status: string }).embedding_status).toBe('pending');
       } finally {
         // Restore API keys
@@ -130,7 +115,7 @@ describe('Memory Embedding Integration', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -146,7 +131,7 @@ describe('Memory Embedding Integration', () => {
           `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, $2, $3, 'note')
            RETURNING id::text as id`,
-          [workItemId, mem.title, mem.content]
+          [workItemId, mem.title, mem.content],
         );
         const memoryId = (result.rows[0] as { id: string }).id;
         await generateMemoryEmbedding(pool, memoryId, `${mem.title}\n\n${mem.content}`);
@@ -177,7 +162,7 @@ describe('Memory Embedding Integration', () => {
         const workItem = await pool.query(
           `INSERT INTO work_item (title, description, kind)
            VALUES ('Test Project', 'Test description', 'project')
-           RETURNING id::text as id`
+           RETURNING id::text as id`,
         );
         const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -185,7 +170,7 @@ describe('Memory Embedding Integration', () => {
         await pool.query(
           `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, 'Test Memory with Keyword', 'Contains the keyword searchterm', 'note')`,
-          [workItemId]
+          [workItemId],
         );
 
         // Search (should fall back to text)
@@ -210,7 +195,7 @@ describe('Memory Embedding Integration', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -219,7 +204,7 @@ describe('Memory Embedding Integration', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Memory 1', 'Content 1', 'note', 'pending'),
                 ($1, 'Memory 2', 'Content 2', 'note', 'pending')`,
-        [workItemId]
+        [workItemId],
       );
 
       // Run backfill
@@ -230,10 +215,7 @@ describe('Memory Embedding Integration', () => {
       expect(result.failed).toBe(0);
 
       // Verify embeddings were created
-      const memories = await pool.query(
-        `SELECT embedding_status FROM memory WHERE work_item_id = $1`,
-        [workItemId]
-      );
+      const memories = await pool.query(`SELECT embedding_status FROM memory WHERE work_item_id = $1`, [workItemId]);
       for (const row of memories.rows as Array<{ embedding_status: string }>) {
         expect(row.embedding_status).toBe('complete');
       }

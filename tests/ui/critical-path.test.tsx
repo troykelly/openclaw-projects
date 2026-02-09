@@ -4,11 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  calculateCriticalPath,
-  TaskNode,
-  CriticalPathResult,
-} from '@/ui/components/critical-path/critical-path-algorithm';
+import { calculateCriticalPath, TaskNode, CriticalPathResult } from '@/ui/components/critical-path/critical-path-algorithm';
 import { CriticalPathToggle } from '@/ui/components/critical-path/critical-path-toggle';
 import { CriticalPathInsights } from '@/ui/components/critical-path/critical-path-insights';
 import { CriticalPathLegend } from '@/ui/components/critical-path/critical-path-legend';

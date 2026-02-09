@@ -14,18 +14,9 @@ export interface ActivityQuickFiltersProps {
   className?: string;
 }
 
-export function ActivityQuickFilters({
-  presets,
-  activePresetId,
-  onSelectPreset,
-  className,
-}: ActivityQuickFiltersProps) {
+export function ActivityQuickFilters({ presets, activePresetId, onSelectPreset, className }: ActivityQuickFiltersProps) {
   if (presets.length === 0) {
-    return (
-      <div className={cn('text-sm text-muted-foreground', className)}>
-        No presets available
-      </div>
-    );
+    return <div className={cn('text-sm text-muted-foreground', className)}>No presets available</div>;
   }
 
   const handleClick = (preset: QuickFilterPreset) => {
@@ -43,13 +34,7 @@ export function ActivityQuickFilters({
         const isActive = activePresetId === preset.id;
 
         return (
-          <Button
-            key={preset.id}
-            variant={isActive ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => handleClick(preset)}
-            data-active={isActive}
-          >
+          <Button key={preset.id} variant={isActive ? 'secondary' : 'outline'} size="sm" onClick={() => handleClick(preset)} data-active={isActive}>
             {preset.name}
           </Button>
         );

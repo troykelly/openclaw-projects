@@ -2,11 +2,7 @@
  * Hook for managing work item templates
  */
 import * as React from 'react';
-import type {
-  WorkItemTemplate,
-  TemplateCategory,
-  UseTemplatesReturn,
-} from './types';
+import type { WorkItemTemplate, TemplateCategory, UseTemplatesReturn } from './types';
 
 const STORAGE_KEY = 'work-item-templates';
 
@@ -17,8 +13,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
   {
     id: 'builtin-sprint',
     name: 'Sprint Planning',
-    description:
-      'An epic with standard sprint issues: planning, development, testing, review',
+    description: 'An epic with standard sprint issues: planning, development, testing, review',
     category: 'sprint',
     isBuiltIn: true,
     createdAt: '2024-01-01T00:00:00.000Z',
@@ -58,8 +53,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
   {
     id: 'builtin-feature',
     name: 'Feature Development',
-    description:
-      'An initiative structure for developing a new feature with design, implementation, and testing phases',
+    description: 'An initiative structure for developing a new feature with design, implementation, and testing phases',
     category: 'feature',
     isBuiltIn: true,
     createdAt: '2024-01-01T00:00:00.000Z',
@@ -126,8 +120,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
   {
     id: 'builtin-project',
     name: 'New Project',
-    description:
-      'A project structure with standard phases: planning, execution, delivery',
+    description: 'A project structure with standard phases: planning, execution, delivery',
     category: 'project',
     isBuiltIn: true,
     createdAt: '2024-01-01T00:00:00.000Z',
@@ -209,14 +202,9 @@ function saveCustomTemplates(templates: WorkItemTemplate[]): void {
 }
 
 export function useTemplates(): UseTemplatesReturn {
-  const [customTemplates, setCustomTemplates] = React.useState<
-    WorkItemTemplate[]
-  >(() => loadCustomTemplates());
+  const [customTemplates, setCustomTemplates] = React.useState<WorkItemTemplate[]>(() => loadCustomTemplates());
 
-  const templates = React.useMemo(
-    () => [...BUILTIN_TEMPLATES, ...customTemplates],
-    [customTemplates]
-  );
+  const templates = React.useMemo(() => [...BUILTIN_TEMPLATES, ...customTemplates], [customTemplates]);
 
   const saveTemplate = React.useCallback(
     (template: Omit<WorkItemTemplate, 'id' | 'createdAt'>) => {
@@ -229,7 +217,7 @@ export function useTemplates(): UseTemplatesReturn {
       setCustomTemplates(updated);
       saveCustomTemplates(updated);
     },
-    [customTemplates]
+    [customTemplates],
   );
 
   const deleteTemplate = React.useCallback(
@@ -242,14 +230,14 @@ export function useTemplates(): UseTemplatesReturn {
       setCustomTemplates(updated);
       saveCustomTemplates(updated);
     },
-    [customTemplates]
+    [customTemplates],
   );
 
   const getTemplatesByCategory = React.useCallback(
     (category: TemplateCategory) => {
       return templates.filter((t) => t.category === category);
     },
-    [templates]
+    [templates],
   );
 
   return {

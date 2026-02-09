@@ -25,7 +25,7 @@ export function validateUrl(url: string): string | null {
     const parsedUrl = new URL(url);
 
     if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
-      return `Only ${ALLOWED_PROTOCOLS.map(p => p.replace(':', '')).join(', ')} links are allowed`;
+      return `Only ${ALLOWED_PROTOCOLS.map((p) => p.replace(':', '')).join(', ')} links are allowed`;
     }
 
     return null;
@@ -36,7 +36,7 @@ export function validateUrl(url: string): string | null {
       const parsedUrl = new URL(urlWithProtocol);
 
       if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
-        return `Only ${ALLOWED_PROTOCOLS.map(p => p.replace(':', '')).join(', ')} links are allowed`;
+        return `Only ${ALLOWED_PROTOCOLS.map((p) => p.replace(':', '')).join(', ')} links are allowed`;
       }
 
       return null;

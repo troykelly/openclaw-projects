@@ -48,7 +48,7 @@ describe('Global Timeline Page', () => {
       const session = await pool2.query(
         `INSERT INTO auth_session (email, expires_at)
          VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const sessionId = (session.rows[0] as { id: string }).id;
       await pool2.end();
@@ -76,13 +76,13 @@ describe('Global Timeline Page', () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
          VALUES ('Scheduled Task', 'issue', $1, $2)`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
 
       // Create item without dates (should not appear)
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Unscheduled Task', 'issue')`
+         VALUES ('Unscheduled Task', 'issue')`,
       );
 
       const res = await app.inject({
@@ -105,7 +105,7 @@ describe('Global Timeline Page', () => {
          VALUES ('Project Alpha', 'project', $1, $2),
                 ('Epic 1', 'epic', $1, $2),
                 ('Issue 1', 'issue', $1, $2)`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
 
       const res = await app.inject({
@@ -129,7 +129,7 @@ describe('Global Timeline Page', () => {
          VALUES ('Past Task', 'issue', $1, $1),
                 ('Current Task', 'issue', $2, $3),
                 ('Future Task', 'issue', $3, $3)`,
-        [past.toISOString(), now.toISOString(), future.toISOString()]
+        [past.toISOString(), now.toISOString(), future.toISOString()],
       );
 
       const res = await app.inject({
@@ -155,7 +155,7 @@ describe('Global Timeline Page', () => {
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
          VALUES ('Task A', 'issue', $1, $2)
          RETURNING id::text as id`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
       const item1Id = (item1.rows[0] as { id: string }).id;
 
@@ -163,7 +163,7 @@ describe('Global Timeline Page', () => {
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
          VALUES ('Task B', 'issue', $1, $2)
          RETURNING id::text as id`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
       const item2Id = (item2.rows[0] as { id: string }).id;
 
@@ -171,7 +171,7 @@ describe('Global Timeline Page', () => {
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'blocks')`,
-        [item2Id, item1Id]
+        [item2Id, item1Id],
       );
 
       const res = await app.inject({
@@ -198,21 +198,21 @@ describe('Global Timeline Page', () => {
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
          VALUES ('Project 1', 'project', $1, $2)
          RETURNING id::text as id`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after, parent_work_item_id)
          VALUES ('Epic 1-1', 'epic', $1, $2, $3)`,
-        [now.toISOString(), nextWeek.toISOString(), projectId]
+        [now.toISOString(), nextWeek.toISOString(), projectId],
       );
 
       // Create another project (should not appear)
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
          VALUES ('Project 2', 'project', $1, $2)`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
 
       const res = await app.inject({

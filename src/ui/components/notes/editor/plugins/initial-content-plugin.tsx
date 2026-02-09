@@ -12,9 +12,7 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import type { InitialContentPluginProps } from '../types';
 
-export function InitialContentPlugin({
-  initialContent,
-}: InitialContentPluginProps): null {
+export function InitialContentPlugin({ initialContent }: InitialContentPluginProps): null {
   const [editor] = useLexicalComposerContext();
   // Use ref to track initialization - avoids re-render and only runs once per mount
   const initializedRef = useRef(false);

@@ -12,23 +12,11 @@ export interface CriticalPathToggleProps {
   className?: string;
 }
 
-export function CriticalPathToggle({
-  enabled,
-  onToggle,
-  className,
-}: CriticalPathToggleProps) {
+export function CriticalPathToggle({ enabled, onToggle, className }: CriticalPathToggleProps) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <Switch
-        id="critical-path-toggle"
-        checked={enabled}
-        onCheckedChange={onToggle}
-        aria-label="Toggle critical path highlighting"
-      />
-      <Label
-        htmlFor="critical-path-toggle"
-        className="text-sm font-medium cursor-pointer"
-      >
+      <Switch id="critical-path-toggle" checked={enabled} onCheckedChange={onToggle} aria-label="Toggle critical path highlighting" />
+      <Label htmlFor="critical-path-toggle" className="text-sm font-medium cursor-pointer">
         Critical Path
       </Label>
     </div>

@@ -113,11 +113,7 @@ function parseNaturalToComponents(input: string): ParsedComponents | null {
   }
 
   // Check for "every year" / "yearly" / "annually"
-  else if (
-    text.includes('every year') ||
-    text.includes('yearly') ||
-    text.includes('annually')
-  ) {
+  else if (text.includes('every year') || text.includes('yearly') || text.includes('annually')) {
     components.freq = 'YEARLY';
   }
 
@@ -137,9 +133,7 @@ function parseNaturalToComponents(input: string): ParsedComponents | null {
   }
 
   // Check for "every N days/weeks/months"
-  const intervalMatch = text.match(
-    /every\s+(\d+)\s*(day|week|month|year)s?/i
-  );
+  const intervalMatch = text.match(/every\s+(\d+)\s*(day|week|month|year)s?/i);
   if (intervalMatch) {
     components.interval = parseInt(intervalMatch[1], 10);
     const unit = intervalMatch[2].toLowerCase();
@@ -150,9 +144,7 @@ function parseNaturalToComponents(input: string): ParsedComponents | null {
   }
 
   // Check for "first/last/Nth of the month"
-  const monthDayMatch = text.match(
-    /(first|last|1st|2nd|3rd|\d+(?:st|nd|rd|th)?)\s+(?:of\s+)?(?:the\s+)?(?:every\s+)?month/i
-  );
+  const monthDayMatch = text.match(/(first|last|1st|2nd|3rd|\d+(?:st|nd|rd|th)?)\s+(?:of\s+)?(?:the\s+)?(?:every\s+)?month/i);
   if (monthDayMatch) {
     components.freq = 'MONTHLY';
     const daySpec = monthDayMatch[1].toLowerCase();
@@ -169,11 +161,7 @@ function parseNaturalToComponents(input: string): ParsedComponents | null {
   }
 
   // Parse time if present
-  const timePatterns = [
-    /at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i,
-    /(\d{1,2}:\d{2})\s*(?:am|pm)?/i,
-    /(\d{1,2}\s*(?:am|pm))/i,
-  ];
+  const timePatterns = [/at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i, /(\d{1,2}:\d{2})\s*(?:am|pm)?/i, /(\d{1,2}\s*(?:am|pm))/i];
 
   for (const pattern of timePatterns) {
     const timeMatch = text.match(pattern);

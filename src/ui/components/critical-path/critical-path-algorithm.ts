@@ -203,7 +203,7 @@ export function workItemsToTaskNodes(
     id: string;
     estimate?: number;
     dependencies?: string[];
-  }>
+  }>,
 ): TaskNode[] {
   return items.map((item) => ({
     id: item.id,

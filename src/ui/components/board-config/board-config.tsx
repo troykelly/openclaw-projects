@@ -3,26 +3,14 @@
  * Issue #409: Implement board view customization
  */
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import { Button } from '@/ui/components/ui/button';
 import { ColumnManager } from './column-manager';
 import { SwimlanesConfig } from './swimlanes-config';
 import { WipLimitsConfig } from './wip-limits-config';
 import { CardDisplayConfig } from './card-display-config';
-import type {
-  BoardColumn,
-  SwimlaneSetting,
-  WipLimit,
-  CardDisplayMode,
-  CardField,
-} from './types';
+import type { BoardColumn, SwimlaneSetting, WipLimit, CardDisplayMode, CardField } from './types';
 
 export interface BoardConfigProps {
   open: boolean;
@@ -82,11 +70,7 @@ export function BoardConfig({
           </TabsContent>
 
           <TabsContent value="limits" className="mt-4">
-            <WipLimitsConfig
-              columns={columns}
-              limits={wipLimits}
-              onChange={onWipLimitsChange}
-            />
+            <WipLimitsConfig columns={columns} limits={wipLimits} onChange={onWipLimitsChange} />
           </TabsContent>
 
           <TabsContent value="display" className="mt-4">

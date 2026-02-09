@@ -10,62 +10,22 @@
  */
 import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Search,
-  UserPlus,
-  ArrowUpDown,
-  Grid3X3,
-  List,
-  Mail,
-  Phone,
-  Building,
-  Briefcase,
-  Link2,
-} from 'lucide-react';
+import { Search, UserPlus, ArrowUpDown, Grid3X3, List, Mail, Phone, Building, Briefcase, Link2 } from 'lucide-react';
 import { apiClient } from '@/ui/lib/api-client';
 import type { Contact, ContactsResponse, ContactBody } from '@/ui/lib/api-types';
 import { getInitials } from '@/ui/lib/work-item-utils';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-  EmptyState,
-} from '@/ui/components/feedback';
+import { Skeleton, SkeletonList, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
 import { Textarea } from '@/ui/components/ui/textarea';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/ui/components/ui/sheet';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { useContacts } from '@/ui/hooks/queries/use-contacts';
 
 /** Sort options for the contacts list. */
@@ -85,18 +45,11 @@ function sortContacts(contacts: Contact[], field: SortField): Contact[] {
   const sorted = [...contacts];
   switch (field) {
     case 'name':
-      return sorted.sort((a, b) =>
-        a.display_name.localeCompare(b.display_name),
-      );
+      return sorted.sort((a, b) => a.display_name.localeCompare(b.display_name));
     case 'recent':
-      return sorted.sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
+      return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     case 'endpoints':
-      return sorted.sort(
-        (a, b) => b.endpoints.length - a.endpoints.length,
-      );
+      return sorted.sort((a, b) => b.endpoints.length - a.endpoints.length);
     default:
       return sorted;
   }
@@ -122,13 +75,7 @@ export function ContactsPage(): React.JSX.Element {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useContacts(debouncedSearch || undefined);
+  const { data, isLoading, isError, error, refetch } = useContacts(debouncedSearch || undefined);
 
   /** Sorted contacts list. */
   const sortedContacts = useMemo(() => {
@@ -272,10 +219,7 @@ export function ContactsPage(): React.JSX.Element {
 
         <div className="flex items-center gap-2">
           {/* Sort */}
-          <Select
-            value={sortField}
-            onValueChange={(v) => setSortField(v as SortField)}
-          >
+          <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
             <SelectTrigger className="w-[150px]" data-testid="sort-select">
               <ArrowUpDown className="mr-2 size-4" />
               <SelectValue placeholder="Sort by" />
@@ -320,11 +264,7 @@ export function ContactsPage(): React.JSX.Element {
             <EmptyState
               variant="contacts"
               title={search ? 'No contacts found' : 'No contacts yet'}
-              description={
-                search
-                  ? 'Try a different search term.'
-                  : 'Add your first contact to get started.'
-              }
+              description={search ? 'Try a different search term.' : 'Add your first contact to get started.'}
               onAction={!search ? handleAddNew : undefined}
               actionLabel="Add Contact"
             />
@@ -351,9 +291,7 @@ export function ContactsPage(): React.JSX.Element {
                           {getInitials(contact.display_name)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-foreground truncate">
-                            {contact.display_name}
-                          </h3>
+                          <h3 className="font-medium text-foreground truncate">{contact.display_name}</h3>
                           {email && (
                             <p className="flex items-center gap-1 text-sm text-muted-foreground truncate mt-0.5">
                               <Mail className="size-3 shrink-0" />
@@ -401,9 +339,7 @@ export function ContactsPage(): React.JSX.Element {
                           {getInitials(contact.display_name)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {contact.display_name}
-                          </p>
+                          <p className="font-medium text-foreground truncate">{contact.display_name}</p>
                           <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                             {email && (
                               <span className="flex items-center gap-1 truncate">
@@ -438,9 +374,7 @@ export function ContactsPage(): React.JSX.Element {
         <SheetContent className="w-96 sm:max-w-md" data-testid="contact-detail-sheet">
           <SheetHeader>
             <SheetTitle className="sr-only">Contact Details</SheetTitle>
-            <SheetDescription className="sr-only">
-              View contact information and endpoints
-            </SheetDescription>
+            <SheetDescription className="sr-only">View contact information and endpoints</SheetDescription>
           </SheetHeader>
 
           {selectedContact && (
@@ -452,40 +386,22 @@ export function ContactsPage(): React.JSX.Element {
                     {getInitials(selectedContact.display_name)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold">
-                      {selectedContact.display_name}
-                    </h2>
+                    <h2 className="text-lg font-semibold">{selectedContact.display_name}</h2>
                     {getEndpointValue(selectedContact, 'email') && (
-                      <p className="text-sm text-muted-foreground">
-                        {getEndpointValue(selectedContact, 'email')}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{getEndpointValue(selectedContact, 'email')}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleNavigateToDetail(selectedContact)}
-                    data-testid="view-full-detail"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => handleNavigateToDetail(selectedContact)} data-testid="view-full-detail">
                     View Full Profile
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(selectedContact)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(selectedContact)}>
                     Edit
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteContact(selectedContact)}
-                  >
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteContact(selectedContact)}>
                     Delete
                   </Button>
                 </div>
@@ -497,9 +413,7 @@ export function ContactsPage(): React.JSX.Element {
                   <>
                     <div>
                       <h3 className="text-sm font-medium mb-2">Notes</h3>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-                        {selectedContact.notes}
-                      </p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">{selectedContact.notes}</p>
                     </div>
                     <Separator />
                   </>
@@ -516,10 +430,7 @@ export function ContactsPage(): React.JSX.Element {
                   {selectedContact.endpoints.length > 0 ? (
                     <div className="space-y-2">
                       {selectedContact.endpoints.map((ep, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/30"
-                        >
+                        <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/30">
                           {ep.type === 'email' && <Mail className="size-4 text-muted-foreground" />}
                           {ep.type === 'phone' && <Phone className="size-4 text-muted-foreground" />}
                           {ep.type !== 'email' && ep.type !== 'phone' && (
@@ -532,9 +443,7 @@ export function ContactsPage(): React.JSX.Element {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      No endpoints
-                    </p>
+                    <p className="text-sm text-muted-foreground py-4 text-center">No endpoints</p>
                   )}
                 </div>
               </div>
@@ -576,13 +485,7 @@ interface ContactFormDialogProps {
   onSubmit: (body: ContactBody) => void;
 }
 
-function ContactFormDialog({
-  open,
-  onOpenChange,
-  contact,
-  isSubmitting,
-  onSubmit,
-}: ContactFormDialogProps) {
+function ContactFormDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: ContactFormDialogProps) {
   const [displayName, setDisplayName] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -609,11 +512,7 @@ function ContactFormDialog({
       <DialogContent className="sm:max-w-md" data-testid="contact-form-dialog">
         <DialogHeader>
           <DialogTitle>{contact ? 'Edit Contact' : 'Add Contact'}</DialogTitle>
-          <DialogDescription>
-            {contact
-              ? 'Update the contact details below.'
-              : 'Fill in the details to add a new contact.'}
-          </DialogDescription>
+          <DialogDescription>{contact ? 'Update the contact details below.' : 'Fill in the details to add a new contact.'}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -646,18 +545,10 @@ function ContactFormDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={!isValid || isSubmitting}
-              data-testid="contact-form-submit"
-            >
+            <Button type="submit" disabled={!isValid || isSubmitting} data-testid="contact-form-submit">
               {contact ? 'Save Changes' : 'Add Contact'}
             </Button>
           </DialogFooter>

@@ -65,7 +65,7 @@ export interface SimilarNotesResponse {
 function buildAccessConditions(
   userEmail: string,
   isAgent: boolean,
-  paramIndex: number
+  paramIndex: number,
 ): { conditions: string[]; params: (string | boolean)[]; nextIndex: number } {
   const conditions: string[] = [];
   const params: (string | boolean)[] = [];
@@ -108,7 +108,7 @@ export async function textSearch(
   pool: Pool,
   query: string,
   userEmail: string,
-  options: SearchOptions = {}
+  options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
   const { notebookId, tags, visibility, limit = 20, offset = 0, isAgent = false } = options;
 
@@ -148,7 +148,7 @@ export async function textSearch(
     `SELECT COUNT(*) as total
      FROM note n
      WHERE ${whereClause}`,
-    params
+    params,
   );
   const total = parseInt(countResult.rows[0].total, 10);
 
@@ -179,7 +179,7 @@ export async function textSearch(
     WHERE ${whereClause}
     ORDER BY score DESC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    params
+    params,
   );
 
   return {
@@ -206,17 +206,9 @@ export async function semanticSearch(
   pool: Pool,
   query: string,
   userEmail: string,
-  options: SearchOptions = {}
+  options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
-  const {
-    notebookId,
-    tags,
-    visibility,
-    limit = 20,
-    offset = 0,
-    minSimilarity = 0.3,
-    isAgent = false,
-  } = options;
+  const { notebookId, tags, visibility, limit = 20, offset = 0, minSimilarity = 0.3, isAgent = false } = options;
 
   // Import embedding service lazily
   const { embeddingService } = await import('../embeddings/service.ts');
@@ -285,7 +277,7 @@ export async function semanticSearch(
     `SELECT COUNT(*) as total
      FROM note n
      WHERE ${whereClause} AND ${similarityCondition}`,
-    params
+    params,
   );
   const total = parseInt(countResult.rows[0].total, 10);
 
@@ -314,7 +306,7 @@ export async function semanticSearch(
     WHERE ${whereClause} AND ${similarityCondition}
     ORDER BY n.embedding <=> $${embeddingParamIndex}::vector
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    params
+    params,
   );
 
   return {
@@ -339,11 +331,7 @@ export async function semanticSearch(
  * RRF(d) = Σ 1 / (k + rank(d)) for each ranking
  * k=60 is a common constant that reduces the impact of high rankings
  */
-function reciprocalRankFusion(
-  textResults: SearchResult[],
-  semanticResults: SearchResult[],
-  k = 60
-): SearchResult[] {
+function reciprocalRankFusion(textResults: SearchResult[], semanticResults: SearchResult[], k = 60): SearchResult[] {
   const scores = new Map<string, { score: number; result: SearchResult; hasTextSnippet: boolean }>();
 
   // Score from text search (prefer these snippets as they have highlights)
@@ -377,7 +365,7 @@ export async function hybridSearch(
   pool: Pool,
   query: string,
   userEmail: string,
-  options: SearchOptions = {}
+  options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
   const { limit = 20, offset = 0 } = options;
 
@@ -406,12 +394,7 @@ export async function hybridSearch(
 /**
  * Main search function that routes to appropriate search method.
  */
-export async function searchNotes(
-  pool: Pool,
-  query: string,
-  userEmail: string,
-  options: SearchOptions = {}
-): Promise<SearchResponse> {
+export async function searchNotes(pool: Pool, query: string, userEmail: string, options: SearchOptions = {}): Promise<SearchResponse> {
   const { searchType = 'hybrid', limit = 20, offset = 0 } = options;
 
   let result: { results: SearchResult[]; total: number };
@@ -446,7 +429,7 @@ export async function findSimilarNotes(
   pool: Pool,
   noteId: string,
   userEmail: string,
-  options: { limit?: number; minSimilarity?: number; isAgent?: boolean } = {}
+  options: { limit?: number; minSimilarity?: number; isAgent?: boolean } = {},
 ): Promise<SimilarNotesResponse | null> {
   const { limit = 5, minSimilarity = 0.5, isAgent = false } = options;
 
@@ -456,7 +439,7 @@ export async function findSimilarNotes(
       n.id::text, n.title, n.embedding, n.visibility, n.user_email
     FROM note n
     WHERE n.id = $1 AND n.deleted_at IS NULL`,
-    [noteId]
+    [noteId],
   );
 
   if (noteResult.rows.length === 0) {
@@ -466,10 +449,7 @@ export async function findSimilarNotes(
   const sourceNote = noteResult.rows[0];
 
   // Check if user can access the note
-  const canAccess =
-    sourceNote.user_email === userEmail ||
-    sourceNote.visibility === 'public' ||
-    sourceNote.visibility === 'shared';
+  const canAccess = sourceNote.user_email === userEmail || sourceNote.visibility === 'public' || sourceNote.visibility === 'shared';
 
   if (!canAccess) {
     // Check for shares
@@ -478,7 +458,7 @@ export async function findSimilarNotes(
        WHERE note_id = $1 AND shared_with_email = $2
          AND (expires_at IS NULL OR expires_at > NOW())
        LIMIT 1`,
-      [noteId, userEmail]
+      [noteId, userEmail],
     );
     if (shareResult.rows.length === 0) {
       return null;
@@ -526,7 +506,7 @@ export async function findSimilarNotes(
       AND 1 - (n.embedding <=> (SELECT embedding FROM note WHERE id = $${paramIndex})) >= $${minSimParamIndex}
     ORDER BY n.embedding <=> (SELECT embedding FROM note WHERE id = $${paramIndex})
     LIMIT $${limitParamIndex}`,
-    [...params, noteId]
+    [...params, noteId],
   );
 
   return {

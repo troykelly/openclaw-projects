@@ -17,20 +17,9 @@ const sizeClasses = {
   lg: 'min-h-14 min-w-14', // 56px
 };
 
-export function TouchTarget({
-  children,
-  size = 'md',
-  className,
-}: TouchTargetProps) {
+export function TouchTarget({ children, size = 'md', className }: TouchTargetProps) {
   return (
-    <div
-      data-testid="touch-target"
-      className={cn(
-        'flex items-center justify-center',
-        sizeClasses[size],
-        className
-      )}
-    >
+    <div data-testid="touch-target" className={cn('flex items-center justify-center', sizeClasses[size], className)}>
       {children}
     </div>
   );

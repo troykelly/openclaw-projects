@@ -48,26 +48,16 @@ describe('SortControls', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /toggle sort direction/i }));
 
-      expect(onSortChange).toHaveBeenCalledWith(
-        expect.objectContaining({ direction: 'asc' })
-      );
+      expect(onSortChange).toHaveBeenCalledWith(expect.objectContaining({ direction: 'asc' }));
     });
 
     it('toggles from asc to desc', () => {
       const onSortChange = vi.fn();
-      render(
-        <SortControls
-          {...defaultProps}
-          sort={{ field: 'created', direction: 'asc' }}
-          onSortChange={onSortChange}
-        />
-      );
+      render(<SortControls {...defaultProps} sort={{ field: 'created', direction: 'asc' }} onSortChange={onSortChange} />);
 
       fireEvent.click(screen.getByRole('button', { name: /toggle sort direction/i }));
 
-      expect(onSortChange).toHaveBeenCalledWith(
-        expect.objectContaining({ direction: 'desc' })
-      );
+      expect(onSortChange).toHaveBeenCalledWith(expect.objectContaining({ direction: 'desc' }));
     });
   });
 
@@ -121,9 +111,7 @@ describe('useSortState', () => {
   });
 
   it('initializes with custom default sort', () => {
-    const { result } = renderHook(() =>
-      useSortState('test-view', { field: 'priority', direction: 'asc' })
-    );
+    const { result } = renderHook(() => useSortState('test-view', { field: 'priority', direction: 'asc' }));
     expect(result.current.sort.field).toBe('priority');
     expect(result.current.sort.direction).toBe('asc');
   });
@@ -166,10 +154,7 @@ describe('useSortState', () => {
       result.current.setSort({ field: 'priority', direction: 'desc' });
     });
 
-    expect(localStorage.setItem).toHaveBeenCalledWith(
-      'openclaw-sort-test-view',
-      expect.any(String)
-    );
+    expect(localStorage.setItem).toHaveBeenCalledWith('openclaw-sort-test-view', expect.any(String));
   });
 
   it('loads saved sort from localStorage', () => {
@@ -245,11 +230,7 @@ describe('sortItems', () => {
 
   it('sorts by created date', () => {
     const sorted = sortItems(items, { field: 'created', direction: 'desc' });
-    expect(sorted.map((i) => i.created)).toEqual([
-      '2024-01-03',
-      '2024-01-02',
-      '2024-01-01',
-    ]);
+    expect(sorted.map((i) => i.created)).toEqual(['2024-01-03', '2024-01-02', '2024-01-01']);
   });
 
   it('handles secondary sort', () => {

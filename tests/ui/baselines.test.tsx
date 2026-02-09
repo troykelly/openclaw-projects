@@ -9,18 +9,9 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  CreateBaselineDialog,
-  type CreateBaselineDialogProps,
-} from '@/ui/components/baselines/create-baseline-dialog';
-import {
-  BaselineList,
-  type BaselineListProps,
-} from '@/ui/components/baselines/baseline-list';
-import {
-  BaselineComparison,
-  type BaselineComparisonProps,
-} from '@/ui/components/baselines/baseline-comparison';
+import { CreateBaselineDialog, type CreateBaselineDialogProps } from '@/ui/components/baselines/create-baseline-dialog';
+import { BaselineList, type BaselineListProps } from '@/ui/components/baselines/baseline-list';
+import { BaselineComparison, type BaselineComparisonProps } from '@/ui/components/baselines/baseline-comparison';
 import {
   compareBaselines,
   calculateSlippage,
@@ -51,9 +42,7 @@ describe('Baseline Utils', () => {
     });
 
     it('should identify added items', () => {
-      const baseline: BaselineItem[] = [
-        { id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 },
-      ];
+      const baseline: BaselineItem[] = [{ id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 }];
       const current: BaselineItem[] = [
         { id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 },
         { id: '2', title: 'Task B', startDate: '2026-01-06', endDate: '2026-01-10', estimate: 4 },
@@ -70,9 +59,7 @@ describe('Baseline Utils', () => {
         { id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 },
         { id: '2', title: 'Task B', startDate: '2026-01-06', endDate: '2026-01-10', estimate: 4 },
       ];
-      const current: BaselineItem[] = [
-        { id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 },
-      ];
+      const current: BaselineItem[] = [{ id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 }];
 
       const result = compareBaselines(baseline, current);
 
@@ -81,12 +68,8 @@ describe('Baseline Utils', () => {
     });
 
     it('should identify unchanged items', () => {
-      const baseline: BaselineItem[] = [
-        { id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 },
-      ];
-      const current: BaselineItem[] = [
-        { id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 },
-      ];
+      const baseline: BaselineItem[] = [{ id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 }];
+      const current: BaselineItem[] = [{ id: '1', title: 'Task A', startDate: '2026-01-01', endDate: '2026-01-05', estimate: 3 }];
 
       const result = compareBaselines(baseline, current);
 
@@ -241,7 +224,7 @@ describe('CreateBaselineDialog', () => {
     expect(onCreateBaseline).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Sprint 5 Plan',
-      })
+      }),
     );
   });
 
@@ -405,7 +388,7 @@ describe('BaselineComparison', () => {
     render(<BaselineComparison {...defaultProps} />);
     const slippedItems = screen.getAllByText(/\+4 days/i);
     // At least one should have the destructive class
-    const hasDestructive = slippedItems.some(el => el.classList.contains('text-destructive'));
+    const hasDestructive = slippedItems.some((el) => el.classList.contains('text-destructive'));
     expect(hasDestructive).toBe(true);
   });
 

@@ -13,9 +13,7 @@ describe('API Dockerfile hardening', () => {
 
   beforeAll(() => {
     dockerfileContent = readFileSync(DOCKERFILE_PATH, 'utf-8');
-    dockerignoreContent = existsSync(DOCKERIGNORE_PATH)
-      ? readFileSync(DOCKERIGNORE_PATH, 'utf-8')
-      : '';
+    dockerignoreContent = existsSync(DOCKERIGNORE_PATH) ? readFileSync(DOCKERIGNORE_PATH, 'utf-8') : '';
   });
 
   describe('Dockerfile structure', () => {
@@ -140,7 +138,7 @@ describe('API Docker image build and runtime', () => {
           --build-arg VCS_REF=test \
           --build-arg VERSION=test \
           .`,
-        { cwd: ROOT_DIR, stdio: 'pipe', timeout: 300000 }
+        { cwd: ROOT_DIR, stdio: 'pipe', timeout: 300000 },
       );
     } catch (error) {
       console.error('Failed to build Docker image:', error);
@@ -157,19 +155,13 @@ describe('API Docker image build and runtime', () => {
   });
 
   it.skipIf(!canRunDocker)('runs as non-root user (UID 1000)', () => {
-    const result = execSync(
-      `docker run --rm ${IMAGE_NAME} id -u`,
-      { cwd: ROOT_DIR, encoding: 'utf-8' }
-    );
+    const result = execSync(`docker run --rm ${IMAGE_NAME} id -u`, { cwd: ROOT_DIR, encoding: 'utf-8' });
     expect(result.trim()).toBe('1000');
   });
 
   it.skipIf(!canRunDocker)('does not contain src/ui/ directory', () => {
     try {
-      execSync(
-        `docker run --rm ${IMAGE_NAME} ls -la /app/src/ui/`,
-        { cwd: ROOT_DIR, encoding: 'utf-8' }
-      );
+      execSync(`docker run --rm ${IMAGE_NAME} ls -la /app/src/ui/`, { cwd: ROOT_DIR, encoding: 'utf-8' });
       // If we get here, the directory exists which is bad
       expect(false).toBe(true);
     } catch (error: unknown) {
@@ -180,20 +172,14 @@ describe('API Docker image build and runtime', () => {
   });
 
   it.skipIf(!canRunDocker)('has OCI labels', () => {
-    const result = execSync(
-      `docker image inspect ${IMAGE_NAME} --format '{{json .Config.Labels}}'`,
-      { cwd: ROOT_DIR, encoding: 'utf-8' }
-    );
+    const result = execSync(`docker image inspect ${IMAGE_NAME} --format '{{json .Config.Labels}}'`, { cwd: ROOT_DIR, encoding: 'utf-8' });
     const labels = JSON.parse(result);
     expect(labels['org.opencontainers.image.title']).toBe('openclaw-api');
     expect(labels['org.opencontainers.image.source']).toMatch(/github\.com/);
   });
 
   it.skipIf(!canRunDocker)('exposes only port 3000', () => {
-    const result = execSync(
-      `docker image inspect ${IMAGE_NAME} --format '{{json .Config.ExposedPorts}}'`,
-      { cwd: ROOT_DIR, encoding: 'utf-8' }
-    );
+    const result = execSync(`docker image inspect ${IMAGE_NAME} --format '{{json .Config.ExposedPorts}}'`, { cwd: ROOT_DIR, encoding: 'utf-8' });
     const ports = JSON.parse(result);
     const portKeys = Object.keys(ports);
     expect(portKeys).toHaveLength(1);
@@ -266,10 +252,10 @@ describe('Multi-architecture build support', () => {
         --build-arg VCS_REF=test \
         --build-arg VERSION=test \
         .`,
-        { cwd: ROOT_DIR, encoding: 'utf-8', stdio: 'pipe', timeout: 600000 }
+        { cwd: ROOT_DIR, encoding: 'utf-8', stdio: 'pipe', timeout: 600000 },
       );
       expect(true).toBe(true);
     },
-    600000
+    600000,
   );
 });

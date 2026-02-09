@@ -37,18 +37,11 @@ export interface MemoryWithEmbedding {
  * @param content The content to embed (title + content concatenated)
  * @returns The embedding status
  */
-export async function generateMemoryEmbedding(
-  pool: Pool,
-  memoryId: string,
-  content: string
-): Promise<MemoryEmbeddingStatus> {
+export async function generateMemoryEmbedding(pool: Pool, memoryId: string, content: string): Promise<MemoryEmbeddingStatus> {
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Mark as pending - can be backfilled later
-    await pool.query(
-      `UPDATE memory SET embedding_status = 'pending' WHERE id = $1`,
-      [memoryId]
-    );
+    await pool.query(`UPDATE memory SET embedding_status = 'pending' WHERE id = $1`, [memoryId]);
     return 'pending';
   }
 
@@ -56,10 +49,7 @@ export async function generateMemoryEmbedding(
     const result = await embeddingService.embed(content);
 
     if (!result) {
-      await pool.query(
-        `UPDATE memory SET embedding_status = 'pending' WHERE id = $1`,
-        [memoryId]
-      );
+      await pool.query(`UPDATE memory SET embedding_status = 'pending' WHERE id = $1`, [memoryId]);
       return 'pending';
     }
 
@@ -72,12 +62,7 @@ export async function generateMemoryEmbedding(
            embedding_status = 'complete',
            updated_at = NOW()
        WHERE id = $4`,
-      [
-        `[${result.embedding.join(',')}]`,
-        result.model,
-        result.provider,
-        memoryId,
-      ]
+      [`[${result.embedding.join(',')}]`, result.model, result.provider, memoryId],
     );
 
     return 'complete';
@@ -88,18 +73,10 @@ export async function generateMemoryEmbedding(
       return 'failed';
     }
     // Log error but don't fail the request
-    console.error(
-      `[Embeddings] Failed to embed memory ${memoryId}:`,
-      error instanceof EmbeddingError
-        ? error.toSafeString()
-        : msg
-    );
+    console.error(`[Embeddings] Failed to embed memory ${memoryId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
 
     // Mark as failed (may also fail if pool is closed, ignore that)
-    await pool.query(
-      `UPDATE memory SET embedding_status = 'failed' WHERE id = $1`,
-      [memoryId]
-    ).catch(() => {});
+    await pool.query(`UPDATE memory SET embedding_status = 'failed' WHERE id = $1`, [memoryId]).catch(() => {});
 
     return 'failed';
   }
@@ -127,7 +104,7 @@ export async function searchMemoriesSemantic(
     relationshipId?: string;
     userEmail?: string;
     tags?: string[];
-  } = {}
+  } = {},
 ): Promise<{
   results: Array<MemoryWithEmbedding & { similarity: number }>;
   searchType: 'semantic' | 'text';
@@ -149,9 +126,7 @@ export async function searchMemoriesSemantic(
     } catch (error) {
       console.warn(
         '[Embeddings] Query embedding failed, falling back to text search:',
-        error instanceof EmbeddingError
-          ? error.toSafeString()
-          : (error as Error).message
+        error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message,
       );
     }
   }
@@ -208,9 +183,7 @@ export async function searchMemoriesSemantic(
 
     // Only search memories that have embeddings
     const embeddingCondition = `m.embedding IS NOT NULL AND m.embedding_status = 'complete'`;
-    const fullWhereClause = whereClause
-      ? `${whereClause} AND ${embeddingCondition}`
-      : `WHERE ${embeddingCondition}`;
+    const fullWhereClause = whereClause ? `${whereClause} AND ${embeddingCondition}` : `WHERE ${embeddingCondition}`;
 
     params.push(limit);
     const limitParamIndex = paramIndex++;
@@ -235,7 +208,7 @@ export async function searchMemoriesSemantic(
        ${fullWhereClause}
        ORDER BY m.embedding <=> $${embeddingParamIndex}::vector
        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-      params
+      params,
     );
 
     return {
@@ -250,9 +223,7 @@ export async function searchMemoriesSemantic(
   const searchParamIndex = paramIndex++;
 
   const searchCondition = `(m.title ILIKE $${searchParamIndex} OR m.content ILIKE $${searchParamIndex})`;
-  const fullWhereClause = whereClause
-    ? `${whereClause} AND ${searchCondition}`
-    : `WHERE ${searchCondition}`;
+  const fullWhereClause = whereClause ? `${whereClause} AND ${searchCondition}` : `WHERE ${searchCondition}`;
 
   params.push(limit);
   const limitParamIndex = paramIndex++;
@@ -276,7 +247,7 @@ export async function searchMemoriesSemantic(
      ${fullWhereClause}
      ORDER BY m.updated_at DESC
      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    params
+    params,
   );
 
   return {
@@ -297,7 +268,7 @@ export async function backfillMemoryEmbeddings(
   options: {
     batchSize?: number;
     force?: boolean;
-  } = {}
+  } = {},
 ): Promise<{
   processed: number;
   succeeded: number;
@@ -310,9 +281,7 @@ export async function backfillMemoryEmbeddings(
   }
 
   // Find memories without embeddings (or all if force=true)
-  const condition = force
-    ? '1=1'
-    : "(embedding_status IS NULL OR embedding_status != 'complete')";
+  const condition = force ? '1=1' : "(embedding_status IS NULL OR embedding_status != 'complete')";
 
   const result = await pool.query(
     `SELECT id::text as id, title, content
@@ -320,7 +289,7 @@ export async function backfillMemoryEmbeddings(
      WHERE ${condition}
      ORDER BY created_at ASC
      LIMIT $1`,
-    [batchSize]
+    [batchSize],
   );
 
   let succeeded = 0;

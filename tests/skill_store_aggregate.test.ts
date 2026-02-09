@@ -30,19 +30,21 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
   });
 
   // Helper to insert an item
-  async function insertItem(overrides: {
-    skill_id?: string;
-    title?: string;
-    summary?: string;
-    content?: string;
-    collection?: string;
-    key?: string;
-    tags?: string[];
-    status?: string;
-    user_email?: string;
-    deleted_at?: string;
-    created_at?: string;
-  } = {}): Promise<string> {
+  async function insertItem(
+    overrides: {
+      skill_id?: string;
+      title?: string;
+      summary?: string;
+      content?: string;
+      collection?: string;
+      key?: string;
+      tags?: string[];
+      status?: string;
+      user_email?: string;
+      deleted_at?: string;
+      created_at?: string;
+    } = {},
+  ): Promise<string> {
     const result = await pool.query(
       `INSERT INTO skill_store_item (skill_id, collection, key, title, summary, content, tags, status, user_email, deleted_at, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::skill_store_item_status, 'active'), $9, $10::timestamptz, COALESCE($11::timestamptz, now()))
@@ -59,7 +61,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
         overrides.user_email ?? null,
         overrides.deleted_at ?? null,
         overrides.created_at ?? null,
-      ]
+      ],
     );
     return result.rows[0].id;
   }
@@ -68,9 +70,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
   describe('aggregate count', () => {
     it('counts all active items for a skill', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Item 1' });
       await insertItem({ skill_id: 'sk1', title: 'Item 2' });
@@ -86,9 +86,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
     });
 
     it('counts items in a specific collection', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', collection: 'notes', title: 'Note 1' });
       await insertItem({ skill_id: 'sk1', collection: 'notes', title: 'Note 2' });
@@ -104,9 +102,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
     });
 
     it('filters by user_email', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'User A item', user_email: 'a@test.com' });
       await insertItem({ skill_id: 'sk1', title: 'User B item', user_email: 'b@test.com' });
@@ -122,9 +118,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
     });
 
     it('filters by since/until time range', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Old item', created_at: '2025-01-01T00:00:00Z' });
       await insertItem({ skill_id: 'sk1', title: 'Recent item', created_at: '2026-01-15T00:00:00Z' });
@@ -145,9 +139,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
   describe('aggregate count_by_tag', () => {
     it('returns tag counts', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', tags: ['important', 'draft'] });
       await insertItem({ skill_id: 'sk1', tags: ['important'] });
@@ -161,11 +153,11 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
       expect(result.tags).toBeDefined();
       const tags = result.tags as Array<{ tag: string; count: number }>;
-      const importantTag = tags.find(t => t.tag === 'important');
+      const importantTag = tags.find((t) => t.tag === 'important');
       expect(importantTag?.count).toBe(2);
-      const draftTag = tags.find(t => t.tag === 'draft');
+      const draftTag = tags.find((t) => t.tag === 'draft');
       expect(draftTag?.count).toBe(2);
-      const reviewTag = tags.find(t => t.tag === 'review');
+      const reviewTag = tags.find((t) => t.tag === 'review');
       expect(reviewTag?.count).toBe(1);
     });
   });
@@ -174,9 +166,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
   describe('aggregate count_by_status', () => {
     it('returns status counts', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', status: 'active' });
       await insertItem({ skill_id: 'sk1', status: 'active' });
@@ -191,11 +181,11 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
       expect(result.statuses).toBeDefined();
       const statuses = result.statuses as Array<{ status: string; count: number }>;
-      const active = statuses.find(s => s.status === 'active');
+      const active = statuses.find((s) => s.status === 'active');
       expect(active?.count).toBe(2);
-      const archived = statuses.find(s => s.status === 'archived');
+      const archived = statuses.find((s) => s.status === 'archived');
       expect(archived?.count).toBe(1);
-      const processing = statuses.find(s => s.status === 'processing');
+      const processing = statuses.find((s) => s.status === 'processing');
       expect(processing?.count).toBe(1);
     });
   });
@@ -204,9 +194,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
   describe('aggregate latest', () => {
     it('returns the most recently created item', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Old', created_at: '2025-01-01T00:00:00Z' });
       await insertItem({ skill_id: 'sk1', title: 'New', created_at: '2026-02-01T00:00:00Z' });
@@ -222,9 +210,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
     });
 
     it('returns null when no items exist', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       const result = await aggregateSkillStoreItems(pool, {
         skill_id: 'nonexistent',
@@ -239,9 +225,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
 
   describe('aggregate oldest', () => {
     it('returns the oldest created item', async () => {
-      const { aggregateSkillStoreItems } = await import(
-        '../src/api/skill-store/aggregate.ts'
-      );
+      const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Oldest', created_at: '2025-01-01T00:00:00Z' });
       await insertItem({ skill_id: 'sk1', title: 'Newer', created_at: '2026-01-01T00:00:00Z' });
@@ -275,7 +259,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
          GROUP BY collection
          HAVING COUNT(*) FILTER (WHERE deleted_at IS NULL) > 0
          ORDER BY collection`,
-        ['sk1', 'a@test.com']
+        ['sk1', 'a@test.com'],
       );
 
       expect(result.rows).toHaveLength(2);
@@ -341,7 +325,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
     await pool.query(
       `INSERT INTO skill_store_item (skill_id, collection, key, title)
        VALUES ('agg-skill', 'notes', 'k1', 'Item 1'),
-              ('agg-skill', 'notes', 'k2', 'Item 2')`
+              ('agg-skill', 'notes', 'k2', 'Item 2')`,
     );
 
     const res = await app.inject({
@@ -357,7 +341,7 @@ describe('GET /api/skill-store/aggregate HTTP endpoint (Issue #831)', () => {
       `INSERT INTO skill_store_item (skill_id, collection, key, title, status)
        VALUES ('agg-skill', 'c', 'k1', 'A', 'active'),
               ('agg-skill', 'c', 'k2', 'B', 'active'),
-              ('agg-skill', 'c', 'k3', 'C', 'archived')`
+              ('agg-skill', 'c', 'k3', 'C', 'archived')`,
     );
 
     const res = await app.inject({

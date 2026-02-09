@@ -104,43 +104,26 @@ export function SearchPage(): React.JSX.Element {
   };
 
   const hasQuery = query.length > 0;
-  const hasResults =
-    grouped.work_items.length > 0 ||
-    grouped.contacts.length > 0 ||
-    grouped.memories.length > 0;
+  const hasResults = grouped.work_items.length > 0 || grouped.contacts.length > 0 || grouped.memories.length > 0;
 
   return (
     <div data-testid="page-search" className="p-6 h-full flex flex-col">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-foreground">Search</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Find work items, contacts, and memories
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Find work items, contacts, and memories</p>
       </div>
 
       {/* Search input */}
       <div className="relative mb-6 max-w-2xl">
         <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Search..."
-          value={query}
-          onChange={handleQueryChange}
-          className="pl-9"
-          data-testid="search-input"
-          autoFocus
-        />
+        <Input type="text" placeholder="Search..." value={query} onChange={handleQueryChange} className="pl-9" data-testid="search-input" autoFocus />
       </div>
 
       {/* States */}
       {!hasQuery && (
         <div data-testid="search-prompt" className="flex-1 flex items-center justify-center">
-          <EmptyState
-            variant="search"
-            title="Start searching"
-            description="Enter a query above to search across work items, contacts, and memories."
-          />
+          <EmptyState variant="search" title="Start searching" description="Enter a query above to search across work items, contacts, and memories." />
         </div>
       )}
 
@@ -151,49 +134,23 @@ export function SearchPage(): React.JSX.Element {
       )}
 
       {hasQuery && error && (
-        <ErrorState
-          type="generic"
-          title="Search failed"
-          description={error instanceof Error ? error.message : 'An unexpected error occurred.'}
-        />
+        <ErrorState type="generic" title="Search failed" description={error instanceof Error ? error.message : 'An unexpected error occurred.'} />
       )}
 
       {hasQuery && !isLoading && !error && !hasResults && (
-        <EmptyState
-          variant="search"
-          title="No results found"
-          description={`No results for "${query}". Try a different search term.`}
-        />
+        <EmptyState variant="search" title="No results found" description={`No results for "${query}". Try a different search term.`} />
       )}
 
       {hasQuery && !isLoading && !error && hasResults && (
         <div className="flex-1 space-y-6" data-testid="search-results">
           {/* Work Items group */}
-          {grouped.work_items.length > 0 && (
-            <ResultGroup
-              testId="group-work_items"
-              type="work_item"
-              items={grouped.work_items}
-            />
-          )}
+          {grouped.work_items.length > 0 && <ResultGroup testId="group-work_items" type="work_item" items={grouped.work_items} />}
 
           {/* Contacts group */}
-          {grouped.contacts.length > 0 && (
-            <ResultGroup
-              testId="group-contacts"
-              type="contact"
-              items={grouped.contacts}
-            />
-          )}
+          {grouped.contacts.length > 0 && <ResultGroup testId="group-contacts" type="contact" items={grouped.contacts} />}
 
           {/* Memories group */}
-          {grouped.memories.length > 0 && (
-            <ResultGroup
-              testId="group-memories"
-              type="memory"
-              items={grouped.memories}
-            />
-          )}
+          {grouped.memories.length > 0 && <ResultGroup testId="group-memories" type="memory" items={grouped.memories} />}
         </div>
       )}
     </div>
@@ -222,26 +179,13 @@ function ResultGroup({ testId, type, items }: ResultGroupProps) {
       </div>
       <div className="space-y-2">
         {items.map((item) => (
-          <Card
-            key={item.id}
-            className="transition-colors hover:bg-accent/30"
-          >
+          <Card key={item.id} className="transition-colors hover:bg-accent/30">
             <CardContent className="p-3">
-              <Link
-                to={resultHref(item)}
-                data-testid={`result-link-${item.id}`}
-                className="block"
-              >
+              <Link to={resultHref(item)} data-testid={`result-link-${item.id}`} className="block">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-foreground truncate">
-                      {item.title}
-                    </h3>
-                    {item.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-                        {item.description}
-                      </p>
-                    )}
+                    <h3 className="font-medium text-foreground truncate">{item.title}</h3>
+                    {item.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>}
                   </div>
                   <Badge variant="outline" className="text-xs shrink-0">
                     {typeBadgeLabel(item.type)}

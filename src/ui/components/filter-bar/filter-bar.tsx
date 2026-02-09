@@ -1,52 +1,15 @@
 import * as React from 'react';
 import { useState, useCallback, useMemo } from 'react';
-import {
-  Filter,
-  X,
-  Plus,
-  ChevronDown,
-  Save,
-  User,
-  AlertTriangle,
-  Zap,
-  Calendar,
-  Folder,
-  Check,
-} from 'lucide-react';
+import { Filter, X, Plus, ChevronDown, Save, User, AlertTriangle, Zap, Calendar, Folder, Check } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { Input } from '@/ui/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/ui/components/ui/dropdown-menu';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/ui/components/ui/popover';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/ui/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/ui/components/ui/dialog';
 import { Checkbox } from '@/ui/components/ui/checkbox';
-import type {
-  FilterBarProps,
-  FilterState,
-  FilterField,
-  FilterFieldConfig,
-  QuickFilter,
-  DateRange,
-  DateRangePreset,
-} from './types';
+import type { FilterBarProps, FilterState, FilterField, FilterFieldConfig, QuickFilter, DateRange, DateRangePreset } from './types';
 
 // Default filter field configurations
 const DEFAULT_FILTER_FIELDS: FilterFieldConfig[] = [
@@ -181,13 +144,7 @@ function FilterChip({ field, label, value, onRemove }: FilterChipProps) {
     <Badge variant="secondary" className="gap-1 pr-1">
       <span className="text-muted-foreground">{label}:</span>
       <span>{value}</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-4 p-0 hover:bg-transparent"
-        onClick={onRemove}
-        aria-label={`Remove ${field} filter`}
-      >
+      <Button variant="ghost" size="icon" className="size-4 p-0 hover:bg-transparent" onClick={onRemove} aria-label={`Remove ${field} filter`}>
         <X className="size-3" />
       </Button>
     </Badge>
@@ -206,11 +163,7 @@ function MultiSelectPopover({ field, config, value, onChange, onClose }: MultiSe
   const [localValue, setLocalValue] = useState(value || []);
 
   const toggleOption = (optionValue: string) => {
-    setLocalValue((prev) =>
-      prev.includes(optionValue)
-        ? prev.filter((v) => v !== optionValue)
-        : [...prev, optionValue]
-    );
+    setLocalValue((prev) => (prev.includes(optionValue) ? prev.filter((v) => v !== optionValue) : [...prev, optionValue]));
   };
 
   const handleApply = () => {
@@ -223,14 +176,8 @@ function MultiSelectPopover({ field, config, value, onChange, onClose }: MultiSe
       <p className="text-sm font-medium">Select {config.label}</p>
       <div className="space-y-1">
         {config.options?.map((option) => (
-          <label
-            key={option.value}
-            className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted cursor-pointer"
-          >
-            <Checkbox
-              checked={localValue.includes(option.value)}
-              onCheckedChange={() => toggleOption(option.value)}
-            />
+          <label key={option.value} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted cursor-pointer">
+            <Checkbox checked={localValue.includes(option.value)} onCheckedChange={() => toggleOption(option.value)} />
             <span className="text-sm">{option.label}</span>
           </label>
         ))}
@@ -257,9 +204,7 @@ export interface DateRangePopoverProps {
 
 export function DateRangePopover({ field, config, value, onChange, onClose }: DateRangePopoverProps) {
   // Parse initial value - could be a DateRange object or a preset string like 'overdue'
-  const initialRange: DateRange = typeof value === 'string'
-    ? { preset: value as DateRangePreset }
-    : value || {};
+  const initialRange: DateRange = typeof value === 'string' ? { preset: value as DateRangePreset } : value || {};
 
   const [selectedPreset, setSelectedPreset] = useState<DateRangePreset | undefined>(initialRange.preset);
   const [fromDate, setFromDate] = useState(initialRange.from || '');
@@ -300,7 +245,7 @@ export function DateRangePopover({ field, config, value, onChange, onClose }: Da
             type="button"
             className={cn(
               'flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted cursor-pointer',
-              selectedPreset === preset.value && 'bg-muted font-medium'
+              selectedPreset === preset.value && 'bg-muted font-medium',
             )}
             onClick={() => handlePresetClick(preset.value)}
           >
@@ -316,22 +261,32 @@ export function DateRangePopover({ field, config, value, onChange, onClose }: Da
           <input
             type="date"
             value={fromDate}
-            onChange={(e) => { setFromDate(e.target.value); setSelectedPreset('custom'); }}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setSelectedPreset('custom');
+            }}
             className="flex-1 rounded border px-2 py-1 text-sm"
             aria-label="From date"
           />
           <input
             type="date"
             value={toDate}
-            onChange={(e) => { setToDate(e.target.value); setSelectedPreset('custom'); }}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setSelectedPreset('custom');
+            }}
             className="flex-1 rounded border px-2 py-1 text-sm"
             aria-label="To date"
           />
         </div>
       </div>
       <div className="flex justify-end gap-2 pt-2 border-t">
-        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" onClick={handleApply}>Apply</Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={handleApply}>
+          Apply
+        </Button>
       </div>
     </div>
   );
@@ -357,26 +312,20 @@ export function BooleanPopover({ field, config, value, onChange, onClose }: Bool
     <div className="space-y-2" data-testid="boolean-popover">
       <p className="text-sm font-medium">{config.label}</p>
       <div className="flex gap-2">
-        <Button
-          variant={localValue === true ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setLocalValue(true)}
-          className="flex-1"
-        >
+        <Button variant={localValue === true ? 'default' : 'outline'} size="sm" onClick={() => setLocalValue(true)} className="flex-1">
           Yes
         </Button>
-        <Button
-          variant={localValue === false ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setLocalValue(false)}
-          className="flex-1"
-        >
+        <Button variant={localValue === false ? 'default' : 'outline'} size="sm" onClick={() => setLocalValue(false)} className="flex-1">
           No
         </Button>
       </div>
       <div className="flex justify-end gap-2 pt-2 border-t">
-        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" onClick={handleApply}>Apply</Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={handleApply}>
+          Apply
+        </Button>
       </div>
     </div>
   );
@@ -399,9 +348,7 @@ export function FilterBar({
   const [filterName, setFilterName] = useState('');
 
   const filterFields = useMemo(() => {
-    const baseFields = DEFAULT_FILTER_FIELDS.filter(
-      (f) => !hideFields.includes(f.field)
-    );
+    const baseFields = DEFAULT_FILTER_FIELDS.filter((f) => !hideFields.includes(f.field));
     return [...baseFields, ...additionalFields];
   }, [hideFields, additionalFields]);
 
@@ -417,7 +364,7 @@ export function FilterBar({
       delete newFilters[field];
       onFiltersChange(newFilters);
     },
-    [filters, onFiltersChange]
+    [filters, onFiltersChange],
   );
 
   const handleApplyQuickFilter = useCallback(
@@ -434,7 +381,7 @@ export function FilterBar({
         onFiltersChange({ ...filters, ...quickFilter.filters });
       }
     },
-    [filters, onFiltersChange]
+    [filters, onFiltersChange],
   );
 
   const handleFieldValueChange = useCallback(
@@ -446,7 +393,7 @@ export function FilterBar({
       }
       setOpenField(null);
     },
-    [filters, onFiltersChange, handleRemoveFilter]
+    [filters, onFiltersChange, handleRemoveFilter],
   );
 
   const handleSaveFilter = useCallback(() => {
@@ -461,7 +408,7 @@ export function FilterBar({
     (savedFilter: { filters: FilterState }) => {
       onFiltersChange(savedFilter.filters);
     },
-    [onFiltersChange]
+    [onFiltersChange],
   );
 
   // Render active filter chips
@@ -480,13 +427,7 @@ export function FilterBar({
     });
 
   return (
-    <div
-      data-testid="filter-bar"
-      className={cn(
-        'flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2',
-        className
-      )}
-    >
+    <div data-testid="filter-bar" className={cn('flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2', className)}>
       <Filter className="size-4 text-muted-foreground" />
 
       {/* Quick filters */}
@@ -513,13 +454,7 @@ export function FilterBar({
 
       {/* Active filter chips */}
       {activeFilterChips.map((chip) => (
-        <FilterChip
-          key={chip.field}
-          field={chip.field}
-          label={chip.label}
-          value={chip.value}
-          onRemove={() => handleRemoveFilter(chip.field)}
-        />
+        <FilterChip key={chip.field} field={chip.field} label={chip.label} value={chip.value} onRemove={() => handleRemoveFilter(chip.field)} />
       ))}
 
       {/* Add filter dropdown */}
@@ -532,10 +467,7 @@ export function FilterBar({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {filterFields.map((field) => (
-            <DropdownMenuItem
-              key={field.field}
-              onClick={() => setOpenField(field.field)}
-            >
+            <DropdownMenuItem key={field.field} onClick={() => setOpenField(field.field)}>
               {field.label}
             </DropdownMenuItem>
           ))}
@@ -609,10 +541,7 @@ export function FilterBar({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {savedFilters.map((sf) => (
-              <DropdownMenuItem
-                key={sf.id}
-                onClick={() => handleApplySavedFilter(sf)}
-              >
+              <DropdownMenuItem key={sf.id} onClick={() => handleApplySavedFilter(sf)}>
                 {sf.name}
               </DropdownMenuItem>
             ))}
@@ -622,12 +551,7 @@ export function FilterBar({
 
       {/* Save filter button */}
       {hasActiveFilters && onSaveFilter && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1 text-xs"
-          onClick={() => setSaveDialogOpen(true)}
-        >
+        <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => setSaveDialogOpen(true)}>
           <Save className="size-3" />
           Save Filter
         </Button>
@@ -635,12 +559,7 @@ export function FilterBar({
 
       {/* Clear all button */}
       {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1 text-xs text-muted-foreground hover:text-foreground"
-          onClick={handleClearAll}
-        >
+        <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={handleClearAll}>
           <X className="size-3" />
           Clear All
         </Button>
@@ -651,9 +570,7 @@ export function FilterBar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Save Filter</DialogTitle>
-            <DialogDescription>
-              Save the current filter settings for quick access later.
-            </DialogDescription>
+            <DialogDescription>Save the current filter settings for quick access later.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input

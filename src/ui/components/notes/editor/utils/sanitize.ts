@@ -15,23 +15,52 @@ import DOMPurify from 'dompurify';
 export const DOMPURIFY_CONFIG: DOMPurify.Config = {
   ALLOWED_TAGS: [
     // Text formatting
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div',
-    'strong', 'em', 'del', 'u', 'sub', 'sup',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'p',
+    'span',
+    'div',
+    'strong',
+    'em',
+    'del',
+    'u',
+    'sub',
+    'sup',
     // Lists
-    'ul', 'ol', 'li',
+    'ul',
+    'ol',
+    'li',
     // Code
-    'pre', 'code',
+    'pre',
+    'code',
     // Tables
-    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
     // Other
-    'blockquote', 'a', 'br', 'hr',
+    'blockquote',
+    'a',
+    'br',
+    'hr',
   ],
   ALLOWED_ATTR: [
-    'href', 'class', 'id',
+    'href',
+    'class',
+    'id',
     // Table attributes
-    'colspan', 'rowspan',
+    'colspan',
+    'rowspan',
     // Accessibility attributes
-    'role', 'aria-label', 'title',
+    'role',
+    'aria-label',
+    'title',
     // Mermaid diagram data attribute (safe - stored as text, not executed as HTML)
     'data-mermaid',
   ],
@@ -56,10 +85,5 @@ export function sanitizeHtml(html: string): string {
  * Escape HTML to prevent XSS when displaying error messages.
  */
 export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }

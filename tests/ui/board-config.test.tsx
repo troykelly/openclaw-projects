@@ -9,32 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  BoardConfig,
-  type BoardConfigProps,
-} from '@/ui/components/board-config/board-config';
-import {
-  ColumnManager,
-  type ColumnManagerProps,
-} from '@/ui/components/board-config/column-manager';
-import {
-  SwimlanesConfig,
-  type SwimlanesConfigProps,
-} from '@/ui/components/board-config/swimlanes-config';
-import {
-  WipLimitsConfig,
-  type WipLimitsConfigProps,
-} from '@/ui/components/board-config/wip-limits-config';
-import {
-  CardDisplayConfig,
-  type CardDisplayConfigProps,
-} from '@/ui/components/board-config/card-display-config';
-import type {
-  BoardColumn,
-  SwimlaneSetting,
-  WipLimit,
-  CardDisplayMode,
-} from '@/ui/components/board-config/types';
+import { BoardConfig, type BoardConfigProps } from '@/ui/components/board-config/board-config';
+import { ColumnManager, type ColumnManagerProps } from '@/ui/components/board-config/column-manager';
+import { SwimlanesConfig, type SwimlanesConfigProps } from '@/ui/components/board-config/swimlanes-config';
+import { WipLimitsConfig, type WipLimitsConfigProps } from '@/ui/components/board-config/wip-limits-config';
+import { CardDisplayConfig, type CardDisplayConfigProps } from '@/ui/components/board-config/card-display-config';
+import type { BoardColumn, SwimlaneSetting, WipLimit, CardDisplayMode } from '@/ui/components/board-config/types';
 
 // Mock data
 const mockColumns: BoardColumn[] = [
@@ -76,10 +56,7 @@ describe('BoardConfig', () => {
 
   it('should show columns tab by default', () => {
     render(<BoardConfig {...defaultProps} />);
-    expect(screen.getByRole('tab', { name: /columns/i })).toHaveAttribute(
-      'data-state',
-      'active'
-    );
+    expect(screen.getByRole('tab', { name: /columns/i })).toHaveAttribute('data-state', 'active');
   });
 
   it('should switch between tabs', () => {
@@ -132,12 +109,7 @@ describe('ColumnManager', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /add column/i }));
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        ...mockColumns,
-        expect.objectContaining({ name: expect.any(String) }),
-      ])
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.arrayContaining([...mockColumns, expect.objectContaining({ name: expect.any(String) })]));
   });
 
   it('should allow renaming column', () => {
@@ -147,11 +119,7 @@ describe('ColumnManager', () => {
     const input = screen.getAllByRole('textbox')[0];
     fireEvent.change(input, { target: { value: 'Backlog' } });
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'col-1', name: 'Backlog' }),
-      ])
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: 'col-1', name: 'Backlog' })]));
   });
 
   it('should show delete button for each column', () => {
@@ -167,9 +135,7 @@ describe('ColumnManager', () => {
     const deleteButtons = screen.getAllByRole('button', { name: /delete|remove/i });
     fireEvent.click(deleteButtons[0]);
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.not.arrayContaining([expect.objectContaining({ id: 'col-1' })])
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.not.arrayContaining([expect.objectContaining({ id: 'col-1' })]));
   });
 
   it('should show column order', () => {
@@ -252,9 +218,7 @@ describe('WipLimitsConfig', () => {
     const inputs = screen.getAllByRole('spinbutton');
     fireEvent.change(inputs[1], { target: { value: '5' } });
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ 'col-2': 5 })
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ 'col-2': 5 }));
   });
 
   it('should show current limits', () => {
@@ -273,9 +237,7 @@ describe('WipLimitsConfig', () => {
     const inputs = screen.getAllByRole('spinbutton');
     fireEvent.change(inputs[1], { target: { value: '' } });
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.not.objectContaining({ 'col-2': expect.anything() })
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.not.objectContaining({ 'col-2': expect.anything() }));
   });
 });
 
@@ -324,17 +286,10 @@ describe('CardDisplayConfig', () => {
 
   it('should call onVisibleFieldsChange when toggling field', () => {
     const onVisibleFieldsChange = vi.fn();
-    render(
-      <CardDisplayConfig
-        {...defaultProps}
-        onVisibleFieldsChange={onVisibleFieldsChange}
-      />
-    );
+    render(<CardDisplayConfig {...defaultProps} onVisibleFieldsChange={onVisibleFieldsChange} />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /assignee/i }));
 
-    expect(onVisibleFieldsChange).toHaveBeenCalledWith(
-      expect.arrayContaining(['title', 'status', 'priority', 'assignee'])
-    );
+    expect(onVisibleFieldsChange).toHaveBeenCalledWith(expect.arrayContaining(['title', 'status', 'priority', 'assignee']));
   });
 });

@@ -51,7 +51,7 @@ export function Sidebar({
         className={cn(
           'flex h-full flex-col border-r border-border bg-surface z-20 transition-all duration-300 ease-out',
           collapsed ? 'w-16' : 'w-60',
-          className
+          className,
         )}
       >
         {/* Logo / Header */}
@@ -60,9 +60,7 @@ export function Sidebar({
             <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-sm">
               <span className="text-sm font-bold text-primary-foreground">O</span>
             </div>
-            {!collapsed && (
-              <span className="text-base font-semibold tracking-tight text-foreground">OpenClaw Projects</span>
-            )}
+            {!collapsed && <span className="text-base font-semibold tracking-tight text-foreground">OpenClaw Projects</span>}
           </div>
           {!collapsed && (
             <button
@@ -84,7 +82,7 @@ export function Sidebar({
                   onClick={onCreateClick}
                   className={cn(
                     'flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90',
-                    collapsed && 'px-0'
+                    collapsed && 'px-0',
                   )}
                   aria-label="Create new work item"
                 >
@@ -118,16 +116,11 @@ export function Sidebar({
                   className={cn(
                     'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                     collapsed && 'justify-center px-0',
-                    isActive
-                      ? 'bg-primary/10 text-primary shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className={cn(
-                    'size-[18px] shrink-0 transition-transform duration-150',
-                    !isActive && 'group-hover:scale-110'
-                  )} />
+                  <Icon className={cn('size-[18px] shrink-0 transition-transform duration-150', !isActive && 'group-hover:scale-110')} />
                   {!collapsed && <span>{item.label}</span>}
                 </button>
               );
@@ -155,7 +148,7 @@ export function Sidebar({
               <button
                 className={cn(
                   'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                  collapsed && 'justify-center px-0'
+                  collapsed && 'justify-center px-0',
                 )}
                 onClick={() => onItemClick?.({ id: 'search', label: 'Search', icon: Search })}
               >
@@ -183,9 +176,7 @@ export function Sidebar({
                 className={cn(
                   'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                   collapsed && 'justify-center px-0',
-                  activeItem === 'settings'
-                    ? 'bg-primary/10 text-primary shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  activeItem === 'settings' ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
                 onClick={() => onItemClick?.({ id: 'settings', label: 'Settings', icon: Settings })}
               >

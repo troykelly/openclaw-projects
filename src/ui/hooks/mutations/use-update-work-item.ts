@@ -35,17 +35,14 @@ export function useUpdateWorkItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: UpdateWorkItemVariables) =>
-      apiClient.put<WorkItemDetail>(`/api/work-items/${id}`, body),
+    mutationFn: ({ id, body }: UpdateWorkItemVariables) => apiClient.put<WorkItemDetail>(`/api/work-items/${id}`, body),
 
     onMutate: async ({ id, body }) => {
       // Cancel in-flight queries for this work item
       await queryClient.cancelQueries({ queryKey: workItemKeys.detail(id) });
 
       // Snapshot the previous value
-      const previousDetail = queryClient.getQueryData<WorkItemDetail>(
-        workItemKeys.detail(id),
-      );
+      const previousDetail = queryClient.getQueryData<WorkItemDetail>(workItemKeys.detail(id));
 
       // Optimistically update the detail cache
       if (previousDetail) {

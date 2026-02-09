@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  getOpenClawConfig,
-  isOpenClawConfigured,
-  clearConfigCache,
-  getConfigSummary,
-} from '../../src/api/webhooks/config.ts';
+import { getOpenClawConfig, isOpenClawConfigured, clearConfigCache, getConfigSummary } from '../../src/api/webhooks/config.ts';
 
 describe('Webhook Config', () => {
   const originalEnv = process.env;

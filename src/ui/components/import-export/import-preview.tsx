@@ -35,9 +35,7 @@ function validateContact(contact: ParsedContact): ValidationError[] {
 
 export function ImportPreview({ data, mappings, className }: ImportPreviewProps) {
   // Get mapped fields for column headers
-  const mappedFields = mappings
-    .filter((m) => m.targetField && m.targetField !== 'skip')
-    .map((m) => m.targetField!);
+  const mappedFields = mappings.filter((m) => m.targetField && m.targetField !== 'skip').map((m) => m.targetField!);
 
   // Validate each row
   const rowsWithValidation = data.map((contact, index) => ({
@@ -52,9 +50,7 @@ export function ImportPreview({ data, mappings, className }: ImportPreviewProps)
     <div className={cn('space-y-3', className)}>
       {/* Summary */}
       <div className="flex items-center justify-between px-2">
-        <span className="text-sm font-medium">
-          {data.length} contacts to import
-        </span>
+        <span className="text-sm font-medium">{data.length} contacts to import</span>
         {errorCount > 0 && (
           <span className="text-sm text-destructive flex items-center gap-1">
             <AlertCircle className="h-3.5 w-3.5" />
@@ -82,10 +78,7 @@ export function ImportPreview({ data, mappings, className }: ImportPreviewProps)
               <tr
                 key={index}
                 data-testid={errors.length > 0 ? 'preview-row-error' : 'preview-row'}
-                className={cn(
-                  'border-t',
-                  errors.length > 0 && 'bg-destructive/5'
-                )}
+                className={cn('border-t', errors.length > 0 && 'bg-destructive/5')}
               >
                 <td className="px-3 py-2 text-muted-foreground">{index + 1}</td>
                 {mappedFields.map((field) => (
@@ -97,9 +90,7 @@ export function ImportPreview({ data, mappings, className }: ImportPreviewProps)
                   {errors.length > 0 ? (
                     <div className="flex items-center gap-1">
                       <AlertCircle className="h-4 w-4 text-destructive" />
-                      <span className="text-xs text-destructive">
-                        {errors[0].message}
-                      </span>
+                      <span className="text-xs text-destructive">{errors[0].message}</span>
                     </div>
                   ) : (
                     <CheckCircle className="h-4 w-4 text-green-600" />

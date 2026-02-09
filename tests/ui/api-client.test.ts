@@ -57,9 +57,12 @@ describe('apiClient', () => {
 
       await apiClient.get('/api/test', { signal: controller.signal });
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/test', expect.objectContaining({
-        signal: controller.signal,
-      }));
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/test',
+        expect.objectContaining({
+          signal: controller.signal,
+        }),
+      );
     });
 
     it('should merge custom headers', async () => {
@@ -71,9 +74,12 @@ describe('apiClient', () => {
 
       await apiClient.get('/api/test', { headers: { 'x-custom': 'value' } });
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/test', expect.objectContaining({
-        headers: { accept: 'application/json', 'x-custom': 'value' },
-      }));
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/test',
+        expect.objectContaining({
+          headers: { accept: 'application/json', 'x-custom': 'value' },
+        }),
+      );
     });
 
     it('should throw ApiRequestError on non-2xx response', async () => {
@@ -84,9 +90,7 @@ describe('apiClient', () => {
         json: async () => ({ message: 'Work item not found' }),
       });
 
-      await expect(apiClient.get('/api/work-items/missing')).rejects.toThrow(
-        ApiRequestError,
-      );
+      await expect(apiClient.get('/api/work-items/missing')).rejects.toThrow(ApiRequestError);
 
       try {
         await apiClient.get('/api/work-items/missing');
@@ -103,7 +107,9 @@ describe('apiClient', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-        json: async () => { throw new Error('not json'); },
+        json: async () => {
+          throw new Error('not json');
+        },
       });
 
       await expect(apiClient.get('/api/broken')).rejects.toThrow(ApiRequestError);
@@ -212,7 +218,9 @@ describe('apiClient', () => {
       const fetchMock = mockFetch({
         ok: true,
         status: 204,
-        json: async () => { throw new Error('no body'); },
+        json: async () => {
+          throw new Error('no body');
+        },
       });
 
       const result = await apiClient.delete('/api/work-items/1');
@@ -245,9 +253,7 @@ describe('apiClient', () => {
         json: async () => ({ message: 'Access denied' }),
       });
 
-      await expect(apiClient.delete('/api/work-items/1')).rejects.toThrow(
-        ApiRequestError,
-      );
+      await expect(apiClient.delete('/api/work-items/1')).rejects.toThrow(ApiRequestError);
     });
   });
 });

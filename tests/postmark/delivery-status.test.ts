@@ -26,20 +26,18 @@ describe('Postmark delivery status webhooks (#294)', () => {
 
     beforeEach(async () => {
       // Create test message with provider_message_id
-      const contact = await pool.query(
-        `INSERT INTO contact (display_name) VALUES ('Postmark Status Test') RETURNING id`
-      );
+      const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Postmark Status Test') RETURNING id`);
       const endpoint = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'email', 'status-test@example.com') RETURNING id`,
-        [contact.rows[0].id]
+        [contact.rows[0].id],
       );
       endpointId = endpoint.rows[0].id;
 
       const thread = await pool.query(
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'email', 'email:postmark-status-test') RETURNING id`,
-        [endpoint.rows[0].id]
+        [endpoint.rows[0].id],
       );
 
       postmarkMessageId = 'a8b9c0d1-e2f3-4a5b-6c7d-8e9f0a1b2c3d';
@@ -51,15 +49,13 @@ describe('Postmark delivery status webhooks (#294)', () => {
          )
          VALUES ($1, 'outbound:postmark-test', 'outbound', 'Test email body', 'Test Subject', 'sent', $2)
          RETURNING id::text as id`,
-        [thread.rows[0].id, postmarkMessageId]
+        [thread.rows[0].id, postmarkMessageId],
       );
       testMessageId = msg.rows[0].id;
     });
 
     it('updates message status to delivered on Delivery event', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       const result = await processPostmarkDeliveryStatus(pool, {
         RecordType: 'Delivery',
@@ -79,16 +75,14 @@ describe('Postmark delivery status webhooks (#294)', () => {
       const msg = await pool.query(
         `SELECT delivery_status::text as status, provider_status_raw
          FROM external_message WHERE id = $1`,
-        [testMessageId]
+        [testMessageId],
       );
       expect(msg.rows[0].status).toBe('delivered');
       expect(msg.rows[0].provider_status_raw.RecordType).toBe('Delivery');
     });
 
     it('updates message status to bounced on hard Bounce event', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       const result = await processPostmarkDeliveryStatus(pool, {
         RecordType: 'Bounce',
@@ -112,16 +106,14 @@ describe('Postmark delivery status webhooks (#294)', () => {
       const msg = await pool.query(
         `SELECT delivery_status::text as status, provider_status_raw
          FROM external_message WHERE id = $1`,
-        [testMessageId]
+        [testMessageId],
       );
       expect(msg.rows[0].status).toBe('bounced');
       expect(msg.rows[0].provider_status_raw.Type).toBe('HardBounce');
     });
 
     it('updates message status to failed on soft Bounce event', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       const result = await processPostmarkDeliveryStatus(pool, {
         RecordType: 'Bounce',
@@ -142,18 +134,13 @@ describe('Postmark delivery status webhooks (#294)', () => {
 
       expect(result.success).toBe(true);
 
-      const msg = await pool.query(
-        `SELECT delivery_status::text as status FROM external_message WHERE id = $1`,
-        [testMessageId]
-      );
+      const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [testMessageId]);
       // Soft bounce maps to failed (temporary, may retry)
       expect(msg.rows[0].status).toBe('failed');
     });
 
     it('returns not found for unknown MessageID', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       const result = await processPostmarkDeliveryStatus(pool, {
         RecordType: 'Delivery',
@@ -169,9 +156,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
     });
 
     it('stores full webhook payload in provider_status_raw', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       const payload = {
         RecordType: 'Delivery' as const,
@@ -187,10 +172,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
 
       await processPostmarkDeliveryStatus(pool, payload);
 
-      const msg = await pool.query(
-        `SELECT provider_status_raw FROM external_message WHERE id = $1`,
-        [testMessageId]
-      );
+      const msg = await pool.query(`SELECT provider_status_raw FROM external_message WHERE id = $1`, [testMessageId]);
 
       expect(msg.rows[0].provider_status_raw).toMatchObject({
         RecordType: 'Delivery',
@@ -201,9 +183,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
     });
 
     it('respects status transition rules (cannot go backwards)', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       // First, set to delivered
       await processPostmarkDeliveryStatus(pool, {
@@ -229,23 +209,15 @@ describe('Postmark delivery status webhooks (#294)', () => {
       expect(result.statusUnchanged).toBe(true);
 
       // Verify status still delivered
-      const msg = await pool.query(
-        `SELECT delivery_status::text as status FROM external_message WHERE id = $1`,
-        [testMessageId]
-      );
+      const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [testMessageId]);
       expect(msg.rows[0].status).toBe('delivered');
     });
 
     it('handles SpamComplaint as terminal failed state', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       // First deliver the message
-      await pool.query(
-        `UPDATE external_message SET delivery_status = 'delivered' WHERE id = $1`,
-        [testMessageId]
-      );
+      await pool.query(`UPDATE external_message SET delivery_status = 'delivered' WHERE id = $1`, [testMessageId]);
 
       // Then receive spam complaint (should override delivered as it's critical)
       const result = await processPostmarkDeliveryStatus(pool, {
@@ -265,9 +237,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
     });
 
     it('flags contact endpoint on hard bounce', async () => {
-      const { processPostmarkDeliveryStatus } = await import(
-        '../../src/api/postmark/delivery-status.js'
-      );
+      const { processPostmarkDeliveryStatus } = await import('../../src/api/postmark/delivery-status.js');
 
       await processPostmarkDeliveryStatus(pool, {
         RecordType: 'Bounce',
@@ -287,10 +257,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
       });
 
       // Verify endpoint was flagged
-      const endpoint = await pool.query(
-        `SELECT metadata FROM contact_endpoint WHERE id = $1`,
-        [endpointId]
-      );
+      const endpoint = await pool.query(`SELECT metadata FROM contact_endpoint WHERE id = $1`, [endpointId]);
       expect(endpoint.rows[0].metadata.bounced).toBe(true);
       expect(endpoint.rows[0].metadata.bounce_type).toBe('HardBounce');
     });

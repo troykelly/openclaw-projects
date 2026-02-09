@@ -9,13 +9,7 @@ import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
-import {
-  createMemory,
-  getMemory,
-  updateMemory,
-  listMemories,
-  searchMemories,
-} from '../src/api/memory/index.ts';
+import { createMemory, getMemory, updateMemory, listMemories, searchMemories } from '../src/api/memory/index.ts';
 
 describe('Memory Tags (Issue #492)', () => {
   const app = buildServer();
@@ -43,7 +37,7 @@ describe('Memory Tags (Issue #492)', () => {
       const result = await pool.query(
         `SELECT column_name, data_type, column_default, is_nullable
          FROM information_schema.columns
-         WHERE table_name = 'memory' AND column_name = 'tags'`
+         WHERE table_name = 'memory' AND column_name = 'tags'`,
       );
       expect(result.rows.length).toBe(1);
       const col = result.rows[0] as {
@@ -60,7 +54,7 @@ describe('Memory Tags (Issue #492)', () => {
     it('GIN index exists on tags column', async () => {
       const result = await pool.query(
         `SELECT indexname, indexdef FROM pg_indexes
-         WHERE tablename = 'memory' AND indexname = 'idx_memory_tags'`
+         WHERE tablename = 'memory' AND indexname = 'idx_memory_tags'`,
       );
       expect(result.rows.length).toBe(1);
       const idx = result.rows[0] as { indexname: string; indexdef: string };
@@ -247,7 +241,7 @@ describe('Memory Tags (Issue #492)', () => {
 
       // Should only match the music-tagged memory
       if (result.results.length > 0) {
-        expect(result.results.every(r => r.tags.includes('music'))).toBe(true);
+        expect(result.results.every((r) => r.tags.includes('music'))).toBe(true);
       }
     });
   });
@@ -268,7 +262,7 @@ describe('Memory Tags (Issue #492)', () => {
         `SELECT id FROM memory
          WHERE search_vector @@ to_tsquery('english', 'uniquetagname')
          AND id = $1`,
-        [memory.id]
+        [memory.id],
       );
 
       expect(result.rows.length).toBe(1);
@@ -305,7 +299,7 @@ describe('Memory Tags (Issue #492)', () => {
       const wiResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Test Project', 'project', 'open')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (wiResult.rows[0] as { id: string }).id;
 
@@ -313,12 +307,12 @@ describe('Memory Tags (Issue #492)', () => {
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type, tags)
          VALUES ($1, 'Music note', 'Likes jazz', 'preference', $2)`,
-        [workItemId, ['music', 'jazz']]
+        [workItemId, ['music', 'jazz']],
       );
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type, tags)
          VALUES ($1, 'Food note', 'Likes sushi', 'preference', $2)`,
-        [workItemId, ['food']]
+        [workItemId, ['food']],
       );
 
       const res = await app.inject({
@@ -341,17 +335,17 @@ describe('Memory Tags (Issue #492)', () => {
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, tags)
          VALUES ('test@example.com', 'Piano music', 'Loves piano', 'preference', $1)`,
-        [['music', 'piano']]
+        [['music', 'piano']],
       );
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, tags)
          VALUES ('test@example.com', 'Guitar music', 'Loves guitar', 'preference', $1)`,
-        [['music', 'guitar']]
+        [['music', 'guitar']],
       );
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, tags)
          VALUES ('test@example.com', 'Sushi food', 'Loves sushi', 'preference', $1)`,
-        [['food']]
+        [['food']],
       );
 
       const res = await app.inject({
@@ -363,9 +357,7 @@ describe('Memory Tags (Issue #492)', () => {
       const body = res.json();
       // All results should have the music tag
       if (body.results && body.results.length > 0) {
-        expect(body.results.every((r: { tags?: string[] }) =>
-          r.tags && r.tags.includes('music')
-        )).toBe(true);
+        expect(body.results.every((r: { tags?: string[] }) => r.tags && r.tags.includes('music'))).toBe(true);
       }
     });
   });
@@ -377,7 +369,7 @@ describe('Memory Tags (Issue #492)', () => {
       // This is a structural assertion: verify the column exists now
       const before = await pool.query(
         `SELECT 1 FROM information_schema.columns
-         WHERE table_name = 'memory' AND column_name = 'tags'`
+         WHERE table_name = 'memory' AND column_name = 'tags'`,
       );
       expect(before.rows.length).toBe(1);
     });

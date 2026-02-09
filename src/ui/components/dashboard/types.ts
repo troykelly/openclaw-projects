@@ -3,14 +3,7 @@
  * Issue #405: Implement custom dashboard builder
  */
 
-export type WidgetType =
-  | 'my-tasks'
-  | 'upcoming-due'
-  | 'activity'
-  | 'stats'
-  | 'quick-actions'
-  | 'calendar'
-  | 'notifications';
+export type WidgetType = 'my-tasks' | 'upcoming-due' | 'activity' | 'stats' | 'quick-actions' | 'calendar' | 'notifications';
 
 export interface Widget {
   id: string;

@@ -6,13 +6,7 @@ import { cn } from '@/ui/lib/utils';
 import { CustomFieldInput } from './custom-field-input';
 import type { CustomFieldListProps, CustomFieldDefinition } from './types';
 
-export function CustomFieldList({
-  fields,
-  values,
-  onChange,
-  readOnly = false,
-  className,
-}: CustomFieldListProps) {
+export function CustomFieldList({ fields, values, onChange, readOnly = false, className }: CustomFieldListProps) {
   // Create a map for quick value lookup
   const valueMap = React.useMemo(() => {
     const map = new Map<string, unknown>();
@@ -23,10 +17,7 @@ export function CustomFieldList({
   }, [values]);
 
   // Sort fields by order
-  const sortedFields = React.useMemo(
-    () => [...fields].sort((a, b) => a.order - b.order),
-    [fields]
-  );
+  const sortedFields = React.useMemo(() => [...fields].sort((a, b) => a.order - b.order), [fields]);
 
   const formatValue = (field: CustomFieldDefinition, value: unknown): string => {
     if (value === null || value === undefined || value === '') {
@@ -61,22 +52,13 @@ export function CustomFieldList({
         if (readOnly) {
           return (
             <div key={field.id} className="space-y-1">
-              <dt className="text-sm font-medium text-muted-foreground">
-                {field.name}
-              </dt>
+              <dt className="text-sm font-medium text-muted-foreground">{field.name}</dt>
               <dd className="text-sm">{formatValue(field, value)}</dd>
             </div>
           );
         }
 
-        return (
-          <CustomFieldInput
-            key={field.id}
-            field={field}
-            value={value}
-            onChange={(newValue) => onChange(field.id, newValue)}
-          />
-        );
+        return <CustomFieldInput key={field.id} field={field} value={value} onChange={(newValue) => onChange(field.id, newValue)} />;
       })}
     </div>
   );

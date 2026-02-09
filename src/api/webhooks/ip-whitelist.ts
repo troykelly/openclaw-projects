@@ -202,9 +202,7 @@ export function getClientIP(request: FastifyRequest): string {
  * @param config - Middleware configuration
  * @returns Fastify preHandler function
  */
-export function createIPWhitelistMiddleware(
-  config: IPWhitelistConfig
-): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+export function createIPWhitelistMiddleware(config: IPWhitelistConfig): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
   const { providerName, whitelistEnvVar } = config;
 
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {

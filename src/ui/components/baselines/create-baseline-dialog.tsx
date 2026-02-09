@@ -4,14 +4,7 @@
  */
 import * as React from 'react';
 import { Save } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
@@ -35,13 +28,7 @@ function getDefaultBaselineName(): string {
   return `Baseline - ${now.toLocaleDateString('en-US', options)}`;
 }
 
-export function CreateBaselineDialog({
-  open,
-  onOpenChange,
-  projectId,
-  projectTitle,
-  onCreateBaseline,
-}: CreateBaselineDialogProps) {
+export function CreateBaselineDialog({ open, onOpenChange, projectId, projectTitle, onCreateBaseline }: CreateBaselineDialogProps) {
   const defaultName = React.useMemo(() => getDefaultBaselineName(), []);
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
@@ -69,22 +56,14 @@ export function CreateBaselineDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Baseline</DialogTitle>
-          <DialogDescription>
-            Save the current state of "{projectTitle}" as a baseline for tracking
-            progress.
-          </DialogDescription>
+          <DialogDescription>Save the current state of "{projectTitle}" as a baseline for tracking progress.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="baseline-name">Name</Label>
-              <Input
-                id="baseline-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={defaultName}
-              />
+              <Input id="baseline-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={defaultName} />
             </div>
 
             <div className="space-y-2">
@@ -99,9 +78,7 @@ export function CreateBaselineDialog({
             </div>
 
             <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-              <p>
-                This baseline will capture:
-              </p>
+              <p>This baseline will capture:</p>
               <ul className="mt-2 list-disc list-inside space-y-1">
                 <li>All tasks and their hierarchy</li>
                 <li>Start and end dates</li>

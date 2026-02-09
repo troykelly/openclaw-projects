@@ -5,12 +5,7 @@
 import * as React from 'react';
 import { Reply, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { cn } from '@/ui/lib/utils';
 import { CommentReactions } from './comment-reactions';
 import type { Comment } from './types';
@@ -45,15 +40,7 @@ function isEdited(createdAt: string, updatedAt: string): boolean {
   return new Date(updatedAt).getTime() - new Date(createdAt).getTime() > 1000;
 }
 
-export function CommentCard({
-  comment,
-  currentUserId,
-  onReply,
-  onEdit,
-  onDelete,
-  onReact,
-  className,
-}: CommentCardProps) {
+export function CommentCard({ comment, currentUserId, onReply, onEdit, onDelete, onReact, className }: CommentCardProps) {
   const isOwner = comment.authorId === currentUserId;
   const edited = isEdited(comment.createdAt, comment.updatedAt);
 
@@ -69,15 +56,9 @@ export function CommentCard({
       {/* Avatar */}
       <div className="shrink-0">
         {comment.author.avatar ? (
-          <img
-            src={comment.author.avatar}
-            alt={comment.author.name}
-            className="w-8 h-8 rounded-full object-cover"
-          />
+          <img src={comment.author.avatar} alt={comment.author.name} className="w-8 h-8 rounded-full object-cover" />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-            {initials}
-          </div>
+          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">{initials}</div>
         )}
       </div>
 
@@ -85,37 +66,22 @@ export function CommentCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">{comment.author.name}</span>
-          <span
-            data-testid="comment-timestamp"
-            className="text-xs text-muted-foreground"
-          >
+          <span data-testid="comment-timestamp" className="text-xs text-muted-foreground">
             {formatRelativeTime(comment.createdAt)}
           </span>
-          {edited && (
-            <span className="text-xs text-muted-foreground">(edited)</span>
-          )}
+          {edited && <span className="text-xs text-muted-foreground">(edited)</span>}
         </div>
 
         <div className="mt-1 text-sm whitespace-pre-wrap">{comment.content}</div>
 
         {/* Reactions */}
         {comment.reactions.length > 0 && (
-          <CommentReactions
-            reactions={comment.reactions}
-            currentUserId={currentUserId}
-            onReact={(emoji) => onReact?.(comment.id, emoji)}
-            className="mt-2"
-          />
+          <CommentReactions reactions={comment.reactions} currentUserId={currentUserId} onReact={(emoji) => onReact?.(comment.id, emoji)} className="mt-2" />
         )}
 
         {/* Actions */}
         <div className="flex items-center gap-2 mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => onReply?.(comment.id)}
-          >
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onReply?.(comment.id)}>
             <Reply className="h-3.5 w-3.5 mr-1" />
             Reply
           </Button>
@@ -132,10 +98,7 @@ export function CommentCard({
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete?.(comment.id)}
-                  className="text-destructive"
-                >
+                <DropdownMenuItem onClick={() => onDelete?.(comment.id)} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </DropdownMenuItem>

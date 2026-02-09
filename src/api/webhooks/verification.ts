@@ -52,22 +52,17 @@ export function verifyTwilioSignature(request: FastifyRequest): boolean {
   const url = getFullUrl(request);
 
   // Get sorted POST parameters
-  const body = request.body as Record<string, string> || {};
+  const body = (request.body as Record<string, string>) || {};
   const paramString = Object.keys(body)
     .sort()
     .reduce((acc, key) => acc + key + body[key], '');
 
   const data = url + paramString;
 
-  const expectedSignature = createHmac('sha1', authToken)
-    .update(Buffer.from(data, 'utf-8'))
-    .digest('base64');
+  const expectedSignature = createHmac('sha1', authToken).update(Buffer.from(data, 'utf-8')).digest('base64');
 
   try {
-    return timingSafeEqual(
-      Buffer.from(signature, 'base64'),
-      Buffer.from(expectedSignature, 'base64')
-    );
+    return timingSafeEqual(Buffer.from(signature, 'base64'), Buffer.from(expectedSignature, 'base64'));
   } catch {
     return false;
   }
@@ -101,14 +96,8 @@ export function verifyPostmarkAuth(request: FastifyRequest): boolean {
     const [username, password] = credentials.split(':');
 
     // Use timing-safe comparison
-    const usernameMatch = timingSafeEqual(
-      Buffer.from(username || ''),
-      Buffer.from(expectedUsername)
-    );
-    const passwordMatch = timingSafeEqual(
-      Buffer.from(password || ''),
-      Buffer.from(expectedPassword)
-    );
+    const usernameMatch = timingSafeEqual(Buffer.from(username || ''), Buffer.from(expectedUsername));
+    const passwordMatch = timingSafeEqual(Buffer.from(password || ''), Buffer.from(expectedPassword));
 
     return usernameMatch && passwordMatch;
   } catch {
@@ -136,10 +125,7 @@ export function verifyCloudflareEmailSecret(request: FastifyRequest): boolean {
   }
 
   try {
-    return timingSafeEqual(
-      Buffer.from(providedSecret),
-      Buffer.from(expectedSecret)
-    );
+    return timingSafeEqual(Buffer.from(providedSecret), Buffer.from(expectedSecret));
   } catch {
     return false;
   }
@@ -149,11 +135,7 @@ export function verifyCloudflareEmailSecret(request: FastifyRequest): boolean {
  * Generic webhook HMAC-SHA256 verification.
  * Can be used for custom integrations.
  */
-export function verifyHmacSha256(
-  request: FastifyRequest,
-  secretEnvVar: string,
-  signatureHeader: string = 'x-signature'
-): boolean {
+export function verifyHmacSha256(request: FastifyRequest, secretEnvVar: string, signatureHeader: string = 'x-signature'): boolean {
   const secret = getSecretFromEnvSync(secretEnvVar);
   if (!secret) {
     return false;
@@ -164,24 +146,15 @@ export function verifyHmacSha256(
     return false;
   }
 
-  const body = typeof request.body === 'string'
-    ? request.body
-    : JSON.stringify(request.body);
+  const body = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
 
-  const expectedSignature = createHmac('sha256', secret)
-    .update(Buffer.from(body, 'utf-8'))
-    .digest('hex');
+  const expectedSignature = createHmac('sha256', secret).update(Buffer.from(body, 'utf-8')).digest('hex');
 
   // Handle signatures with or without prefix (sha256=...)
-  const cleanSignature = signature.startsWith('sha256=')
-    ? signature.slice(7)
-    : signature;
+  const cleanSignature = signature.startsWith('sha256=') ? signature.slice(7) : signature;
 
   try {
-    return timingSafeEqual(
-      Buffer.from(cleanSignature, 'hex'),
-      Buffer.from(expectedSignature, 'hex')
-    );
+    return timingSafeEqual(Buffer.from(cleanSignature, 'hex'), Buffer.from(expectedSignature, 'hex'));
   } catch {
     return false;
   }
@@ -205,10 +178,7 @@ export type WebhookProvider = 'twilio' | 'postmark' | 'cloudflare' | 'generic';
 /**
  * Verify a webhook request based on provider.
  */
-export function verifyWebhook(
-  request: FastifyRequest,
-  provider: WebhookProvider
-): boolean {
+export function verifyWebhook(request: FastifyRequest, provider: WebhookProvider): boolean {
   switch (provider) {
     case 'twilio':
       return verifyTwilioSignature(request);

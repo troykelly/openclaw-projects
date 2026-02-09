@@ -48,7 +48,7 @@ describe('Activity Feed Page', () => {
       const session = await pool2.query(
         `INSERT INTO auth_session (email, expires_at)
          VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const sessionId = (session.rows[0] as { id: string }).id;
       await pool2.end();
@@ -73,7 +73,7 @@ describe('Activity Feed Page', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -81,13 +81,13 @@ describe('Activity Feed Page', () => {
       await pool.query(
         `INSERT INTO work_item_activity (work_item_id, activity_type, description)
          VALUES ($1, 'created', 'Created work item: Test Item')`,
-        [itemId]
+        [itemId],
       );
 
       await pool.query(
         `INSERT INTO work_item_activity (work_item_id, activity_type, description)
          VALUES ($1, 'status_change', 'Status changed to in_progress')`,
-        [itemId]
+        [itemId],
       );
 
       const res = await app.inject({

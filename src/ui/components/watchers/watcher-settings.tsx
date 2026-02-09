@@ -5,19 +5,9 @@
 import * as React from 'react';
 import { Label } from '@/ui/components/ui/label';
 import { Switch } from '@/ui/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { cn } from '@/ui/lib/utils';
-import {
-  NOTIFICATION_LEVELS,
-  type AutoWatchSettings,
-  type NotificationLevel,
-} from './types';
+import { NOTIFICATION_LEVELS, type AutoWatchSettings, type NotificationLevel } from './types';
 
 export interface WatcherSettingsProps {
   settings: AutoWatchSettings;
@@ -25,11 +15,7 @@ export interface WatcherSettingsProps {
   className?: string;
 }
 
-export function WatcherSettings({
-  settings,
-  onChange,
-  className,
-}: WatcherSettingsProps) {
+export function WatcherSettings({ settings, onChange, className }: WatcherSettingsProps) {
   const handleToggle = (key: keyof AutoWatchSettings) => {
     onChange({
       ...settings,
@@ -55,33 +41,21 @@ export function WatcherSettings({
             <Label htmlFor="auto-created" className="text-sm cursor-pointer">
               Items you create
             </Label>
-            <Switch
-              id="auto-created"
-              checked={settings.autoWatchCreated}
-              onCheckedChange={() => handleToggle('autoWatchCreated')}
-            />
+            <Switch id="auto-created" checked={settings.autoWatchCreated} onCheckedChange={() => handleToggle('autoWatchCreated')} />
           </div>
 
           <div className="flex items-center justify-between">
             <Label htmlFor="auto-assigned" className="text-sm cursor-pointer">
               Items assigned to you
             </Label>
-            <Switch
-              id="auto-assigned"
-              checked={settings.autoWatchAssigned}
-              onCheckedChange={() => handleToggle('autoWatchAssigned')}
-            />
+            <Switch id="auto-assigned" checked={settings.autoWatchAssigned} onCheckedChange={() => handleToggle('autoWatchAssigned')} />
           </div>
 
           <div className="flex items-center justify-between">
             <Label htmlFor="auto-commented" className="text-sm cursor-pointer">
               Items you comment on
             </Label>
-            <Switch
-              id="auto-commented"
-              checked={settings.autoWatchCommented}
-              onCheckedChange={() => handleToggle('autoWatchCommented')}
-            />
+            <Switch id="auto-commented" checked={settings.autoWatchCommented} onCheckedChange={() => handleToggle('autoWatchCommented')} />
           </div>
         </div>
       </div>
@@ -91,10 +65,7 @@ export function WatcherSettings({
         <Label htmlFor="notification-level" className="text-sm font-medium">
           Default notification level
         </Label>
-        <Select
-          value={settings.defaultNotificationLevel}
-          onValueChange={handleNotificationLevelChange}
-        >
+        <Select value={settings.defaultNotificationLevel} onValueChange={handleNotificationLevelChange}>
           <SelectTrigger id="notification-level">
             <SelectValue />
           </SelectTrigger>

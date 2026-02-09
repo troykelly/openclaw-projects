@@ -24,11 +24,7 @@ const statusStyles: Record<string, string> = {
   closed: 'opacity-60 line-through',
 };
 
-export function CalendarItem({
-  event,
-  onClick,
-  compact = false,
-}: CalendarItemProps) {
+export function CalendarItem({ event, onClick, compact = false }: CalendarItemProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onClick?.(event);
@@ -46,7 +42,7 @@ export function CalendarItem({
         'truncate cursor-pointer rounded border px-1.5 py-0.5 text-xs transition-colors hover:opacity-80',
         priorityClass,
         statusClass,
-        compact && 'text-[10px] px-1'
+        compact && 'text-[10px] px-1',
       )}
       onClick={handleClick}
       title={event.title}

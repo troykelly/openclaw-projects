@@ -1,13 +1,5 @@
 import * as React from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  Plus,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, Plus } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
@@ -40,7 +32,7 @@ function getStatusVariant(status: WorkItemStatus): 'default' | 'secondary' | 'de
 }
 
 function getStatusLabel(status: WorkItemStatus): string {
-  return status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export interface DependenciesSectionProps {
@@ -50,12 +42,7 @@ export interface DependenciesSectionProps {
   className?: string;
 }
 
-export function DependenciesSection({
-  dependencies,
-  onDependencyClick,
-  onAddDependency,
-  className,
-}: DependenciesSectionProps) {
+export function DependenciesSection({ dependencies, onDependencyClick, onAddDependency, className }: DependenciesSectionProps) {
   const blockedBy = dependencies.filter((d) => d.direction === 'blocked_by');
   const blocks = dependencies.filter((d) => d.direction === 'blocks');
 
@@ -63,11 +50,7 @@ export function DependenciesSection({
     <button
       key={dep.id}
       data-testid="dependency-item"
-      className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left',
-        'hover:bg-muted/50',
-        onDependencyClick && 'cursor-pointer'
-      )}
+      className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left', 'hover:bg-muted/50', onDependencyClick && 'cursor-pointer')}
       onClick={() => onDependencyClick?.(dep)}
     >
       <span className="text-muted-foreground">{getKindIcon(dep.kind)}</span>
@@ -88,12 +71,7 @@ export function DependenciesSection({
             Blocked by ({blockedBy.length})
           </h4>
           {onAddDependency && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              onClick={() => onAddDependency('blocked_by')}
-            >
+            <Button variant="ghost" size="icon" className="size-6" onClick={() => onAddDependency('blocked_by')}>
               <Plus className="size-3" />
               <span className="sr-only">Add blocker</span>
             </Button>
@@ -102,9 +80,7 @@ export function DependenciesSection({
         {blockedBy.length > 0 ? (
           <div className="space-y-1">{blockedBy.map(renderDependency)}</div>
         ) : (
-          <p className="py-2 text-center text-xs text-muted-foreground">
-            No blockers
-          </p>
+          <p className="py-2 text-center text-xs text-muted-foreground">No blockers</p>
         )}
       </div>
 
@@ -116,12 +92,7 @@ export function DependenciesSection({
             Blocks ({blocks.length})
           </h4>
           {onAddDependency && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              onClick={() => onAddDependency('blocks')}
-            >
+            <Button variant="ghost" size="icon" className="size-6" onClick={() => onAddDependency('blocks')}>
               <Plus className="size-3" />
               <span className="sr-only">Add dependent</span>
             </Button>
@@ -130,9 +101,7 @@ export function DependenciesSection({
         {blocks.length > 0 ? (
           <div className="space-y-1">{blocks.map(renderDependency)}</div>
         ) : (
-          <p className="py-2 text-center text-xs text-muted-foreground">
-            No dependents
-          </p>
+          <p className="py-2 text-center text-xs text-muted-foreground">No dependents</p>
         )}
       </div>
     </div>

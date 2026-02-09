@@ -40,14 +40,7 @@ export interface ContactRelationship {
 /**
  * Types of relationships between contacts
  */
-export type RelationshipType =
-  | 'manager'
-  | 'reports_to'
-  | 'colleague'
-  | 'assistant'
-  | 'mentor'
-  | 'mentee'
-  | 'partner';
+export type RelationshipType = 'manager' | 'reports_to' | 'colleague' | 'assistant' | 'mentor' | 'mentee' | 'partner';
 
 /**
  * Contact with organization and group info

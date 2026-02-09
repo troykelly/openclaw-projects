@@ -12,48 +12,17 @@ import { useWorkItemTree } from '@/ui/hooks/queries/use-work-items';
 import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
 import { useDeleteWorkItem } from '@/ui/hooks/mutations/use-delete-work-item';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-  EmptyState,
-} from '@/ui/components/feedback';
+import { Skeleton, SkeletonList, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ProjectTree } from '@/ui/components/tree/project-tree';
 import type { TreeItem } from '@/ui/components/tree/types';
-import {
-  DeleteConfirmDialog,
-  UndoToast,
-  useWorkItemDelete,
-  type DeleteItem,
-} from '@/ui/components/work-item-delete';
-import {
-  MoveToDialog,
-  useWorkItemMove,
-  type MoveItem,
-  type PotentialParent,
-} from '@/ui/components/work-item-move';
-import {
-  mapApiTreeToTreeItems,
-  findTreeItem,
-  flattenTreeForParents,
-  priorityColors,
-} from '@/ui/lib/work-item-utils';
+import { DeleteConfirmDialog, UndoToast, useWorkItemDelete, type DeleteItem } from '@/ui/components/work-item-delete';
+import { MoveToDialog, useWorkItemMove, type MoveItem, type PotentialParent } from '@/ui/components/work-item-move';
+import { mapApiTreeToTreeItems, findTreeItem, flattenTreeForParents, priorityColors } from '@/ui/lib/work-item-utils';
 import { apiClient } from '@/ui/lib/api-client';
-import {
-  LayoutGrid,
-  Calendar,
-  Network,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  FolderTree,
-  PanelLeftClose,
-  PanelLeft,
-} from 'lucide-react';
+import { LayoutGrid, Calendar, Network, Clock, AlertCircle, CheckCircle2, Circle, FolderTree, PanelLeftClose, PanelLeft } from 'lucide-react';
 
 /** Status icons mapped by status key. */
 const statusIcons: Record<string, React.ReactNode> = {
@@ -72,10 +41,7 @@ export function ProjectListPage(): React.JSX.Element {
   const [treePanelOpen, setTreePanelOpen] = useState(true);
 
   // Map tree data
-  const treeItems = useMemo(
-    () => (treeData ? mapApiTreeToTreeItems(treeData.items) : []),
-    [treeData],
-  );
+  const treeItems = useMemo(() => (treeData ? mapApiTreeToTreeItems(treeData.items) : []), [treeData]);
 
   // Delete state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -127,10 +93,7 @@ export function ProjectListPage(): React.JSX.Element {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [itemToMove, setItemToMove] = useState<MoveItem | null>(null);
 
-  const potentialParents = useMemo(
-    () => flattenTreeForParents(treeItems) as PotentialParent[],
-    [treeItems],
-  );
+  const potentialParents = useMemo(() => flattenTreeForParents(treeItems) as PotentialParent[], [treeItems]);
 
   const { moveItem: performMove, isMoving } = useWorkItemMove({
     onMoved: () => {
@@ -225,23 +188,14 @@ export function ProjectListPage(): React.JSX.Element {
     <>
       <div data-testid="page-project-list" className="flex h-full">
         {/* Project Tree Panel */}
-        <div
-          className={`border-r bg-muted/30 transition-all duration-300 ${
-            treePanelOpen ? 'w-64' : 'w-0 overflow-hidden'
-          }`}
-        >
+        <div className={`border-r bg-muted/30 transition-all duration-300 ${treePanelOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between border-b p-3">
               <div className="flex items-center gap-2">
                 <FolderTree className="size-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Projects</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTreePanelOpen(false)}
-                className="size-7 p-0"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setTreePanelOpen(false)} className="size-7 p-0">
                 <PanelLeftClose className="size-4" />
               </Button>
             </div>
@@ -269,11 +223,7 @@ export function ProjectListPage(): React.JSX.Element {
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!treePanelOpen && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTreePanelOpen(true)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setTreePanelOpen(true)}>
                   <PanelLeft className="mr-2 size-4" />
                   Show Tree
                 </Button>
@@ -296,66 +246,38 @@ export function ProjectListPage(): React.JSX.Element {
                 <table className="w-full">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                        Title
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                        Priority
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                        Actions
-                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Title</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Priority</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {items.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-muted/50 transition-colors"
-                      >
+                      <tr key={item.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
-                          <Link
-                            to={`/work-items/${encodeURIComponent(item.id)}`}
-                            className="font-medium text-foreground hover:text-primary transition-colors"
-                          >
+                          <Link to={`/work-items/${encodeURIComponent(item.id)}`} className="font-medium text-foreground hover:text-primary transition-colors">
                             {item.title}
                           </Link>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {statusIcons[item.status ?? 'open'] ?? statusIcons.open}
-                            <span className="text-sm capitalize">
-                              {item.status ?? 'open'}
-                            </span>
+                            <span className="text-sm capitalize">{item.status ?? 'open'}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          {item.priority && (
-                            <Badge
-                              className={
-                                priorityColors[item.priority] ?? 'bg-gray-500'
-                              }
-                            >
-                              {item.priority}
-                            </Badge>
-                          )}
+                          {item.priority && <Badge className={priorityColors[item.priority] ?? 'bg-gray-500'}>{item.priority}</Badge>}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button variant="ghost" size="sm" asChild>
-                              <Link
-                                to={`/work-items/${encodeURIComponent(item.id)}/timeline`}
-                              >
+                              <Link to={`/work-items/${encodeURIComponent(item.id)}/timeline`}>
                                 <Calendar className="size-4" />
                               </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link
-                                to={`/work-items/${encodeURIComponent(item.id)}/graph`}
-                              >
+                              <Link to={`/work-items/${encodeURIComponent(item.id)}/graph`}>
                                 <Network className="size-4" />
                               </Link>
                             </Button>
@@ -386,14 +308,7 @@ export function ProjectListPage(): React.JSX.Element {
         onMove={handleConfirmMove}
         isMoving={isMoving}
       />
-      {undoState && (
-        <UndoToast
-          visible={!!undoState}
-          itemTitle={undoState.itemTitle}
-          onUndo={undoState.onUndo}
-          onDismiss={dismissUndo}
-        />
-      )}
+      {undoState && <UndoToast visible={!!undoState} itemTitle={undoState.itemTitle} onUndo={undoState.onUndo} onDismiss={dismissUndo} />}
     </>
   );
 }

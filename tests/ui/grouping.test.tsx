@@ -99,38 +99,28 @@ describe('GroupBySelect', () => {
 
 describe('GroupHeader', () => {
   it('renders group label', () => {
-    render(
-      <GroupHeader label="In Progress" count={5} isExpanded={true} onToggle={vi.fn()} />
-    );
+    render(<GroupHeader label="In Progress" count={5} isExpanded={true} onToggle={vi.fn()} />);
     expect(screen.getByText('In Progress')).toBeInTheDocument();
   });
 
   it('renders item count', () => {
-    render(
-      <GroupHeader label="Done" count={10} isExpanded={true} onToggle={vi.fn()} />
-    );
+    render(<GroupHeader label="Done" count={10} isExpanded={true} onToggle={vi.fn()} />);
     expect(screen.getByText('10')).toBeInTheDocument();
   });
 
   it('shows expand icon when collapsed', () => {
-    render(
-      <GroupHeader label="Test" count={3} isExpanded={false} onToggle={vi.fn()} />
-    );
+    render(<GroupHeader label="Test" count={3} isExpanded={false} onToggle={vi.fn()} />);
     expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('shows collapse icon when expanded', () => {
-    render(
-      <GroupHeader label="Test" count={3} isExpanded={true} onToggle={vi.fn()} />
-    );
+    render(<GroupHeader label="Test" count={3} isExpanded={true} onToggle={vi.fn()} />);
     expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('calls onToggle when clicked', () => {
     const onToggle = vi.fn();
-    render(
-      <GroupHeader label="Test" count={3} isExpanded={true} onToggle={onToggle} />
-    );
+    render(<GroupHeader label="Test" count={3} isExpanded={true} onToggle={onToggle} />);
 
     fireEvent.click(screen.getByRole('button'));
     expect(onToggle).toHaveBeenCalled();
@@ -182,10 +172,7 @@ describe('groupItems utility', () => {
 
   it('groups by due date', () => {
     const today = new Date().toISOString().split('T')[0];
-    const items = [
-      ...mockItems,
-      { id: '6', title: 'Due Today', status: 'not_started', priority: 'high', kind: 'issue', dueDate: today },
-    ];
+    const items = [...mockItems, { id: '6', title: 'Due Today', status: 'not_started', priority: 'high', kind: 'issue', dueDate: today }];
 
     const result = groupItems(items, 'dueDate');
 
@@ -258,10 +245,7 @@ describe('useGrouping hook', () => {
   });
 
   it('loads grouping from localStorage', () => {
-    localStorageMock.setItem(
-      'grouping-test-view',
-      JSON.stringify({ groupBy: 'kind', collapsedGroups: ['epic'] })
-    );
+    localStorageMock.setItem('grouping-test-view', JSON.stringify({ groupBy: 'kind', collapsedGroups: ['epic'] }));
 
     const { result } = renderHook(() => useGrouping('test-view'));
 
@@ -278,27 +262,21 @@ describe('GroupedList', () => {
   );
 
   it('renders items without grouping', () => {
-    render(
-      <GroupedList items={mockItems} groupBy="none" renderItem={mockRenderItem} />
-    );
+    render(<GroupedList items={mockItems} groupBy="none" renderItem={mockRenderItem} />);
 
     expect(screen.getByTestId('item-1')).toBeInTheDocument();
     expect(screen.getByTestId('item-5')).toBeInTheDocument();
   });
 
   it('renders grouped items with headers', () => {
-    render(
-      <GroupedList items={mockItems} groupBy="status" renderItem={mockRenderItem} />
-    );
+    render(<GroupedList items={mockItems} groupBy="status" renderItem={mockRenderItem} />);
 
     expect(screen.getByText(/not started/i)).toBeInTheDocument();
     expect(screen.getByText(/in progress/i)).toBeInTheDocument();
   });
 
   it('shows item counts in headers', () => {
-    render(
-      <GroupedList items={mockItems} groupBy="status" renderItem={mockRenderItem} />
-    );
+    render(<GroupedList items={mockItems} groupBy="status" renderItem={mockRenderItem} />);
 
     // 2 items in not_started
     const headers = screen.getAllByRole('button');
@@ -306,9 +284,7 @@ describe('GroupedList', () => {
   });
 
   it('collapses groups when clicked', () => {
-    render(
-      <GroupedList items={mockItems} groupBy="status" renderItem={mockRenderItem} />
-    );
+    render(<GroupedList items={mockItems} groupBy="status" renderItem={mockRenderItem} />);
 
     // Click on the first group header to collapse
     const firstHeader = screen.getAllByRole('button')[0];
@@ -320,14 +296,7 @@ describe('GroupedList', () => {
 
   it('hides empty groups when hideEmpty is true', () => {
     const items = mockItems.filter((i) => i.status !== 'blocked');
-    render(
-      <GroupedList
-        items={items}
-        groupBy="status"
-        renderItem={mockRenderItem}
-        hideEmptyGroups
-      />
-    );
+    render(<GroupedList items={items} groupBy="status" renderItem={mockRenderItem} hideEmptyGroups />);
 
     expect(screen.queryByText(/blocked/i)).not.toBeInTheDocument();
   });

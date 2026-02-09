@@ -10,7 +10,10 @@ import '@testing-library/jest-dom';
 import { LexicalNoteEditor } from '@/ui/components/notes/editor/lexical-editor';
 
 // Mock window.prompt for link insertion
-vi.stubGlobal('prompt', vi.fn(() => null));
+vi.stubGlobal(
+  'prompt',
+  vi.fn(() => null),
+);
 
 // Mock clipboard API for copy button tests
 Object.assign(navigator, {
@@ -143,9 +146,7 @@ describe('LexicalNoteEditor', () => {
       // Check that it's rendered as text, not as a script element
       const scriptElements = document.querySelectorAll('script');
       // Filter out any test framework scripts
-      const maliciousScripts = Array.from(scriptElements).filter(
-        (s) => s.textContent?.includes('alert')
-      );
+      const maliciousScripts = Array.from(scriptElements).filter((s) => s.textContent?.includes('alert'));
       expect(maliciousScripts.length).toBe(0);
     });
 
@@ -306,16 +307,12 @@ graph TD;
       // DOMPurify sanitizes the output - either the element is stripped or the
       // dangerous content is removed. Either way, verify no script executes.
       const scriptElements = document.querySelectorAll('script');
-      const maliciousScripts = Array.from(scriptElements).filter(
-        (s) => s.textContent?.includes('alert')
-      );
+      const maliciousScripts = Array.from(scriptElements).filter((s) => s.textContent?.includes('alert'));
       expect(maliciousScripts.length).toBe(0);
 
       // Also verify no inline script content exists in any element
       const allElements = document.querySelectorAll('*');
-      const elementsWithAlert = Array.from(allElements).filter(
-        (el) => el.textContent?.includes('alert(1)')
-      );
+      const elementsWithAlert = Array.from(allElements).filter((el) => el.textContent?.includes('alert(1)'));
       // If element exists, it should have escaped content, not executable
       // The script content should be escaped or stripped entirely
     });
@@ -422,9 +419,7 @@ graph TD;
 
       // Script tag should be removed or escaped
       const scripts = document.querySelectorAll('script');
-      const maliciousScripts = Array.from(scripts).filter(
-        (s) => s.textContent?.includes('alert')
-      );
+      const maliciousScripts = Array.from(scripts).filter((s) => s.textContent?.includes('alert'));
       expect(maliciousScripts.length).toBe(0);
     });
 
@@ -497,9 +492,7 @@ graph TD;
 
       // style tags should be removed
       const styleTags = document.querySelectorAll('style');
-      const maliciousStyles = Array.from(styleTags).filter(
-        (s) => s.textContent?.includes('javascript')
-      );
+      const maliciousStyles = Array.from(styleTags).filter((s) => s.textContent?.includes('javascript'));
       expect(maliciousStyles.length).toBe(0);
     });
 

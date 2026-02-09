@@ -39,7 +39,7 @@ describe('Enhanced Work Item Detail', () => {
         `INSERT INTO work_item (title, work_item_kind, description, status, priority, not_before, not_after, estimate_minutes)
          VALUES ('Test Item', 'issue', 'Item description', 'in_progress', 'P1', $1, $2, 120)
          RETURNING id::text as id`,
-        [now.toISOString(), nextWeek.toISOString()]
+        [now.toISOString(), nextWeek.toISOString()],
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -74,21 +74,21 @@ describe('Enhanced Work Item Detail', () => {
       const mainItem = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Main Task', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const mainId = (mainItem.rows[0] as { id: string }).id;
 
       const blockingItem = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Blocking Task', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const blockingId = (blockingItem.rows[0] as { id: string }).id;
 
       const blockedByItem = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Prerequisite Task', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const blockedById = (blockedByItem.rows[0] as { id: string }).id;
 
@@ -96,12 +96,12 @@ describe('Enhanced Work Item Detail', () => {
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'blocks')`,
-        [blockingId, mainId]
+        [blockingId, mainId],
       );
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'blocks')`,
-        [mainId, blockedById]
+        [mainId, blockedById],
       );
 
       const res = await app.inject({
@@ -137,7 +137,7 @@ describe('Enhanced Work Item Detail', () => {
       const parent = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Parent Project', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const parentId = (parent.rows[0] as { id: string }).id;
 
@@ -145,7 +145,7 @@ describe('Enhanced Work Item Detail', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Child Issue', 'issue', $1)
          RETURNING id::text as id`,
-        [parentId]
+        [parentId],
       );
       const childId = (child.rows[0] as { id: string }).id;
 
@@ -179,7 +179,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Original Title', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -200,7 +200,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -223,7 +223,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Test Item', 'issue', 'not_started')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -246,7 +246,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, priority)
          VALUES ('Test Item', 'issue', 'P3')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -268,7 +268,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -295,7 +295,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -321,7 +321,7 @@ describe('Enhanced Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -342,14 +342,14 @@ describe('Enhanced Work Item Detail', () => {
       const session = await pool.query(
         `INSERT INTO auth_session (email, expires_at)
          VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const sessionId = (session.rows[0] as { id: string }).id;
 
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, description)
          VALUES ('Test Item', 'issue', 'Test description')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 

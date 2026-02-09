@@ -6,13 +6,7 @@
  * typically driven by the `useKeyboardShortcuts` hook (Cmd+/).
  */
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/ui/components/ui/dialog';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
 import type { ShortcutDefinition } from '@/ui/hooks/use-keyboard-shortcuts';
@@ -39,9 +33,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
  * Group an array of shortcut definitions by their `group` field,
  * preserving insertion order.
  */
-function groupShortcuts(
-  shortcuts: ShortcutDefinition[],
-): Map<string, ShortcutDefinition[]> {
+function groupShortcuts(shortcuts: ShortcutDefinition[]): Map<string, ShortcutDefinition[]> {
   const groups = new Map<string, ShortcutDefinition[]>();
   for (const shortcut of shortcuts) {
     const existing = groups.get(shortcut.group);
@@ -58,11 +50,7 @@ function groupShortcuts(
  * Controlled dialog component that displays all keyboard shortcuts
  * organised into labelled groups.
  */
-export function KeyboardShortcutsDialog({
-  open,
-  onOpenChange,
-  shortcuts,
-}: KeyboardShortcutsDialogProps): React.JSX.Element {
+export function KeyboardShortcutsDialog({ open, onOpenChange, shortcuts }: KeyboardShortcutsDialogProps): React.JSX.Element {
   const groups = React.useMemo(() => groupShortcuts(shortcuts), [shortcuts]);
   const groupEntries = Array.from(groups.entries());
 
@@ -72,8 +60,7 @@ export function KeyboardShortcutsDialog({
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription>
-            Navigate and act faster with these shortcuts. Press{' '}
-            <Kbd>{'\u2318'}</Kbd> <Kbd>/</Kbd> to toggle this help.
+            Navigate and act faster with these shortcuts. Press <Kbd>{'\u2318'}</Kbd> <Kbd>/</Kbd> to toggle this help.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh]">
@@ -81,27 +68,16 @@ export function KeyboardShortcutsDialog({
             {groupEntries.map(([groupName, items], groupIndex) => (
               <div key={groupName}>
                 {groupIndex > 0 && <Separator className="mb-4" />}
-                <h3 className="mb-3 text-sm font-medium text-foreground">
-                  {groupName}
-                </h3>
+                <h3 className="mb-3 text-sm font-medium text-foreground">{groupName}</h3>
                 <div className="space-y-2">
                   {items.map((shortcut) => (
-                    <div
-                      key={shortcut.id}
-                      className="flex items-center justify-between py-1"
-                    >
-                      <span className="text-sm text-muted-foreground">
-                        {shortcut.description}
-                      </span>
+                    <div key={shortcut.id} className="flex items-center justify-between py-1">
+                      <span className="text-sm text-muted-foreground">{shortcut.description}</span>
                       <div className="flex items-center gap-1">
                         {shortcut.keys.map((key, i) => (
                           <React.Fragment key={`${shortcut.id}-key-${i}`}>
                             <Kbd>{key}</Kbd>
-                            {i < shortcut.keys.length - 1 && (
-                              <span className="text-xs text-muted-foreground">
-                                then
-                              </span>
-                            )}
+                            {i < shortcut.keys.length - 1 && <span className="text-xs text-muted-foreground">then</span>}
                           </React.Fragment>
                         ))}
                       </div>
@@ -113,9 +89,7 @@ export function KeyboardShortcutsDialog({
           </div>
         </ScrollArea>
         <div className="text-center text-xs text-muted-foreground">
-          <span className="opacity-75">
-            Shortcuts are disabled when typing in text fields
-          </span>
+          <span className="opacity-75">Shortcuts are disabled when typing in text fields</span>
         </div>
       </DialogContent>
     </Dialog>

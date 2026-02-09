@@ -5,10 +5,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type {
-  WorkItemMemoriesResponse,
-  MemoryListResponse,
-} from '@/ui/lib/api-types.ts';
+import type { WorkItemMemoriesResponse, MemoryListResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for memories. */
 export const memoryKeys = {
@@ -27,11 +24,7 @@ export const memoryKeys = {
 export function useWorkItemMemories(workItemId: string) {
   return useQuery({
     queryKey: memoryKeys.forWorkItem(workItemId),
-    queryFn: ({ signal }) =>
-      apiClient.get<WorkItemMemoriesResponse>(
-        `/api/work-items/${workItemId}/memories`,
-        { signal },
-      ),
+    queryFn: ({ signal }) => apiClient.get<WorkItemMemoriesResponse>(`/api/work-items/${workItemId}/memories`, { signal }),
     enabled: !!workItemId,
   });
 }
@@ -44,7 +37,6 @@ export function useWorkItemMemories(workItemId: string) {
 export function useMemories() {
   return useQuery({
     queryKey: memoryKeys.list(),
-    queryFn: ({ signal }) =>
-      apiClient.get<MemoryListResponse>('/api/memory', { signal }),
+    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>('/api/memory', { signal }),
   });
 }

@@ -4,16 +4,7 @@
  */
 
 import type { Pool } from 'pg';
-import type {
-  Note,
-  NoteVisibility,
-  EmbeddingStatus,
-  CreateNoteInput,
-  UpdateNoteInput,
-  ListNotesOptions,
-  ListNotesResult,
-  GetNoteOptions,
-} from './types.ts';
+import type { Note, NoteVisibility, EmbeddingStatus, CreateNoteInput, UpdateNoteInput, ListNotesOptions, ListNotesResult, GetNoteOptions } from './types.ts';
 
 /** Valid visibility values */
 const VALID_VISIBILITY: NoteVisibility[] = ['private', 'shared', 'public'];
@@ -39,9 +30,7 @@ function mapRowToNote(row: Record<string, unknown>): Note {
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
     // Optional notebook expand
-    notebook: row.notebook_name
-      ? { id: row.notebook_id as string, name: row.notebook_name as string }
-      : null,
+    notebook: row.notebook_name ? { id: row.notebook_id as string, name: row.notebook_name as string } : null,
     versionCount: row.version_count !== undefined ? Number(row.version_count) : undefined,
   };
 }
@@ -56,42 +45,23 @@ export function isValidVisibility(value: string): value is NoteVisibility {
 /**
  * Checks if user can access a note (read permission)
  */
-export async function userCanAccessNote(
-  pool: Pool,
-  noteId: string,
-  userEmail: string,
-  requiredPermission: 'read' | 'read_write' = 'read'
-): Promise<boolean> {
-  const result = await pool.query(
-    'SELECT user_can_access_note($1, $2, $3) as can_access',
-    [noteId, userEmail, requiredPermission]
-  );
+export async function userCanAccessNote(pool: Pool, noteId: string, userEmail: string, requiredPermission: 'read' | 'read_write' = 'read'): Promise<boolean> {
+  const result = await pool.query('SELECT user_can_access_note($1, $2, $3) as can_access', [noteId, userEmail, requiredPermission]);
   return result.rows[0]?.can_access ?? false;
 }
 
 /**
  * Checks if user owns a note
  */
-export async function userOwnsNote(
-  pool: Pool,
-  noteId: string,
-  userEmail: string
-): Promise<boolean> {
-  const result = await pool.query(
-    'SELECT user_email FROM note WHERE id = $1 AND deleted_at IS NULL',
-    [noteId]
-  );
+export async function userOwnsNote(pool: Pool, noteId: string, userEmail: string): Promise<boolean> {
+  const result = await pool.query('SELECT user_email FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
   return result.rows[0]?.user_email === userEmail;
 }
 
 /**
  * Creates a new note
  */
-export async function createNote(
-  pool: Pool,
-  input: CreateNoteInput,
-  userEmail: string
-): Promise<Note> {
+export async function createNote(pool: Pool, input: CreateNoteInput, userEmail: string): Promise<Note> {
   // Import embedding integration lazily to avoid circular deps
   const { triggerNoteEmbedding } = await import('../embeddings/note-integration.ts');
 
@@ -103,10 +73,7 @@ export async function createNote(
 
   // Validate notebook exists and belongs to user if provided
   if (input.notebookId) {
-    const nbResult = await pool.query(
-      'SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [input.notebookId]
-    );
+    const nbResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebookId]);
     if (nbResult.rows.length === 0) {
       throw new Error('Notebook not found');
     }
@@ -135,7 +102,7 @@ export async function createNote(
       input.hideFromAgents ?? false,
       input.summary ?? null,
       input.isPinned ?? false,
-    ]
+    ],
   );
 
   const note = mapRowToNote(result.rows[0]);
@@ -149,12 +116,7 @@ export async function createNote(
 /**
  * Gets a note by ID with access check
  */
-export async function getNote(
-  pool: Pool,
-  noteId: string,
-  userEmail: string,
-  options: GetNoteOptions = {}
-): Promise<Note | null> {
+export async function getNote(pool: Pool, noteId: string, userEmail: string, options: GetNoteOptions = {}): Promise<Note | null> {
   // Check access
   const canAccess = await userCanAccessNote(pool, noteId, userEmail, 'read');
   if (!canAccess) {
@@ -173,7 +135,7 @@ export async function getNote(
     FROM note n
     LEFT JOIN notebook nb ON n.notebook_id = nb.id
     WHERE n.id = $1 AND n.deleted_at IS NULL`,
-    [noteId]
+    [noteId],
   );
 
   if (result.rows.length === 0) {
@@ -190,7 +152,7 @@ export async function getNote(
        WHERE note_id = $1
        ORDER BY version_number DESC
        LIMIT 50`,
-      [noteId]
+      [noteId],
     );
     (note as Note & { versions: unknown[] }).versions = versionsResult.rows.map((v) => ({
       versionNumber: v.version_number,
@@ -209,7 +171,7 @@ export async function getNote(
        FROM note_work_item_reference r
        JOIN work_item w ON r.work_item_id = w.id AND w.deleted_at IS NULL
        WHERE r.note_id = $1`,
-      [noteId]
+      [noteId],
     );
     (note as Note & { references: unknown[] }).references = refsResult.rows.map((r) => ({
       id: r.id,
@@ -231,11 +193,7 @@ export async function getNote(
 /**
  * Lists notes with filters and pagination
  */
-export async function listNotes(
-  pool: Pool,
-  userEmail: string,
-  options: ListNotesOptions = {}
-): Promise<ListNotesResult> {
+export async function listNotes(pool: Pool, userEmail: string, options: ListNotesOptions = {}): Promise<ListNotesResult> {
   const limit = Math.min(options.limit ?? 50, 100);
   const offset = options.offset ?? 0;
   const sortBy = options.sortBy ?? 'updatedAt';
@@ -296,10 +254,7 @@ export async function listNotes(
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) as total FROM note n ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) as total FROM note n ${whereClause}`, params);
   const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get notes
@@ -315,7 +270,7 @@ export async function listNotes(
     ${whereClause}
     ORDER BY ${sortColumn} ${sortOrder === 'asc' ? 'ASC' : 'DESC'}
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   );
 
   return {
@@ -329,20 +284,12 @@ export async function listNotes(
 /**
  * Updates a note with write permission check
  */
-export async function updateNote(
-  pool: Pool,
-  noteId: string,
-  input: UpdateNoteInput,
-  userEmail: string
-): Promise<Note | null> {
+export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteInput, userEmail: string): Promise<Note | null> {
   // Check write access
   const canWrite = await userCanAccessNote(pool, noteId, userEmail, 'read_write');
   if (!canWrite) {
     // Check if note exists but user lacks permission (403) vs not found (404)
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -356,10 +303,7 @@ export async function updateNote(
 
   // Validate notebook if provided
   if (input.notebookId) {
-    const nbResult = await pool.query(
-      'SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [input.notebookId]
-    );
+    const nbResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebookId]);
     if (nbResult.rows.length === 0) {
       throw new Error('Notebook not found');
     }
@@ -440,7 +384,7 @@ export async function updateNote(
        summary, tags, is_pinned, sort_order, visibility,
        hide_from_agents, embedding_status, deleted_at,
        created_at, updated_at`,
-    params
+    params,
   );
 
   if (result.rows.length === 0) {
@@ -450,18 +394,11 @@ export async function updateNote(
   const note = mapRowToNote(result.rows[0]);
 
   // Re-embed if content, title, or visibility changed
-  if (
-    input.title !== undefined ||
-    input.content !== undefined ||
-    input.visibility !== undefined ||
-    input.hideFromAgents !== undefined
-  ) {
+  if (input.title !== undefined || input.content !== undefined || input.visibility !== undefined || input.hideFromAgents !== undefined) {
     // Import embedding integration lazily
     import('../embeddings/note-integration.ts')
       .then(({ triggerNoteEmbedding }) => triggerNoteEmbedding(pool, note.id))
-      .catch((err) =>
-        console.error(`[Embeddings] Failed to import embedding module:`, err)
-      );
+      .catch((err) => console.error(`[Embeddings] Failed to import embedding module:`, err));
   }
 
   return note;
@@ -470,28 +407,18 @@ export async function updateNote(
 /**
  * Soft deletes a note (only owner can delete)
  */
-export async function deleteNote(
-  pool: Pool,
-  noteId: string,
-  userEmail: string
-): Promise<boolean> {
+export async function deleteNote(pool: Pool, noteId: string, userEmail: string): Promise<boolean> {
   // Only owner can delete
   const isOwner = await userOwnsNote(pool, noteId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       throw new Error('NOT_FOUND');
     }
     throw new Error('FORBIDDEN');
   }
 
-  const result = await pool.query(
-    `UPDATE note SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
-    [noteId]
-  );
+  const result = await pool.query(`UPDATE note SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, [noteId]);
 
   return (result.rowCount ?? 0) > 0;
 }
@@ -499,16 +426,9 @@ export async function deleteNote(
 /**
  * Restores a soft-deleted note (only owner can restore)
  */
-export async function restoreNote(
-  pool: Pool,
-  noteId: string,
-  userEmail: string
-): Promise<Note | null> {
+export async function restoreNote(pool: Pool, noteId: string, userEmail: string): Promise<Note | null> {
   // Check if note exists (even if deleted) and user owns it
-  const noteResult = await pool.query(
-    'SELECT user_email FROM note WHERE id = $1',
-    [noteId]
-  );
+  const noteResult = await pool.query('SELECT user_email FROM note WHERE id = $1', [noteId]);
 
   if (noteResult.rows.length === 0) {
     return null; // 404
@@ -527,7 +447,7 @@ export async function restoreNote(
        summary, tags, is_pinned, sort_order, visibility,
        hide_from_agents, embedding_status, deleted_at,
        created_at, updated_at`,
-    [noteId]
+    [noteId],
   );
 
   if (result.rows.length === 0) {

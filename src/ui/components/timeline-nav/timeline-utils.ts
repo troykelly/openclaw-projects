@@ -11,14 +11,7 @@ export type ZoomLevel = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 /**
  * Ordered zoom levels for in/out operations
  */
-export const ZOOM_LEVELS: ZoomLevel[] = [
-  'hour',
-  'day',
-  'week',
-  'month',
-  'quarter',
-  'year',
-];
+export const ZOOM_LEVELS: ZoomLevel[] = ['hour', 'day', 'week', 'month', 'quarter', 'year'];
 
 /**
  * Get the number of days represented by a zoom level
@@ -46,11 +39,7 @@ export function formatZoomLevel(level: ZoomLevel): string {
  * Calculate position of a date as percentage within a range
  * @returns Percentage (0-100), can be negative or >100 if outside range
  */
-export function calculateDatePosition(
-  date: Date,
-  rangeStart: Date,
-  rangeEnd: Date
-): number {
+export function calculateDatePosition(date: Date, rangeStart: Date, rangeEnd: Date): number {
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const dateMs = date.getTime() - rangeStart.getTime();
 
@@ -66,11 +55,7 @@ export function calculateDatePosition(
  */
 export function isToday(date: Date): boolean {
   const today = new Date();
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
+  return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
 }
 
 /**

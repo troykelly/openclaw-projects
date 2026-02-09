@@ -14,11 +14,7 @@ export interface CriticalPathInsightsProps {
   className?: string;
 }
 
-export function CriticalPathInsights({
-  result,
-  taskNames,
-  className,
-}: CriticalPathInsightsProps) {
+export function CriticalPathInsights({ result, taskNames, className }: CriticalPathInsightsProps) {
   const { criticalPath, totalDuration, tasks } = result;
 
   // Find tasks with highest risk (converging dependencies)
@@ -46,15 +42,9 @@ export function CriticalPathInsights({
 
   // Calculate slack distribution
   const slackDistribution = React.useMemo(() => {
-    const zeroSlack = Array.from(tasks.values()).filter(
-      (t) => t.slack === 0
-    ).length;
-    const lowSlack = Array.from(tasks.values()).filter(
-      (t) => t.slack > 0 && t.slack <= 2
-    ).length;
-    const highSlack = Array.from(tasks.values()).filter(
-      (t) => t.slack > 2
-    ).length;
+    const zeroSlack = Array.from(tasks.values()).filter((t) => t.slack === 0).length;
+    const lowSlack = Array.from(tasks.values()).filter((t) => t.slack > 0 && t.slack <= 2).length;
+    const highSlack = Array.from(tasks.values()).filter((t) => t.slack > 2).length;
     return { zeroSlack, lowSlack, highSlack };
   }, [tasks]);
 
@@ -96,24 +86,12 @@ export function CriticalPathInsights({
             {criticalPath.map((taskId, index) => {
               const timing = tasks.get(taskId);
               return (
-                <div
-                  key={taskId}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <Badge
-                    variant="outline"
-                    className="border-destructive text-destructive shrink-0"
-                  >
+                <div key={taskId} className="flex items-center gap-2 text-sm">
+                  <Badge variant="outline" className="border-destructive text-destructive shrink-0">
                     {index + 1}
                   </Badge>
-                  <span className="flex-1 truncate">
-                    {taskNames[taskId] || taskId}
-                  </span>
-                  {timing && (
-                    <span className="text-muted-foreground shrink-0">
-                      {timing.duration}d
-                    </span>
-                  )}
+                  <span className="flex-1 truncate">{taskNames[taskId] || taskId}</span>
+                  {timing && <span className="text-muted-foreground shrink-0">{timing.duration}d</span>}
                 </div>
               );
             })}
@@ -149,14 +127,9 @@ export function CriticalPathInsights({
           </h4>
           <div className="space-y-2">
             {convergingPoints.map(([taskId, count]) => (
-              <div
-                key={taskId}
-                className="flex items-center justify-between text-sm p-2 rounded bg-amber-50 dark:bg-amber-950"
-              >
+              <div key={taskId} className="flex items-center justify-between text-sm p-2 rounded bg-amber-50 dark:bg-amber-950">
                 <span className="truncate">{taskNames[taskId] || taskId}</span>
-                <span className="text-muted-foreground shrink-0">
-                  {count} tasks depend on this
-                </span>
+                <span className="text-muted-foreground shrink-0">{count} tasks depend on this</span>
               </div>
             ))}
           </div>

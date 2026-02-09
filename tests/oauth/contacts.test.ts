@@ -53,7 +53,7 @@ describe('Contact Sync Service', () => {
       // Set up OAuth connection
       await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
       );
 
       // Mock provider response
@@ -102,20 +102,20 @@ describe('Contact Sync Service', () => {
       const contactResult = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Old Name')
-         RETURNING id`
+         RETURNING id`,
       );
       const contactId = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'email', 'john@example.com')`,
-        [contactId]
+        [contactId],
       );
 
       // Set up OAuth connection
       await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
       );
 
       // Mock provider response with same email
@@ -150,20 +150,20 @@ describe('Contact Sync Service', () => {
       const contactResult = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('John Doe')
-         RETURNING id`
+         RETURNING id`,
       );
       const contactId = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'email', 'john@example.com')`,
-        [contactId]
+        [contactId],
       );
 
       // Set up OAuth connection
       await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
       );
 
       // Mock provider with additional phone number
@@ -184,10 +184,7 @@ describe('Contact Sync Service', () => {
       await syncContacts(pool, 'test@example.com', 'google');
 
       // Verify new endpoint was added
-      const endpoints = await pool.query(
-        'SELECT * FROM contact_endpoint WHERE contact_id = $1 ORDER BY endpoint_type',
-        [contactId]
-      );
+      const endpoints = await pool.query('SELECT * FROM contact_endpoint WHERE contact_id = $1 ORDER BY endpoint_type', [contactId]);
       expect(endpoints.rows).toHaveLength(2);
       expect(endpoints.rows.some((e) => e.endpoint_type === 'phone')).toBe(true);
     });
@@ -195,7 +192,7 @@ describe('Contact Sync Service', () => {
     it('skips contacts without email or phone', async () => {
       await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
       );
 
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -224,7 +221,7 @@ describe('Contact Sync Service', () => {
     it('stores sync cursor for incremental sync', async () => {
       await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
       );
 
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');

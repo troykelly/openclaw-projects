@@ -26,11 +26,7 @@ export interface SkipLinkProps {
  * `targetId` and moves focus there, letting keyboard users skip
  * past the sidebar and header.
  */
-export function SkipLink({
-  targetId,
-  label = 'Skip to main content',
-  className,
-}: SkipLinkProps): React.JSX.Element {
+export function SkipLink({ targetId, label = 'Skip to main content', className }: SkipLinkProps): React.JSX.Element {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     const target = document.getElementById(targetId);

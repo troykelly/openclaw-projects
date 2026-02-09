@@ -83,16 +83,14 @@ export function useFilterState(
   options: {
     persistToUrl?: boolean;
     storageKey?: string;
-  } = {}
+  } = {},
 ) {
   const { persistToUrl = true, storageKey } = options;
 
   // Initialize from URL if available
   const [filters, setFiltersInternal] = useState<FilterState>(() => {
     if (persistToUrl && typeof window !== 'undefined') {
-      const urlFilters = searchParamsToFilters(
-        new URLSearchParams(window.location.search)
-      );
+      const urlFilters = searchParamsToFilters(new URLSearchParams(window.location.search));
       if (Object.keys(urlFilters).length > 0) {
         return urlFilters;
       }
@@ -118,9 +116,7 @@ export function useFilterState(
     if (!persistToUrl || typeof window === 'undefined') return;
 
     const params = filtersToSearchParams(filters);
-    const newUrl = params.toString()
-      ? `${window.location.pathname}?${params.toString()}`
-      : window.location.pathname;
+    const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
 
     if (window.location.search !== `?${params.toString()}`) {
       window.history.pushState({}, '', newUrl);
@@ -132,9 +128,7 @@ export function useFilterState(
     if (!persistToUrl || typeof window === 'undefined') return;
 
     const handlePopState = () => {
-      const urlFilters = searchParamsToFilters(
-        new URLSearchParams(window.location.search)
-      );
+      const urlFilters = searchParamsToFilters(new URLSearchParams(window.location.search));
       setFiltersInternal(urlFilters);
     };
 
@@ -157,16 +151,19 @@ export function useFilterState(
     setFiltersInternal({});
   }, []);
 
-  const saveFilter = useCallback((name: string, filtersToSave?: FilterState) => {
-    const newFilter: SavedFilter = {
-      id: crypto.randomUUID(),
-      name,
-      filters: filtersToSave || filters,
-      createdAt: new Date().toISOString(),
-    };
-    setSavedFiltersInternal((prev) => [...prev, newFilter]);
-    return newFilter;
-  }, [filters]);
+  const saveFilter = useCallback(
+    (name: string, filtersToSave?: FilterState) => {
+      const newFilter: SavedFilter = {
+        id: crypto.randomUUID(),
+        name,
+        filters: filtersToSave || filters,
+        createdAt: new Date().toISOString(),
+      };
+      setSavedFiltersInternal((prev) => [...prev, newFilter]);
+      return newFilter;
+    },
+    [filters],
+  );
 
   const deleteFilter = useCallback((id: string) => {
     setSavedFiltersInternal((prev) => prev.filter((f) => f.id !== id));

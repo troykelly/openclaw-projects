@@ -9,30 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  CalendarView,
-  type CalendarViewProps,
-} from '@/ui/components/calendar-view/calendar-view';
-import {
-  CalendarHeader,
-  type CalendarHeaderProps,
-} from '@/ui/components/calendar-view/calendar-header';
-import {
-  MonthView,
-  type MonthViewProps,
-} from '@/ui/components/calendar-view/month-view';
-import {
-  WeekView,
-  type WeekViewProps,
-} from '@/ui/components/calendar-view/week-view';
-import {
-  CalendarItem,
-  type CalendarItemProps,
-} from '@/ui/components/calendar-view/calendar-item';
-import type {
-  CalendarEvent,
-  CalendarViewMode,
-} from '@/ui/components/calendar-view/types';
+import { CalendarView, type CalendarViewProps } from '@/ui/components/calendar-view/calendar-view';
+import { CalendarHeader, type CalendarHeaderProps } from '@/ui/components/calendar-view/calendar-header';
+import { MonthView, type MonthViewProps } from '@/ui/components/calendar-view/month-view';
+import { WeekView, type WeekViewProps } from '@/ui/components/calendar-view/week-view';
+import { CalendarItem, type CalendarItemProps } from '@/ui/components/calendar-view/calendar-item';
+import type { CalendarEvent, CalendarViewMode } from '@/ui/components/calendar-view/types';
 
 // Mock data
 const mockEvents: CalendarEvent[] = [

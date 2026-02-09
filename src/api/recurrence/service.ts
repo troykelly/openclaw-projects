@@ -20,11 +20,7 @@ export function parseRRule(ruleString: string): RRule {
 /**
  * Get the next N occurrences of a recurrence rule
  */
-export function getNextOccurrences(
-  ruleString: string,
-  count: number = 10,
-  after: Date = new Date()
-): Date[] {
+export function getNextOccurrences(ruleString: string, count: number = 10, after: Date = new Date()): Date[] {
   const rule = parseRRule(ruleString);
   const nextDate = rule.after(after, true);
   if (!nextDate) return [];
@@ -36,10 +32,7 @@ export function getNextOccurrences(
 /**
  * Get the next occurrence of a recurrence rule
  */
-export function getNextOccurrence(
-  ruleString: string,
-  after: Date = new Date()
-): Date | null {
+export function getNextOccurrence(ruleString: string, after: Date = new Date()): Date | null {
   const rule = parseRRule(ruleString);
   return rule.after(after, true);
 }
@@ -58,7 +51,7 @@ export async function createRecurrenceTemplate(
     taskType?: string;
     parentWorkItemId?: string;
     workItemKind?: string;
-  }
+  },
 ): Promise<{ id: string; rrule: string; description: string }> {
   const result = await pool.query(
     `INSERT INTO work_item (
@@ -83,7 +76,7 @@ export async function createRecurrenceTemplate(
       params.taskType || null,
       params.parentWorkItemId || null,
       params.workItemKind || null,
-    ]
+    ],
   );
 
   return {
@@ -106,7 +99,7 @@ export async function createFromNaturalLanguage(
     taskType?: string;
     parentWorkItemId?: string;
     workItemKind?: string;
-  }
+  },
 ): Promise<{
   id: string;
   isRecurring: boolean;
@@ -146,14 +139,7 @@ export async function createFromNaturalLanguage(
       status
     ) VALUES ($1, $2, COALESCE($3::work_item_priority, 'P2'), COALESCE($4::work_item_task_type, 'general'), $5, COALESCE($6::work_item_kind, 'issue'), 'open')
     RETURNING id::text`,
-    [
-      params.title,
-      params.description || null,
-      params.priority || null,
-      params.taskType || null,
-      params.parentWorkItemId || null,
-      params.workItemKind || null,
-    ]
+    [params.title, params.description || null, params.priority || null, params.taskType || null, params.parentWorkItemId || null, params.workItemKind || null],
   );
 
   return {
@@ -167,10 +153,7 @@ export async function createFromNaturalLanguage(
 /**
  * Get recurrence information for a work item
  */
-export async function getRecurrenceInfo(
-  pool: Pool,
-  workItemId: string
-): Promise<RecurrenceInfo | null> {
+export async function getRecurrenceInfo(pool: Pool, workItemId: string): Promise<RecurrenceInfo | null> {
   const result = await pool.query(
     `SELECT
       recurrence_rule,
@@ -179,7 +162,7 @@ export async function getRecurrenceInfo(
       is_recurrence_template
     FROM work_item
     WHERE id = $1`,
-    [workItemId]
+    [workItemId],
   );
 
   if (result.rows.length === 0) {
@@ -216,7 +199,7 @@ export async function updateRecurrence(
   params: {
     recurrenceRule?: string;
     recurrenceEnd?: Date | null;
-  }
+  },
 ): Promise<boolean> {
   const updates: string[] = [];
   const values: (string | Date | null)[] = [];
@@ -242,7 +225,7 @@ export async function updateRecurrence(
     `UPDATE work_item
     SET ${updates.join(', ')}, updated_at = now()
     WHERE id = $${paramIndex}`,
-    values
+    values,
   );
 
   return result.rowCount !== null && result.rowCount > 0;
@@ -251,10 +234,7 @@ export async function updateRecurrence(
 /**
  * Stop recurrence for a work item (remove recurrence rule)
  */
-export async function stopRecurrence(
-  pool: Pool,
-  workItemId: string
-): Promise<boolean> {
+export async function stopRecurrence(pool: Pool, workItemId: string): Promise<boolean> {
   const result = await pool.query(
     `UPDATE work_item
     SET recurrence_rule = NULL,
@@ -262,7 +242,7 @@ export async function stopRecurrence(
         is_recurrence_template = false,
         updated_at = now()
     WHERE id = $1`,
-    [workItemId]
+    [workItemId],
   );
 
   return result.rowCount !== null && result.rowCount > 0;
@@ -271,11 +251,7 @@ export async function stopRecurrence(
 /**
  * Create an instance from a recurrence template
  */
-export async function createInstance(
-  pool: Pool,
-  templateId: string,
-  scheduledDate: Date
-): Promise<string | null> {
+export async function createInstance(pool: Pool, templateId: string, scheduledDate: Date): Promise<string | null> {
   // Get the template
   const templateResult = await pool.query(
     `SELECT
@@ -287,7 +263,7 @@ export async function createInstance(
       work_item_kind
     FROM work_item
     WHERE id = $1 AND is_recurrence_template = true`,
-    [templateId]
+    [templateId],
   );
 
   if (templateResult.rows.length === 0) {
@@ -319,7 +295,7 @@ export async function createInstance(
       template.work_item_kind,
       templateId,
       scheduledDate,
-    ]
+    ],
   );
 
   return result.rows[0].id;
@@ -334,7 +310,7 @@ export async function getInstances(
   options: {
     limit?: number;
     includeCompleted?: boolean;
-  } = {}
+  } = {},
 ): Promise<RecurrenceInstance[]> {
   const limit = options.limit || 50;
   const includeCompleted = options.includeCompleted ?? true;
@@ -373,10 +349,7 @@ export async function getInstances(
  * Generate upcoming instances for all templates
  * This is typically called by a scheduled job
  */
-export async function generateUpcomingInstances(
-  pool: Pool,
-  daysAhead: number = 14
-): Promise<{ generated: number; errors: string[] }> {
+export async function generateUpcomingInstances(pool: Pool, daysAhead: number = 14): Promise<{ generated: number; errors: string[] }> {
   const errors: string[] = [];
   let generated = 0;
 
@@ -389,7 +362,7 @@ export async function generateUpcomingInstances(
     FROM work_item
     WHERE is_recurrence_template = true
       AND recurrence_rule IS NOT NULL
-      AND (recurrence_end IS NULL OR recurrence_end > now())`
+      AND (recurrence_end IS NULL OR recurrence_end > now())`,
   );
 
   const endDate = new Date();
@@ -405,18 +378,16 @@ export async function generateUpcomingInstances(
           AND not_before IS NOT NULL
           AND not_before >= now()
           AND not_before <= $2`,
-        [template.id, endDate]
+        [template.id, endDate],
       );
 
-      const existingDates = new Set(
-        existingInstances.rows.map((r) => r.not_before.toISOString())
-      );
+      const existingDates = new Set(existingInstances.rows.map((r) => r.not_before.toISOString()));
 
       // Get occurrences that should exist
       const occurrences = getNextOccurrences(
         template.recurrence_rule,
         100, // Max instances to generate
-        new Date()
+        new Date(),
       ).filter((d) => d <= endDate);
 
       // Create missing instances
@@ -429,9 +400,7 @@ export async function generateUpcomingInstances(
         }
       }
     } catch (error) {
-      errors.push(
-        `Error processing template ${template.id}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      errors.push(`Error processing template ${template.id}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -446,7 +415,7 @@ export async function getTemplates(
   options: {
     limit?: number;
     offset?: number;
-  } = {}
+  } = {},
 ): Promise<
   Array<{
     id: string;
@@ -474,7 +443,7 @@ export async function getTemplates(
     GROUP BY t.id
     ORDER BY t.created_at DESC
     LIMIT $1 OFFSET $2`,
-    [limit, offset]
+    [limit, offset],
   );
 
   return result.rows.map((row) => ({

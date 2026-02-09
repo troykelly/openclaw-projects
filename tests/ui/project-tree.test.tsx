@@ -62,7 +62,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     expect(screen.getByText('Test Project')).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     expect(screen.getByText('1')).toBeInTheDocument(); // 1 child (initiative)
@@ -83,7 +83,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} onSelect={onSelect} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     fireEvent.click(screen.getByTestId('tree-item'));
@@ -94,7 +94,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} isSelected={true} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     const item = screen.getByTestId('tree-item');
@@ -105,7 +105,7 @@ describe('TreeItemRow', () => {
     const { container } = render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} isExpanded={true} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     const chevron = container.querySelector('.rotate-90');
@@ -117,7 +117,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} onToggleExpand={onToggleExpand} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     const expandButton = screen.getByLabelText('Expand');
@@ -130,7 +130,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} onSelect={onSelect} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     const item = screen.getByTestId('tree-item');
@@ -143,7 +143,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} onToggleExpand={onToggleExpand} isExpanded={false} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     const item = screen.getByTestId('tree-item');
@@ -156,7 +156,7 @@ describe('TreeItemRow', () => {
     render(
       <DndWrapper>
         <TreeItemRow {...defaultProps} onToggleExpand={onToggleExpand} isExpanded={true} />
-      </DndWrapper>
+      </DndWrapper>,
     );
 
     const item = screen.getByTestId('tree-item');

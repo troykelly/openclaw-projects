@@ -3,12 +3,7 @@ import { FileText, Folder, Target, Layers, MoreVertical, Pencil, Trash2 } from '
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import type { MemoryItem } from './types';
 
 function getLinkedItemIcon(kind: MemoryItem['linkedItemKind']) {
@@ -34,23 +29,13 @@ export interface MemoryCardProps {
   className?: string;
 }
 
-export function MemoryCard({
-  memory,
-  onClick,
-  onEdit,
-  onDelete,
-  className,
-}: MemoryCardProps) {
+export function MemoryCard({ memory, onClick, onEdit, onDelete, className }: MemoryCardProps) {
   const preview = memory.content.slice(0, 150) + (memory.content.length > 150 ? '...' : '');
 
   return (
     <div
       data-testid="memory-card"
-      className={cn(
-        'group relative rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50',
-        onClick && 'cursor-pointer',
-        className
-      )}
+      className={cn('group relative rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50', onClick && 'cursor-pointer', className)}
       onClick={() => onClick?.(memory)}
     >
       {/* Header */}
@@ -60,12 +45,7 @@ export function MemoryCard({
         {(onEdit || onDelete) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6 opacity-0 group-hover:opacity-100"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <Button variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                 <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>

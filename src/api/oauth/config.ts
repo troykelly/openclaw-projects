@@ -27,32 +27,14 @@ export const GOOGLE_SCOPES = {
 
 // Default scopes for contact sync
 export const DEFAULT_SCOPES: Record<OAuthProvider, string[]> = {
-  microsoft: [
-    MICROSOFT_SCOPES.contacts,
-    MICROSOFT_SCOPES.profile,
-    MICROSOFT_SCOPES.offline,
-  ],
-  google: [
-    GOOGLE_SCOPES.contacts,
-    GOOGLE_SCOPES.profile,
-  ],
+  microsoft: [MICROSOFT_SCOPES.contacts, MICROSOFT_SCOPES.profile, MICROSOFT_SCOPES.offline],
+  google: [GOOGLE_SCOPES.contacts, GOOGLE_SCOPES.profile],
 };
 
 // Full scopes including email and calendar
 export const FULL_SCOPES: Record<OAuthProvider, string[]> = {
-  microsoft: [
-    MICROSOFT_SCOPES.contacts,
-    MICROSOFT_SCOPES.email,
-    MICROSOFT_SCOPES.calendar,
-    MICROSOFT_SCOPES.profile,
-    MICROSOFT_SCOPES.offline,
-  ],
-  google: [
-    GOOGLE_SCOPES.contacts,
-    GOOGLE_SCOPES.email,
-    GOOGLE_SCOPES.calendar,
-    GOOGLE_SCOPES.profile,
-  ],
+  microsoft: [MICROSOFT_SCOPES.contacts, MICROSOFT_SCOPES.email, MICROSOFT_SCOPES.calendar, MICROSOFT_SCOPES.profile, MICROSOFT_SCOPES.offline],
+  google: [GOOGLE_SCOPES.contacts, GOOGLE_SCOPES.email, GOOGLE_SCOPES.calendar, GOOGLE_SCOPES.profile],
 };
 
 function getEnvVar(name: string): string | undefined {

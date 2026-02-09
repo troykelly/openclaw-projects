@@ -100,10 +100,7 @@ const SELECT_BASIC = `
  * @throws Error if contacts are the same (self-relationship)
  * @throws Error if duplicate relationship exists
  */
-export async function createRelationship(
-  pool: Pool,
-  input: CreateRelationshipInput
-): Promise<RelationshipEntry> {
+export async function createRelationship(pool: Pool, input: CreateRelationshipInput): Promise<RelationshipEntry> {
   if (input.contactAId === input.contactBId) {
     throw new Error('Cannot create a self-relationship');
   }
@@ -120,13 +117,7 @@ export async function createRelationship(
       relationship_type_id::text as relationship_type_id,
       notes, created_by_agent, embedding_status,
       created_at, updated_at`,
-    [
-      input.contactAId,
-      input.contactBId,
-      input.relationshipTypeId,
-      input.notes ?? null,
-      input.createdByAgent ?? null,
-    ]
+    [input.contactAId, input.contactBId, input.relationshipTypeId, input.notes ?? null, input.createdByAgent ?? null],
   );
 
   return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
@@ -135,14 +126,8 @@ export async function createRelationship(
 /**
  * Gets a relationship by ID with expanded contact and type details.
  */
-export async function getRelationship(
-  pool: Pool,
-  id: string
-): Promise<RelationshipWithDetails | null> {
-  const result = await pool.query(
-    `${SELECT_WITH_DETAILS} WHERE r.id = $1`,
-    [id]
-  );
+export async function getRelationship(pool: Pool, id: string): Promise<RelationshipWithDetails | null> {
+  const result = await pool.query(`${SELECT_WITH_DETAILS} WHERE r.id = $1`, [id]);
 
   if (result.rows.length === 0) {
     return null;
@@ -154,11 +139,7 @@ export async function getRelationship(
 /**
  * Updates an existing relationship.
  */
-export async function updateRelationship(
-  pool: Pool,
-  id: string,
-  input: UpdateRelationshipInput
-): Promise<RelationshipEntry | null> {
+export async function updateRelationship(pool: Pool, id: string, input: UpdateRelationshipInput): Promise<RelationshipEntry | null> {
   const updates: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -194,7 +175,7 @@ export async function updateRelationship(
       relationship_type_id::text as relationship_type_id,
       notes, created_by_agent, embedding_status,
       created_at, updated_at`,
-    params
+    params,
   );
 
   if (result.rows.length === 0) {
@@ -207,24 +188,15 @@ export async function updateRelationship(
 /**
  * Deletes a relationship.
  */
-export async function deleteRelationship(
-  pool: Pool,
-  id: string
-): Promise<boolean> {
-  const result = await pool.query(
-    'DELETE FROM relationship WHERE id = $1 RETURNING id',
-    [id]
-  );
+export async function deleteRelationship(pool: Pool, id: string): Promise<boolean> {
+  const result = await pool.query('DELETE FROM relationship WHERE id = $1 RETURNING id', [id]);
   return result.rows.length > 0;
 }
 
 /**
  * Lists relationships with optional filtering and pagination.
  */
-export async function listRelationships(
-  pool: Pool,
-  options: ListRelationshipsOptions = {}
-): Promise<ListRelationshipsResult> {
+export async function listRelationships(pool: Pool, options: ListRelationshipsOptions = {}): Promise<ListRelationshipsResult> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -250,10 +222,7 @@ export async function listRelationships(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) as total FROM relationship r ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) as total FROM relationship r ${whereClause}`, params);
   const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get paginated results
@@ -267,13 +236,11 @@ export async function listRelationships(
     ${whereClause}
     ORDER BY r.created_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return {
-    relationships: result.rows.map((row) =>
-      mapRowToRelationshipWithDetails(row as Record<string, unknown>)
-    ),
+    relationships: result.rows.map((row) => mapRowToRelationshipWithDetails(row as Record<string, unknown>)),
     total,
   };
 }
@@ -289,28 +256,18 @@ export async function listRelationships(
  *    - If type is directional (is_directional = true) -> return inverse type
  * 3. Combine results
  */
-export async function getRelatedContacts(
-  pool: Pool,
-  contactId: string
-): Promise<GraphTraversalResult> {
+export async function getRelatedContacts(pool: Pool, contactId: string): Promise<GraphTraversalResult> {
   // Get the contact's name first
-  const contactResult = await pool.query(
-    `SELECT display_name FROM contact WHERE id = $1`,
-    [contactId]
-  );
-  const contactName = contactResult.rows.length > 0
-    ? (contactResult.rows[0] as { display_name: string }).display_name
-    : 'Unknown';
+  const contactResult = await pool.query(`SELECT display_name FROM contact WHERE id = $1`, [contactId]);
+  const contactName = contactResult.rows.length > 0 ? (contactResult.rows[0] as { display_name: string }).display_name : 'Unknown';
 
   // Check if contact_kind column exists (added in separate migration 044_contact_kind)
   const kindColCheck = await pool.query(
     `SELECT column_name FROM information_schema.columns
-     WHERE table_name = 'contact' AND column_name = 'contact_kind'`
+     WHERE table_name = 'contact' AND column_name = 'contact_kind'`,
   );
   const hasContactKind = kindColCheck.rows.length > 0;
-  const contactKindSelect = hasContactKind
-    ? `c_ref.contact_kind::text as contact_kind`
-    : `'person' as contact_kind`;
+  const contactKindSelect = hasContactKind ? `c_ref.contact_kind::text as contact_kind` : `'person' as contact_kind`;
 
   // Query 1: Contact is on the A side -> type as-is, related contact is B
   const aSideResult = await pool.query(
@@ -327,7 +284,7 @@ export async function getRelatedContacts(
     JOIN contact cb ON r.contact_b_id = cb.id
     JOIN relationship_type rt ON r.relationship_type_id = rt.id
     WHERE r.contact_a_id = $1`,
-    [contactId]
+    [contactId],
   );
 
   // Query 2: Contact is on the B side
@@ -356,7 +313,7 @@ export async function getRelatedContacts(
     JOIN relationship_type rt ON r.relationship_type_id = rt.id
     LEFT JOIN relationship_type inv ON rt.inverse_type_id = inv.id
     WHERE r.contact_b_id = $1`,
-    [contactId]
+    [contactId],
   );
 
   const relatedContacts: RelatedContact[] = [];
@@ -400,10 +357,7 @@ export async function getRelatedContacts(
  * Gets all members of a group contact.
  * Uses the has_member/member_of directional relationship type.
  */
-export async function getGroupMembers(
-  pool: Pool,
-  groupContactId: string
-): Promise<GroupMembership[]> {
+export async function getGroupMembers(pool: Pool, groupContactId: string): Promise<GroupMembership[]> {
   const result = await pool.query(
     `SELECT
       r.id::text as relationship_id,
@@ -418,7 +372,7 @@ export async function getGroupMembers(
     WHERE r.contact_a_id = $1
       AND rt.name = 'has_member'
     ORDER BY cm.display_name ASC`,
-    [groupContactId]
+    [groupContactId],
   );
 
   return result.rows.map((row) => {
@@ -437,10 +391,7 @@ export async function getGroupMembers(
  * Gets all groups a contact belongs to.
  * Uses the has_member/member_of directional relationship type.
  */
-export async function getContactGroups(
-  pool: Pool,
-  contactId: string
-): Promise<GroupMembership[]> {
+export async function getContactGroups(pool: Pool, contactId: string): Promise<GroupMembership[]> {
   const result = await pool.query(
     `SELECT
       r.id::text as relationship_id,
@@ -455,7 +406,7 @@ export async function getContactGroups(
     WHERE r.contact_b_id = $1
       AND rt.name = 'has_member'
     ORDER BY cg.display_name ASC`,
-    [contactId]
+    [contactId],
   );
 
   return result.rows.map((row) => {
@@ -474,18 +425,12 @@ export async function getContactGroups(
  * Resolves a contact identifier (UUID or display name) to a contact ID and name.
  * Returns null if the contact cannot be found.
  */
-async function resolveContact(
-  pool: Pool,
-  identifier: string
-): Promise<{ id: string; displayName: string } | null> {
+async function resolveContact(pool: Pool, identifier: string): Promise<{ id: string; displayName: string } | null> {
   // Try as UUID first
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (uuidPattern.test(identifier)) {
-    const result = await pool.query(
-      `SELECT id::text as id, display_name FROM contact WHERE id = $1`,
-      [identifier]
-    );
+    const result = await pool.query(`SELECT id::text as id, display_name FROM contact WHERE id = $1`, [identifier]);
     if (result.rows.length > 0) {
       const row = result.rows[0] as { id: string; display_name: string };
       return { id: row.id, displayName: row.display_name };
@@ -498,7 +443,7 @@ async function resolveContact(
      WHERE lower(display_name) = lower($1)
      ORDER BY created_at ASC
      LIMIT 1`,
-    [identifier]
+    [identifier],
   );
 
   if (nameResult.rows.length > 0) {
@@ -513,15 +458,9 @@ async function resolveContact(
  * Resolves a relationship type by exact name match or semantic/text search.
  * Returns the best matching type or null.
  */
-async function resolveRelationshipType(
-  pool: Pool,
-  typeIdentifier: string
-): Promise<{ id: string; name: string; label: string } | null> {
+async function resolveRelationshipType(pool: Pool, typeIdentifier: string): Promise<{ id: string; name: string; label: string } | null> {
   // Try exact name match first
-  const exactResult = await pool.query(
-    `SELECT id::text as id, name, label FROM relationship_type WHERE name = $1`,
-    [typeIdentifier]
-  );
+  const exactResult = await pool.query(`SELECT id::text as id, name, label FROM relationship_type WHERE name = $1`, [typeIdentifier]);
 
   if (exactResult.rows.length > 0) {
     const row = exactResult.rows[0] as { id: string; name: string; label: string };
@@ -555,10 +494,7 @@ async function resolveRelationshipType(
  * @throws Error if either contact cannot be resolved
  * @throws Error if relationship type cannot be resolved
  */
-export async function relationshipSet(
-  pool: Pool,
-  input: RelationshipSetInput
-): Promise<RelationshipSetResult> {
+export async function relationshipSet(pool: Pool, input: RelationshipSetInput): Promise<RelationshipSetResult> {
   // Step 1 & 2: Resolve contacts
   const contactA = await resolveContact(pool, input.contactA);
   if (!contactA) {
@@ -573,9 +509,7 @@ export async function relationshipSet(
   // Step 3: Resolve relationship type
   const relType = await resolveRelationshipType(pool, input.relationshipType);
   if (!relType) {
-    throw new Error(
-      `Relationship type "${input.relationshipType}" cannot be resolved. No matching type found.`
-    );
+    throw new Error(`Relationship type "${input.relationshipType}" cannot be resolved. No matching type found.`);
   }
 
   // Step 4: Check for existing relationship
@@ -587,7 +521,7 @@ export async function relationshipSet(
             created_at, updated_at
      FROM relationship
      WHERE contact_a_id = $1 AND contact_b_id = $2 AND relationship_type_id = $3`,
-    [contactA.id, contactB.id, relType.id]
+    [contactA.id, contactB.id, relType.id],
   );
 
   if (existingResult.rows.length > 0) {

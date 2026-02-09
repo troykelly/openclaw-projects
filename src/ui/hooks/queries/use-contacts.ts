@@ -23,14 +23,11 @@ export const contactKeys = {
  * @returns TanStack Query result with `ContactsResponse`
  */
 export function useContacts(search?: string) {
-  const queryString = search
-    ? `?search=${encodeURIComponent(search)}`
-    : '';
+  const queryString = search ? `?search=${encodeURIComponent(search)}` : '';
 
   return useQuery({
     queryKey: contactKeys.list(search),
-    queryFn: ({ signal }) =>
-      apiClient.get<ContactsResponse>(`/api/contacts${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<ContactsResponse>(`/api/contacts${queryString}`, { signal }),
   });
 }
 
@@ -43,8 +40,7 @@ export function useContacts(search?: string) {
 export function useContactDetail(id: string) {
   return useQuery({
     queryKey: contactKeys.detail(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<Contact>(`/api/contacts/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<Contact>(`/api/contacts/${id}`, { signal }),
     enabled: !!id,
   });
 }

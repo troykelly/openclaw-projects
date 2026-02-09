@@ -28,17 +28,7 @@ describe('Work item external links', () => {
         (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number, github_node_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id::text as id, provider, url, external_id, github_owner, github_repo, github_kind, github_number`,
-      [
-        workItemId,
-        'github',
-        'https://github.com/acme/tools/issues/123',
-        'github:acme/tools:issue:123',
-        'acme',
-        'tools',
-        'issue',
-        123,
-        'MDU6SXNzdWUxMjM=',
-      ]
+      [workItemId, 'github', 'https://github.com/acme/tools/issues/123', 'github:acme/tools:issue:123', 'acme', 'tools', 'issue', 123, 'MDU6SXNzdWUxMjM='],
     );
 
     expect(inserted.rows[0].provider).toBe('github');
@@ -60,7 +50,7 @@ describe('Work item external links', () => {
       `INSERT INTO work_item_external_link
         (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number)
        VALUES ($1, 'github', 'https://github.com/acme/tools/pull/77', 'github:acme/tools:pr:77', 'acme', 'tools', 'pr', 77)`,
-      [workItemA]
+      [workItemA],
     );
 
     await expect(
@@ -68,8 +58,8 @@ describe('Work item external links', () => {
         `INSERT INTO work_item_external_link
           (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number)
          VALUES ($1, 'github', 'https://github.com/acme/tools/pull/77', 'github:acme/tools:pr:77:copy', 'acme', 'tools', 'pr', 77)`,
-        [workItemB]
-      )
+        [workItemB],
+      ),
     ).rejects.toThrow(/work_item_external_link/);
 
     await expect(
@@ -77,8 +67,8 @@ describe('Work item external links', () => {
         `INSERT INTO work_item_external_link
           (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number)
          VALUES ($1, 'github', 'https://github.com/acme/tools/pull/78', 'github:acme/tools:pr:77', 'acme', 'tools', 'pr', 77)`,
-        [workItemA]
-      )
+        [workItemA],
+      ),
     ).rejects.toThrow(/work_item_external_link/);
   });
 
@@ -88,8 +78,8 @@ describe('Work item external links', () => {
         `INSERT INTO work_item_external_link
           (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number)
          VALUES ($1, 'github', 'https://github.com/acme/tools/issues/9', 'github:acme/tools:issue:9', 'acme', 'tools', 'issue', 9)`,
-        ['00000000-0000-0000-0000-000000000000']
-      )
+        ['00000000-0000-0000-0000-000000000000'],
+      ),
     ).rejects.toThrow(/work_item_external_link/);
   });
 });

@@ -63,34 +63,46 @@ describe('Note Versions Schema (Migration 042)', () => {
 
     it('enforces change_type CHECK constraint', async () => {
       // Valid types should work
-      const valid = await pool.query(`
+      const valid = await pool.query(
+        `
         INSERT INTO note_version (note_id, version_number, title, content, changed_by_email, change_type)
         VALUES ($1, 100, 'Test', 'Content', 'user@example.com', 'edit')
         RETURNING id
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(valid.rows[0].id).toBeDefined();
 
       // Invalid type should fail
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_version (note_id, version_number, title, content, changed_by_email, change_type)
           VALUES ($1, 101, 'Test', 'Content', 'user@example.com', 'invalid_type')
-        `, [testNoteId])
+        `,
+          [testNoteId],
+        ),
       ).rejects.toThrow();
     });
 
     it('enforces unique constraint on (note_id, version_number)', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_version (note_id, version_number, title, content, changed_by_email, change_type)
         VALUES ($1, 200, 'Test', 'Content', 'user@example.com', 'edit')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       // Duplicate version number should fail
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_version (note_id, version_number, title, content, changed_by_email, change_type)
           VALUES ($1, 200, 'Test2', 'Content2', 'user@example.com', 'edit')
-        `, [testNoteId])
+        `,
+          [testNoteId],
+        ),
       ).rejects.toThrow();
     });
 
@@ -104,10 +116,13 @@ describe('Note Versions Schema (Migration 042)', () => {
       const tempNoteId = tempNote.rows[0].id;
 
       // Create a version
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_version (note_id, version_number, title, content, changed_by_email, change_type)
         VALUES ($1, 1, 'Temp', 'Content', 'user@example.com', 'create')
-      `, [tempNoteId]);
+      `,
+        [tempNoteId],
+      );
 
       // Delete the note
       await pool.query('DELETE FROM note WHERE id = $1', [tempNoteId]);
@@ -119,11 +134,14 @@ describe('Note Versions Schema (Migration 042)', () => {
 
     it('stores diff_from_previous as JSONB', async () => {
       const diff = { ops: [{ op: 'replace', path: '/content', value: 'new content' }] };
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         INSERT INTO note_version (note_id, version_number, title, content, changed_by_email, change_type, diff_from_previous)
         VALUES ($1, 300, 'Test', 'Content', 'user@example.com', 'edit', $2)
         RETURNING diff_from_previous
-      `, [testNoteId, JSON.stringify(diff)]);
+      `,
+        [testNoteId, JSON.stringify(diff)],
+      );
 
       expect(result.rows[0].diff_from_previous).toEqual(diff);
     });
@@ -149,15 +167,21 @@ describe('Note Versions Schema (Migration 042)', () => {
 
     it('creates version when content changes', async () => {
       // Update content
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE note SET content = 'Updated content' WHERE id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       // Should have created a version with the OLD content
-      const versions = await pool.query(`
+      const versions = await pool.query(
+        `
         SELECT title, content, change_type FROM note_version
         WHERE note_id = $1 ORDER BY version_number
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       expect(versions.rows.length).toBe(1);
       expect(versions.rows[0].content).toBe('Original content');
@@ -165,13 +189,19 @@ describe('Note Versions Schema (Migration 042)', () => {
     });
 
     it('creates version when title changes', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE note SET title = 'Updated Title' WHERE id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
-      const versions = await pool.query(`
+      const versions = await pool.query(
+        `
         SELECT title FROM note_version WHERE note_id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       expect(versions.rows.length).toBe(1);
       expect(versions.rows[0].title).toBe('Trigger Test Note');
@@ -179,13 +209,19 @@ describe('Note Versions Schema (Migration 042)', () => {
 
     it('does NOT create version when other fields change', async () => {
       // Update only tags (not content or title)
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE note SET tags = ARRAY['test'] WHERE id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
-      const versions = await pool.query(`
+      const versions = await pool.query(
+        `
         SELECT id FROM note_version WHERE note_id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       expect(versions.rows.length).toBe(0);
     });
@@ -196,10 +232,13 @@ describe('Note Versions Schema (Migration 042)', () => {
       await pool.query('UPDATE note SET content = $1 WHERE id = $2', ['Change 2', versionTestNoteId]);
       await pool.query('UPDATE note SET content = $1 WHERE id = $2', ['Change 3', versionTestNoteId]);
 
-      const versions = await pool.query(`
+      const versions = await pool.query(
+        `
         SELECT version_number, content FROM note_version
         WHERE note_id = $1 ORDER BY version_number
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       expect(versions.rows.length).toBe(3);
       expect(versions.rows[0].version_number).toBe(1);
@@ -221,9 +260,12 @@ describe('Note Versions Schema (Migration 042)', () => {
         client.release();
       }
 
-      const versions = await pool.query(`
+      const versions = await pool.query(
+        `
         SELECT changed_by_email FROM note_version WHERE note_id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       expect(versions.rows[0].changed_by_email).toBe('session-user@example.com');
     });
@@ -232,13 +274,19 @@ describe('Note Versions Schema (Migration 042)', () => {
       // Reset session variable
       await pool.query(`SELECT set_config('app.current_user_email', '', true)`);
 
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE note SET content = 'Updated without session user' WHERE id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
-      const versions = await pool.query(`
+      const versions = await pool.query(
+        `
         SELECT changed_by_email FROM note_version WHERE note_id = $1
-      `, [versionTestNoteId]);
+      `,
+        [versionTestNoteId],
+      );
 
       expect(versions.rows[0].changed_by_email).toBe('system');
     });
@@ -283,17 +331,23 @@ describe('Note Versions Schema (Migration 042)', () => {
     });
 
     it('returns specific version content', async () => {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT * FROM get_note_version($1, 1)
-      `, [funcTestNoteId]);
+      `,
+        [funcTestNoteId],
+      );
 
       expect(result.rows[0].content).toBe('v1 content');
     });
 
     it('returns null for non-existent version', async () => {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT * FROM get_note_version($1, 999)
-      `, [funcTestNoteId]);
+      `,
+        [funcTestNoteId],
+      );
 
       expect(result.rows.length).toBe(0);
     });

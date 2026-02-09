@@ -115,12 +115,9 @@ function validateSearchParams(params: SkillStoreSearchParams): void {
  */
 function buildFilterConditions(
   params: SkillStoreSearchParams,
-  tableAlias: string = 's'
+  tableAlias: string = 's',
 ): { conditions: string[]; values: (string | string[] | number)[]; paramIndex: number } {
-  const conditions: string[] = [
-    `${tableAlias}.skill_id = $1`,
-    `${tableAlias}.deleted_at IS NULL`,
-  ];
+  const conditions: string[] = [`${tableAlias}.skill_id = $1`, `${tableAlias}.deleted_at IS NULL`];
   const values: (string | string[] | number)[] = [params.skill_id];
   let paramIndex = 2;
 
@@ -175,10 +172,7 @@ const RESULT_COLUMNS = `
  * Uses PostgreSQL ts_rank for relevance scoring against the pre-built
  * search_vector column (title:A, summary:B, content:C weights).
  */
-export async function searchSkillStoreFullText(
-  pool: Pool,
-  params: SkillStoreSearchParams
-): Promise<FullTextSearchResponse> {
+export async function searchSkillStoreFullText(pool: Pool, params: SkillStoreSearchParams): Promise<FullTextSearchResponse> {
   validateSearchParams(params);
 
   const { limit = 20, offset = 0 } = params;
@@ -203,7 +197,7 @@ export async function searchSkillStoreFullText(
     `SELECT COUNT(*) as total
      FROM skill_store_item s
      WHERE ${whereClause}`,
-    values.slice(0, queryParamIndex) // Only base filter + search params
+    values.slice(0, queryParamIndex), // Only base filter + search params
   );
 
   const total = parseInt(countResult.rows[0].total, 10);
@@ -217,7 +211,7 @@ export async function searchSkillStoreFullText(
      WHERE ${whereClause}
      ORDER BY relevance DESC, s.updated_at DESC
      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    values
+    values,
   );
 
   return {
@@ -234,10 +228,7 @@ export async function searchSkillStoreFullText(
  *
  * If embedding fails for the query, falls back to text search.
  */
-export async function searchSkillStoreSemantic(
-  pool: Pool,
-  params: SemanticSearchParams
-): Promise<SemanticSearchResponse> {
+export async function searchSkillStoreSemantic(pool: Pool, params: SemanticSearchParams): Promise<SemanticSearchResponse> {
   validateSearchParams(params);
 
   const { limit = 20, offset = 0, min_similarity = 0.3 } = params;
@@ -256,9 +247,7 @@ export async function searchSkillStoreSemantic(
     } catch (error) {
       console.warn(
         '[SkillStoreSearch] Query embedding failed, falling back to text search:',
-        error instanceof EmbeddingError
-          ? error.toSafeString()
-          : (error as Error).message
+        error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message,
       );
     }
   }
@@ -295,7 +284,7 @@ export async function searchSkillStoreSemantic(
          AND 1 - (s.embedding <=> $${embeddingParamIndex}::vector) >= $${simThresholdParamIndex}
        ORDER BY s.embedding <=> $${embeddingParamIndex}::vector
        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-      values
+      values,
     );
 
     return {
@@ -312,9 +301,7 @@ export async function searchSkillStoreSemantic(
   values.push(`%${escapeIlikeWildcards(params.query)}%`);
   const searchParamIndex = nextParam++;
 
-  conditions.push(
-    `(s.title ILIKE $${searchParamIndex} OR s.summary ILIKE $${searchParamIndex} OR s.content ILIKE $${searchParamIndex})`
-  );
+  conditions.push(`(s.title ILIKE $${searchParamIndex} OR s.summary ILIKE $${searchParamIndex} OR s.content ILIKE $${searchParamIndex})`);
 
   values.push(limit);
   const limitParamIndex = nextParam++;
@@ -331,7 +318,7 @@ export async function searchSkillStoreSemantic(
      WHERE ${whereClause}
      ORDER BY s.updated_at DESC
      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    values
+    values,
   );
 
   return {
@@ -350,17 +337,10 @@ export async function searchSkillStoreSemantic(
  * Default weights: 0.7 semantic + 0.3 full-text, configurable via semantic_weight.
  * Falls back to full-text only if semantic search is unavailable.
  */
-export async function searchSkillStoreHybrid(
-  pool: Pool,
-  params: HybridSearchParams
-): Promise<HybridSearchResponse> {
+export async function searchSkillStoreHybrid(pool: Pool, params: HybridSearchParams): Promise<HybridSearchResponse> {
   validateSearchParams(params);
 
-  const {
-    limit = 20,
-    semantic_weight = 0.7,
-    min_similarity = 0.3,
-  } = params;
+  const { limit = 20, semantic_weight = 0.7, min_similarity = 0.3 } = params;
   const fulltextWeight = 1 - semantic_weight;
 
   // RRF constant (standard value from literature)
@@ -404,12 +384,15 @@ export async function searchSkillStoreHybrid(
 
   // Build RRF scores
   // Map: item_id -> { item, fulltext_rank, semantic_rank, score }
-  const fusionMap = new Map<string, {
-    item: SkillStoreSearchResult;
-    fulltext_rank: number | null;
-    semantic_rank: number | null;
-    score: number;
-  }>();
+  const fusionMap = new Map<
+    string,
+    {
+      item: SkillStoreSearchResult;
+      fulltext_rank: number | null;
+      semantic_rank: number | null;
+      score: number;
+    }
+  >();
 
   // Add full-text results with RRF scores
   for (let i = 0; i < fulltextResults.length; i++) {

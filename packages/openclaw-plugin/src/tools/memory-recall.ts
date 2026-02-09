@@ -5,82 +5,73 @@
  * Relationship scope filtering added in Issue #493.
  */
 
-import { z } from 'zod'
-import type { ApiClient } from '../api-client.js'
-import type { Logger } from '../logger.js'
-import type { PluginConfig } from '../config.js'
-import { sanitizeErrorMessage } from '../utils/sanitize.js'
+import { z } from 'zod';
+import type { ApiClient } from '../api-client.js';
+import type { Logger } from '../logger.js';
+import type { PluginConfig } from '../config.js';
+import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Memory categories for filtering */
-export const MemoryCategory = z.enum(['preference', 'fact', 'decision', 'context', 'other'])
-export type MemoryCategory = z.infer<typeof MemoryCategory>
+export const MemoryCategory = z.enum(['preference', 'fact', 'decision', 'context', 'other']);
+export type MemoryCategory = z.infer<typeof MemoryCategory>;
 
 /** Parameters for memory_recall tool */
 export const MemoryRecallParamsSchema = z.object({
-  query: z
-    .string()
-    .min(1, 'Query cannot be empty')
-    .max(1000, 'Query must be 1000 characters or less'),
+  query: z.string().min(1, 'Query cannot be empty').max(1000, 'Query must be 1000 characters or less'),
   limit: z.number().int().min(1).max(20).optional(),
   category: MemoryCategory.optional(),
-  tags: z
-    .array(z.string().min(1).max(100))
-    .max(20, 'Maximum 20 tags per filter')
-    .optional(),
-  relationship_id: z
-    .string()
-    .uuid('relationship_id must be a valid UUID')
-    .optional(),
-})
-export type MemoryRecallParams = z.infer<typeof MemoryRecallParamsSchema>
+  tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per filter').optional(),
+  relationship_id: z.string().uuid('relationship_id must be a valid UUID').optional(),
+});
+export type MemoryRecallParams = z.infer<typeof MemoryRecallParamsSchema>;
 
 /** Memory item returned from API */
 export interface Memory {
-  id: string
-  content: string
-  category: string
-  tags?: string[]
-  score?: number
-  createdAt?: string
-  updatedAt?: string
+  id: string;
+  content: string;
+  category: string;
+  tags?: string[];
+  score?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Successful tool result */
 export interface MemoryRecallSuccess {
-  success: true
+  success: true;
   data: {
-    content: string
+    content: string;
     details: {
-      count: number
-      memories: Memory[]
-      userId: string
-    }
-  }
+      count: number;
+      memories: Memory[];
+      userId: string;
+    };
+  };
 }
 
 /** Failed tool result */
 export interface MemoryRecallFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
 /** Tool result type */
-export type MemoryRecallResult = MemoryRecallSuccess | MemoryRecallFailure
+export type MemoryRecallResult = MemoryRecallSuccess | MemoryRecallFailure;
 
 /** Tool configuration */
 export interface MemoryRecallToolOptions {
-  client: ApiClient
-  logger: Logger
-  config: PluginConfig
-  userId: string
+  client: ApiClient;
+  logger: Logger;
+  config: PluginConfig;
+  userId: string;
 }
 
 /** Tool definition */
 export interface MemoryRecallTool {
-  name: string
-  description: string
-  parameters: typeof MemoryRecallParamsSchema
-  execute: (params: MemoryRecallParams) => Promise<MemoryRecallResult>
+  name: string;
+  description: string;
+  parameters: typeof MemoryRecallParamsSchema;
+  execute: (params: MemoryRecallParams) => Promise<MemoryRecallResult>;
 }
 
 /**
@@ -88,9 +79,9 @@ export interface MemoryRecallTool {
  */
 function sanitizeQuery(query: string): string {
   // Remove control characters (ASCII 0-31 except tab, newline, carriage return)
-  const sanitized = query.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+  const sanitized = query.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   // Trim whitespace
-  return sanitized.trim()
+  return sanitized.trim();
 }
 
 /**
@@ -98,22 +89,22 @@ function sanitizeQuery(query: string): string {
  */
 function formatMemoriesAsText(memories: Memory[]): string {
   if (memories.length === 0) {
-    return 'No relevant memories found.'
+    return 'No relevant memories found.';
   }
 
   return memories
     .map((m) => {
-      const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : ''
-      return `- [${m.category}]${tagSuffix} ${m.content}`
+      const tagSuffix = m.tags && m.tags.length > 0 ? ` {${m.tags.join(', ')}}` : '';
+      return `- [${m.category}]${tagSuffix} ${m.content}`;
     })
-    .join('\n')
+    .join('\n');
 }
 
 /**
  * Creates the memory_recall tool.
  */
 export function createMemoryRecallTool(options: MemoryRecallToolOptions): MemoryRecallTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'memory_recall',
@@ -123,20 +114,18 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
 
     async execute(params: MemoryRecallParams): Promise<MemoryRecallResult> {
       // Validate parameters
-      const parseResult = MemoryRecallParamsSchema.safeParse(params)
+      const parseResult = MemoryRecallParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const { query, limit = config.maxRecallMemories, category, tags, relationship_id } = parseResult.data
+      const { query, limit = config.maxRecallMemories, category, tags, relationship_id } = parseResult.data;
 
       // Sanitize query
-      const sanitizedQuery = sanitizeQuery(query)
+      const sanitizedQuery = sanitizeQuery(query);
       if (sanitizedQuery.length === 0) {
-        return { success: false, error: 'Query cannot be empty after sanitization' }
+        return { success: false, error: 'Query cannot be empty after sanitization' };
       }
 
       // Log invocation (without query content for privacy)
@@ -146,50 +135,50 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         category: category ?? 'all',
         tags: tags ?? [],
         queryLength: sanitizedQuery.length,
-      })
+      });
 
       try {
         // Build API URL
         const queryParams = new URLSearchParams({
           q: sanitizedQuery,
           limit: String(limit),
-        })
+        });
         if (category) {
-          queryParams.set('category', category)
+          queryParams.set('category', category);
         }
         if (tags && tags.length > 0) {
-          queryParams.set('tags', tags.join(','))
+          queryParams.set('tags', tags.join(','));
         }
         if (relationship_id) {
-          queryParams.set('relationship_id', relationship_id)
+          queryParams.set('relationship_id', relationship_id);
         }
 
-        const path = `/api/memories/search?${queryParams.toString()}`
+        const path = `/api/memories/search?${queryParams.toString()}`;
 
         // Call API
-        const response = await client.get<{ memories: Memory[] }>(path, { userId })
+        const response = await client.get<{ memories: Memory[] }>(path, { userId });
 
         if (!response.success) {
           logger.error('memory_recall API error', {
             userId,
             status: response.error.status,
             code: response.error.code,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to search memories',
-          }
+          };
         }
 
-        const memories = response.data.memories ?? []
+        const memories = response.data.memories ?? [];
 
         // Format response
-        const content = formatMemoriesAsText(memories)
+        const content = formatMemoriesAsText(memories);
 
         logger.debug('memory_recall completed', {
           userId,
           resultCount: memories.length,
-        })
+        });
 
         return {
           success: true,
@@ -201,18 +190,18 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
               userId,
             },
           },
-        }
+        };
       } catch (error) {
         logger.error('memory_recall failed', {
           userId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
 
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }

@@ -7,10 +7,7 @@ import type { CustomFieldDefinition } from './types';
  * Validate a field value against its definition
  * Returns error message or null if valid
  */
-export function validateFieldValue(
-  field: CustomFieldDefinition,
-  value: unknown
-): string | null {
+export function validateFieldValue(field: CustomFieldDefinition, value: unknown): string | null {
   // Check required
   if (field.required) {
     if (value === null || value === undefined || value === '') {
@@ -40,10 +37,7 @@ export function validateFieldValue(
   }
 }
 
-function validateNumber(
-  field: CustomFieldDefinition,
-  value: number
-): string | null {
+function validateNumber(field: CustomFieldDefinition, value: number): string | null {
   if (typeof value !== 'number' || isNaN(value)) {
     return 'Invalid number';
   }
@@ -70,10 +64,7 @@ function validateUrl(value: string): string | null {
   }
 }
 
-function validateText(
-  field: CustomFieldDefinition,
-  value: string
-): string | null {
+function validateText(field: CustomFieldDefinition, value: string): string | null {
   const { validation } = field;
   if (!validation) return null;
 

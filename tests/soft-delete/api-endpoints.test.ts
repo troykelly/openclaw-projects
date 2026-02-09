@@ -60,10 +60,7 @@ describe('Soft Delete API Endpoints', () => {
       expect(items.find((i: { id: string }) => i.id === workItemId)).toBeUndefined();
 
       // Verify it's still in database
-      const check = await pool.query(
-        `SELECT deleted_at FROM work_item WHERE id = $1`,
-        [workItemId]
-      );
+      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [workItemId]);
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
@@ -82,10 +79,7 @@ describe('Soft Delete API Endpoints', () => {
       expect(deleteResponse.statusCode).toBe(204);
 
       // Verify it's completely gone
-      const check = await pool.query(
-        `SELECT * FROM work_item WHERE id = $1`,
-        [workItemId]
-      );
+      const check = await pool.query(`SELECT * FROM work_item WHERE id = $1`, [workItemId]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -155,10 +149,7 @@ describe('Soft Delete API Endpoints', () => {
       expect(deleteResponse.statusCode).toBe(204);
 
       // Verify soft deleted
-      const check = await pool.query(
-        `SELECT deleted_at FROM contact WHERE id = $1`,
-        [contactId]
-      );
+      const check = await pool.query(`SELECT deleted_at FROM contact WHERE id = $1`, [contactId]);
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
@@ -176,10 +167,7 @@ describe('Soft Delete API Endpoints', () => {
       });
       expect(deleteResponse.statusCode).toBe(204);
 
-      const check = await pool.query(
-        `SELECT * FROM contact WHERE id = $1`,
-        [contactId]
-      );
+      const check = await pool.query(`SELECT * FROM contact WHERE id = $1`, [contactId]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -277,9 +265,7 @@ describe('Soft Delete API Endpoints', () => {
   describe('POST /api/trash/purge', () => {
     it('purges old deleted items', async () => {
       // Create item deleted 40 days ago directly in DB
-      await pool.query(
-        `INSERT INTO work_item (title, deleted_at) VALUES ('Old Task', now() - INTERVAL '40 days')`
-      );
+      await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Old Task', now() - INTERVAL '40 days')`);
 
       const response = await app.inject({
         method: 'POST',

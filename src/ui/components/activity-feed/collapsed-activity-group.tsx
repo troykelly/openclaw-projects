@@ -18,13 +18,7 @@ export interface CollapsedActivityGroupProps {
   className?: string;
 }
 
-export function CollapsedActivityGroup({
-  activities,
-  groupLabel,
-  collapsed,
-  onToggle,
-  className,
-}: CollapsedActivityGroupProps) {
+export function CollapsedActivityGroup({ activities, groupLabel, collapsed, onToggle, className }: CollapsedActivityGroupProps) {
   return (
     <div className={cn('rounded-lg border', className)}>
       {/* Group header - always visible */}
@@ -38,22 +32,14 @@ export function CollapsedActivityGroup({
           <Badge variant="secondary">{activities.length}</Badge>
           <span className="text-sm font-medium">{groupLabel}</span>
         </div>
-        {collapsed ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-        )}
+        {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
       </button>
 
       {/* Expanded activities */}
       {!collapsed && (
         <div className="border-t p-3 space-y-3">
           {activities.map((activity) => (
-            <ActivityDetailCard
-              key={activity.id}
-              activity={activity}
-              expanded={false}
-            />
+            <ActivityDetailCard key={activity.id} activity={activity} expanded={false} />
           ))}
         </div>
       )}

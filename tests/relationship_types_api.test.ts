@@ -280,9 +280,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       expect(body.results).toBeDefined();
       expect(body.results.length).toBeGreaterThan(0);
 
-      const partnerMatch = body.results.find(
-        (r: { type: { name: string } }) => r.type.name === 'partner_of'
-      );
+      const partnerMatch = body.results.find((r: { type: { name: string } }) => r.type.name === 'partner_of');
       expect(partnerMatch).toBeDefined();
     });
 

@@ -3,79 +3,72 @@
  * Sends email messages via Postmark.
  */
 
-import { z } from 'zod'
-import type { ApiClient } from '../api-client.js'
-import type { Logger } from '../logger.js'
-import type { PluginConfig } from '../config.js'
+import { z } from 'zod';
+import type { ApiClient } from '../api-client.js';
+import type { Logger } from '../logger.js';
+import type { PluginConfig } from '../config.js';
 
 /** Email validation regex (simplified, allowing most valid emails) */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Maximum subject line length (RFC 2822 recommends 78, but we allow up to 998) */
-const MAX_SUBJECT_LENGTH = 998
+const MAX_SUBJECT_LENGTH = 998;
 
 /** Parameters for email_send tool */
 export const EmailSendParamsSchema = z.object({
-  to: z
-    .string()
-    .regex(EMAIL_REGEX, 'Invalid email address format'),
-  subject: z
-    .string()
-    .min(1, 'Subject cannot be empty')
-    .max(MAX_SUBJECT_LENGTH, `Subject must be ${MAX_SUBJECT_LENGTH} characters or less`),
-  body: z
-    .string()
-    .min(1, 'Email body cannot be empty'),
+  to: z.string().regex(EMAIL_REGEX, 'Invalid email address format'),
+  subject: z.string().min(1, 'Subject cannot be empty').max(MAX_SUBJECT_LENGTH, `Subject must be ${MAX_SUBJECT_LENGTH} characters or less`),
+  body: z.string().min(1, 'Email body cannot be empty'),
   htmlBody: z.string().optional(),
   threadId: z.string().optional(),
   idempotencyKey: z.string().optional(),
-})
-export type EmailSendParams = z.infer<typeof EmailSendParamsSchema>
+});
+export type EmailSendParams = z.infer<typeof EmailSendParamsSchema>;
 
 /** Email send response from API */
 interface EmailSendApiResponse {
-  messageId: string
-  threadId?: string
-  status: 'queued' | 'sending' | 'sent' | 'failed' | 'delivered'
+  messageId: string;
+  threadId?: string;
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'delivered';
 }
 
 /** Successful tool result */
 export interface EmailSendSuccess {
-  success: true
+  success: true;
   data: {
-    content: string
+    content: string;
     details: {
-      messageId: string
-      threadId?: string
-      status: string
-      userId: string
-    }
-  }
+      messageId: string;
+      threadId?: string;
+      status: string;
+      userId: string;
+    };
+  };
 }
 
 /** Failed tool result */
 export interface EmailSendFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
 /** Tool result type */
-export type EmailSendResult = EmailSendSuccess | EmailSendFailure
+export type EmailSendResult = EmailSendSuccess | EmailSendFailure;
 
 /** Tool configuration */
 export interface EmailSendToolOptions {
-  client: ApiClient
-  logger: Logger
-  config: PluginConfig
-  userId: string
+  client: ApiClient;
+  logger: Logger;
+  config: PluginConfig;
+  userId: string;
 }
 
 /** Tool definition */
 export interface EmailSendTool {
-  name: string
-  description: string
-  parameters: typeof EmailSendParamsSchema
-  execute: (params: EmailSendParams) => Promise<EmailSendResult>
+  name: string;
+  description: string;
+  parameters: typeof EmailSendParamsSchema;
+  execute: (params: EmailSendParams) => Promise<EmailSendResult>;
 }
 
 /**
@@ -84,50 +77,46 @@ export interface EmailSendTool {
 function sanitizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     // Remove email addresses from error messages
-    const sanitized = error.message.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')
-    return sanitized
+    const sanitized = error.message.replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]');
+    return sanitized;
   }
-  return 'An unexpected error occurred while sending email.'
+  return 'An unexpected error occurred while sending email.';
 }
 
 /**
  * Check if Postmark is configured.
  */
 function isPostmarkConfigured(config: PluginConfig): boolean {
-  return !!(config.postmarkToken && config.postmarkFromEmail)
+  return !!(config.postmarkToken && config.postmarkFromEmail);
 }
 
 /**
  * Creates the email_send tool.
  */
 export function createEmailSendTool(options: EmailSendToolOptions): EmailSendTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'email_send',
-    description:
-      'Send an email message. Use when you need to communicate via email. ' +
-      'Requires the recipient email address, subject, and body.',
+    description: 'Send an email message. Use when you need to communicate via email. ' + 'Requires the recipient email address, subject, and body.',
     parameters: EmailSendParamsSchema,
 
     async execute(params: EmailSendParams): Promise<EmailSendResult> {
       // Validate parameters
-      const parseResult = EmailSendParamsSchema.safeParse(params)
+      const parseResult = EmailSendParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const { to, subject, body, htmlBody, threadId, idempotencyKey } = parseResult.data
+      const { to, subject, body, htmlBody, threadId, idempotencyKey } = parseResult.data;
 
       // Check Postmark configuration
       if (!isPostmarkConfigured(config)) {
         return {
           success: false,
           error: 'Postmark is not configured. Please configure Postmark credentials.',
-        }
+        };
       }
 
       // Log invocation (without email address for privacy)
@@ -138,7 +127,7 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
         hasHtmlBody: !!htmlBody,
         hasThreadId: !!threadId,
         hasIdempotencyKey: !!idempotencyKey,
-      })
+      });
 
       try {
         // Call API
@@ -152,28 +141,28 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
             threadId,
             idempotencyKey,
           },
-          { userId }
-        )
+          { userId },
+        );
 
         if (!response.success) {
           logger.error('email_send API error', {
             userId,
             status: response.error.status,
             code: response.error.code,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to send email',
-          }
+          };
         }
 
-        const { messageId, threadId: responseThreadId, status } = response.data
+        const { messageId, threadId: responseThreadId, status } = response.data;
 
         logger.debug('email_send completed', {
           userId,
           messageId,
           status,
-        })
+        });
 
         return {
           success: true,
@@ -186,18 +175,18 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
               userId,
             },
           },
-        }
+        };
       } catch (error) {
         logger.error('email_send failed', {
           userId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
 
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }

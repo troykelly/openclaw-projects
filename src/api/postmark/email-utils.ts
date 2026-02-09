@@ -121,11 +121,7 @@ export function getReferences(headers: PostmarkHeader[]): string[] {
  * @param references - References header values
  * @returns Thread key string
  */
-export function createEmailThreadKey(
-  messageId: string | null,
-  inReplyTo: string | null,
-  references: string[]
-): string {
+export function createEmailThreadKey(messageId: string | null, inReplyTo: string | null, references: string[]): string {
   // If we have in-reply-to, use the root message from references or in-reply-to
   if (references.length > 0) {
     return `email:${references[0]}`;
@@ -157,11 +153,11 @@ export function stripQuotedContent(text: string): string {
     // Gmail/Outlook style: "On [date], [name] wrote:"
     /^On .+? wrote:[\s\S]*$/m,
     // Forward style: "---------- Forwarded message ---------"
-    /^-+\s*Forwarded message\s*-+[\s\S]*$/mi,
+    /^-+\s*Forwarded message\s*-+[\s\S]*$/im,
     // Quote markers: lines starting with ">"
     /^>.*$/gm,
     // "Original Message" separator
-    /^-+\s*Original Message\s*-+[\s\S]*$/mi,
+    /^-+\s*Original Message\s*-+[\s\S]*$/im,
   ];
 
   let stripped = text;
@@ -180,31 +176,33 @@ export function stripQuotedContent(text: string): string {
  * @returns Plain text content
  */
 export function htmlToPlainText(html: string): string {
-  return html
-    // Remove style and script tags with content
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    // Replace br and p tags with newlines
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<p[^>]*>/gi, '')
-    // Replace other block-level elements with newlines
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<div[^>]*>/gi, '')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ')
-    // Strip remaining tags
-    .replace(/<[^>]+>/g, '')
-    // Decode common HTML entities
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    // Normalize whitespace
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return (
+    html
+      // Remove style and script tags with content
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      // Replace br and p tags with newlines
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<p[^>]*>/gi, '')
+      // Replace other block-level elements with newlines
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<div[^>]*>/gi, '')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '• ')
+      // Strip remaining tags
+      .replace(/<[^>]+>/g, '')
+      // Decode common HTML entities
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      // Normalize whitespace
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
 }
 
 /**

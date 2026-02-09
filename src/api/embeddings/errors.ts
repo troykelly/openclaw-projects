@@ -20,7 +20,7 @@ export class EmbeddingError extends Error {
       retryAfterMs?: number;
       provider?: string;
       cause?: unknown;
-    }
+    },
   ) {
     super(message);
     this.name = 'EmbeddingError';
@@ -120,11 +120,7 @@ export const DEFAULT_RETRY_CONFIG: Record<EmbeddingErrorType, RetryConfig> = {
  * @param serverSuggestedMs Optional server-suggested delay (e.g., from Retry-After header)
  * @returns Delay in milliseconds
  */
-export function calculateRetryDelay(
-  attempt: number,
-  config: RetryConfig,
-  serverSuggestedMs?: number
-): number {
+export function calculateRetryDelay(attempt: number, config: RetryConfig, serverSuggestedMs?: number): number {
   // If server suggests a delay, use it (but cap at maxDelayMs)
   if (serverSuggestedMs !== undefined && serverSuggestedMs > 0) {
     return Math.min(serverSuggestedMs, config.maxDelayMs);
@@ -149,8 +145,7 @@ export function calculateRetryDelay(
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,
-  getConfig: (error: EmbeddingError) => RetryConfig = (error) =>
-    DEFAULT_RETRY_CONFIG[error.type] ?? DEFAULT_RETRY_CONFIG.network
+  getConfig: (error: EmbeddingError) => RetryConfig = (error) => DEFAULT_RETRY_CONFIG[error.type] ?? DEFAULT_RETRY_CONFIG.network,
 ): Promise<T> {
   let lastError: EmbeddingError | undefined;
   let attempt = 0;
@@ -186,10 +181,7 @@ export async function withRetry<T>(
       const delay = calculateRetryDelay(attempt, config, embeddingError.retryAfterMs);
 
       // Log retry attempt (no secrets)
-      console.warn(
-        `[Embeddings] Retry ${attempt + 1}/${config.maxRetries} after ${Math.round(delay)}ms:`,
-        embeddingError.toSafeString()
-      );
+      console.warn(`[Embeddings] Retry ${attempt + 1}/${config.maxRetries} after ${Math.round(delay)}ms:`, embeddingError.toSafeString());
 
       await sleep(delay);
       attempt++;

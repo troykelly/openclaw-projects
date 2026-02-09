@@ -5,11 +5,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type {
-  WorkItemsResponse,
-  WorkItemDetail,
-  WorkItemTreeResponse,
-} from '@/ui/lib/api-types.ts';
+import type { WorkItemsResponse, WorkItemDetail, WorkItemTreeResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for work items. */
 export const workItemKeys = {
@@ -28,14 +24,11 @@ export const workItemKeys = {
  * @returns TanStack Query result with `WorkItemsResponse`
  */
 export function useWorkItems(filters?: Record<string, string>) {
-  const queryString = filters
-    ? '?' + new URLSearchParams(filters).toString()
-    : '';
+  const queryString = filters ? '?' + new URLSearchParams(filters).toString() : '';
 
   return useQuery({
     queryKey: workItemKeys.list(filters),
-    queryFn: ({ signal }) =>
-      apiClient.get<WorkItemsResponse>(`/api/work-items${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>(`/api/work-items${queryString}`, { signal }),
   });
 }
 
@@ -48,8 +41,7 @@ export function useWorkItems(filters?: Record<string, string>) {
 export function useWorkItem(id: string) {
   return useQuery({
     queryKey: workItemKeys.detail(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<WorkItemDetail>(`/api/work-items/${id}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemDetail>(`/api/work-items/${id}`, { signal }),
     enabled: !!id,
   });
 }
@@ -62,7 +54,6 @@ export function useWorkItem(id: string) {
 export function useWorkItemTree() {
   return useQuery({
     queryKey: workItemKeys.tree(),
-    queryFn: ({ signal }) =>
-      apiClient.get<WorkItemTreeResponse>('/api/work-items/tree', { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemTreeResponse>('/api/work-items/tree', { signal }),
   });
 }

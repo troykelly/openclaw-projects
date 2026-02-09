@@ -127,12 +127,17 @@ export function DependencyGraphPage(): React.JSX.Element {
             <Button variant="outline" size="sm" onClick={() => setZoom((z) => Math.max(0.2, z * 0.8))}>
               Zoom Out
             </Button>
-            <Button variant="outline" size="sm" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setZoom(1);
+                setPan({ x: 0, y: 0 });
+              }}
+            >
               Reset
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Zoom: {Math.round(zoom * 100)}% | Drag to pan
-            </span>
+            <span className="text-sm text-muted-foreground">Zoom: {Math.round(zoom * 100)}% | Drag to pan</span>
           </div>
 
           {/* Graph */}
@@ -144,12 +149,7 @@ export function DependencyGraphPage(): React.JSX.Element {
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <svg
-              width={900}
-              height={500}
-              viewBox={`${-pan.x / zoom} ${-pan.y / zoom} ${900 / zoom} ${500 / zoom}`}
-              className="font-sans text-xs bg-muted/20"
-            >
+            <svg width={900} height={500} viewBox={`${-pan.x / zoom} ${-pan.y / zoom} ${900 / zoom} ${500 / zoom}`} className="font-sans text-xs bg-muted/20">
               {/* Edges */}
               {edges.map((edge) => {
                 const sourcePos = positions.get(edge.source);
@@ -249,8 +249,8 @@ export function DependencyGraphPage(): React.JSX.Element {
                 ))}
               </div>
               <p className="text-sm text-muted-foreground mt-2">
-                Total: {critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0)} minutes
-                ({Math.round(critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0) / 60 * 10) / 10} hours)
+                Total: {critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0)} minutes (
+                {Math.round((critical_path.reduce((sum, n) => sum + (n.estimate_minutes || 0), 0) / 60) * 10) / 10} hours)
               </p>
             </div>
           )}

@@ -3,24 +3,8 @@
  * Issue #390: Implement dependency creation UI
  */
 import * as React from 'react';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  Search,
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { AlertTriangle, ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
@@ -28,19 +12,8 @@ import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Badge } from '@/ui/components/ui/badge';
 import { cn } from '@/ui/lib/utils';
 import type { WorkItemKind, WorkItemStatus } from '@/ui/components/detail/types';
-import type {
-  DependencyType,
-  DependencyDirection,
-  WorkItemSummary,
-  CreateDependencyParams,
-} from './types';
-import {
-  detectCircularDependency,
-  getDependencyTypeLabel,
-  getDependencyTypeDescription,
-  isValidDependency,
-  type DependencyGraph,
-} from './dependency-utils';
+import type { DependencyType, DependencyDirection, WorkItemSummary, CreateDependencyParams } from './types';
+import { detectCircularDependency, getDependencyTypeLabel, getDependencyTypeDescription, isValidDependency, type DependencyGraph } from './dependency-utils';
 
 export interface AddDependencyDialogProps {
   open: boolean;
@@ -54,12 +27,7 @@ export interface AddDependencyDialogProps {
   initialDirection?: DependencyDirection;
 }
 
-const DEPENDENCY_TYPES: DependencyType[] = [
-  'finish_to_start',
-  'start_to_start',
-  'finish_to_finish',
-  'start_to_finish',
-];
+const DEPENDENCY_TYPES: DependencyType[] = ['finish_to_start', 'start_to_start', 'finish_to_finish', 'start_to_finish'];
 
 function getKindIcon(kind: WorkItemKind) {
   switch (kind) {
@@ -74,9 +42,7 @@ function getKindIcon(kind: WorkItemKind) {
   }
 }
 
-function getStatusVariant(
-  status: WorkItemStatus
-): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getStatusVariant(status: WorkItemStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'in_progress':
       return 'default';
@@ -148,7 +114,7 @@ export function AddDependencyDialog({
         return detectCircularDependency(dependencyGraph, itemId, sourceItemId);
       }
     },
-    [dependencyGraph, sourceItemId, direction]
+    [dependencyGraph, sourceItemId, direction],
   );
 
   // Check if any item would create a cycle
@@ -185,9 +151,7 @@ export function AddDependencyDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Dependency</DialogTitle>
-          <DialogDescription>
-            Create a dependency relationship for "{sourceItemTitle}"
-          </DialogDescription>
+          <DialogDescription>Create a dependency relationship for "{sourceItemTitle}"</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -198,9 +162,7 @@ export function AddDependencyDialog({
               <label
                 className={cn(
                   'flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-colors',
-                  direction === 'blocks'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted hover:border-muted-foreground'
+                  direction === 'blocks' ? 'border-primary bg-primary/10' : 'border-muted hover:border-muted-foreground',
                 )}
               >
                 <input
@@ -218,9 +180,7 @@ export function AddDependencyDialog({
               <label
                 className={cn(
                   'flex-1 flex items-center justify-center gap-2 p-3 rounded-md border cursor-pointer transition-colors',
-                  direction === 'blocked_by'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted hover:border-muted-foreground'
+                  direction === 'blocked_by' ? 'border-primary bg-primary/10' : 'border-muted hover:border-muted-foreground',
                 )}
               >
                 <input
@@ -247,9 +207,7 @@ export function AddDependencyDialog({
                   key={type}
                   className={cn(
                     'flex flex-col p-2 rounded-md border cursor-pointer transition-colors',
-                    dependencyType === type
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted hover:border-muted-foreground'
+                    dependencyType === type ? 'border-primary bg-primary/10' : 'border-muted hover:border-muted-foreground',
                   )}
                 >
                   <input
@@ -260,12 +218,8 @@ export function AddDependencyDialog({
                     onChange={() => setDependencyType(type)}
                     className="sr-only"
                   />
-                  <span className="text-sm font-medium">
-                    {getDependencyTypeLabel(type)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {getDependencyTypeDescription(type)}
-                  </span>
+                  <span className="text-sm font-medium">{getDependencyTypeLabel(type)}</span>
+                  <span className="text-xs text-muted-foreground">{getDependencyTypeDescription(type)}</span>
                 </label>
               ))}
             </div>
@@ -276,12 +230,7 @@ export function AddDependencyDialog({
             <Label>Select Item</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Search items..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+              <Input placeholder="Search items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
           </div>
 
@@ -289,9 +238,7 @@ export function AddDependencyDialog({
           {hasCircularWarning && (
             <div className="flex items-center gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200">
               <AlertTriangle className="size-4 shrink-0" />
-              <span className="text-sm">
-                Some items would create a circular dependency and cannot be selected.
-              </span>
+              <span className="text-sm">Some items would create a circular dependency and cannot be selected.</span>
             </div>
           )}
 
@@ -299,9 +246,7 @@ export function AddDependencyDialog({
           <ScrollArea className="h-48 rounded-md border">
             <div className="p-2 space-y-1">
               {filteredItems.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No items available
-                </p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No items available</p>
               ) : (
                 filteredItems.map((item) => {
                   const isCircular = wouldCreateCycle(item.id);
@@ -314,28 +259,17 @@ export function AddDependencyDialog({
                       disabled={isCircular}
                       className={cn(
                         'w-full flex items-center gap-2 p-2 rounded-md text-left transition-colors',
-                        isSelected
-                          ? 'bg-primary/10 border border-primary'
-                          : 'hover:bg-muted',
-                        isCircular && 'opacity-50 cursor-not-allowed'
+                        isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted',
+                        isCircular && 'opacity-50 cursor-not-allowed',
                       )}
                       onClick={() => !isCircular && setSelectedItemId(item.id)}
                     >
-                      <span className="text-muted-foreground">
-                        {getKindIcon(item.kind)}
-                      </span>
+                      <span className="text-muted-foreground">{getKindIcon(item.kind)}</span>
                       <span className="flex-1 truncate text-sm">{item.title}</span>
-                      <Badge
-                        variant={getStatusVariant(item.status)}
-                        className="shrink-0 text-xs"
-                      >
+                      <Badge variant={getStatusVariant(item.status)} className="shrink-0 text-xs">
                         {getStatusLabel(item.status)}
                       </Badge>
-                      {isCircular && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400">
-                          Circular
-                        </span>
-                      )}
+                      {isCircular && <span className="text-xs text-amber-600 dark:text-amber-400">Circular</span>}
                     </button>
                   );
                 })
@@ -348,13 +282,11 @@ export function AddDependencyDialog({
             <div className="p-3 rounded-md bg-muted text-sm">
               {direction === 'blocks' ? (
                 <p>
-                  <strong>{sourceItemTitle}</strong> will block{' '}
-                  <strong>{selectedItem.title}</strong>
+                  <strong>{sourceItemTitle}</strong> will block <strong>{selectedItem.title}</strong>
                 </p>
               ) : (
                 <p>
-                  <strong>{sourceItemTitle}</strong> will be blocked by{' '}
-                  <strong>{selectedItem.title}</strong>
+                  <strong>{sourceItemTitle}</strong> will be blocked by <strong>{selectedItem.title}</strong>
                 </p>
               )}
             </div>
@@ -365,11 +297,7 @@ export function AddDependencyDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleAdd}
-            disabled={!isSelectionValid}
-            aria-label="Add dependency"
-          >
+          <Button onClick={handleAdd} disabled={!isSelectionValid} aria-label="Add dependency">
             Add Dependency
           </Button>
         </DialogFooter>

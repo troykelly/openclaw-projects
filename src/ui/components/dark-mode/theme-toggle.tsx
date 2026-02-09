@@ -19,18 +19,8 @@ export function ThemeToggle({ className, size = 'default' }: ThemeToggleProps) {
   const iconSize = size === 'sm' ? 'h-4 w-4' : size === 'lg' ? 'h-6 w-6' : 'h-5 w-5';
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleTheme}
-      className={cn(className)}
-      aria-label="Toggle theme"
-    >
-      {isDark ? (
-        <Sun className={iconSize} data-testid="sun-icon" />
-      ) : (
-        <Moon className={iconSize} data-testid="moon-icon" />
-      )}
+    <Button variant="ghost" size="icon" onClick={toggleTheme} className={cn(className)} aria-label="Toggle theme">
+      {isDark ? <Sun className={iconSize} data-testid="sun-icon" /> : <Moon className={iconSize} data-testid="moon-icon" />}
     </Button>
   );
 }

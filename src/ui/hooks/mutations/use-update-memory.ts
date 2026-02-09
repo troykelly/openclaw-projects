@@ -33,8 +33,7 @@ export function useUpdateMemory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: UpdateMemoryVariables) =>
-      apiClient.patch<Memory>(`/api/memories/${id}`, body),
+    mutationFn: ({ id, body }: UpdateMemoryVariables) => apiClient.patch<Memory>(`/api/memories/${id}`, body),
 
     onSuccess: (_data, { workItemId }) => {
       // Invalidate global memories list

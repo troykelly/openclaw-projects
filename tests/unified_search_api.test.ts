@@ -9,11 +9,7 @@ describe('Unified Search API', () => {
   const app = buildServer();
   let pool: Pool;
 
-  const hasApiKey = !!(
-    process.env.VOYAGERAI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.GEMINI_API_KEY
-  );
+  const hasApiKey = !!(process.env.VOYAGERAI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -37,7 +33,7 @@ describe('Unified Search API', () => {
       `INSERT INTO work_item (title, description, kind)
        VALUES ($1, $2, 'project')
        RETURNING id::text as id`,
-      [title, description]
+      [title, description],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -48,22 +44,18 @@ describe('Unified Search API', () => {
       `INSERT INTO contact (display_name, notes)
        VALUES ($1, $2)
        RETURNING id::text as id`,
-      [name, notes]
+      [name, notes],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   // Helper to create a memory
-  async function createMemory(
-    workItemId: string,
-    title: string,
-    content: string
-  ): Promise<string> {
+  async function createMemory(workItemId: string, title: string, content: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO memory (work_item_id, title, content, memory_type)
        VALUES ($1, $2, $3, 'note')
        RETURNING id::text as id`,
-      [workItemId, title, content]
+      [workItemId, title, content],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -73,7 +65,7 @@ describe('Unified Search API', () => {
     // Create a contact first
     const contact = await pool.query(
       `INSERT INTO contact (display_name) VALUES ('Test Sender')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
     const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -82,7 +74,7 @@ describe('Unified Search API', () => {
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, 'email', 'test@example.com', 'test@example.com')
        RETURNING id::text as id`,
-      [contactId]
+      [contactId],
     );
     const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -91,7 +83,7 @@ describe('Unified Search API', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'email', $2)
        RETURNING id::text as id`,
-      [endpointId, `thread-${Date.now()}`]
+      [endpointId, `thread-${Date.now()}`],
     );
     const threadId = (thread.rows[0] as { id: string }).id;
 
@@ -99,7 +91,7 @@ describe('Unified Search API', () => {
       `INSERT INTO external_message (thread_id, external_message_key, direction, body)
        VALUES ($1, $2, 'inbound', $3)
        RETURNING id::text as id`,
-      [threadId, `msg-${Date.now()}`, body]
+      [threadId, `msg-${Date.now()}`, body],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -235,9 +227,7 @@ describe('Unified Search API', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(
-        body.results.every((r: { type: string }) => r.type === 'work_item' || r.type === 'memory')
-      ).toBe(true);
+      expect(body.results.every((r: { type: string }) => r.type === 'work_item' || r.type === 'memory')).toBe(true);
       // Should not include contacts
       expect(body.results.some((r: { type: string }) => r.type === 'contact')).toBe(false);
     });

@@ -18,11 +18,7 @@ export type DependencyGraph = Map<string, string[]>;
  * @param toId - ID of the task that would be blocked
  * @returns true if adding this edge would create a cycle
  */
-export function detectCircularDependency(
-  graph: DependencyGraph,
-  fromId: string,
-  toId: string
-): boolean {
+export function detectCircularDependency(graph: DependencyGraph, fromId: string, toId: string): boolean {
   // Self-reference is always circular
   if (fromId === toId) {
     return true;
@@ -92,11 +88,7 @@ export function getDependencyTypeDescription(type: DependencyType): string {
  * @param existingDependencyIds - IDs of already linked dependencies
  * @returns true if the item can be added as a dependency
  */
-export function isValidDependency(
-  item: WorkItemSummary,
-  sourceId: string,
-  existingDependencyIds: string[]
-): boolean {
+export function isValidDependency(item: WorkItemSummary, sourceId: string, existingDependencyIds: string[]): boolean {
   // Cannot add self as dependency
   if (item.id === sourceId) {
     return false;
@@ -113,9 +105,7 @@ export function isValidDependency(
 /**
  * Build a dependency graph from a list of dependencies
  */
-export function buildDependencyGraph(
-  dependencies: Array<{ fromId: string; toId: string }>
-): DependencyGraph {
+export function buildDependencyGraph(dependencies: Array<{ fromId: string; toId: string }>): DependencyGraph {
   const graph: DependencyGraph = new Map();
 
   for (const dep of dependencies) {

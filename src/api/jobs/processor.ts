@@ -5,18 +5,9 @@
  */
 
 import type { Pool } from 'pg';
-import type {
-  InternalJob,
-  JobProcessorResult,
-  JobProcessorStats,
-  JobHandler,
-} from './types.ts';
+import type { InternalJob, JobProcessorResult, JobProcessorStats, JobHandler } from './types.ts';
 import { enqueueWebhook } from '../webhooks/dispatcher.ts';
-import {
-  buildReminderDuePayload,
-  buildDeadlineApproachingPayload,
-  getWebhookDestination,
-} from '../webhooks/payloads.ts';
+import { buildReminderDuePayload, buildDeadlineApproachingPayload, getWebhookDestination } from '../webhooks/payloads.ts';
 import { handleSmsSendJob } from '../twilio/sms-outbound.ts';
 import { handleEmailSendJob } from '../postmark/email-outbound.ts';
 import { handleMessageEmbedJob } from '../embeddings/message-integration.ts';
@@ -35,11 +26,7 @@ function getWorkerId(): string {
 /**
  * Claim pending jobs for processing.
  */
-export async function claimJobs(
-  pool: Pool,
-  workerId: string,
-  limit: number = 10
-): Promise<InternalJob[]> {
+export async function claimJobs(pool: Pool, workerId: string, limit: number = 10): Promise<InternalJob[]> {
   const result = await pool.query(
     `SELECT
        id::text as id,
@@ -55,7 +42,7 @@ export async function claimJobs(
        created_at as "createdAt",
        updated_at as "updatedAt"
      FROM internal_job_claim($1, $2)`,
-    [workerId, limit]
+    [workerId, limit],
   );
 
   return result.rows as InternalJob[];
@@ -64,37 +51,22 @@ export async function claimJobs(
 /**
  * Mark a job as completed.
  */
-export async function completeJob(
-  pool: Pool,
-  jobId: string
-): Promise<void> {
+export async function completeJob(pool: Pool, jobId: string): Promise<void> {
   await pool.query(`SELECT internal_job_complete($1)`, [jobId]);
 }
 
 /**
  * Mark a job as failed with retry.
  */
-export async function failJob(
-  pool: Pool,
-  jobId: string,
-  error: string,
-  retrySeconds: number = 60
-): Promise<void> {
-  await pool.query(`SELECT internal_job_fail($1, $2, $3)`, [
-    jobId,
-    error,
-    retrySeconds,
-  ]);
+export async function failJob(pool: Pool, jobId: string, error: string, retrySeconds: number = 60): Promise<void> {
+  await pool.query(`SELECT internal_job_fail($1, $2, $3)`, [jobId, error, retrySeconds]);
 }
 
 /**
  * Handle reminder.work_item.not_before job.
  * Fetches work item details and enqueues a webhook.
  */
-async function handleReminderJob(
-  pool: Pool,
-  job: InternalJob
-): Promise<JobProcessorResult> {
+async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const workItemId = job.payload.work_item_id as string;
   const notBefore = new Date(job.payload.not_before as string);
 
@@ -108,7 +80,7 @@ async function handleReminderJob(
        status
      FROM work_item
      WHERE id = $1`,
-    [workItemId]
+    [workItemId],
   );
 
   if (workItemResult.rows.length === 0) {
@@ -155,10 +127,7 @@ async function handleReminderJob(
  * Handle nudge.work_item.not_after job.
  * Fetches work item details and enqueues a webhook.
  */
-async function handleNudgeJob(
-  pool: Pool,
-  job: InternalJob
-): Promise<JobProcessorResult> {
+async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const workItemId = job.payload.work_item_id as string;
   const notAfter = new Date(job.payload.not_after as string);
 
@@ -171,7 +140,7 @@ async function handleNudgeJob(
        status
      FROM work_item
      WHERE id = $1`,
-    [workItemId]
+    [workItemId],
   );
 
   if (workItemResult.rows.length === 0) {
@@ -194,10 +163,7 @@ async function handleNudgeJob(
   }
 
   // Calculate hours remaining
-  const hoursRemaining = Math.max(
-    0,
-    Math.round((notAfter.getTime() - Date.now()) / (1000 * 60 * 60))
-  );
+  const hoursRemaining = Math.max(0, Math.round((notAfter.getTime() - Date.now()) / (1000 * 60 * 60)));
 
   // Build the webhook payload
   const payload = buildDeadlineApproachingPayload({
@@ -224,10 +190,7 @@ async function handleNudgeJob(
  * Reads schedule, fires webhook via webhook_outbox, updates last_run_at/status.
  * Respects max_retries from payload; after max consecutive failures, auto-disables.
  */
-async function handleScheduledProcessJob(
-  pool: Pool,
-  job: InternalJob
-): Promise<JobProcessorResult> {
+async function handleScheduledProcessJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const payload = job.payload as {
     schedule_id?: string;
     skill_id?: string;
@@ -252,7 +215,7 @@ async function handleScheduledProcessJob(
     `SELECT id::text as id, skill_id, collection, webhook_url, webhook_headers,
             payload_template, max_retries, enabled, consecutive_failures
      FROM skill_store_schedule WHERE id = $1`,
-    [payload.schedule_id]
+    [payload.schedule_id],
   );
 
   if (scheduleResult.rows.length === 0) {
@@ -285,12 +248,10 @@ async function handleScheduledProcessJob(
       `UPDATE skill_store_schedule
        SET enabled = false, last_run_status = 'failed', last_run_at = NOW()
        WHERE id = $1`,
-      [schedule.id]
+      [schedule.id],
     );
 
-    console.warn(
-      `[Jobs] Auto-disabled schedule ${schedule.id} after ${consecutiveFailures} consecutive failures`
-    );
+    console.warn(`[Jobs] Auto-disabled schedule ${schedule.id} after ${consecutiveFailures} consecutive failures`);
 
     return { success: true };
   }
@@ -311,23 +272,17 @@ async function handleScheduledProcessJob(
   try {
     // Enqueue to webhook_outbox for reliable delivery
     const idempotencyKey = `schedule:${schedule.id}:${new Date().toISOString().slice(0, 16)}`;
-    await enqueueWebhook(
-      pool,
-      'skill_store.scheduled_process',
-      schedule.webhook_url,
-      webhookBody,
-      {
-        headers: schedule.webhook_headers || undefined,
-        idempotencyKey,
-      }
-    );
+    await enqueueWebhook(pool, 'skill_store.scheduled_process', schedule.webhook_url, webhookBody, {
+      headers: schedule.webhook_headers || undefined,
+      idempotencyKey,
+    });
 
     // Update schedule with success; reset consecutive_failures (Issue #825)
     await pool.query(
       `UPDATE skill_store_schedule
        SET last_run_at = NOW(), last_run_status = 'success', consecutive_failures = 0
        WHERE id = $1`,
-      [schedule.id]
+      [schedule.id],
     );
 
     return { success: true };
@@ -340,7 +295,7 @@ async function handleScheduledProcessJob(
        SET last_run_at = NOW(), last_run_status = 'failed',
            consecutive_failures = consecutive_failures + 1
        WHERE id = $1`,
-      [schedule.id]
+      [schedule.id],
     );
 
     return {
@@ -353,10 +308,7 @@ async function handleScheduledProcessJob(
 /**
  * Get handler for a job kind.
  */
-function getJobHandler(
-  pool: Pool,
-  kind: string
-): ((job: InternalJob) => Promise<JobProcessorResult>) | null {
+function getJobHandler(pool: Pool, kind: string): ((job: InternalJob) => Promise<JobProcessorResult>) | null {
   switch (kind) {
     case 'reminder.work_item.not_before':
       return (job) => handleReminderJob(pool, job);
@@ -380,10 +332,7 @@ function getJobHandler(
 /**
  * Process pending internal jobs.
  */
-export async function processJobs(
-  pool: Pool,
-  limit: number = 10
-): Promise<JobProcessorStats> {
+export async function processJobs(pool: Pool, limit: number = 10): Promise<JobProcessorStats> {
   const workerId = getWorkerId();
   const jobs = await claimJobs(pool, workerId, limit);
 
@@ -434,14 +383,12 @@ export async function processJobs(
 /**
  * Get pending job count by kind.
  */
-export async function getPendingJobCounts(
-  pool: Pool
-): Promise<Record<string, number>> {
+export async function getPendingJobCounts(pool: Pool): Promise<Record<string, number>> {
   const result = await pool.query(
     `SELECT kind, COUNT(*) as count
      FROM internal_job
      WHERE completed_at IS NULL
-     GROUP BY kind`
+     GROUP BY kind`,
   );
 
   const counts: Record<string, number> = {};

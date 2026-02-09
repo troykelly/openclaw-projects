@@ -2,12 +2,7 @@
  * Hook for managing milestones via API
  */
 import * as React from 'react';
-import type {
-  Milestone,
-  CreateMilestoneData,
-  UpdateMilestoneData,
-  UseMilestonesReturn,
-} from './types';
+import type { Milestone, CreateMilestoneData, UpdateMilestoneData, UseMilestonesReturn } from './types';
 
 export function useMilestones(projectId: string): UseMilestonesReturn {
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
@@ -49,27 +44,22 @@ export function useMilestones(projectId: string): UseMilestonesReturn {
       setMilestones((prev) => [...prev, newMilestone]);
       return newMilestone;
     },
-    [projectId]
+    [projectId],
   );
 
-  const updateMilestone = React.useCallback(
-    async (id: string, data: UpdateMilestoneData): Promise<Milestone> => {
-      const response = await fetch(`/api/milestones/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to update milestone: ${response.status}`);
-      }
-      const updatedMilestone = await response.json();
-      setMilestones((prev) =>
-        prev.map((m) => (m.id === id ? updatedMilestone : m))
-      );
-      return updatedMilestone;
-    },
-    []
-  );
+  const updateMilestone = React.useCallback(async (id: string, data: UpdateMilestoneData): Promise<Milestone> => {
+    const response = await fetch(`/api/milestones/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update milestone: ${response.status}`);
+    }
+    const updatedMilestone = await response.json();
+    setMilestones((prev) => prev.map((m) => (m.id === id ? updatedMilestone : m)));
+    return updatedMilestone;
+  }, []);
 
   const deleteMilestone = React.useCallback(async (id: string): Promise<void> => {
     const response = await fetch(`/api/milestones/${id}`, {

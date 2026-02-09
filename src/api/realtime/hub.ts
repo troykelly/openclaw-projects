@@ -6,12 +6,7 @@
 import type { Pool, PoolClient } from 'pg';
 import type { WebSocket } from 'ws';
 import { randomUUID } from 'node:crypto';
-import type {
-  RealtimeEvent,
-  RealtimeEventType,
-  NotifyPayload,
-  WebSocketClient,
-} from './types.ts';
+import type { RealtimeEvent, RealtimeEventType, NotifyPayload, WebSocketClient } from './types.ts';
 
 const HEARTBEAT_INTERVAL_MS = 30000;
 const PG_CHANNEL = 'realtime_events';
@@ -198,11 +193,7 @@ export class RealtimeHub {
   /**
    * Emit an event (broadcasts to relevant clients and publishes to PostgreSQL)
    */
-  async emit(
-    eventType: RealtimeEventType,
-    data: unknown,
-    userId?: string
-  ): Promise<void> {
+  async emit(eventType: RealtimeEventType, data: unknown, userId?: string): Promise<void> {
     const event: RealtimeEvent = {
       event: eventType,
       data,
@@ -227,10 +218,7 @@ export class RealtimeHub {
     if (!this.pool) return;
 
     try {
-      await this.pool.query(`SELECT pg_notify($1, $2)`, [
-        PG_CHANNEL,
-        JSON.stringify(payload),
-      ]);
+      await this.pool.query(`SELECT pg_notify($1, $2)`, [PG_CHANNEL, JSON.stringify(payload)]);
     } catch (err) {
       console.error('[RealtimeHub] Error publishing event:', err);
     }

@@ -43,10 +43,7 @@ export function ZoomControls({
             variant="ghost"
             size="sm"
             data-active={currentZoom === level}
-            className={cn(
-              'h-7 px-2 text-xs',
-              currentZoom === level && 'bg-background shadow-sm'
-            )}
+            className={cn('h-7 px-2 text-xs', currentZoom === level && 'bg-background shadow-sm')}
             onClick={() => onZoomChange(level)}
           >
             {formatZoomLevel(level)}
@@ -57,38 +54,18 @@ export function ZoomControls({
       <div className="w-px h-6 bg-border mx-1" />
 
       {/* Zoom in/out buttons */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onZoomIn}
-        disabled={!canZoomIn}
-        aria-label="Zoom in"
-      >
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomIn} disabled={!canZoomIn} aria-label="Zoom in">
         <ZoomIn className="h-4 w-4" />
       </Button>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onZoomOut}
-        disabled={!canZoomOut}
-        aria-label="Zoom out"
-      >
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomOut} disabled={!canZoomOut} aria-label="Zoom out">
         <ZoomOut className="h-4 w-4" />
       </Button>
 
       <div className="w-px h-6 bg-border mx-1" />
 
       {/* Fit all button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onFitAll}
-        aria-label="Fit all"
-      >
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onFitAll} aria-label="Fit all">
         <Maximize2 className="h-4 w-4" />
       </Button>
     </div>

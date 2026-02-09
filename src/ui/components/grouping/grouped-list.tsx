@@ -17,9 +17,7 @@ export function GroupedList<T extends Record<string, unknown>>({
   className,
 }: GroupedListProps<T>) {
   // Internal collapsed state if not controlled
-  const [internalCollapsed, setInternalCollapsed] = React.useState<Set<string>>(
-    new Set()
-  );
+  const [internalCollapsed, setInternalCollapsed] = React.useState<Set<string>>(new Set());
 
   const collapsedGroups = controlledCollapsed ?? internalCollapsed;
 
@@ -39,13 +37,10 @@ export function GroupedList<T extends Record<string, unknown>>({
         });
       }
     },
-    [onToggleGroup]
+    [onToggleGroup],
   );
 
-  const groups = React.useMemo(
-    () => groupItems(items, groupBy),
-    [items, groupBy]
-  );
+  const groups = React.useMemo(() => groupItems(items, groupBy), [items, groupBy]);
 
   const filteredGroups = React.useMemo(() => {
     if (!hideEmptyGroups) return groups;
@@ -54,11 +49,7 @@ export function GroupedList<T extends Record<string, unknown>>({
 
   // If no grouping, render items directly
   if (groupBy === 'none') {
-    return (
-      <div className={cn('space-y-2', className)}>
-        {items.map((item) => renderItem(item))}
-      </div>
-    );
+    return <div className={cn('space-y-2', className)}>{items.map((item) => renderItem(item))}</div>;
   }
 
   return (
@@ -68,17 +59,8 @@ export function GroupedList<T extends Record<string, unknown>>({
 
         return (
           <div key={group.key} className="space-y-2">
-            <GroupHeader
-              label={group.label}
-              count={group.items.length}
-              isExpanded={isExpanded}
-              onToggle={() => handleToggle(group.key)}
-            />
-            {isExpanded && (
-              <div className="pl-6 space-y-2">
-                {group.items.map((item) => renderItem(item))}
-              </div>
-            )}
+            <GroupHeader label={group.label} count={group.items.length} isExpanded={isExpanded} onToggle={() => handleToggle(group.key)} />
+            {isExpanded && <div className="pl-6 space-y-2">{group.items.map((item) => renderItem(item))}</div>}
           </div>
         );
       })}

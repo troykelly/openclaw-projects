@@ -4,14 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  MemoryCard,
-  MemoryList,
-  MemoryEditor,
-  MemoryDetailSheet,
-  ItemMemories,
-  type MemoryItem,
-} from '@/ui/components/memory';
+import { MemoryCard, MemoryList, MemoryEditor, MemoryDetailSheet, ItemMemories, type MemoryItem } from '@/ui/components/memory';
 
 const mockMemory: MemoryItem = {
   id: '1',
@@ -151,13 +144,7 @@ describe('MemoryList', () => {
 
 describe('MemoryEditor', () => {
   it('renders form fields', () => {
-    render(
-      <MemoryEditor
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<MemoryEditor open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByLabelText(/Title/)).toBeInTheDocument();
     expect(screen.getByText('Content')).toBeInTheDocument();
@@ -166,27 +153,14 @@ describe('MemoryEditor', () => {
   });
 
   it('pre-fills form when editing', () => {
-    render(
-      <MemoryEditor
-        memory={mockMemory}
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<MemoryEditor memory={mockMemory} open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByDisplayValue('Project Architecture Notes')).toBeInTheDocument();
   });
 
   it('submits form data', () => {
     const onSubmit = vi.fn();
-    render(
-      <MemoryEditor
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={onSubmit}
-      />
-    );
+    render(<MemoryEditor open={true} onOpenChange={() => {}} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText(/Title/), { target: { value: 'Test Memory' } });
     fireEvent.change(screen.getByPlaceholderText(/Write your memory content/), {
@@ -200,31 +174,19 @@ describe('MemoryEditor', () => {
       expect.objectContaining({
         title: 'Test Memory',
         content: 'Test content',
-      })
+      }),
     );
   });
 
   it('disables submit when required fields empty', () => {
-    render(
-      <MemoryEditor
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<MemoryEditor open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     const submitButton = screen.getByRole('button', { name: 'Create Memory' });
     expect(submitButton).toBeDisabled();
   });
 
   it('allows adding and removing tags', () => {
-    render(
-      <MemoryEditor
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<MemoryEditor open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     const tagInput = screen.getByPlaceholderText('Add a tag');
     fireEvent.change(tagInput, { target: { value: 'test-tag' } });
@@ -238,13 +200,7 @@ describe('MemoryEditor', () => {
   });
 
   it('has edit and preview tabs', () => {
-    render(
-      <MemoryEditor
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<MemoryEditor open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByRole('tab', { name: /Edit/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Preview/i })).toBeInTheDocument();
@@ -253,38 +209,20 @@ describe('MemoryEditor', () => {
 
 describe('MemoryDetailSheet', () => {
   it('renders memory title and content', () => {
-    render(
-      <MemoryDetailSheet
-        memory={mockMemory}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<MemoryDetailSheet memory={mockMemory} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('Project Architecture Notes')).toBeInTheDocument();
     expect(screen.getByText(/This project uses a monorepo structure/)).toBeInTheDocument();
   });
 
   it('shows linked item', () => {
-    render(
-      <MemoryDetailSheet
-        memory={mockMemory}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<MemoryDetailSheet memory={mockMemory} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText(/Linked to: Main Project/)).toBeInTheDocument();
   });
 
   it('shows tags', () => {
-    render(
-      <MemoryDetailSheet
-        memory={mockMemory}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<MemoryDetailSheet memory={mockMemory} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('architecture')).toBeInTheDocument();
     expect(screen.getByText('documentation')).toBeInTheDocument();
@@ -292,14 +230,7 @@ describe('MemoryDetailSheet', () => {
 
   it('calls onEdit when edit clicked', () => {
     const onEdit = vi.fn();
-    render(
-      <MemoryDetailSheet
-        memory={mockMemory}
-        open={true}
-        onOpenChange={() => {}}
-        onEdit={onEdit}
-      />
-    );
+    render(<MemoryDetailSheet memory={mockMemory} open={true} onOpenChange={() => {}} onEdit={onEdit} />);
 
     fireEvent.click(screen.getByText('Edit'));
     expect(onEdit).toHaveBeenCalledWith(mockMemory);
@@ -307,14 +238,7 @@ describe('MemoryDetailSheet', () => {
 
   it('calls onLinkedItemClick when linked item clicked', () => {
     const onLinkedItemClick = vi.fn();
-    render(
-      <MemoryDetailSheet
-        memory={mockMemory}
-        open={true}
-        onOpenChange={() => {}}
-        onLinkedItemClick={onLinkedItemClick}
-      />
-    );
+    render(<MemoryDetailSheet memory={mockMemory} open={true} onOpenChange={() => {}} onLinkedItemClick={onLinkedItemClick} />);
 
     fireEvent.click(screen.getByText(/Linked to: Main Project/));
     expect(onLinkedItemClick).toHaveBeenCalledWith(mockMemory);
@@ -344,13 +268,7 @@ describe('ItemMemories', () => {
   it('shows add and link buttons when handlers provided', () => {
     const onAddMemory = vi.fn();
     const onLinkMemory = vi.fn();
-    render(
-      <ItemMemories
-        memories={[]}
-        onAddMemory={onAddMemory}
-        onLinkMemory={onLinkMemory}
-      />
-    );
+    render(<ItemMemories memories={[]} onAddMemory={onAddMemory} onLinkMemory={onLinkMemory} />);
 
     expect(screen.getByText('Create new')).toBeInTheDocument();
     expect(screen.getByText('Link existing')).toBeInTheDocument();

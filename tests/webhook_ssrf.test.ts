@@ -11,7 +11,7 @@ describe('SSRF Protection (Issue #823)', () => {
         'https://example.com/hook',
         'https://api.stripe.com/v1/webhooks',
         'https://hooks.slack.com/services/xxx',
-        'http://203.0.113.1/callback',  // TEST-NET, but public
+        'http://203.0.113.1/callback', // TEST-NET, but public
         'https://8.8.8.8/dns',
         'https://subdomain.example.org:8443/path',
       ];
@@ -24,12 +24,7 @@ describe('SSRF Protection (Issue #823)', () => {
     });
 
     describe('blocks loopback addresses', () => {
-      const blocked = [
-        'http://127.0.0.1/secret',
-        'http://127.0.0.2/secret',
-        'http://127.255.255.255/secret',
-        'https://[::1]/secret',
-      ];
+      const blocked = ['http://127.0.0.1/secret', 'http://127.0.0.2/secret', 'http://127.255.255.255/secret', 'https://[::1]/secret'];
 
       for (const url of blocked) {
         it(`blocks ${url}`, () => {
@@ -92,11 +87,7 @@ describe('SSRF Protection (Issue #823)', () => {
     });
 
     describe('blocks hostname suffixes', () => {
-      const blocked = [
-        'http://service.internal/api',
-        'http://app.local/api',
-        'http://host.localhost/api',
-      ];
+      const blocked = ['http://service.internal/api', 'http://app.local/api', 'http://host.localhost/api'];
 
       for (const url of blocked) {
         it(`blocks ${url}`, () => {

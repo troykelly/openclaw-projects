@@ -12,7 +12,7 @@ export {
   type MemoryRecallTool,
   type MemoryRecallResult,
   type Memory,
-} from './memory-recall.js'
+} from './memory-recall.js';
 
 // memory_store tool
 export {
@@ -22,7 +22,7 @@ export {
   type MemoryStoreTool,
   type MemoryStoreResult,
   type StoredMemory,
-} from './memory-store.js'
+} from './memory-store.js';
 
 // memory_forget tool
 export {
@@ -31,7 +31,7 @@ export {
   type MemoryForgetParams,
   type MemoryForgetTool,
   type MemoryForgetResult,
-} from './memory-forget.js'
+} from './memory-forget.js';
 
 // Project tools
 export {
@@ -53,7 +53,7 @@ export {
   type ProjectCreateResult,
   type Project,
   type ProjectToolOptions,
-} from './projects.js'
+} from './projects.js';
 
 // Todo tools
 export {
@@ -74,7 +74,7 @@ export {
   type TodoCompleteResult,
   type Todo,
   type TodoToolOptions,
-} from './todos.js'
+} from './todos.js';
 
 // Contact tools
 export {
@@ -95,7 +95,7 @@ export {
   type ContactCreateResult,
   type Contact,
   type ContactToolOptions,
-} from './contacts.js'
+} from './contacts.js';
 
 // SMS tools
 export {
@@ -105,7 +105,7 @@ export {
   type SmsSendTool,
   type SmsSendResult,
   type SmsSendToolOptions,
-} from './sms-send.js'
+} from './sms-send.js';
 
 // Email tools
 export {
@@ -115,7 +115,7 @@ export {
   type EmailSendTool,
   type EmailSendResult,
   type EmailSendToolOptions,
-} from './email-send.js'
+} from './email-send.js';
 
 // Message search tools
 export {
@@ -125,7 +125,7 @@ export {
   type MessageSearchTool,
   type MessageSearchResult,
   type MessageSearchToolOptions,
-} from './message-search.js'
+} from './message-search.js';
 
 // Thread tools
 export {
@@ -140,7 +140,7 @@ export {
   type ThreadListResult,
   type ThreadGetResult,
   type ThreadToolOptions,
-} from './threads.js'
+} from './threads.js';
 
 // Note tools
 export {
@@ -172,7 +172,7 @@ export {
   type NoteSearchToolResult,
   type Note,
   type NoteToolOptions,
-} from './notes.js'
+} from './notes.js';
 
 // Relationship tools
 export {
@@ -188,7 +188,7 @@ export {
   type RelationshipQueryResult,
   type RelatedContact,
   type RelationshipToolOptions,
-} from './relationships.js'
+} from './relationships.js';
 
 // Notebook tools
 export {
@@ -209,7 +209,7 @@ export {
   type NotebookGetResult,
   type Notebook,
   type NotebookToolOptions,
-} from './notebooks.js'
+} from './notebooks.js';
 
 // File sharing tools
 export {
@@ -219,7 +219,7 @@ export {
   type FileShareTool,
   type FileShareResult,
   type FileShareToolOptions,
-} from './file-share.js'
+} from './file-share.js';
 
 // Skill Store tools (Issue #800, #801)
 export {
@@ -248,7 +248,7 @@ export {
   type SkillStoreToolResult,
   type SkillStoreItem,
   type SkillStoreToolOptions,
-} from './skill-store.js'
+} from './skill-store.js';
 
 /** Tool factory types */
-export type ToolFactoryOptions = Record<string, never>
+export type ToolFactoryOptions = Record<string, never>;

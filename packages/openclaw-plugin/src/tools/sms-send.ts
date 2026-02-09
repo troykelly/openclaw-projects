@@ -3,74 +3,69 @@
  * Sends SMS messages via Twilio.
  */
 
-import { z } from 'zod'
-import type { ApiClient } from '../api-client.js'
-import type { Logger } from '../logger.js'
-import type { PluginConfig } from '../config.js'
+import { z } from 'zod';
+import type { ApiClient } from '../api-client.js';
+import type { Logger } from '../logger.js';
+import type { PluginConfig } from '../config.js';
 
 /** E.164 phone number regex */
-const E164_REGEX = /^\+[1-9]\d{1,14}$/
+const E164_REGEX = /^\+[1-9]\d{1,14}$/;
 
 /** Maximum SMS body length (Twilio standard) */
-const MAX_BODY_LENGTH = 1600
+const MAX_BODY_LENGTH = 1600;
 
 /** Parameters for sms_send tool */
 export const SmsSendParamsSchema = z.object({
-  to: z
-    .string()
-    .regex(E164_REGEX, 'Phone number must be in E.164 format (e.g., +15551234567)'),
-  body: z
-    .string()
-    .min(1, 'Message body cannot be empty')
-    .max(MAX_BODY_LENGTH, `Message body must be ${MAX_BODY_LENGTH} characters or less`),
+  to: z.string().regex(E164_REGEX, 'Phone number must be in E.164 format (e.g., +15551234567)'),
+  body: z.string().min(1, 'Message body cannot be empty').max(MAX_BODY_LENGTH, `Message body must be ${MAX_BODY_LENGTH} characters or less`),
   idempotencyKey: z.string().optional(),
-})
-export type SmsSendParams = z.infer<typeof SmsSendParamsSchema>
+});
+export type SmsSendParams = z.infer<typeof SmsSendParamsSchema>;
 
 /** SMS send response from API */
 interface SmsSendApiResponse {
-  messageId: string
-  threadId?: string
-  status: 'queued' | 'sending' | 'sent' | 'failed' | 'delivered'
+  messageId: string;
+  threadId?: string;
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'delivered';
 }
 
 /** Successful tool result */
 export interface SmsSendSuccess {
-  success: true
+  success: true;
   data: {
-    content: string
+    content: string;
     details: {
-      messageId: string
-      threadId?: string
-      status: string
-      userId: string
-    }
-  }
+      messageId: string;
+      threadId?: string;
+      status: string;
+      userId: string;
+    };
+  };
 }
 
 /** Failed tool result */
 export interface SmsSendFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
 /** Tool result type */
-export type SmsSendResult = SmsSendSuccess | SmsSendFailure
+export type SmsSendResult = SmsSendSuccess | SmsSendFailure;
 
 /** Tool configuration */
 export interface SmsSendToolOptions {
-  client: ApiClient
-  logger: Logger
-  config: PluginConfig
-  userId: string
+  client: ApiClient;
+  logger: Logger;
+  config: PluginConfig;
+  userId: string;
 }
 
 /** Tool definition */
 export interface SmsSendTool {
-  name: string
-  description: string
-  parameters: typeof SmsSendParamsSchema
-  execute: (params: SmsSendParams) => Promise<SmsSendResult>
+  name: string;
+  description: string;
+  parameters: typeof SmsSendParamsSchema;
+  execute: (params: SmsSendParams) => Promise<SmsSendResult>;
 }
 
 /**
@@ -79,24 +74,24 @@ export interface SmsSendTool {
 function sanitizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     // Remove phone numbers from error messages
-    const sanitized = error.message.replace(/\+\d{1,15}/g, '[phone]')
-    return sanitized
+    const sanitized = error.message.replace(/\+\d{1,15}/g, '[phone]');
+    return sanitized;
   }
-  return 'An unexpected error occurred while sending SMS.'
+  return 'An unexpected error occurred while sending SMS.';
 }
 
 /**
  * Check if Twilio is configured.
  */
 function isTwilioConfigured(config: PluginConfig): boolean {
-  return !!(config.twilioAccountSid && config.twilioAuthToken && config.twilioPhoneNumber)
+  return !!(config.twilioAccountSid && config.twilioAuthToken && config.twilioPhoneNumber);
 }
 
 /**
  * Creates the sms_send tool.
  */
 export function createSmsSendTool(options: SmsSendToolOptions): SmsSendTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'sms_send',
@@ -107,22 +102,20 @@ export function createSmsSendTool(options: SmsSendToolOptions): SmsSendTool {
 
     async execute(params: SmsSendParams): Promise<SmsSendResult> {
       // Validate parameters
-      const parseResult = SmsSendParamsSchema.safeParse(params)
+      const parseResult = SmsSendParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const { to, body, idempotencyKey } = parseResult.data
+      const { to, body, idempotencyKey } = parseResult.data;
 
       // Check Twilio configuration
       if (!isTwilioConfigured(config)) {
         return {
           success: false,
           error: 'Twilio is not configured. Please configure Twilio credentials.',
-        }
+        };
       }
 
       // Log invocation (without phone number for privacy)
@@ -130,7 +123,7 @@ export function createSmsSendTool(options: SmsSendToolOptions): SmsSendTool {
         userId,
         bodyLength: body.length,
         hasIdempotencyKey: !!idempotencyKey,
-      })
+      });
 
       try {
         // Call API
@@ -141,28 +134,28 @@ export function createSmsSendTool(options: SmsSendToolOptions): SmsSendTool {
             body,
             idempotencyKey,
           },
-          { userId }
-        )
+          { userId },
+        );
 
         if (!response.success) {
           logger.error('sms_send API error', {
             userId,
             status: response.error.status,
             code: response.error.code,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to send SMS',
-          }
+          };
         }
 
-        const { messageId, threadId, status } = response.data
+        const { messageId, threadId, status } = response.data;
 
         logger.debug('sms_send completed', {
           userId,
           messageId,
           status,
-        })
+        });
 
         return {
           success: true,
@@ -175,18 +168,18 @@ export function createSmsSendTool(options: SmsSendToolOptions): SmsSendTool {
               userId,
             },
           },
-        }
+        };
       } catch (error) {
         logger.error('sms_send failed', {
           userId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
 
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }

@@ -29,7 +29,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       `INSERT INTO note (user_email, title, content)
        VALUES ($1, 'Test Note', 'Test content')
        RETURNING id::text as id`,
-      [testUserEmail]
+      [testUserEmail],
     );
     noteId = (noteResult.rows[0] as { id: string }).id;
   });

@@ -3,15 +3,7 @@
  * Issue #390: Implement dependency creation UI
  */
 import * as React from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, Folder, Target, Layers, FileText, X } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
@@ -44,9 +36,7 @@ function getKindIcon(kind: WorkItemKind) {
   }
 }
 
-function getStatusVariant(
-  status: WorkItemStatus
-): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getStatusVariant(status: WorkItemStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'in_progress':
       return 'default';
@@ -63,17 +53,7 @@ function getStatusLabel(status: WorkItemStatus): string {
   return status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function DependencyItem({
-  id,
-  title,
-  kind,
-  status,
-  direction,
-  type,
-  onClick,
-  onRemove,
-  className,
-}: DependencyItemProps) {
+export function DependencyItem({ id, title, kind, status, direction, type, onClick, onRemove, className }: DependencyItemProps) {
   const isSatisfied = direction === 'blocked_by' && status === 'done';
   const DirectionIcon = direction === 'blocks' ? ArrowRight : ArrowLeft;
 
@@ -91,7 +71,7 @@ export function DependencyItem({
         'hover:bg-muted/50 transition-colors',
         onClick && 'cursor-pointer',
         isSatisfied && 'opacity-60',
-        className
+        className,
       )}
       onClick={onClick}
       role="button"
@@ -105,13 +85,7 @@ export function DependencyItem({
       }}
     >
       {/* Direction indicator */}
-      <span
-        data-testid="direction-indicator"
-        className={cn(
-          'text-muted-foreground',
-          direction === 'blocks' ? 'text-amber-500' : 'text-blue-500'
-        )}
-      >
+      <span data-testid="direction-indicator" className={cn('text-muted-foreground', direction === 'blocks' ? 'text-amber-500' : 'text-blue-500')}>
         <DirectionIcon className="size-4" />
       </span>
 
@@ -124,11 +98,7 @@ export function DependencyItem({
       <span className="min-w-0 flex-1 truncate text-sm">{title}</span>
 
       {/* Dependency type */}
-      {type && (
-        <span className="text-xs text-muted-foreground shrink-0">
-          {getDependencyTypeLabel(type)}
-        </span>
-      )}
+      {type && <span className="text-xs text-muted-foreground shrink-0">{getDependencyTypeLabel(type)}</span>}
 
       {/* Status badge */}
       <Badge variant={getStatusVariant(status)} className="shrink-0 text-xs">

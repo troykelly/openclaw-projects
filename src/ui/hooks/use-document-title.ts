@@ -16,10 +16,7 @@ import { useEffect, useRef } from 'react';
  * @param title - The desired page title (the suffix " - OpenClaw Projects" is appended automatically).
  * @param options.restoreOnUnmount - Whether to restore the previous title on unmount. Defaults to true.
  */
-export function useDocumentTitle(
-  title: string,
-  options: { restoreOnUnmount?: boolean } = {},
-): void {
+export function useDocumentTitle(title: string, options: { restoreOnUnmount?: boolean } = {}): void {
   const { restoreOnUnmount = true } = options;
   const previousTitle = useRef(document.title);
 

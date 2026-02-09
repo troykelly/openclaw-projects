@@ -6,38 +6,38 @@
 /** User identity information */
 export interface UserContext {
   /** Unique user identifier */
-  userId: string
+  userId: string;
   /** User display name (if available) */
-  displayName?: string
+  displayName?: string;
   /** User email (if available) */
-  email?: string
+  email?: string;
 }
 
 /** Agent information */
 export interface AgentContext {
   /** Agent identifier */
-  agentId: string
+  agentId: string;
   /** Agent name */
-  name: string
+  name: string;
   /** Agent version */
-  version?: string
+  version?: string;
 }
 
 /** Session information */
 export interface SessionContext {
   /** Session identifier */
-  sessionId: string
+  sessionId: string;
   /** Session start timestamp */
-  startedAt: Date
+  startedAt: Date;
   /** Conversation thread ID (if part of a thread) */
-  threadId?: string
+  threadId?: string;
 }
 
 /** Combined context from all sources */
 export interface PluginContext {
-  user?: UserContext
-  agent: AgentContext
-  session: SessionContext
+  user?: UserContext;
+  agent: AgentContext;
+  session: SessionContext;
 }
 
 /**
@@ -46,21 +46,21 @@ export interface PluginContext {
  */
 export function extractUserContext(runtimeContext: unknown): UserContext | undefined {
   if (!runtimeContext || typeof runtimeContext !== 'object') {
-    return undefined
+    return undefined;
   }
 
-  const ctx = runtimeContext as Record<string, unknown>
-  const user = ctx.user as Record<string, unknown> | undefined
+  const ctx = runtimeContext as Record<string, unknown>;
+  const user = ctx.user as Record<string, unknown> | undefined;
 
   if (!user || typeof user.id !== 'string') {
-    return undefined
+    return undefined;
   }
 
   return {
     userId: user.id,
     displayName: typeof user.displayName === 'string' ? user.displayName : undefined,
     email: typeof user.email === 'string' ? user.email : undefined,
-  }
+  };
 }
 
 /**
@@ -70,24 +70,24 @@ export function extractAgentContext(runtimeContext: unknown): AgentContext {
   const defaultAgent: AgentContext = {
     agentId: 'unknown',
     name: 'Unknown Agent',
-  }
+  };
 
   if (!runtimeContext || typeof runtimeContext !== 'object') {
-    return defaultAgent
+    return defaultAgent;
   }
 
-  const ctx = runtimeContext as Record<string, unknown>
-  const agent = ctx.agent as Record<string, unknown> | undefined
+  const ctx = runtimeContext as Record<string, unknown>;
+  const agent = ctx.agent as Record<string, unknown> | undefined;
 
   if (!agent) {
-    return defaultAgent
+    return defaultAgent;
   }
 
   return {
     agentId: typeof agent.id === 'string' ? agent.id : 'unknown',
     name: typeof agent.name === 'string' ? agent.name : 'Unknown Agent',
     version: typeof agent.version === 'string' ? agent.version : undefined,
-  }
+  };
 }
 
 /**
@@ -97,29 +97,24 @@ export function extractSessionContext(runtimeContext: unknown): SessionContext {
   const defaultSession: SessionContext = {
     sessionId: crypto.randomUUID(),
     startedAt: new Date(),
-  }
+  };
 
   if (!runtimeContext || typeof runtimeContext !== 'object') {
-    return defaultSession
+    return defaultSession;
   }
 
-  const ctx = runtimeContext as Record<string, unknown>
-  const session = ctx.session as Record<string, unknown> | undefined
+  const ctx = runtimeContext as Record<string, unknown>;
+  const session = ctx.session as Record<string, unknown> | undefined;
 
   if (!session) {
-    return defaultSession
+    return defaultSession;
   }
 
   return {
     sessionId: typeof session.id === 'string' ? session.id : crypto.randomUUID(),
-    startedAt:
-      session.startedAt instanceof Date
-        ? session.startedAt
-        : typeof session.startedAt === 'string'
-          ? new Date(session.startedAt)
-          : new Date(),
+    startedAt: session.startedAt instanceof Date ? session.startedAt : typeof session.startedAt === 'string' ? new Date(session.startedAt) : new Date(),
     threadId: typeof session.threadId === 'string' ? session.threadId : undefined,
-  }
+  };
 }
 
 /**
@@ -130,14 +125,14 @@ export function extractContext(runtimeContext: unknown): PluginContext {
     user: extractUserContext(runtimeContext),
     agent: extractAgentContext(runtimeContext),
     session: extractSessionContext(runtimeContext),
-  }
+  };
 }
 
 /** Allowed characters in session keys: alphanumeric, colon, hyphen, underscore */
-const SESSION_KEY_REGEX = /^[a-zA-Z0-9:_-]+$/
+const SESSION_KEY_REGEX = /^[a-zA-Z0-9:_-]+$/;
 
 /** Maximum length for session keys */
-const MAX_SESSION_KEY_LENGTH = 500
+const MAX_SESSION_KEY_LENGTH = 500;
 
 /**
  * Validates a session key format.
@@ -146,12 +141,12 @@ const MAX_SESSION_KEY_LENGTH = 500
  */
 export function validateSessionKey(sessionKey: string | null | undefined): boolean {
   if (!sessionKey || sessionKey.length === 0) {
-    return false
+    return false;
   }
   if (sessionKey.length > MAX_SESSION_KEY_LENGTH) {
-    return false
+    return false;
   }
-  return SESSION_KEY_REGEX.test(sessionKey)
+  return SESSION_KEY_REGEX.test(sessionKey);
 }
 
 /**
@@ -161,40 +156,40 @@ export function validateSessionKey(sessionKey: string | null | undefined): boole
  */
 export function parseAgentIdFromSessionKey(sessionKey: string | null | undefined): string {
   if (!sessionKey || sessionKey.length === 0) {
-    return 'unknown'
+    return 'unknown';
   }
 
   // Validate session key format first
   if (!validateSessionKey(sessionKey)) {
-    return 'unknown'
+    return 'unknown';
   }
 
   // Parse format: agent:<agentId>:<channel>:...
-  const parts = sessionKey.split(':')
+  const parts = sessionKey.split(':');
   if (parts.length < 3 || parts[0] !== 'agent') {
-    return 'unknown'
+    return 'unknown';
   }
 
-  const agentId = parts[1]
+  const agentId = parts[1];
   if (!agentId || agentId.length === 0) {
-    return 'unknown'
+    return 'unknown';
   }
 
-  return agentId
+  return agentId;
 }
 
 /** Context for user scoping */
 export interface ScopingContext {
   /** Agent ID for agent-level scoping */
-  agentId: string
+  agentId: string;
   /** Full session key for session-level isolation */
-  sessionKey?: string
+  sessionKey?: string;
   /** External sender ID */
-  senderId?: string
+  senderId?: string;
   /** Communication channel */
-  channel?: string
+  channel?: string;
   /** Canonical identity key for cross-agent queries */
-  identityKey?: string
+  identityKey?: string;
 }
 
 /**
@@ -203,23 +198,20 @@ export interface ScopingContext {
  * @param scopeMode - "agent" | "identity" | "session"
  * @returns Scope key to pass to backend API
  */
-export function getUserScopeKey(
-  context: ScopingContext,
-  scopeMode: 'agent' | 'identity' | 'session'
-): string {
+export function getUserScopeKey(context: ScopingContext, scopeMode: 'agent' | 'identity' | 'session'): string {
   switch (scopeMode) {
     case 'agent':
-      return context.agentId || 'unknown'
+      return context.agentId || 'unknown';
 
     case 'identity':
       // Prefer identity key if available, fall back to agent
-      return context.identityKey || context.agentId || 'unknown'
+      return context.identityKey || context.agentId || 'unknown';
 
     case 'session':
       // Prefer full session key if available, fall back to agent
-      return context.sessionKey || context.agentId || 'unknown'
+      return context.sessionKey || context.agentId || 'unknown';
 
     default:
-      return context.agentId || 'unknown'
+      return context.agentId || 'unknown';
   }
 }

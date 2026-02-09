@@ -9,22 +9,12 @@ import type { NavigableItem } from './types';
 export interface KeyboardNavigableListProps {
   items: NavigableItem[];
   onSelect?: (item: NavigableItem) => void;
-  renderItem: (
-    item: NavigableItem,
-    index: number,
-    isFocused: boolean
-  ) => React.ReactNode;
+  renderItem: (item: NavigableItem, index: number, isFocused: boolean) => React.ReactNode;
   className?: string;
 }
 
-export function KeyboardNavigableList({
-  items,
-  onSelect,
-  renderItem,
-  className,
-}: KeyboardNavigableListProps) {
-  const { focusedIndex, setFocusedIndex, registerShortcut } =
-    useKeyboardNavigation();
+export function KeyboardNavigableList({ items, onSelect, renderItem, className }: KeyboardNavigableListProps) {
+  const { focusedIndex, setFocusedIndex, registerShortcut } = useKeyboardNavigation();
 
   // Register navigation shortcuts
   React.useEffect(() => {

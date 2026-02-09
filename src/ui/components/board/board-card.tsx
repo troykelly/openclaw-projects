@@ -84,7 +84,7 @@ export function BoardCard({ item, onClick, isDragging, className, onTitleChange,
         'cursor-pointer p-3 transition-all',
         'hover:border-primary/50 hover:shadow-sm',
         dragging && 'opacity-50 rotate-2 scale-105 shadow-lg',
-        className
+        className,
       )}
       onClick={() => onClick?.(item)}
     >
@@ -140,11 +140,7 @@ export function BoardCard({ item, onClick, isDragging, className, onTitleChange,
             {item.assignee && (
               <span className="flex items-center gap-1" title={item.assignee}>
                 {item.assigneeAvatar ? (
-                  <img
-                    src={item.assigneeAvatar}
-                    alt={item.assignee}
-                    className="size-5 rounded-full"
-                  />
+                  <img src={item.assigneeAvatar} alt={item.assignee} className="size-5 rounded-full" />
                 ) : (
                   <div className="flex size-5 items-center justify-center rounded-full bg-muted text-xs font-medium">
                     {item.assignee.charAt(0).toUpperCase()}

@@ -1,13 +1,7 @@
 import * as React from 'react';
-import type {
-  UseWorkItemDeleteOptions,
-  UseWorkItemDeleteReturn,
-  UndoState,
-} from './types';
+import type { UseWorkItemDeleteOptions, UseWorkItemDeleteReturn, UndoState } from './types';
 
-export function useWorkItemDelete(
-  options: UseWorkItemDeleteOptions = {}
-): UseWorkItemDeleteReturn {
+export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWorkItemDeleteReturn {
   const { onDeleted, onRestored, onError } = options;
 
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -34,7 +28,7 @@ export function useWorkItemDelete(
         onError?.(error instanceof Error ? error : new Error('Unknown error'));
       }
     },
-    [onRestored, onError]
+    [onRestored, onError],
   );
 
   const handleUndo = React.useCallback(async () => {
@@ -72,7 +66,7 @@ export function useWorkItemDelete(
         setIsDeleting(false);
       }
     },
-    [onDeleted, onError, handleUndo]
+    [onDeleted, onError, handleUndo],
   );
 
   const deleteItems = React.useCallback(
@@ -84,8 +78,8 @@ export function useWorkItemDelete(
           items.map((item) =>
             fetch(`/api/work-items/${item.id}`, {
               method: 'DELETE',
-            })
-          )
+            }),
+          ),
         );
 
         deletedItemsRef.current = items.map((i) => i.id);
@@ -104,7 +98,7 @@ export function useWorkItemDelete(
         setIsDeleting(false);
       }
     },
-    [onDeleted, onError, handleUndo]
+    [onDeleted, onError, handleUndo],
   );
 
   const dismissUndo = React.useCallback(() => {

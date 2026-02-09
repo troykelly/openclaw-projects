@@ -5,16 +5,11 @@ import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
-import {
-  BulkSelectionProvider,
-  useBulkSelection,
-} from '@/ui/hooks/use-bulk-selection';
+import { BulkSelectionProvider, useBulkSelection } from '@/ui/hooks/use-bulk-selection';
 import { BulkActionBar } from '@/ui/components/bulk/bulk-action-bar';
 
 describe('useBulkSelection', () => {
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <BulkSelectionProvider>{children}</BulkSelectionProvider>
-  );
+  const wrapper = ({ children }: { children: React.ReactNode }) => <BulkSelectionProvider>{children}</BulkSelectionProvider>;
 
   it('starts with empty selection', () => {
     const { result } = renderHook(() => useBulkSelection(), { wrapper });
@@ -123,7 +118,7 @@ describe('BulkActionBar', () => {
     return render(
       <BulkSelectionProvider>
         <TestComponent />
-      </BulkSelectionProvider>
+      </BulkSelectionProvider>,
     );
   };
 
@@ -131,7 +126,7 @@ describe('BulkActionBar', () => {
     render(
       <BulkSelectionProvider>
         <BulkActionBar />
-      </BulkSelectionProvider>
+      </BulkSelectionProvider>,
     );
 
     expect(screen.queryByTestId('bulk-action-bar')).not.toBeInTheDocument();

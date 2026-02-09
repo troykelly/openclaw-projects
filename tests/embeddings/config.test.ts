@@ -1,11 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  loadApiKey,
-  isProviderConfigured,
-  getActiveProvider,
-  clearCachedProvider,
-  getConfigSummary,
-} from '../../src/api/embeddings/config.ts';
+import { loadApiKey, isProviderConfigured, getActiveProvider, clearCachedProvider, getConfigSummary } from '../../src/api/embeddings/config.ts';
 
 describe('Embeddings Config', () => {
   const originalEnv = process.env;

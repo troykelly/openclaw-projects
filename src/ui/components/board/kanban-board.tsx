@@ -74,18 +74,21 @@ export function KanbanBoard({
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const columns = useMemo(() => groupItemsByStatus(items), [items]);
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { active } = event;
-    const item = items.find((i) => i.id === active.id);
-    if (item) {
-      setActiveItem(item);
-    }
-  }, [items]);
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const { active } = event;
+      const item = items.find((i) => i.id === active.id);
+      if (item) {
+        setActiveItem(item);
+      }
+    },
+    [items],
+  );
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { over } = event;
@@ -133,12 +136,10 @@ export function KanbanBoard({
       if (item.status === newStatus) return; // No change
 
       // Optimistic update
-      const newItems = items.map((i) =>
-        i.id === activeId ? { ...i, status: newStatus! } : i
-      );
+      const newItems = items.map((i) => (i.id === activeId ? { ...i, status: newStatus! } : i));
       onItemsChange?.(newItems);
     },
-    [items, onItemsChange]
+    [items, onItemsChange],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -151,19 +152,11 @@ export function KanbanBoard({
       {/* View mode toggle */}
       {onViewModeChange && (
         <div className="flex items-center justify-end gap-1 border-b p-2">
-          <Button
-            variant={viewMode === 'board' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => onViewModeChange('board')}
-          >
+          <Button variant={viewMode === 'board' ? 'secondary' : 'ghost'} size="sm" onClick={() => onViewModeChange('board')}>
             <LayoutGrid className="mr-1 size-4" />
             Board
           </Button>
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => onViewModeChange('list')}
-          >
+          <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => onViewModeChange('list')}>
             <List className="mr-1 size-4" />
             List
           </Button>
@@ -192,9 +185,7 @@ export function KanbanBoard({
                 onPriorityChange={onPriorityChange}
               />
             ))}
-            <DragOverlay>
-              {activeItem && <BoardCardOverlay item={activeItem} />}
-            </DragOverlay>
+            <DragOverlay>{activeItem && <BoardCardOverlay item={activeItem} />}</DragOverlay>
           </DndContext>
         </div>
         <ScrollBar orientation="horizontal" />
@@ -206,12 +197,7 @@ export function KanbanBoard({
           <div className="text-center">
             <p className="text-muted-foreground">No items on this board</p>
             {onAddItem && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => onAddItem('not_started')}
-              >
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => onAddItem('not_started')}>
                 Add first item
               </Button>
             )}

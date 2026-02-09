@@ -549,11 +549,11 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       // Insert items with known times
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, title, created_at)
-         VALUES ('s1', 'Old', now() - interval '2 days')`
+         VALUES ('s1', 'Old', now() - interval '2 days')`,
       );
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, title, created_at)
-         VALUES ('s1', 'Recent', now())`
+         VALUES ('s1', 'Recent', now())`,
       );
 
       const since = new Date(Date.now() - 86400000).toISOString(); // 1 day ago
@@ -673,10 +673,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify still in DB with deleted_at set
-      const check = await pool.query(
-        'SELECT deleted_at FROM skill_store_item WHERE id = $1',
-        [id]
-      );
+      const check = await pool.query('SELECT deleted_at FROM skill_store_item WHERE id = $1', [id]);
       expect(check.rows).toHaveLength(1);
       expect(check.rows[0].deleted_at).toBeTruthy();
     });
@@ -696,10 +693,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify completely gone
-      const check = await pool.query(
-        'SELECT 1 FROM skill_store_item WHERE id = $1',
-        [id]
-      );
+      const check = await pool.query('SELECT 1 FROM skill_store_item WHERE id = $1', [id]);
       expect(check.rows).toHaveLength(0);
     });
 
@@ -805,10 +799,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         method: 'POST',
         url: '/api/skill-store/items/bulk',
         payload: {
-          items: [
-            { skill_id: 's1', title: 'OK' },
-            { title: 'Missing skill_id' },
-          ],
+          items: [{ skill_id: 's1', title: 'OK' }, { title: 'Missing skill_id' }],
         },
       });
       expect(res.statusCode).toBe(400);
@@ -846,9 +837,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       expect(res.json().deleted).toBe(2);
 
       // Verify soft deleted (still in DB)
-      const check = await pool.query(
-        `SELECT count(*) FROM skill_store_item WHERE skill_id = 's1' AND deleted_at IS NOT NULL`
-      );
+      const check = await pool.query(`SELECT count(*) FROM skill_store_item WHERE skill_id = 's1' AND deleted_at IS NOT NULL`);
       expect(parseInt(check.rows[0].count)).toBe(2);
     });
 
@@ -946,9 +935,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         method: 'GET',
         url: '/api/skill-store/collections?skill_id=s1',
       });
-      const notes = res.json().collections.find(
-        (c: { collection: string }) => c.collection === 'notes'
-      );
+      const notes = res.json().collections.find((c: { collection: string }) => c.collection === 'notes');
       expect(notes.count).toBe(1);
     });
   });

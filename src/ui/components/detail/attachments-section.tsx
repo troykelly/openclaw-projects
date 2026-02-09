@@ -1,12 +1,5 @@
 import * as React from 'react';
-import {
-  Brain,
-  User,
-  Mail,
-  Calendar,
-  Link2,
-  ExternalLink,
-} from 'lucide-react';
+import { Brain, User, Mail, Calendar, Link2, ExternalLink } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import type { WorkItemAttachment } from './types';
@@ -44,12 +37,7 @@ export interface AttachmentsSectionProps {
   className?: string;
 }
 
-export function AttachmentsSection({
-  attachments,
-  onAttachmentClick,
-  onLinkNew,
-  className,
-}: AttachmentsSectionProps) {
+export function AttachmentsSection({ attachments, onAttachmentClick, onLinkNew, className }: AttachmentsSectionProps) {
   const groupedAttachments = React.useMemo(() => {
     const groups: Record<WorkItemAttachment['type'], WorkItemAttachment[]> = {
       memory: [],
@@ -96,21 +84,15 @@ export function AttachmentsSection({
                       className={cn(
                         'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left',
                         'hover:bg-muted/50',
-                        onAttachmentClick && 'cursor-pointer'
+                        onAttachmentClick && 'cursor-pointer',
                       )}
                       onClick={() => onAttachmentClick?.(attachment)}
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm">{attachment.title}</span>
-                        {attachment.subtitle && (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {attachment.subtitle}
-                          </span>
-                        )}
+                        {attachment.subtitle && <span className="block truncate text-xs text-muted-foreground">{attachment.subtitle}</span>}
                       </span>
-                      {onAttachmentClick && (
-                        <ExternalLink className="size-3 shrink-0 text-muted-foreground" />
-                      )}
+                      {onAttachmentClick && <ExternalLink className="size-3 shrink-0 text-muted-foreground" />}
                     </button>
                   ))}
                 </div>
@@ -118,9 +100,7 @@ export function AttachmentsSection({
             ))}
         </div>
       ) : (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          No linked items
-        </p>
+        <p className="py-4 text-center text-sm text-muted-foreground">No linked items</p>
       )}
     </div>
   );

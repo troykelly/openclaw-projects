@@ -2,12 +2,7 @@
  * Utilities for grouping items
  */
 import type { ItemGroup, GroupField } from './types';
-import {
-  STATUS_LABELS,
-  PRIORITY_LABELS,
-  KIND_LABELS,
-  DUE_DATE_LABELS,
-} from './types';
+import { STATUS_LABELS, PRIORITY_LABELS, KIND_LABELS, DUE_DATE_LABELS } from './types';
 
 // Re-export for convenience
 export type { GroupField };
@@ -43,9 +38,7 @@ function getDueDateGroup(dateStr?: string): string {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const diffDays = Math.ceil(
-    (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) return 'overdue';
   if (diffDays === 0) return 'today';
@@ -95,10 +88,7 @@ function getGroupOrder(field: GroupField): string[] {
 /**
  * Group items by a field
  */
-export function groupItems<T extends Record<string, unknown>>(
-  items: T[],
-  field: GroupField
-): ItemGroup<T>[] {
+export function groupItems<T extends Record<string, unknown>>(items: T[], field: GroupField): ItemGroup<T>[] {
   if (field === 'none') {
     return [
       {
@@ -156,13 +146,11 @@ export function groupItems<T extends Record<string, unknown>>(
   }
 
   // Convert to array and sort
-  const groups: ItemGroup<T>[] = Array.from(groupMap.entries()).map(
-    ([key, groupItems]) => ({
-      key,
-      label: getGroupLabel(field, key),
-      items: groupItems,
-    })
-  );
+  const groups: ItemGroup<T>[] = Array.from(groupMap.entries()).map(([key, groupItems]) => ({
+    key,
+    label: getGroupLabel(field, key),
+    items: groupItems,
+  }));
 
   // Sort groups by predefined order
   const order = getGroupOrder(field);

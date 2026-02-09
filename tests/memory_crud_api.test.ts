@@ -254,10 +254,7 @@ describe('Memory CRUD API (issue #121)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify deletion
-      const check = await pool.query(
-        'SELECT 1 FROM memory WHERE id = $1',
-        [memoryId]
-      );
+      const check = await pool.query('SELECT 1 FROM memory WHERE id = $1', [memoryId]);
       expect(check.rows.length).toBe(0);
     });
 

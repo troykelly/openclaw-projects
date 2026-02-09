@@ -47,12 +47,7 @@ function getEntityUrl(entityType: string, entityId: string): string {
   return `/${entityType}s/${entityId}`;
 }
 
-export function ActivityDetailCard({
-  activity,
-  expanded = false,
-  onToggle,
-  className,
-}: ActivityDetailCardProps) {
+export function ActivityDetailCard({ activity, expanded = false, onToggle, className }: ActivityDetailCardProps) {
   const hasChanges = activity.changes && activity.changes.length > 0;
   const showToggle = onToggle && hasChanges;
 
@@ -62,15 +57,9 @@ export function ActivityDetailCard({
       <div className="flex items-start gap-3">
         {/* Actor avatar */}
         {activity.actorAvatar ? (
-          <img
-            src={activity.actorAvatar}
-            alt={activity.actorName}
-            className="h-8 w-8 rounded-full object-cover shrink-0"
-          />
+          <img src={activity.actorAvatar} alt={activity.actorName} className="h-8 w-8 rounded-full object-cover shrink-0" />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">
-            {getInitials(activity.actorName)}
-          </div>
+          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">{getInitials(activity.actorName)}</div>
         )}
 
         {/* Content */}
@@ -79,10 +68,7 @@ export function ActivityDetailCard({
           <div className="flex items-center gap-1.5 flex-wrap text-sm">
             <span className="font-medium">{activity.actorName}</span>
             <span className="text-muted-foreground">{getActionLabel(activity.action)}</span>
-            <a
-              href={getEntityUrl(activity.entityType, activity.entityId)}
-              className="font-medium text-primary hover:underline truncate"
-            >
+            <a href={getEntityUrl(activity.entityType, activity.entityId)} className="font-medium text-primary hover:underline truncate">
               {activity.entityTitle}
             </a>
           </div>
@@ -92,10 +78,7 @@ export function ActivityDetailCard({
             <Badge variant="outline" className="text-xs">
               {activity.entityType}
             </Badge>
-            <span
-              data-testid="activity-timestamp"
-              className="text-xs text-muted-foreground"
-            >
+            <span data-testid="activity-timestamp" className="text-xs text-muted-foreground">
               {formatRelativeTime(activity.timestamp)}
             </span>
           </div>
@@ -103,18 +86,8 @@ export function ActivityDetailCard({
 
         {/* Toggle button */}
         {showToggle && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={onToggle}
-            aria-label={expanded ? 'Collapse details' : 'Show details'}
-          >
-            {expanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onToggle} aria-label={expanded ? 'Collapse details' : 'Show details'}>
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
         )}
       </div>
@@ -122,14 +95,9 @@ export function ActivityDetailCard({
       {/* Expanded changes */}
       {expanded && hasChanges && (
         <div className="mt-3 pt-3 border-t space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase">
-            Changes
-          </h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase">Changes</h4>
           {activity.changes!.map((change, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1"
-            >
+            <div key={index} className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1">
               <span className="font-medium capitalize">{change.field}</span>
               <span className="text-muted-foreground">:</span>
               {change.from && (

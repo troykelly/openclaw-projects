@@ -41,35 +41,17 @@ export function ColumnManager({ columns, onChange }: ColumnManagerProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         {columns.map((column) => (
-          <div
-            key={column.id}
-            data-testid={`column-item-${column.id}`}
-            className="flex items-center gap-2 p-2 border rounded-lg bg-background"
-          >
+          <div key={column.id} data-testid={`column-item-${column.id}`} className="flex items-center gap-2 p-2 border rounded-lg bg-background">
             <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-            <Input
-              value={column.name}
-              onChange={(e) => handleRenameColumn(column.id, e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleDeleteColumn(column.id)}
-              aria-label="Delete column"
-            >
+            <Input value={column.name} onChange={(e) => handleRenameColumn(column.id, e.target.value)} className="flex-1" />
+            <Button variant="ghost" size="icon" onClick={() => handleDeleteColumn(column.id)} aria-label="Delete column">
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
         ))}
       </div>
 
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleAddColumn}
-        aria-label="Add column"
-      >
+      <Button variant="outline" className="w-full" onClick={handleAddColumn} aria-label="Add column">
         <Plus className="h-4 w-4 mr-2" />
         Add Column
       </Button>

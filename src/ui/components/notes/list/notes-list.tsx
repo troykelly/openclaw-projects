@@ -10,18 +10,8 @@ import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/ui/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { Label } from '@/ui/components/ui/label';
 import { NoteCard } from './note-card';
@@ -69,10 +59,7 @@ export function NotesList({
     if (filter.search?.trim()) {
       const query = filter.search.toLowerCase();
       result = result.filter(
-        (n) =>
-          n.title.toLowerCase().includes(query) ||
-          n.content.toLowerCase().includes(query) ||
-          n.tags?.some((t) => t.toLowerCase().includes(query))
+        (n) => n.title.toLowerCase().includes(query) || n.content.toLowerCase().includes(query) || n.tags?.some((t) => t.toLowerCase().includes(query)),
       );
     }
 
@@ -101,11 +88,7 @@ export function NotesList({
     return result;
   }, [notes, filter]);
 
-  const activeFilterCount = [
-    filter.visibility,
-    filter.isPinned !== undefined,
-    filter.tags?.length,
-  ].filter(Boolean).length;
+  const activeFilterCount = [filter.visibility, filter.isPinned !== undefined, filter.tags?.length].filter(Boolean).length;
 
   const clearFilters = () => {
     setFilter({ search: filter.search, notebookId: filter.notebookId });
@@ -115,11 +98,7 @@ export function NotesList({
     <div className={cn('flex h-full flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
-        <h2 className="text-lg font-semibold">
-          {filter.notebookId
-            ? notebooks.find((nb) => nb.id === filter.notebookId)?.name || 'Notes'
-            : 'All Notes'}
-        </h2>
+        <h2 className="text-lg font-semibold">{filter.notebookId ? notebooks.find((nb) => nb.id === filter.notebookId)?.name || 'Notes' : 'All Notes'}</h2>
         {onAddNote && (
           <Button size="sm" onClick={onAddNote}>
             <Plus className="mr-1 size-4" />
@@ -181,9 +160,7 @@ export function NotesList({
             <div className="grid gap-4">
               <div className="space-y-2">
                 <h4 className="font-medium leading-none">Filters</h4>
-                <p className="text-sm text-muted-foreground">
-                  Narrow down your notes
-                </p>
+                <p className="text-sm text-muted-foreground">Narrow down your notes</p>
               </div>
 
               {/* Visibility filter */}
@@ -245,10 +222,7 @@ export function NotesList({
           {filter.visibility && (
             <Badge variant="secondary" className="text-xs">
               {filter.visibility}
-              <button
-                className="ml-1 hover:text-foreground"
-                onClick={() => setFilter((prev) => ({ ...prev, visibility: undefined }))}
-              >
+              <button className="ml-1 hover:text-foreground" onClick={() => setFilter((prev) => ({ ...prev, visibility: undefined }))}>
                 <X className="size-3" />
               </button>
             </Badge>
@@ -256,10 +230,7 @@ export function NotesList({
           {filter.isPinned && (
             <Badge variant="secondary" className="text-xs">
               Pinned
-              <button
-                className="ml-1 hover:text-foreground"
-                onClick={() => setFilter((prev) => ({ ...prev, isPinned: undefined }))}
-              >
+              <button className="ml-1 hover:text-foreground" onClick={() => setFilter((prev) => ({ ...prev, isPinned: undefined }))}>
                 <X className="size-3" />
               </button>
             </Badge>
@@ -285,11 +256,7 @@ export function NotesList({
           {filteredNotes.length === 0 && (
             <div className="col-span-full py-12 text-center">
               <FileText className="mx-auto size-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">
-                {filter.search || activeFilterCount > 0
-                  ? 'No notes found'
-                  : 'No notes yet'}
-              </p>
+              <p className="mt-4 text-muted-foreground">{filter.search || activeFilterCount > 0 ? 'No notes found' : 'No notes yet'}</p>
               {!filter.search && activeFilterCount === 0 && onAddNote && (
                 <Button variant="outline" size="sm" className="mt-4" onClick={onAddNote}>
                   Create your first note

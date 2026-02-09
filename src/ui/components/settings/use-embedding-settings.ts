@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import type {
-  EmbeddingSettings,
-  EmbeddingBudgetUpdate,
-  EmbeddingTestResult,
-} from './types';
+import type { EmbeddingSettings, EmbeddingBudgetUpdate, EmbeddingTestResult } from './types';
 
-export type EmbeddingSettingsState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string; status?: number }
-  | { kind: 'loaded'; data: EmbeddingSettings };
+export type EmbeddingSettingsState = { kind: 'loading' } | { kind: 'error'; message: string; status?: number } | { kind: 'loaded'; data: EmbeddingSettings };
 
 export function useEmbeddingSettings() {
   const [state, setState] = useState<EmbeddingSettingsState>({ kind: 'loading' });
@@ -26,10 +19,7 @@ export function useEmbeddingSettings() {
           if (!alive) return;
           setState({
             kind: 'error',
-            message:
-              res.status === 401
-                ? 'Please sign in to view embedding settings'
-                : `Failed to load embedding settings: ${res.status}`,
+            message: res.status === 401 ? 'Please sign in to view embedding settings' : `Failed to load embedding settings: ${res.status}`,
             status: res.status,
           });
           return;
@@ -88,7 +78,7 @@ export function useEmbeddingSettings() {
         setIsSaving(false);
       }
     },
-    [state]
+    [state],
   );
 
   const testConnection = useCallback(async (): Promise<EmbeddingTestResult | null> => {

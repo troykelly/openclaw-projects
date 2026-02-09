@@ -14,24 +14,24 @@
  * @module secrets
  */
 
-import { execSync } from 'node:child_process'
-import { readFileSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { execSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /** Default timeout for command execution in milliseconds */
-const DEFAULT_COMMAND_TIMEOUT = 5000
+const DEFAULT_COMMAND_TIMEOUT = 5000;
 
 /** Secret resolution configuration */
 export interface SecretConfig {
   /** Direct secret value (least secure, for development) */
-  direct?: string
+  direct?: string;
   /** Path to file containing the secret */
-  file?: string
+  file?: string;
   /** Command to execute to retrieve the secret */
-  command?: string
+  command?: string;
   /** Timeout for command execution in milliseconds (default: 5000) */
-  commandTimeout?: number
+  commandTimeout?: number;
 }
 
 /**
@@ -40,19 +40,19 @@ export interface SecretConfig {
  * This is safe because resolveSecretSync runs during synchronous plugin registration
  * (blocking the event loop), and resolveSecret runs afterward in async contexts.
  */
-const secretCache = new Map<string, string>()
+const secretCache = new Map<string, string>();
 
 /**
  * Expands ~ to the user's home directory.
  */
 function expandTilde(filePath: string): string {
   if (filePath.startsWith('~/')) {
-    return join(homedir(), filePath.slice(2))
+    return join(homedir(), filePath.slice(2));
   }
   if (filePath === '~') {
-    return homedir()
+    return homedir();
   }
-  return filePath
+  return filePath;
 }
 
 /**
@@ -60,19 +60,17 @@ function expandTilde(filePath: string): string {
  */
 function checkFilePermissions(filePath: string): void {
   try {
-    const stats = statSync(filePath)
-    const mode = stats.mode & 0o777
+    const stats = statSync(filePath);
+    const mode = stats.mode & 0o777;
     if (mode & 0o004) {
       console.warn(
         `[Secrets] Warning: Secret file ${filePath} is world-readable (mode ${mode.toString(8)}). ` +
           'Consider restricting permissions with: chmod 600 ' +
-          filePath
-      )
+          filePath,
+      );
     }
   } catch (error) {
-    console.warn(
-      `[Secrets] Could not check permissions for ${filePath}: ${(error as Error).message}`
-    )
+    console.warn(`[Secrets] Could not check permissions for ${filePath}: ${(error as Error).message}`);
   }
 }
 
@@ -91,20 +89,18 @@ function resolveFromCommand(command: string, timeout: number): string {
       encoding: 'utf-8',
       timeout,
       stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return result.trim()
+    });
+    return result.trim();
   } catch (error) {
-    const err = error as Error & { killed?: boolean; signal?: string }
+    const err = error as Error & { killed?: boolean; signal?: string };
     if (err.killed && err.signal === 'SIGTERM') {
-      throw new Error(`Secret command timed out after ${timeout}ms`)
+      throw new Error(`Secret command timed out after ${timeout}ms`);
     }
     if (err.killed) {
-      throw new Error(
-        `Secret command was killed (signal: ${err.signal ?? 'unknown'})`
-      )
+      throw new Error(`Secret command was killed (signal: ${err.signal ?? 'unknown'})`);
     }
-    const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Secret command failed: ${message}`)
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Secret command failed: ${message}`);
   }
 }
 
@@ -112,19 +108,19 @@ function resolveFromCommand(command: string, timeout: number): string {
  * Resolves a secret from a file.
  */
 function resolveFromFile(filePath: string): string {
-  const expandedPath = expandTilde(filePath)
+  const expandedPath = expandTilde(filePath);
 
-  checkFilePermissions(expandedPath)
+  checkFilePermissions(expandedPath);
 
   try {
-    const content = readFileSync(expandedPath, 'utf-8')
-    return content.trim()
+    const content = readFileSync(expandedPath, 'utf-8');
+    return content.trim();
   } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error))
+    const err = error instanceof Error ? error : new Error(String(error));
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error(`Secret file does not exist: ${expandedPath}`)
+      throw new Error(`Secret file does not exist: ${expandedPath}`);
     }
-    throw new Error(`Failed to read secret file: ${err.message}`)
+    throw new Error(`Failed to read secret file: ${err.message}`);
   }
 }
 
@@ -140,38 +136,35 @@ function resolveFromFile(filePath: string): string {
  * @param cacheKey - Optional key to cache the resolved secret
  * @returns The resolved secret, or undefined if not configured
  */
-export async function resolveSecret(
-  config: SecretConfig,
-  cacheKey?: string
-): Promise<string | undefined> {
+export async function resolveSecret(config: SecretConfig, cacheKey?: string): Promise<string | undefined> {
   // Check cache first
   if (cacheKey && secretCache.has(cacheKey)) {
-    return secretCache.get(cacheKey)
+    return secretCache.get(cacheKey);
   }
 
-  let resolved: string | undefined
+  let resolved: string | undefined;
 
   // Priority 1: Command
   if (config.command?.trim()) {
-    const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT
-    resolved = resolveFromCommand(config.command, timeout)
+    const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT;
+    resolved = resolveFromCommand(config.command, timeout);
   }
   // Priority 2: File
   else if (config.file?.trim()) {
-    resolved = resolveFromFile(config.file)
+    resolved = resolveFromFile(config.file);
   }
   // Priority 3: Direct
   else if (config.direct !== undefined) {
-    const trimmed = config.direct.trim()
-    resolved = trimmed.length > 0 ? trimmed : undefined
+    const trimmed = config.direct.trim();
+    resolved = trimmed.length > 0 ? trimmed : undefined;
   }
 
   // Cache if resolved and cacheKey provided
   if (resolved && cacheKey) {
-    secretCache.set(cacheKey, resolved)
+    secretCache.set(cacheKey, resolved);
   }
 
-  return resolved
+  return resolved;
 }
 
 /**
@@ -185,38 +178,35 @@ export async function resolveSecret(
  * @param cacheKey - Optional key to cache the resolved secret
  * @returns The resolved secret, or undefined if not configured
  */
-export function resolveSecretSync(
-  config: SecretConfig,
-  cacheKey?: string
-): string | undefined {
+export function resolveSecretSync(config: SecretConfig, cacheKey?: string): string | undefined {
   // Check cache first
   if (cacheKey && secretCache.has(cacheKey)) {
-    return secretCache.get(cacheKey)
+    return secretCache.get(cacheKey);
   }
 
-  let resolved: string | undefined
+  let resolved: string | undefined;
 
   // Priority 1: Command
   if (config.command?.trim()) {
-    const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT
-    resolved = resolveFromCommand(config.command, timeout)
+    const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT;
+    resolved = resolveFromCommand(config.command, timeout);
   }
   // Priority 2: File
   else if (config.file?.trim()) {
-    resolved = resolveFromFile(config.file)
+    resolved = resolveFromFile(config.file);
   }
   // Priority 3: Direct
   else if (config.direct !== undefined) {
-    const trimmed = config.direct.trim()
-    resolved = trimmed.length > 0 ? trimmed : undefined
+    const trimmed = config.direct.trim();
+    resolved = trimmed.length > 0 ? trimmed : undefined;
   }
 
   // Cache if resolved and cacheKey provided
   if (resolved && cacheKey) {
-    secretCache.set(cacheKey, resolved)
+    secretCache.set(cacheKey, resolved);
   }
 
-  return resolved
+  return resolved;
 }
 
 /**
@@ -225,18 +215,16 @@ export function resolveSecretSync(
  * @param configs - Map of secret names to configurations
  * @returns Map of secret names to resolved values
  */
-export async function resolveSecrets(
-  configs: Record<string, SecretConfig>
-): Promise<Record<string, string | undefined>> {
-  const entries = Object.entries(configs)
+export async function resolveSecrets(configs: Record<string, SecretConfig>): Promise<Record<string, string | undefined>> {
+  const entries = Object.entries(configs);
   const results = await Promise.all(
     entries.map(async ([key, config]) => {
-      const value = await resolveSecret(config, key)
-      return [key, value] as const
-    })
-  )
+      const value = await resolveSecret(config, key);
+      return [key, value] as const;
+    }),
+  );
 
-  return Object.fromEntries(results)
+  return Object.fromEntries(results);
 }
 
 /**
@@ -244,12 +232,12 @@ export async function resolveSecrets(
  * Call this when configuration is reloaded or on SIGHUP.
  */
 export function clearSecretCache(): void {
-  secretCache.clear()
+  secretCache.clear();
 }
 
 /**
  * Clears a specific secret from the cache.
  */
 export function clearCachedSecret(key: string): void {
-  secretCache.delete(key)
+  secretCache.delete(key);
 }

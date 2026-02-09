@@ -4,13 +4,7 @@
  */
 
 import type { Pool } from 'pg';
-import type {
-  AuditLogEntry,
-  AuditLogQueryOptions,
-  AuditLogCreateParams,
-  AuditActor,
-  AuditActorType,
-} from './types.ts';
+import type { AuditLogEntry, AuditLogQueryOptions, AuditLogCreateParams, AuditActor, AuditActorType } from './types.ts';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 500;
@@ -18,10 +12,7 @@ const MAX_LIMIT = 500;
 /**
  * Create an audit log entry
  */
-export async function createAuditLog(
-  pool: Pool,
-  params: AuditLogCreateParams
-): Promise<string> {
+export async function createAuditLog(pool: Pool, params: AuditLogCreateParams): Promise<string> {
   const result = await pool.query(
     `INSERT INTO audit_log (actor_type, actor_id, action, entity_type, entity_id, changes, metadata)
      VALUES ($1::audit_actor_type, $2, $3::audit_action_type, $4, $5, $6, $7)
@@ -34,7 +25,7 @@ export async function createAuditLog(
       params.entityId || null,
       params.changes ? JSON.stringify(params.changes) : null,
       params.metadata ? JSON.stringify(params.metadata) : null,
-    ]
+    ],
   );
 
   return result.rows[0].id;
@@ -43,10 +34,7 @@ export async function createAuditLog(
 /**
  * Query audit log entries with filtering
  */
-export async function queryAuditLog(
-  pool: Pool,
-  options: AuditLogQueryOptions = {}
-): Promise<{ entries: AuditLogEntry[]; total: number }> {
+export async function queryAuditLog(pool: Pool, options: AuditLogQueryOptions = {}): Promise<{ entries: AuditLogEntry[]; total: number }> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -89,10 +77,7 @@ export async function queryAuditLog(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) FROM audit_log ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) FROM audit_log ${whereClause}`, params);
   const total = parseInt(countResult.rows[0].count, 10);
 
   // Get paginated results
@@ -117,7 +102,7 @@ export async function queryAuditLog(
     ${whereClause}
     ORDER BY timestamp DESC
     LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
-    params
+    params,
   );
 
   const entries: AuditLogEntry[] = result.rows.map((row) => ({
@@ -142,7 +127,7 @@ export async function getEntityAuditLog(
   pool: Pool,
   entityType: string,
   entityId: string,
-  options: { limit?: number; offset?: number } = {}
+  options: { limit?: number; offset?: number } = {},
 ): Promise<AuditLogEntry[]> {
   const result = await queryAuditLog(pool, {
     entityType,
@@ -160,7 +145,7 @@ export async function getActorAuditLog(
   pool: Pool,
   actorType: AuditActorType,
   actorId: string,
-  options: { limit?: number; offset?: number } = {}
+  options: { limit?: number; offset?: number } = {},
 ): Promise<AuditLogEntry[]> {
   const result = await queryAuditLog(pool, {
     actorType,
@@ -181,7 +166,7 @@ export async function logAuthEvent(
     actorId?: string;
     success: boolean;
     metadata?: Record<string, unknown>;
-  }
+  },
 ): Promise<string> {
   return createAuditLog(pool, {
     actorType: params.actorType,
@@ -203,7 +188,7 @@ export async function logWebhookEvent(
     entityType?: string;
     entityId?: string;
     metadata?: Record<string, unknown>;
-  }
+  },
 ): Promise<string> {
   return createAuditLog(pool, {
     actorType: 'system',
@@ -221,15 +206,12 @@ export async function logWebhookEvent(
 /**
  * Purge old audit log entries (for retention)
  */
-export async function purgeOldEntries(
-  pool: Pool,
-  retentionDays: number = 90
-): Promise<number> {
+export async function purgeOldEntries(pool: Pool, retentionDays: number = 90): Promise<number> {
   const result = await pool.query(
     `DELETE FROM audit_log
      WHERE timestamp < now() - INTERVAL '1 day' * $1
      RETURNING id`,
-    [retentionDays]
+    [retentionDays],
   );
 
   return result.rowCount || 0;
@@ -244,7 +226,7 @@ export async function updateLatestAuditEntry(
   entityType: string,
   entityId: string,
   actor: AuditActor,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
 ): Promise<boolean> {
   const result = await pool.query(
     `UPDATE audit_log
@@ -257,13 +239,7 @@ export async function updateLatestAuditEntry(
        ORDER BY timestamp DESC
        LIMIT 1
      )`,
-    [
-      actor.type,
-      actor.id,
-      JSON.stringify(metadata || {}),
-      entityType,
-      entityId,
-    ]
+    [actor.type, actor.id, JSON.stringify(metadata || {}), entityType, entityId],
   );
 
   return result.rowCount !== null && result.rowCount > 0;
@@ -292,9 +268,7 @@ export function extractActor(headers: Record<string, string | undefined>): Audit
 /**
  * Build metadata from request
  */
-export function buildRequestMetadata(
-  req: { ip?: string; headers?: Record<string, string | string[] | undefined>; id?: string }
-): Record<string, unknown> {
+export function buildRequestMetadata(req: { ip?: string; headers?: Record<string, string | string[] | undefined>; id?: string }): Record<string, unknown> {
   const metadata: Record<string, unknown> = {};
 
   if (req.ip) {

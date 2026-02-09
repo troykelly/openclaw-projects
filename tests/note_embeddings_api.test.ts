@@ -50,14 +50,16 @@ describe('Note Embeddings API', () => {
   });
 
   // Helper functions
-  async function createNote(overrides: Partial<{
-    title: string;
-    content: string;
-    visibility: string;
-    hideFromAgents: boolean;
-    tags: string[];
-    userEmail: string;
-  }> = {}) {
+  async function createNote(
+    overrides: Partial<{
+      title: string;
+      content: string;
+      visibility: string;
+      hideFromAgents: boolean;
+      tags: string[];
+      userEmail: string;
+    }> = {},
+  ) {
     const response = await app.inject({
       method: 'POST',
       url: '/api/notes',
@@ -109,10 +111,7 @@ describe('Note Embeddings API', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Fetch the note directly from DB to check embedding status
-      const result = await pool.query(
-        `SELECT embedding_status FROM note WHERE id = $1`,
-        [note.id]
-      );
+      const result = await pool.query(`SELECT embedding_status FROM note WHERE id = $1`, [note.id]);
 
       // The note should be skipped due to privacy settings
       expect(['skipped', 'pending']).toContain(result.rows[0].embedding_status);
@@ -128,10 +127,7 @@ describe('Note Embeddings API', () => {
       // Wait for async embedding
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const result = await pool.query(
-        `SELECT embedding_status FROM note WHERE id = $1`,
-        [note.id]
-      );
+      const result = await pool.query(`SELECT embedding_status FROM note WHERE id = $1`, [note.id]);
 
       // Should be complete or pending (depending on timing)
       expect(['complete', 'pending']).toContain(result.rows[0].embedding_status);
@@ -384,9 +380,7 @@ describe('Note Embeddings API', () => {
       const otherResult = JSON.parse(otherResponse.payload);
 
       // The other user should not see the private note
-      const foundPrivate = otherResult.results.find(
-        (r: { id: string }) => r.id === privateNote.id
-      );
+      const foundPrivate = otherResult.results.find((r: { id: string }) => r.id === privateNote.id);
       expect(foundPrivate).toBeUndefined();
     });
 
@@ -560,7 +554,7 @@ describe('Note Embeddings API', () => {
         url: `/api/notes/${note.id}`,
         payload: {
           user_email: testUserEmail,
-          hide_from_agents: true,  // API uses snake_case input
+          hide_from_agents: true, // API uses snake_case input
         },
       });
 

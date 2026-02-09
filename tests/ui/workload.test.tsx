@@ -9,18 +9,9 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  TeamMemberCard,
-  type TeamMemberCardProps,
-} from '@/ui/components/workload/team-member-card';
-import {
-  WorkloadBar,
-  type WorkloadBarProps,
-} from '@/ui/components/workload/workload-bar';
-import {
-  CapacityIndicator,
-  type CapacityIndicatorProps,
-} from '@/ui/components/workload/capacity-indicator';
+import { TeamMemberCard, type TeamMemberCardProps } from '@/ui/components/workload/team-member-card';
+import { WorkloadBar, type WorkloadBarProps } from '@/ui/components/workload/workload-bar';
+import { CapacityIndicator, type CapacityIndicatorProps } from '@/ui/components/workload/capacity-indicator';
 import {
   calculateUtilization,
   calculateWorkload,
@@ -73,9 +64,7 @@ describe('Workload Utils', () => {
     });
 
     it('should handle single assignment', () => {
-      const result = calculateWorkload([
-        { id: '1', title: 'Task', memberId: 'member-1', hours: 5 },
-      ]);
+      const result = calculateWorkload([{ id: '1', title: 'Task', memberId: 'member-1', hours: 5 }]);
       expect(result.get('member-1')).toBe(5);
     });
   });

@@ -177,10 +177,10 @@ export function CommandPalette({
   const handleSelect = useCallback(
     (item: SearchResult | RecentItem) => {
       // Add to recent items
-      const newRecent = [
-        { id: item.id, type: item.type, title: item.title, timestamp: new Date() },
-        ...recentItems.filter((r) => r.id !== item.id),
-      ].slice(0, MAX_RECENT);
+      const newRecent = [{ id: item.id, type: item.type, title: item.title, timestamp: new Date() }, ...recentItems.filter((r) => r.id !== item.id)].slice(
+        0,
+        MAX_RECENT,
+      );
 
       setRecentItems(newRecent);
       if (typeof window !== 'undefined') {
@@ -239,9 +239,7 @@ export function CommandPalette({
   }, [query]);
 
   // Filter results by type if prefix used
-  const filteredResults = typeFilter
-    ? results.filter((r) => r.type === typeFilter)
-    : results;
+  const filteredResults = typeFilter ? results.filter((r) => r.type === typeFilter) : results;
 
   return (
     <CommandDialog
@@ -251,34 +249,19 @@ export function CommandPalette({
       description="Search for commands, projects, issues, or contacts"
       shouldFilter={false}
     >
-      <CommandInput
-        placeholder="Type a command or search..."
-        value={query}
-        onValueChange={setQuery}
-        data-testid="command-palette-input"
-      />
+      <CommandInput placeholder="Type a command or search..." value={query} onValueChange={setQuery} data-testid="command-palette-input" />
       <CommandList>
-        <CommandEmpty>
-          {isSearching ? 'Searching...' : 'No results found.'}
-        </CommandEmpty>
+        <CommandEmpty>{isSearching ? 'Searching...' : 'No results found.'}</CommandEmpty>
 
         {/* Search Results */}
         {filteredResults.length > 0 && (
           <CommandGroup heading={typeFilter ? `${typeFilter}s` : 'Search Results'}>
             {filteredResults.map((result) => (
-              <CommandItem
-                key={`${result.type}-${result.id}`}
-                value={`${result.type}-${result.id}-${result.title}`}
-                onSelect={() => handleSelect(result)}
-              >
+              <CommandItem key={`${result.type}-${result.id}`} value={`${result.type}-${result.id}-${result.title}`} onSelect={() => handleSelect(result)}>
                 {getTypeIcon(result.type)}
                 <div className="flex flex-col">
                   <span>{result.title}</span>
-                  {result.subtitle && (
-                    <span className="text-xs text-muted-foreground">
-                      {result.subtitle}
-                    </span>
-                  )}
+                  {result.subtitle && <span className="text-xs text-muted-foreground">{result.subtitle}</span>}
                 </div>
               </CommandItem>
             ))}
@@ -290,11 +273,7 @@ export function CommandPalette({
           <>
             <CommandGroup heading="Recent">
               {recentItems.map((item) => (
-                <CommandItem
-                  key={`recent-${item.type}-${item.id}`}
-                  value={`recent-${item.type}-${item.id}-${item.title}`}
-                  onSelect={() => handleSelect(item)}
-                >
+                <CommandItem key={`recent-${item.type}-${item.id}`} value={`recent-${item.type}-${item.id}-${item.title}`} onSelect={() => handleSelect(item)}>
                   <Clock className="size-4 text-muted-foreground" />
                   {getTypeIcon(item.type)}
                   <span>{item.title}</span>
@@ -309,52 +288,31 @@ export function CommandPalette({
         {!query && (
           <>
             <CommandGroup heading="Navigate">
-              <CommandItem
-                value="go-to-dashboard"
-                onSelect={() => handleNavigate('dashboard')}
-              >
+              <CommandItem value="go-to-dashboard" onSelect={() => handleNavigate('dashboard')}>
                 <LayoutDashboard className="size-4" />
                 <span>Go to Dashboard</span>
               </CommandItem>
-              <CommandItem
-                value="go-to-projects"
-                onSelect={() => handleNavigate('projects')}
-              >
+              <CommandItem value="go-to-projects" onSelect={() => handleNavigate('projects')}>
                 <Folder className="size-4" />
                 <span>Go to Projects</span>
               </CommandItem>
-              <CommandItem
-                value="go-to-activity"
-                onSelect={() => handleNavigate('activity')}
-              >
+              <CommandItem value="go-to-activity" onSelect={() => handleNavigate('activity')}>
                 <Bell className="size-4" />
                 <span>Go to Activity</span>
               </CommandItem>
-              <CommandItem
-                value="go-to-contacts"
-                onSelect={() => handleNavigate('people')}
-              >
+              <CommandItem value="go-to-contacts" onSelect={() => handleNavigate('people')}>
                 <Users className="size-4" />
                 <span>Go to Contacts</span>
               </CommandItem>
-              <CommandItem
-                value="go-to-memory"
-                onSelect={() => handleNavigate('memory')}
-              >
+              <CommandItem value="go-to-memory" onSelect={() => handleNavigate('memory')}>
                 <Brain className="size-4" />
                 <span>Go to Memory</span>
               </CommandItem>
-              <CommandItem
-                value="go-to-communications"
-                onSelect={() => handleNavigate('communications')}
-              >
+              <CommandItem value="go-to-communications" onSelect={() => handleNavigate('communications')}>
                 <MessageSquare className="size-4" />
                 <span>Go to Communications</span>
               </CommandItem>
-              <CommandItem
-                value="go-to-settings"
-                onSelect={() => handleNavigate('settings')}
-              >
+              <CommandItem value="go-to-settings" onSelect={() => handleNavigate('settings')}>
                 <Settings className="size-4" />
                 <span>Go to Settings</span>
               </CommandItem>
@@ -367,34 +325,17 @@ export function CommandPalette({
           <>
             <CommandSeparator />
             <CommandGroup heading="Actions">
-              <CommandItem
-                value="create-task"
-                onSelect={() => handleAction('create-task')}
-              >
+              <CommandItem value="create-task" onSelect={() => handleAction('create-task')}>
                 <Plus className="size-4" />
                 <span>Create task</span>
                 <CommandShortcut>N</CommandShortcut>
               </CommandItem>
-              <CommandItem
-                value="toggle-theme"
-                onSelect={() => handleAction('toggle-theme')}
-              >
-                {isDark ? (
-                  <Sun className="size-4" />
-                ) : (
-                  <Moon className="size-4" />
-                )}
+              <CommandItem value="toggle-theme" onSelect={() => handleAction('toggle-theme')}>
+                {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
                 <span>Toggle theme</span>
               </CommandItem>
-              <CommandItem
-                value="toggle-sidebar"
-                onSelect={() => handleAction('toggle-sidebar')}
-              >
-                {sidebarCollapsed ? (
-                  <PanelLeft className="size-4" />
-                ) : (
-                  <PanelLeftClose className="size-4" />
-                )}
+              <CommandItem value="toggle-sidebar" onSelect={() => handleAction('toggle-sidebar')}>
+                {sidebarCollapsed ? <PanelLeft className="size-4" /> : <PanelLeftClose className="size-4" />}
                 <span>Toggle sidebar</span>
               </CommandItem>
             </CommandGroup>

@@ -10,11 +10,7 @@ export interface AccessibleIconProps {
   decorative?: boolean;
 }
 
-export function AccessibleIcon({
-  children,
-  label,
-  decorative = false,
-}: AccessibleIconProps) {
+export function AccessibleIcon({ children, label, decorative = false }: AccessibleIconProps) {
   const child = React.Children.only(children);
 
   // Clone the icon element to add aria-hidden

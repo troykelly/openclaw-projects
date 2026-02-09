@@ -11,14 +11,8 @@ export interface OfflineIndicatorProps {
   className?: string;
 }
 
-export function OfflineIndicator({
-  showOnlineConfirmation = true,
-  onlineConfirmationDuration = 3000,
-  className,
-}: OfflineIndicatorProps) {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
+export function OfflineIndicator({ showOnlineConfirmation = true, onlineConfirmationDuration = 3000, className }: OfflineIndicatorProps) {
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [showOnline, setShowOnline] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
 
@@ -56,10 +50,8 @@ export function OfflineIndicator({
         'fixed bottom-4 left-1/2 -translate-x-1/2 z-50',
         'flex items-center gap-2 rounded-full px-4 py-2 shadow-lg',
         'animate-in slide-in-from-bottom-4 duration-300',
-        !isOnline
-          ? 'bg-destructive text-destructive-foreground'
-          : 'bg-green-500 text-white',
-        className
+        !isOnline ? 'bg-destructive text-destructive-foreground' : 'bg-green-500 text-white',
+        className,
       )}
     >
       {!isOnline ? (

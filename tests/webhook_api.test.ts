@@ -50,7 +50,7 @@ describe('Webhook API', () => {
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body)
          VALUES ('sms_received', '/hooks/agent', '{"message": "Test 1"}'::jsonb),
-                ('email_received', '/hooks/agent', '{"message": "Test 2"}'::jsonb)`
+                ('email_received', '/hooks/agent', '{"message": "Test 2"}'::jsonb)`,
       );
 
       const res = await app.inject({
@@ -68,11 +68,11 @@ describe('Webhook API', () => {
       // Create pending and dispatched webhooks
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body)
-         VALUES ('pending', '/hooks/agent', '{}'::jsonb)`
+         VALUES ('pending', '/hooks/agent', '{}'::jsonb)`,
       );
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body, dispatched_at)
-         VALUES ('dispatched', '/hooks/agent', '{}'::jsonb, NOW())`
+         VALUES ('dispatched', '/hooks/agent', '{}'::jsonb, NOW())`,
       );
 
       const pendingRes = await app.inject({
@@ -100,7 +100,7 @@ describe('Webhook API', () => {
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body)
          VALUES ('sms_received', '/hooks/agent', '{}'::jsonb),
-                ('email_received', '/hooks/agent', '{}'::jsonb)`
+                ('email_received', '/hooks/agent', '{}'::jsonb)`,
       );
 
       const res = await app.inject({
@@ -120,7 +120,7 @@ describe('Webhook API', () => {
         await pool.query(
           `INSERT INTO webhook_outbox (kind, destination, body)
            VALUES ($1, '/hooks/agent', '{}'::jsonb)`,
-          [`test${i}`]
+          [`test${i}`],
         );
       }
 
@@ -144,7 +144,7 @@ describe('Webhook API', () => {
       const result = await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body, attempts, last_error, run_at)
          VALUES ('test', '/hooks/agent', '{}'::jsonb, 5, 'Previous error', NOW() + INTERVAL '1 hour')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = (result.rows[0] as { id: string }).id;
 
@@ -159,10 +159,7 @@ describe('Webhook API', () => {
       expect(body.id).toBe(id);
 
       // Verify it was reset
-      const check = await pool.query(
-        'SELECT attempts, last_error FROM webhook_outbox WHERE id = $1',
-        [id]
-      );
+      const check = await pool.query('SELECT attempts, last_error FROM webhook_outbox WHERE id = $1', [id]);
       expect(check.rows[0].attempts).toBe(0);
       expect(check.rows[0].last_error).toBeNull();
     });
@@ -180,7 +177,7 @@ describe('Webhook API', () => {
       const result = await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body, dispatched_at)
          VALUES ('test', '/hooks/agent', '{}'::jsonb, NOW())
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = (result.rows[0] as { id: string }).id;
 
@@ -233,15 +230,15 @@ describe('Webhook API', () => {
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body)
          VALUES ('pending1', '/hooks/agent', '{}'::jsonb),
-                ('pending2', '/hooks/agent', '{}'::jsonb)`
+                ('pending2', '/hooks/agent', '{}'::jsonb)`,
       );
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body, attempts)
-         VALUES ('failed', '/hooks/agent', '{}'::jsonb, 5)`
+         VALUES ('failed', '/hooks/agent', '{}'::jsonb, 5)`,
       );
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body, dispatched_at)
-         VALUES ('dispatched', '/hooks/agent', '{}'::jsonb, NOW())`
+         VALUES ('dispatched', '/hooks/agent', '{}'::jsonb, NOW())`,
       );
 
       const res = await app.inject({
@@ -280,7 +277,7 @@ describe('Webhook API', () => {
       // Create a webhook
       await pool.query(
         `INSERT INTO webhook_outbox (kind, destination, body)
-         VALUES ('test', '/hooks/agent', '{}'::jsonb)`
+         VALUES ('test', '/hooks/agent', '{}'::jsonb)`,
       );
 
       const res = await app.inject({

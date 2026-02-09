@@ -23,31 +23,14 @@ function formatMonthYear(date: Date): string {
   });
 }
 
-export function CalendarHeader({
-  currentDate,
-  viewMode,
-  onPrevious,
-  onNext,
-  onToday,
-  onViewModeChange,
-}: CalendarHeaderProps) {
+export function CalendarHeader({ currentDate, viewMode, onPrevious, onNext, onToday, onViewModeChange }: CalendarHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onPrevious}
-          aria-label="Previous"
-        >
+        <Button variant="outline" size="icon" onClick={onPrevious} aria-label="Previous">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onNext}
-          aria-label="Next"
-        >
+        <Button variant="outline" size="icon" onClick={onNext} aria-label="Next">
           <ChevronRight className="h-4 w-4" />
         </Button>
         <Button variant="outline" size="sm" onClick={onToday}>

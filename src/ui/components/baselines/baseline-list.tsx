@@ -28,14 +28,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-export function BaselineList({
-  baselines,
-  onSelect,
-  onDelete,
-  onCompare,
-  selectable = false,
-  className,
-}: BaselineListProps) {
+export function BaselineList({ baselines, onSelect, onDelete, onCompare, selectable = false, className }: BaselineListProps) {
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 
   const handleSelectToggle = (id: string) => {
@@ -68,9 +61,7 @@ export function BaselineList({
       <div className={cn('text-center py-8', className)}>
         <Calendar className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
         <p className="mt-4 text-muted-foreground">No baselines created yet.</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Create a baseline to track progress over time.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Create a baseline to track progress over time.</p>
       </div>
     );
   }
@@ -94,7 +85,7 @@ export function BaselineList({
               className={cn(
                 'flex items-center gap-3 p-3 rounded-lg border transition-colors',
                 'hover:bg-muted/50',
-                selectedIds.has(baseline.id) && 'border-primary bg-primary/5'
+                selectedIds.has(baseline.id) && 'border-primary bg-primary/5',
               )}
             >
               {selectable && (
@@ -105,16 +96,9 @@ export function BaselineList({
                 />
               )}
 
-              <button
-                className="flex-1 text-left"
-                onClick={() => onSelect?.(baseline.id)}
-              >
+              <button className="flex-1 text-left" onClick={() => onSelect?.(baseline.id)}>
                 <div className="font-medium">{baseline.name}</div>
-                {baseline.description && (
-                  <div className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                    {baseline.description}
-                  </div>
-                )}
+                {baseline.description && <div className="text-sm text-muted-foreground mt-0.5 line-clamp-1">{baseline.description}</div>}
                 <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3" />
                   <span>{formatDate(baseline.createdAt)}</span>

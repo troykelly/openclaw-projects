@@ -28,7 +28,7 @@ describe('Backlog API: GET /api/backlog', () => {
       `INSERT INTO work_item (title, status, priority)
        VALUES ('Task A', 'open', 'P1'),
               ('Task B', 'closed', 'P2'),
-              ('Task C', 'open', 'P0')`
+              ('Task C', 'open', 'P0')`,
     );
 
     const response = await app.inject({
@@ -46,7 +46,7 @@ describe('Backlog API: GET /api/backlog', () => {
       `INSERT INTO work_item (title, status, priority)
        VALUES ('Open task', 'open', 'P1'),
               ('Closed task', 'closed', 'P2'),
-              ('Blocked task', 'blocked', 'P1')`
+              ('Blocked task', 'blocked', 'P1')`,
     );
 
     const response = await app.inject({
@@ -65,7 +65,7 @@ describe('Backlog API: GET /api/backlog', () => {
       `INSERT INTO work_item (title, status, priority)
        VALUES ('Open task', 'open', 'P1'),
               ('Closed task', 'closed', 'P2'),
-              ('Blocked task', 'blocked', 'P1')`
+              ('Blocked task', 'blocked', 'P1')`,
     );
 
     const response = await app.inject({
@@ -84,7 +84,7 @@ describe('Backlog API: GET /api/backlog', () => {
       `INSERT INTO work_item (title, status, priority)
        VALUES ('P0 task', 'open', 'P0'),
               ('P1 task', 'open', 'P1'),
-              ('P2 task', 'open', 'P2')`
+              ('P2 task', 'open', 'P2')`,
     );
 
     const response = await app.inject({
@@ -103,7 +103,7 @@ describe('Backlog API: GET /api/backlog', () => {
       `INSERT INTO work_item (title, status, work_item_kind)
        VALUES ('Project', 'open', 'project'),
               ('Epic task', 'open', 'epic'),
-              ('Issue', 'open', 'issue')`
+              ('Issue', 'open', 'issue')`,
     );
 
     const response = await app.inject({
@@ -123,7 +123,7 @@ describe('Backlog API: GET /api/backlog', () => {
        VALUES ('Match', 'open', 'P0', 'issue'),
               ('Wrong status', 'closed', 'P0', 'issue'),
               ('Wrong priority', 'open', 'P2', 'issue'),
-              ('Wrong kind', 'open', 'P0', 'epic')`
+              ('Wrong kind', 'open', 'P0', 'epic')`,
     );
 
     const response = await app.inject({
@@ -142,7 +142,7 @@ describe('Backlog API: GET /api/backlog', () => {
       `INSERT INTO work_item (title, status, priority, created_at)
        VALUES ('P2 older', 'open', 'P2', '2025-01-01'),
               ('P0 task', 'open', 'P0', '2025-01-03'),
-              ('P2 newer', 'open', 'P2', '2025-01-02')`
+              ('P2 newer', 'open', 'P2', '2025-01-02')`,
     );
 
     const response = await app.inject({
@@ -181,7 +181,7 @@ describe('Kanban API: PATCH /api/work-items/:id/status', () => {
     const inserted = await pool.query(
       `INSERT INTO work_item (title, status)
        VALUES ('Task', 'open')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
 
     const response = await app.inject({
@@ -203,7 +203,7 @@ describe('Kanban API: PATCH /api/work-items/:id/status', () => {
     const inserted = await pool.query(
       `INSERT INTO work_item (title, status)
        VALUES ('Task', 'open')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
 
     const response = await app.inject({

@@ -2,21 +2,11 @@
  * Type definitions for notes page components.
  * Part of Epic #338, Issue #659 (component splitting).
  */
-import type {
-  Note as ApiNote,
-  Notebook as ApiNotebook,
-} from '@/ui/lib/api-types';
-import type {
-  Note as UINote,
-  Notebook as UINotebook,
-} from '@/ui/components/notes/types';
+import type { Note as ApiNote, Notebook as ApiNotebook } from '@/ui/lib/api-types';
+import type { Note as UINote, Notebook as UINotebook } from '@/ui/components/notes/types';
 
 /** View state for the page */
-export type ViewState =
-  | { type: 'list' }
-  | { type: 'new' }
-  | { type: 'detail'; noteId: string }
-  | { type: 'history'; noteId: string };
+export type ViewState = { type: 'list' } | { type: 'new' } | { type: 'detail'; noteId: string } | { type: 'history'; noteId: string };
 
 /** Dialog state */
 export type DialogState =

@@ -102,7 +102,7 @@ describe('Magic-link auth + sessions', () => {
       `UPDATE auth_magic_link
           SET expires_at = now() - interval '1 minute'
         WHERE email = $1`,
-      ['expired@example.com']
+      ['expired@example.com'],
     );
     await pool.end();
 
@@ -210,7 +210,7 @@ describe('Magic-link auth + sessions', () => {
       `UPDATE auth_session
           SET expires_at = now() - interval '1 minute'
         WHERE email = $1`,
-      ['expired-session@example.com']
+      ['expired-session@example.com'],
     );
     await pool.end();
 
@@ -249,7 +249,7 @@ describe('Magic-link auth + sessions', () => {
       `UPDATE auth_session
           SET revoked_at = now()
         WHERE email = $1`,
-      ['revoked-session@example.com']
+      ['revoked-session@example.com'],
     );
     await pool.end();
 

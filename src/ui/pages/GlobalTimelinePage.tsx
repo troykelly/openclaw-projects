@@ -30,14 +30,10 @@ export function GlobalTimelinePage(): React.JSX.Element {
   const [zoom, setZoom] = useState<TimelineZoomLevel>('week');
   const [kindFilter, setKindFilter] = useState<string[]>([]);
 
-  const { data, isLoading, error, refetch } = useGlobalTimeline(
-    kindFilter.length > 0 ? kindFilter : undefined,
-  );
+  const { data, isLoading, error, refetch } = useGlobalTimeline(kindFilter.length > 0 ? kindFilter : undefined);
 
   const handleKindToggle = (kind: string) => {
-    setKindFilter((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
-    );
+    setKindFilter((prev) => (prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]));
   };
 
   const handleZoomIn = () => {
@@ -92,11 +88,7 @@ export function GlobalTimelinePage(): React.JSX.Element {
         </div>
         <Card>
           <CardContent className="p-8">
-            <EmptyState
-              variant="no-data"
-              title="No scheduled items"
-              description="Add dates to your work items to see them on the timeline."
-            />
+            <EmptyState variant="no-data" title="No scheduled items" description="Add dates to your work items to see them on the timeline." />
           </CardContent>
         </Card>
       </div>
@@ -192,10 +184,7 @@ export function GlobalTimelinePage(): React.JSX.Element {
           <ScrollArea className="h-full">
             <div className="flex" style={{ minWidth: `${chartWidth}px` }}>
               {/* Sticky labels column */}
-              <div
-                className="sticky left-0 z-10 bg-background border-r"
-                style={{ width: `${labelWidth}px`, minWidth: `${labelWidth}px` }}
-              >
+              <div className="sticky left-0 z-10 bg-background border-r" style={{ width: `${labelWidth}px`, minWidth: `${labelWidth}px` }}>
                 <div className="h-10 border-b bg-muted/30 px-3 flex items-center">
                   <span className="text-sm font-medium text-muted-foreground">Work Item</span>
                 </div>
@@ -205,14 +194,8 @@ export function GlobalTimelinePage(): React.JSX.Element {
                     className="h-9 border-b px-3 flex items-center gap-2 hover:bg-muted/50 transition-colors"
                     style={{ paddingLeft: `${12 + (item.level || 0) * 16}px` }}
                   >
-                    <span
-                      className={`size-2 rounded-full ${kindFillColors[item.kind] || 'bg-gray-400'}`}
-                    />
-                    <Link
-                      to={`/work-items/${item.id}`}
-                      className="text-sm truncate hover:text-primary hover:underline"
-                      title={item.title}
-                    >
+                    <span className={`size-2 rounded-full ${kindFillColors[item.kind] || 'bg-gray-400'}`} />
+                    <Link to={`/work-items/${item.id}`} className="text-sm truncate hover:text-primary hover:underline" title={item.title}>
                       {item.title}
                     </Link>
                   </div>
@@ -226,20 +209,8 @@ export function GlobalTimelinePage(): React.JSX.Element {
                   <g className="text-[10px]">
                     {dateMarkers.map((m, i) => (
                       <g key={i}>
-                        <line
-                          x1={m.x - labelWidth}
-                          y1={40}
-                          x2={m.x - labelWidth}
-                          y2={chartHeight}
-                          className="stroke-border"
-                          strokeDasharray="4,4"
-                        />
-                        <text
-                          x={m.x - labelWidth}
-                          y={28}
-                          textAnchor="middle"
-                          className="fill-muted-foreground"
-                        >
+                        <line x1={m.x - labelWidth} y1={40} x2={m.x - labelWidth} y2={chartHeight} className="stroke-border" strokeDasharray="4,4" />
+                        <text x={m.x - labelWidth} y={28} textAnchor="middle" className="fill-muted-foreground">
                           {m.label}
                         </text>
                       </g>
@@ -248,14 +219,7 @@ export function GlobalTimelinePage(): React.JSX.Element {
 
                   {/* Today line */}
                   {now >= minDate && now <= maxDate && (
-                    <line
-                      x1={dateToX(now) - labelWidth}
-                      y1={40}
-                      x2={dateToX(now) - labelWidth}
-                      y2={chartHeight}
-                      className="stroke-red-500"
-                      strokeWidth={2}
-                    />
+                    <line x1={dateToX(now) - labelWidth} y1={40} x2={dateToX(now) - labelWidth} y2={chartHeight} className="stroke-red-500" strokeWidth={2} />
                   )}
 
                   {/* Item bars */}
@@ -320,14 +284,7 @@ export function GlobalTimelinePage(): React.JSX.Element {
                   })}
 
                   <defs>
-                    <marker
-                      id="arrowhead"
-                      markerWidth="10"
-                      markerHeight="7"
-                      refX="9"
-                      refY="3.5"
-                      orient="auto"
-                    >
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                       <polygon points="0 0, 10 3.5, 0 7" className="fill-muted-foreground" />
                     </marker>
                   </defs>

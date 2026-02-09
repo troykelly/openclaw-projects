@@ -153,9 +153,7 @@ export function buildSpawnAgentPayload(params: {
   return {
     message: `Spawn ${params.agentType} agent${params.repository ? ` for ${params.repository}` : ''}${params.epicNumber ? ` (Epic #${params.epicNumber})` : ''}\n\n${params.instructions || 'No specific instructions provided.'}`,
     name: `${params.agentType} Spawner`,
-    sessionKey: params.workItemId
-      ? `spawn:work_item:${params.workItemId}`
-      : `spawn:${params.agentType}:${Date.now()}`,
+    sessionKey: params.workItemId ? `spawn:work_item:${params.workItemId}` : `spawn:${params.agentType}:${Date.now()}`,
     wakeMode: 'now',
     deliver: false,
     channel: 'new',

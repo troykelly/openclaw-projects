@@ -55,11 +55,14 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       const parentId = parent.rows[0].id;
 
       // Create child notebook
-      const child = await pool.query(`
+      const child = await pool.query(
+        `
         INSERT INTO notebook (user_email, name, parent_notebook_id)
         VALUES ('test@example.com', 'Child Notebook', $1)
         RETURNING id, parent_notebook_id
-      `, [parentId]);
+      `,
+        [parentId],
+      );
 
       expect(child.rows[0].parent_notebook_id).toBe(parentId);
 
@@ -79,9 +82,12 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
       // Wait a moment then update
       await new Promise((resolve) => setTimeout(resolve, 10));
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE notebook SET name = 'Updated Name' WHERE id = $1
-      `, [id]);
+      `,
+        [id],
+      );
 
       // Check updated_at changed
       const updated = await pool.query('SELECT updated_at FROM notebook WHERE id = $1', [id]);
@@ -155,7 +161,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         pool.query(`
           INSERT INTO note (user_email, title, visibility)
           VALUES ('test@example.com', 'Bad Note', 'invalid_visibility')
-        `)
+        `),
       ).rejects.toThrow();
     });
 
@@ -173,7 +179,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         pool.query(`
           INSERT INTO note (user_email, title, embedding_status)
           VALUES ('test@example.com', 'Bad Note', 'invalid_status')
-        `)
+        `),
       ).rejects.toThrow();
     });
 
@@ -189,11 +195,14 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       expect(created.rows[0].search_vector).not.toBeNull();
 
       // Verify it's searchable
-      const search = await pool.query(`
+      const search = await pool.query(
+        `
         SELECT id FROM note
         WHERE search_vector @@ to_tsquery('english', 'Search')
         AND id = $1
-      `, [id]);
+      `,
+        [id],
+      );
       expect(search.rows.length).toBe(1);
     });
 
@@ -232,11 +241,14 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     });
 
     it('can associate note with notebook', async () => {
-      const created = await pool.query(`
+      const created = await pool.query(
+        `
         INSERT INTO note (user_email, title, notebook_id)
         VALUES ('test@example.com', 'Notebook Note', $1)
         RETURNING id, notebook_id
-      `, [notebookId]);
+      `,
+        [notebookId],
+      );
 
       expect(created.rows[0].notebook_id).toBe(notebookId);
     });

@@ -10,15 +10,7 @@
 import { create } from 'zustand';
 
 /** Identifiers for modals that can be open at a time. */
-export type ModalId =
-  | 'quick-add'
-  | 'create-work-item'
-  | 'delete-confirm'
-  | 'move-to'
-  | 'memory-editor'
-  | 'contact-form'
-  | 'contact-detail'
-  | null;
+export type ModalId = 'quick-add' | 'create-work-item' | 'delete-confirm' | 'move-to' | 'memory-editor' | 'contact-form' | 'contact-detail' | null;
 
 export interface UiState {
   /** Whether the sidebar is collapsed. */

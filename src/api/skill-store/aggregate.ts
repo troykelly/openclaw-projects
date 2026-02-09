@@ -23,13 +23,8 @@ export interface AggregateParams {
  * Build WHERE conditions and parameter list for aggregate queries.
  * Always includes: skill_id filter and soft-delete exclusion.
  */
-function buildAggregateFilters(
-  params: AggregateParams
-): { conditions: string[]; values: (string | number)[]; paramIndex: number } {
-  const conditions: string[] = [
-    's.skill_id = $1',
-    's.deleted_at IS NULL',
-  ];
+function buildAggregateFilters(params: AggregateParams): { conditions: string[]; values: (string | number)[]; paramIndex: number } {
+  const conditions: string[] = ['s.skill_id = $1', 's.deleted_at IS NULL'];
   const values: (string | number)[] = [params.skill_id];
   let paramIndex = 2;
 
@@ -75,10 +70,7 @@ const ITEM_COLUMNS = `
 /**
  * Run an aggregation on skill store items.
  */
-export async function aggregateSkillStoreItems(
-  pool: Pool,
-  params: AggregateParams
-): Promise<Record<string, unknown>> {
+export async function aggregateSkillStoreItems(pool: Pool, params: AggregateParams): Promise<Record<string, unknown>> {
   if (!params.skill_id || params.skill_id.trim().length === 0) {
     throw new Error('skill_id is required');
   }
@@ -92,7 +84,7 @@ export async function aggregateSkillStoreItems(
         `SELECT COUNT(*)::int as count
          FROM skill_store_item s
          WHERE ${whereClause}`,
-        values
+        values,
       );
       return { count: result.rows[0].count };
     }
@@ -104,7 +96,7 @@ export async function aggregateSkillStoreItems(
          WHERE ${whereClause}
          GROUP BY tag
          ORDER BY count DESC, tag`,
-        values
+        values,
       );
       return { tags: result.rows };
     }
@@ -116,7 +108,7 @@ export async function aggregateSkillStoreItems(
          WHERE ${whereClause}
          GROUP BY s.status
          ORDER BY count DESC, s.status`,
-        values
+        values,
       );
       return { statuses: result.rows };
     }
@@ -128,7 +120,7 @@ export async function aggregateSkillStoreItems(
          WHERE ${whereClause}
          ORDER BY s.created_at DESC
          LIMIT 1`,
-        values
+        values,
       );
       return { item: result.rows[0] ?? null };
     }
@@ -140,7 +132,7 @@ export async function aggregateSkillStoreItems(
          WHERE ${whereClause}
          ORDER BY s.created_at ASC
          LIMIT 1`,
-        values
+        values,
       );
       return { item: result.rows[0] ?? null };
     }

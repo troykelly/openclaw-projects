@@ -44,12 +44,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * @param data - Note data to validate
  * @returns Validation result with any errors
  */
-export function validateNote(data: {
-  title: string;
-  content?: string;
-  notebookId?: string;
-  tags?: string[];
-}): ValidationResult {
+export function validateNote(data: { title: string; content?: string; notebookId?: string; tags?: string[] }): ValidationResult {
   const errors: string[] = [];
 
   // Title validation
@@ -57,16 +52,12 @@ export function validateNote(data: {
   if (!trimmedTitle) {
     errors.push('Title is required');
   } else if (trimmedTitle.length > NOTE_VALIDATION.MAX_TITLE_LENGTH) {
-    errors.push(
-      `Title must be ${NOTE_VALIDATION.MAX_TITLE_LENGTH} characters or less`
-    );
+    errors.push(`Title must be ${NOTE_VALIDATION.MAX_TITLE_LENGTH} characters or less`);
   }
 
   // Content validation (optional but has max length)
   if (data.content && data.content.length > NOTE_VALIDATION.MAX_CONTENT_LENGTH) {
-    errors.push(
-      `Content must be ${NOTE_VALIDATION.MAX_CONTENT_LENGTH.toLocaleString()} characters or less`
-    );
+    errors.push(`Content must be ${NOTE_VALIDATION.MAX_CONTENT_LENGTH.toLocaleString()} characters or less`);
   }
 
   // Notebook ID validation (if provided, must be non-empty)
@@ -84,9 +75,7 @@ export function validateNote(data: {
     }
     for (const tag of data.tags) {
       if (tag.length > NOTE_VALIDATION.MAX_TAG_LENGTH) {
-        errors.push(
-          `Tag "${tag.slice(0, 20)}..." exceeds ${NOTE_VALIDATION.MAX_TAG_LENGTH} characters`
-        );
+        errors.push(`Tag "${tag.slice(0, 20)}..." exceeds ${NOTE_VALIDATION.MAX_TAG_LENGTH} characters`);
         break; // Only report first tag error
       }
     }
@@ -104,11 +93,7 @@ export function validateNote(data: {
  * @param data - Notebook data to validate
  * @returns Validation result with any errors
  */
-export function validateNotebook(data: {
-  name: string;
-  description?: string;
-  color?: string;
-}): ValidationResult {
+export function validateNotebook(data: { name: string; description?: string; color?: string }): ValidationResult {
   const errors: string[] = [];
 
   // Name validation
@@ -116,19 +101,12 @@ export function validateNotebook(data: {
   if (!trimmedName) {
     errors.push('Name is required');
   } else if (trimmedName.length > NOTEBOOK_VALIDATION.MAX_NAME_LENGTH) {
-    errors.push(
-      `Name must be ${NOTEBOOK_VALIDATION.MAX_NAME_LENGTH} characters or less`
-    );
+    errors.push(`Name must be ${NOTEBOOK_VALIDATION.MAX_NAME_LENGTH} characters or less`);
   }
 
   // Description validation (optional)
-  if (
-    data.description &&
-    data.description.length > NOTEBOOK_VALIDATION.MAX_DESCRIPTION_LENGTH
-  ) {
-    errors.push(
-      `Description must be ${NOTEBOOK_VALIDATION.MAX_DESCRIPTION_LENGTH} characters or less`
-    );
+  if (data.description && data.description.length > NOTEBOOK_VALIDATION.MAX_DESCRIPTION_LENGTH) {
+    errors.push(`Description must be ${NOTEBOOK_VALIDATION.MAX_DESCRIPTION_LENGTH} characters or less`);
   }
 
   // Color validation (if provided, should be valid hex color)

@@ -35,12 +35,7 @@ export interface MobileNavProps {
   className?: string;
 }
 
-export function MobileNav({
-  items = defaultNavItems,
-  activeItem = 'activity',
-  onItemClick,
-  className,
-}: MobileNavProps) {
+export function MobileNav({ items = defaultNavItems, activeItem = 'activity', onItemClick, className }: MobileNavProps) {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // Split items into primary (first 4) and overflow (rest)
@@ -65,22 +60,13 @@ export function MobileNav({
   return (
     <>
       {/* Overflow menu backdrop */}
-      {moreMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/20 md:hidden"
-          onClick={() => setMoreMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      {moreMenuOpen && <div className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={() => setMoreMenuOpen(false)} aria-hidden="true" />}
 
       {/* Overflow menu panel (#672) */}
       {moreMenuOpen && hasOverflow && (
         <div
           data-testid="mobile-nav-overflow"
-          className={cn(
-            'fixed inset-x-0 bottom-16 z-50 border-t border-border bg-surface p-2',
-            'flex flex-wrap gap-2 justify-center md:hidden'
-          )}
+          className={cn('fixed inset-x-0 bottom-16 z-50 border-t border-border bg-surface p-2', 'flex flex-wrap gap-2 justify-center md:hidden')}
           role="menu"
           aria-label="More navigation options"
         >
@@ -96,7 +82,7 @@ export function MobileNav({
                 onClick={() => handleItemClick(item)}
                 className={cn(
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                  isActive && 'bg-primary/10 text-primary'
+                  isActive && 'bg-primary/10 text-primary',
                 )}
                 aria-current={isActive ? 'page' : undefined}
               >
@@ -114,7 +100,7 @@ export function MobileNav({
         className={cn(
           'fixed inset-x-0 bottom-0 z-50 h-16 items-center justify-around border-t border-border bg-surface',
           'flex md:!hidden', // Force hide on desktop
-          className
+          className,
         )}
         style={{ display: 'var(--mobile-nav-display, flex)' }}
         role="navigation"
@@ -132,7 +118,7 @@ export function MobileNav({
               onClick={() => handleItemClick(item)}
               className={cn(
                 'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
-                isActive && 'text-primary'
+                isActive && 'text-primary',
               )}
               aria-current={isActive ? 'page' : undefined}
             >
@@ -149,7 +135,7 @@ export function MobileNav({
             onClick={handleMoreClick}
             className={cn(
               'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
-              (moreMenuOpen || isOverflowActive) && 'text-primary'
+              (moreMenuOpen || isOverflowActive) && 'text-primary',
             )}
             aria-expanded={moreMenuOpen}
             aria-haspopup="menu"

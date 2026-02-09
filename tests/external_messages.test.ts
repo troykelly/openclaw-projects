@@ -27,7 +27,7 @@ describe('External inbound messages -> threads -> work items', () => {
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, 'phone', $2)
        RETURNING id`,
-      [contactId, '+15551234567']
+      [contactId, '+15551234567'],
     );
     const endpointId = endpoint.rows[0].id as string;
 
@@ -35,7 +35,7 @@ describe('External inbound messages -> threads -> work items', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'phone', $2)
        RETURNING id`,
-      [endpointId, 'twilio:SMXXXXXXXXXXXXXXXX']
+      [endpointId, 'twilio:SMXXXXXXXXXXXXXXXX'],
     );
     const threadId = thread.rows[0].id as string;
 
@@ -43,7 +43,7 @@ describe('External inbound messages -> threads -> work items', () => {
       `INSERT INTO external_message (thread_id, external_message_key, direction, body)
        VALUES ($1, $2, 'inbound', 'hello')
        RETURNING id`,
-      [threadId, 'twilio:MMYYYYYYYYYYYYYYYY']
+      [threadId, 'twilio:MMYYYYYYYYYYYYYYYY'],
     );
     const msgId = msg.rows[0].id as string;
 
@@ -53,7 +53,7 @@ describe('External inbound messages -> threads -> work items', () => {
     await pool.query(
       `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
        VALUES ($1, $2, $3, 'reply_required')`,
-      [workItemId, threadId, msgId]
+      [workItemId, threadId, msgId],
     );
 
     const joined = await pool.query(
@@ -63,7 +63,7 @@ describe('External inbound messages -> threads -> work items', () => {
        JOIN external_thread t ON t.id = wc.thread_id
        JOIN external_message m ON m.id = wc.message_id
        WHERE w.id = $1`,
-      [workItemId]
+      [workItemId],
     );
 
     expect(joined.rows[0].task_type).toBe('communication');
@@ -79,22 +79,22 @@ describe('External inbound messages -> threads -> work items', () => {
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, 'phone', $2)
        RETURNING id`,
-      [contactId, '+15550001111']
+      [contactId, '+15550001111'],
     );
     const endpointId = endpoint.rows[0].id as string;
 
     await pool.query(
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'phone', 'twilio:thread-1')`,
-      [endpointId]
+      [endpointId],
     );
 
     await expect(
       pool.query(
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'phone', 'twilio:thread-1')`,
-        [endpointId]
-      )
+        [endpointId],
+      ),
     ).rejects.toThrow(/external_thread/);
   });
 });

@@ -31,8 +31,7 @@ export function useUpdateContact() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: UpdateContactVariables) =>
-      apiClient.patch<Contact>(`/api/contacts/${id}`, body),
+    mutationFn: ({ id, body }: UpdateContactVariables) => apiClient.patch<Contact>(`/api/contacts/${id}`, body),
 
     onSuccess: () => {
       // Invalidate all contact queries to refresh lists

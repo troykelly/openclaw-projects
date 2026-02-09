@@ -58,7 +58,7 @@ describe('Search API', () => {
       // Note: kind must be 'project' to not require parent
       await pool.query(
         `INSERT INTO work_item (title, kind)
-         VALUES ('Test Feature Request', 'project')`
+         VALUES ('Test Feature Request', 'project')`,
       );
 
       const res = await app.inject({
@@ -76,7 +76,7 @@ describe('Search API', () => {
     it('finds work items by description', async () => {
       await pool.query(
         `INSERT INTO work_item (title, description, kind)
-         VALUES ('Bug Report', 'The login page crashes when clicking submit', 'project')`
+         VALUES ('Bug Report', 'The login page crashes when clicking submit', 'project')`,
       );
 
       const res = await app.inject({
@@ -93,7 +93,7 @@ describe('Search API', () => {
     it('finds contacts by display name', async () => {
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('John Smith')`
+         VALUES ('John Smith')`,
       );
 
       const res = await app.inject({
@@ -111,7 +111,7 @@ describe('Search API', () => {
     it('finds contacts by notes', async () => {
       await pool.query(
         `INSERT INTO contact (display_name, notes)
-         VALUES ('Jane Doe', 'Project manager for the tiny house build')`
+         VALUES ('Jane Doe', 'Project manager for the tiny house build')`,
       );
 
       const res = await app.inject({
@@ -129,11 +129,11 @@ describe('Search API', () => {
     it('filters by type - work_item only', async () => {
       await pool.query(
         `INSERT INTO work_item (title, kind)
-         VALUES ('Test Item', 'project')`
+         VALUES ('Test Item', 'project')`,
       );
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Test Contact')`
+         VALUES ('Test Contact')`,
       );
 
       const res = await app.inject({
@@ -150,11 +150,11 @@ describe('Search API', () => {
     it('filters by type - contact only', async () => {
       await pool.query(
         `INSERT INTO work_item (title, kind)
-         VALUES ('Test Item', 'project')`
+         VALUES ('Test Item', 'project')`,
       );
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Test Contact')`
+         VALUES ('Test Contact')`,
       );
 
       const res = await app.inject({
@@ -171,11 +171,11 @@ describe('Search API', () => {
     it('filters by multiple types', async () => {
       await pool.query(
         `INSERT INTO work_item (title, kind)
-         VALUES ('Test Item', 'project')`
+         VALUES ('Test Item', 'project')`,
       );
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Test Contact')`
+         VALUES ('Test Contact')`,
       );
 
       const res = await app.inject({
@@ -192,14 +192,14 @@ describe('Search API', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, kind)
          VALUES ('Test Item', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Test Contact')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -224,7 +224,7 @@ describe('Search API', () => {
         await pool.query(
           `INSERT INTO work_item (title, kind)
            VALUES ($1, 'project')`,
-          [`Test Item ${i}`]
+          [`Test Item ${i}`],
         );
       }
 
@@ -241,7 +241,7 @@ describe('Search API', () => {
     it('is case insensitive', async () => {
       await pool.query(
         `INSERT INTO work_item (title, kind)
-         VALUES ('UPPERCASE TITLE', 'project')`
+         VALUES ('UPPERCASE TITLE', 'project')`,
       );
 
       const res = await app.inject({
@@ -258,7 +258,7 @@ describe('Search API', () => {
     it('returns correct result structure', async () => {
       await pool.query(
         `INSERT INTO work_item (title, description, kind)
-         VALUES ('Feature Request', 'Add new button to homepage', 'project')`
+         VALUES ('Feature Request', 'Add new button to homepage', 'project')`,
       );
 
       const res = await app.inject({
@@ -279,12 +279,8 @@ describe('Search API', () => {
     });
 
     it('returns facets with result counts', async () => {
-      await pool.query(
-        `INSERT INTO work_item (title, kind) VALUES ('Search Test', 'project')`
-      );
-      await pool.query(
-        `INSERT INTO contact (display_name) VALUES ('Search Contact')`
-      );
+      await pool.query(`INSERT INTO work_item (title, kind) VALUES ('Search Test', 'project')`);
+      await pool.query(`INSERT INTO contact (display_name) VALUES ('Search Contact')`);
 
       const res = await app.inject({
         method: 'GET',
@@ -301,9 +297,7 @@ describe('Search API', () => {
     });
 
     it('returns search type indicator', async () => {
-      await pool.query(
-        `INSERT INTO work_item (title, kind) VALUES ('Test', 'project')`
-      );
+      await pool.query(`INSERT INTO work_item (title, kind) VALUES ('Test', 'project')`);
 
       const res = await app.inject({
         method: 'GET',

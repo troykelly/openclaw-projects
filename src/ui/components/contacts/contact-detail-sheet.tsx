@@ -1,32 +1,11 @@
 import * as React from 'react';
-import {
-  Mail,
-  Building,
-  Briefcase,
-  Phone,
-  Calendar,
-  Link2,
-  Pencil,
-  Trash2,
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  ArrowRight,
-  ArrowLeft,
-} from 'lucide-react';
+import { Mail, Building, Briefcase, Phone, Calendar, Link2, Pencil, Trash2, Folder, Target, Layers, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/ui/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { ContactDetail, LinkedWorkItem, LinkedCommunication } from './types';
 
 function getWorkItemIcon(kind: LinkedWorkItem['kind']) {
@@ -65,15 +44,7 @@ export interface ContactDetailSheetProps {
   onCommunicationClick?: (comm: LinkedCommunication) => void;
 }
 
-export function ContactDetailSheet({
-  contact,
-  open,
-  onOpenChange,
-  onEdit,
-  onDelete,
-  onWorkItemClick,
-  onCommunicationClick,
-}: ContactDetailSheetProps) {
+export function ContactDetailSheet({ contact, open, onOpenChange, onEdit, onDelete, onWorkItemClick, onCommunicationClick }: ContactDetailSheetProps) {
   if (!contact) return null;
 
   const initials = contact.name
@@ -96,25 +67,15 @@ export function ContactDetailSheet({
             {/* Header */}
             <div className="flex items-start gap-4">
               {contact.avatar ? (
-                <img
-                  src={contact.avatar}
-                  alt={contact.name}
-                  className="size-16 rounded-full object-cover"
-                />
+                <img src={contact.avatar} alt={contact.name} className="size-16 rounded-full object-cover" />
               ) : (
-                <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">
-                  {initials}
-                </div>
+                <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">{initials}</div>
               )}
 
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-semibold">{contact.name}</h2>
-                {contact.role && (
-                  <p className="text-sm text-muted-foreground">{contact.role}</p>
-                )}
-                {contact.company && (
-                  <p className="text-sm text-muted-foreground">{contact.company}</p>
-                )}
+                {contact.role && <p className="text-sm text-muted-foreground">{contact.role}</p>}
+                {contact.company && <p className="text-sm text-muted-foreground">{contact.company}</p>}
               </div>
             </div>
 
@@ -127,12 +88,7 @@ export function ContactDetailSheet({
                 </Button>
               )}
               {onDelete && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => onDelete(contact)}
-                >
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(contact)}>
                   <Trash2 className="mr-1 size-3" />
                   Delete
                 </Button>
@@ -177,11 +133,7 @@ export function ContactDetailSheet({
                 )}
               </div>
 
-              {contact.notes && (
-                <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm">
-                  {contact.notes}
-                </div>
-              )}
+              {contact.notes && <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm">{contact.notes}</div>}
             </div>
 
             <Separator />
@@ -204,12 +156,8 @@ export function ContactDetailSheet({
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/50"
                       onClick={() => onWorkItemClick?.(item)}
                     >
-                      <span className="text-muted-foreground">
-                        {getWorkItemIcon(item.kind)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm">
-                        {item.title}
-                      </span>
+                      <span className="text-muted-foreground">{getWorkItemIcon(item.kind)}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
                       <Badge variant="outline" className="shrink-0 text-xs">
                         {getRelationshipLabel(item.relationship)}
                       </Badge>
@@ -217,9 +165,7 @@ export function ContactDetailSheet({
                   ))}
                 </div>
               ) : (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No linked items
-                </p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No linked items</p>
               )}
             </div>
 
@@ -256,17 +202,13 @@ export function ContactDetailSheet({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm">{comm.subject}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {comm.date.toLocaleDateString()}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{comm.date.toLocaleDateString()}</span>
                       </span>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No communications
-                </p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No communications</p>
               )}
             </div>
           </div>

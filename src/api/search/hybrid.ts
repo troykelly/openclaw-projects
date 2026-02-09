@@ -68,11 +68,7 @@ export interface HybridSearchResult {
  * @param max - Maximum expected value
  * @returns Normalized score (0-1)
  */
-export function normalizeScore(
-  score: number | null | undefined,
-  min: number,
-  max: number
-): number {
+export function normalizeScore(score: number | null | undefined, min: number, max: number): number {
   if (score === null || score === undefined) return 0;
 
   if (max === min) return 1; // Avoid division by zero
@@ -90,12 +86,7 @@ export function normalizeScore(
  * @param textWeight - Weight for text score (default 0.3)
  * @returns Combined score
  */
-export function combineScores(
-  vectorScore: number,
-  textScore: number,
-  vectorWeight: number = 0.7,
-  textWeight: number = 0.3
-): number {
+export function combineScores(vectorScore: number, textScore: number, vectorWeight: number = 0.7, textWeight: number = 0.3): number {
   return vectorScore * vectorWeight + textScore * textWeight;
 }
 
@@ -129,14 +120,8 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
 /**
  * Build filter conditions for search queries.
  */
-function buildFilterConditions(
-  options: HybridSearchOptions,
-  startIdx: number
-): { conditions: string[]; params: unknown[]; nextIdx: number } {
-  const conditions: string[] = [
-    '(expires_at IS NULL OR expires_at > NOW())',
-    'superseded_by IS NULL',
-  ];
+function buildFilterConditions(options: HybridSearchOptions, startIdx: number): { conditions: string[]; params: unknown[]; nextIdx: number } {
+  const conditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL'];
   const params: unknown[] = [];
   let idx = startIdx;
 
@@ -171,7 +156,7 @@ async function vectorSearch(
   pool: Pool,
   queryEmbedding: number[],
   options: HybridSearchOptions,
-  candidateLimit: number
+  candidateLimit: number,
 ): Promise<Map<string, { memory: MemoryEntry; vectorScore: number }>> {
   const { conditions, params, nextIdx } = buildFilterConditions(options, 2);
 
@@ -193,7 +178,7 @@ async function vectorSearch(
       ${whereClause}
     ORDER BY similarity DESC
     LIMIT $${nextIdx}`,
-    allParams
+    allParams,
   );
 
   const results = new Map<string, { memory: MemoryEntry; vectorScore: number }>();
@@ -216,7 +201,7 @@ async function textSearch(
   pool: Pool,
   query: string,
   options: HybridSearchOptions,
-  candidateLimit: number
+  candidateLimit: number,
 ): Promise<Map<string, { memory: MemoryEntry; textScore: number }>> {
   const { conditions, params, nextIdx } = buildFilterConditions(options, 2);
 
@@ -237,7 +222,7 @@ async function textSearch(
       ${whereClause}
     ORDER BY ts_rank DESC
     LIMIT $${nextIdx}`,
-    allParams
+    allParams,
   );
 
   const results = new Map<string, { memory: MemoryEntry; textScore: number }>();
@@ -267,17 +252,8 @@ async function textSearch(
  * @param options - Search options including weights
  * @returns Hybrid search results
  */
-export async function searchMemoriesHybrid(
-  pool: Pool,
-  query: string,
-  options: HybridSearchOptions = {}
-): Promise<HybridSearchResult> {
-  const {
-    limit = 10,
-    minScore = 0.3,
-    vectorWeight = 0.7,
-    textWeight = 0.3,
-  } = options;
+export async function searchMemoriesHybrid(pool: Pool, query: string, options: HybridSearchOptions = {}): Promise<HybridSearchResult> {
+  const { limit = 10, minScore = 0.3, vectorWeight = 0.7, textWeight = 0.3 } = options;
 
   // Get more candidates than needed to allow for deduplication and filtering
   const candidateLimit = Math.min(limit * 4, 100);

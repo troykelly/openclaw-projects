@@ -6,11 +6,7 @@ import * as React from 'react';
 import { Filter, X } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/ui/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { cn } from '@/ui/lib/utils';
 import {
@@ -33,12 +29,7 @@ export interface ActivityFeedFiltersProps {
   className?: string;
 }
 
-export function ActivityFeedFilters({
-  filters,
-  onChange,
-  currentUserId,
-  className,
-}: ActivityFeedFiltersProps) {
+export function ActivityFeedFilters({ filters, onChange, currentUserId, className }: ActivityFeedFiltersProps) {
   const activeCount = countActiveFilters(filters);
 
   const handleActorChange = (actorType: ActorType) => {
@@ -47,17 +38,13 @@ export function ActivityFeedFilters({
 
   const handleActionToggle = (action: ActionType) => {
     const current = filters.actionType || [];
-    const newActions = current.includes(action)
-      ? current.filter((a) => a !== action)
-      : [...current, action];
+    const newActions = current.includes(action) ? current.filter((a) => a !== action) : [...current, action];
     onChange({ ...filters, actionType: newActions.length > 0 ? newActions : undefined });
   };
 
   const handleEntityToggle = (entity: EntityType) => {
     const current = filters.entityType || [];
-    const newEntities = current.includes(entity)
-      ? current.filter((e) => e !== entity)
-      : [...current, entity];
+    const newEntities = current.includes(entity) ? current.filter((e) => e !== entity) : [...current, entity];
     onChange({ ...filters, entityType: newEntities.length > 0 ? newEntities : undefined });
   };
 
@@ -94,9 +81,7 @@ export function ActivityFeedFilters({
                 key={type.value}
                 className={cn(
                   'w-full text-left px-2 py-1.5 rounded text-sm',
-                  filters.actorType === type.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
+                  filters.actorType === type.value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
                 )}
                 onClick={() => handleActorChange(type.value)}
               >
@@ -122,14 +107,8 @@ export function ActivityFeedFilters({
         <PopoverContent className="w-48 p-2">
           <div className="space-y-2">
             {ACTION_TYPES.map((type) => (
-              <label
-                key={type.value}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Checkbox
-                  checked={filters.actionType?.includes(type.value) || false}
-                  onCheckedChange={() => handleActionToggle(type.value)}
-                />
+              <label key={type.value} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={filters.actionType?.includes(type.value) || false} onCheckedChange={() => handleActionToggle(type.value)} />
                 <span className="text-sm">{type.label}</span>
               </label>
             ))}
@@ -152,14 +131,8 @@ export function ActivityFeedFilters({
         <PopoverContent className="w-40 p-2">
           <div className="space-y-2">
             {ENTITY_TYPES.map((type) => (
-              <label
-                key={type.value}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Checkbox
-                  checked={filters.entityType?.includes(type.value) || false}
-                  onCheckedChange={() => handleEntityToggle(type.value)}
-                />
+              <label key={type.value} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={filters.entityType?.includes(type.value) || false} onCheckedChange={() => handleEntityToggle(type.value)} />
                 <span className="text-sm">{type.label}</span>
               </label>
             ))}
@@ -186,9 +159,7 @@ export function ActivityFeedFilters({
                 key={range.value}
                 className={cn(
                   'w-full text-left px-2 py-1.5 rounded text-sm',
-                  filters.timeRange === range.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
+                  filters.timeRange === range.value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
                 )}
                 onClick={() => handleTimeChange(range.value)}
               >
@@ -201,11 +172,7 @@ export function ActivityFeedFilters({
 
       {/* My Activity Toggle */}
       {currentUserId && (
-        <Button
-          variant={filters.myActivityOnly ? 'secondary' : 'outline'}
-          size="sm"
-          onClick={handleMyActivityToggle}
-        >
+        <Button variant={filters.myActivityOnly ? 'secondary' : 'outline'} size="sm" onClick={handleMyActivityToggle}>
           My Activity
         </Button>
       )}
@@ -216,12 +183,7 @@ export function ActivityFeedFilters({
           <Badge variant="default" className="h-6">
             {activeCount}
           </Badge>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClear}
-            aria-label="Clear filters"
-          >
+          <Button variant="ghost" size="sm" onClick={handleClear} aria-label="Clear filters">
             <X className="h-4 w-4 mr-1" />
             Clear
           </Button>

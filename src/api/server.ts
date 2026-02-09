@@ -14,17 +14,35 @@ import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
+import { EmbeddingHealthChecker, generateMemoryEmbedding, searchMemoriesSemantic, backfillMemoryEmbeddings } from './embeddings/index.ts';
 import {
-  EmbeddingHealthChecker,
-  generateMemoryEmbedding,
-  searchMemoriesSemantic,
-  backfillMemoryEmbeddings,
-} from './embeddings/index.ts';
-import { WebhookHealthChecker, verifyTwilioSignature, verifyPostmarkAuth, verifyCloudflareEmailSecret, isWebhookVerificationConfigured } from './webhooks/index.ts';
+  WebhookHealthChecker,
+  verifyTwilioSignature,
+  verifyPostmarkAuth,
+  verifyCloudflareEmailSecret,
+  isWebhookVerificationConfigured,
+} from './webhooks/index.ts';
 import { twilioIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, getClientIP } from './webhooks/ip-whitelist.ts';
 import { createRateLimitKeyGenerator, getEndpointRateLimitCategory, getRateLimitConfig, type GetSessionEmailFn } from './rate-limit/per-user.ts';
-import { processTwilioSms, type TwilioSmsWebhookPayload, enqueueSmsMessage, isTwilioConfigured, processDeliveryStatus, type TwilioStatusCallback, listPhoneNumbers, getPhoneNumberDetails, updatePhoneNumberWebhooks } from './twilio/index.ts';
-import { processPostmarkEmail, type PostmarkInboundPayload, enqueueEmailMessage, isPostmarkConfigured, processPostmarkDeliveryStatus, type PostmarkWebhookPayload } from './postmark/index.ts';
+import {
+  processTwilioSms,
+  type TwilioSmsWebhookPayload,
+  enqueueSmsMessage,
+  isTwilioConfigured,
+  processDeliveryStatus,
+  type TwilioStatusCallback,
+  listPhoneNumbers,
+  getPhoneNumberDetails,
+  updatePhoneNumberWebhooks,
+} from './twilio/index.ts';
+import {
+  processPostmarkEmail,
+  type PostmarkInboundPayload,
+  enqueueEmailMessage,
+  isPostmarkConfigured,
+  processPostmarkDeliveryStatus,
+  type PostmarkWebhookPayload,
+} from './postmark/index.ts';
 import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
 import { RealtimeHub } from './realtime/index.ts';
 import {
@@ -105,7 +123,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE id = $1
             AND revoked_at IS NULL
             AND expires_at > now()`,
-        [sessionId]
+        [sessionId],
       );
 
       if (result.rows.length === 0) return null;
@@ -176,9 +194,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // In production, cache the index.html for performance.
   // In development, re-read on each request to pick up rebuilds without server restart.
   const isDev = process.env.NODE_ENV !== 'production';
-  let cachedAppFrontendIndexHtml: string | null = isDev
-    ? null
-    : existsSync(appFrontendIndexPath) ? readFileSync(appFrontendIndexPath, 'utf8') : null;
+  let cachedAppFrontendIndexHtml: string | null = isDev ? null : existsSync(appFrontendIndexPath) ? readFileSync(appFrontendIndexPath, 'utf8') : null;
 
   function getAppFrontendIndexHtml(): string | null {
     if (isDev || !cachedAppFrontendIndexHtml) {
@@ -191,9 +207,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   function renderAppFrontendHtml(bootstrap: unknown | null): string {
     const html = getAppFrontendIndexHtml();
     if (!html) {
-      return '<!doctype html><html><head><title>OpenClaw Projects</title></head>'
-        + '<body><p>Frontend assets not available. If running in Docker Compose, '
-        + 'access the frontend via the <code>app</code> container.</p></body></html>';
+      return (
+        '<!doctype html><html><head><title>OpenClaw Projects</title></head>' +
+        '<body><p>Frontend assets not available. If running in Docker Compose, ' +
+        'access the frontend via the <code>app</code> container.</p></body></html>'
+      );
     }
     if (!bootstrap) return html;
 
@@ -519,7 +537,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         event: 'connection:established',
         data: { connectedAt: new Date().toISOString() },
         timestamp: new Date().toISOString(),
-      })}\n\n`
+      })}\n\n`,
     );
 
     // Keep connection alive with periodic comments
@@ -556,8 +574,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const include = query.include?.split(',').map((s) => s.trim()).filter(Boolean);
-      const exclude = query.exclude?.split(',').map((s) => s.trim()).filter(Boolean);
+      const include = query.include
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const exclude = query.exclude
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
 
       const result = await getBootstrapContext(pool, {
         userEmail: query.user_email,
@@ -753,9 +777,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       {
         name: 'bootstrap',
         description: 'Initialize agent session with full context (preferences, projects, reminders, contacts)',
-        endpoints: [
-          { method: 'GET', path: '/api/bootstrap', description: 'Get complete session context in single call' },
-        ],
+        endpoints: [{ method: 'GET', path: '/api/bootstrap', description: 'Get complete session context in single call' }],
       },
       {
         name: 'threads',
@@ -819,10 +841,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       {
         name: 'add_to_list',
         description: 'Add an item to a list (e.g., shopping list)',
-        steps: [
-          'GET /api/work-items?title=<list-name> to find the list',
-          'POST /api/work-items with parent_work_item_id set to list ID',
-        ],
+        steps: ['GET /api/work-items?title=<list-name> to find the list', 'POST /api/work-items with parent_work_item_id set to list ID'],
       },
       {
         name: 'set_reminder',
@@ -1151,10 +1170,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/timeline', async (req, reply) => {
@@ -1166,10 +1182,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/contacts', async (req, reply) => {
@@ -1181,10 +1194,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/settings', async (req, reply) => {
@@ -1196,10 +1206,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/kanban', async (req, reply) => {
@@ -1211,10 +1218,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/work-items', async (req, reply) => {
@@ -1232,7 +1236,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               updated_at
          FROM work_item
         ORDER BY created_at DESC
-        LIMIT 50`
+        LIMIT 50`,
     );
     await pool.end();
 
@@ -1244,7 +1248,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           route: { kind: 'work-items-list' },
           me: { email },
           workItems: result.rows,
-        })
+        }),
       );
   });
 
@@ -1260,10 +1264,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/work-items/:id/graph', async (req, reply) => {
@@ -1278,10 +1279,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.get('/app/work-items/:id', async (req, reply) => {
@@ -1301,10 +1299,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         participants: [],
       };
 
-      return reply
-        .code(200)
-        .header('content-type', 'text/html; charset=utf-8')
-        .send(renderAppFrontendHtml(bootstrap));
+      return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
     }
 
     const pool = createPool();
@@ -1312,7 +1307,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT id::text as id, title
          FROM work_item
         WHERE id = $1`,
-      [params.id]
+      [params.id],
     );
 
     const participants = await pool.query(
@@ -1320,7 +1315,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_participant
         WHERE work_item_id = $1
         ORDER BY created_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -1333,10 +1328,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       participants: participants.rows,
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   // Root /app route - serves the SPA which will redirect to /dashboard
@@ -1349,10 +1341,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   // Catch-all for /app/* routes not explicitly defined above.
@@ -1370,10 +1359,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(renderAppFrontendHtml(bootstrap));
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
   });
 
   app.post('/api/auth/request-link', async (req, reply) => {
@@ -1390,7 +1376,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
        VALUES ($1, $2, now() + interval '15 minutes')`,
-      [email, tokenSha]
+      [email, tokenSha],
     );
     await pool.end();
 
@@ -1430,7 +1416,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             AND used_at IS NULL
             AND expires_at > now()
           LIMIT 1`,
-        [tokenSha]
+        [tokenSha],
       );
 
       if (link.rows.length === 0) {
@@ -1446,7 +1432,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `INSERT INTO auth_session (email, expires_at)
          VALUES ($1, now() + interval '7 days')
          RETURNING id::text as id, expires_at`,
-        [email]
+        [email],
       );
 
       const sessionId = (session.rows[0] as { id: string }).id;
@@ -1499,7 +1485,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          VALUES ($1)
          ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
          RETURNING *`,
-        [email]
+        [email],
       );
       return reply.send(result.rows[0]);
     } finally {
@@ -1560,7 +1546,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          VALUES ($1)
          ON CONFLICT (email) DO UPDATE SET ${updates.join(', ')}
          RETURNING *`,
-        params
+        params,
       );
       return reply.send(result.rows[0]);
     } finally {
@@ -1665,10 +1651,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-      const countResult = await pool.query(
-        `SELECT COUNT(*) as count FROM skill_store_activity sa ${whereClause}`,
-        params
-      );
+      const countResult = await pool.query(`SELECT COUNT(*) as count FROM skill_store_activity sa ${whereClause}`, params);
       const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
 
       params.push(limit);
@@ -1691,7 +1674,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            ${whereClause}
           ORDER BY sa.created_at DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        params
+        params,
       );
       await pool.end();
 
@@ -1763,9 +1746,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM skill_store_activity sa`
       : '';
 
-    const skillStoreCountUnion = includeSkillStore
-      ? `UNION ALL SELECT sa.id FROM skill_store_activity sa`
-      : '';
+    const skillStoreCountUnion = includeSkillStore ? `UNION ALL SELECT sa.id FROM skill_store_activity sa` : '';
 
     // Get total count for pagination
     const countResult = await pool.query(
@@ -1777,7 +1758,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            ${whereClause}
          ${skillStoreCountUnion}
        ) combined`,
-      params
+      params,
     );
     const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
 
@@ -1804,7 +1785,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ) combined
         ORDER BY created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-      params
+      params,
     );
     await pool.end();
 
@@ -1833,7 +1814,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `UPDATE work_item_activity
        SET read_at = now()
        WHERE read_at IS NULL
-       RETURNING id`
+       RETURNING id`,
     );
     await pool.end();
     return reply.send({ marked: result.rowCount ?? 0 });
@@ -1847,7 +1828,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     });
 
     // Build query for recent activity
@@ -1889,7 +1870,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ${whereClause}
         ORDER BY a.created_at DESC
         LIMIT 20`,
-      params
+      params,
     );
 
     for (const activity of result.rows) {
@@ -1921,7 +1902,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `UPDATE work_item_activity
        SET read_at = COALESCE(read_at, now())
        WHERE id = $1`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
     return reply.code(204).send();
@@ -1955,7 +1936,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE a.work_item_id = $1
         ORDER BY a.created_at DESC
         LIMIT $2 OFFSET $3`,
-      [params.id, limit, offset]
+      [params.id, limit, offset],
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -1984,7 +1965,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item
          ${deletedFilter}
         ORDER BY created_at DESC
-        LIMIT 50`
+        LIMIT 50`,
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -2042,7 +2023,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = t.id) as children_count
          FROM tree t
         ORDER BY t.level, t.title`,
-      query.root_id ? [query.root_id, maxDepth] : [maxDepth]
+      query.root_id ? [query.root_id, maxDepth] : [maxDepth],
     );
 
     // Build hierarchical structure
@@ -2157,7 +2138,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         ${whereClause}
         ORDER BY priority, created_at
         LIMIT 100`,
-      params
+      params,
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -2178,7 +2159,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               updated_at = now()
         WHERE id = $1
       RETURNING id::text as id, title, status, priority::text as priority, updated_at`,
-      [params.id, body.status]
+      [params.id, body.status],
     );
 
     if (result.rows.length === 0) {
@@ -2192,7 +2173,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_activity (work_item_id, activity_type, description)
        VALUES ($1, 'status_change', $2)`,
-      [workItem.id, `Status changed to ${workItem.status}`]
+      [workItem.id, `Status changed to ${workItem.status}`],
     );
 
     await pool.end();
@@ -2205,7 +2186,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   /** Valid contact_kind enum values (issue #489). */
   const VALID_CONTACT_KINDS = ['person', 'organisation', 'group', 'agent'] as const;
-  type ContactKind = typeof VALID_CONTACT_KINDS[number];
+  type ContactKind = (typeof VALID_CONTACT_KINDS)[number];
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   // Bulk operations endpoints
@@ -2275,16 +2256,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               item.status || null,
               item.priority || null,
               item.description || null,
-            ]
+            ],
           );
           const workItemId = result.rows[0].id;
 
           // Handle labels via junction table if provided
           if (item.labels && item.labels.length > 0) {
-            await client.query(
-              `SELECT set_work_item_labels($1, $2)`,
-              [workItemId, item.labels]
-            );
+            await client.query(`SELECT set_work_item_labels($1, $2)`, [workItemId, item.labels]);
           }
           results.push({ index: i, id: result.rows[0].id, status: 'created' });
           createdCount++;
@@ -2349,10 +2327,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const result = await pool.query(
-        `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
-        [body.ids]
-      );
+      const result = await pool.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`, [body.ids]);
 
       await pool.end();
 
@@ -2424,7 +2399,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              SET status = $1, updated_at = now()
              WHERE id = ANY($2::uuid[])
              RETURNING id::text as id, title, status`,
-            [body.value, ids]
+            [body.value, ids],
           );
 
           // Record activity for each item
@@ -2432,7 +2407,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             await client.query(
               `INSERT INTO work_item_activity (work_item_id, activity_type, description)
                VALUES ($1, 'status_change', $2)`,
-              [row.id, `Status changed to ${row.status} (bulk operation)`]
+              [row.id, `Status changed to ${row.status} (bulk operation)`],
             );
           }
           break;
@@ -2449,7 +2424,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              SET priority = $1, updated_at = now()
              WHERE id = ANY($2::uuid[])
              RETURNING id::text as id, title, priority::text as priority`,
-            [body.value, ids]
+            [body.value, ids],
           );
           break;
 
@@ -2467,21 +2442,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              SET parent_work_item_id = $1, updated_at = now()
              WHERE id = ANY($2::uuid[])
              RETURNING id::text as id, title, parent_work_item_id::text as parent_id`,
-            [parentId, ids]
+            [parentId, ids],
           );
           break;
 
         case 'delete':
           // First get titles for activity log
-          const itemsToDelete = await client.query(
-            `SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])`,
-            [ids]
-          );
+          const itemsToDelete = await client.query(`SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])`, [ids]);
 
-          result = await client.query(
-            `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
-            [ids]
-          );
+          result = await client.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`, [ids]);
 
           // Note: Activity entries will be cascade deleted along with work items
           break;
@@ -2530,7 +2499,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          JOIN external_thread et ON et.id = wic.thread_id
          LEFT JOIN external_message em ON em.id = wic.message_id
         ORDER BY wi.created_at DESC
-        LIMIT 50`
+        LIMIT 50`,
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -2656,7 +2625,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template)
        VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10)
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate]
+      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate],
     );
 
     const workItem = result.rows[0] as { id: string; title: string };
@@ -2665,7 +2634,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_activity (work_item_id, activity_type, description)
        VALUES ($1, 'created', $2)`,
-      [workItem.id, `Created work item: ${workItem.title}`]
+      [workItem.id, `Created work item: ${workItem.title}`],
     );
 
     await pool.end();
@@ -2740,7 +2709,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               updated_at = now()
         WHERE id = $1
       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id`,
-      [params.id, kind, parentId, kind]
+      [params.id, kind, parentId, kind],
     );
     await pool.end();
 
@@ -2777,7 +2746,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id AND c.deleted_at IS NULL) as children_count
          FROM work_item wi
         WHERE wi.id = $1 ${deletedFilter}`,
-      [params.id]
+      [params.id],
     );
 
     if (result.rows.length === 0) {
@@ -2799,23 +2768,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const parentResult = await pool.query(
         `SELECT id::text as id, title, work_item_kind as kind
          FROM work_item WHERE id = $1`,
-        [parentWorkItemId]
+        [parentWorkItemId],
       );
       if (parentResult.rows.length > 0) {
         parent = parentResult.rows[0] as { id: string; title: string; kind: string };
       }
     } else {
       // Check parent_work_item_id as fallback
-      const parentCheck = await pool.query(
-        `SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1`,
-        [params.id]
-      );
+      const parentCheck = await pool.query(`SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1`, [params.id]);
       const altParentId = (parentCheck.rows[0] as { parent_id: string | null })?.parent_id;
       if (altParentId) {
         const parentResult = await pool.query(
           `SELECT id::text as id, title, work_item_kind as kind
            FROM work_item WHERE id = $1`,
-          [altParentId]
+          [altParentId],
         );
         if (parentResult.rows.length > 0) {
           parent = parentResult.rows[0] as { id: string; title: string; kind: string };
@@ -2830,7 +2796,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM work_item_dependency wid
        JOIN work_item wi ON wi.id = wid.work_item_id
        WHERE wid.depends_on_work_item_id = $1`,
-      [params.id]
+      [params.id],
     );
 
     // Get dependencies - items this is blocked by (this depends on others)
@@ -2840,7 +2806,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM work_item_dependency wid
        JOIN work_item wi ON wi.id = wid.depends_on_work_item_id
        WHERE wid.work_item_id = $1`,
-      [params.id]
+      [params.id],
     );
 
     // Combine dependencies into a single array (issue #109 format)
@@ -2852,7 +2818,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM memory
        WHERE work_item_id = $1
        ORDER BY created_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     // Get attachments - contacts (issue #109)
@@ -2863,14 +2829,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        JOIN contact c ON c.id = wic.contact_id
        WHERE wic.work_item_id = $1
        ORDER BY wic.created_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     // Combine all attachments
-    const attachments = [
-      ...memoriesResult.rows,
-      ...contactsResult.rows,
-    ];
+    const attachments = [...memoriesResult.rows, ...contactsResult.rows];
 
     await pool.end();
 
@@ -2925,7 +2888,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT kind, parent_id::text as parent_id, estimate_minutes, actual_minutes
          FROM work_item
         WHERE id = $1`,
-      [params.id]
+      [params.id],
     );
 
     if (existing.rows.length === 0) {
@@ -3027,7 +2990,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         parentId,
         estimateMinutes,
         actualMinutes,
-      ]
+      ],
     );
 
     if (result.rows.length === 0) {
@@ -3041,14 +3004,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_activity (work_item_id, activity_type, description)
        VALUES ($1, 'updated', $2)`,
-      [workItem.id, `Updated work item: ${workItem.title}`]
+      [workItem.id, `Updated work item: ${workItem.title}`],
     );
 
     await pool.end();
     return reply.send(result.rows[0]);
   });
 
-// DELETE /api/work-items/:id - Soft delete by default (Issue #225)
+  // DELETE /api/work-items/:id - Soft delete by default (Issue #225)
   app.delete('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { permanent?: string };
@@ -3056,10 +3019,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
-      const result = await pool.query(
-        `DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`,
-        [params.id]
-      );
+      const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
       await pool.end();
       if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
       return reply.code(204).send();
@@ -3070,7 +3030,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `UPDATE work_item SET deleted_at = now()
        WHERE id = $1 AND deleted_at IS NULL
        RETURNING id::text as id`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -3086,7 +3046,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `UPDATE work_item SET deleted_at = NULL
        WHERE id = $1 AND deleted_at IS NOT NULL
        RETURNING id::text as id, title`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
 
@@ -3136,12 +3096,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE deleted_at IS NOT NULL
         ORDER BY deleted_at DESC
         LIMIT $2 OFFSET $3`,
-        [retentionDays, limit, offset]
+        [retentionDays, limit, offset],
       );
 
-      const wiCountResult = await pool.query(
-        `SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`
-      );
+      const wiCountResult = await pool.query(`SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`);
 
       for (const row of wiResult.rows) {
         items.push({
@@ -3168,12 +3126,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE deleted_at IS NOT NULL
         ORDER BY deleted_at DESC
         LIMIT $2 OFFSET $3`,
-        [retentionDays, limit, offset]
+        [retentionDays, limit, offset],
       );
 
-      const cCountResult = await pool.query(
-        `SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL`
-      );
+      const cCountResult = await pool.query(`SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL`);
 
       for (const row of cResult.rows) {
         items.push({
@@ -3215,10 +3171,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    const result = await pool.query(
-      `SELECT * FROM purge_soft_deleted($1)`,
-      [retentionDays]
-    );
+    const result = await pool.query(`SELECT * FROM purge_soft_deleted($1)`, [retentionDays]);
 
     await pool.end();
 
@@ -3269,12 +3222,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       try {
         const email = await getSessionEmail(req);
-        const result = await uploadFile(pool, storage, {
-          filename: data.filename,
-          contentType: data.mimetype,
-          data: buffer,
-          uploadedBy: email || undefined,
-        }, maxFileSize);
+        const result = await uploadFile(
+          pool,
+          storage,
+          {
+            filename: data.filename,
+            contentType: data.mimetype,
+            data: buffer,
+            uploadedBy: email || undefined,
+          },
+          maxFileSize,
+        );
 
         await pool.end();
 
@@ -3570,20 +3528,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check if work item exists
-    const wiResult = await pool.query(
-      'SELECT id FROM work_item WHERE id = $1 AND deleted_at IS NULL',
-      [params.id]
-    );
+    const wiResult = await pool.query('SELECT id FROM work_item WHERE id = $1 AND deleted_at IS NULL', [params.id]);
     if (wiResult.rowCount === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'Work item not found' });
     }
 
     // Check if file exists
-    const fileResult = await pool.query(
-      'SELECT id FROM file_attachment WHERE id = $1',
-      [body.fileId]
-    );
+    const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.fileId]);
     if (fileResult.rowCount === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'File not found' });
@@ -3596,7 +3548,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `INSERT INTO work_item_attachment (work_item_id, file_attachment_id, attached_by)
          VALUES ($1, $2, $3)
          ON CONFLICT DO NOTHING`,
-        [params.id, body.fileId, email]
+        [params.id, body.fileId, email],
       );
       await pool.end();
 
@@ -3629,12 +3581,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       JOIN file_attachment fa ON fa.id = wia.file_attachment_id
       WHERE wia.work_item_id = $1
       ORDER BY wia.attached_at DESC`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
 
     return reply.send({
-      attachments: result.rows.map(row => ({
+      attachments: result.rows.map((row) => ({
         id: row.id,
         originalFilename: row.original_filename,
         contentType: row.content_type,
@@ -3655,7 +3607,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_attachment
        WHERE work_item_id = $1 AND file_attachment_id = $2
        RETURNING work_item_id`,
-      [params.workItemId, params.fileId]
+      [params.workItemId, params.fileId],
     );
     await pool.end();
 
@@ -3754,12 +3706,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.send({
         success: true,
-        recurrence: info ? {
-          rule: info.rule,
-          ruleDescription: info.rule ? describeRrule(info.rule) : null,
-          end: info.end,
-          nextOccurrence: info.nextOccurrence,
-        } : null,
+        recurrence: info
+          ? {
+              rule: info.rule,
+              ruleDescription: info.rule ? describeRrule(info.rule) : null,
+              end: info.end,
+              nextOccurrence: info.nextOccurrence,
+            }
+          : null,
       });
     } catch (error) {
       await pool.end();
@@ -3860,10 +3814,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const { generateUpcomingInstances } = await import('./recurrence/index.ts');
 
-      const result = await generateUpcomingInstances(
-        pool,
-        body.daysAhead || 14
-      );
+      const result = await generateUpcomingInstances(pool, body.daysAhead || 14);
 
       await pool.end();
 
@@ -4025,10 +3976,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // First check if the work item exists and get its kind
-    const item = await pool.query(
-      `SELECT id, work_item_kind FROM work_item WHERE id = $1`,
-      [params.id]
-    );
+    const item = await pool.query(`SELECT id, work_item_kind FROM work_item WHERE id = $1`, [params.id]);
 
     if (item.rows.length === 0) {
       await pool.end();
@@ -4059,7 +4007,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               total_actual_minutes
          FROM ${rollupView}
         WHERE work_item_id = $1`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
 
@@ -4077,94 +4025,98 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/search - Unified search API endpoint (Issue #216)
   // Full-text search with optional semantic search for memories
-  app.get('/api/search', {
-    config: {
-      rateLimit: {
-        max: 30, // 30 requests per minute for search (expensive)
-        timeWindow: '1 minute',
+  app.get(
+    '/api/search',
+    {
+      config: {
+        rateLimit: {
+          max: 30, // 30 requests per minute for search (expensive)
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    const { unifiedSearch } = await import('./search/index.ts');
+    async (req, reply) => {
+      const { unifiedSearch } = await import('./search/index.ts');
 
-    const query = req.query as {
-      q?: string;
-      types?: string;
-      limit?: string;
-      offset?: string;
-      semantic?: string;
-      date_from?: string;
-      date_to?: string;
-      semantic_weight?: string;
-    };
+      const query = req.query as {
+        q?: string;
+        types?: string;
+        limit?: string;
+        offset?: string;
+        semantic?: string;
+        date_from?: string;
+        date_to?: string;
+        semantic_weight?: string;
+      };
 
-    const searchTerm = query.q?.trim() || '';
+      const searchTerm = query.q?.trim() || '';
 
-    // If no search term, return empty results
-    if (!searchTerm) {
-      return reply.send({
-        query: '',
-        search_type: 'text',
-        results: [],
-        facets: { work_item: 0, contact: 0, memory: 0, message: 0 },
-        total: 0,
-      });
-    }
-
-    const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
-    const semantic = query.semantic !== 'false'; // Default true
-    const semanticWeight = Math.min(1, Math.max(0, parseFloat(query.semantic_weight || '0.5')));
-
-    // Parse entity types
-    const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
-    type EntityType = typeof validTypes[number];
-    let types: EntityType[] | undefined;
-    if (query.types) {
-      types = query.types
-        .split(',')
-        .map((t) => t.trim() as EntityType)
-        .filter((t) => validTypes.includes(t));
-      if (types.length === 0) {
-        types = undefined; // Use defaults
+      // If no search term, return empty results
+      if (!searchTerm) {
+        return reply.send({
+          query: '',
+          search_type: 'text',
+          results: [],
+          facets: { work_item: 0, contact: 0, memory: 0, message: 0 },
+          total: 0,
+        });
       }
-    }
 
-    // Parse date filters
-    let dateFrom: Date | undefined;
-    let dateTo: Date | undefined;
-    if (query.date_from) {
-      const parsed = new Date(query.date_from);
-      if (!isNaN(parsed.getTime())) {
-        dateFrom = parsed;
+      const limit = Math.min(parseInt(query.limit || '20', 10), 100);
+      const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+      const semantic = query.semantic !== 'false'; // Default true
+      const semanticWeight = Math.min(1, Math.max(0, parseFloat(query.semantic_weight || '0.5')));
+
+      // Parse entity types
+      const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
+      type EntityType = (typeof validTypes)[number];
+      let types: EntityType[] | undefined;
+      if (query.types) {
+        types = query.types
+          .split(',')
+          .map((t) => t.trim() as EntityType)
+          .filter((t) => validTypes.includes(t));
+        if (types.length === 0) {
+          types = undefined; // Use defaults
+        }
       }
-    }
-    if (query.date_to) {
-      const parsed = new Date(query.date_to);
-      if (!isNaN(parsed.getTime())) {
-        dateTo = parsed;
+
+      // Parse date filters
+      let dateFrom: Date | undefined;
+      let dateTo: Date | undefined;
+      if (query.date_from) {
+        const parsed = new Date(query.date_from);
+        if (!isNaN(parsed.getTime())) {
+          dateFrom = parsed;
+        }
       }
-    }
+      if (query.date_to) {
+        const parsed = new Date(query.date_to);
+        if (!isNaN(parsed.getTime())) {
+          dateTo = parsed;
+        }
+      }
 
-    const pool = createPool();
+      const pool = createPool();
 
-    try {
-      const result = await unifiedSearch(pool, {
-        query: searchTerm,
-        types,
-        limit,
-        offset,
-        semantic,
-        dateFrom,
-        dateTo,
-        semanticWeight,
-      });
+      try {
+        const result = await unifiedSearch(pool, {
+          query: searchTerm,
+          types,
+          limit,
+          offset,
+          semantic,
+          dateFrom,
+          dateTo,
+          semanticWeight,
+        });
 
-      return reply.send(result);
-    } finally {
-      await pool.end();
-    }
-  });
+        return reply.send(result);
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // GET /api/timeline - Global timeline endpoint
   app.get('/api/timeline', async (req, reply) => {
@@ -4200,10 +4152,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Kind filter (supports comma-separated list)
     if (query.kind) {
-      const kinds = query.kind.split(',').map(k => k.trim()).filter(k => k);
+      const kinds = query.kind
+        .split(',')
+        .map((k) => k.trim())
+        .filter((k) => k);
       if (kinds.length > 0) {
         conditions.push(`wi.work_item_kind IN (${kinds.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
-        kinds.forEach(k => params.push(k));
+        kinds.forEach((k) => params.push(k));
         paramIndex += kinds.length;
       }
     }
@@ -4235,12 +4190,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           FROM descendants d
           JOIN work_item wi ON wi.id = d.id
          WHERE (wi.not_before IS NOT NULL OR wi.not_after IS NOT NULL)
-         ${query.kind ? `AND wi.work_item_kind IN (${query.kind.split(',').map((_, i) => `$${paramIndex + 1 + i}`).join(', ')})` : ''}
+         ${
+           query.kind
+             ? `AND wi.work_item_kind IN (${query.kind
+                 .split(',')
+                 .map((_, i) => `$${paramIndex + 1 + i}`)
+                 .join(', ')})`
+             : ''
+         }
          ORDER BY d.level, wi.not_before NULLS LAST, wi.created_at`;
 
       const descendantParams = [query.parent_id];
       if (query.kind) {
-        query.kind.split(',').map(k => k.trim()).filter(k => k).forEach(k => descendantParams.push(k));
+        query.kind
+          .split(',')
+          .map((k) => k.trim())
+          .filter((k) => k)
+          .forEach((k) => descendantParams.push(k));
       }
 
       const items = await pool.query(itemsQuery, descendantParams);
@@ -4260,7 +4226,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM work_item_dependency wid
           WHERE wid.work_item_id IN (SELECT id FROM descendants)
             AND wid.depends_on_work_item_id IN (SELECT id FROM descendants)`,
-        [query.parent_id]
+        [query.parent_id],
       );
 
       await pool.end();
@@ -4289,7 +4255,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item wi
         ${whereClause}
         ORDER BY wi.not_before NULLS LAST, wi.created_at`,
-      params
+      params,
     );
 
     // Get all dependencies between dated items
@@ -4302,7 +4268,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          JOIN work_item wi1 ON wi1.id = wid.work_item_id
          JOIN work_item wi2 ON wi2.id = wid.depends_on_work_item_id
         WHERE (wi1.not_before IS NOT NULL OR wi1.not_after IS NOT NULL)
-          AND (wi2.not_before IS NOT NULL OR wi2.not_after IS NOT NULL)`
+          AND (wi2.not_before IS NOT NULL OR wi2.not_after IS NOT NULL)`,
     );
 
     await pool.end();
@@ -4318,10 +4284,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check if root item exists
-    const root = await pool.query(
-      `SELECT id FROM work_item WHERE id = $1`,
-      [params.id]
-    );
+    const root = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
 
     if (root.rows.length === 0) {
       await pool.end();
@@ -4356,7 +4319,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM descendants d
          JOIN work_item wi ON wi.id = d.id
         ORDER BY d.level, wi.not_before NULLS LAST, wi.created_at`,
-      [params.id]
+      [params.id],
     );
 
     // Get all dependencies between items in this subtree
@@ -4374,7 +4337,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_dependency wid
         WHERE wid.work_item_id IN (SELECT id FROM descendants)
           AND wid.depends_on_work_item_id IN (SELECT id FROM descendants)`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -4390,10 +4353,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check if root item exists
-    const root = await pool.query(
-      `SELECT id FROM work_item WHERE id = $1`,
-      [params.id]
-    );
+    const root = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
 
     if (root.rows.length === 0) {
       await pool.end();
@@ -4425,7 +4385,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM descendants d
          JOIN work_item wi ON wi.id = d.id
         ORDER BY d.level, wi.created_at`,
-      [params.id]
+      [params.id],
     );
 
     const itemIds = nodes.rows.map((n: { id: string }) => n.id);
@@ -4439,7 +4399,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_dependency wid
         WHERE wid.work_item_id = ANY($1)
           AND wid.depends_on_work_item_id = ANY($1)`,
-      [itemIds]
+      [itemIds],
     );
 
     // Identify blockers: open items that have open items depending on them
@@ -4496,11 +4456,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (visited.has(nodeId)) return [];
       visited.add(nodeId);
 
-      const node = nodes.rows.find((n: { id: string }) => n.id === nodeId) as {
-        id: string;
-        title: string;
-        estimate_minutes: number | null;
-      } | undefined;
+      const node = nodes.rows.find((n: { id: string }) => n.id === nodeId) as
+        | {
+            id: string;
+            title: string;
+            estimate_minutes: number | null;
+          }
+        | undefined;
 
       if (!node) return [];
 
@@ -4562,7 +4524,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          JOIN work_item wi2 ON wi2.id = wid.depends_on_work_item_id
         WHERE wid.work_item_id = $1
         ORDER BY wid.created_at DESC`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -4576,7 +4538,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE id = $1
           AND work_item_id = $2
       RETURNING id::text as id`,
-      [params.dependencyId, params.id]
+      [params.dependencyId, params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -4591,7 +4553,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_participant
         WHERE work_item_id = $1
         ORDER BY created_at DESC`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -4614,7 +4576,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (work_item_id, participant, role)
        DO UPDATE SET participant = EXCLUDED.participant
        RETURNING id::text as id, work_item_id::text as work_item_id, participant, role, created_at`,
-      [params.id, body.participant.trim(), body.role.trim()]
+      [params.id, body.participant.trim(), body.role.trim()],
     );
     await pool.end();
     return reply.code(201).send(result.rows[0]);
@@ -4628,7 +4590,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE id = $1
           AND work_item_id = $2
       RETURNING id::text as id`,
-      [params.participantId, params.id]
+      [params.participantId, params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -4654,7 +4616,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_external_link
         WHERE work_item_id = $1
         ORDER BY created_at DESC`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -4722,7 +4684,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         body.githubNumber ?? null,
         body.githubNodeId ?? null,
         body.githubProjectNodeId ?? null,
-      ]
+      ],
     );
     await pool.end();
     return reply.code(201).send(result.rows[0]);
@@ -4736,7 +4698,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE id = $1
           AND work_item_id = $2
       RETURNING id::text as id`,
-      [params.linkId, params.id]
+      [params.linkId, params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -4793,7 +4755,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE dep.kind = $3
        )
        SELECT 1 FROM walk WHERE id = $2 LIMIT 1`,
-      [dependsOnWorkItemId, params.id, kind]
+      [dependsOnWorkItemId, params.id, kind],
     );
 
     if (cycle.rows.length > 0) {
@@ -4805,7 +4767,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, $3)
        RETURNING id::text as id, work_item_id::text as work_item_id, depends_on_work_item_id::text as depends_on_work_item_id, kind`,
-      [params.id, dependsOnWorkItemId, kind]
+      [params.id, dependsOnWorkItemId, kind],
     );
 
     // Minimal scheduling: when establishing a precedence dependency, ensure the dependent cannot start
@@ -4817,11 +4779,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            JOIN work_item wi ON wi.id = wid.depends_on_work_item_id
           WHERE wid.work_item_id = $1
             AND wid.kind = 'depends_on'`,
-        [params.id]
+        [params.id],
       );
 
-      const latestBlockerTimeUnknown: unknown = (latest.rows[0] as { latest_blocker_time: unknown } | undefined)
-        ?.latest_blocker_time;
+      const latestBlockerTimeUnknown: unknown = (latest.rows[0] as { latest_blocker_time: unknown } | undefined)?.latest_blocker_time;
 
       let latestBlockerTimeIso: string | null = null;
       if (latestBlockerTimeUnknown instanceof Date) {
@@ -4842,7 +4803,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                               END,
                   updated_at = now()
             WHERE id = $1`,
-          [params.id, latestBlockerTimeIso]
+          [params.id, latestBlockerTimeIso],
         );
       }
     }
@@ -4869,7 +4830,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO contact (display_name, notes, contact_kind)
        VALUES ($1, $2, $3)
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
-      [body.displayName.trim(), body.notes ?? null, contactKind]
+      [body.displayName.trim(), body.notes ?? null, contactKind],
     );
     await pool.end();
 
@@ -4936,7 +4897,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             `INSERT INTO contact (display_name, notes, contact_kind)
              VALUES ($1, $2, $3)
              RETURNING id::text as id`,
-            [contact.displayName.trim(), contact.notes ?? null, bulkContactKind]
+            [contact.displayName.trim(), contact.notes ?? null, bulkContactKind],
           );
           const contactId = contactResult.rows[0].id;
 
@@ -4947,7 +4908,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 await client.query(
                   `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
                    VALUES ($1, $2, $3, $4::jsonb)`,
-                  [contactId, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {})]
+                  [contactId, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {})],
                 );
               }
             }
@@ -5022,10 +4983,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Filter by contact_kind (issue #489), supports comma-separated values
     if (contactKindFilter) {
-      const kinds = contactKindFilter.split(',').map(k => k.trim()).filter(k => VALID_CONTACT_KINDS.includes(k as ContactKind));
+      const kinds = contactKindFilter
+        .split(',')
+        .map((k) => k.trim())
+        .filter((k) => VALID_CONTACT_KINDS.includes(k as ContactKind));
       if (kinds.length > 0) {
         conditions.push(`c.contact_kind::text IN (${kinds.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
-        kinds.forEach(k => params.push(k));
+        kinds.forEach((k) => params.push(k));
         paramIndex += kinds.length;
       }
     }
@@ -5033,10 +4997,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Get total count
-    const countResult = await pool.query(
-      `SELECT COUNT(DISTINCT c.id) as total FROM contact c ${whereClause}`,
-      params
-    );
+    const countResult = await pool.query(`SELECT COUNT(DISTINCT c.id) as total FROM contact c ${whereClause}`, params);
     const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
     // Get contacts with endpoints
@@ -5054,7 +5015,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        GROUP BY c.id
        ORDER BY c.display_name
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
 
     await pool.end();
@@ -5084,7 +5045,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
        WHERE c.id = $1 ${deletedFilter}
        GROUP BY c.id`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -5150,7 +5111,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const result = await pool.query(
       `UPDATE contact SET ${updates.join(', ')} WHERE id = $${paramIndex}
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
-      values
+      values,
     );
 
     await pool.end();
@@ -5165,10 +5126,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
-      const result = await pool.query(
-        'DELETE FROM contact WHERE id = $1 RETURNING id::text as id',
-        [params.id]
-      );
+      const result = await pool.query('DELETE FROM contact WHERE id = $1 RETURNING id::text as id', [params.id]);
       await pool.end();
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
@@ -5181,7 +5139,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `UPDATE contact SET deleted_at = now()
        WHERE id = $1 AND deleted_at IS NULL
        RETURNING id::text as id`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -5202,7 +5160,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `UPDATE contact SET deleted_at = NULL
        WHERE id = $1 AND deleted_at IS NOT NULL
        RETURNING id::text as id, display_name`,
-      [params.id]
+      [params.id],
     );
     await pool.end();
 
@@ -5239,7 +5197,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        JOIN contact_endpoint ce ON ce.endpoint_type = et.channel AND ce.normalized_value = et.external_thread_key
        WHERE ce.contact_id = $1
        ORDER BY wi.created_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -5268,7 +5226,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          JOIN contact c ON c.id = wic.contact_id
         WHERE wic.work_item_id = $1
         ORDER BY wic.created_at ASC`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -5290,9 +5248,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const validRelationships = ['owner', 'assignee', 'stakeholder', 'reviewer'];
     if (!validRelationships.includes(body.relationship)) {
-      return reply
-        .code(400)
-        .send({ error: `relationship must be one of: ${validRelationships.join(', ')}` });
+      return reply.code(400).send({ error: `relationship must be one of: ${validRelationships.join(', ')}` });
     }
 
     const pool = createPool();
@@ -5305,10 +5261,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if contact exists and get its name
-    const contactResult = await pool.query(
-      'SELECT display_name FROM contact WHERE id = $1',
-      [body.contactId]
-    );
+    const contactResult = await pool.query('SELECT display_name FROM contact WHERE id = $1', [body.contactId]);
     if (contactResult.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'contact not found' });
@@ -5316,10 +5269,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const contactName = (contactResult.rows[0] as { display_name: string }).display_name;
 
     // Check if link already exists
-    const existingLink = await pool.query(
-      'SELECT 1 FROM work_item_contact WHERE work_item_id = $1 AND contact_id = $2',
-      [params.id, body.contactId]
-    );
+    const existingLink = await pool.query('SELECT 1 FROM work_item_contact WHERE work_item_id = $1 AND contact_id = $2', [params.id, body.contactId]);
     if (existingLink.rows.length > 0) {
       await pool.end();
       return reply.code(409).send({ error: 'contact already linked to this work item' });
@@ -5329,7 +5279,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_contact (work_item_id, contact_id, relationship)
        VALUES ($1, $2, $3::contact_relationship_type)`,
-      [params.id, body.contactId, body.relationship]
+      [params.id, body.contactId, body.relationship],
     );
 
     await pool.end();
@@ -5351,7 +5301,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_contact
        WHERE work_item_id = $1 AND contact_id = $2
        RETURNING work_item_id::text`,
-      [params.id, params.contactId]
+      [params.id, params.contactId],
     );
 
     await pool.end();
@@ -5382,7 +5332,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb))
        RETURNING id::text as id, contact_id::text as contact_id, endpoint_type::text as endpoint_type,
                  endpoint_value, normalized_value, metadata`,
-      [params.id, body.endpointType, body.endpointValue, body.metadata ? JSON.stringify(body.metadata) : null]
+      [params.id, body.endpointType, body.endpointValue, body.metadata ? JSON.stringify(body.metadata) : null],
     );
 
     await pool.end();
@@ -5406,7 +5356,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const search = query.search?.trim() || null;
     const typeFilter = query.type || null;
     const kindFilter = query.linkedItemKind || null;
-    const tagsFilter = query.tags ? query.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : null;
+    const tagsFilter = query.tags
+      ? query.tags
+          .split(',')
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : null;
 
     const pool = createPool();
 
@@ -5447,7 +5402,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM memory m
        JOIN work_item wi ON wi.id = m.work_item_id
        ${whereClause}`,
-      params
+      params,
     );
     const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
@@ -5471,7 +5426,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         ${whereClause}
         ORDER BY m.created_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-      params
+      params,
     );
 
     await pool.end();
@@ -5517,10 +5472,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check if linked work item exists and get its title
-    const linkedItem = await pool.query(
-      'SELECT title FROM work_item WHERE id = $1',
-      [body.linkedItemId]
-    );
+    const linkedItem = await pool.query('SELECT title FROM work_item WHERE id = $1', [body.linkedItemId]);
     if (linkedItem.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'linked item not found' });
@@ -5541,7 +5493,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  work_item_id::text as "linkedItemId",
                  created_at as "createdAt",
                  embedding_status`,
-      [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType, tags]
+      [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType, tags],
     );
 
     const row = result.rows[0] as {
@@ -5619,7 +5571,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  updated_at as "updatedAt"`,
       tags !== undefined
         ? [body.title.trim(), body.content.trim(), memoryType, params.id, tags]
-        : [body.title.trim(), body.content.trim(), memoryType, params.id]
+        : [body.title.trim(), body.content.trim(), memoryType, params.id],
     );
 
     const row = result.rows[0] as {
@@ -5650,10 +5602,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    const result = await pool.query(
-      'DELETE FROM memory WHERE id = $1 RETURNING id::text as id',
-      [params.id]
-    );
+    const result = await pool.query('DELETE FROM memory WHERE id = $1 RETURNING id::text as id', [params.id]);
 
     await pool.end();
 
@@ -5665,57 +5614,66 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/memories/search - Semantic search for memories (issue #200)
-  app.get('/api/memories/search', {
-    config: {
-      rateLimit: {
-        max: 30, // 30 requests per minute for search (expensive)
-        timeWindow: '1 minute',
+  app.get(
+    '/api/memories/search',
+    {
+      config: {
+        rateLimit: {
+          max: 30, // 30 requests per minute for search (expensive)
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    const query = req.query as {
-      q?: string;
-      limit?: string;
-      offset?: string;
-      memory_type?: string;
-      work_item_id?: string;
-      contact_id?: string;
-      relationship_id?: string;
-      user_email?: string;
-      tags?: string;
-    };
+    async (req, reply) => {
+      const query = req.query as {
+        q?: string;
+        limit?: string;
+        offset?: string;
+        memory_type?: string;
+        work_item_id?: string;
+        contact_id?: string;
+        relationship_id?: string;
+        user_email?: string;
+        tags?: string;
+      };
 
-    if (!query.q || query.q.trim().length === 0) {
-      return reply.code(400).send({ error: 'q (query) parameter is required' });
-    }
+      if (!query.q || query.q.trim().length === 0) {
+        return reply.code(400).send({ error: 'q (query) parameter is required' });
+      }
 
-    const limit = Math.min(Math.max(parseInt(query.limit || '20', 10), 1), 100);
-    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
-    const searchTags = query.tags ? query.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : undefined;
+      const limit = Math.min(Math.max(parseInt(query.limit || '20', 10), 1), 100);
+      const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+      const searchTags = query.tags
+        ? query.tags
+            .split(',')
+            .map((t: string) => t.trim())
+            .filter(Boolean)
+        : undefined;
 
-    const pool = createPool();
+      const pool = createPool();
 
-    try {
-      const result = await searchMemoriesSemantic(pool, query.q.trim(), {
-        limit,
-        offset,
-        memoryType: query.memory_type,
-        workItemId: query.work_item_id,
-        contactId: query.contact_id,
-        relationshipId: query.relationship_id,
-        userEmail: query.user_email,
-        tags: searchTags,
-      });
+      try {
+        const result = await searchMemoriesSemantic(pool, query.q.trim(), {
+          limit,
+          offset,
+          memoryType: query.memory_type,
+          workItemId: query.work_item_id,
+          contactId: query.contact_id,
+          relationshipId: query.relationship_id,
+          userEmail: query.user_email,
+          tags: searchTags,
+        });
 
-      return reply.send({
-        results: result.results,
-        search_type: result.searchType,
-        query_embedding_provider: result.queryEmbeddingProvider,
-      });
-    } finally {
-      await pool.end();
-    }
-  });
+        return reply.send({
+          results: result.results,
+          search_type: result.searchType,
+          query_embedding_provider: result.queryEmbeddingProvider,
+        });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // POST /api/admin/embeddings/backfill - Backfill embeddings for memories (issue #200)
   app.post('/api/admin/embeddings/backfill', async (req, reply) => {
@@ -6099,7 +6057,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              SET ${setClauses.join(', ')}
              WHERE id = $${paramCount}
              RETURNING id::text as id`,
-            values
+            values,
           );
 
           if (result.rows.length === 0) {
@@ -6336,9 +6294,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get stats
       const pendingResult = await getWebhookOutbox(pool, { status: 'pending', limit: 0 });
       const failedResult = await getWebhookOutbox(pool, { status: 'failed', limit: 0 });
-      const dispatchedResult = await pool.query(
-        `SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL`
-      );
+      const dispatchedResult = await pool.query(`SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL`);
 
       return reply.send({
         configured: config.configured,
@@ -6404,7 +6360,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM memory
         WHERE work_item_id = $1
         ORDER BY created_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -6448,7 +6404,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  memory_type::text as type,
                  created_at,
                  updated_at`,
-      [params.id, body.title.trim(), body.content.trim(), memoryType]
+      [params.id, body.title.trim(), body.content.trim(), memoryType],
     );
 
     await pool.end();
@@ -6513,7 +6469,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  memory_type::text as type,
                  created_at,
                  updated_at`,
-      values
+      values,
     );
 
     await pool.end();
@@ -6525,10 +6481,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    const result = await pool.query(
-      'DELETE FROM memory WHERE id = $1 RETURNING id::text as id',
-      [params.id]
-    );
+    const result = await pool.query('DELETE FROM memory WHERE id = $1 RETURNING id::text as id', [params.id]);
 
     await pool.end();
 
@@ -6582,7 +6535,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ON CONFLICT (memory_id, contact_id, relationship_type) DO UPDATE SET notes = EXCLUDED.notes
          RETURNING id::text as id, memory_id::text as "memoryId", contact_id::text as "contactId",
                    relationship_type::text as "relationshipType", notes, created_at as "createdAt"`,
-        [params.id, body.contactId, relationshipType, body.notes || null]
+        [params.id, body.contactId, relationshipType, body.notes || null],
       );
 
       return reply.code(201).send(result.rows[0]);
@@ -6742,10 +6695,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if both memories exist
-      const memoriesExist = await pool.query(
-        'SELECT id FROM memory WHERE id = ANY($1::uuid[])',
-        [[params.id, body.relatedMemoryId]]
-      );
+      const memoriesExist = await pool.query('SELECT id FROM memory WHERE id = ANY($1::uuid[])', [[params.id, body.relatedMemoryId]]);
       if (memoriesExist.rows.length < 2) {
         return reply.code(404).send({ error: 'one or both memories not found' });
       }
@@ -6759,7 +6709,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            notes = EXCLUDED.notes
          RETURNING id::text as id, memory_id::text as "memoryId", related_memory_id::text as "relatedMemoryId",
                    relationship_type::text as "relationshipType", notes, created_at as "createdAt"`,
-        [params.id, body.relatedMemoryId, relationshipType, body.notes || null]
+        [params.id, body.relatedMemoryId, relationshipType, body.notes || null],
       );
 
       return reply.code(201).send(result.rows[0]);
@@ -6860,7 +6810,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          WHERE (memory_id = $1 AND related_memory_id = $2)
             OR (memory_id = $2 AND related_memory_id = $1)
          RETURNING id::text as id`,
-        [params.memoryId, params.relatedMemoryId]
+        [params.memoryId, params.relatedMemoryId],
       );
 
       if (result.rows.length === 0) {
@@ -6888,7 +6838,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const sourceResult = await pool.query(
         `SELECT id, title, content, embedding, embedding_status
          FROM memory WHERE id = $1`,
-        [params.id]
+        [params.id],
       );
 
       if (sourceResult.rows.length === 0) {
@@ -6927,7 +6877,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            AND 1 - (m.embedding <=> $1::vector) >= $3
          ORDER BY m.embedding <=> $1::vector
          LIMIT $4`,
-        [source.embedding, params.id, threshold, limit]
+        [source.embedding, params.id, threshold, limit],
       );
 
       return reply.send({
@@ -6955,7 +6905,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const contactResult = await pool.query(
         `SELECT c.id, c.display_name, c.notes
          FROM contact c WHERE c.id = $1`,
-        [params.id]
+        [params.id],
       );
 
       if (contactResult.rows.length === 0) {
@@ -6971,7 +6921,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            AND m.embedding IS NOT NULL
            AND m.embedding_status = 'complete'
          LIMIT 5`,
-        [params.id]
+        [params.id],
       );
 
       if (linkedMemoriesResult.rows.length === 0) {
@@ -7010,7 +6960,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              AND 1 - (m.embedding <=> $1::vector) >= $2
            ORDER BY m.embedding <=> $1::vector
            LIMIT $3`,
-          [embeddingStr, threshold, limit]
+          [embeddingStr, threshold, limit],
         );
 
         return reply.send({
@@ -7044,7 +6994,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            )
          ORDER BY m.embedding <=> $1::vector
          LIMIT $4`,
-        [queryEmbedding, threshold, params.id, limit]
+        [queryEmbedding, threshold, params.id, limit],
       );
 
       return reply.send({
@@ -7070,10 +7020,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if work item exists
-      const workItemResult = await pool.query(
-        'SELECT id, title, description FROM work_item WHERE id = $1',
-        [params.id]
-      );
+      const workItemResult = await pool.query('SELECT id, title, description FROM work_item WHERE id = $1', [params.id]);
 
       if (workItemResult.rows.length === 0) {
         return reply.code(404).send({ error: 'work item not found' });
@@ -7088,7 +7035,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_contact wic
          JOIN contact c ON c.id = wic.contact_id
          WHERE wic.work_item_id = $1`,
-        [params.id]
+        [params.id],
       );
 
       // Get directly linked memories
@@ -7100,7 +7047,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 'direct' as "linkType"
          FROM memory m
          WHERE m.work_item_id = $1`,
-        [params.id]
+        [params.id],
       );
 
       // Get contacts linked through memories
@@ -7116,7 +7063,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            AND c.id NOT IN (
              SELECT contact_id FROM work_item_contact WHERE work_item_id = $1
            )`,
-        [params.id]
+        [params.id],
       );
 
       // Try to find semantically similar memories (if embeddings available)
@@ -7128,7 +7075,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            AND m.embedding IS NOT NULL
            AND m.embedding_status = 'complete'
          LIMIT 3`,
-        [params.id]
+        [params.id],
       );
 
       if (workItemMemoriesWithEmbeddings.rows.length > 0) {
@@ -7149,7 +7096,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              AND 1 - (m.embedding <=> $1::vector) >= $3
            ORDER BY m.embedding <=> $1::vector
            LIMIT $4`,
-          [queryEmbedding, params.id, threshold, limit]
+          [queryEmbedding, params.id, threshold, limit],
         );
 
         similarMemories = similarResult.rows;
@@ -7204,7 +7151,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          LEFT JOIN external_message em ON em.id = wic.message_id
         WHERE wic.work_item_id = $1
         ORDER BY em.received_at DESC NULLS LAST`,
-      [params.id]
+      [params.id],
     );
 
     // Separate by channel type
@@ -7283,7 +7230,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE wic.work_item_id = $1
           AND et.channel = 'email'
         ORDER BY em.received_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     const emails = result.rows.map((row) => {
@@ -7336,7 +7283,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE wic.work_item_id = $1
           AND (em.raw->>'type') = 'calendar_event'
         ORDER BY (em.raw->>'startTime') ASC`,
-      [params.id]
+      [params.id],
     );
 
     const events = result.rows.map((row) => {
@@ -7385,10 +7332,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if email message exists and get its thread
-    const emailExists = await pool.query(
-      'SELECT thread_id FROM external_message WHERE id = $1',
-      [body.emailId]
-    );
+    const emailExists = await pool.query('SELECT thread_id FROM external_message WHERE id = $1', [body.emailId]);
     if (emailExists.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'email not found' });
@@ -7402,7 +7346,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (work_item_id) DO UPDATE
          SET thread_id = EXCLUDED.thread_id,
              message_id = EXCLUDED.message_id`,
-      [params.id, threadId, body.emailId]
+      [params.id, threadId, body.emailId],
     );
 
     await pool.end();
@@ -7429,7 +7373,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_communication
        WHERE work_item_id = $1 AND message_id = $2
        RETURNING work_item_id::text`,
-      [params.id, params.emailId]
+      [params.id, params.emailId],
     );
 
     await pool.end();
@@ -7461,10 +7405,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if event message exists and get its thread
-    const eventExists = await pool.query(
-      'SELECT thread_id FROM external_message WHERE id = $1',
-      [body.eventId]
-    );
+    const eventExists = await pool.query('SELECT thread_id FROM external_message WHERE id = $1', [body.eventId]);
     if (eventExists.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'event not found' });
@@ -7478,7 +7419,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (work_item_id) DO UPDATE
          SET thread_id = EXCLUDED.thread_id,
              message_id = EXCLUDED.message_id`,
-      [params.id, threadId, body.eventId]
+      [params.id, threadId, body.eventId],
     );
 
     await pool.end();
@@ -7505,7 +7446,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_communication
        WHERE work_item_id = $1 AND message_id = $2
        RETURNING work_item_id::text`,
-      [params.id, params.eventId]
+      [params.id, params.eventId],
     );
 
     await pool.end();
@@ -7559,7 +7500,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  thread_id::text as thread_id,
                  message_id::text as message_id,
                  action::text as action`,
-      [params.id, body.threadId, body.messageId ?? null, action]
+      [params.id, body.threadId, body.messageId ?? null, action],
     );
 
     await pool.end();
@@ -7583,7 +7524,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_communication
        WHERE work_item_id = $1 AND thread_id = $2
        RETURNING work_item_id::text as work_item_id`,
-      [params.id, params.commId]
+      [params.id, params.commId],
     );
 
     await pool.end();
@@ -7614,9 +7555,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (!body?.externalThreadKey || !body?.externalMessageKey || !body?.direction) {
-      return reply
-        .code(400)
-        .send({ error: 'externalThreadKey, externalMessageKey, and direction are required' });
+      return reply.code(400).send({ error: 'externalThreadKey, externalMessageKey, and direction are required' });
     }
 
     const pool = createPool();
@@ -7634,7 +7573,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE ce.endpoint_type = $1::contact_endpoint_type
             AND ce.normalized_value = normalize_contact_endpoint_value($1::contact_endpoint_type, $2)
           LIMIT 1`,
-        [body.endpointType, body.endpointValue]
+        [body.endpointType, body.endpointValue],
       );
 
       let contactId: string;
@@ -7648,7 +7587,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           `INSERT INTO contact (display_name)
            VALUES ($1)
            RETURNING id::text as id`,
-          [displayName.length > 0 ? displayName : 'Unknown']
+          [displayName.length > 0 ? displayName : 'Unknown'],
         );
         contactId = contact.rows[0].id;
 
@@ -7656,7 +7595,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
            VALUES ($1, $2::contact_endpoint_type, $3)
            RETURNING id::text as id`,
-          [contactId, body.endpointType, body.endpointValue]
+          [contactId, body.endpointType, body.endpointValue],
         );
         endpointId = endpoint.rows[0].id;
       }
@@ -7667,7 +7606,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ON CONFLICT (channel, external_thread_key)
          DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, updated_at = now()
          RETURNING id::text as id`,
-        [endpointId, body.endpointType, body.externalThreadKey]
+        [endpointId, body.endpointType, body.externalThreadKey],
       );
       const threadId = thread.rows[0].id as string;
 
@@ -7677,14 +7616,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ON CONFLICT (thread_id, external_message_key)
          DO UPDATE SET body = EXCLUDED.body
          RETURNING id::text as id`,
-        [
-          threadId,
-          body.externalMessageKey,
-          body.direction,
-          body.messageBody ?? null,
-          body.raw ? JSON.stringify(body.raw) : null,
-          body.receivedAt ?? null,
-        ]
+        [threadId, body.externalMessageKey, body.direction, body.messageBody ?? null, body.raw ? JSON.stringify(body.raw) : null, body.receivedAt ?? null],
       );
       const messageId = message.rows[0].id as string;
 
@@ -7706,58 +7638,59 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Twilio SMS Inbound Webhook (Issue #202)
   // POST /api/twilio/sms - Receive Twilio SMS webhooks
-  app.post('/api/twilio/sms', {
-    config: {
-      rateLimit: {
-        max: 60, // 60 requests per minute for webhooks
-        timeWindow: '1 minute',
+  app.post(
+    '/api/twilio/sms',
+    {
+      config: {
+        rateLimit: {
+          max: 60, // 60 requests per minute for webhooks
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Check IP whitelist (Issue #318) - defense in depth
-    await twilioIPWhitelistMiddleware(req, reply);
-    if (reply.sent) return;
+    async (req, reply) => {
+      // Check IP whitelist (Issue #318) - defense in depth
+      await twilioIPWhitelistMiddleware(req, reply);
+      if (reply.sent) return;
 
-    // Verify Twilio signature (unless auth disabled or in dev mode without config)
-    if (!isAuthDisabled()) {
-      if (!isWebhookVerificationConfigured('twilio')) {
-        console.warn('[Twilio] TWILIO_AUTH_TOKEN not configured, rejecting webhook');
-        return reply.code(503).send({ error: 'Twilio webhook not configured' });
+      // Verify Twilio signature (unless auth disabled or in dev mode without config)
+      if (!isAuthDisabled()) {
+        if (!isWebhookVerificationConfigured('twilio')) {
+          console.warn('[Twilio] TWILIO_AUTH_TOKEN not configured, rejecting webhook');
+          return reply.code(503).send({ error: 'Twilio webhook not configured' });
+        }
+
+        if (!verifyTwilioSignature(req)) {
+          console.warn('[Twilio] Invalid signature on SMS webhook');
+          return reply.code(401).send({ error: 'Invalid signature' });
+        }
       }
 
-      if (!verifyTwilioSignature(req)) {
-        console.warn('[Twilio] Invalid signature on SMS webhook');
-        return reply.code(401).send({ error: 'Invalid signature' });
+      // Twilio sends webhooks as application/x-www-form-urlencoded
+      const payload = req.body as TwilioSmsWebhookPayload;
+
+      // Validate required fields
+      if (!payload.MessageSid || !payload.From || !payload.To) {
+        return reply.code(400).send({ error: 'Missing required fields: MessageSid, From, To' });
       }
-    }
 
-    // Twilio sends webhooks as application/x-www-form-urlencoded
-    const payload = req.body as TwilioSmsWebhookPayload;
+      const pool = createPool();
 
-    // Validate required fields
-    if (!payload.MessageSid || !payload.From || !payload.To) {
-      return reply.code(400).send({ error: 'Missing required fields: MessageSid, From, To' });
-    }
+      try {
+        const result = await processTwilioSms(pool, payload);
 
-    const pool = createPool();
+        console.log(`[Twilio] SMS from ${payload.From}: contactId=${result.contactId}, ` + `messageId=${result.messageId}, isNew=${result.isNewContact}`);
 
-    try {
-      const result = await processTwilioSms(pool, payload);
+        // TODO: Queue webhook to notify OpenClaw of new inbound message (#201)
 
-      console.log(
-        `[Twilio] SMS from ${payload.From}: contactId=${result.contactId}, ` +
-        `messageId=${result.messageId}, isNew=${result.isNewContact}`
-      );
-
-      // TODO: Queue webhook to notify OpenClaw of new inbound message (#201)
-
-      // Return TwiML response (empty means no auto-reply)
-      reply.header('Content-Type', 'application/xml');
-      return reply.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
-    } finally {
-      await pool.end();
-    }
-  });
+        // Return TwiML response (empty means no auto-reply)
+        reply.header('Content-Type', 'application/xml');
+        return reply.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Twilio SMS Outbound Send (Issue #291)
   // POST /api/twilio/sms/send - Send SMS via Twilio
@@ -7768,222 +7701,235 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       threadId?: string;
       idempotencyKey?: string;
     };
-  }>('/api/twilio/sms/send', {
-    config: {
-      rateLimit: {
-        max: 30, // 30 requests per minute for sending
-        timeWindow: '1 minute',
+  }>(
+    '/api/twilio/sms/send',
+    {
+      config: {
+        rateLimit: {
+          max: 30, // 30 requests per minute for sending
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Require authentication for sending
-    if (!isAuthDisabled()) {
-      const secret = getCachedSecret();
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
+    async (req, reply) => {
+      // Require authentication for sending
+      if (!isAuthDisabled()) {
+        const secret = getCachedSecret();
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '');
 
-      if (!secret || !compareSecrets(token, secret)) {
-        return reply.code(401).send({ error: 'Unauthorized' });
-      }
-    }
-
-    // Check if Twilio is configured
-    if (!isTwilioConfigured()) {
-      return reply.code(503).send({
-        error: 'Twilio not configured',
-        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
-      });
-    }
-
-    const { to, body, threadId, idempotencyKey } = req.body;
-
-    // Validate required fields
-    if (!to || !body) {
-      return reply.code(400).send({ error: 'Missing required fields: to, body' });
-    }
-
-    const pool = createPool();
-
-    try {
-      const result = await enqueueSmsMessage(pool, {
-        to,
-        body,
-        threadId,
-        idempotencyKey,
-      });
-
-      console.log(
-        `[Twilio] SMS queued: to=${to}, messageId=${result.messageId}, ` +
-        `idempotencyKey=${result.idempotencyKey}`
-      );
-
-      return reply.code(202).send({
-        messageId: result.messageId,
-        threadId: result.threadId,
-        status: result.status,
-        idempotencyKey: result.idempotencyKey,
-      });
-    } catch (error) {
-      const err = error as Error;
-      console.error('[Twilio] SMS send error:', err);
-
-      if (err.message.includes('Invalid phone')) {
-        return reply.code(400).send({ error: err.message });
+        if (!secret || !compareSecrets(token, secret)) {
+          return reply.code(401).send({ error: 'Unauthorized' });
+        }
       }
 
-      if (err.message.includes('body')) {
-        return reply.code(400).send({ error: err.message });
+      // Check if Twilio is configured
+      if (!isTwilioConfigured()) {
+        return reply.code(503).send({
+          error: 'Twilio not configured',
+          message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+        });
       }
 
-      return reply.code(500).send({ error: 'Internal server error' });
-    } finally {
-      await pool.end();
-    }
-  });
+      const { to, body, threadId, idempotencyKey } = req.body;
+
+      // Validate required fields
+      if (!to || !body) {
+        return reply.code(400).send({ error: 'Missing required fields: to, body' });
+      }
+
+      const pool = createPool();
+
+      try {
+        const result = await enqueueSmsMessage(pool, {
+          to,
+          body,
+          threadId,
+          idempotencyKey,
+        });
+
+        console.log(`[Twilio] SMS queued: to=${to}, messageId=${result.messageId}, ` + `idempotencyKey=${result.idempotencyKey}`);
+
+        return reply.code(202).send({
+          messageId: result.messageId,
+          threadId: result.threadId,
+          status: result.status,
+          idempotencyKey: result.idempotencyKey,
+        });
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Twilio] SMS send error:', err);
+
+        if (err.message.includes('Invalid phone')) {
+          return reply.code(400).send({ error: err.message });
+        }
+
+        if (err.message.includes('body')) {
+          return reply.code(400).send({ error: err.message });
+        }
+
+        return reply.code(500).send({ error: 'Internal server error' });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Twilio SMS Delivery Status Webhook (Issue #292)
   // POST /api/twilio/sms/status - Receive Twilio delivery status callbacks
-  app.post('/api/twilio/sms/status', {
-    config: {
-      rateLimit: {
-        max: 120, // Higher limit for status callbacks (can come in bursts)
-        timeWindow: '1 minute',
+  app.post(
+    '/api/twilio/sms/status',
+    {
+      config: {
+        rateLimit: {
+          max: 120, // Higher limit for status callbacks (can come in bursts)
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Check IP whitelist (Issue #318) - defense in depth
-    await twilioIPWhitelistMiddleware(req, reply);
-    if (reply.sent) return;
+    async (req, reply) => {
+      // Check IP whitelist (Issue #318) - defense in depth
+      await twilioIPWhitelistMiddleware(req, reply);
+      if (reply.sent) return;
 
-    // Verify Twilio signature (unless auth disabled or in dev mode)
-    if (!isAuthDisabled()) {
-      if (!isWebhookVerificationConfigured('twilio')) {
-        console.warn('[Twilio] TWILIO_AUTH_TOKEN not configured, rejecting status webhook');
-        return reply.code(503).send({ error: 'Twilio webhook not configured' });
+      // Verify Twilio signature (unless auth disabled or in dev mode)
+      if (!isAuthDisabled()) {
+        if (!isWebhookVerificationConfigured('twilio')) {
+          console.warn('[Twilio] TWILIO_AUTH_TOKEN not configured, rejecting status webhook');
+          return reply.code(503).send({ error: 'Twilio webhook not configured' });
+        }
+
+        if (!verifyTwilioSignature(req)) {
+          console.warn('[Twilio] Invalid signature on status webhook');
+          return reply.code(401).send({ error: 'Invalid signature' });
+        }
       }
 
-      if (!verifyTwilioSignature(req)) {
-        console.warn('[Twilio] Invalid signature on status webhook');
-        return reply.code(401).send({ error: 'Invalid signature' });
-      }
-    }
+      // Twilio sends status callbacks as URL-encoded form data
+      const callback = req.body as TwilioStatusCallback;
 
-    // Twilio sends status callbacks as URL-encoded form data
-    const callback = req.body as TwilioStatusCallback;
-
-    // Validate required fields
-    if (!callback.MessageSid || !callback.MessageStatus) {
-      return reply.code(400).send({ error: 'Missing required fields: MessageSid, MessageStatus' });
-    }
-
-    const pool = createPool();
-
-    try {
-      const result = await processDeliveryStatus(pool, callback);
-
-      if (result.notFound) {
-        // Return 404 but Twilio will retry - this is expected for messages
-        // we didn't send through this system
-        return reply.code(404).send({ error: 'Message not found' });
+      // Validate required fields
+      if (!callback.MessageSid || !callback.MessageStatus) {
+        return reply.code(400).send({ error: 'Missing required fields: MessageSid, MessageStatus' });
       }
 
-      if (!result.success) {
-        console.error(`[Twilio] Status processing failed: ${result.error}`);
-        return reply.code(500).send({ error: 'Processing failed' });
-      }
+      const pool = createPool();
 
-      // Return success (Twilio expects 200-299 to stop retrying)
-      return reply.code(200).send({
-        success: true,
-        messageId: result.messageId,
-        statusUnchanged: result.statusUnchanged || false,
-      });
-    } finally {
-      await pool.end();
-    }
-  });
+      try {
+        const result = await processDeliveryStatus(pool, callback);
+
+        if (result.notFound) {
+          // Return 404 but Twilio will retry - this is expected for messages
+          // we didn't send through this system
+          return reply.code(404).send({ error: 'Message not found' });
+        }
+
+        if (!result.success) {
+          console.error(`[Twilio] Status processing failed: ${result.error}`);
+          return reply.code(500).send({ error: 'Processing failed' });
+        }
+
+        // Return success (Twilio expects 200-299 to stop retrying)
+        return reply.code(200).send({
+          success: true,
+          messageId: result.messageId,
+          statusUnchanged: result.statusUnchanged || false,
+        });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Twilio Phone Number Management (Issue #300)
   // GET /api/twilio/numbers - List all Twilio phone numbers
-  app.get('/api/twilio/numbers', {
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
+  app.get(
+    '/api/twilio/numbers',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Require authentication
-    if (!isAuthDisabled()) {
-      const secret = getCachedSecret();
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
+    async (req, reply) => {
+      // Require authentication
+      if (!isAuthDisabled()) {
+        const secret = getCachedSecret();
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '');
 
-      if (!secret || !compareSecrets(token, secret)) {
-        return reply.code(401).send({ error: 'Unauthorized' });
+        if (!secret || !compareSecrets(token, secret)) {
+          return reply.code(401).send({ error: 'Unauthorized' });
+        }
       }
-    }
 
-    // Check if Twilio is configured
-    if (!isTwilioConfigured()) {
-      return reply.code(503).send({
-        error: 'Twilio not configured',
-        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
-      });
-    }
+      // Check if Twilio is configured
+      if (!isTwilioConfigured()) {
+        return reply.code(503).send({
+          error: 'Twilio not configured',
+          message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+        });
+      }
 
-    try {
-      const numbers = await listPhoneNumbers();
-      return reply.code(200).send({ numbers });
-    } catch (error) {
-      console.error('[Twilio] Error listing phone numbers:', error);
-      return reply.code(500).send({ error: 'Failed to list phone numbers' });
-    }
-  });
+      try {
+        const numbers = await listPhoneNumbers();
+        return reply.code(200).send({ numbers });
+      } catch (error) {
+        console.error('[Twilio] Error listing phone numbers:', error);
+        return reply.code(500).send({ error: 'Failed to list phone numbers' });
+      }
+    },
+  );
 
   // GET /api/twilio/numbers/:phoneNumber - Get phone number details
   app.get<{
     Params: { phoneNumber: string };
-  }>('/api/twilio/numbers/:phoneNumber', {
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
+  }>(
+    '/api/twilio/numbers/:phoneNumber',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Require authentication
-    if (!isAuthDisabled()) {
-      const secret = getCachedSecret();
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
+    async (req, reply) => {
+      // Require authentication
+      if (!isAuthDisabled()) {
+        const secret = getCachedSecret();
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '');
 
-      if (!secret || !compareSecrets(token, secret)) {
-        return reply.code(401).send({ error: 'Unauthorized' });
+        if (!secret || !compareSecrets(token, secret)) {
+          return reply.code(401).send({ error: 'Unauthorized' });
+        }
       }
-    }
 
-    // Check if Twilio is configured
-    if (!isTwilioConfigured()) {
-      return reply.code(503).send({
-        error: 'Twilio not configured',
-        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
-      });
-    }
-
-    try {
-      const { phoneNumber } = req.params;
-      const details = await getPhoneNumberDetails(decodeURIComponent(phoneNumber));
-      return reply.code(200).send(details);
-    } catch (error) {
-      const err = error as Error;
-      if (err.message.includes('not found')) {
-        return reply.code(404).send({ error: err.message });
+      // Check if Twilio is configured
+      if (!isTwilioConfigured()) {
+        return reply.code(503).send({
+          error: 'Twilio not configured',
+          message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+        });
       }
-      console.error('[Twilio] Error getting phone number details:', error);
-      return reply.code(500).send({ error: 'Failed to get phone number details' });
-    }
-  });
+
+      try {
+        const { phoneNumber } = req.params;
+        const details = await getPhoneNumberDetails(decodeURIComponent(phoneNumber));
+        return reply.code(200).send(details);
+      } catch (error) {
+        const err = error as Error;
+        if (err.message.includes('not found')) {
+          return reply.code(404).send({ error: err.message });
+        }
+        console.error('[Twilio] Error getting phone number details:', error);
+        return reply.code(500).send({ error: 'Failed to get phone number details' });
+      }
+    },
+  );
 
   // PATCH /api/twilio/numbers/:phoneNumber - Update phone number webhooks
   app.patch<{
@@ -7998,126 +7944,129 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       statusCallbackUrl?: string;
       statusCallbackMethod?: 'GET' | 'POST';
     };
-  }>('/api/twilio/numbers/:phoneNumber', {
-    config: {
-      rateLimit: {
-        max: 10, // Lower limit for config changes
-        timeWindow: '1 minute',
+  }>(
+    '/api/twilio/numbers/:phoneNumber',
+    {
+      config: {
+        rateLimit: {
+          max: 10, // Lower limit for config changes
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Require authentication
-    if (!isAuthDisabled()) {
-      const secret = getCachedSecret();
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
+    async (req, reply) => {
+      // Require authentication
+      if (!isAuthDisabled()) {
+        const secret = getCachedSecret();
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '');
 
-      if (!secret || !compareSecrets(token, secret)) {
-        return reply.code(401).send({ error: 'Unauthorized' });
-      }
-    }
-
-    // Check if Twilio is configured
-    if (!isTwilioConfigured()) {
-      return reply.code(503).send({
-        error: 'Twilio not configured',
-        message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
-      });
-    }
-
-    const pool = createPool();
-
-    try {
-      const { phoneNumber } = req.params;
-      const options = req.body;
-
-      // Extract actor ID from auth token if available (for audit logging)
-      const actorId = req.headers['x-actor-id'] as string | undefined;
-
-      const updated = await updatePhoneNumberWebhooks(
-        decodeURIComponent(phoneNumber),
-        options,
-        pool,
-        actorId
-      );
-
-      return reply.code(200).send(updated);
-    } catch (error) {
-      const err = error as Error;
-
-      // URL validation errors
-      if (err.message.includes('Invalid URL') || err.message.includes('must use HTTPS')) {
-        return reply.code(400).send({ error: err.message });
+        if (!secret || !compareSecrets(token, secret)) {
+          return reply.code(401).send({ error: 'Unauthorized' });
+        }
       }
 
-      // Not found
-      if (err.message.includes('not found')) {
-        return reply.code(404).send({ error: err.message });
+      // Check if Twilio is configured
+      if (!isTwilioConfigured()) {
+        return reply.code(503).send({
+          error: 'Twilio not configured',
+          message: 'Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER',
+        });
       }
 
-      console.error('[Twilio] Error updating phone number webhooks:', error);
-      return reply.code(500).send({ error: 'Failed to update phone number webhooks' });
-    } finally {
-      await pool.end();
-    }
-  });
+      const pool = createPool();
+
+      try {
+        const { phoneNumber } = req.params;
+        const options = req.body;
+
+        // Extract actor ID from auth token if available (for audit logging)
+        const actorId = req.headers['x-actor-id'] as string | undefined;
+
+        const updated = await updatePhoneNumberWebhooks(decodeURIComponent(phoneNumber), options, pool, actorId);
+
+        return reply.code(200).send(updated);
+      } catch (error) {
+        const err = error as Error;
+
+        // URL validation errors
+        if (err.message.includes('Invalid URL') || err.message.includes('must use HTTPS')) {
+          return reply.code(400).send({ error: err.message });
+        }
+
+        // Not found
+        if (err.message.includes('not found')) {
+          return reply.code(404).send({ error: err.message });
+        }
+
+        console.error('[Twilio] Error updating phone number webhooks:', error);
+        return reply.code(500).send({ error: 'Failed to update phone number webhooks' });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Postmark Email Inbound Webhook (Issue #203)
   // POST /api/postmark/inbound - Receive Postmark inbound email webhooks
-  app.post('/api/postmark/inbound', {
-    config: {
-      rateLimit: {
-        max: 60, // 60 requests per minute for webhooks
-        timeWindow: '1 minute',
+  app.post(
+    '/api/postmark/inbound',
+    {
+      config: {
+        rateLimit: {
+          max: 60, // 60 requests per minute for webhooks
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Check IP whitelist (Issue #318) - defense in depth
-    await postmarkIPWhitelistMiddleware(req, reply);
-    if (reply.sent) return;
+    async (req, reply) => {
+      // Check IP whitelist (Issue #318) - defense in depth
+      await postmarkIPWhitelistMiddleware(req, reply);
+      if (reply.sent) return;
 
-    // Verify Postmark auth (Basic Auth unless auth disabled)
-    if (!isAuthDisabled()) {
-      if (!verifyPostmarkAuth(req)) {
-        console.warn('[Postmark] Invalid authentication on inbound webhook');
-        return reply.code(401).send({ error: 'Invalid authentication' });
+      // Verify Postmark auth (Basic Auth unless auth disabled)
+      if (!isAuthDisabled()) {
+        if (!verifyPostmarkAuth(req)) {
+          console.warn('[Postmark] Invalid authentication on inbound webhook');
+          return reply.code(401).send({ error: 'Invalid authentication' });
+        }
       }
-    }
 
-    // Postmark sends JSON webhooks
-    const payload = req.body as PostmarkInboundPayload;
+      // Postmark sends JSON webhooks
+      const payload = req.body as PostmarkInboundPayload;
 
-    // Validate required fields
-    if (!payload.MessageID || !payload.FromFull?.Email) {
-      return reply.code(400).send({ error: 'Missing required fields: MessageID, FromFull.Email' });
-    }
+      // Validate required fields
+      if (!payload.MessageID || !payload.FromFull?.Email) {
+        return reply.code(400).send({ error: 'Missing required fields: MessageID, FromFull.Email' });
+      }
 
-    const pool = createPool();
+      const pool = createPool();
 
-    try {
-      const result = await processPostmarkEmail(pool, payload);
+      try {
+        const result = await processPostmarkEmail(pool, payload);
 
-      console.log(
-        `[Postmark] Email from ${payload.FromFull.Email}: subject="${payload.Subject}", ` +
-        `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`
-      );
+        console.log(
+          `[Postmark] Email from ${payload.FromFull.Email}: subject="${payload.Subject}", ` +
+            `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`,
+        );
 
-      // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
+        // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
 
-      // Return success
-      return reply.code(200).send({
-        success: true,
-        contactId: result.contactId,
-        threadId: result.threadId,
-        messageId: result.messageId,
-      });
-    } catch (error) {
-      console.error('[Postmark] Error processing email:', error);
-      throw error;
-    } finally {
-      await pool.end();
-    }
-  });
+        // Return success
+        return reply.code(200).send({
+          success: true,
+          contactId: result.contactId,
+          threadId: result.threadId,
+          messageId: result.messageId,
+        });
+      } catch (error) {
+        console.error('[Postmark] Error processing email:', error);
+        throw error;
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Postmark Email Outbound Send (Issue #293)
   // POST /api/postmark/email/send - Send email via Postmark
@@ -8131,210 +8080,219 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       replyToMessageId?: string;
       idempotencyKey?: string;
     };
-  }>('/api/postmark/email/send', {
-    config: {
-      rateLimit: {
-        max: 30, // 30 requests per minute for sending
-        timeWindow: '1 minute',
+  }>(
+    '/api/postmark/email/send',
+    {
+      config: {
+        rateLimit: {
+          max: 30, // 30 requests per minute for sending
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Require authentication for sending
-    if (!isAuthDisabled()) {
-      const secret = getCachedSecret();
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
+    async (req, reply) => {
+      // Require authentication for sending
+      if (!isAuthDisabled()) {
+        const secret = getCachedSecret();
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '');
 
-      if (!secret || !compareSecrets(token, secret)) {
-        return reply.code(401).send({ error: 'Unauthorized' });
-      }
-    }
-
-    // Check if Postmark is configured
-    if (!isPostmarkConfigured()) {
-      return reply.code(503).send({
-        error: 'Postmark not configured',
-        message: 'Required env vars: POSTMARK_SERVER_TOKEN (or POSTMARK_TRANSACTIONAL_TOKEN), POSTMARK_FROM_EMAIL',
-      });
-    }
-
-    const { to, subject, body, htmlBody, threadId, replyToMessageId, idempotencyKey } = req.body;
-
-    // Validate required fields
-    if (!to || !subject || !body) {
-      return reply.code(400).send({ error: 'Missing required fields: to, subject, body' });
-    }
-
-    const pool = createPool();
-
-    try {
-      const result = await enqueueEmailMessage(pool, {
-        to,
-        subject,
-        body,
-        htmlBody,
-        threadId,
-        replyToMessageId,
-        idempotencyKey,
-      });
-
-      console.log(
-        `[Postmark] Email queued: to=${to}, messageId=${result.messageId}, ` +
-        `idempotencyKey=${result.idempotencyKey}`
-      );
-
-      return reply.code(202).send({
-        messageId: result.messageId,
-        threadId: result.threadId,
-        status: result.status,
-        idempotencyKey: result.idempotencyKey,
-      });
-    } catch (error) {
-      const err = error as Error;
-      console.error('[Postmark] Email send error:', err);
-
-      if (err.message.includes('Invalid email')) {
-        return reply.code(400).send({ error: err.message });
+        if (!secret || !compareSecrets(token, secret)) {
+          return reply.code(401).send({ error: 'Unauthorized' });
+        }
       }
 
-      if (err.message.includes('Subject') || err.message.includes('Body')) {
-        return reply.code(400).send({ error: err.message });
+      // Check if Postmark is configured
+      if (!isPostmarkConfigured()) {
+        return reply.code(503).send({
+          error: 'Postmark not configured',
+          message: 'Required env vars: POSTMARK_SERVER_TOKEN (or POSTMARK_TRANSACTIONAL_TOKEN), POSTMARK_FROM_EMAIL',
+        });
       }
 
-      return reply.code(500).send({ error: 'Internal server error' });
-    } finally {
-      await pool.end();
-    }
-  });
+      const { to, subject, body, htmlBody, threadId, replyToMessageId, idempotencyKey } = req.body;
+
+      // Validate required fields
+      if (!to || !subject || !body) {
+        return reply.code(400).send({ error: 'Missing required fields: to, subject, body' });
+      }
+
+      const pool = createPool();
+
+      try {
+        const result = await enqueueEmailMessage(pool, {
+          to,
+          subject,
+          body,
+          htmlBody,
+          threadId,
+          replyToMessageId,
+          idempotencyKey,
+        });
+
+        console.log(`[Postmark] Email queued: to=${to}, messageId=${result.messageId}, ` + `idempotencyKey=${result.idempotencyKey}`);
+
+        return reply.code(202).send({
+          messageId: result.messageId,
+          threadId: result.threadId,
+          status: result.status,
+          idempotencyKey: result.idempotencyKey,
+        });
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Postmark] Email send error:', err);
+
+        if (err.message.includes('Invalid email')) {
+          return reply.code(400).send({ error: err.message });
+        }
+
+        if (err.message.includes('Subject') || err.message.includes('Body')) {
+          return reply.code(400).send({ error: err.message });
+        }
+
+        return reply.code(500).send({ error: 'Internal server error' });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Postmark Delivery Status Webhook (Issue #294)
   // POST /api/postmark/email/status - Receive delivery status updates from Postmark
-  app.post('/api/postmark/email/status', {
-    config: {
-      rateLimit: {
-        max: 100, // 100 requests per minute for webhooks
-        timeWindow: '1 minute',
+  app.post(
+    '/api/postmark/email/status',
+    {
+      config: {
+        rateLimit: {
+          max: 100, // 100 requests per minute for webhooks
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Check IP whitelist (Issue #318) - defense in depth
-    await postmarkIPWhitelistMiddleware(req, reply);
-    if (reply.sent) return;
+    async (req, reply) => {
+      // Check IP whitelist (Issue #318) - defense in depth
+      await postmarkIPWhitelistMiddleware(req, reply);
+      if (reply.sent) return;
 
-    // Verify Postmark webhook auth (unless auth disabled)
-    if (!isAuthDisabled()) {
-      if (!verifyPostmarkAuth(req)) {
-        console.warn('[Postmark] Invalid auth on delivery status webhook');
-        return reply.code(401).send({ error: 'Unauthorized' });
-      }
-    }
-
-    const payload = req.body as PostmarkWebhookPayload;
-
-    // Validate required fields
-    if (!payload.RecordType || !payload.MessageID) {
-      return reply.code(400).send({ error: 'Missing required fields: RecordType, MessageID' });
-    }
-
-    // Validate RecordType
-    const validRecordTypes = ['Delivery', 'Bounce', 'SpamComplaint'];
-    if (!validRecordTypes.includes(payload.RecordType)) {
-      console.warn(`[Postmark] Unknown RecordType: ${payload.RecordType}`);
-      // Still return 200 to acknowledge receipt (avoid retries)
-      return reply.code(200).send({ success: true, message: 'Ignored unknown RecordType' });
-    }
-
-    const pool = createPool();
-
-    try {
-      const result = await processPostmarkDeliveryStatus(pool, payload);
-
-      if (result.notFound) {
-        console.warn(`[Postmark] Message not found for MessageID: ${payload.MessageID}`);
-        // Return 200 to acknowledge - we don't want Postmark to retry for unknown messages
-        return reply.code(200).send({ success: false, reason: 'Message not found' });
+      // Verify Postmark webhook auth (unless auth disabled)
+      if (!isAuthDisabled()) {
+        if (!verifyPostmarkAuth(req)) {
+          console.warn('[Postmark] Invalid auth on delivery status webhook');
+          return reply.code(401).send({ error: 'Unauthorized' });
+        }
       }
 
-      console.log(
-        `[Postmark] Delivery status: MessageID=${payload.MessageID}, RecordType=${payload.RecordType}, ` +
-        `messageId=${result.messageId}, statusUnchanged=${result.statusUnchanged ?? false}`
-      );
+      const payload = req.body as PostmarkWebhookPayload;
 
-      return reply.code(200).send({
-        success: true,
-        messageId: result.messageId,
-        statusUnchanged: result.statusUnchanged ?? false,
-      });
-    } catch (error) {
-      console.error('[Postmark] Delivery status webhook error:', error);
-      // Return 500 so Postmark retries
-      return reply.code(500).send({ error: 'Internal server error' });
-    } finally {
-      await pool.end();
-    }
-  });
+      // Validate required fields
+      if (!payload.RecordType || !payload.MessageID) {
+        return reply.code(400).send({ error: 'Missing required fields: RecordType, MessageID' });
+      }
+
+      // Validate RecordType
+      const validRecordTypes = ['Delivery', 'Bounce', 'SpamComplaint'];
+      if (!validRecordTypes.includes(payload.RecordType)) {
+        console.warn(`[Postmark] Unknown RecordType: ${payload.RecordType}`);
+        // Still return 200 to acknowledge receipt (avoid retries)
+        return reply.code(200).send({ success: true, message: 'Ignored unknown RecordType' });
+      }
+
+      const pool = createPool();
+
+      try {
+        const result = await processPostmarkDeliveryStatus(pool, payload);
+
+        if (result.notFound) {
+          console.warn(`[Postmark] Message not found for MessageID: ${payload.MessageID}`);
+          // Return 200 to acknowledge - we don't want Postmark to retry for unknown messages
+          return reply.code(200).send({ success: false, reason: 'Message not found' });
+        }
+
+        console.log(
+          `[Postmark] Delivery status: MessageID=${payload.MessageID}, RecordType=${payload.RecordType}, ` +
+            `messageId=${result.messageId}, statusUnchanged=${result.statusUnchanged ?? false}`,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          messageId: result.messageId,
+          statusUnchanged: result.statusUnchanged ?? false,
+        });
+      } catch (error) {
+        console.error('[Postmark] Delivery status webhook error:', error);
+        // Return 500 so Postmark retries
+        return reply.code(500).send({ error: 'Internal server error' });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Cloudflare Email Workers Inbound Webhook (Issue #210)
   // POST /api/cloudflare/email - Receive emails forwarded from Cloudflare Email Workers
-  app.post('/api/cloudflare/email', {
-    config: {
-      rateLimit: {
-        max: 60, // 60 requests per minute for webhooks
-        timeWindow: '1 minute',
+  app.post(
+    '/api/cloudflare/email',
+    {
+      config: {
+        rateLimit: {
+          max: 60, // 60 requests per minute for webhooks
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    // Verify HMAC-SHA256 signature (unless auth disabled)
-    if (!isAuthDisabled()) {
-      if (!verifyCloudflareEmailSecret(req)) {
-        console.warn('[Cloudflare Email] Invalid signature on inbound webhook');
-        return reply.code(401).send({ error: 'Invalid signature' });
+    async (req, reply) => {
+      // Verify HMAC-SHA256 signature (unless auth disabled)
+      if (!isAuthDisabled()) {
+        if (!verifyCloudflareEmailSecret(req)) {
+          console.warn('[Cloudflare Email] Invalid signature on inbound webhook');
+          return reply.code(401).send({ error: 'Invalid signature' });
+        }
       }
-    }
 
-    const payload = req.body as CloudflareEmailPayload;
+      const payload = req.body as CloudflareEmailPayload;
 
-    // Validate required fields
-    if (!payload.from || !payload.to || !payload.timestamp) {
-      return reply.code(400).send({ error: 'Missing required fields: from, to, timestamp' });
-    }
+      // Validate required fields
+      if (!payload.from || !payload.to || !payload.timestamp) {
+        return reply.code(400).send({ error: 'Missing required fields: from, to, timestamp' });
+      }
 
-    // Timestamp replay protection (reject if >5 minutes old)
-    const payloadTime = new Date(payload.timestamp).getTime();
-    const now = Date.now();
-    const fiveMinutes = 5 * 60 * 1000;
-    if (isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
-      console.warn('[Cloudflare Email] Rejecting stale or invalid timestamp:', payload.timestamp);
-      return reply.code(400).send({ error: 'Invalid or stale timestamp' });
-    }
+      // Timestamp replay protection (reject if >5 minutes old)
+      const payloadTime = new Date(payload.timestamp).getTime();
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      if (isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
+        console.warn('[Cloudflare Email] Rejecting stale or invalid timestamp:', payload.timestamp);
+        return reply.code(400).send({ error: 'Invalid or stale timestamp' });
+      }
 
-    const pool = createPool();
+      const pool = createPool();
 
-    try {
-      const result = await processCloudflareEmail(pool, payload);
+      try {
+        const result = await processCloudflareEmail(pool, payload);
 
-      console.log(
-        `[Cloudflare Email] Email from ${payload.from}: subject="${payload.subject}", ` +
-        `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`
-      );
+        console.log(
+          `[Cloudflare Email] Email from ${payload.from}: subject="${payload.subject}", ` +
+            `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`,
+        );
 
-      // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
+        // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
 
-      // Return success with receipt ID
-      return reply.code(200).send({
-        success: true,
-        receiptId: result.messageId,
-        contactId: result.contactId,
-        threadId: result.threadId,
-        messageId: result.messageId,
-      });
-    } catch (error) {
-      console.error('[Cloudflare Email] Error processing email:', error);
-      throw error;
-    } finally {
-      await pool.end();
-    }
-  });
+        // Return success with receipt ID
+        return reply.code(200).send({
+          success: true,
+          receiptId: result.messageId,
+          contactId: result.contactId,
+          threadId: result.threadId,
+          messageId: result.messageId,
+        });
+      } catch (error) {
+        console.error('[Cloudflare Email] Error processing email:', error);
+        throw error;
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // Work Item Reparent API (issue #105)
   // PATCH /api/work-items/:id/reparent - Move work item to a different parent
@@ -8354,7 +8312,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const itemResult = await client.query(
         `SELECT id, work_item_kind as kind, parent_work_item_id, sort_order
          FROM work_item WHERE id = $1 FOR UPDATE`,
-        [params.id]
+        [params.id],
       );
       if (itemResult.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -8381,10 +8339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get new parent info if not null
       let newParentKind: string | null = null;
       if (newParentId) {
-        const parentResult = await client.query(
-          `SELECT work_item_kind as kind FROM work_item WHERE id = $1`,
-          [newParentId]
-        );
+        const parentResult = await client.query(`SELECT work_item_kind as kind FROM work_item WHERE id = $1`, [newParentId]);
         if (parentResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -8432,10 +8387,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (afterId) {
         // Position after a specific sibling in new parent
-        const afterResult = await client.query(
-          `SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1`,
-          [afterId]
-        );
+        const afterResult = await client.query(`SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1`, [afterId]);
         if (afterResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -8463,7 +8415,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              AND id != $3
            ORDER BY sort_order ASC
            LIMIT 1`,
-          [newParentId, afterItem.sort_order, params.id]
+          [newParentId, afterItem.sort_order, params.id],
         );
 
         if (nextResult.rows.length > 0) {
@@ -8482,7 +8434,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM work_item
            WHERE parent_work_item_id IS NOT DISTINCT FROM $1
              AND id != $2`,
-          [newParentId, params.id]
+          [newParentId, params.id],
         );
         newSortOrder = (maxResult.rows[0] as { new_order: number }).new_order;
       }
@@ -8497,7 +8449,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE id = $1
         RETURNING id::text as id, title, status, work_item_kind as kind,
                   parent_work_item_id::text as parent_id, sort_order, updated_at`,
-        [params.id, newParentId, newSortOrder]
+        [params.id, newParentId, newSortOrder],
       );
 
       await client.query('COMMIT');
@@ -8548,7 +8500,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          SET sort_order = ranked.new_order
          FROM ranked
          WHERE wi.id = ranked.id`,
-        [parentId]
+        [parentId],
       );
     }
 
@@ -8556,10 +8508,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       // Get the work item being reordered
-      const itemResult = await client.query(
-        `SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE`,
-        [params.id]
-      );
+      const itemResult = await client.query(`SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE`, [params.id]);
       if (itemResult.rows.length === 0) {
         await client.query('ROLLBACK');
         client.release();
@@ -8597,7 +8546,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              FROM work_item
              WHERE parent_work_item_id IS NOT DISTINCT FROM $1
                AND id != $2`,
-            [item.parent_work_item_id, params.id]
+            [item.parent_work_item_id, params.id],
           );
           newSortOrder = (minResult.rows[0] as { new_order: number }).new_order;
         } else {
@@ -8607,16 +8556,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              FROM work_item
              WHERE parent_work_item_id IS NOT DISTINCT FROM $1
                AND id != $2`,
-            [item.parent_work_item_id, params.id]
+            [item.parent_work_item_id, params.id],
           );
           newSortOrder = (maxResult.rows[0] as { new_order: number }).new_order;
         }
       } else {
         // Move relative to a specific sibling
-        const targetResult = await client.query(
-          `SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1`,
-          [targetId]
-        );
+        const targetResult = await client.query(`SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1`, [targetId]);
         if (targetResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -8650,7 +8596,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                AND id != $3
              ORDER BY sort_order ASC
              LIMIT 1`,
-            [target.parent_work_item_id, target.sort_order, params.id]
+            [target.parent_work_item_id, target.sort_order, params.id],
           );
 
           if (nextResult.rows.length > 0) {
@@ -8661,10 +8607,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === target.sort_order || newSortOrder === nextOrder) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query(
-                `SELECT sort_order FROM work_item WHERE id = $1`,
-                [targetId]
-              );
+              const refetch = await client.query(`SELECT sort_order FROM work_item WHERE id = $1`, [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder + 500;
             }
@@ -8681,7 +8624,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                AND id != $3
              ORDER BY sort_order DESC
              LIMIT 1`,
-            [target.parent_work_item_id, target.sort_order, params.id]
+            [target.parent_work_item_id, target.sort_order, params.id],
           );
 
           if (prevResult.rows.length > 0) {
@@ -8692,10 +8635,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === prevOrder || newSortOrder === target.sort_order) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query(
-                `SELECT sort_order FROM work_item WHERE id = $1`,
-                [targetId]
-              );
+              const refetch = await client.query(`SELECT sort_order FROM work_item WHERE id = $1`, [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder - 500;
             }
@@ -8711,7 +8651,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `UPDATE work_item SET sort_order = $2, updated_at = now()
          WHERE id = $1
          RETURNING id::text as id, title, status, sort_order, updated_at`,
-        [params.id, newSortOrder]
+        [params.id, newSortOrder],
       );
 
       await client.query('COMMIT');
@@ -8780,10 +8720,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check if work item exists and get current dates
-    const existing = await pool.query(
-      `SELECT id, not_before, not_after FROM work_item WHERE id = $1`,
-      [params.id]
-    );
+    const existing = await pool.query(`SELECT id, not_before, not_after FROM work_item WHERE id = $1`, [params.id]);
     if (existing.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -8817,7 +8754,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 not_before,
                 not_after,
                 updated_at`,
-      [params.id, finalStartDate, finalEndDate]
+      [params.id, finalStartDate, finalEndDate],
     );
 
     await pool.end();
@@ -8868,7 +8805,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_todo
         WHERE work_item_id = $1
         ORDER BY created_at ASC`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -8901,7 +8838,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  completed,
                  created_at as "createdAt",
                  completed_at as "completedAt"`,
-      [params.id, body.text.trim()]
+      [params.id, body.text.trim()],
     );
 
     await pool.end();
@@ -8930,10 +8867,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if todo exists and belongs to work item
-    const todoExists = await pool.query(
-      'SELECT 1 FROM work_item_todo WHERE id = $1 AND work_item_id = $2',
-      [params.todoId, params.id]
-    );
+    const todoExists = await pool.query('SELECT 1 FROM work_item_todo WHERE id = $1 AND work_item_id = $2', [params.todoId, params.id]);
     if (todoExists.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -8972,7 +8906,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  completed,
                  created_at as "createdAt",
                  completed_at as "completedAt"`,
-      values
+      values,
     );
 
     await pool.end();
@@ -8992,10 +8926,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Delete todo (only if it belongs to the work item)
-    const result = await pool.query(
-      'DELETE FROM work_item_todo WHERE id = $1 AND work_item_id = $2 RETURNING id::text as id',
-      [params.todoId, params.id]
-    );
+    const result = await pool.query('DELETE FROM work_item_todo WHERE id = $1 AND work_item_id = $2 RETURNING id::text as id', [params.todoId, params.id]);
 
     await pool.end();
 
@@ -9052,13 +8983,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ${whereClause}
        ORDER BY created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
 
-    const countResult = await pool.query(
-      `SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`,
-      [query.userEmail]
-    );
+    const countResult = await pool.query(`SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`, [
+      query.userEmail,
+    ]);
 
     await pool.end();
 
@@ -9077,10 +9007,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
-    const result = await pool.query(
-      `SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`,
-      [query.userEmail]
-    );
+    const result = await pool.query(`SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`, [query.userEmail]);
     await pool.end();
 
     return reply.send({ unreadCount: parseInt(result.rows[0].count, 10) });
@@ -9101,7 +9028,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = COALESCE(read_at, now())
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.userEmail]
+      [params.id, query.userEmail],
     );
     await pool.end();
 
@@ -9126,7 +9053,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = now()
        WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL
        RETURNING id`,
-      [query.userEmail]
+      [query.userEmail],
     );
     await pool.end();
 
@@ -9148,7 +9075,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET dismissed_at = now()
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.userEmail]
+      [params.id, query.userEmail],
     );
     await pool.end();
 
@@ -9172,7 +9099,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT notification_type, in_app_enabled, email_enabled
        FROM notification_preference
        WHERE user_email = $1`,
-      [query.userEmail]
+      [query.userEmail],
     );
     await pool.end();
 
@@ -9219,7 +9146,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            in_app_enabled = COALESCE($3, notification_preference.in_app_enabled),
            email_enabled = COALESCE($4, notification_preference.email_enabled),
            updated_at = now()`,
-        [query.userEmail, type, pref.inApp ?? true, pref.email ?? false]
+        [query.userEmail, type, pref.inApp ?? true, pref.email ?? false],
       );
     }
 
@@ -9257,7 +9184,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM work_item_comment c
        WHERE c.work_item_id = $1
        ORDER BY c.created_at ASC`,
-      [params.id]
+      [params.id],
     );
 
     // Get reactions for all comments
@@ -9270,7 +9197,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM work_item_comment_reaction
          WHERE comment_id = ANY($1::uuid[])
          GROUP BY comment_id, emoji`,
-        [commentIds]
+        [commentIds],
       );
 
       for (const r of reactions.rows) {
@@ -9328,7 +9255,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          content,
          mentions,
          created_at as "createdAt"`,
-      [params.id, body.userEmail, body.content, body.parentId || null, mentions]
+      [params.id, body.userEmail, body.content, body.parentId || null, mentions],
     );
 
     await pool.end();
@@ -9348,10 +9275,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check ownership
-    const comment = await pool.query(
-      'SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2',
-      [params.commentId, params.id]
-    );
+    const comment = await pool.query('SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.commentId, params.id]);
 
     if (comment.rows.length === 0) {
       await pool.end();
@@ -9381,7 +9305,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          mentions,
          edited_at as "editedAt",
          updated_at as "updatedAt"`,
-      [body.content, mentions, params.commentId]
+      [body.content, mentions, params.commentId],
     );
 
     await pool.end();
@@ -9401,10 +9325,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check ownership
-    const comment = await pool.query(
-      'SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2',
-      [params.commentId, params.id]
-    );
+    const comment = await pool.query('SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.commentId, params.id]);
 
     if (comment.rows.length === 0) {
       await pool.end();
@@ -9434,10 +9355,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Check if comment exists
-    const commentExists = await pool.query(
-      'SELECT 1 FROM work_item_comment WHERE id = $1 AND work_item_id = $2',
-      [params.commentId, params.id]
-    );
+    const commentExists = await pool.query('SELECT 1 FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.commentId, params.id]);
 
     if (commentExists.rows.length === 0) {
       await pool.end();
@@ -9445,16 +9363,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if reaction exists - if so, remove it (toggle)
-    const existing = await pool.query(
-      'SELECT 1 FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3',
-      [params.commentId, body.userEmail, body.emoji]
-    );
+    const existing = await pool.query('SELECT 1 FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3', [
+      params.commentId,
+      body.userEmail,
+      body.emoji,
+    ]);
 
     if (existing.rows.length > 0) {
-      await pool.query(
-        'DELETE FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3',
-        [params.commentId, body.userEmail, body.emoji]
-      );
+      await pool.query('DELETE FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3', [
+        params.commentId,
+        body.userEmail,
+        body.emoji,
+      ]);
       await pool.end();
       return reply.send({ action: 'removed' });
     }
@@ -9462,7 +9382,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
        VALUES ($1, $2, $3)`,
-      [params.commentId, body.userEmail, body.emoji]
+      [params.commentId, body.userEmail, body.emoji],
     );
 
     await pool.end();
@@ -9481,7 +9401,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM user_presence
        WHERE work_item_id = $1 AND last_seen_at > now() - interval '5 minutes'
        ORDER BY last_seen_at DESC`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -9506,7 +9426,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (user_email, work_item_id) DO UPDATE SET
          last_seen_at = now(),
          cursor_position = COALESCE($3, user_presence.cursor_position)`,
-      [body.userEmail, params.id, body.cursorPosition ? JSON.stringify(body.cursorPosition) : null]
+      [body.userEmail, params.id, body.cursorPosition ? JSON.stringify(body.cursorPosition) : null],
     );
 
     await pool.end();
@@ -9525,10 +9445,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    await pool.query(
-      'DELETE FROM user_presence WHERE user_email = $1 AND work_item_id = $2',
-      [query.userEmail, params.id]
-    );
+    await pool.query('DELETE FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [query.userEmail, params.id]);
 
     await pool.end();
 
@@ -9559,7 +9476,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        WHERE email ILIKE $1
        ORDER BY email
        LIMIT $2`,
-      [`%${query.q}%`, limit]
+      [`%${query.q}%`, limit],
     );
 
     await pool.end();
@@ -9596,7 +9513,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ${projectFilter}
        GROUP BY p.id, p.title
        ORDER BY p.title`,
-      params
+      params,
     );
 
     await pool.end();
@@ -9620,7 +9537,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          AND updated_at >= now() - ($1 || ' weeks')::interval
        GROUP BY date_trunc('week', updated_at)
        ORDER BY week_start DESC`,
-      [weeks]
+      [weeks],
     );
 
     await pool.end();
@@ -9644,7 +9561,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT
          SUM(COALESCE(estimate_minutes, 0))::int as total_estimated,
          SUM(COALESCE(actual_minutes, 0))::int as total_actual
-       FROM work_item`
+       FROM work_item`,
     );
 
     // Get effort by status
@@ -9656,7 +9573,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          COUNT(*)::int as item_count
        FROM work_item
        GROUP BY status
-       ORDER BY status`
+       ORDER BY status`,
     );
 
     await pool.end();
@@ -9695,7 +9612,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          COUNT(CASE WHEN status IN ('closed', 'done') THEN 1 END)::int as completed_items
        FROM work_item
        WHERE parent_work_item_id = $1`,
-      [params.id]
+      [params.id],
     );
 
     await pool.end();
@@ -9729,7 +9646,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          AND status NOT IN ('closed', 'done', 'cancelled')
        ORDER BY not_after ASC
        LIMIT $1`,
-      [limit]
+      [limit],
     );
 
     await pool.end();
@@ -9761,7 +9678,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          AND b.status NOT IN ('closed', 'done')
        ORDER BY w.priority ASC, w.created_at ASC
        LIMIT $1`,
-      [limit]
+      [limit],
     );
 
     await pool.end();
@@ -9784,7 +9701,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        WHERE created_at >= now() - ($1 || ' days')::interval
        GROUP BY date_trunc('day', created_at), activity_type
        ORDER BY day DESC, activity_type`,
-      [days]
+      [days],
     );
 
     await pool.end();
@@ -9975,9 +9892,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         .map((p) => ({
           name: p,
           configured: false,
-          hint: p === 'microsoft'
-            ? 'Set MS365_CLIENT_ID and MS365_CLIENT_SECRET'
-            : 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET',
+          hint: p === 'microsoft' ? 'Set MS365_CLIENT_ID and MS365_CLIENT_SECRET' : 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET',
         })),
     });
   });
@@ -9987,10 +9902,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    const result = await pool.query(
-      'DELETE FROM oauth_connection WHERE id = $1 RETURNING id',
-      [params.id]
-    );
+    const result = await pool.query('DELETE FROM oauth_connection WHERE id = $1 RETURNING id', [params.id]);
     await pool.end();
 
     if (result.rowCount === 0) {
@@ -10064,7 +9976,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, body.provider]
+      [body.userEmail, body.provider],
     );
 
     if (connResult.rows.length === 0) {
@@ -10139,7 +10051,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT t.id, t.sync_provider
        FROM external_thread t
        WHERE t.id = $1`,
-      [body.threadId]
+      [body.threadId],
     );
 
     if (thread.rows.length === 0) {
@@ -10153,7 +10065,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const conn = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, provider]
+      [body.userEmail, provider],
     );
 
     if (conn.rows.length === 0) {
@@ -10166,7 +10078,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body)
        VALUES ($1, $2, 'outbound', $3)`,
-      [body.threadId, `outbound-${Date.now()}`, body.body]
+      [body.threadId, `outbound-${Date.now()}`, body.body],
     );
 
     await pool.end();
@@ -10188,7 +10100,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM external_message m
        JOIN external_thread t ON m.thread_id = t.id
        WHERE m.id = $1`,
-      [body.messageId]
+      [body.messageId],
     );
 
     if (messageResult.rows.length === 0) {
@@ -10204,14 +10116,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO work_item (title, status, work_item_kind, description)
        VALUES ($1, 'open', 'issue', $2)
        RETURNING id::text as id, title, status, work_item_kind`,
-      [title, message.body]
+      [title, message.body],
     );
 
     // Link to communication
     await pool.query(
       `INSERT INTO work_item_communication (work_item_id, thread_id, message_id)
        VALUES ($1, $2, $3)`,
-      [workItemResult.rows[0].id, message.thread_id, message.id]
+      [workItemResult.rows[0].id, message.thread_id, message.id],
     );
 
     await pool.end();
@@ -10230,7 +10142,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2 AND 'calendar' = ANY(scopes)`,
-      [body.userEmail, body.provider]
+      [body.userEmail, body.provider],
     );
 
     if (connResult.rows.length === 0) {
@@ -10329,7 +10241,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, body.provider]
+      [body.userEmail, body.provider],
     );
 
     if (connResult.rows.length === 0) {
@@ -10356,7 +10268,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         body.endTime,
         body.location || null,
         JSON.stringify(body.attendees || []),
-      ]
+      ],
     );
 
     await pool.end();
@@ -10388,7 +10300,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, body.provider]
+      [body.userEmail, body.provider],
     );
 
     if (connResult.rows.length === 0) {
@@ -10401,7 +10313,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT id::text as id, title, description, not_after
        FROM work_item
        WHERE id = $1`,
-      [body.workItemId]
+      [body.workItemId],
     );
 
     if (workItemResult.rows.length === 0) {
@@ -10435,7 +10347,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         startTime.toISOString(),
         endTime.toISOString(),
         body.workItemId,
-      ]
+      ],
     );
 
     await pool.end();
@@ -10457,10 +10369,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    const result = await pool.query(
-      'DELETE FROM calendar_event WHERE id = $1 RETURNING id',
-      [params.id]
-    );
+    const result = await pool.query('DELETE FROM calendar_event WHERE id = $1 RETURNING id', [params.id]);
     await pool.end();
 
     if (result.rowCount === 0) {
@@ -10537,9 +10446,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes - List notes with filters and pagination
   app.get('/api/notes', async (req, reply) => {
-    const {
-      listNotes,
-    } = await import('./notes/index.ts');
+    const { listNotes } = await import('./notes/index.ts');
 
     const query = req.query as {
       user_email?: string;
@@ -10581,9 +10488,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/:id - Get a single note by ID
   app.get('/api/notes/:id', async (req, reply) => {
-    const {
-      getNote,
-    } = await import('./notes/index.ts');
+    const { getNote } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as {
@@ -10616,10 +10521,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notes - Create a new note
   app.post('/api/notes', async (req, reply) => {
-    const {
-      createNote,
-      isValidVisibility,
-    } = await import('./notes/index.ts');
+    const { createNote, isValidVisibility } = await import('./notes/index.ts');
 
     const body = req.body as {
       user_email?: string;
@@ -10662,7 +10564,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           summary: body.summary,
           isPinned: body.is_pinned,
         },
-        body.user_email
+        body.user_email,
       );
 
       return reply.code(201).send(note);
@@ -10682,10 +10584,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PUT /api/notes/:id - Update a note
   app.put('/api/notes/:id', async (req, reply) => {
-    const {
-      updateNote,
-      isValidVisibility,
-    } = await import('./notes/index.ts');
+    const { updateNote, isValidVisibility } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as {
@@ -10728,7 +10627,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           isPinned: body.is_pinned,
           sortOrder: body.sort_order,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!note) {
@@ -10755,9 +10654,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/notes/:id - Soft delete a note
   app.delete('/api/notes/:id', async (req, reply) => {
-    const {
-      deleteNote,
-    } = await import('./notes/index.ts');
+    const { deleteNote } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
@@ -10791,9 +10688,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notes/:id/restore - Restore a soft-deleted note
   app.post('/api/notes/:id/restore', async (req, reply) => {
-    const {
-      restoreNote,
-    } = await import('./notes/index.ts');
+    const { restoreNote } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as { user_email?: string };
@@ -10827,9 +10722,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/:id/versions - List version history
   app.get('/api/notes/:id/versions', async (req, reply) => {
-    const {
-      listVersions,
-    } = await import('./notes/index.ts');
+    const { listVersions } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as {
@@ -10862,9 +10755,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/:id/versions/compare - Compare two versions
   app.get('/api/notes/:id/versions/compare', async (req, reply) => {
-    const {
-      compareVersions,
-    } = await import('./notes/index.ts');
+    const { compareVersions } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as {
@@ -10905,9 +10796,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/:id/versions/:versionNumber - Get specific version
   app.get('/api/notes/:id/versions/:versionNumber', async (req, reply) => {
-    const {
-      getVersion,
-    } = await import('./notes/index.ts');
+    const { getVersion } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; versionNumber: string };
     const query = req.query as {
@@ -10940,9 +10829,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notes/:id/versions/:versionNumber/restore - Restore to version
   app.post('/api/notes/:id/versions/:versionNumber/restore', async (req, reply) => {
-    const {
-      restoreVersion,
-    } = await import('./notes/index.ts');
+    const { restoreVersion } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; versionNumber: string };
     const query = req.query as {
@@ -10986,9 +10873,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notes/:id/share - Share note with a user
   app.post('/api/notes/:id/share', async (req, reply) => {
-    const {
-      createUserShare,
-    } = await import('./notes/index.ts');
+    const { createUserShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as {
@@ -11016,7 +10901,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expiresAt: body.expiresAt,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!share) {
@@ -11040,9 +10925,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notes/:id/share/link - Create share link
   app.post('/api/notes/:id/share/link', async (req, reply) => {
-    const {
-      createLinkShare,
-    } = await import('./notes/index.ts');
+    const { createLinkShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as {
@@ -11069,7 +10952,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           maxViews: body.maxViews,
           expiresAt: body.expiresAt,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!share) {
@@ -11090,9 +10973,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/:id/shares - List all shares for a note
   app.get('/api/notes/:id/shares', async (req, reply) => {
-    const {
-      listShares,
-    } = await import('./notes/index.ts');
+    const { listShares } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
@@ -11124,9 +11005,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PUT /api/notes/:id/shares/:shareId - Update share
   app.put('/api/notes/:id/shares/:shareId', async (req, reply) => {
-    const {
-      updateShare,
-    } = await import('./notes/index.ts');
+    const { updateShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; shareId: string };
     const body = req.body as {
@@ -11150,7 +11029,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expiresAt: body.expiresAt,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!share) {
@@ -11174,9 +11053,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/notes/:id/shares/:shareId - Revoke share
   app.delete('/api/notes/:id/shares/:shareId', async (req, reply) => {
-    const {
-      revokeShare,
-    } = await import('./notes/index.ts');
+    const { revokeShare } = await import('./notes/index.ts');
 
     const params = req.params as { id: string; shareId: string };
     const query = req.query as { user_email?: string };
@@ -11209,9 +11086,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notes/shared-with-me - List notes shared with current user
   app.get('/api/notes/shared-with-me', async (req, reply) => {
-    const {
-      listSharedWithMe,
-    } = await import('./notes/index.ts');
+    const { listSharedWithMe } = await import('./notes/index.ts');
 
     const query = req.query as { user_email?: string };
 
@@ -11231,9 +11106,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/shared/notes/:token - Access shared note via link
   app.get('/api/shared/notes/:token', async (req, reply) => {
-    const {
-      accessSharedNote,
-    } = await import('./notes/index.ts');
+    const { accessSharedNote } = await import('./notes/index.ts');
 
     const params = req.params as { token: string };
 
@@ -11268,9 +11141,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Type validation added (#697)
   // UUID validation added (#701)
   app.post('/api/notes/:id/presence', async (req, reply) => {
-    const {
-      joinNotePresence,
-    } = await import('./notes/index.ts');
+    const { joinNotePresence } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
 
@@ -11315,12 +11186,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const collaborators = await joinNotePresence(
-        pool,
-        params.id,
-        body.userEmail,
-        validatedCursorPosition
-      );
+      const collaborators = await joinNotePresence(pool, params.id, body.userEmail, validatedCursorPosition);
       return reply.send({ collaborators });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -11338,9 +11204,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Type validation added (#697)
   // UUID validation added (#701)
   app.delete('/api/notes/:id/presence', async (req, reply) => {
-    const {
-      leaveNotePresence,
-    } = await import('./notes/index.ts');
+    const { leaveNotePresence } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
 
@@ -11372,9 +11236,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Type validation added (#697)
   // UUID validation added (#701)
   app.get('/api/notes/:id/presence', async (req, reply) => {
-    const {
-      getNotePresence,
-    } = await import('./notes/index.ts');
+    const { getNotePresence } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
 
@@ -11412,9 +11274,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Type validation added (#697)
   // UUID validation added (#701)
   app.put('/api/notes/:id/presence/cursor', async (req, reply) => {
-    const {
-      updateCursorPosition,
-    } = await import('./notes/index.ts');
+    const { updateCursorPosition } = await import('./notes/index.ts');
 
     const params = req.params as { id: string };
 
@@ -11476,9 +11336,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notebooks - List notebooks with filters
   app.get('/api/notebooks', async (req, reply) => {
-    const {
-      listNotebooks,
-    } = await import('./notebooks/index.ts');
+    const { listNotebooks } = await import('./notebooks/index.ts');
 
     const query = req.query as {
       user_email?: string;
@@ -11514,9 +11372,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notebooks/tree - Get notebooks as tree hierarchy
   app.get('/api/notebooks/tree', async (req, reply) => {
-    const {
-      getNotebooksTree,
-    } = await import('./notebooks/index.ts');
+    const { getNotebooksTree } = await import('./notebooks/index.ts');
 
     const query = req.query as {
       user_email?: string;
@@ -11530,11 +11386,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const notebooks = await getNotebooksTree(
-        pool,
-        query.user_email,
-        query.include_note_counts === 'true'
-      );
+      const notebooks = await getNotebooksTree(pool, query.user_email, query.include_note_counts === 'true');
 
       return reply.send({ notebooks });
     } finally {
@@ -11544,9 +11396,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notebooks/:id - Get a single notebook by ID
   app.get('/api/notebooks/:id', async (req, reply) => {
-    const {
-      getNotebook,
-    } = await import('./notebooks/index.ts');
+    const { getNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as {
@@ -11579,9 +11429,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notebooks - Create a new notebook
   app.post('/api/notebooks', async (req, reply) => {
-    const {
-      createNotebook,
-    } = await import('./notebooks/index.ts');
+    const { createNotebook } = await import('./notebooks/index.ts');
 
     const body = req.body as {
       user_email?: string;
@@ -11612,7 +11460,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           color: body.color,
           parentNotebookId: body.parent_notebook_id,
         },
-        body.user_email
+        body.user_email,
       );
 
       return reply.code(201).send(notebook);
@@ -11632,9 +11480,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PUT /api/notebooks/:id - Update a notebook
   app.put('/api/notebooks/:id', async (req, reply) => {
-    const {
-      updateNotebook,
-    } = await import('./notebooks/index.ts');
+    const { updateNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as {
@@ -11665,7 +11511,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           parentNotebookId: body.parent_notebook_id,
           sortOrder: body.sort_order,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!notebook) {
@@ -11695,9 +11541,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notebooks/:id/archive - Archive a notebook
   app.post('/api/notebooks/:id/archive', async (req, reply) => {
-    const {
-      archiveNotebook,
-    } = await import('./notebooks/index.ts');
+    const { archiveNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as { user_email?: string };
@@ -11729,9 +11573,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notebooks/:id/unarchive - Unarchive a notebook
   app.post('/api/notebooks/:id/unarchive', async (req, reply) => {
-    const {
-      unarchiveNotebook,
-    } = await import('./notebooks/index.ts');
+    const { unarchiveNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as { user_email?: string };
@@ -11763,9 +11605,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/notebooks/:id - Soft delete a notebook
   app.delete('/api/notebooks/:id', async (req, reply) => {
-    const {
-      deleteNotebook,
-    } = await import('./notebooks/index.ts');
+    const { deleteNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
     const query = req.query as {
@@ -11780,12 +11620,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const deleted = await deleteNotebook(
-        pool,
-        params.id,
-        query.user_email,
-        query.delete_notes === 'true'
-      );
+      const deleted = await deleteNotebook(pool, params.id, query.user_email, query.delete_notes === 'true');
 
       if (!deleted) {
         return reply.code(404).send({ error: 'Notebook not found' });
@@ -11808,9 +11643,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notebooks/:id/notes - Move or copy notes to notebook
   app.post('/api/notebooks/:id/notes', async (req, reply) => {
-    const {
-      moveNotesToNotebook,
-    } = await import('./notebooks/index.ts');
+    const { moveNotesToNotebook } = await import('./notebooks/index.ts');
 
     const params = req.params as { id: string };
     const body = req.body as {
@@ -11841,7 +11674,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           noteIds: body.note_ids,
           action: body.action as 'move' | 'copy',
         },
-        body.user_email
+        body.user_email,
       );
 
       return reply.send(result);
@@ -11891,7 +11724,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expiresAt: body.expiresAt,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!share) {
@@ -11938,7 +11771,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expiresAt: body.expiresAt,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!share) {
@@ -12015,7 +11848,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           permission: body.permission as 'read' | 'read_write' | undefined,
           expiresAt: body.expiresAt,
         },
-        body.user_email
+        body.user_email,
       );
 
       if (!share) {
@@ -12170,108 +12003,134 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // POST /api/skill-store/search - Full-text search
-  app.post('/api/skill-store/search', {
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
+  app.post(
+    '/api/skill-store/search',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    const skillStoreSearch = await import('./skill-store/search.ts');
+    async (req, reply) => {
+      const skillStoreSearch = await import('./skill-store/search.ts');
 
-    const body = req.body as {
-      skill_id?: string;
-      query?: string;
-      collection?: string;
-      tags?: string[];
-      status?: string;
-      user_email?: string;
-      limit?: number;
-      offset?: number;
-    };
+      const body = req.body as {
+        skill_id?: string;
+        query?: string;
+        collection?: string;
+        tags?: string[];
+        status?: string;
+        user_email?: string;
+        limit?: number;
+        offset?: number;
+      };
 
-    if (!body?.skill_id) {
-      return reply.code(400).send({ error: 'skill_id is required' });
-    }
-    if (!body?.query) {
-      return reply.code(400).send({ error: 'query is required' });
-    }
+      if (!body?.skill_id) {
+        return reply.code(400).send({ error: 'skill_id is required' });
+      }
+      if (!body?.query) {
+        return reply.code(400).send({ error: 'query is required' });
+      }
 
-    // Clamp limit/offset to safe ranges
-    const limit = Math.min(Math.max(body.limit ?? 20, 1), 200);
-    const offset = Math.max(body.offset ?? 0, 0);
+      // Clamp limit/offset to safe ranges
+      const limit = Math.min(Math.max(body.limit ?? 20, 1), 200);
+      const offset = Math.max(body.offset ?? 0, 0);
 
-    const pool = createPool();
+      const pool = createPool();
 
-    try {
-      const result = await skillStoreSearch.searchSkillStoreFullText(pool, {
-        skill_id: body.skill_id,
-        query: body.query,
-        collection: body.collection,
-        tags: body.tags,
-        status: body.status,
-        user_email: body.user_email,
-        limit,
-        offset,
-      });
+      try {
+        const result = await skillStoreSearch.searchSkillStoreFullText(pool, {
+          skill_id: body.skill_id,
+          query: body.query,
+          collection: body.collection,
+          tags: body.tags,
+          status: body.status,
+          user_email: body.user_email,
+          limit,
+          offset,
+        });
 
-      return reply.send({
-        results: result.results,
-        total: result.total,
-      });
-    } catch (err) {
-      console.error('[SkillStore] Search error:', err instanceof Error ? err.message : err);
-      return reply.code(500).send({ error: 'Search failed. Please try again.' });
-    } finally {
-      await pool.end();
-    }
-  });
+        return reply.send({
+          results: result.results,
+          total: result.total,
+        });
+      } catch (err) {
+        console.error('[SkillStore] Search error:', err instanceof Error ? err.message : err);
+        return reply.code(500).send({ error: 'Search failed. Please try again.' });
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
   // POST /api/skill-store/search/semantic - Semantic (vector) search with full-text fallback
-  app.post('/api/skill-store/search/semantic', {
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: '1 minute',
+  app.post(
+    '/api/skill-store/search/semantic',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+        },
       },
     },
-  }, async (req, reply) => {
-    const skillStoreSearch = await import('./skill-store/search.ts');
+    async (req, reply) => {
+      const skillStoreSearch = await import('./skill-store/search.ts');
 
-    const body = req.body as {
-      skill_id?: string;
-      query?: string;
-      collection?: string;
-      tags?: string[];
-      status?: string;
-      user_email?: string;
-      min_similarity?: number;
-      limit?: number;
-      offset?: number;
-      semantic_weight?: number;
-    };
+      const body = req.body as {
+        skill_id?: string;
+        query?: string;
+        collection?: string;
+        tags?: string[];
+        status?: string;
+        user_email?: string;
+        min_similarity?: number;
+        limit?: number;
+        offset?: number;
+        semantic_weight?: number;
+      };
 
-    if (!body?.skill_id) {
-      return reply.code(400).send({ error: 'skill_id is required' });
-    }
-    if (!body?.query) {
-      return reply.code(400).send({ error: 'query is required' });
-    }
+      if (!body?.skill_id) {
+        return reply.code(400).send({ error: 'skill_id is required' });
+      }
+      if (!body?.query) {
+        return reply.code(400).send({ error: 'query is required' });
+      }
 
-    // Clamp limit/offset to safe ranges
-    const limit = Math.min(Math.max(body.limit ?? 20, 1), 200);
-    const offset = Math.max(body.offset ?? 0, 0);
+      // Clamp limit/offset to safe ranges
+      const limit = Math.min(Math.max(body.limit ?? 20, 1), 200);
+      const offset = Math.max(body.offset ?? 0, 0);
 
-    const pool = createPool();
+      const pool = createPool();
 
-    try {
-      // Use hybrid search if semantic_weight is provided, otherwise pure semantic
-      if (body.semantic_weight !== undefined) {
-        // Clamp semantic_weight to [0, 1]
-        const semanticWeight = Math.min(1, Math.max(0, body.semantic_weight));
+      try {
+        // Use hybrid search if semantic_weight is provided, otherwise pure semantic
+        if (body.semantic_weight !== undefined) {
+          // Clamp semantic_weight to [0, 1]
+          const semanticWeight = Math.min(1, Math.max(0, body.semantic_weight));
 
-        const result = await skillStoreSearch.searchSkillStoreHybrid(pool, {
+          const result = await skillStoreSearch.searchSkillStoreHybrid(pool, {
+            skill_id: body.skill_id,
+            query: body.query,
+            collection: body.collection,
+            tags: body.tags,
+            status: body.status,
+            user_email: body.user_email,
+            min_similarity: body.min_similarity ?? 0.3,
+            limit,
+            semantic_weight: semanticWeight,
+          });
+
+          return reply.send({
+            results: result.results,
+            search_type: result.searchType,
+            semantic_weight: result.semantic_weight,
+          });
+        }
+
+        const result = await skillStoreSearch.searchSkillStoreSemantic(pool, {
           skill_id: body.skill_id,
           query: body.query,
           collection: body.collection,
@@ -12280,40 +12139,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           user_email: body.user_email,
           min_similarity: body.min_similarity ?? 0.3,
           limit,
-          semantic_weight: semanticWeight,
+          offset,
         });
 
         return reply.send({
           results: result.results,
           search_type: result.searchType,
-          semantic_weight: result.semantic_weight,
+          query_embedding_provider: result.queryEmbeddingProvider,
         });
+      } catch (err) {
+        console.error('[SkillStore] Semantic search error:', err instanceof Error ? err.message : err);
+        return reply.code(500).send({ error: 'Search failed. Please try again.' });
+      } finally {
+        await pool.end();
       }
-
-      const result = await skillStoreSearch.searchSkillStoreSemantic(pool, {
-        skill_id: body.skill_id,
-        query: body.query,
-        collection: body.collection,
-        tags: body.tags,
-        status: body.status,
-        user_email: body.user_email,
-        min_similarity: body.min_similarity ?? 0.3,
-        limit,
-        offset,
-      });
-
-      return reply.send({
-        results: result.results,
-        search_type: result.searchType,
-        query_embedding_provider: result.queryEmbeddingProvider,
-      });
-    } catch (err) {
-      console.error('[SkillStore] Semantic search error:', err instanceof Error ? err.message : err);
-      return reply.code(500).send({ error: 'Search failed. Please try again.' });
-    } finally {
-      await pool.end();
-    }
-  });
+    },
+  );
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Skill Store Embeddings Admin Endpoints (Issue #799)
@@ -12372,9 +12213,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Total items (excluding soft-deleted)
-      const totalResult = await pool.query(
-        `SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL`
-      );
+      const totalResult = await pool.query(`SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL`);
       const totalItems = totalResult.rows[0].total;
 
       // Counts by status (excluding soft-deleted)
@@ -12382,7 +12221,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `SELECT status, count(*)::int AS count
          FROM skill_store_item
          WHERE deleted_at IS NULL
-         GROUP BY status`
+         GROUP BY status`,
       );
       const byStatus: Record<string, number> = { active: 0, archived: 0, processing: 0 };
       for (const row of statusResult.rows) {
@@ -12395,7 +12234,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM skill_store_item
          WHERE deleted_at IS NULL
          GROUP BY skill_id
-         ORDER BY count DESC`
+         ORDER BY count DESC`,
       );
       const bySkill = skillResult.rows.map((r: { skill_id: string; count: number }) => ({
         skill_id: r.skill_id,
@@ -12403,9 +12242,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }));
 
       // Storage estimate using pg_total_relation_size for the table
-      const storageResult = await pool.query(
-        `SELECT pg_total_relation_size('skill_store_item')::bigint AS total_bytes`
-      );
+      const storageResult = await pool.query(`SELECT pg_total_relation_size('skill_store_item')::bigint AS total_bytes`);
       const storageEstimate = {
         total_bytes: Number(storageResult.rows[0].total_bytes),
       };
@@ -12438,7 +12275,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM skill_store_item
          WHERE deleted_at IS NULL
          GROUP BY skill_id
-         ORDER BY item_count DESC`
+         ORDER BY item_count DESC`,
       );
 
       return reply.send({
@@ -12465,19 +12302,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if skill exists
-      const existsResult = await pool.query(
-        `SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`,
-        [skill_id]
-      );
+      const existsResult = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`, [skill_id]);
       if (existsResult.rows[0].cnt === 0) {
         return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
       }
 
       // Total items
-      const totalResult = await pool.query(
-        `SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`,
-        [skill_id]
-      );
+      const totalResult = await pool.query(`SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`, [skill_id]);
 
       // By status
       const statusResult = await pool.query(
@@ -12485,7 +12316,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM skill_store_item
          WHERE skill_id = $1 AND deleted_at IS NULL
          GROUP BY status`,
-        [skill_id]
+        [skill_id],
       );
       const byStatus: Record<string, number> = { active: 0, archived: 0, processing: 0 };
       for (const row of statusResult.rows) {
@@ -12499,7 +12330,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          WHERE skill_id = $1 AND deleted_at IS NULL
          GROUP BY collection
          ORDER BY count DESC`,
-        [skill_id]
+        [skill_id],
       );
 
       // Embedding status breakdown
@@ -12508,7 +12339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM skill_store_item
          WHERE skill_id = $1 AND deleted_at IS NULL
          GROUP BY embedding_status`,
-        [skill_id]
+        [skill_id],
       );
       const embeddingStatus: Record<string, number> = { complete: 0, pending: 0, failed: 0 };
       for (const row of embeddingResult.rows) {
@@ -12524,7 +12355,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          FROM skill_store_schedule
          WHERE skill_id = $1
          ORDER BY created_at DESC`,
-        [skill_id]
+        [skill_id],
       );
 
       return reply.send({
@@ -12574,25 +12405,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if skill has any data at all (including soft-deleted)
-      const existsResult = await pool.query(
-        `SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1`,
-        [skill_id]
-      );
+      const existsResult = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1`, [skill_id]);
       if (existsResult.rows[0].cnt === 0) {
         return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
       }
 
       // Hard delete all items for this skill (including soft-deleted)
-      const deleteResult = await pool.query(
-        `DELETE FROM skill_store_item WHERE skill_id = $1`,
-        [skill_id]
-      );
+      const deleteResult = await pool.query(`DELETE FROM skill_store_item WHERE skill_id = $1`, [skill_id]);
 
       // Also delete schedules for this skill
-      const scheduleResult = await pool.query(
-        `DELETE FROM skill_store_schedule WHERE skill_id = $1`,
-        [skill_id]
-      );
+      const scheduleResult = await pool.query(`DELETE FROM skill_store_schedule WHERE skill_id = $1`, [skill_id]);
 
       return reply.send({
         skill_id,
@@ -12631,17 +12453,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const result = await noteEmbeddings.searchNotesSemantic(
-        pool,
-        body.query,
-        body.user_email,
-        {
-          limit: body.limit ?? 20,
-          offset: body.offset ?? 0,
-          notebookId: body.notebookId,
-          tags: body.tags,
-        }
-      );
+      const result = await noteEmbeddings.searchNotesSemantic(pool, body.query, body.user_email, {
+        limit: body.limit ?? 20,
+        offset: body.offset ?? 0,
+        notebookId: body.notebookId,
+        tags: body.tags,
+      });
       return reply.send(result);
     } finally {
       await pool.end();
@@ -12677,10 +12494,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Detect if request is from an agent
-    const isAgent = !!(
-      req.headers['x-openclaw-agent'] ||
-      (typeof req.headers.authorization === 'string' && req.headers.authorization.includes('agent:'))
-    );
+    const isAgent = !!(req.headers['x-openclaw-agent'] || (typeof req.headers.authorization === 'string' && req.headers.authorization.includes('agent:')));
 
     const pool = createPool();
 
@@ -12718,10 +12532,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Detect if request is from an agent
-    const isAgent = !!(
-      req.headers['x-openclaw-agent'] ||
-      (typeof req.headers.authorization === 'string' && req.headers.authorization.includes('agent:'))
-    );
+    const isAgent = !!(req.headers['x-openclaw-agent'] || (typeof req.headers.authorization === 'string' && req.headers.authorization.includes('agent:')));
 
     const pool = createPool();
 
@@ -12742,16 +12553,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-
   // ── Relationship Types API (Epic #486, Issue #490) ────────────────
   // Reference table for relationship types between contacts.
   // Pre-seeded with common types, extensible by agents.
 
   // GET /api/relationship-types - List all relationship types with optional filters
   app.get('/api/relationship-types', async (req, reply) => {
-    const {
-      listRelationshipTypes,
-    } = await import('./relationship-types/index.ts');
+    const { listRelationshipTypes } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
       const query = req.query as Record<string, string | undefined>;
@@ -12784,9 +12592,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/relationship-types/match - Find types matching a query string
   // Must be defined before :id route to avoid conflict
   app.get('/api/relationship-types/match', async (req, reply) => {
-    const {
-      findSemanticMatch,
-    } = await import('./relationship-types/index.ts');
+    const { findSemanticMatch } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
       const query = req.query as Record<string, string | undefined>;
@@ -12805,9 +12611,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/relationship-types/:id - Get a single relationship type
   app.get('/api/relationship-types/:id', async (req, reply) => {
-    const {
-      getRelationshipType,
-    } = await import('./relationship-types/index.ts');
+    const { getRelationshipType } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -12825,9 +12629,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/relationship-types - Create a new relationship type
   app.post('/api/relationship-types', async (req, reply) => {
-    const {
-      createRelationshipType,
-    } = await import('./relationship-types/index.ts');
+    const { createRelationshipType } = await import('./relationship-types/index.ts');
     const pool = createPool();
     try {
       const body = req.body as Record<string, unknown> | null;
@@ -12878,9 +12680,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/relationships - List relationships with optional filters
   app.get('/api/relationships', async (req, reply) => {
-    const {
-      listRelationships,
-    } = await import('./relationships/index.ts');
+    const { listRelationships } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const query = req.query as Record<string, string | undefined>;
@@ -12913,9 +12713,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/relationships/set - Smart relationship creation
   // Must be defined before :id route to avoid conflict
   app.post('/api/relationships/set', async (req, reply) => {
-    const {
-      relationshipSet,
-    } = await import('./relationships/index.ts');
+    const { relationshipSet } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const body = req.body as Record<string, unknown> | null;
@@ -12962,9 +12760,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/relationships/:id - Get a single relationship with details
   app.get('/api/relationships/:id', async (req, reply) => {
-    const {
-      getRelationship,
-    } = await import('./relationships/index.ts');
+    const { getRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -12982,9 +12778,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/relationships - Create a new relationship
   app.post('/api/relationships', async (req, reply) => {
-    const {
-      createRelationship,
-    } = await import('./relationships/index.ts');
+    const { createRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const body = req.body as Record<string, unknown> | null;
@@ -13036,9 +12830,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/relationships/:id - Update a relationship
   app.patch('/api/relationships/:id', async (req, reply) => {
-    const {
-      updateRelationship,
-    } = await import('./relationships/index.ts');
+    const { updateRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -13066,9 +12858,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/relationships/:id - Delete a relationship
   app.delete('/api/relationships/:id', async (req, reply) => {
-    const {
-      deleteRelationship,
-    } = await import('./relationships/index.ts');
+    const { deleteRelationship } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -13086,9 +12876,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/contacts/:id/relationships - Graph traversal for a contact
   app.get('/api/contacts/:id/relationships', async (req, reply) => {
-    const {
-      getRelatedContacts,
-    } = await import('./relationships/index.ts');
+    const { getRelatedContacts } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -13101,9 +12889,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/contacts/:id/groups - Groups a contact belongs to
   app.get('/api/contacts/:id/groups', async (req, reply) => {
-    const {
-      getContactGroups,
-    } = await import('./relationships/index.ts');
+    const { getContactGroups } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -13116,9 +12902,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/contacts/:id/members - Members of a group contact
   app.get('/api/contacts/:id/members', async (req, reply) => {
-    const {
-      getGroupMembers,
-    } = await import('./relationships/index.ts');
+    const { getGroupMembers } = await import('./relationships/index.ts');
     const pool = createPool();
     try {
       const params = req.params as { id: string };
@@ -13248,8 +13032,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              pinned = EXCLUDED.pinned
            RETURNING ${SKILL_STORE_SELECT_COLS},
              (xmax = 0) AS _was_insert`,
-          [skillId, collection, key, title, summary, content, data, tags,
-           priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
         );
 
         const row = upsertResult.rows[0];
@@ -13262,10 +13045,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            VALUES ($1::skill_store_activity_type, $2, $3, $4, $5::jsonb)`,
           [
             wasInsert ? 'item_created' : 'item_updated',
-            skillId, collection,
+            skillId,
+            collection,
             wasInsert ? `Created item: ${title || key || row.id}` : `Updated item: ${title || key || row.id}`,
             JSON.stringify({ item_id: row.id, key, title }),
-          ]
+          ],
         );
 
         return reply.code(wasInsert ? 201 : 200).send(row);
@@ -13279,8 +13063,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
                  $9, $10, $11, $12, $13, $14, $15)
          RETURNING ${SKILL_STORE_SELECT_COLS}`,
-        [skillId, collection, key, title, summary, content, data, tags,
-         priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
       );
 
       // Emit activity event (Issue #808)
@@ -13288,7 +13071,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('item_created'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [skillId, collection, `Created item: ${title || insertedRow.id}`, JSON.stringify({ item_id: insertedRow.id, key, title })]
+        [skillId, collection, `Created item: ${title || insertedRow.id}`, JSON.stringify({ item_id: insertedRow.id, key, title })],
       );
 
       return reply.code(201).send(insertResult.rows[0]);
@@ -13318,7 +13101,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `SELECT ${SKILL_STORE_SELECT_COLS}
          FROM skill_store_item
          WHERE skill_id = $1 AND collection = $2 AND key = $3 AND deleted_at IS NULL`,
-        [skillId, collection, key]
+        [skillId, collection, key],
       );
 
       if (result.rows.length === 0) {
@@ -13444,8 +13227,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  expires_at = EXCLUDED.expires_at,
                  pinned = EXCLUDED.pinned
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags,
-               priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
             );
           } else {
             result = await pool.query(
@@ -13455,8 +13237,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
                        $9, $10, $11, $12, $13, $14, $15)
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags,
-               priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned]
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
             );
           }
           results.push(result.rows[0]);
@@ -13475,7 +13256,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.query(
           `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
            VALUES ('items_bulk_created'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-          [bulkSkillId, bulkCollection, `Bulk created ${results.length} items`, JSON.stringify({ count: results.length, collection: bulkCollection })]
+          [bulkSkillId, bulkCollection, `Bulk created ${results.length} items`, JSON.stringify({ count: results.length, collection: bulkCollection })],
         );
       }
 
@@ -13499,7 +13280,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Require at least one additional filter
     const collection = body.collection as string | undefined;
-    const tags = Array.isArray(body.tags) ? body.tags as string[] : undefined;
+    const tags = Array.isArray(body.tags) ? (body.tags as string[]) : undefined;
     const status = body.status as string | undefined;
 
     if (!collection && !tags && !status) {
@@ -13533,7 +13314,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE skill_store_item SET deleted_at = now()
          WHERE ${conditions.join(' AND ')}`,
-        params
+        params,
       );
 
       // Emit summary activity event for bulk delete (Issue #808)
@@ -13542,7 +13323,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.query(
           `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
            VALUES ('items_bulk_deleted'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-          [skillId, collection || null, `Bulk deleted ${deletedCount} items`, JSON.stringify({ count: deletedCount, collection })]
+          [skillId, collection || null, `Bulk deleted ${deletedCount} items`, JSON.stringify({ count: deletedCount, collection })],
         );
       }
 
@@ -13565,7 +13346,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `UPDATE skill_store_item SET status = 'archived'
          WHERE id = $1 AND deleted_at IS NULL
          RETURNING ${SKILL_STORE_SELECT_COLS}`,
-        [params.id]
+        [params.id],
       );
 
       if (result.rows.length === 0) {
@@ -13595,7 +13376,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `SELECT ${SKILL_STORE_SELECT_COLS}
          FROM skill_store_item
          WHERE id = $1 ${deletedFilter}`,
-        [params.id]
+        [params.id],
       );
 
       if (result.rows.length === 0) {
@@ -13620,7 +13401,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const offset = parseInt(query.offset || '0', 10);
     const collection = query.collection;
     const status = query.status;
-    const tagsFilter = query.tags ? query.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : null;
+    const tagsFilter = query.tags
+      ? query.tags
+          .split(',')
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : null;
     const since = query.since;
     const until = query.until;
     const userEmail = query.user_email;
@@ -13674,10 +13460,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Get total count
-      const countResult = await pool.query(
-        `SELECT COUNT(*) AS total FROM skill_store_item WHERE ${whereClause}`,
-        params
-      );
+      const countResult = await pool.query(`SELECT COUNT(*) AS total FROM skill_store_item WHERE ${whereClause}`, params);
       const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
       // Get paginated results
@@ -13688,7 +13471,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          WHERE ${whereClause}
          ORDER BY ${safeOrderBy} DESC
          LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
-        dataParams
+        dataParams,
       );
 
       return reply.send({
@@ -13760,7 +13543,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          SET ${setClauses.join(', ')}
          WHERE id = $${paramIdx} AND deleted_at IS NULL
          RETURNING ${SKILL_STORE_SELECT_COLS}`,
-        queryParams
+        queryParams,
       );
 
       if (result.rows.length === 0) {
@@ -13772,7 +13555,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('item_updated'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [updatedItem.skill_id, updatedItem.collection, `Updated item: ${updatedItem.title || updatedItem.id}`, JSON.stringify({ item_id: updatedItem.id })]
+        [updatedItem.skill_id, updatedItem.collection, `Updated item: ${updatedItem.title || updatedItem.id}`, JSON.stringify({ item_id: updatedItem.id })],
       );
 
       return reply.send(result.rows[0]);
@@ -13794,23 +13577,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Fetch item info for activity event before deletion (Issue #808)
-      const itemInfo = await pool.query(
-        `SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1`,
-        [params.id]
-      );
+      const itemInfo = await pool.query(`SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1`, [params.id]);
 
       let result;
       if (permanent) {
-        result = await pool.query(
-          'DELETE FROM skill_store_item WHERE id = $1 RETURNING id',
-          [params.id]
-        );
+        result = await pool.query('DELETE FROM skill_store_item WHERE id = $1 RETURNING id', [params.id]);
       } else {
         result = await pool.query(
           `UPDATE skill_store_item SET deleted_at = now()
            WHERE id = $1 AND deleted_at IS NULL
            RETURNING id`,
-          [params.id]
+          [params.id],
         );
       }
 
@@ -13824,7 +13601,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.query(
           `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
            VALUES ('item_deleted'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-          [item.skill_id, item.collection, `Deleted item: ${item.title || params.id}`, JSON.stringify({ item_id: params.id, permanent })]
+          [item.skill_id, item.collection, `Deleted item: ${item.title || params.id}`, JSON.stringify({ item_id: params.id, permanent })],
         );
       }
 
@@ -13864,7 +13641,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          GROUP BY collection
          HAVING COUNT(*) FILTER (WHERE deleted_at IS NULL) > 0
          ORDER BY collection`,
-        values
+        values,
       );
       return reply.send({ collections: result.rows });
     } finally {
@@ -13930,7 +13707,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await pool.query(
         `UPDATE skill_store_item SET deleted_at = now()
          WHERE skill_id = $1 AND collection = $2 AND deleted_at IS NULL`,
-        [query.skill_id, params.name]
+        [query.skill_id, params.name],
       );
       return reply.send({ deleted: result.rowCount ?? 0 });
     } finally {
@@ -14110,7 +13887,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           JSON.stringify(body.payload_template || {}),
           body.enabled !== undefined ? body.enabled : true,
           body.max_retries !== undefined ? Math.min(Math.max(Math.floor(body.max_retries), 0), 20) : 5,
-        ]
+        ],
       );
 
       return reply.code(201).send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -14163,10 +13940,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const countResult = await pool.query(
-        `SELECT COUNT(*) as count FROM skill_store_schedule ${whereClause}`,
-        params
-      );
+      const countResult = await pool.query(`SELECT COUNT(*) as count FROM skill_store_schedule ${whereClause}`, params);
       const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
 
       const selectParams = [...params, limit, offset];
@@ -14182,7 +13956,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ${whereClause}
          ORDER BY created_at DESC
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        selectParams
+        selectParams,
       );
 
       return reply.send({ schedules: result.rows.map((r) => redactScheduleRow(r as Record<string, unknown>)), total });
@@ -14292,7 +14066,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            enabled, max_retries,
            last_run_at, next_run_at, last_run_status,
            created_at, updated_at`,
-        params
+        params,
       );
 
       if (result.rows.length === 0) {
@@ -14321,10 +14095,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await pool.query(
-        `DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id`,
-        [id]
-      );
+      const result = await pool.query(`DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id`, [id]);
 
       if (result.rowCount === 0) {
         return reply.code(404).send({ error: 'Schedule not found' });
@@ -14350,7 +14121,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const scheduleResult = await pool.query(
         `SELECT id::text as id, skill_id, collection, webhook_url, webhook_headers, payload_template, max_retries
          FROM skill_store_schedule WHERE id = $1`,
-        [id]
+        [id],
       );
 
       if (scheduleResult.rows.length === 0) {
@@ -14383,14 +14154,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             max_retries: schedule.max_retries,
             manual_trigger: true,
           }),
-        ]
+        ],
       );
 
       // Emit activity event (Issue #808)
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_triggered'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Manually triggered schedule`, JSON.stringify({ schedule_id: schedule.id })]
+        [schedule.skill_id, schedule.collection, `Manually triggered schedule`, JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.code(202).send({
@@ -14422,7 +14193,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            enabled, max_retries,
            last_run_at, next_run_at, last_run_status,
            created_at, updated_at`,
-        [id]
+        [id],
       );
 
       if (result.rows.length === 0) {
@@ -14435,7 +14206,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_paused'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Paused schedule`, JSON.stringify({ schedule_id: schedule.id })]
+        [schedule.skill_id, schedule.collection, `Paused schedule`, JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -14464,7 +14235,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            enabled, max_retries,
            last_run_at, next_run_at, last_run_status,
            created_at, updated_at`,
-        [id]
+        [id],
       );
 
       if (result.rows.length === 0) {
@@ -14477,7 +14248,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_resumed'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Resumed schedule`, JSON.stringify({ schedule_id: schedule.id })]
+        [schedule.skill_id, schedule.collection, `Resumed schedule`, JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -14506,10 +14277,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         route: { path: url.replace('/static/app', '') || '/' },
       };
 
-      return reply
-        .code(200)
-        .header('content-type', 'text/html; charset=utf-8')
-        .send(renderAppFrontendHtml(bootstrap));
+      return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
     }
 
     return reply.code(404).send({ error: 'Not Found' });

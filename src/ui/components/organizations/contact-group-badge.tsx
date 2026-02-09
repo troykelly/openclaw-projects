@@ -28,14 +28,7 @@ function getContrastColor(hexColor: string): string {
   return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
-export function ContactGroupBadge({
-  group,
-  onRemove,
-  removable = false,
-  showCount = false,
-  size = 'md',
-  className,
-}: ContactGroupBadgeProps) {
+export function ContactGroupBadge({ group, onRemove, removable = false, showCount = false, size = 'md', className }: ContactGroupBadgeProps) {
   const textColor = getContrastColor(group.color);
 
   const sizeClasses = {
@@ -51,11 +44,7 @@ export function ContactGroupBadge({
   return (
     <span
       data-testid="contact-group-badge"
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full font-medium',
-        sizeClasses[size],
-        className
-      )}
+      className={cn('inline-flex items-center gap-1 rounded-full font-medium', sizeClasses[size], className)}
       style={{
         backgroundColor: group.color,
         color: textColor,
@@ -63,9 +52,7 @@ export function ContactGroupBadge({
     >
       <span>{group.name}</span>
 
-      {showCount && (
-        <span className="opacity-75">{group.memberCount}</span>
-      )}
+      {showCount && <span className="opacity-75">{group.memberCount}</span>}
 
       {removable && onRemove && (
         <button

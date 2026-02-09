@@ -18,12 +18,7 @@ export interface ActivityFeedPersonalizationProps {
   className?: string;
 }
 
-export function ActivityFeedPersonalization({
-  settings,
-  onChange,
-  onSaveDefaults,
-  className,
-}: ActivityFeedPersonalizationProps) {
+export function ActivityFeedPersonalization({ settings, onChange, onSaveDefaults, className }: ActivityFeedPersonalizationProps) {
   const handleToggle = (key: keyof ActivityPersonalizationSettings) => {
     onChange({
       ...settings,
@@ -31,10 +26,7 @@ export function ActivityFeedPersonalization({
     });
   };
 
-  const handleNumberChange = (
-    key: 'collapseThreshold' | 'refreshInterval',
-    value: number
-  ) => {
+  const handleNumberChange = (key: 'collapseThreshold' | 'refreshInterval', value: number) => {
     onChange({
       ...settings,
       [key]: value,
@@ -47,9 +39,7 @@ export function ActivityFeedPersonalization({
       <div>
         <h4 className="text-sm font-medium mb-3">Default Filters</h4>
         <p className="text-xs text-muted-foreground">
-          {Object.keys(settings.defaultFilters).length > 0
-            ? `${Object.keys(settings.defaultFilters).length} filter(s) configured`
-            : 'No default filters set'}
+          {Object.keys(settings.defaultFilters).length > 0 ? `${Object.keys(settings.defaultFilters).length} filter(s) configured` : 'No default filters set'}
         </p>
       </div>
 
@@ -59,10 +49,7 @@ export function ActivityFeedPersonalization({
 
         {/* Show my activity first */}
         <div className="flex items-center justify-between">
-          <Label
-            htmlFor="my-activity-first"
-            className="text-sm cursor-pointer"
-          >
+          <Label htmlFor="my-activity-first" className="text-sm cursor-pointer">
             Show my activity first
           </Label>
           <Switch
@@ -85,14 +72,10 @@ export function ActivityFeedPersonalization({
               min={2}
               max={20}
               value={settings.collapseThreshold}
-              onChange={(e) =>
-                handleNumberChange('collapseThreshold', parseInt(e.target.value, 10))
-              }
+              onChange={(e) => handleNumberChange('collapseThreshold', parseInt(e.target.value, 10))}
               className="w-20"
             />
-            <span className="text-xs text-muted-foreground">
-              Group similar activities when there are this many
-            </span>
+            <span className="text-xs text-muted-foreground">Group similar activities when there are this many</span>
           </div>
         </div>
       </div>
@@ -106,12 +89,7 @@ export function ActivityFeedPersonalization({
           <Label htmlFor="auto-refresh" className="text-sm cursor-pointer">
             Auto refresh
           </Label>
-          <Switch
-            id="auto-refresh"
-            aria-label="Auto refresh"
-            checked={settings.autoRefresh}
-            onCheckedChange={() => handleToggle('autoRefresh')}
-          />
+          <Switch id="auto-refresh" aria-label="Auto refresh" checked={settings.autoRefresh} onCheckedChange={() => handleToggle('autoRefresh')} />
         </div>
 
         {/* Refresh interval */}
@@ -127,14 +105,10 @@ export function ActivityFeedPersonalization({
                 min={10}
                 max={300}
                 value={settings.refreshInterval}
-                onChange={(e) =>
-                  handleNumberChange('refreshInterval', parseInt(e.target.value, 10))
-                }
+                onChange={(e) => handleNumberChange('refreshInterval', parseInt(e.target.value, 10))}
                 className="w-20"
               />
-              <span className="text-xs text-muted-foreground">
-                {settings.refreshInterval} seconds
-              </span>
+              <span className="text-xs text-muted-foreground">{settings.refreshInterval} seconds</span>
             </div>
           </div>
         )}

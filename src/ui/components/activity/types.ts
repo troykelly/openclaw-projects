@@ -16,13 +16,7 @@ export type ActivityType =
   | 'note_added';
 
 /** Source types for navigation */
-export type ActivitySourceType =
-  | 'work_item'
-  | 'email'
-  | 'calendar'
-  | 'relationship'
-  | 'contact'
-  | 'note';
+export type ActivitySourceType = 'work_item' | 'email' | 'calendar' | 'relationship' | 'contact' | 'note';
 
 /** An activity entry */
 export interface Activity {

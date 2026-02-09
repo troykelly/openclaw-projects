@@ -48,15 +48,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
       `INSERT INTO skill_store_item (skill_id, collection, title, status, data, tags, embedding_status)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6::text[], $7)
        RETURNING id, skill_id, collection, status`,
-      [
-        merged.skill_id,
-        merged.collection,
-        merged.title,
-        merged.status,
-        merged.data,
-        merged.tags,
-        merged.embedding_status ?? 'pending',
-      ]
+      [merged.skill_id, merged.collection, merged.title, merged.status, merged.data, merged.tags, merged.embedding_status ?? 'pending'],
     );
     return result.rows[0];
   }
@@ -74,13 +66,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
       `INSERT INTO skill_store_schedule (skill_id, collection, cron_expression, webhook_url, enabled)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [
-        merged.skill_id,
-        merged.collection ?? null,
-        merged.cron_expression,
-        merged.webhook_url,
-        merged.enabled,
-      ]
+      [merged.skill_id, merged.collection ?? null, merged.cron_expression, merged.webhook_url, merged.enabled],
     );
     return result.rows[0];
   }
@@ -132,10 +118,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.by_skill).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ skill_id: 'skill-a', count: 2 }),
-          expect.objectContaining({ skill_id: 'skill-b', count: 1 }),
-        ])
+        expect.arrayContaining([expect.objectContaining({ skill_id: 'skill-a', count: 2 }), expect.objectContaining({ skill_id: 'skill-b', count: 1 })]),
       );
     });
 
@@ -380,15 +363,11 @@ describe('Skill Store Admin API (Issue #804)', () => {
       expect(body.skill_id).toBe('purge-me');
 
       // Verify items are gone (hard delete, not soft)
-      const remaining = await pool.query(
-        "SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = 'purge-me'"
-      );
+      const remaining = await pool.query("SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = 'purge-me'");
       expect(remaining.rows[0].cnt).toBe(0);
 
       // Verify other skills untouched
-      const kept = await pool.query(
-        "SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = 'keep-me'"
-      );
+      const kept = await pool.query("SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = 'keep-me'");
       expect(kept.rows[0].cnt).toBe(1);
     });
 
@@ -403,9 +382,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
       });
       expect(res.statusCode).toBe(200);
 
-      const schedules = await pool.query(
-        "SELECT count(*)::int AS cnt FROM skill_store_schedule WHERE skill_id = 'sched-purge'"
-      );
+      const schedules = await pool.query("SELECT count(*)::int AS cnt FROM skill_store_schedule WHERE skill_id = 'sched-purge'");
       expect(schedules.rows[0].cnt).toBe(0);
     });
 
@@ -433,9 +410,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
       // Hard purge removes ALL items including soft-deleted
       expect(body.deleted_count).toBe(2);
 
-      const remaining = await pool.query(
-        "SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = 'full-purge'"
-      );
+      const remaining = await pool.query("SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = 'full-purge'");
       expect(remaining.rows[0].cnt).toBe(0);
     });
   });

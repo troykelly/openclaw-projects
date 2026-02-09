@@ -17,19 +17,9 @@ export interface SavedViewsListProps {
   onDeleteView: (viewId: string) => void;
 }
 
-export function SavedViewsList({
-  views,
-  activeViewId,
-  onSelectView,
-  onEditView,
-  onDeleteView,
-}: SavedViewsListProps) {
+export function SavedViewsList({ views, activeViewId, onSelectView, onEditView, onDeleteView }: SavedViewsListProps) {
   if (views.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No saved views yet. Save your current filters to create one.
-      </div>
-    );
+    return <div className="text-center py-8 text-muted-foreground">No saved views yet. Save your current filters to create one.</div>;
   }
 
   return (
@@ -44,9 +34,7 @@ export function SavedViewsList({
             data-active={isActive}
             className={cn(
               'flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors',
-              isActive
-                ? 'bg-accent border-accent-foreground/20'
-                : 'hover:bg-muted/50'
+              isActive ? 'bg-accent border-accent-foreground/20' : 'hover:bg-muted/50',
             )}
             onClick={() => onSelectView(view)}
           >
@@ -59,11 +47,7 @@ export function SavedViewsList({
                   </Badge>
                 )}
               </div>
-              {view.description && (
-                <p className="text-sm text-muted-foreground truncate mt-1">
-                  {view.description}
-                </p>
-              )}
+              {view.description && <p className="text-sm text-muted-foreground truncate mt-1">{view.description}</p>}
             </div>
 
             <div className="flex items-center gap-1 ml-2">

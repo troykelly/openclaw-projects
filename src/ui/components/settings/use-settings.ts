@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { UserSettings, SettingsUpdatePayload } from './types';
 
-export type SettingsState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string; status?: number }
-  | { kind: 'loaded'; data: UserSettings };
+export type SettingsState = { kind: 'loading' } | { kind: 'error'; message: string; status?: number } | { kind: 'loaded'; data: UserSettings };
 
 export function useSettings() {
   const [state, setState] = useState<SettingsState>({ kind: 'loading' });
@@ -79,7 +76,7 @@ export function useSettings() {
         setIsSaving(false);
       }
     },
-    [state]
+    [state],
   );
 
   return {

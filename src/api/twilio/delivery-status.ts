@@ -35,30 +35,12 @@ export interface TwilioStatusCallback {
 /**
  * Twilio message statuses.
  */
-export type TwilioMessageStatus =
-  | 'accepted'
-  | 'queued'
-  | 'sending'
-  | 'sent'
-  | 'delivered'
-  | 'undelivered'
-  | 'failed'
-  | 'receiving'
-  | 'received'
-  | 'read';
+export type TwilioMessageStatus = 'accepted' | 'queued' | 'sending' | 'sent' | 'delivered' | 'undelivered' | 'failed' | 'receiving' | 'received' | 'read';
 
 /**
  * Our delivery status enum values.
  */
-export type DeliveryStatus =
-  | 'pending'
-  | 'queued'
-  | 'sending'
-  | 'sent'
-  | 'delivered'
-  | 'failed'
-  | 'bounced'
-  | 'undelivered';
+export type DeliveryStatus = 'pending' | 'queued' | 'sending' | 'sent' | 'delivered' | 'failed' | 'bounced' | 'undelivered';
 
 /**
  * Result of processing a delivery status callback.
@@ -157,10 +139,7 @@ function canTransition(current: DeliveryStatus, next: DeliveryStatus): boolean {
  * 3. Updates delivery_status and provider_status_raw
  * 4. Respects status transition rules (forward only)
  */
-export async function processDeliveryStatus(
-  pool: Pool,
-  callback: TwilioStatusCallback
-): Promise<DeliveryStatusResult> {
+export async function processDeliveryStatus(pool: Pool, callback: TwilioStatusCallback): Promise<DeliveryStatusResult> {
   const { MessageSid, MessageStatus } = callback;
 
   if (!MessageSid || !MessageStatus) {
@@ -175,7 +154,7 @@ export async function processDeliveryStatus(
     `SELECT id::text as id, delivery_status::text as current_status
      FROM external_message
      WHERE provider_message_id = $1`,
-    [MessageSid]
+    [MessageSid],
   );
 
   if (message.rows.length === 0) {
@@ -192,9 +171,7 @@ export async function processDeliveryStatus(
 
   // Check if we can transition to the new status
   if (!canTransition(currentStatus, newStatus)) {
-    console.log(
-      `[Twilio] Status unchanged for ${MessageSid}: ${currentStatus} -> ${MessageStatus} (mapped: ${newStatus})`
-    );
+    console.log(`[Twilio] Status unchanged for ${MessageSid}: ${currentStatus} -> ${MessageStatus} (mapped: ${newStatus})`);
     return {
       success: true,
       messageId,
@@ -209,12 +186,10 @@ export async function processDeliveryStatus(
        SET delivery_status = $2::message_delivery_status,
            provider_status_raw = $3::jsonb
        WHERE id = $1`,
-      [messageId, newStatus, JSON.stringify(callback)]
+      [messageId, newStatus, JSON.stringify(callback)],
     );
 
-    console.log(
-      `[Twilio] Status updated for ${MessageSid}: ${currentStatus} -> ${newStatus}`
-    );
+    console.log(`[Twilio] Status updated for ${MessageSid}: ${currentStatus} -> ${newStatus}`);
 
     return {
       success: true,
@@ -225,9 +200,7 @@ export async function processDeliveryStatus(
 
     // Handle status transition errors from the database trigger
     if (err.message.includes('transition') || err.message.includes('terminal')) {
-      console.warn(
-        `[Twilio] Status transition rejected by DB: ${currentStatus} -> ${newStatus}`
-      );
+      console.warn(`[Twilio] Status transition rejected by DB: ${currentStatus} -> ${newStatus}`);
       return {
         success: true,
         messageId,

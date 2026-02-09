@@ -48,9 +48,7 @@ describe('LabelBadge', () => {
 
   it('does not show remove button by default', () => {
     render(<LabelBadge label={mockLabel} />);
-    expect(
-      screen.queryByRole('button', { name: /remove/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
   });
 
   it('renders small size variant', () => {
@@ -81,9 +79,7 @@ describe('LabelPicker', () => {
     { id: 'label-3', name: 'documentation', color: '#0075ca' },
   ];
 
-  const selectedLabels: Label[] = [
-    { id: 'label-1', name: 'bug', color: '#d73a4a' },
-  ];
+  const selectedLabels: Label[] = [{ id: 'label-1', name: 'bug', color: '#d73a4a' }];
 
   const defaultProps = {
     labels: mockLabels,
@@ -208,7 +204,7 @@ describe('LabelManager', () => {
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'new-label',
-      })
+      }),
     );
   });
 
@@ -323,16 +319,10 @@ describe('useLabels hook', () => {
 
 describe('Color Palette', () => {
   it('provides GitHub-style color options', async () => {
-    const { LABEL_COLORS } = await import(
-      '@/ui/components/labels/color-palette'
-    );
+    const { LABEL_COLORS } = await import('@/ui/components/labels/color-palette');
 
-    expect(LABEL_COLORS).toContainEqual(
-      expect.objectContaining({ name: 'bug', hex: '#d73a4a' })
-    );
-    expect(LABEL_COLORS).toContainEqual(
-      expect.objectContaining({ name: 'enhancement', hex: '#a2eeef' })
-    );
+    expect(LABEL_COLORS).toContainEqual(expect.objectContaining({ name: 'bug', hex: '#d73a4a' }));
+    expect(LABEL_COLORS).toContainEqual(expect.objectContaining({ name: 'enhancement', hex: '#a2eeef' }));
     expect(LABEL_COLORS.length).toBeGreaterThanOrEqual(10);
   });
 });

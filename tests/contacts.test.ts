@@ -27,7 +27,7 @@ describe('Contacts + endpoints + trust model', () => {
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, 'email', $2)
        RETURNING normalized_value`,
-      [contactId, '  Troy@Example.COM  ']
+      [contactId, '  Troy@Example.COM  '],
     );
     expect(e1.rows[0].normalized_value).toBe('troy@example.com');
 
@@ -39,8 +39,8 @@ describe('Contacts + endpoints + trust model', () => {
       pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'email', $2)`,
-        [contactId2, 'troy@example.com']
-      )
+        [contactId2, 'troy@example.com'],
+      ),
     ).rejects.toThrow(/contact_endpoint/);
   });
 
@@ -52,7 +52,7 @@ describe('Contacts + endpoints + trust model', () => {
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, 'telegram', $2)
        RETURNING normalized_value`,
-      [contactId, ' @SomeUser ']
+      [contactId, ' @SomeUser '],
     );
 
     expect(e1.rows[0].normalized_value).toBe('someuser');
@@ -66,8 +66,8 @@ describe('Contacts + endpoints + trust model', () => {
       pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, allow_privileged_actions)
          VALUES ($1, 'phone', $2, true)`,
-        [contactId, '+1 (555) 123-4567']
-      )
+        [contactId, '+1 (555) 123-4567'],
+      ),
     ).rejects.toThrow(/no_privileged_via_phone/);
   });
 });

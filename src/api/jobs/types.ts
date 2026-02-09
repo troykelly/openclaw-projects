@@ -30,6 +30,4 @@ export interface JobProcessorStats {
   skipped: number;
 }
 
-export type JobHandler = (
-  job: InternalJob
-) => Promise<JobProcessorResult>;
+export type JobHandler = (job: InternalJob) => Promise<JobProcessorResult>;

@@ -5,11 +5,7 @@
 import * as React from 'react';
 import { SmilePlus } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/ui/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { cn } from '@/ui/lib/utils';
 import type { CommentReaction } from './types';
 import { REACTION_EMOJIS } from './types';
@@ -21,12 +17,7 @@ export interface CommentReactionsProps {
   className?: string;
 }
 
-export function CommentReactions({
-  reactions,
-  currentUserId,
-  onReact,
-  className,
-}: CommentReactionsProps) {
+export function CommentReactions({ reactions, currentUserId, onReact, className }: CommentReactionsProps) {
   const [popoverOpen, setPopoverOpen] = React.useState(false);
 
   const handleReact = (emoji: string) => {
@@ -47,9 +38,7 @@ export function CommentReactions({
             data-reacted={hasReacted}
             className={cn(
               'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors',
-              hasReacted
-                ? 'bg-primary/20 border border-primary/30'
-                : 'bg-muted hover:bg-muted/80'
+              hasReacted ? 'bg-primary/20 border border-primary/30' : 'bg-muted hover:bg-muted/80',
             )}
             onClick={() => onReact(reaction.emoji)}
           >
@@ -62,12 +51,7 @@ export function CommentReactions({
       {/* Add reaction */}
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 rounded-full"
-            aria-label="Add reaction"
-          >
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full" aria-label="Add reaction">
             <SmilePlus className="h-3.5 w-3.5" />
           </Button>
         </PopoverTrigger>

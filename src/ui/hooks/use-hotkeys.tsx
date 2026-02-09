@@ -13,11 +13,7 @@ const HotkeysContext = createContext<HotkeysContextValue | null>(null);
 export function HotkeysProvider({ children }: { children: React.ReactNode }) {
   const [isEnabled, setEnabled] = useState(true);
 
-  return (
-    <HotkeysContext.Provider value={{ isEnabled, setEnabled }}>
-      {children}
-    </HotkeysContext.Provider>
-  );
+  return <HotkeysContext.Provider value={{ isEnabled, setEnabled }}>{children}</HotkeysContext.Provider>;
 }
 
 export function useHotkeysContext() {
@@ -33,12 +29,7 @@ function isInputElement(element: EventTarget | null): boolean {
   if (!element || !(element instanceof HTMLElement)) return false;
 
   const tagName = element.tagName.toLowerCase();
-  return (
-    tagName === 'input' ||
-    tagName === 'textarea' ||
-    tagName === 'select' ||
-    element.isContentEditable
-  );
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || element.isContentEditable;
 }
 
 function parseHotkey(hotkey: string): {
@@ -79,10 +70,7 @@ function normalizeKey(key: string): string {
   return keyMap[normalized] || normalized;
 }
 
-function matchesHotkey(
-  event: KeyboardEvent,
-  parsed: ReturnType<typeof parseHotkey>
-): boolean {
+function matchesHotkey(event: KeyboardEvent, parsed: ReturnType<typeof parseHotkey>): boolean {
   const eventKey = normalizeKey(event.key);
   const targetKey = normalizeKey(parsed.key);
 
@@ -90,16 +78,12 @@ function matchesHotkey(
   const ctrlMatches = parsed.ctrl === event.ctrlKey;
   const metaMatches = parsed.meta === event.metaKey;
   const altMatches = parsed.alt === event.altKey;
-  const shiftMatches = !parsed.shift || (parsed.shift === event.shiftKey);
+  const shiftMatches = !parsed.shift || parsed.shift === event.shiftKey;
 
   return keyMatches && ctrlMatches && metaMatches && altMatches && shiftMatches;
 }
 
-export function useHotkeys(
-  hotkey: string,
-  callback: HotkeyCallback,
-  options: { enabled?: boolean } = {}
-): void {
+export function useHotkeys(hotkey: string, callback: HotkeyCallback, options: { enabled?: boolean } = {}): void {
   const { isEnabled: globalEnabled } = useHotkeysContext();
   const { enabled = true } = options;
 
@@ -117,7 +101,7 @@ export function useHotkeys(
         callbackRef.current(event);
       }
     },
-    [enabled, globalEnabled, parsed.key, parsed.ctrl, parsed.meta, parsed.alt, parsed.shift]
+    [enabled, globalEnabled, parsed.key, parsed.ctrl, parsed.meta, parsed.alt, parsed.shift],
   );
 
   useEffect(() => {
@@ -131,11 +115,7 @@ interface SequentialHotkeyOptions {
   enabled?: boolean;
 }
 
-export function useSequentialHotkeys(
-  keys: string[],
-  callback: HotkeyCallback,
-  options: SequentialHotkeyOptions = {}
-): void {
+export function useSequentialHotkeys(keys: string[], callback: HotkeyCallback, options: SequentialHotkeyOptions = {}): void {
   const { isEnabled: globalEnabled } = useHotkeysContext();
   const { timeout = 1000, enabled = true } = options;
 
@@ -169,7 +149,7 @@ export function useSequentialHotkeys(
 
       // Check if sequence matches
       const currentSequence = sequenceRef.current;
-      const targetSequence = keys.map(k => k.toLowerCase());
+      const targetSequence = keys.map((k) => k.toLowerCase());
 
       // Check if we have a match
       let matches = true;
@@ -200,7 +180,7 @@ export function useSequentialHotkeys(
       // Set timeout to reset sequence
       timeoutRef.current = setTimeout(resetSequence, timeout);
     },
-    [enabled, globalEnabled, keys, timeout, resetSequence]
+    [enabled, globalEnabled, keys, timeout, resetSequence],
   );
 
   useEffect(() => {

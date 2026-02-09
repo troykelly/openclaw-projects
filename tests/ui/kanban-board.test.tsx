@@ -4,13 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  KanbanBoard,
-  BoardCard,
-  BoardColumn,
-  type BoardItem,
-  type BoardColumnType,
-} from '@/ui/components/board';
+import { KanbanBoard, BoardCard, BoardColumn, type BoardItem, type BoardColumnType } from '@/ui/components/board';
 
 const mockItems: BoardItem[] = [
   { id: '1', title: 'Task A', status: 'not_started', priority: 'high' },
@@ -103,8 +97,7 @@ describe('BoardColumn', () => {
     const { container } = render(<BoardColumn column={column} onAddItem={onAddItem} />);
 
     // Find the add button by sr-only text
-    const addButton = container.querySelector('[aria-label="Add item"]')
-      ?? screen.getByText('Add item').closest('button');
+    const addButton = container.querySelector('[aria-label="Add item"]') ?? screen.getByText('Add item').closest('button');
     fireEvent.click(addButton!);
 
     expect(onAddItem).toHaveBeenCalledWith('in_progress');
@@ -166,13 +159,7 @@ describe('KanbanBoard', () => {
 
   it('calls onViewModeChange when toggle clicked', () => {
     const onViewModeChange = vi.fn();
-    render(
-      <KanbanBoard
-        items={mockItems}
-        viewMode="board"
-        onViewModeChange={onViewModeChange}
-      />
-    );
+    render(<KanbanBoard items={mockItems} viewMode="board" onViewModeChange={onViewModeChange} />);
 
     fireEvent.click(screen.getByText('List'));
     expect(onViewModeChange).toHaveBeenCalledWith('list');

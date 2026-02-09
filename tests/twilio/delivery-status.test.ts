@@ -25,18 +25,16 @@ describe('Twilio delivery status webhooks (#292)', () => {
 
     beforeEach(async () => {
       // Create test message with provider_message_id
-      const contact = await pool.query(
-        `INSERT INTO contact (display_name) VALUES ('Status Test') RETURNING id`
-      );
+      const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Status Test') RETURNING id`);
       const endpoint = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'phone', '+15551234567') RETURNING id`,
-        [contact.rows[0].id]
+        [contact.rows[0].id],
       );
       const thread = await pool.query(
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'phone', 'sms:test:thread') RETURNING id`,
-        [endpoint.rows[0].id]
+        [endpoint.rows[0].id],
       );
 
       twilioSid = 'SM' + 'a'.repeat(32);
@@ -48,15 +46,13 @@ describe('Twilio delivery status webhooks (#292)', () => {
          )
          VALUES ($1, 'outbound:test', 'outbound', 'Test message', 'sent', $2)
          RETURNING id::text as id`,
-        [thread.rows[0].id, twilioSid]
+        [thread.rows[0].id, twilioSid],
       );
       testMessageId = msg.rows[0].id;
     });
 
     it('updates message status from Twilio callback', async () => {
-      const { processDeliveryStatus } = await import(
-        '../../src/api/twilio/delivery-status.js'
-      );
+      const { processDeliveryStatus } = await import('../../src/api/twilio/delivery-status.js');
 
       const result = await processDeliveryStatus(pool, {
         MessageSid: twilioSid,
@@ -74,16 +70,14 @@ describe('Twilio delivery status webhooks (#292)', () => {
       const msg = await pool.query(
         `SELECT delivery_status::text as status, provider_status_raw
          FROM external_message WHERE id = $1`,
-        [testMessageId]
+        [testMessageId],
       );
       expect(msg.rows[0].status).toBe('delivered');
       expect(msg.rows[0].provider_status_raw.MessageStatus).toBe('delivered');
     });
 
     it('maps Twilio statuses to our status enum', async () => {
-      const { processDeliveryStatus } = await import(
-        '../../src/api/twilio/delivery-status.js'
-      );
+      const { processDeliveryStatus } = await import('../../src/api/twilio/delivery-status.js');
 
       // Test 'sent' status
       const msg1 = await createTestMessage(pool, 'SM' + 'b'.repeat(32), 'queued');
@@ -95,10 +89,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
         From: '+15552222222',
       });
 
-      let status = await pool.query(
-        `SELECT delivery_status::text as status FROM external_message WHERE id = $1`,
-        [msg1]
-      );
+      let status = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [msg1]);
       expect(status.rows[0].status).toBe('sent');
 
       // Test 'failed' status
@@ -115,7 +106,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
       status = await pool.query(
         `SELECT delivery_status::text as status, provider_status_raw
          FROM external_message WHERE id = $1`,
-        [msg2]
+        [msg2],
       );
       expect(status.rows[0].status).toBe('failed');
       expect(status.rows[0].provider_status_raw.ErrorCode).toBe('30003');
@@ -131,17 +122,12 @@ describe('Twilio delivery status webhooks (#292)', () => {
         From: '+15556666666',
       });
 
-      status = await pool.query(
-        `SELECT delivery_status::text as status FROM external_message WHERE id = $1`,
-        [msg3]
-      );
+      status = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [msg3]);
       expect(status.rows[0].status).toBe('undelivered');
     });
 
     it('returns not found for unknown MessageSid', async () => {
-      const { processDeliveryStatus } = await import(
-        '../../src/api/twilio/delivery-status.js'
-      );
+      const { processDeliveryStatus } = await import('../../src/api/twilio/delivery-status.js');
 
       const result = await processDeliveryStatus(pool, {
         MessageSid: 'SM' + 'x'.repeat(32),
@@ -156,9 +142,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
     });
 
     it('stores full callback payload in provider_status_raw', async () => {
-      const { processDeliveryStatus } = await import(
-        '../../src/api/twilio/delivery-status.js'
-      );
+      const { processDeliveryStatus } = await import('../../src/api/twilio/delivery-status.js');
 
       const payload = {
         MessageSid: twilioSid,
@@ -173,10 +157,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
 
       await processDeliveryStatus(pool, payload);
 
-      const msg = await pool.query(
-        `SELECT provider_status_raw FROM external_message WHERE id = $1`,
-        [testMessageId]
-      );
+      const msg = await pool.query(`SELECT provider_status_raw FROM external_message WHERE id = $1`, [testMessageId]);
 
       expect(msg.rows[0].provider_status_raw).toMatchObject({
         MessageSid: twilioSid,
@@ -188,9 +169,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
     });
 
     it('respects status transition rules (cannot go backwards)', async () => {
-      const { processDeliveryStatus } = await import(
-        '../../src/api/twilio/delivery-status.js'
-      );
+      const { processDeliveryStatus } = await import('../../src/api/twilio/delivery-status.js');
 
       // First, set to delivered
       await processDeliveryStatus(pool, {
@@ -215,17 +194,12 @@ describe('Twilio delivery status webhooks (#292)', () => {
       expect(result.statusUnchanged).toBe(true);
 
       // Verify status still delivered
-      const msg = await pool.query(
-        `SELECT delivery_status::text as status FROM external_message WHERE id = $1`,
-        [testMessageId]
-      );
+      const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [testMessageId]);
       expect(msg.rows[0].status).toBe('delivered');
     });
 
     it('handles duplicate callbacks idempotently', async () => {
-      const { processDeliveryStatus } = await import(
-        '../../src/api/twilio/delivery-status.js'
-      );
+      const { processDeliveryStatus } = await import('../../src/api/twilio/delivery-status.js');
 
       const payload = {
         MessageSid: twilioSid,
@@ -254,23 +228,17 @@ describe('Twilio delivery status webhooks (#292)', () => {
 });
 
 // Helper to create test messages
-async function createTestMessage(
-  pool: Pool,
-  twilioSid: string,
-  status: string
-): Promise<string> {
-  const contact = await pool.query(
-    `INSERT INTO contact (display_name) VALUES ('Test') RETURNING id`
-  );
+async function createTestMessage(pool: Pool, twilioSid: string, status: string): Promise<string> {
+  const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test') RETURNING id`);
   const endpoint = await pool.query(
     `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
      VALUES ($1, 'phone', '+1555' || floor(random() * 9000000 + 1000000)::text) RETURNING id`,
-    [contact.rows[0].id]
+    [contact.rows[0].id],
   );
   const thread = await pool.query(
     `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
      VALUES ($1, 'phone', 'sms:test:' || $2) RETURNING id`,
-    [endpoint.rows[0].id, twilioSid]
+    [endpoint.rows[0].id, twilioSid],
   );
   const msg = await pool.query(
     `INSERT INTO external_message (
@@ -279,7 +247,7 @@ async function createTestMessage(
      )
      VALUES ($1, 'outbound:' || $2, 'outbound', 'Test', $3::message_delivery_status, $2)
      RETURNING id::text as id`,
-    [thread.rows[0].id, twilioSid, status]
+    [thread.rows[0].id, twilioSid, status],
   );
   return msg.rows[0].id;
 }

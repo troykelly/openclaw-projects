@@ -88,7 +88,7 @@ export function LexicalNoteEditor({
       setMarkdownContent(newContent);
       onChange?.(newContent);
     },
-    [onChange]
+    [onChange],
   );
 
   // Handle content change from Lexical editor
@@ -97,7 +97,7 @@ export function LexicalNoteEditor({
       setMarkdownContent(content);
       onChange?.(content);
     },
-    [onChange]
+    [onChange],
   );
 
   // Preview HTML - sanitized with DOMPurify to prevent XSS (#674)
@@ -129,7 +129,9 @@ export function LexicalNoteEditor({
         />
         <MermaidRenderer containerRef={previewContainerRef} isDark={isDark} />
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground bg-muted/20">
-          <span>{charCount} characters | {wordCount} words</span>
+          <span>
+            {charCount} characters | {wordCount} words
+          </span>
         </div>
       </div>
     );
@@ -141,37 +143,19 @@ export function LexicalNoteEditor({
         {/* Simple toolbar for markdown mode */}
         <div className="flex items-center gap-1 p-2 border-b bg-muted/30 flex-wrap">
           <div className="flex items-center gap-1 border rounded-md p-0.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setMode('wysiwyg')}
-              className="h-7 px-2 text-xs"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('wysiwyg')} className="h-7 px-2 text-xs">
               <Edit className="h-3 w-3 mr-1" />
               Edit
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-7 px-2 text-xs"
-            >
+            <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs">
               <Code className="h-3 w-3 mr-1" />
               Markdown
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setMode('preview')}
-              className="h-7 px-2 text-xs"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('preview')} className="h-7 px-2 text-xs">
               <Eye className="h-3 w-3 mr-1" />
               Preview
             </Button>
           </div>
-
         </div>
 
         <textarea
@@ -183,7 +167,9 @@ export function LexicalNoteEditor({
         />
 
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground bg-muted/20">
-          <span>{charCount} characters | {wordCount} words</span>
+          <span>
+            {charCount} characters | {wordCount} words
+          </span>
           {saving && <span className="text-primary">Saving...</span>}
         </div>
       </div>
@@ -199,32 +185,15 @@ export function LexicalNoteEditor({
         {/* Mode switcher in toolbar */}
         <div className="flex items-center justify-end gap-1 px-2 py-1 border-b bg-muted/20">
           <div className="flex items-center gap-1 border rounded-md p-0.5">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-7 px-2 text-xs"
-            >
+            <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs">
               <Edit className="h-3 w-3 mr-1" />
               Edit
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setMode('markdown')}
-              className="h-7 px-2 text-xs"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('markdown')} className="h-7 px-2 text-xs">
               <Code className="h-3 w-3 mr-1" />
               Markdown
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setMode('preview')}
-              className="h-7 px-2 text-xs"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('preview')} className="h-7 px-2 text-xs">
               <Eye className="h-3 w-3 mr-1" />
               Preview
             </Button>
@@ -233,17 +202,8 @@ export function LexicalNoteEditor({
 
         <div className="flex-1 min-h-[300px] overflow-auto relative">
           <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                className="min-h-[300px] p-4 outline-none prose prose-sm max-w-none"
-                aria-placeholder={placeholder}
-              />
-            }
-            placeholder={
-              <div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">
-                {placeholder}
-              </div>
-            }
+            contentEditable={<ContentEditable className="min-h-[300px] p-4 outline-none prose prose-sm max-w-none" aria-placeholder={placeholder} />}
+            placeholder={<div className="absolute top-4 left-4 text-muted-foreground pointer-events-none">{placeholder}</div>}
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
@@ -258,7 +218,9 @@ export function LexicalNoteEditor({
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground bg-muted/20">
-          <span>{charCount} characters | {wordCount} words</span>
+          <span>
+            {charCount} characters | {wordCount} words
+          </span>
           {saving && <span className="text-primary">Saving...</span>}
         </div>
       </LexicalComposer>

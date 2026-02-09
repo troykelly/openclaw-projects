@@ -1,11 +1,6 @@
 export type TreeItemKind = 'project' | 'initiative' | 'epic' | 'issue';
 
-export type TreeItemStatus =
-  | 'not_started'
-  | 'in_progress'
-  | 'blocked'
-  | 'done'
-  | 'cancelled';
+export type TreeItemStatus = 'not_started' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 
 export interface TreeItem {
   id: string;

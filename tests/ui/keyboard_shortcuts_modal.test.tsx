@@ -65,7 +65,7 @@ describe('KeyboardShortcutsModal', () => {
       <div>
         <input data-testid="test-input" />
         <KeyboardShortcutsModal />
-      </div>
+      </div>,
     );
 
     const input = screen.getByTestId('test-input');

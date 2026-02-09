@@ -9,40 +9,13 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  ImportDialog,
-  type ImportDialogProps,
-} from '@/ui/components/import-export/import-dialog';
-import {
-  ColumnMapper,
-  type ColumnMapperProps,
-} from '@/ui/components/import-export/column-mapper';
-import {
-  ExportDialog,
-  type ExportDialogProps,
-} from '@/ui/components/import-export/export-dialog';
-import {
-  ImportPreview,
-  type ImportPreviewProps,
-} from '@/ui/components/import-export/import-preview';
-import {
-  ImportSummary,
-  type ImportSummaryProps,
-} from '@/ui/components/import-export/import-summary';
-import type {
-  ImportFormat,
-  ExportFormat,
-  ColumnMapping,
-  ImportResult,
-  ParsedContact,
-} from '@/ui/components/import-export/types';
-import {
-  parseCSV,
-  parseVCard,
-  autoMapColumns,
-  exportToCSV,
-  exportToVCard,
-} from '@/ui/components/import-export/import-export-utils';
+import { ImportDialog, type ImportDialogProps } from '@/ui/components/import-export/import-dialog';
+import { ColumnMapper, type ColumnMapperProps } from '@/ui/components/import-export/column-mapper';
+import { ExportDialog, type ExportDialogProps } from '@/ui/components/import-export/export-dialog';
+import { ImportPreview, type ImportPreviewProps } from '@/ui/components/import-export/import-preview';
+import { ImportSummary, type ImportSummaryProps } from '@/ui/components/import-export/import-summary';
+import type { ImportFormat, ExportFormat, ColumnMapping, ImportResult, ParsedContact } from '@/ui/components/import-export/types';
+import { parseCSV, parseVCard, autoMapColumns, exportToCSV, exportToVCard } from '@/ui/components/import-export/import-export-utils';
 
 describe('ImportDialog', () => {
   const defaultProps: ImportDialogProps = {
@@ -148,9 +121,7 @@ describe('ColumnMapper', () => {
   });
 
   it('should highlight auto-mapped columns', () => {
-    const mappings: ColumnMapping[] = [
-      { sourceColumn: 'Email Address', targetField: 'email', autoMapped: true },
-    ];
+    const mappings: ColumnMapping[] = [{ sourceColumn: 'Email Address', targetField: 'email', autoMapped: true }];
     render(<ColumnMapper {...defaultProps} mappings={mappings} />);
 
     // Find the row by checking for the auto-mapped attribute
@@ -206,9 +177,7 @@ describe('ImportPreview', () => {
   });
 
   it('should show validation messages', () => {
-    const dataWithErrors = [
-      { name: '', email: 'test@example.com' },
-    ];
+    const dataWithErrors = [{ name: '', email: 'test@example.com' }];
     render(<ImportPreview {...defaultProps} data={dataWithErrors} />);
     expect(screen.getByText(/name.*required/i)).toBeInTheDocument();
   });
@@ -413,9 +382,7 @@ END:VCARD`;
     });
 
     it('should escape special characters', () => {
-      const contacts = [
-        { name: 'Smith, John', email: 'john@test.com' },
-      ];
+      const contacts = [{ name: 'Smith, John', email: 'john@test.com' }];
 
       const csv = exportToCSV(contacts, ['name', 'email']);
 
@@ -425,9 +392,7 @@ END:VCARD`;
 
   describe('exportToVCard', () => {
     it('should export contact to vCard format', () => {
-      const contacts = [
-        { name: 'Alice Smith', email: 'alice@test.com', phone: '555-1234' },
-      ];
+      const contacts = [{ name: 'Alice Smith', email: 'alice@test.com', phone: '555-1234' }];
 
       const vcard = exportToVCard(contacts);
 

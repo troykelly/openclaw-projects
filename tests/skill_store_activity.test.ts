@@ -37,7 +37,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
     it('creates skill_store_activity table', async () => {
       const result = await pool.query(
         `SELECT tablename FROM pg_tables
-         WHERE schemaname = 'public' AND tablename = 'skill_store_activity'`
+         WHERE schemaname = 'public' AND tablename = 'skill_store_activity'`,
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -46,7 +46,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const result = await pool.query(
         `SELECT column_name FROM information_schema.columns
          WHERE table_name = 'skill_store_activity'
-         ORDER BY ordinal_position`
+         ORDER BY ordinal_position`,
       );
       const columns = result.rows.map((r) => r.column_name);
       expect(columns).toContain('id');
@@ -63,7 +63,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const result = await pool.query(
         `SELECT indexname FROM pg_indexes
          WHERE tablename = 'skill_store_activity'
-         ORDER BY indexname`
+         ORDER BY indexname`,
       );
       const indexNames = result.rows.map((r) => r.indexname);
       expect(indexNames).toContain('idx_skill_store_activity_skill_id');
@@ -89,7 +89,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id, collection, description, metadata
          FROM skill_store_activity
-         WHERE activity_type = 'item_created'`
+         WHERE activity_type = 'item_created'`,
       );
       expect(activity.rows).toHaveLength(1);
       expect(activity.rows[0].skill_id).toBe('test-skill');
@@ -123,7 +123,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id, description
          FROM skill_store_activity
-         WHERE activity_type = 'item_updated'`
+         WHERE activity_type = 'item_updated'`,
       );
       expect(activity.rows).toHaveLength(1);
       expect(activity.rows[0].skill_id).toBe('test-skill');
@@ -154,7 +154,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id, description
          FROM skill_store_activity
-         WHERE activity_type = 'item_deleted'`
+         WHERE activity_type = 'item_deleted'`,
       );
       expect(activity.rows).toHaveLength(1);
       expect(activity.rows[0].skill_id).toBe('test-skill');
@@ -179,7 +179,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id, description, metadata
          FROM skill_store_activity
-         WHERE activity_type = 'items_bulk_created'`
+         WHERE activity_type = 'items_bulk_created'`,
       );
       // Should be 1 summary event, not 3 individual events
       expect(activity.rows).toHaveLength(1);
@@ -216,7 +216,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id, description, metadata
          FROM skill_store_activity
-         WHERE activity_type = 'items_bulk_deleted'`
+         WHERE activity_type = 'items_bulk_deleted'`,
       );
       expect(activity.rows).toHaveLength(1);
       expect(activity.rows[0].skill_id).toBe('test-skill');
@@ -248,7 +248,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id, collection, description
          FROM skill_store_activity
-         WHERE activity_type = 'schedule_triggered'`
+         WHERE activity_type = 'schedule_triggered'`,
       );
       expect(activity.rows).toHaveLength(1);
       expect(activity.rows[0].skill_id).toBe('test-skill');
@@ -277,9 +277,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       // Should include at least the skill store item_created event
-      const skillStoreEvents = body.items.filter(
-        (item: Record<string, unknown>) => item.entity_type === 'skill_store'
-      );
+      const skillStoreEvents = body.items.filter((item: Record<string, unknown>) => item.entity_type === 'skill_store');
       expect(skillStoreEvents.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -330,7 +328,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id
          FROM skill_store_activity
-         WHERE activity_type = 'schedule_paused'`
+         WHERE activity_type = 'schedule_paused'`,
       );
       expect(activity.rows).toHaveLength(1);
     });
@@ -356,7 +354,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       const activity = await pool.query(
         `SELECT activity_type::text, skill_id
          FROM skill_store_activity
-         WHERE activity_type = 'schedule_resumed'`
+         WHERE activity_type = 'schedule_resumed'`,
       );
       expect(activity.rows).toHaveLength(1);
     });
@@ -374,9 +372,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       });
       expect(res.statusCode).toBe(400);
 
-      const activity = await pool.query(
-        `SELECT count(*)::int AS cnt FROM skill_store_activity`
-      );
+      const activity = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_activity`);
       expect(activity.rows[0].cnt).toBe(0);
     });
 
@@ -389,9 +385,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       });
       expect(res.statusCode).toBe(404);
 
-      const activity = await pool.query(
-        `SELECT count(*)::int AS cnt FROM skill_store_activity`
-      );
+      const activity = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_activity`);
       expect(activity.rows[0].cnt).toBe(0);
     });
 
@@ -403,9 +397,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
       });
       expect(res.statusCode).toBe(404);
 
-      const activity = await pool.query(
-        `SELECT count(*)::int AS cnt FROM skill_store_activity`
-      );
+      const activity = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_activity`);
       expect(activity.rows[0].cnt).toBe(0);
     });
   });

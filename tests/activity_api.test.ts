@@ -116,7 +116,7 @@ describe('Activity Feed API', () => {
       const body = res.json() as { items: Array<{ type: string; description: string }> };
 
       // Should have status_change activity
-      const statusActivity = body.items.find(i => i.type === 'status_change');
+      const statusActivity = body.items.find((i) => i.type === 'status_change');
       expect(statusActivity).toBeDefined();
       expect(statusActivity?.description).toContain('closed');
     });
@@ -206,7 +206,7 @@ describe('Activity Feed API', () => {
 
       // All activity should be for item 1
       expect(body.items.length).toBe(2);
-      body.items.forEach(item => {
+      body.items.forEach((item) => {
         expect(item.work_item_id).toBe(id1);
       });
     });
@@ -227,14 +227,16 @@ describe('Activity Feed API', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { items: Array<{
-        id: string;
-        type: string;
-        work_item_id: string;
-        work_item_title: string;
-        description: string;
-        created_at: string;
-      }> };
+      const body = res.json() as {
+        items: Array<{
+          id: string;
+          type: string;
+          work_item_id: string;
+          work_item_title: string;
+          description: string;
+          created_at: string;
+        }>;
+      };
 
       expect(body.items.length).toBe(1);
       const activity = body.items[0];
@@ -356,7 +358,7 @@ describe('Activity Feed API', () => {
       const body = res.json() as { items: Array<{ work_item_title: string }> };
       // Should have project + initiative + epic + issue creations
       expect(body.items.length).toBe(4);
-      const titles = body.items.map(i => i.work_item_title);
+      const titles = body.items.map((i) => i.work_item_title);
       expect(titles).toContain('Test Project');
       expect(titles).toContain('Test Initiative');
       expect(titles).toContain('Test Epic');
@@ -373,11 +375,11 @@ describe('Activity Feed API', () => {
       });
 
       // Wait a bit
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const sinceTime = new Date().toISOString();
 
       // Wait again and create second item
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -485,7 +487,7 @@ describe('Activity Feed API', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json() as { items: Array<{ entity_type: string; work_item_title: string }> };
       // Find the epic activity
-      const epicActivity = body.items.find(i => i.work_item_title === 'Test Epic');
+      const epicActivity = body.items.find((i) => i.work_item_title === 'Test Epic');
       expect(epicActivity).toBeDefined();
       expect(epicActivity?.entity_type).toBe('epic');
     });
@@ -529,7 +531,7 @@ describe('Activity Feed API', () => {
           url: '/api/activity',
         });
         const checkBody = checkRes.json() as { items: Array<{ id: string; read_at: string | null }> };
-        const markedItem = checkBody.items.find(i => i.id === activityId);
+        const markedItem = checkBody.items.find((i) => i.id === activityId);
         expect(markedItem?.read_at).not.toBeNull();
       });
 
@@ -608,7 +610,7 @@ describe('Activity Feed API', () => {
           url: '/api/activity',
         });
         const checkBody = checkRes.json() as { items: Array<{ read_at: string | null }> };
-        checkBody.items.forEach(item => {
+        checkBody.items.forEach((item) => {
           expect(item.read_at).not.toBeNull();
         });
       });

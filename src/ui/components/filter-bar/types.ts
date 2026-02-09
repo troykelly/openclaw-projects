@@ -2,25 +2,9 @@
  * Types for the filter bar component
  */
 
-export type FilterField =
-  | 'status'
-  | 'priority'
-  | 'kind'
-  | 'assignee'
-  | 'createdDate'
-  | 'updatedDate'
-  | 'dueDate'
-  | 'parent'
-  | 'hasDescription'
-  | 'hasEstimate';
+export type FilterField = 'status' | 'priority' | 'kind' | 'assignee' | 'createdDate' | 'updatedDate' | 'dueDate' | 'parent' | 'hasDescription' | 'hasEstimate';
 
-export type DateRangePreset =
-  | 'today'
-  | 'this_week'
-  | 'this_month'
-  | 'overdue'
-  | 'upcoming'
-  | 'custom';
+export type DateRangePreset = 'today' | 'this_week' | 'this_month' | 'overdue' | 'upcoming' | 'custom';
 
 export interface DateRange {
   preset?: DateRangePreset;

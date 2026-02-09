@@ -88,9 +88,7 @@ export class OpenAIProvider implements EmbeddingProvider {
       const data = (await response.json()) as OpenAIResponse;
 
       // Log usage for cost tracking (no secrets)
-      console.log(
-        `[Embeddings] OpenAI: embedded ${texts.length} texts, ${data.usage.total_tokens} tokens`
-      );
+      console.log(`[Embeddings] OpenAI: embedded ${texts.length} texts, ${data.usage.total_tokens} tokens`);
 
       // Sort by index to ensure correct order
       const sorted = data.data.sort((a, b) => a.index - b.index);

@@ -79,10 +79,7 @@ function validateEmailFields(subject: string, body: string): void {
 /**
  * Find or create contact endpoint for an email address.
  */
-async function findOrCreateEndpoint(
-  client: PoolClient,
-  email: string
-): Promise<{ contactId: string; endpointId: string; isNew: boolean }> {
+async function findOrCreateEndpoint(client: PoolClient, email: string): Promise<{ contactId: string; endpointId: string; isNew: boolean }> {
   // Try to find existing endpoint
   const existing = await client.query(
     `SELECT ce.id::text as endpoint_id, ce.contact_id::text as contact_id
@@ -90,7 +87,7 @@ async function findOrCreateEndpoint(
      WHERE ce.endpoint_type = 'email'
        AND ce.normalized_value = normalize_contact_endpoint_value('email', $1)
      LIMIT 1`,
-    [email]
+    [email],
   );
 
   if (existing.rows.length > 0) {
@@ -106,7 +103,7 @@ async function findOrCreateEndpoint(
     `INSERT INTO contact (display_name)
      VALUES ($1)
      RETURNING id::text as id`,
-    [email]
+    [email],
   );
   const contactId = contact.rows[0].id;
 
@@ -115,7 +112,7 @@ async function findOrCreateEndpoint(
     `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
      VALUES ($1, 'email', $2, $3::jsonb)
      RETURNING id::text as id`,
-    [contactId, email, JSON.stringify({ source: 'outbound_email' })]
+    [contactId, email, JSON.stringify({ source: 'outbound_email' })],
   );
   const endpointId = endpoint.rows[0].id;
 
@@ -125,13 +122,7 @@ async function findOrCreateEndpoint(
 /**
  * Find or create thread for email conversation.
  */
-async function findOrCreateThread(
-  client: PoolClient,
-  endpointId: string,
-  toEmail: string,
-  fromEmail: string,
-  replyToMessageId?: string
-): Promise<string> {
+async function findOrCreateThread(client: PoolClient, endpointId: string, toEmail: string, fromEmail: string, replyToMessageId?: string): Promise<string> {
   // Create thread key based on conversation participants
   // If replying, use the message ID for threading
   const threadKey = replyToMessageId
@@ -144,11 +135,7 @@ async function findOrCreateThread(
      ON CONFLICT (channel, external_thread_key)
      DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, updated_at = now()
      RETURNING id::text as id`,
-    [
-      endpointId,
-      threadKey,
-      JSON.stringify({ toEmail, fromEmail, source: 'postmark_outbound' }),
-    ]
+    [endpointId, threadKey, JSON.stringify({ toEmail, fromEmail, source: 'postmark_outbound' })],
   );
 
   return result.rows[0].id;
@@ -157,16 +144,13 @@ async function findOrCreateThread(
 /**
  * Check for existing message with same idempotency key.
  */
-async function findExistingMessage(
-  client: PoolClient,
-  idempotencyKey: string
-): Promise<{ messageId: string; threadId: string } | null> {
+async function findExistingMessage(client: PoolClient, idempotencyKey: string): Promise<{ messageId: string; threadId: string } | null> {
   const result = await client.query(
     `SELECT em.id::text as message_id, em.thread_id::text as thread_id
      FROM external_message em
      WHERE em.raw->>'idempotency_key' = $1
      LIMIT 1`,
-    [idempotencyKey]
+    [idempotencyKey],
   );
 
   if (result.rows.length === 0) {
@@ -191,18 +175,13 @@ async function findExistingMessage(
  *
  * Returns immediately (<100ms target) - actual sending is async.
  */
-export async function enqueueEmailMessage(
-  pool: Pool,
-  request: SendEmailRequest
-): Promise<SendEmailResponse> {
+export async function enqueueEmailMessage(pool: Pool, request: SendEmailRequest): Promise<SendEmailResponse> {
   // Validate inputs
   const toEmail = validateEmail(request.to);
   validateEmailFields(request.subject, request.body);
 
   // Get configured from email (or placeholder for tests)
-  const fromEmail = isPostmarkConfigured()
-    ? process.env.POSTMARK_FROM_EMAIL!
-    : 'noreply@example.com';
+  const fromEmail = isPostmarkConfigured() ? process.env.POSTMARK_FROM_EMAIL! : 'noreply@example.com';
 
   // Generate idempotency key if not provided
   const idempotencyKey = request.idempotencyKey || `email:${uuidv4()}`;
@@ -231,22 +210,13 @@ export async function enqueueEmailMessage(
     let threadId: string;
     if (request.threadId) {
       // Verify thread exists
-      const thread = await client.query(
-        `SELECT id FROM external_thread WHERE id = $1`,
-        [request.threadId]
-      );
+      const thread = await client.query(`SELECT id FROM external_thread WHERE id = $1`, [request.threadId]);
       if (thread.rows.length === 0) {
         throw new Error(`Thread not found: ${request.threadId}`);
       }
       threadId = request.threadId;
     } else {
-      threadId = await findOrCreateThread(
-        client,
-        endpointId,
-        toEmail,
-        fromEmail,
-        request.replyToMessageId
-      );
+      threadId = await findOrCreateThread(client, endpointId, toEmail, fromEmail, request.replyToMessageId);
     }
 
     // Generate message key
@@ -276,7 +246,7 @@ export async function enqueueEmailMessage(
           replyToMessageId: request.replyToMessageId,
           idempotency_key: idempotencyKey,
         }),
-      ]
+      ],
     );
     const messageId = message.rows[0].id;
 
@@ -319,10 +289,7 @@ export async function enqueueEmailMessage(
  * 2. Updates the message status and provider_message_id
  * 3. Returns success/failure for the job processor
  */
-export async function handleEmailSendJob(
-  pool: Pool,
-  job: InternalJob
-): Promise<JobProcessorResult> {
+export async function handleEmailSendJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const payload = job.payload as {
     message_id: string;
     to: string;
@@ -347,17 +314,14 @@ export async function handleEmailSendJob(
        SET delivery_status = 'failed',
            provider_status_raw = $2::jsonb
        WHERE id = $1`,
-      [payload.message_id, JSON.stringify({ error: 'Postmark not configured' })]
+      [payload.message_id, JSON.stringify({ error: 'Postmark not configured' })],
     );
     throw new Error('Postmark not configured');
   }
 
   try {
     // Update status to sending
-    await pool.query(
-      `UPDATE external_message SET delivery_status = 'sending' WHERE id = $1`,
-      [payload.message_id]
-    );
+    await pool.query(`UPDATE external_message SET delivery_status = 'sending' WHERE id = $1`, [payload.message_id]);
 
     // Get Postmark config
     const config = await getPostmarkConfig();
@@ -401,12 +365,10 @@ export async function handleEmailSendJob(
           ErrorCode: result.ErrorCode,
           Message: result.Message,
         }),
-      ]
+      ],
     );
 
-    console.log(
-      `[Postmark] Email sent: messageId=${payload.message_id}, postmarkId=${result.MessageID}`
-    );
+    console.log(`[Postmark] Email sent: messageId=${payload.message_id}, postmarkId=${result.MessageID}`);
 
     return { success: true };
   } catch (error) {
@@ -418,13 +380,10 @@ export async function handleEmailSendJob(
        SET delivery_status = 'failed',
            provider_status_raw = $2::jsonb
        WHERE id = $1`,
-      [payload.message_id, JSON.stringify({ error: err.message })]
+      [payload.message_id, JSON.stringify({ error: err.message })],
     );
 
-    console.error(
-      `[Postmark] Email send failed: messageId=${payload.message_id}`,
-      err
-    );
+    console.error(`[Postmark] Email send failed: messageId=${payload.message_id}`, err);
 
     return {
       success: false,

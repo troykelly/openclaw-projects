@@ -54,7 +54,7 @@ describe('Work Item Emails API (issue #124)', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'email', $2)
        RETURNING id::text as id`,
-      [endpointId, `thread-${Date.now()}`]
+      [endpointId, `thread-${Date.now()}`],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -69,7 +69,7 @@ describe('Work Item Emails API (issue #124)', () => {
       body?: string;
       hasAttachments?: boolean;
       isRead?: boolean;
-    }
+    },
   ): Promise<string> {
     const raw = {
       subject: emailData.subject ?? 'Test Subject',
@@ -83,20 +83,16 @@ describe('Work Item Emails API (issue #124)', () => {
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
        VALUES ($1, $2, 'inbound', $3, $4)
        RETURNING id::text as id`,
-      [threadId, `msg-${Date.now()}`, emailData.body ?? 'Email body content', JSON.stringify(raw)]
+      [threadId, `msg-${Date.now()}`, emailData.body ?? 'Email body content', JSON.stringify(raw)],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
-  async function linkEmailToWorkItem(
-    wiId: string,
-    threadId: string,
-    messageId: string
-  ): Promise<void> {
+  async function linkEmailToWorkItem(wiId: string, threadId: string, messageId: string): Promise<void> {
     await pool.query(
       `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
        VALUES ($1, $2, $3, 'reply_required')`,
-      [wiId, threadId, messageId]
+      [wiId, threadId, messageId],
     );
   }
 
@@ -116,7 +112,7 @@ describe('Work Item Emails API (issue #124)', () => {
         subject: 'Meeting Tomorrow',
         from: 'alice@example.com',
         to: 'bob@example.com',
-        snippet: 'Let\'s discuss the project...',
+        snippet: "Let's discuss the project...",
         body: 'Full email body here',
         hasAttachments: true,
         isRead: false,
@@ -149,7 +145,7 @@ describe('Work Item Emails API (issue #124)', () => {
       expect(email.subject).toBe('Meeting Tomorrow');
       expect(email.from).toBe('alice@example.com');
       expect(email.to).toBe('bob@example.com');
-      expect(email.snippet).toBe('Let\'s discuss the project...');
+      expect(email.snippet).toBe("Let's discuss the project...");
       expect(email.body).toBe('Full email body here');
       expect(email.hasAttachments).toBe(true);
       expect(email.isRead).toBe(false);
@@ -251,7 +247,7 @@ describe('Work Item Emails API (issue #124)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
          VALUES ($1, $2, 'inbound', 'Body text', $3)
          RETURNING id::text as id`,
-        [threadId, `msg-minimal-${Date.now()}`, JSON.stringify({ subject: 'Just Subject' })]
+        [threadId, `msg-minimal-${Date.now()}`, JSON.stringify({ subject: 'Just Subject' })],
       );
       const messageId = (result.rows[0] as { id: string }).id;
       await linkEmailToWorkItem(workItemId, threadId, messageId);

@@ -6,20 +6,8 @@ import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/ui/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import type { MemoryItem, MemoryFormData } from './types';
 
 export interface MemoryEditorProps {
@@ -30,13 +18,7 @@ export interface MemoryEditorProps {
   className?: string;
 }
 
-export function MemoryEditor({
-  memory,
-  open,
-  onOpenChange,
-  onSubmit,
-  className,
-}: MemoryEditorProps) {
+export function MemoryEditor({ memory, open, onOpenChange, onSubmit, className }: MemoryEditorProps) {
   const [title, setTitle] = useState(memory?.title ?? '');
   const [content, setContent] = useState(memory?.content ?? '');
   const [tagInput, setTagInput] = useState('');
@@ -45,31 +27,29 @@ export function MemoryEditor({
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const insertMarkdown = useCallback((before: string, after: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+  const insertMarkdown = useCallback(
+    (before: string, after: string = '') => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = content.slice(start, end);
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selected = content.slice(start, end);
 
-    const newContent =
-      content.slice(0, start) +
-      before +
-      (selected || 'text') +
-      after +
-      content.slice(end);
+      const newContent = content.slice(0, start) + before + (selected || 'text') + after + content.slice(end);
 
-    setContent(newContent);
+      setContent(newContent);
 
-    // Restore focus and selection
-    setTimeout(() => {
-      textarea.focus();
-      const newStart = start + before.length;
-      const newEnd = newStart + (selected || 'text').length;
-      textarea.setSelectionRange(newStart, newEnd);
-    }, 0);
-  }, [content]);
+      // Restore focus and selection
+      setTimeout(() => {
+        textarea.focus();
+        const newStart = start + before.length;
+        const newEnd = newStart + (selected || 'text').length;
+        textarea.setSelectionRange(newStart, newEnd);
+      }, 0);
+    },
+    [content],
+  );
 
   const handleAddTag = () => {
     const tag = tagInput.trim();
@@ -96,38 +76,60 @@ export function MemoryEditor({
 
   // Simple markdown to HTML conversion for preview
   const renderPreview = (text: string) => {
-    return text
-      .split('\n')
-      .map((line, i) => {
-        // Headers
-        if (line.startsWith('### ')) {
-          return <h3 key={i} className="text-lg font-semibold mt-4 mb-2">{line.slice(4)}</h3>;
-        }
-        if (line.startsWith('## ')) {
-          return <h2 key={i} className="text-xl font-semibold mt-4 mb-2">{line.slice(3)}</h2>;
-        }
-        if (line.startsWith('# ')) {
-          return <h1 key={i} className="text-2xl font-bold mt-4 mb-2">{line.slice(2)}</h1>;
-        }
+    return text.split('\n').map((line, i) => {
+      // Headers
+      if (line.startsWith('### ')) {
+        return (
+          <h3 key={i} className="text-lg font-semibold mt-4 mb-2">
+            {line.slice(4)}
+          </h3>
+        );
+      }
+      if (line.startsWith('## ')) {
+        return (
+          <h2 key={i} className="text-xl font-semibold mt-4 mb-2">
+            {line.slice(3)}
+          </h2>
+        );
+      }
+      if (line.startsWith('# ')) {
+        return (
+          <h1 key={i} className="text-2xl font-bold mt-4 mb-2">
+            {line.slice(2)}
+          </h1>
+        );
+      }
 
-        // List items
-        if (line.startsWith('- ') || line.startsWith('* ')) {
-          return <li key={i} className="ml-4">{line.slice(2)}</li>;
-        }
+      // List items
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        return (
+          <li key={i} className="ml-4">
+            {line.slice(2)}
+          </li>
+        );
+      }
 
-        // Numbered list
-        if (/^\d+\. /.test(line)) {
-          return <li key={i} className="ml-4 list-decimal">{line.replace(/^\d+\. /, '')}</li>;
-        }
+      // Numbered list
+      if (/^\d+\. /.test(line)) {
+        return (
+          <li key={i} className="ml-4 list-decimal">
+            {line.replace(/^\d+\. /, '')}
+          </li>
+        );
+      }
 
-        // Empty line
-        if (!line.trim()) {
-          return <br key={i} />;
-        }
+      // Empty line
+      if (!line.trim()) {
+        return <br key={i} />;
+      }
 
-        // Regular paragraph
-        return <p key={i} className="my-1">{line}</p>;
-      });
+      // Regular paragraph
+      return (
+        <p key={i} className="my-1">
+          {line}
+        </p>
+      );
+    });
   };
 
   return (
@@ -144,13 +146,7 @@ export function MemoryEditor({
             <label htmlFor="memory-title" className="text-sm font-medium">
               Title <span className="text-destructive">*</span>
             </label>
-            <Input
-              id="memory-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Memory title"
-              required
-            />
+            <Input id="memory-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Memory title" required />
           </div>
 
           {/* Content with tabs */}
@@ -165,64 +161,22 @@ export function MemoryEditor({
               <div className="flex items-center justify-between">
                 {/* Toolbar */}
                 <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    onClick={() => insertMarkdown('**', '**')}
-                    title="Bold"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => insertMarkdown('**', '**')} title="Bold">
                     <Bold className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    onClick={() => insertMarkdown('*', '*')}
-                    title="Italic"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => insertMarkdown('*', '*')} title="Italic">
                     <Italic className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    onClick={() => insertMarkdown('- ')}
-                    title="Bullet list"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => insertMarkdown('- ')} title="Bullet list">
                     <List className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    onClick={() => insertMarkdown('1. ')}
-                    title="Numbered list"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => insertMarkdown('1. ')} title="Numbered list">
                     <ListOrdered className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    onClick={() => insertMarkdown('[', '](url)')}
-                    title="Link"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => insertMarkdown('[', '](url)')} title="Link">
                     <Link2 className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    onClick={() => insertMarkdown('`', '`')}
-                    title="Code"
-                  >
+                  <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => insertMarkdown('`', '`')} title="Code">
                     <Code className="size-4" />
                   </Button>
                 </div>
@@ -253,9 +207,7 @@ export function MemoryEditor({
               <TabsContent value="preview" className="mt-2">
                 <div className="min-h-[200px] rounded-md border bg-muted/30 p-4 text-sm">
                   {content ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      {renderPreview(content)}
-                    </div>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">{renderPreview(content)}</div>
                   ) : (
                     <p className="text-muted-foreground">Nothing to preview</p>
                   )}
@@ -289,12 +241,7 @@ export function MemoryEditor({
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="cursor-pointer"
-                    onClick={() => handleRemoveTag(tag)}
-                  >
+                  <Badge key={tag} variant="secondary" className="cursor-pointer" onClick={() => handleRemoveTag(tag)}>
                     {tag} ×
                   </Badge>
                 ))}

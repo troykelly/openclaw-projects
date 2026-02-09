@@ -28,7 +28,7 @@ describe('Thread History API (Issue #226)', () => {
     const contactResult = await pool.query(
       `INSERT INTO contact (display_name, notes)
        VALUES ('John Smith', 'Friend from work')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
     const contactId = contactResult.rows[0].id as string;
 
@@ -37,7 +37,7 @@ describe('Thread History API (Issue #226)', () => {
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, 'phone', '+15551234567', '+15551234567')
        RETURNING id::text as id`,
-      [contactId]
+      [contactId],
     );
     const endpointId = endpointResult.rows[0].id as string;
 
@@ -46,7 +46,7 @@ describe('Thread History API (Issue #226)', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'phone', 'thread-123')
        RETURNING id::text as id`,
-      [endpointId]
+      [endpointId],
     );
     const threadId = threadResult.rows[0].id as string;
 
@@ -91,7 +91,7 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ($1, 'msg1', 'inbound', 'Hello', NOW() - interval '2 hours'),
                 ($1, 'msg2', 'outbound', 'Hi there!', NOW() - interval '1 hour'),
                 ($1, 'msg3', 'inbound', 'How are you?', NOW())`,
-        [threadId]
+        [threadId],
       );
 
       const res = await app.inject({
@@ -118,7 +118,7 @@ describe('Thread History API (Issue #226)', () => {
         await pool.query(
           `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
            VALUES ($1, $2, 'inbound', $3, NOW() - interval '${5 - i} hours')`,
-          [threadId, `msg${i}`, `Message ${i}`]
+          [threadId, `msg${i}`, `Message ${i}`],
         );
       }
 
@@ -142,7 +142,7 @@ describe('Thread History API (Issue #226)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body)
          VALUES ($1, 'msg1', 'inbound', 'Can we reschedule?')
          RETURNING id::text as id`,
-        [threadId]
+        [threadId],
       );
       const messageId = msgResult.rows[0].id as string;
 
@@ -150,14 +150,14 @@ describe('Thread History API (Issue #226)', () => {
       const wiResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status, not_before)
          VALUES ('Lunch with John', 'issue', 'open', NOW() + interval '1 day')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = wiResult.rows[0].id as string;
 
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [workItemId, threadId, messageId]
+        [workItemId, threadId, messageId],
       );
 
       const res = await app.inject({
@@ -181,7 +181,7 @@ describe('Thread History API (Issue #226)', () => {
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, contact_id, importance)
          VALUES ('Scheduling preference', 'Prefers afternoon meetings', 'preference', $1, 8)`,
-        [contactId]
+        [contactId],
       );
 
       const res = await app.inject({
@@ -218,7 +218,7 @@ describe('Thread History API (Issue #226)', () => {
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, contact_id)
          VALUES ('Test memory', 'Content', 'note', $1)`,
-        [contactId]
+        [contactId],
       );
 
       const res = await app.inject({
@@ -241,7 +241,7 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ($1, 'msg1', 'inbound', 'First', '2026-01-01T10:00:00Z'),
                 ($1, 'msg2', 'inbound', 'Second', '2026-01-01T11:00:00Z'),
                 ($1, 'msg3', 'inbound', 'Third', '2026-01-01T12:00:00Z')`,
-        [threadId]
+        [threadId],
       );
 
       const res = await app.inject({
@@ -266,7 +266,7 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ($1, 'msg1', 'inbound', 'First', '2026-01-01T10:00:00Z'),
                 ($1, 'msg2', 'inbound', 'Second', '2026-01-01T11:00:00Z'),
                 ($1, 'msg3', 'inbound', 'Third', '2026-01-01T12:00:00Z')`,
-        [threadId]
+        [threadId],
       );
 
       const res = await app.inject({
@@ -288,7 +288,7 @@ describe('Thread History API (Issue #226)', () => {
       await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'msg1', 'inbound', 'Message', NOW())`,
-        [threadId]
+        [threadId],
       );
 
       const res = await app.inject({
@@ -310,7 +310,7 @@ describe('Thread History API (Issue #226)', () => {
       const contactResult = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Email User')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = contactResult.rows[0].id as string;
 
@@ -318,7 +318,7 @@ describe('Thread History API (Issue #226)', () => {
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'user@example.com', 'user@example.com')
          RETURNING id::text as id`,
-        [contactId]
+        [contactId],
       );
       const endpointId = endpointResult.rows[0].id as string;
 
@@ -326,7 +326,7 @@ describe('Thread History API (Issue #226)', () => {
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'email', 'email-thread-123')
          RETURNING id::text as id`,
-        [endpointId]
+        [endpointId],
       );
       const threadId = threadResult.rows[0].id as string;
 
@@ -334,7 +334,7 @@ describe('Thread History API (Issue #226)', () => {
       await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, subject, from_address)
          VALUES ($1, 'email1', 'inbound', 'Email body', 'Meeting Request', 'user@example.com')`,
-        [threadId]
+        [threadId],
       );
 
       const res = await app.inject({
@@ -361,9 +361,7 @@ describe('Thread History API (Issue #226)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
-      const threadsCapability = body.capabilities.find(
-        (c: { name: string }) => c.name === 'threads'
-      );
+      const threadsCapability = body.capabilities.find((c: { name: string }) => c.name === 'threads');
 
       expect(threadsCapability).toBeDefined();
       expect(threadsCapability.endpoints[0].path).toBe('/api/threads/:id/history');

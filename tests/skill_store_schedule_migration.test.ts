@@ -34,7 +34,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
     it('creates skill_store_schedule table', async () => {
       const result = await pool.query(
         `SELECT tablename FROM pg_tables
-         WHERE schemaname = 'public' AND tablename = 'skill_store_schedule'`
+         WHERE schemaname = 'public' AND tablename = 'skill_store_schedule'`,
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -44,12 +44,10 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
         `SELECT column_name, data_type, is_nullable, column_default
          FROM information_schema.columns
          WHERE table_name = 'skill_store_schedule'
-         ORDER BY ordinal_position`
+         ORDER BY ordinal_position`,
       );
 
-      const columns = new Map(
-        result.rows.map((r) => [r.column_name, r])
-      );
+      const columns = new Map(result.rows.map((r) => [r.column_name, r]));
 
       expect(columns.get('id')?.data_type).toBe('uuid');
       expect(columns.get('skill_id')?.is_nullable).toBe('NO');
@@ -74,7 +72,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook')
-         RETURNING timezone`
+         RETURNING timezone`,
       );
       expect(result.rows[0].timezone).toBe('UTC');
     });
@@ -83,7 +81,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook')
-         RETURNING enabled`
+         RETURNING enabled`,
       );
       expect(result.rows[0].enabled).toBe(true);
     });
@@ -92,7 +90,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook')
-         RETURNING max_retries`
+         RETURNING max_retries`,
       );
       expect(result.rows[0].max_retries).toBe(5);
     });
@@ -101,7 +99,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook')
-         RETURNING webhook_headers, payload_template`
+         RETURNING webhook_headers, payload_template`,
       );
       expect(result.rows[0].webhook_headers).toEqual({});
       expect(result.rows[0].payload_template).toEqual({});
@@ -112,27 +110,27 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
     it('prevents duplicate (skill_id, collection, cron_expression)', async () => {
       await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, collection, cron_expression, webhook_url)
-         VALUES ('s1', 'articles', '0 9 * * *', 'https://example.com/hook')`
+         VALUES ('s1', 'articles', '0 9 * * *', 'https://example.com/hook')`,
       );
 
       await expect(
         pool.query(
           `INSERT INTO skill_store_schedule (skill_id, collection, cron_expression, webhook_url)
-           VALUES ('s1', 'articles', '0 9 * * *', 'https://example.com/hook2')`
-        )
+           VALUES ('s1', 'articles', '0 9 * * *', 'https://example.com/hook2')`,
+        ),
       ).rejects.toThrow(/duplicate key/);
     });
 
     it('allows same cron in different collections', async () => {
       await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, collection, cron_expression, webhook_url)
-         VALUES ('s1', 'articles', '0 9 * * *', 'https://example.com/hook')`
+         VALUES ('s1', 'articles', '0 9 * * *', 'https://example.com/hook')`,
       );
 
       const result = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, collection, cron_expression, webhook_url)
          VALUES ('s1', 'newsletters', '0 9 * * *', 'https://example.com/hook')
-         RETURNING id`
+         RETURNING id`,
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -140,55 +138,43 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
     it('handles NULL collection uniqueness correctly', async () => {
       await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
-         VALUES ('s1', '0 9 * * *', 'https://example.com/hook')`
+         VALUES ('s1', '0 9 * * *', 'https://example.com/hook')`,
       );
 
       await expect(
         pool.query(
           `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
-           VALUES ('s1', '0 9 * * *', 'https://example.com/hook2')`
-        )
+           VALUES ('s1', '0 9 * * *', 'https://example.com/hook2')`,
+        ),
       ).rejects.toThrow(/duplicate key/);
     });
   });
 
   describe('Cron frequency validation', () => {
     it('allows cron expressions >= 5 minutes', async () => {
-      const validExpressions = [
-        '*/5 * * * *',
-        '*/10 * * * *',
-        '0 * * * *',
-        '0 9 * * *',
-        '30 8 * * 1-5',
-        '0 0 1 * *',
-      ];
+      const validExpressions = ['*/5 * * * *', '*/10 * * * *', '0 * * * *', '0 9 * * *', '30 8 * * 1-5', '0 0 1 * *'];
 
       for (const expr of validExpressions) {
         const result = await pool.query(
           `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
            VALUES ($1, $2, 'https://example.com/hook')
            RETURNING id`,
-          [`skill-${expr.replace(/[^a-z0-9]/g, '')}`, expr]
+          [`skill-${expr.replace(/[^a-z0-9]/g, '')}`, expr],
         );
         expect(result.rows).toHaveLength(1);
       }
     });
 
     it('rejects cron expressions < 5 minutes', async () => {
-      const invalidExpressions = [
-        '*/1 * * * *',
-        '*/2 * * * *',
-        '*/3 * * * *',
-        '*/4 * * * *',
-      ];
+      const invalidExpressions = ['*/1 * * * *', '*/2 * * * *', '*/3 * * * *', '*/4 * * * *'];
 
       for (const expr of invalidExpressions) {
         await expect(
           pool.query(
             `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
              VALUES ('test-skill', $1, 'https://example.com/hook')`,
-            [expr]
-          )
+            [expr],
+          ),
         ).rejects.toThrow(/fires more frequently than every 5 minutes/);
       }
     });
@@ -197,8 +183,8 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       await expect(
         pool.query(
           `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
-           VALUES ('test-skill', '* * * * *', 'https://example.com/hook')`
-        )
+           VALUES ('test-skill', '* * * * *', 'https://example.com/hook')`,
+        ),
       ).rejects.toThrow(/fires every minute/);
     });
   });
@@ -210,7 +196,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
           `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url, last_run_status)
            VALUES ($1, '0 9 * * *', 'https://example.com/hook', $2)
            RETURNING last_run_status`,
-          [`skill-${status}`, status]
+          [`skill-${status}`, status],
         );
         expect(result.rows[0].last_run_status).toBe(status);
       }
@@ -220,8 +206,8 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       await expect(
         pool.query(
           `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url, last_run_status)
-           VALUES ('test', '0 9 * * *', 'https://example.com/hook', 'invalid')`
-        )
+           VALUES ('test', '0 9 * * *', 'https://example.com/hook', 'invalid')`,
+        ),
       ).rejects.toThrow(/last_run_status/);
     });
 
@@ -229,7 +215,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook')
-         RETURNING last_run_status`
+         RETURNING last_run_status`,
       );
       expect(result.rows[0].last_run_status).toBeNull();
     });
@@ -240,7 +226,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const insert = await pool.query(
         `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook')
-         RETURNING id, updated_at`
+         RETURNING id, updated_at`,
       );
       const { id, updated_at: original } = insert.rows[0];
 
@@ -249,12 +235,10 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const update = await pool.query(
         `UPDATE skill_store_schedule SET enabled = false WHERE id = $1
          RETURNING updated_at`,
-        [id]
+        [id],
       );
 
-      expect(new Date(update.rows[0].updated_at).getTime()).toBeGreaterThan(
-        new Date(original).getTime()
-      );
+      expect(new Date(update.rows[0].updated_at).getTime()).toBeGreaterThan(new Date(original).getTime());
     });
   });
 
@@ -264,17 +248,15 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
         `INSERT INTO skill_store_schedule
          (skill_id, collection, cron_expression, webhook_url, next_run_at)
          VALUES ('news-skill', 'articles', '0 */12 * * *', 'https://example.com/hook',
-                 now() - interval '1 minute')`
+                 now() - interval '1 minute')`,
       );
 
-      const result = await pool.query(
-        `SELECT enqueue_skill_store_scheduled_jobs() as count`
-      );
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
       expect(parseInt(result.rows[0].count)).toBe(1);
 
       const jobs = await pool.query(
         `SELECT kind, payload FROM internal_job
-         WHERE kind = 'skill_store.scheduled_process'`
+         WHERE kind = 'skill_store.scheduled_process'`,
       );
       expect(jobs.rows).toHaveLength(1);
       expect(jobs.rows[0].payload.skill_id).toBe('news-skill');
@@ -286,12 +268,10 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
         `INSERT INTO skill_store_schedule
          (skill_id, cron_expression, webhook_url, enabled, next_run_at)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook', false,
-                 now() - interval '1 minute')`
+                 now() - interval '1 minute')`,
       );
 
-      const result = await pool.query(
-        `SELECT enqueue_skill_store_scheduled_jobs() as count`
-      );
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
       expect(parseInt(result.rows[0].count)).toBe(0);
     });
 
@@ -300,7 +280,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
         `INSERT INTO skill_store_schedule
          (skill_id, cron_expression, webhook_url, next_run_at)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook',
-                 now() - interval '1 minute')`
+                 now() - interval '1 minute')`,
       );
 
       await pool.query(`SELECT enqueue_skill_store_scheduled_jobs()`);
@@ -308,14 +288,14 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       await pool.query(
         `UPDATE skill_store_schedule
          SET last_run_at = NULL, last_run_status = 'success'
-         WHERE skill_id = 'test-skill'`
+         WHERE skill_id = 'test-skill'`,
       );
 
       await pool.query(`SELECT enqueue_skill_store_scheduled_jobs()`);
 
       const jobs = await pool.query(
         `SELECT count(*) FROM internal_job
-         WHERE kind = 'skill_store.scheduled_process'`
+         WHERE kind = 'skill_store.scheduled_process'`,
       );
       expect(parseInt(jobs.rows[0].count)).toBe(1);
     });
@@ -326,12 +306,10 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
          (skill_id, cron_expression, webhook_url, last_run_at, last_run_status, next_run_at)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook',
                  now() - interval '5 minutes', NULL,
-                 now() - interval '1 minute')`
+                 now() - interval '1 minute')`,
       );
 
-      const result = await pool.query(
-        `SELECT enqueue_skill_store_scheduled_jobs() as count`
-      );
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
       expect(parseInt(result.rows[0].count)).toBe(0);
     });
 
@@ -341,12 +319,10 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
          (skill_id, cron_expression, webhook_url, last_run_at, last_run_status, next_run_at)
          VALUES ('test-skill', '0 9 * * *', 'https://example.com/hook',
                  now() - interval '2 hours', NULL,
-                 now() - interval '1 minute')`
+                 now() - interval '1 minute')`,
       );
 
-      const result = await pool.query(
-        `SELECT enqueue_skill_store_scheduled_jobs() as count`
-      );
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
       expect(parseInt(result.rows[0].count)).toBe(1);
     });
   });
@@ -355,7 +331,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
     it('registers skill_store_schedule_enqueue cron job', async () => {
       const result = await pool.query(
         `SELECT jobname, schedule FROM cron.job
-         WHERE jobname = 'skill_store_schedule_enqueue'`
+         WHERE jobname = 'skill_store_schedule_enqueue'`,
       );
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].schedule).toBe('*/1 * * * *');
@@ -367,7 +343,7 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(
         `SELECT indexname FROM pg_indexes
          WHERE tablename = 'skill_store_schedule'
-         ORDER BY indexname`
+         ORDER BY indexname`,
       );
 
       const indexNames = result.rows.map((r) => r.indexname);

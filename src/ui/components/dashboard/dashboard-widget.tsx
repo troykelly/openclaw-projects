@@ -18,47 +18,20 @@ export interface DashboardWidgetProps {
   className?: string;
 }
 
-export function DashboardWidget({
-  id,
-  title,
-  children,
-  onConfigure,
-  onRemove,
-  loading = false,
-  error,
-  className,
-}: DashboardWidgetProps) {
+export function DashboardWidget({ id, title, children, onConfigure, onRemove, loading = false, error, className }: DashboardWidgetProps) {
   return (
-    <div
-      data-testid={`widget-container-${id}`}
-      className={cn(
-        'h-full rounded-lg border bg-card flex flex-col',
-        className
-      )}
-    >
+    <div data-testid={`widget-container-${id}`} className={cn('h-full rounded-lg border bg-card flex flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-medium text-sm">{title}</h3>
         <div className="flex items-center gap-1">
           {onConfigure && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onConfigure}
-              aria-label="Configure widget"
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onConfigure} aria-label="Configure widget">
               <Settings className="h-4 w-4" />
             </Button>
           )}
           {onRemove && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              onClick={onRemove}
-              aria-label="Remove widget"
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={onRemove} aria-label="Remove widget">
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -68,10 +41,7 @@ export function DashboardWidget({
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div
-            data-testid="widget-loading"
-            className="flex items-center justify-center h-full"
-          >
+          <div data-testid="widget-loading" className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (

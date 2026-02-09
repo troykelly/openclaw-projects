@@ -39,10 +39,7 @@ function getMonthDays(date: Date): DayEvents[] {
     days.push({
       date: new Date(current),
       events: [],
-      isToday:
-        current.getDate() === today.getDate() &&
-        current.getMonth() === today.getMonth() &&
-        current.getFullYear() === today.getFullYear(),
+      isToday: current.getDate() === today.getDate() && current.getMonth() === today.getMonth() && current.getFullYear() === today.getFullYear(),
       isCurrentMonth: current.getMonth() === month,
     });
     current.setDate(current.getDate() + 1);
@@ -56,12 +53,7 @@ function getEventsForDate(events: CalendarEvent[], date: Date): CalendarEvent[] 
   return events.filter((event) => event.date === dateStr);
 }
 
-export function MonthView({
-  currentDate,
-  events,
-  onEventClick,
-  onDateClick,
-}: MonthViewProps) {
+export function MonthView({ currentDate, events, onEventClick, onDateClick }: MonthViewProps) {
   const days = getMonthDays(currentDate);
 
   // Add events to days
@@ -75,10 +67,7 @@ export function MonthView({
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b">
         {DAY_NAMES.map((name) => (
-          <div
-            key={name}
-            className="px-2 py-2 text-sm font-medium text-muted-foreground text-center"
-          >
+          <div key={name} className="px-2 py-2 text-sm font-medium text-muted-foreground text-center">
             {name}
           </div>
         ))}
@@ -94,33 +83,23 @@ export function MonthView({
             className={cn(
               'min-h-24 border-b border-r p-1 cursor-pointer hover:bg-muted/50',
               !day.isCurrentMonth && 'bg-muted/30 text-muted-foreground',
-              day.isToday && 'bg-accent/20'
+              day.isToday && 'bg-accent/20',
             )}
             onClick={() => onDateClick?.(day.date)}
           >
             <div
               className={cn(
                 'text-sm font-medium mb-1',
-                day.isToday &&
-                  'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center'
+                day.isToday && 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center',
               )}
             >
               {day.date.getDate()}
             </div>
             <div className="space-y-1">
               {day.events.slice(0, 3).map((event) => (
-                <CalendarItem
-                  key={event.id}
-                  event={event}
-                  onClick={onEventClick}
-                  compact
-                />
+                <CalendarItem key={event.id} event={event} onClick={onEventClick} compact />
               ))}
-              {day.events.length > 3 && (
-                <div className="text-xs text-muted-foreground px-1">
-                  +{day.events.length - 3} more
-                </div>
-              )}
+              {day.events.length > 3 && <div className="text-xs text-muted-foreground px-1">+{day.events.length - 3} more</div>}
             </div>
           </div>
         ))}

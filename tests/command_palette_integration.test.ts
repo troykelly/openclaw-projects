@@ -48,7 +48,7 @@ describe('Command Palette Integration', () => {
         `INSERT INTO work_item (title, kind, description)
          VALUES ('Login Feature Project', 'project', 'Implement user login'),
                 ('Dashboard Project', 'project', 'Main dashboard project'),
-                ('User Login Page', 'project', 'Add login page')`
+                ('User Login Page', 'project', 'Add login page')`,
       );
 
       const res = await app.inject({
@@ -68,7 +68,7 @@ describe('Command Palette Integration', () => {
       await pool.query(
         `INSERT INTO work_item (title, kind, description)
          VALUES ('Task 1', 'project', 'Fix the authentication bug'),
-                ('Task 2', 'project', 'Update the UI theme')`
+                ('Task 2', 'project', 'Update the UI theme')`,
       );
 
       const res = await app.inject({
@@ -85,7 +85,7 @@ describe('Command Palette Integration', () => {
     it('searches contacts by display name', async () => {
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Alice Smith'), ('Bob Jones'), ('Charlie Smith')`
+         VALUES ('Alice Smith'), ('Bob Jones'), ('Charlie Smith')`,
       );
 
       const res = await app.inject({
@@ -105,11 +105,11 @@ describe('Command Palette Integration', () => {
     it('filters by type', async () => {
       await pool.query(
         `INSERT INTO work_item (title, kind)
-         VALUES ('Test Item', 'project')`
+         VALUES ('Test Item', 'project')`,
       );
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Test Contact')`
+         VALUES ('Test Contact')`,
       );
 
       // Search only work items
@@ -139,7 +139,7 @@ describe('Command Palette Integration', () => {
         await pool.query(
           `INSERT INTO work_item (title, kind)
            VALUES ($1, 'project')`,
-          [`Search Item ${i}`]
+          [`Search Item ${i}`],
         );
       }
 
@@ -157,7 +157,7 @@ describe('Command Palette Integration', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, kind)
          VALUES ('Navigate Test', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 

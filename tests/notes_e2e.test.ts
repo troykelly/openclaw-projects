@@ -320,23 +320,17 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
     // Auth endpoint returns 200 (OK) or 201 (Created) depending on implementation
     if (request.statusCode !== 200 && request.statusCode !== 201) {
-      throw new Error(
-        `Auth request failed for ${email}: status ${request.statusCode}, body: ${request.body}`
-      );
+      throw new Error(`Auth request failed for ${email}: status ${request.statusCode}, body: ${request.body}`);
     }
 
     const requestJson = request.json() as { loginUrl?: string };
     if (!requestJson.loginUrl) {
-      throw new Error(
-        `Auth request for ${email} did not return loginUrl. Response: ${JSON.stringify(requestJson)}`
-      );
+      throw new Error(`Auth request for ${email} did not return loginUrl. Response: ${JSON.stringify(requestJson)}`);
     }
 
     const token = new URL(requestJson.loginUrl).searchParams.get('token');
     if (!token) {
-      throw new Error(
-        `Auth URL for ${email} did not contain token. URL: ${requestJson.loginUrl}`
-      );
+      throw new Error(`Auth URL for ${email} did not contain token. URL: ${requestJson.loginUrl}`);
     }
 
     // Step 2: Consume the magic link to get a session
@@ -347,23 +341,17 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
     });
 
     if (consume.statusCode !== 200) {
-      throw new Error(
-        `Auth consume failed for ${email}: status ${consume.statusCode}, body: ${consume.body}`
-      );
+      throw new Error(`Auth consume failed for ${email}: status ${consume.statusCode}, body: ${consume.body}`);
     }
 
     const setCookie = consume.headers['set-cookie'];
     if (!setCookie) {
-      throw new Error(
-        `Auth consume for ${email} did not return set-cookie header. Headers: ${JSON.stringify(consume.headers)}`
-      );
+      throw new Error(`Auth consume for ${email} did not return set-cookie header. Headers: ${JSON.stringify(consume.headers)}`);
     }
 
     const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
     if (!cookieHeader) {
-      throw new Error(
-        `Auth consume for ${email} returned empty set-cookie. Value: ${JSON.stringify(setCookie)}`
-      );
+      throw new Error(`Auth consume for ${email} returned empty set-cookie. Value: ${JSON.stringify(setCookie)}`);
     }
 
     return cookieHeader.split(';')[0];
@@ -2181,7 +2169,7 @@ $$
               user_email: primaryUser,
               title: `Rate Limit Test Note ${i}`,
             },
-          })
+          }),
         );
 
       const responses = await Promise.all(promises);
@@ -2207,7 +2195,7 @@ $$
               q: 'test',
               searchType: 'text',
             },
-          })
+          }),
         );
 
       const responses = await Promise.all(promises);
@@ -2243,7 +2231,7 @@ $$
               email: `rate-limit-test-${i}@example.com`,
               permission: 'read',
             },
-          })
+          }),
         );
 
       const responses = await Promise.all(promises);
@@ -2268,7 +2256,7 @@ $$
               user_email: primaryUser,
               title: `Concurrent Load Test Note ${i}`,
             },
-          })
+          }),
         );
       const createResponses = await Promise.all(initialPromises);
       expect(createResponses.every((r) => r.statusCode === 201)).toBe(true);

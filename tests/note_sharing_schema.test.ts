@@ -26,11 +26,14 @@ describe('Note Sharing Schema (Migration 041)', () => {
     `);
     testNotebookId = notebook.rows[0].id;
 
-    const note = await pool.query(`
+    const note = await pool.query(
+      `
       INSERT INTO note (user_email, title, content, notebook_id, visibility)
       VALUES ('owner@example.com', 'Test Note', 'Test content', $1, 'shared')
       RETURNING id
-    `, [testNotebookId]);
+    `,
+      [testNotebookId],
+    );
     testNoteId = note.rows[0].id;
   });
 
@@ -76,45 +79,60 @@ describe('Note Sharing Schema (Migration 041)', () => {
 
     it('enforces permission CHECK constraint', async () => {
       // Valid permission should work
-      const valid = await pool.query(`
+      const valid = await pool.query(
+        `
         INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'reader@example.com', 'read', 'owner@example.com')
         RETURNING id
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(valid.rows[0].id).toBeDefined();
 
       // Invalid permission should fail
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
           VALUES ($1, 'bad@example.com', 'admin', 'owner@example.com')
-        `, [testNoteId])
+        `,
+          [testNoteId],
+        ),
       ).rejects.toThrow();
     });
 
     it('requires at least one target (shared_with_email or share_link_token)', async () => {
       // Should fail without either target
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_share (note_id, permission, created_by_email)
           VALUES ($1, 'read', 'owner@example.com')
-        `, [testNoteId])
+        `,
+          [testNoteId],
+        ),
       ).rejects.toThrow();
 
       // Should succeed with email
-      const withEmail = await pool.query(`
+      const withEmail = await pool.query(
+        `
         INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'user@example.com', 'read', 'owner@example.com')
         RETURNING id
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(withEmail.rows[0].id).toBeDefined();
 
       // Should succeed with token
-      const withToken = await pool.query(`
+      const withToken = await pool.query(
+        `
         INSERT INTO note_share (note_id, share_link_token, permission, created_by_email)
         VALUES ($1, 'unique-token-123', 'read', 'owner@example.com')
         RETURNING id
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(withToken.rows[0].id).toBeDefined();
     });
 
@@ -128,10 +146,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
       const tempNoteId = tempNote.rows[0].id;
 
       // Create a share
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'user@example.com', 'read', 'owner@example.com')
-      `, [tempNoteId]);
+      `,
+        [tempNoteId],
+      );
 
       // Delete the note
       await pool.query('DELETE FROM note WHERE id = $1', [tempNoteId]);
@@ -174,10 +195,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
       const tempNotebookId = tempNotebook.rows[0].id;
 
       // Create share
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO notebook_share (notebook_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'user@example.com', 'read', 'owner@example.com')
-      `, [tempNotebookId]);
+      `,
+        [tempNotebookId],
+      );
 
       // Delete notebook
       await pool.query('DELETE FROM notebook WHERE id = $1', [tempNotebookId]);
@@ -209,27 +233,36 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('enforces unique constraint on note_id + user_email', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_collaborator (note_id, user_email)
         VALUES ($1, 'collab@example.com')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       // Duplicate should fail
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_collaborator (note_id, user_email)
           VALUES ($1, 'collab@example.com')
-        `, [testNoteId])
+        `,
+          [testNoteId],
+        ),
       ).rejects.toThrow();
     });
 
     it('stores cursor position as JSONB', async () => {
       const cursorPos = { line: 10, column: 25 };
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         INSERT INTO note_collaborator (note_id, user_email, cursor_position)
         VALUES ($1, 'editor@example.com', $2)
         RETURNING cursor_position
-      `, [testNoteId, JSON.stringify(cursorPos)]);
+      `,
+        [testNoteId, JSON.stringify(cursorPos)],
+      );
 
       expect(result.rows[0].cursor_position).toEqual(cursorPos);
     });
@@ -247,65 +280,95 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('returns true for note owner', async () => {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'owner@example.com', 'read_write')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(true);
     });
 
     it('returns false for unshared note', async () => {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'stranger@example.com', 'read')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(false);
     });
 
     it('returns true when note is directly shared with user', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'reader@example.com', 'read', 'owner@example.com')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'reader@example.com', 'read')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(true);
     });
 
     it('returns false when user only has read but needs read_write', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'reader@example.com', 'read', 'owner@example.com')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'reader@example.com', 'read_write')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(false);
     });
 
     it('returns true when notebook is shared with user', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO notebook_share (notebook_id, shared_with_email, permission, created_by_email)
         VALUES ($1, 'nb-reader@example.com', 'read', 'owner@example.com')
-      `, [testNotebookId]);
+      `,
+        [testNotebookId],
+      );
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'nb-reader@example.com', 'read')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(true);
     });
 
     it('respects share expiration', async () => {
       // Create expired share
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email, expires_at)
         VALUES ($1, 'expired@example.com', 'read', 'owner@example.com', NOW() - INTERVAL '1 day')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'expired@example.com', 'read')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(false);
     });
 
@@ -313,18 +376,24 @@ describe('Note Sharing Schema (Migration 041)', () => {
       // Make note public
       await pool.query(`UPDATE note SET visibility = 'public' WHERE id = $1`, [testNoteId]);
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT user_can_access_note($1, 'anyone@example.com', 'read')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
       expect(result.rows[0].user_can_access_note).toBe(true);
     });
   });
 
   describe('agent_can_access_note() function', () => {
     afterEach(async () => {
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE note SET visibility = 'shared', hide_from_agents = false WHERE id = $1
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
     });
 
     it('returns false for private notes', async () => {
@@ -342,9 +411,12 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('returns false when hide_from_agents is true', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         UPDATE note SET visibility = 'public', hide_from_agents = true WHERE id = $1
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       const result = await pool.query(`SELECT agent_can_access_note($1)`, [testNoteId]);
       expect(result.rows[0].agent_can_access_note).toBe(false);
@@ -363,10 +435,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('returns is_valid=true for valid token', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, share_link_token, permission, created_by_email)
         VALUES ($1, 'valid-token', 'read', 'owner@example.com')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       const result = await pool.query(`SELECT * FROM validate_share_link('valid-token')`);
       expect(result.rows[0].is_valid).toBe(true);
@@ -375,10 +450,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('increments view count', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, share_link_token, permission, created_by_email)
         VALUES ($1, 'count-token', 'read', 'owner@example.com')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       await pool.query(`SELECT * FROM validate_share_link('count-token')`);
       await pool.query(`SELECT * FROM validate_share_link('count-token')`);
@@ -390,10 +468,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('rejects single-view links after first view', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, share_link_token, permission, created_by_email, is_single_view)
         VALUES ($1, 'single-view-token', 'read', 'owner@example.com', true)
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       // First view should work
       const first = await pool.query(`SELECT * FROM validate_share_link('single-view-token')`);
@@ -406,10 +487,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('rejects expired links', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, share_link_token, permission, created_by_email, expires_at)
         VALUES ($1, 'expired-token', 'read', 'owner@example.com', NOW() - INTERVAL '1 hour')
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       const result = await pool.query(`SELECT * FROM validate_share_link('expired-token')`);
       expect(result.rows[0].is_valid).toBe(false);
@@ -417,10 +501,13 @@ describe('Note Sharing Schema (Migration 041)', () => {
     });
 
     it('rejects max-views exceeded links', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_share (note_id, share_link_token, permission, created_by_email, max_views, view_count)
         VALUES ($1, 'max-views-token', 'read', 'owner@example.com', 3, 3)
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       const result = await pool.query(`SELECT * FROM validate_share_link('max-views-token')`);
       expect(result.rows[0].is_valid).toBe(false);

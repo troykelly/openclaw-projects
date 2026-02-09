@@ -11,31 +11,14 @@ import * as React from 'react';
 import { createMemoryRouter, RouterProvider, Outlet, type RouteObject } from 'react-router';
 
 // Components to be tested - Issue #413 (original)
-import {
-  VirtualList,
-  type VirtualListProps,
-} from '@/ui/components/performance/virtual-list';
-import {
-  LazyLoad,
-  type LazyLoadProps,
-} from '@/ui/components/performance/lazy-load';
-import {
-  InfiniteScroll,
-  type InfiniteScrollProps,
-} from '@/ui/components/performance/infinite-scroll';
-import {
-  useDebounce,
-  useThrottle,
-} from '@/ui/components/performance/use-performance';
+import { VirtualList, type VirtualListProps } from '@/ui/components/performance/virtual-list';
+import { LazyLoad, type LazyLoadProps } from '@/ui/components/performance/lazy-load';
+import { InfiniteScroll, type InfiniteScrollProps } from '@/ui/components/performance/infinite-scroll';
+import { useDebounce, useThrottle } from '@/ui/components/performance/use-performance';
 
 // Components to be tested - Issue #478
 import { PrefetchLink } from '@/ui/components/navigation/PrefetchLink';
-import {
-  prefetchRoute,
-  resetPrefetchCache,
-  getRegisteredRoutes,
-  prefetchAllRoutes,
-} from '@/ui/lib/route-prefetch';
+import { prefetchRoute, resetPrefetchCache, getRegisteredRoutes, prefetchAllRoutes } from '@/ui/lib/route-prefetch';
 
 // Mock IntersectionObserver globally
 class MockIntersectionObserver {
@@ -49,10 +32,7 @@ class MockIntersectionObserver {
   observe(element: Element) {
     this.elements.push(element);
     // Simulate immediate intersection
-    this.callback(
-      [{ isIntersecting: true, target: element } as IntersectionObserverEntry],
-      this as unknown as IntersectionObserver
-    );
+    this.callback([{ isIntersecting: true, target: element } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
   }
 
   unobserve() {}
@@ -333,10 +313,7 @@ describe('Route prefetch utility', () => {
 // ---------------------------------------------------------------------------
 describe('PrefetchLink', () => {
   /** Render helper: wraps PrefetchLink in a router context. */
-  function renderPrefetchLink(
-    to: string,
-    opts?: { prefetchPath?: string; children?: React.ReactNode }
-  ) {
+  function renderPrefetchLink(to: string, opts?: { prefetchPath?: string; children?: React.ReactNode }) {
     const testRoutes: RouteObject[] = [
       {
         element: <Outlet />,
@@ -344,11 +321,7 @@ describe('PrefetchLink', () => {
           {
             path: '*',
             element: (
-              <PrefetchLink
-                to={to}
-                prefetchPath={opts?.prefetchPath}
-                data-testid="prefetch-link"
-              >
+              <PrefetchLink to={to} prefetchPath={opts?.prefetchPath} data-testid="prefetch-link">
                 {opts?.children ?? 'Link'}
               </PrefetchLink>
             ),
@@ -422,11 +395,7 @@ describe('PrefetchLink', () => {
           {
             path: '*',
             element: (
-              <PrefetchLink
-                to="/activity"
-                onMouseEnter={onMouseEnter}
-                data-testid="prefetch-link"
-              >
+              <PrefetchLink to="/activity" onMouseEnter={onMouseEnter} data-testid="prefetch-link">
                 Link
               </PrefetchLink>
             ),
@@ -453,11 +422,7 @@ describe('PrefetchLink', () => {
           {
             path: '*',
             element: (
-              <PrefetchLink
-                to="/activity"
-                onFocus={onFocus}
-                data-testid="prefetch-link"
-              >
+              <PrefetchLink to="/activity" onFocus={onFocus} data-testid="prefetch-link">
                 Link
               </PrefetchLink>
             ),
@@ -481,9 +446,7 @@ describe('PrefetchLink', () => {
 // ---------------------------------------------------------------------------
 describe('RouterSidebar uses PrefetchLink for navigation', () => {
   it('sidebar nav items have data-prefetch-path attribute', async () => {
-    const { RouterSidebar } = await import(
-      '@/ui/components/layout/router-sidebar.js'
-    );
+    const { RouterSidebar } = await import('@/ui/components/layout/router-sidebar.js');
     const testRoutes: RouteObject[] = [
       {
         element: (
@@ -532,9 +495,7 @@ describe('RouterSidebar uses PrefetchLink for navigation', () => {
   });
 
   it('settings link has data-prefetch-path attribute', async () => {
-    const { RouterSidebar } = await import(
-      '@/ui/components/layout/router-sidebar.js'
-    );
+    const { RouterSidebar } = await import('@/ui/components/layout/router-sidebar.js');
     const testRoutes: RouteObject[] = [
       {
         element: (
@@ -572,9 +533,7 @@ describe('Code splitting verification', () => {
   it('routes are code-split with separate lazy imports', async () => {
     const mod = await import('@/ui/routes.js');
     const root = mod.routes[0];
-    const childRoutes = root.children!.filter(
-      (r) => r.path && r.path !== '*'
-    );
+    const childRoutes = root.children!.filter((r) => r.path && r.path !== '*');
     // There should be multiple code-split routes
     expect(childRoutes.length).toBeGreaterThanOrEqual(8);
   });
@@ -582,9 +541,7 @@ describe('Code splitting verification', () => {
   it('each page route path has a Suspense-wrapped element', async () => {
     const mod = await import('@/ui/routes.js');
     const root = mod.routes[0];
-    const pageRoutes = root.children!.filter(
-      (r) => r.path && r.path !== '*' && !r.index
-    );
+    const pageRoutes = root.children!.filter((r) => r.path && r.path !== '*' && !r.index);
 
     for (const route of pageRoutes) {
       // Routes can have either element (direct) or children (nested routes)

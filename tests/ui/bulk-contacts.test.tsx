@@ -9,30 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  BulkSelectionProvider,
-  useBulkSelection,
-} from '@/ui/components/bulk-selection/bulk-selection-context';
-import {
-  ContactCheckbox,
-  type ContactCheckboxProps,
-} from '@/ui/components/bulk-selection/contact-checkbox';
-import {
-  ContactBulkActionBar,
-  type ContactBulkActionBarProps,
-} from '@/ui/components/bulk-selection/contact-bulk-action-bar';
-import {
-  BulkDeleteDialog,
-  type BulkDeleteDialogProps,
-} from '@/ui/components/bulk-selection/bulk-delete-dialog';
-import {
-  BulkAddToGroupDialog,
-  type BulkAddToGroupDialogProps,
-} from '@/ui/components/bulk-selection/bulk-add-to-group-dialog';
-import {
-  BulkUpdateDialog,
-  type BulkUpdateDialogProps,
-} from '@/ui/components/bulk-selection/bulk-update-dialog';
+import { BulkSelectionProvider, useBulkSelection } from '@/ui/components/bulk-selection/bulk-selection-context';
+import { ContactCheckbox, type ContactCheckboxProps } from '@/ui/components/bulk-selection/contact-checkbox';
+import { ContactBulkActionBar, type ContactBulkActionBarProps } from '@/ui/components/bulk-selection/contact-bulk-action-bar';
+import { BulkDeleteDialog, type BulkDeleteDialogProps } from '@/ui/components/bulk-selection/bulk-delete-dialog';
+import { BulkAddToGroupDialog, type BulkAddToGroupDialogProps } from '@/ui/components/bulk-selection/bulk-add-to-group-dialog';
+import { BulkUpdateDialog, type BulkUpdateDialogProps } from '@/ui/components/bulk-selection/bulk-update-dialog';
 import type { Contact, ContactGroup } from '@/ui/components/bulk-selection/types';
 
 // Test wrapper component to test hook
@@ -61,7 +43,7 @@ describe('BulkSelectionProvider', () => {
     render(
       <BulkSelectionProvider>
         <TestHookComponent onSelection={onSelection} />
-      </BulkSelectionProvider>
+      </BulkSelectionProvider>,
     );
 
     expect(screen.getByTestId('selected-count')).toHaveTextContent('0');
@@ -72,7 +54,7 @@ describe('BulkSelectionProvider', () => {
     render(
       <BulkSelectionProvider>
         <TestHookComponent onSelection={onSelection} />
-      </BulkSelectionProvider>
+      </BulkSelectionProvider>,
     );
 
     fireEvent.click(screen.getByText('Toggle 1'));
@@ -86,7 +68,7 @@ describe('BulkSelectionProvider', () => {
     render(
       <BulkSelectionProvider>
         <TestHookComponent onSelection={onSelection} />
-      </BulkSelectionProvider>
+      </BulkSelectionProvider>,
     );
 
     fireEvent.click(screen.getByText('Select All'));
@@ -99,7 +81,7 @@ describe('BulkSelectionProvider', () => {
     render(
       <BulkSelectionProvider>
         <TestHookComponent onSelection={onSelection} />
-      </BulkSelectionProvider>
+      </BulkSelectionProvider>,
     );
 
     fireEvent.click(screen.getByText('Select All'));
@@ -151,7 +133,7 @@ describe('ContactCheckbox', () => {
     render(
       <div onClick={onRowClick}>
         <ContactCheckbox {...defaultProps} onToggle={onToggle} />
-      </div>
+      </div>,
     );
 
     fireEvent.click(screen.getByRole('checkbox'));

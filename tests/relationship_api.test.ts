@@ -16,7 +16,7 @@ import { createTestPool, truncateAllTables } from './helpers/db.ts';
 async function createContactDirect(pool: Pool, displayName: string, kind = 'person'): Promise<string> {
   const colCheck = await pool.query(
     `SELECT column_name FROM information_schema.columns
-     WHERE table_name = 'contact' AND column_name = 'contact_kind'`
+     WHERE table_name = 'contact' AND column_name = 'contact_kind'`,
   );
   const hasContactKind = colCheck.rows.length > 0;
 
@@ -25,7 +25,7 @@ async function createContactDirect(pool: Pool, displayName: string, kind = 'pers
       `INSERT INTO contact (display_name, contact_kind)
        VALUES ($1, $2::contact_kind)
        RETURNING id::text as id`,
-      [displayName, kind]
+      [displayName, kind],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -34,17 +34,14 @@ async function createContactDirect(pool: Pool, displayName: string, kind = 'pers
     `INSERT INTO contact (display_name)
      VALUES ($1)
      RETURNING id::text as id`,
-    [displayName]
+    [displayName],
   );
   return (result.rows[0] as { id: string }).id;
 }
 
 /** Helper: get relationship type ID by name */
 async function getTypeId(pool: Pool, name: string): Promise<string> {
-  const result = await pool.query(
-    `SELECT id::text as id FROM relationship_type WHERE name = $1`,
-    [name]
-  );
+  const result = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = $1`, [name]);
   return (result.rows[0] as { id: string }).id;
 }
 
@@ -69,8 +66,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('POST /api/relationships', () => {
     it('creates a relationship between two contacts', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       const res = await app.inject({
@@ -95,7 +92,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('returns 400 when contact_a_id is missing', async () => {
-      const bobId = await createContactDirect(pool,'Bob');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       const res = await app.inject({
@@ -111,7 +108,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('returns 400 when contact_b_id is missing', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
+      const aliceId = await createContactDirect(pool, 'Alice');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       const res = await app.inject({
@@ -127,8 +124,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('returns 400 when relationship_type_id is missing', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
 
       const res = await app.inject({
         method: 'POST',
@@ -143,8 +140,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('returns 409 for duplicate relationship', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       await app.inject({
@@ -173,8 +170,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('GET /api/relationships/:id', () => {
     it('returns a relationship with details', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       const createRes = await app.inject({
@@ -213,8 +210,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('PATCH /api/relationships/:id', () => {
     it('updates relationship notes', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       const createRes = await app.inject({
@@ -252,8 +249,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('DELETE /api/relationships/:id', () => {
     it('deletes a relationship', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       const createRes = await app.inject({
@@ -294,8 +291,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('GET /api/relationships', () => {
     it('lists all relationships', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       await app.inject({
@@ -320,9 +317,9 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('filters by contact_id', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
-      const charlieId = await createContactDirect(pool,'Charlie');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
+      const charlieId = await createContactDirect(pool, 'Charlie');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       await app.inject({
@@ -347,9 +344,9 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('supports pagination', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
-      const charlieId = await createContactDirect(pool,'Charlie');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
+      const charlieId = await createContactDirect(pool, 'Charlie');
       const friendTypeId = await getTypeId(pool, 'friend_of');
       const colleagueTypeId = await getTypeId(pool, 'colleague_of');
 
@@ -379,8 +376,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('GET /api/contacts/:id/relationships', () => {
     it('returns graph traversal for a contact', async () => {
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const friendTypeId = await getTypeId(pool, 'friend_of');
 
       await app.inject({
@@ -407,8 +404,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('resolves directional inverse types', async () => {
-      const parentId = await createContactDirect(pool,'Parent');
-      const childId = await createContactDirect(pool,'Child');
+      const parentId = await createContactDirect(pool, 'Parent');
+      const childId = await createContactDirect(pool, 'Child');
       const parentTypeId = await getTypeId(pool, 'parent_of');
 
       await app.inject({
@@ -437,8 +434,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('GET /api/contacts/:id/groups', () => {
     it('returns groups the contact belongs to', async () => {
-      const groupId = await createContactDirect(pool,'Team', 'group');
-      const aliceId = await createContactDirect(pool,'Alice');
+      const groupId = await createContactDirect(pool, 'Team', 'group');
+      const aliceId = await createContactDirect(pool, 'Alice');
       const hasMemberTypeId = await getTypeId(pool, 'has_member');
 
       await app.inject({
@@ -465,9 +462,9 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('GET /api/contacts/:id/members', () => {
     it('returns members of a group contact', async () => {
-      const groupId = await createContactDirect(pool,'Team', 'group');
-      const aliceId = await createContactDirect(pool,'Alice');
-      const bobId = await createContactDirect(pool,'Bob');
+      const groupId = await createContactDirect(pool, 'Team', 'group');
+      const aliceId = await createContactDirect(pool, 'Alice');
+      const bobId = await createContactDirect(pool, 'Bob');
       const hasMemberTypeId = await getTypeId(pool, 'has_member');
 
       await app.inject({
@@ -505,8 +502,8 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   describe('POST /api/relationships/set', () => {
     it('creates relationship via smart creation', async () => {
-      await createContactDirect(pool,'Alice');
-      await createContactDirect(pool,'Bob');
+      await createContactDirect(pool, 'Alice');
+      await createContactDirect(pool, 'Bob');
 
       const res = await app.inject({
         method: 'POST',
@@ -542,7 +539,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
     });
 
     it('returns 404 when contact cannot be resolved', async () => {
-      await createContactDirect(pool,'Alice');
+      await createContactDirect(pool, 'Alice');
 
       const res = await app.inject({
         method: 'POST',

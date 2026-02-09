@@ -4,12 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  GanttChart,
-  TimelineBar,
-  TimelineRowLabel,
-  type TimelineItem,
-} from '@/ui/components/timeline';
+import { GanttChart, TimelineBar, TimelineRowLabel, type TimelineItem } from '@/ui/components/timeline';
 
 const today = new Date();
 const mockItems: TimelineItem[] = [
@@ -112,9 +107,7 @@ describe('TimelineRowLabel', () => {
   });
 
   it('rotates chevron when expanded', () => {
-    const { container } = render(
-      <TimelineRowLabel item={item} depth={0} hasChildren isExpanded onToggle={() => {}} />
-    );
+    const { container } = render(<TimelineRowLabel item={item} depth={0} hasChildren isExpanded onToggle={() => {}} />);
     const chevron = container.querySelector('.rotate-90');
     expect(chevron).toBeTruthy();
   });

@@ -12,9 +12,7 @@ export function useFocusTrap(isActive: boolean = true) {
     if (!isActive || !containerRef.current) return;
 
     const container = containerRef.current;
-    const focusableElements = container.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
+    const focusableElements = container.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
 
     if (focusableElements.length === 0) return;
 
@@ -56,74 +54,72 @@ export function useRovingFocus<T extends HTMLElement>(
     orientation?: 'horizontal' | 'vertical' | 'both';
     loop?: boolean;
     onSelect?: (index: number) => void;
-  } = {}
+  } = {},
 ) {
   const { orientation = 'vertical', loop = true, onSelect } = options;
   const [focusedIndex, setFocusedIndex] = useState(0);
   const itemsRef = useRef<(T | null)[]>([]);
 
-  const setItemRef = useCallback((index: number) => (el: T | null) => {
-    itemsRef.current[index] = el;
-  }, []);
+  const setItemRef = useCallback(
+    (index: number) => (el: T | null) => {
+      itemsRef.current[index] = el;
+    },
+    [],
+  );
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    let newIndex = focusedIndex;
-    const isHorizontal = orientation === 'horizontal' || orientation === 'both';
-    const isVertical = orientation === 'vertical' || orientation === 'both';
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      let newIndex = focusedIndex;
+      const isHorizontal = orientation === 'horizontal' || orientation === 'both';
+      const isVertical = orientation === 'vertical' || orientation === 'both';
 
-    switch (e.key) {
-      case 'ArrowDown':
-        if (isVertical) {
+      switch (e.key) {
+        case 'ArrowDown':
+          if (isVertical) {
+            e.preventDefault();
+            newIndex = loop ? (focusedIndex + 1) % itemCount : Math.min(focusedIndex + 1, itemCount - 1);
+          }
+          break;
+        case 'ArrowUp':
+          if (isVertical) {
+            e.preventDefault();
+            newIndex = loop ? (focusedIndex - 1 + itemCount) % itemCount : Math.max(focusedIndex - 1, 0);
+          }
+          break;
+        case 'ArrowRight':
+          if (isHorizontal) {
+            e.preventDefault();
+            newIndex = loop ? (focusedIndex + 1) % itemCount : Math.min(focusedIndex + 1, itemCount - 1);
+          }
+          break;
+        case 'ArrowLeft':
+          if (isHorizontal) {
+            e.preventDefault();
+            newIndex = loop ? (focusedIndex - 1 + itemCount) % itemCount : Math.max(focusedIndex - 1, 0);
+          }
+          break;
+        case 'Home':
           e.preventDefault();
-          newIndex = loop
-            ? (focusedIndex + 1) % itemCount
-            : Math.min(focusedIndex + 1, itemCount - 1);
-        }
-        break;
-      case 'ArrowUp':
-        if (isVertical) {
+          newIndex = 0;
+          break;
+        case 'End':
           e.preventDefault();
-          newIndex = loop
-            ? (focusedIndex - 1 + itemCount) % itemCount
-            : Math.max(focusedIndex - 1, 0);
-        }
-        break;
-      case 'ArrowRight':
-        if (isHorizontal) {
+          newIndex = itemCount - 1;
+          break;
+        case 'Enter':
+        case ' ':
           e.preventDefault();
-          newIndex = loop
-            ? (focusedIndex + 1) % itemCount
-            : Math.min(focusedIndex + 1, itemCount - 1);
-        }
-        break;
-      case 'ArrowLeft':
-        if (isHorizontal) {
-          e.preventDefault();
-          newIndex = loop
-            ? (focusedIndex - 1 + itemCount) % itemCount
-            : Math.max(focusedIndex - 1, 0);
-        }
-        break;
-      case 'Home':
-        e.preventDefault();
-        newIndex = 0;
-        break;
-      case 'End':
-        e.preventDefault();
-        newIndex = itemCount - 1;
-        break;
-      case 'Enter':
-      case ' ':
-        e.preventDefault();
-        onSelect?.(focusedIndex);
-        return;
-    }
+          onSelect?.(focusedIndex);
+          return;
+      }
 
-    if (newIndex !== focusedIndex) {
-      setFocusedIndex(newIndex);
-      itemsRef.current[newIndex]?.focus();
-    }
-  }, [focusedIndex, itemCount, loop, orientation, onSelect]);
+      if (newIndex !== focusedIndex) {
+        setFocusedIndex(newIndex);
+        itemsRef.current[newIndex]?.focus();
+      }
+    },
+    [focusedIndex, itemCount, loop, orientation, onSelect],
+  );
 
   return {
     focusedIndex,
@@ -149,11 +145,7 @@ export interface SkipLinkProps {
   className?: string;
 }
 
-export function SkipLink({
-  targetId,
-  label = 'Skip to main content',
-  className,
-}: SkipLinkProps) {
+export function SkipLink({ targetId, label = 'Skip to main content', className }: SkipLinkProps) {
   return (
     <a
       href={`#${targetId}`}
@@ -162,7 +154,7 @@ export function SkipLink({
         'fixed top-4 left-4 z-50',
         'rounded-md bg-primary px-4 py-2 text-primary-foreground',
         'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-        className
+        className,
       )}
     >
       {label}
@@ -180,19 +172,9 @@ export interface LiveRegionProps {
   className?: string;
 }
 
-export function LiveRegion({
-  children,
-  politeness = 'polite',
-  atomic = true,
-  className,
-}: LiveRegionProps) {
+export function LiveRegion({ children, politeness = 'polite', atomic = true, className }: LiveRegionProps) {
   return (
-    <div
-      role="status"
-      aria-live={politeness}
-      aria-atomic={atomic}
-      className={cn('sr-only', className)}
-    >
+    <div role="status" aria-live={politeness} aria-atomic={atomic} className={cn('sr-only', className)}>
       {children}
     </div>
   );

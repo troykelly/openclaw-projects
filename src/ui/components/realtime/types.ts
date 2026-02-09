@@ -40,11 +40,7 @@ export interface RealtimeContextValue {
   status: ConnectionStatus;
   subscribe: (subscription: Subscription) => void;
   unsubscribe: (subscription: Subscription) => void;
-  addEventHandler: (
-    eventType: RealtimeEventType,
-    handler: (event: RealtimeEvent) => void,
-    entityId?: string
-  ) => () => void;
+  addEventHandler: (eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entityId?: string) => () => void;
   sendEvent: (event: RealtimeEvent) => void;
 }
 

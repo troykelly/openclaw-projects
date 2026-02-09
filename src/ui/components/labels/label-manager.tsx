@@ -22,13 +22,7 @@ import { LabelBadge } from './label-badge';
 import { ADDITIONAL_COLORS, getRandomColor } from './color-palette';
 import type { LabelManagerProps, CreateLabelData, Label as LabelType } from './types';
 
-export function LabelManager({
-  labels,
-  onCreate,
-  onUpdate,
-  onDelete,
-  className,
-}: LabelManagerProps) {
+export function LabelManager({ labels, onCreate, onUpdate, onDelete, className }: LabelManagerProps) {
   const [search, setSearch] = React.useState('');
   const [showCreate, setShowCreate] = React.useState(false);
   const [newLabelName, setNewLabelName] = React.useState('');
@@ -38,9 +32,7 @@ export function LabelManager({
   const filteredLabels = React.useMemo(() => {
     if (!search.trim()) return labels;
     const searchLower = search.toLowerCase();
-    return labels.filter((label) =>
-      label.name.toLowerCase().includes(searchLower)
-    );
+    return labels.filter((label) => label.name.toLowerCase().includes(searchLower));
   }, [labels, search]);
 
   const handleCreate = () => {
@@ -72,12 +64,7 @@ export function LabelManager({
       <div className="flex items-center gap-4 p-4 border-b">
         <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search labels..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Search labels..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Button onClick={() => setShowCreate(true)} aria-label="New label">
           <PlusIcon className="h-4 w-4 mr-2" />
@@ -107,12 +94,7 @@ export function LabelManager({
                     key={color}
                     type="button"
                     onClick={() => setNewLabelColor(color)}
-                    className={cn(
-                      'h-8 w-8 rounded border-2',
-                      newLabelColor === color
-                        ? 'border-foreground'
-                        : 'border-transparent'
-                    )}
+                    className={cn('h-8 w-8 rounded border-2', newLabelColor === color ? 'border-foreground' : 'border-transparent')}
                     style={{ backgroundColor: color }}
                     aria-label={`Select color ${color}`}
                   />
@@ -123,9 +105,7 @@ export function LabelManager({
           {newLabelName.trim() && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Preview:</span>
-              <LabelBadge
-                label={{ id: 'preview', name: newLabelName.trim(), color: newLabelColor }}
-              />
+              <LabelBadge label={{ id: 'preview', name: newLabelName.trim(), color: newLabelColor }} />
             </div>
           )}
           <div className="flex gap-2">
@@ -149,22 +129,13 @@ export function LabelManager({
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-2">
           {filteredLabels.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              {search ? 'No labels found' : 'No labels yet'}
-            </p>
+            <p className="text-center text-muted-foreground py-8">{search ? 'No labels found' : 'No labels yet'}</p>
           ) : (
             filteredLabels.map((label) => (
-              <div
-                key={label.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
-              >
+              <div key={label.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                 <div className="flex items-center gap-3">
                   <LabelBadge label={label} />
-                  {label.description && (
-                    <span className="text-sm text-muted-foreground">
-                      {label.description}
-                    </span>
-                  )}
+                  {label.description && <span className="text-sm text-muted-foreground">{label.description}</span>}
                 </div>
                 <Button
                   variant="ghost"
@@ -187,19 +158,13 @@ export function LabelManager({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Label</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the label{' '}
-              {labelToDelete && (
-                <LabelBadge label={labelToDelete} size="sm" />
-              )}
-              ? This will remove it from all work items.
+              Are you sure you want to delete the label {labelToDelete && <LabelBadge label={labelToDelete} size="sm" />}? This will remove it from all work
+              items.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Confirm
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -132,7 +132,8 @@ describe('NotificationBell', () => {
   });
 
   it('calls mark as read API when clicking unread notification', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ unreadCount: 1 }),
@@ -158,15 +159,13 @@ describe('NotificationBell', () => {
     fireEvent.click(screen.getByTestId('notification-item'));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/api/notifications/1/read'),
-        expect.objectContaining({ method: 'POST' })
-      );
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/notifications/1/read'), expect.objectContaining({ method: 'POST' }));
     });
   });
 
   it('calls mark all read API when button is clicked', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ unreadCount: 2 }),
@@ -197,10 +196,7 @@ describe('NotificationBell', () => {
     fireEvent.click(screen.getByText('Mark all read'));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/api/notifications/read-all'),
-        expect.objectContaining({ method: 'POST' })
-      );
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/notifications/read-all'), expect.objectContaining({ method: 'POST' }));
     });
   });
 
@@ -211,12 +207,7 @@ describe('NotificationBell', () => {
       json: () => Promise.resolve({ notifications: mockNotifications, unreadCount: 1 }),
     });
 
-    render(
-      <NotificationBell
-        userEmail={mockUserEmail}
-        onNotificationClick={onNotificationClick}
-      />
-    );
+    render(<NotificationBell userEmail={mockUserEmail} onNotificationClick={onNotificationClick} />);
 
     fireEvent.click(screen.getByTestId('notification-bell'));
 

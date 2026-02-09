@@ -4,11 +4,7 @@
  * Used by page components to render consistent status icons, priority
  * colors, and kind indicators across the application.
  */
-import type {
-  WorkItemStatus,
-  WorkItemPriority,
-  WorkItemKind,
-} from '@/ui/components/detail/types';
+import type { WorkItemStatus, WorkItemPriority, WorkItemKind } from '@/ui/components/detail/types';
 import type { TreeItem, TreeItemKind } from '@/ui/components/tree/types';
 import type { WorkItemTreeNode } from '@/ui/lib/api-types';
 
@@ -92,9 +88,7 @@ export function findTreeItem(items: TreeItem[], id: string): TreeItem | null {
  * Flatten a tree into a list of potential parent items for the move dialog.
  * Returns id, title, and kind for each item in the hierarchy.
  */
-export function flattenTreeForParents(
-  items: TreeItem[],
-): Array<{ id: string; title: string; kind: string }> {
+export function flattenTreeForParents(items: TreeItem[]): Array<{ id: string; title: string; kind: string }> {
   const result: Array<{ id: string; title: string; kind: string }> = [];
   const traverse = (treeItems: TreeItem[]): void => {
     for (const treeItem of treeItems) {

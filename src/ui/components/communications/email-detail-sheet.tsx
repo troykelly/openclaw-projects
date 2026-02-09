@@ -1,24 +1,10 @@
 import * as React from 'react';
-import {
-  Mail,
-  Paperclip,
-  Reply,
-  Forward,
-  Unlink,
-  Calendar,
-  User,
-} from 'lucide-react';
+import { Mail, Paperclip, Reply, Forward, Unlink, Calendar, User } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/ui/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { LinkedEmail } from './types';
 
 export interface EmailDetailSheetProps {
@@ -28,12 +14,7 @@ export interface EmailDetailSheetProps {
   onUnlink?: (email: LinkedEmail) => void;
 }
 
-export function EmailDetailSheet({
-  email,
-  open,
-  onOpenChange,
-  onUnlink,
-}: EmailDetailSheetProps) {
+export function EmailDetailSheet({ email, open, onOpenChange, onUnlink }: EmailDetailSheetProps) {
   if (!email) return null;
 
   return (
@@ -54,12 +35,7 @@ export function EmailDetailSheet({
             {/* Actions */}
             {onUnlink && (
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => onUnlink(email)}
-                >
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => onUnlink(email)}>
                   <Unlink className="mr-1 size-3" />
                   Unlink
                 </Button>
@@ -74,9 +50,7 @@ export function EmailDetailSheet({
                 <User className="mt-0.5 size-4 text-muted-foreground" />
                 <div>
                   <p className="font-medium">{email.from.name || email.from.email}</p>
-                  {email.from.name && (
-                    <p className="text-xs text-muted-foreground">{email.from.email}</p>
-                  )}
+                  {email.from.name && <p className="text-xs text-muted-foreground">{email.from.email}</p>}
                 </div>
               </div>
 
@@ -84,9 +58,7 @@ export function EmailDetailSheet({
                 <Mail className="mt-0.5 size-4 text-muted-foreground" />
                 <div>
                   <p className="text-muted-foreground">To:</p>
-                  <p>
-                    {email.to.map((r) => r.name || r.email).join(', ')}
-                  </p>
+                  <p>{email.to.map((r) => r.name || r.email).join(', ')}</p>
                 </div>
               </div>
 
@@ -119,11 +91,7 @@ export function EmailDetailSheet({
 
             {/* Body */}
             <div className="prose prose-sm dark:prose-invert max-w-none">
-              {email.body ? (
-                <div className="whitespace-pre-wrap">{email.body}</div>
-              ) : (
-                <p className="text-muted-foreground">{email.snippet}</p>
-              )}
+              {email.body ? <div className="whitespace-pre-wrap">{email.body}</div> : <p className="text-muted-foreground">{email.snippet}</p>}
             </div>
           </div>
         </ScrollArea>

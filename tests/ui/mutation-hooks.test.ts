@@ -27,8 +27,7 @@ function createWrapper() {
     },
   });
 
-  const Wrapper = ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
+  const Wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: queryClient }, children);
 
   return { Wrapper, queryClient };
 }
@@ -71,9 +70,7 @@ describe('useCreateWorkItem', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(created);
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: workItemKeys.all }),
-    );
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: workItemKeys.all }));
   });
 
   it('should handle creation errors', async () => {
@@ -188,8 +185,7 @@ describe('useUpdateWorkItem', () => {
       },
     });
 
-    const Wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(QueryClientProvider, { client: queryClient }, children);
+    const Wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(QueryClientProvider, { client: queryClient }, children);
 
     // Seed the cache
     queryClient.setQueryData(workItemKeys.detail('abc'), original);
@@ -198,15 +194,18 @@ describe('useUpdateWorkItem', () => {
 
     // Trigger the mutation
     await act(async () => {
-      result.current.mutate({
-        id: 'abc',
-        body: { status: 'in_progress' },
-      }, {
-        onError: () => {
-          // Capture the state right after onError rolls back
-          rolledBackValue = queryClient.getQueryData<WorkItemDetail>(workItemKeys.detail('abc'));
+      result.current.mutate(
+        {
+          id: 'abc',
+          body: { status: 'in_progress' },
         },
-      });
+        {
+          onError: () => {
+            // Capture the state right after onError rolls back
+            rolledBackValue = queryClient.getQueryData<WorkItemDetail>(workItemKeys.detail('abc'));
+          },
+        },
+      );
       await Promise.resolve();
     });
 
@@ -240,7 +239,9 @@ describe('useDeleteWorkItem', () => {
       ok: true,
       status: 204,
       statusText: 'No Content',
-      json: async () => { throw new Error('no body'); },
+      json: async () => {
+        throw new Error('no body');
+      },
     });
 
     const { Wrapper, queryClient } = createWrapper();
@@ -253,9 +254,7 @@ describe('useDeleteWorkItem', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: workItemKeys.all }),
-    );
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: workItemKeys.all }));
   });
 });
 

@@ -169,7 +169,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'depends_on')`,
-        [blockedWorkItemId, blockingWorkItemId]
+        [blockedWorkItemId, blockingWorkItemId],
       );
 
       const res = await app.inject({
@@ -202,7 +202,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'depends_on')`,
-        [blockedWorkItemId, blockingWorkItemId]
+        [blockedWorkItemId, blockingWorkItemId],
       );
 
       // Check from the blocking item's perspective

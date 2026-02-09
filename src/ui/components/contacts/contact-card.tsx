@@ -20,26 +20,13 @@ export function ContactCard({ contact, onClick, className }: ContactCardProps) {
     .slice(0, 2);
 
   return (
-    <Card
-      data-testid="contact-card"
-      className={cn(
-        'cursor-pointer p-4 transition-colors hover:bg-muted/50',
-        className
-      )}
-      onClick={() => onClick?.(contact)}
-    >
+    <Card data-testid="contact-card" className={cn('cursor-pointer p-4 transition-colors hover:bg-muted/50', className)} onClick={() => onClick?.(contact)}>
       <div className="flex items-start gap-3">
         {/* Avatar */}
         {contact.avatar ? (
-          <img
-            src={contact.avatar}
-            alt={contact.name}
-            className="size-10 shrink-0 rounded-full object-cover"
-          />
+          <img src={contact.avatar} alt={contact.name} className="size-10 shrink-0 rounded-full object-cover" />
         ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-            {initials}
-          </div>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">{initials}</div>
         )}
 
         {/* Info */}

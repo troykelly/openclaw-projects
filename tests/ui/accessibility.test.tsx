@@ -9,30 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  SkipLink,
-  type SkipLinkProps,
-} from '@/ui/components/accessibility/skip-link';
-import {
-  VisuallyHidden,
-  type VisuallyHiddenProps,
-} from '@/ui/components/accessibility/visually-hidden';
-import {
-  LiveRegion,
-  type LiveRegionProps,
-} from '@/ui/components/accessibility/live-region';
-import {
-  AccessibleIcon,
-  type AccessibleIconProps,
-} from '@/ui/components/accessibility/accessible-icon';
-import {
-  ErrorMessage,
-  type ErrorMessageProps,
-} from '@/ui/components/accessibility/error-message';
-import {
-  useAnnounce,
-  AnnounceProvider,
-} from '@/ui/components/accessibility/announce-context';
+import { SkipLink, type SkipLinkProps } from '@/ui/components/accessibility/skip-link';
+import { VisuallyHidden, type VisuallyHiddenProps } from '@/ui/components/accessibility/visually-hidden';
+import { LiveRegion, type LiveRegionProps } from '@/ui/components/accessibility/live-region';
+import { AccessibleIcon, type AccessibleIconProps } from '@/ui/components/accessibility/accessible-icon';
+import { ErrorMessage, type ErrorMessageProps } from '@/ui/components/accessibility/error-message';
+import { useAnnounce, AnnounceProvider } from '@/ui/components/accessibility/announce-context';
 
 describe('SkipLink', () => {
   const defaultProps: SkipLinkProps = {
@@ -69,7 +51,7 @@ describe('SkipLink', () => {
       <>
         <SkipLink href="#main">Skip to main</SkipLink>
         <SkipLink href="#nav">Skip to navigation</SkipLink>
-      </>
+      </>,
     );
     expect(screen.getAllByRole('link')).toHaveLength(2);
   });
@@ -158,7 +140,7 @@ describe('AccessibleIcon', () => {
     render(
       <AccessibleIcon decorative>
         <svg data-testid="icon" />
-      </AccessibleIcon>
+      </AccessibleIcon>,
     );
     const wrapper = screen.getByTestId('icon').parentElement;
     expect(wrapper).not.toHaveAttribute('aria-label');
@@ -197,11 +179,7 @@ describe('ErrorMessage', () => {
 describe('AnnounceProvider and useAnnounce', () => {
   function TestComponent() {
     const announce = useAnnounce();
-    return (
-      <button onClick={() => announce('Item saved', 'polite')}>
-        Save
-      </button>
-    );
+    return <button onClick={() => announce('Item saved', 'polite')}>Save</button>;
   }
 
   beforeEach(() => {
@@ -220,7 +198,7 @@ describe('AnnounceProvider and useAnnounce', () => {
     render(
       <AnnounceProvider>
         <TestComponent />
-      </AnnounceProvider>
+      </AnnounceProvider>,
     );
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
@@ -229,7 +207,7 @@ describe('AnnounceProvider and useAnnounce', () => {
     render(
       <AnnounceProvider>
         <TestComponent />
-      </AnnounceProvider>
+      </AnnounceProvider>,
     );
 
     act(() => {
@@ -242,17 +220,13 @@ describe('AnnounceProvider and useAnnounce', () => {
   it('should support assertive announcements', async () => {
     function AssertiveTest() {
       const announce = useAnnounce();
-      return (
-        <button onClick={() => announce('Error occurred', 'assertive')}>
-          Trigger
-        </button>
-      );
+      return <button onClick={() => announce('Error occurred', 'assertive')}>Trigger</button>;
     }
 
     render(
       <AnnounceProvider>
         <AssertiveTest />
-      </AnnounceProvider>
+      </AnnounceProvider>,
     );
 
     act(() => {

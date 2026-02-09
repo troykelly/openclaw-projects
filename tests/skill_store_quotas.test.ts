@@ -36,7 +36,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, title)
          VALUES ($1, '_default', $2)`,
-        [skillId, `Item ${i}`]
+        [skillId, `Item ${i}`],
       );
     }
   }
@@ -52,7 +52,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
        VALUES ($1, $2, 'https://example.com/hook')
        RETURNING id::text as id`,
-      [skillId, `${minute} */6 * * *`]
+      [skillId, `${minute} */6 * * *`],
     );
     return result.rows[0].id;
   }
@@ -61,9 +61,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
   describe('getSkillStoreQuotaConfig', () => {
     it('returns default values when no env vars set', async () => {
-      const { getSkillStoreQuotaConfig } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { getSkillStoreQuotaConfig } = await import('../src/api/skill-store/quotas.ts');
 
       const config = getSkillStoreQuotaConfig();
 
@@ -104,9 +102,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
   describe('checkItemQuota', () => {
     it('returns ok when under limit', async () => {
-      const { checkItemQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkItemQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertItems('sk1', 5);
 
@@ -115,9 +111,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('returns denied when at limit', async () => {
-      const { checkItemQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkItemQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertItems('sk1', 3);
 
@@ -128,15 +122,13 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('does not count soft-deleted items', async () => {
-      const { checkItemQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkItemQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertItems('sk1', 3);
       // Soft delete one
       await pool.query(
         `UPDATE skill_store_item SET deleted_at = now()
-         WHERE id = (SELECT id FROM skill_store_item WHERE skill_id = 'sk1' LIMIT 1)`
+         WHERE id = (SELECT id FROM skill_store_item WHERE skill_id = 'sk1' LIMIT 1)`,
       );
 
       const result = await checkItemQuota(pool, 'sk1', { maxItemsPerSkill: 3 });
@@ -144,9 +136,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('does not count items from other skills', async () => {
-      const { checkItemQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkItemQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertItems('sk1', 5);
       await insertItems('sk2', 5);
@@ -160,32 +150,20 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
   describe('checkCollectionQuota', () => {
     it('returns ok when under collection limit', async () => {
-      const { checkCollectionQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkCollectionQuota } = await import('../src/api/skill-store/quotas.ts');
 
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`
-      );
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`);
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`);
 
       const result = await checkCollectionQuota(pool, 'sk1', 'col3', { maxCollectionsPerSkill: 10 });
       expect(result.allowed).toBe(true);
     });
 
     it('returns denied when new collection would exceed limit', async () => {
-      const { checkCollectionQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkCollectionQuota } = await import('../src/api/skill-store/quotas.ts');
 
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`
-      );
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`);
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`);
 
       const result = await checkCollectionQuota(pool, 'sk1', 'col3', { maxCollectionsPerSkill: 2 });
       expect(result.allowed).toBe(false);
@@ -194,16 +172,10 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('allows adding to an existing collection', async () => {
-      const { checkCollectionQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkCollectionQuota } = await import('../src/api/skill-store/quotas.ts');
 
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`
-      );
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`);
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`);
 
       // Adding to existing collection col1 should be allowed even at limit
       const result = await checkCollectionQuota(pool, 'sk1', 'col1', { maxCollectionsPerSkill: 2 });
@@ -215,9 +187,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
   describe('checkScheduleQuota', () => {
     it('returns ok when under schedule limit', async () => {
-      const { checkScheduleQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkScheduleQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertSchedule('sk1');
 
@@ -226,9 +196,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('returns denied when at schedule limit', async () => {
-      const { checkScheduleQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkScheduleQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertSchedule('sk1');
       await insertSchedule('sk1');
@@ -241,9 +209,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('does not count schedules from other skills', async () => {
-      const { checkScheduleQuota } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { checkScheduleQuota } = await import('../src/api/skill-store/quotas.ts');
 
       await insertSchedule('sk1');
       await insertSchedule('sk2');
@@ -258,14 +224,10 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
   describe('getSkillStoreQuotaUsage', () => {
     it('returns usage and limits for a skill', async () => {
-      const { getSkillStoreQuotaUsage } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { getSkillStoreQuotaUsage } = await import('../src/api/skill-store/quotas.ts');
 
       await insertItems('sk1', 10);
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'notes', 'Note 1')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'notes', 'Note 1')`);
       await insertSchedule('sk1');
       await insertSchedule('sk1');
 
@@ -280,9 +242,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
     });
 
     it('handles empty skill with zero counts', async () => {
-      const { getSkillStoreQuotaUsage } = await import(
-        '../src/api/skill-store/quotas.ts'
-      );
+      const { getSkillStoreQuotaUsage } = await import('../src/api/skill-store/quotas.ts');
 
       const usage = await getSkillStoreQuotaUsage(pool, 'nonexistent');
 

@@ -101,7 +101,7 @@ export class ShareLinkError extends Error {
 export function sanitizeFilenameForHeader(filename: string): string {
   return filename
     .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control characters (CR, LF, NUL, etc.)
-    .replace(/["\\]/g, (c) => '\\' + c);  // Escape quotes and backslashes
+    .replace(/["\\]/g, (c) => '\\' + c); // Escape quotes and backslashes
 }
 
 /**
@@ -111,11 +111,7 @@ export function sanitizeFilenameForHeader(filename: string): string {
  * - "presigned" (default): Returns an S3 presigned URL pointing to storage
  * - "proxy": Returns a token-based URL that proxies through the API
  */
-export async function createFileShare(
-  pool: Pool,
-  storage: FileStorage,
-  input: CreateFileShareInput
-): Promise<FileShareResult> {
+export async function createFileShare(pool: Pool, storage: FileStorage, input: CreateFileShareInput): Promise<FileShareResult> {
   // Default expiry is 1 hour
   const expiresIn = input.expiresIn ?? 3600;
 
@@ -171,13 +167,7 @@ export async function createFileShare(
       max_downloads,
       created_by
     ) VALUES ($1, $2, $3, $4, $5)`,
-    [
-      input.fileId,
-      shareToken,
-      expiresAt,
-      input.maxDownloads ?? null,
-      input.createdBy ?? null,
-    ]
+    [input.fileId, shareToken, expiresAt, input.maxDownloads ?? null, input.createdBy ?? null],
   );
 
   // Build the share URL
@@ -198,15 +188,8 @@ export async function createFileShare(
 /**
  * Validate a share token and get the file attachment ID
  */
-export async function validateShareToken(
-  pool: Pool,
-  token: string,
-  incrementDownload: boolean = true
-): Promise<ValidateShareTokenResult> {
-  const result = await pool.query(
-    'SELECT * FROM validate_file_share_token($1, $2)',
-    [token, incrementDownload]
-  );
+export async function validateShareToken(pool: Pool, token: string, incrementDownload: boolean = true): Promise<ValidateShareTokenResult> {
+  const result = await pool.query('SELECT * FROM validate_file_share_token($1, $2)', [token, incrementDownload]);
 
   const row = result.rows[0];
   return {
@@ -219,11 +202,7 @@ export async function validateShareToken(
 /**
  * Download a file via share token
  */
-export async function downloadFileByShareToken(
-  pool: Pool,
-  storage: FileStorage,
-  token: string
-): Promise<{ data: Buffer; metadata: FileAttachment }> {
+export async function downloadFileByShareToken(pool: Pool, storage: FileStorage, token: string): Promise<{ data: Buffer; metadata: FileAttachment }> {
   // Validate token (this increments download count)
   const validation = await validateShareToken(pool, token, true);
 
@@ -246,14 +225,8 @@ export async function downloadFileByShareToken(
 /**
  * Revoke a file share by token
  */
-export async function revokeFileShare(
-  pool: Pool,
-  token: string
-): Promise<boolean> {
-  const result = await pool.query(
-    'DELETE FROM file_share WHERE share_token = $1 RETURNING id',
-    [token]
-  );
+export async function revokeFileShare(pool: Pool, token: string): Promise<boolean> {
+  const result = await pool.query('DELETE FROM file_share WHERE share_token = $1 RETURNING id', [token]);
 
   return result.rowCount !== null && result.rowCount > 0;
 }
@@ -261,10 +234,7 @@ export async function revokeFileShare(
 /**
  * List active shares for a file
  */
-export async function listFileShares(
-  pool: Pool,
-  fileId: string
-): Promise<FileShare[]> {
+export async function listFileShares(pool: Pool, fileId: string): Promise<FileShare[]> {
   const result = await pool.query(
     `SELECT
       id::text,
@@ -280,7 +250,7 @@ export async function listFileShares(
     WHERE file_attachment_id = $1
       AND expires_at > NOW()
     ORDER BY created_at DESC`,
-    [fileId]
+    [fileId],
   );
 
   return result.rows.map((row) => ({

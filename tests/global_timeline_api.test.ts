@@ -43,13 +43,13 @@ describe('Global Timeline API', () => {
       // Create an item with dates via SQL
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
-         VALUES ('Dated Item', 'issue', '2024-03-01', '2024-03-15')`
+         VALUES ('Dated Item', 'issue', '2024-03-01', '2024-03-15')`,
       );
 
       // Create an item without dates (should be excluded by default)
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Undated Item', 'issue')`
+         VALUES ('Undated Item', 'issue')`,
       );
 
       const res = await app.inject({
@@ -68,7 +68,7 @@ describe('Global Timeline API', () => {
     it('returns item structure with all expected fields', async () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after, estimate_minutes)
-         VALUES ('Test Item', 'issue', '2024-03-01', '2024-03-15', 120)`
+         VALUES ('Test Item', 'issue', '2024-03-01', '2024-03-15', 120)`,
       );
 
       const res = await app.inject({
@@ -107,12 +107,12 @@ describe('Global Timeline API', () => {
     it('filters by date range - from', async () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
-         VALUES ('March Item', 'issue', '2024-03-01')`
+         VALUES ('March Item', 'issue', '2024-03-01')`,
       );
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_after)
-         VALUES ('January Item', 'issue', '2024-01-31')`
+         VALUES ('January Item', 'issue', '2024-01-31')`,
       );
 
       const res = await app.inject({
@@ -129,12 +129,12 @@ describe('Global Timeline API', () => {
     it('filters by date range - to', async () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
-         VALUES ('March Item', 'issue', '2024-03-01')`
+         VALUES ('March Item', 'issue', '2024-03-01')`,
       );
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
-         VALUES ('January Item', 'issue', '2024-01-15')`
+         VALUES ('January Item', 'issue', '2024-01-15')`,
       );
 
       const res = await app.inject({
@@ -153,7 +153,7 @@ describe('Global Timeline API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
          VALUES ('Project', 'project', '2024-03-01')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
@@ -162,7 +162,7 @@ describe('Global Timeline API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId]
+        [projectId],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -170,7 +170,7 @@ describe('Global Timeline API', () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Epic', 'epic', $1, '2024-03-01')`,
-        [initiativeId]
+        [initiativeId],
       );
 
       const res = await app.inject({
@@ -189,7 +189,7 @@ describe('Global Timeline API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
          VALUES ('Project', 'project', '2024-03-01')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
@@ -197,14 +197,14 @@ describe('Global Timeline API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId]
+        [projectId],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Epic', 'epic', $1, '2024-03-01')`,
-        [initiativeId]
+        [initiativeId],
       );
 
       const res = await app.inject({
@@ -221,7 +221,7 @@ describe('Global Timeline API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
          VALUES ('Project', 'project', '2024-03-01')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
@@ -229,20 +229,20 @@ describe('Global Timeline API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId]
+        [projectId],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Epic Under Initiative', 'epic', $1, '2024-03-01')`,
-        [initiativeId]
+        [initiativeId],
       );
 
       // Another top-level project
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
-         VALUES ('Other Project', 'project', '2024-03-01')`
+         VALUES ('Other Project', 'project', '2024-03-01')`,
       );
 
       const res = await app.inject({
@@ -254,9 +254,9 @@ describe('Global Timeline API', () => {
       const body = res.json() as { items: Array<{ title: string }> };
       // Should include project, initiative, and epic under it
       expect(body.items.length).toBe(3);
-      expect(body.items.map(i => i.title)).toContain('Project');
-      expect(body.items.map(i => i.title)).toContain('Initiative');
-      expect(body.items.map(i => i.title)).toContain('Epic Under Initiative');
+      expect(body.items.map((i) => i.title)).toContain('Project');
+      expect(body.items.map((i) => i.title)).toContain('Initiative');
+      expect(body.items.map((i) => i.title)).toContain('Epic Under Initiative');
     });
 
     it('includes dependencies between items', async () => {
@@ -264,14 +264,14 @@ describe('Global Timeline API', () => {
       const item1 = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
          VALUES ('First Task', 'issue', '2024-03-01')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id1 = (item1.rows[0] as { id: string }).id;
 
       const item2 = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
          VALUES ('Second Task', 'issue', '2024-03-15')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id2 = (item2.rows[0] as { id: string }).id;
 
@@ -279,7 +279,7 @@ describe('Global Timeline API', () => {
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'blocked_by')`,
-        [id2, id1]
+        [id2, id1],
       );
 
       const res = await app.inject({
@@ -308,7 +308,7 @@ describe('Global Timeline API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before)
          VALUES ('Project', 'project', '2024-03-01')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
@@ -316,14 +316,14 @@ describe('Global Timeline API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId]
+        [projectId],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Epic', 'epic', $1, '2024-03-01')`,
-        [initiativeId]
+        [initiativeId],
       );
 
       const res = await app.inject({
@@ -334,9 +334,9 @@ describe('Global Timeline API', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json() as { items: Array<{ title: string; level: number }> };
 
-      const projectItem = body.items.find(i => i.title === 'Project');
-      const initiativeItem = body.items.find(i => i.title === 'Initiative');
-      const epicItem = body.items.find(i => i.title === 'Epic');
+      const projectItem = body.items.find((i) => i.title === 'Project');
+      const initiativeItem = body.items.find((i) => i.title === 'Initiative');
+      const epicItem = body.items.find((i) => i.title === 'Epic');
 
       expect(projectItem?.level).toBe(0);
       expect(initiativeItem?.level).toBe(1);

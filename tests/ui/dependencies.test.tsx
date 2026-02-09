@@ -9,25 +9,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  AddDependencyDialog,
-  type AddDependencyDialogProps,
-} from '@/ui/components/dependencies/add-dependency-dialog';
-import {
-  DependencyItem,
-  type DependencyItemProps,
-} from '@/ui/components/dependencies/dependency-item';
-import {
-  detectCircularDependency,
-  getDependencyTypeLabel,
-  isValidDependency,
-  type DependencyGraph,
-} from '@/ui/components/dependencies/dependency-utils';
-import type {
-  DependencyType,
-  DependencyDirection,
-  WorkItemSummary,
-} from '@/ui/components/dependencies/types';
+import { AddDependencyDialog, type AddDependencyDialogProps } from '@/ui/components/dependencies/add-dependency-dialog';
+import { DependencyItem, type DependencyItemProps } from '@/ui/components/dependencies/dependency-item';
+import { detectCircularDependency, getDependencyTypeLabel, isValidDependency, type DependencyGraph } from '@/ui/components/dependencies/dependency-utils';
+import type { DependencyType, DependencyDirection, WorkItemSummary } from '@/ui/components/dependencies/types';
 
 describe('Dependency Utils', () => {
   describe('detectCircularDependency', () => {
@@ -187,10 +172,7 @@ describe('AddDependencyDialog', () => {
   });
 
   it('should exclude the source item from available items', () => {
-    const items = [
-      ...mockWorkItems,
-      { id: 'source-1', title: 'Source Task', kind: 'issue' as const, status: 'not_started' as const },
-    ];
+    const items = [...mockWorkItems, { id: 'source-1', title: 'Source Task', kind: 'issue' as const, status: 'not_started' as const }];
     render(<AddDependencyDialog {...defaultProps} availableItems={items} />);
     // The source task should not appear in the selectable list
     // Source task (id: source-1) should not be rendered
@@ -213,13 +195,7 @@ describe('AddDependencyDialog', () => {
     const graph: DependencyGraph = new Map([
       ['source-1', ['1']], // Source already blocks Task A
     ]);
-    render(
-      <AddDependencyDialog
-        {...defaultProps}
-        dependencyGraph={graph}
-        initialDirection="blocked_by"
-      />
-    );
+    render(<AddDependencyDialog {...defaultProps} dependencyGraph={graph} initialDirection="blocked_by" />);
 
     // Task A should show warning because adding 1 -> source-1 would create cycle
     // Multiple elements may match - the banner and the item indicator
@@ -246,7 +222,7 @@ describe('AddDependencyDialog', () => {
         targetId: '1',
         direction: expect.any(String),
         type: expect.any(String),
-      })
+      }),
     );
   });
 
@@ -366,9 +342,7 @@ describe('DependencyItem', () => {
   });
 
   it('should apply satisfied styling when blocker is done', () => {
-    const { container } = render(
-      <DependencyItem {...defaultProps} direction="blocked_by" status="done" />
-    );
+    const { container } = render(<DependencyItem {...defaultProps} direction="blocked_by" status="done" />);
     expect(container.querySelector('[data-satisfied="true"]')).toBeInTheDocument();
   });
 });
@@ -383,9 +357,7 @@ describe('Integration', () => {
       ['source-1', ['1']], // Source blocks Task A
     ]);
 
-    const mockWorkItems: WorkItemSummary[] = [
-      { id: '1', title: 'Task A', kind: 'issue', status: 'in_progress' },
-    ];
+    const mockWorkItems: WorkItemSummary[] = [{ id: '1', title: 'Task A', kind: 'issue', status: 'in_progress' }];
 
     render(
       <AddDependencyDialog
@@ -398,7 +370,7 @@ describe('Integration', () => {
         onAddDependency={onAddDependency}
         dependencyGraph={graph}
         initialDirection="blocked_by"
-      />
+      />,
     );
 
     // Task A should be shown as creating a circular dependency

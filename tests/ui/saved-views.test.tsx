@@ -9,31 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  SaveViewButton,
-  type SaveViewButtonProps,
-} from '@/ui/components/saved-views/save-view-button';
-import {
-  SaveViewDialog,
-  type SaveViewDialogProps,
-} from '@/ui/components/saved-views/save-view-dialog';
-import {
-  SavedViewsList,
-  type SavedViewsListProps,
-} from '@/ui/components/saved-views/saved-views-list';
-import {
-  ViewSwitcher,
-  type ViewSwitcherProps,
-} from '@/ui/components/saved-views/view-switcher';
-import {
-  EditViewDialog,
-  type EditViewDialogProps,
-} from '@/ui/components/saved-views/edit-view-dialog';
-import type {
-  SavedView,
-  ViewConfig,
-  ViewType,
-} from '@/ui/components/saved-views/types';
+import { SaveViewButton, type SaveViewButtonProps } from '@/ui/components/saved-views/save-view-button';
+import { SaveViewDialog, type SaveViewDialogProps } from '@/ui/components/saved-views/save-view-dialog';
+import { SavedViewsList, type SavedViewsListProps } from '@/ui/components/saved-views/saved-views-list';
+import { ViewSwitcher, type ViewSwitcherProps } from '@/ui/components/saved-views/view-switcher';
+import { EditViewDialog, type EditViewDialogProps } from '@/ui/components/saved-views/edit-view-dialog';
+import type { SavedView, ViewConfig, ViewType } from '@/ui/components/saved-views/types';
 
 describe('SaveViewButton', () => {
   const defaultProps: SaveViewButtonProps = {
@@ -142,7 +123,7 @@ describe('SaveViewDialog', () => {
         expect.objectContaining({
           name: 'My View',
           config: mockConfig,
-        })
+        }),
       );
     });
   });
@@ -244,14 +225,7 @@ describe('SavedViewsList', () => {
   });
 
   it('should show empty state when no views', () => {
-    render(
-      <SavedViewsList
-        views={[]}
-        onSelectView={vi.fn()}
-        onEditView={vi.fn()}
-        onDeleteView={vi.fn()}
-      />
-    );
+    render(<SavedViewsList views={[]} onSelectView={vi.fn()} onEditView={vi.fn()} onDeleteView={vi.fn()} />);
     expect(screen.getByText(/no saved views/i)).toBeInTheDocument();
   });
 
@@ -372,7 +346,7 @@ describe('EditViewDialog', () => {
         expect.objectContaining({
           id: 'view-1',
           name: 'Updated Name',
-        })
+        }),
       );
     });
   });

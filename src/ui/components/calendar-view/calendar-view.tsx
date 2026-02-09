@@ -28,8 +28,7 @@ export function CalendarView({
   onViewModeChange,
 }: CalendarViewProps) {
   const [internalDate, setInternalDate] = React.useState(new Date());
-  const [internalViewMode, setInternalViewMode] =
-    React.useState<CalendarViewMode>('month');
+  const [internalViewMode, setInternalViewMode] = React.useState<CalendarViewMode>('month');
 
   const currentDate = controlledDate ?? internalDate;
   const viewMode = controlledViewMode ?? internalViewMode;
@@ -86,19 +85,9 @@ export function CalendarView({
       />
 
       {viewMode === 'month' ? (
-        <MonthView
-          currentDate={currentDate}
-          events={events}
-          onEventClick={onEventClick}
-          onDateClick={onDateClick}
-        />
+        <MonthView currentDate={currentDate} events={events} onEventClick={onEventClick} onDateClick={onDateClick} />
       ) : (
-        <WeekView
-          currentDate={currentDate}
-          events={events}
-          onEventClick={onEventClick}
-          onDateClick={onDateClick}
-        />
+        <WeekView currentDate={currentDate} events={events} onEventClick={onEventClick} onDateClick={onDateClick} />
       )}
     </div>
   );

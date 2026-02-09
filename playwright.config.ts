@@ -25,8 +25,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command:
-      'node --experimental-transform-types --experimental-detect-module src/api/run.ts',
+    command: 'node --experimental-transform-types --experimental-detect-module src/api/run.ts',
     url: 'http://localhost:3000/health',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

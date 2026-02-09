@@ -79,12 +79,10 @@ export function BulkSelectionProvider({ children }: { children: React.ReactNode 
       count: selectedIds.size,
       hasSelection: selectedIds.size > 0,
     }),
-    [selectedIds, isSelected, select, deselect, toggle, selectAll, deselectAll, selectRange]
+    [selectedIds, isSelected, select, deselect, toggle, selectAll, deselectAll, selectRange],
   );
 
-  return (
-    <BulkSelectionContext.Provider value={value}>{children}</BulkSelectionContext.Provider>
-  );
+  return <BulkSelectionContext.Provider value={value}>{children}</BulkSelectionContext.Provider>;
 }
 
 export function useBulkSelection() {

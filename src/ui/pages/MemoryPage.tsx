@@ -32,18 +32,8 @@ import {
   Tag,
 } from 'lucide-react';
 import { apiClient } from '@/ui/lib/api-client';
-import type {
-  Memory,
-  MemoryListResponse,
-  CreateMemoryBody,
-  UpdateMemoryBody,
-} from '@/ui/lib/api-types';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-  EmptyState,
-} from '@/ui/components/feedback';
+import type { Memory, MemoryListResponse, CreateMemoryBody, UpdateMemoryBody } from '@/ui/lib/api-types';
+import { Skeleton, SkeletonList, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Textarea } from '@/ui/components/ui/textarea';
@@ -51,27 +41,9 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import { useMemories } from '@/ui/hooks/queries/use-memories';
 
 /** Memory type for filtering. */
@@ -146,13 +118,7 @@ export function MemoryPage(): React.JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useMemories();
+  const { data, isLoading, isError, error, refetch } = useMemories();
 
   /** Filter and search memories. */
   const filteredMemories = useMemo(() => {
@@ -167,11 +133,7 @@ export function MemoryPage(): React.JSX.Element {
     // Search by title and content
     if (search.trim()) {
       const query = search.toLowerCase();
-      result = result.filter(
-        (m) =>
-          m.title.toLowerCase().includes(query) ||
-          m.content.toLowerCase().includes(query),
-      );
+      result = result.filter((m) => m.title.toLowerCase().includes(query) || m.content.toLowerCase().includes(query));
     }
 
     return result;
@@ -307,10 +269,7 @@ export function MemoryPage(): React.JSX.Element {
           />
         </div>
 
-        <Select
-          value={typeFilter}
-          onValueChange={setTypeFilter}
-        >
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[160px]" data-testid="type-filter">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
@@ -346,50 +305,29 @@ export function MemoryPage(): React.JSX.Element {
           <div className="space-y-3" data-testid="memory-list">
             {filteredMemories.map((memory) => {
               const isExpanded = expandedId === memory.id;
-              const preview =
-                memory.content.length > 200
-                  ? memory.content.slice(0, 200) + '...'
-                  : memory.content;
+              const preview = memory.content.length > 200 ? memory.content.slice(0, 200) + '...' : memory.content;
 
               return (
-                <Card
-                  key={memory.id}
-                  data-testid="memory-card"
-                  className="group transition-colors hover:bg-accent/30"
-                >
+                <Card key={memory.id} data-testid="memory-card" className="group transition-colors hover:bg-accent/30">
                   <CardContent className="p-4">
                     {/* Card Header */}
                     <div className="flex items-start justify-between gap-2">
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => handleToggleExpand(memory.id)}
-                      >
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleToggleExpand(memory.id)}>
                         <div className="flex items-center gap-2 mb-1">
                           {memory.type && (
-                            <Badge
-                              variant="outline"
-                              className={`text-xs gap-1 ${getTypeBadgeClass(memory.type)}`}
-                              data-testid="memory-type-badge"
-                            >
+                            <Badge variant="outline" className={`text-xs gap-1 ${getTypeBadgeClass(memory.type)}`} data-testid="memory-type-badge">
                               {getTypeIcon(memory.type)}
                               {getTypeLabel(memory.type)}
                             </Badge>
                           )}
                         </div>
-                        <h3 className="font-medium text-foreground leading-tight">
-                          {memory.title}
-                        </h3>
+                        <h3 className="font-medium text-foreground leading-tight">{memory.title}</h3>
                       </div>
 
                       {/* Actions dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 opacity-0 group-hover:opacity-100 shrink-0"
-                            data-testid="memory-actions"
-                          >
+                          <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 shrink-0" data-testid="memory-actions">
                             <MoreVertical className="size-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -398,10 +336,7 @@ export function MemoryPage(): React.JSX.Element {
                             <Pencil className="mr-2 size-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setDeleteTarget(memory)}
-                          >
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(memory)}>
                             <Trash2 className="mr-2 size-4" />
                             Delete
                           </DropdownMenuItem>
@@ -410,18 +345,13 @@ export function MemoryPage(): React.JSX.Element {
                     </div>
 
                     {/* Content preview / expanded */}
-                    <div
-                      className="mt-2 cursor-pointer"
-                      onClick={() => handleToggleExpand(memory.id)}
-                    >
+                    <div className="mt-2 cursor-pointer" onClick={() => handleToggleExpand(memory.id)}>
                       {isExpanded ? (
                         <div className="text-sm text-foreground whitespace-pre-wrap" data-testid="memory-full-content">
                           {memory.content}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {preview}
-                        </p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{preview}</p>
                       )}
                     </div>
 
@@ -492,20 +422,13 @@ export function MemoryPage(): React.JSX.Element {
         <DialogContent className="sm:max-w-sm" data-testid="delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete Memory</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &quot;{deleteTarget?.title}&quot;?
-              This action cannot be undone.
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to delete &quot;{deleteTarget?.title}&quot;? This action cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteTarget && handleDelete(deleteTarget)}
-              data-testid="confirm-delete-button"
-            >
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget)} data-testid="confirm-delete-button">
               Delete
             </Button>
           </DialogFooter>
@@ -527,13 +450,7 @@ interface MemoryFormDialogProps {
   onSubmit: (data: CreateMemoryBody | UpdateMemoryBody) => void;
 }
 
-function MemoryFormDialog({
-  open,
-  onOpenChange,
-  memory,
-  isSubmitting,
-  onSubmit,
-}: MemoryFormDialogProps) {
+function MemoryFormDialog({ open, onOpenChange, memory, isSubmitting, onSubmit }: MemoryFormDialogProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<string>('fact');
@@ -571,14 +488,8 @@ function MemoryFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl" data-testid="memory-form-dialog">
         <DialogHeader>
-          <DialogTitle>
-            {memory ? 'Edit Memory' : 'Create Memory'}
-          </DialogTitle>
-          <DialogDescription>
-            {memory
-              ? 'Update the memory details below.'
-              : 'Store knowledge, preferences, decisions, or context.'}
-          </DialogDescription>
+          <DialogTitle>{memory ? 'Edit Memory' : 'Create Memory'}</DialogTitle>
+          <DialogDescription>{memory ? 'Update the memory details below.' : 'Store knowledge, preferences, decisions, or context.'}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -631,18 +542,10 @@ function MemoryFormDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={!isValid || isSubmitting}
-              data-testid="memory-form-submit"
-            >
+            <Button type="submit" disabled={!isValid || isSubmitting} data-testid="memory-form-submit">
               {memory ? 'Save Changes' : 'Create Memory'}
             </Button>
           </DialogFooter>

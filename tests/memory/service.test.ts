@@ -74,7 +74,7 @@ describe('Memory Service', () => {
       const workItemResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Test Project', 'project', 'open')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItemResult.rows[0] as { id: string }).id;
 
@@ -95,7 +95,7 @@ describe('Memory Service', () => {
       const contactResult = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('John Doe')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contactResult.rows[0] as { id: string }).id;
 
@@ -162,7 +162,7 @@ describe('Memory Service', () => {
           title: 'Test',
           content: 'Test',
           memoryType: 'invalid' as any,
-        })
+        }),
       ).rejects.toThrow('Invalid memory type');
     });
   });
@@ -251,9 +251,7 @@ describe('Memory Service', () => {
         content: 'Test',
       });
 
-      await expect(
-        updateMemory(pool, created.id, { importance: 11 })
-      ).rejects.toThrow('Importance must be between 1 and 10');
+      await expect(updateMemory(pool, created.id, { importance: 11 })).rejects.toThrow('Importance must be between 1 and 10');
     });
 
     it('throws on invalid confidence', async () => {
@@ -263,9 +261,7 @@ describe('Memory Service', () => {
         content: 'Test',
       });
 
-      await expect(
-        updateMemory(pool, created.id, { confidence: 1.5 })
-      ).rejects.toThrow('Confidence must be between 0 and 1');
+      await expect(updateMemory(pool, created.id, { confidence: 1.5 })).rejects.toThrow('Confidence must be between 0 and 1');
     });
   });
 
@@ -332,7 +328,7 @@ describe('Memory Service', () => {
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['test@example.com', 'Expired', 'Already expired']
+        ['test@example.com', 'Expired', 'Already expired'],
       );
 
       const result = await listMemories(pool);
@@ -347,7 +343,7 @@ describe('Memory Service', () => {
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['test@example.com', 'Expired', 'Already expired']
+        ['test@example.com', 'Expired', 'Already expired'],
       );
 
       const result = await listMemories(pool, { includeExpired: true });
@@ -381,7 +377,7 @@ describe('Memory Service', () => {
       const workItemResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Test', 'project', 'open')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       await createMemory(pool, {
         userEmail: 'test@example.com',
@@ -434,7 +430,7 @@ describe('Memory Service', () => {
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['test@example.com', 'Expired', 'Should be deleted']
+        ['test@example.com', 'Expired', 'Should be deleted'],
       );
 
       const deleted = await cleanupExpiredMemories(pool);
@@ -467,10 +463,7 @@ describe('Memory Service', () => {
       // Manually populate an embedding for the pizza memory for testing
       // Using a dummy embedding vector of correct dimension (1024)
       const dummyEmbedding = new Array(1024).fill(0.1);
-      await pool.query(
-        `UPDATE memory SET embedding = $1::vector, embedding_status = 'complete' WHERE id = $2`,
-        [`[${dummyEmbedding.join(',')}]`, memory.id]
-      );
+      await pool.query(`UPDATE memory SET embedding = $1::vector, embedding_status = 'complete' WHERE id = $2`, [`[${dummyEmbedding.join(',')}]`, memory.id]);
 
       const result = await searchMemories(pool, 'pizza');
 
@@ -514,10 +507,10 @@ describe('Memory Service', () => {
 
       // Populate embeddings for both
       const dummyEmbedding = new Array(1024).fill(0.1);
-      await pool.query(
-        `UPDATE memory SET embedding = $1::vector, embedding_status = 'complete' WHERE id = ANY($2::uuid[])`,
-        [`[${dummyEmbedding.join(',')}]`, [pref.id, fact.id]]
-      );
+      await pool.query(`UPDATE memory SET embedding = $1::vector, embedding_status = 'complete' WHERE id = ANY($2::uuid[])`, [
+        `[${dummyEmbedding.join(',')}]`,
+        [pref.id, fact.id],
+      ]);
 
       const result = await searchMemories(pool, 'pizza', { memoryType: 'preference' });
 
@@ -526,7 +519,7 @@ describe('Memory Service', () => {
         expect(result.results[0].memoryType).toBe('preference');
       }
       // At minimum, verify no facts are returned
-      expect(result.results.every(r => r.memoryType !== 'fact')).toBe(true);
+      expect(result.results.every((r) => r.memoryType !== 'fact')).toBe(true);
     });
   });
 });

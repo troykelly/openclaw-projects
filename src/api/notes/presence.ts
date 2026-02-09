@@ -8,12 +8,7 @@
 
 import type { Pool } from 'pg';
 import type { NotePresenceUser } from '../realtime/types.ts';
-import {
-  emitNotePresenceJoined,
-  emitNotePresenceLeft,
-  emitNotePresenceList,
-  emitNoteCursorUpdate,
-} from '../realtime/emitter.ts';
+import { emitNotePresenceJoined, emitNotePresenceLeft, emitNotePresenceList, emitNoteCursorUpdate } from '../realtime/emitter.ts';
 
 /**
  * Default presence timeout in minutes. Users who haven't updated
@@ -37,9 +32,7 @@ export function getPresenceTimeoutMinutes(): number {
 
   const parsed = parseInt(envValue, 10);
   if (isNaN(parsed)) {
-    console.warn(
-      `[Presence] Invalid NOTE_PRESENCE_TIMEOUT_MINUTES value: "${envValue}", using default: ${DEFAULT_PRESENCE_TIMEOUT_MINUTES}`
-    );
+    console.warn(`[Presence] Invalid NOTE_PRESENCE_TIMEOUT_MINUTES value: "${envValue}", using default: ${DEFAULT_PRESENCE_TIMEOUT_MINUTES}`);
     return DEFAULT_PRESENCE_TIMEOUT_MINUTES;
   }
 
@@ -47,9 +40,7 @@ export function getPresenceTimeoutMinutes(): number {
   const MIN_TIMEOUT = 1;
   const MAX_TIMEOUT = 60;
   if (parsed < MIN_TIMEOUT || parsed > MAX_TIMEOUT) {
-    console.warn(
-      `[Presence] NOTE_PRESENCE_TIMEOUT_MINUTES value ${parsed} out of range [${MIN_TIMEOUT}-${MAX_TIMEOUT}], clamping`
-    );
+    console.warn(`[Presence] NOTE_PRESENCE_TIMEOUT_MINUTES value ${parsed} out of range [${MIN_TIMEOUT}-${MAX_TIMEOUT}], clamping`);
     return Math.max(MIN_TIMEOUT, Math.min(MAX_TIMEOUT, parsed));
   }
 
@@ -64,13 +55,10 @@ export async function joinNotePresence(
   pool: Pool,
   noteId: string,
   userEmail: string,
-  cursorPosition?: { line: number; column: number }
+  cursorPosition?: { line: number; column: number },
 ): Promise<NotePresenceUser[]> {
   // Verify user has access to the note
-  const accessCheck = await pool.query(
-    'SELECT user_can_access_note($1, $2) as has_access',
-    [noteId, userEmail]
-  );
+  const accessCheck = await pool.query('SELECT user_can_access_note($1, $2) as has_access', [noteId, userEmail]);
 
   if (!accessCheck.rows[0]?.has_access) {
     throw new Error('FORBIDDEN');
@@ -82,7 +70,7 @@ export async function joinNotePresence(
      VALUES ($1, $2, NOW(), $3)
      ON CONFLICT (note_id, user_email)
      DO UPDATE SET last_seen_at = NOW(), cursor_position = COALESCE($3, note_collaborator.cursor_position)`,
-    [noteId, userEmail, cursorPosition ? JSON.stringify(cursorPosition) : null]
+    [noteId, userEmail, cursorPosition ? JSON.stringify(cursorPosition) : null],
   );
 
   // Get all active collaborators for this note
@@ -106,17 +94,13 @@ export async function joinNotePresence(
  * Leave note presence - mark user as no longer viewing a note.
  * Removes the note_collaborator record and broadcasts to other viewers.
  */
-export async function leaveNotePresence(
-  pool: Pool,
-  noteId: string,
-  userEmail: string
-): Promise<void> {
+export async function leaveNotePresence(pool: Pool, noteId: string, userEmail: string): Promise<void> {
   // Get user info before deleting
   const userResult = await pool.query(
     `SELECT nc.user_email, nc.last_seen_at, nc.cursor_position
      FROM note_collaborator nc
      WHERE nc.note_id = $1 AND nc.user_email = $2`,
-    [noteId, userEmail]
+    [noteId, userEmail],
   );
 
   if (userResult.rows.length === 0) {
@@ -125,10 +109,7 @@ export async function leaveNotePresence(
   }
 
   // Delete the presence record
-  await pool.query(
-    'DELETE FROM note_collaborator WHERE note_id = $1 AND user_email = $2',
-    [noteId, userEmail]
-  );
+  await pool.query('DELETE FROM note_collaborator WHERE note_id = $1 AND user_email = $2', [noteId, userEmail]);
 
   // Broadcast leave event
   const user: NotePresenceUser = {
@@ -147,19 +128,14 @@ export async function leaveNotePresence(
  * Update cursor position for a user viewing a note.
  * Updates the note_collaborator record and broadcasts to other viewers.
  */
-export async function updateCursorPosition(
-  pool: Pool,
-  noteId: string,
-  userEmail: string,
-  cursorPosition: { line: number; column: number }
-): Promise<void> {
+export async function updateCursorPosition(pool: Pool, noteId: string, userEmail: string, cursorPosition: { line: number; column: number }): Promise<void> {
   // Update cursor position and refresh last_seen_at
   const result = await pool.query(
     `UPDATE note_collaborator
      SET cursor_position = $3, last_seen_at = NOW()
      WHERE note_id = $1 AND user_email = $2
      RETURNING id`,
-    [noteId, userEmail, JSON.stringify(cursorPosition)]
+    [noteId, userEmail, JSON.stringify(cursorPosition)],
   );
 
   if (result.rowCount === 0) {
@@ -180,10 +156,7 @@ export async function updateCursorPosition(
  * Get list of active collaborators for a note.
  * Returns users who have been active within the timeout period.
  */
-export async function getActiveCollaborators(
-  pool: Pool,
-  noteId: string
-): Promise<NotePresenceUser[]> {
+export async function getActiveCollaborators(pool: Pool, noteId: string): Promise<NotePresenceUser[]> {
   // Use parameterized query for interval to avoid SQL interpolation (#688)
   // Timeout is configurable via environment variable (#698)
   const result = await pool.query(
@@ -195,7 +168,7 @@ export async function getActiveCollaborators(
      WHERE nc.note_id = $1
        AND nc.last_seen_at > NOW() - make_interval(mins => $2)
      ORDER BY nc.last_seen_at DESC`,
-    [noteId, getPresenceTimeoutMinutes()]
+    [noteId, getPresenceTimeoutMinutes()],
   );
 
   return result.rows.map((row) => ({
@@ -209,16 +182,9 @@ export async function getActiveCollaborators(
  * Get presence list and send to requesting user.
  * Used when a user first opens a note to see who else is viewing.
  */
-export async function getNotePresence(
-  pool: Pool,
-  noteId: string,
-  userEmail: string
-): Promise<NotePresenceUser[]> {
+export async function getNotePresence(pool: Pool, noteId: string, userEmail: string): Promise<NotePresenceUser[]> {
   // Verify user has access to the note
-  const accessCheck = await pool.query(
-    'SELECT user_can_access_note($1, $2) as has_access',
-    [noteId, userEmail]
-  );
+  const accessCheck = await pool.query('SELECT user_can_access_note($1, $2) as has_access', [noteId, userEmail]);
 
   if (!accessCheck.rows[0]?.has_access) {
     throw new Error('FORBIDDEN');
@@ -227,10 +193,7 @@ export async function getNotePresence(
   const collaborators = await getActiveCollaborators(pool, noteId);
 
   // Send presence list to the requesting user
-  await emitNotePresenceList(
-    { noteId, users: collaborators },
-    userEmail
-  );
+  await emitNotePresenceList({ noteId, users: collaborators }, userEmail);
 
   return collaborators;
 }
@@ -246,7 +209,7 @@ export async function cleanupStalePresence(pool: Pool): Promise<number> {
     `DELETE FROM note_collaborator
      WHERE last_seen_at < NOW() - make_interval(mins => $1)
      RETURNING note_id, user_email`,
-    [getPresenceTimeoutMinutes()]
+    [getPresenceTimeoutMinutes()],
   );
 
   // Broadcast leave events for each removed user

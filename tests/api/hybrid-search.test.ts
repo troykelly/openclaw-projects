@@ -5,13 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Pool, QueryResult } from 'pg';
-import {
-  searchMemoriesHybrid,
-  type HybridSearchOptions,
-  type HybridSearchResult,
-  normalizeScore,
-  combineScores,
-} from '../../src/api/search/hybrid.ts';
+import { searchMemoriesHybrid, type HybridSearchOptions, type HybridSearchResult, normalizeScore, combineScores } from '../../src/api/search/hybrid.ts';
 
 // Mock pool
 function createMockPool(): Pool {
@@ -25,10 +19,12 @@ function createMockPool(): Pool {
 vi.mock('../../src/api/embeddings/index.ts', () => ({
   embeddingService: {
     isConfigured: vi.fn(() => true),
-    embed: vi.fn((query: string) => Promise.resolve({
-      embedding: new Array(1024).fill(0.1),
-      provider: 'test',
-    })),
+    embed: vi.fn((query: string) =>
+      Promise.resolve({
+        embedding: new Array(1024).fill(0.1),
+        provider: 'test',
+      }),
+    ),
   },
 }));
 
@@ -105,9 +101,7 @@ describe('Hybrid Search', () => {
         ],
       });
 
-      (mockPool.query as ReturnType<typeof vi.fn>)
-        .mockImplementationOnce(vectorQueryMock)
-        .mockImplementationOnce(textQueryMock);
+      (mockPool.query as ReturnType<typeof vi.fn>).mockImplementationOnce(vectorQueryMock).mockImplementationOnce(textQueryMock);
 
       const result = await searchMemoriesHybrid(mockPool, 'test query', {
         limit: 10,
@@ -116,7 +110,7 @@ describe('Hybrid Search', () => {
       expect(result.searchType).toBe('hybrid');
       expect(result.results.length).toBeGreaterThan(0);
       // mem-1 should appear (it's in both vector and text results)
-      expect(result.results.some(r => r.id === 'mem-1')).toBe(true);
+      expect(result.results.some((r) => r.id === 'mem-1')).toBe(true);
     });
 
     it('should use configurable weights', async () => {
@@ -142,9 +136,7 @@ describe('Hybrid Search', () => {
       (embeddingService.isConfigured as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
 
       (mockPool.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        rows: [
-          { id: 'mem-1', title: 'Memory 1', content: 'Content 1', ts_rank: '0.5', memory_type: 'fact' },
-        ],
+        rows: [{ id: 'mem-1', title: 'Memory 1', content: 'Content 1', ts_rank: '0.5', memory_type: 'fact' }],
       });
 
       const result = await searchMemoriesHybrid(mockPool, 'test query', {});
@@ -161,9 +153,7 @@ describe('Hybrid Search', () => {
         memory_type: 'fact',
       }));
 
-      (mockPool.query as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({ rows: manyResults })
-        .mockResolvedValueOnce({ rows: [] });
+      (mockPool.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rows: manyResults }).mockResolvedValueOnce({ rows: [] });
 
       const result = await searchMemoriesHybrid(mockPool, 'test query', {
         limit: 5,
@@ -173,9 +163,7 @@ describe('Hybrid Search', () => {
     });
 
     it('should filter by userEmail when provided', async () => {
-      (mockPool.query as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] });
+      (mockPool.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
 
       await searchMemoriesHybrid(mockPool, 'test query', {
         userEmail: 'test@example.com',
@@ -199,7 +187,7 @@ describe('Hybrid Search', () => {
       const result = await searchMemoriesHybrid(mockPool, 'test query', {});
 
       // Should only appear once but with combined score
-      const mem1Entries = result.results.filter(r => r.id === 'mem-1');
+      const mem1Entries = result.results.filter((r) => r.id === 'mem-1');
       expect(mem1Entries.length).toBe(1);
       // Combined score should be higher than either individual score
       expect(mem1Entries[0].combinedScore).toBeGreaterThan(0);
@@ -216,7 +204,7 @@ describe('Hybrid Search', () => {
 
       const result = await searchMemoriesHybrid(mockPool, 'test query', {});
 
-      const mem1 = result.results.find(r => r.id === 'mem-1')!;
+      const mem1 = result.results.find((r) => r.id === 'mem-1')!;
       expect(mem1.vectorScore).toBeDefined();
       expect(mem1.textScore).toBeDefined();
       expect(mem1.combinedScore).toBeDefined();

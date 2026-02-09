@@ -209,13 +209,7 @@ describe('InlineEditableText', () => {
 
   it('validates before saving', () => {
     const onSave = vi.fn();
-    render(
-      <InlineEditableText
-        {...defaultProps}
-        onSave={onSave}
-        validate={(v) => v.trim().length > 0}
-      />
-    );
+    render(<InlineEditableText {...defaultProps} onSave={onSave} validate={(v) => v.trim().length > 0} />);
 
     fireEvent.click(screen.getByText('Editable Text'));
     const input = screen.getByRole('textbox');

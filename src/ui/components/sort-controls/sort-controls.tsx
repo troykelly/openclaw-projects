@@ -3,13 +3,7 @@ import { useCallback } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/ui/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/ui/components/ui/dropdown-menu';
 import type { SortControlsProps, SortField, SortFieldConfig, SortState } from './types';
 
 // Default sort field configurations
@@ -31,18 +25,9 @@ function getFieldDefaultDirection(field: SortField, configs: SortFieldConfig[]) 
   return configs.find((c) => c.field === field)?.defaultDirection ?? 'asc';
 }
 
-export function SortControls({
-  sort,
-  onSortChange,
-  fields,
-  showSecondarySort = false,
-  className,
-  compact = false,
-}: SortControlsProps) {
+export function SortControls({ sort, onSortChange, fields, showSecondarySort = false, className, compact = false }: SortControlsProps) {
   // Build field configs from props or defaults
-  const fieldConfigs = fields
-    ? DEFAULT_FIELDS.filter((f) => fields.includes(f.field))
-    : DEFAULT_FIELDS;
+  const fieldConfigs = fields ? DEFAULT_FIELDS.filter((f) => fields.includes(f.field)) : DEFAULT_FIELDS;
 
   const handleFieldSelect = useCallback(
     (field: SortField) => {
@@ -54,7 +39,7 @@ export function SortControls({
         direction: field === sort.field ? sort.direction : defaultDirection,
       });
     },
-    [sort, onSortChange, fieldConfigs]
+    [sort, onSortChange, fieldConfigs],
   );
 
   const handleDirectionToggle = useCallback(() => {
@@ -72,7 +57,7 @@ export function SortControls({
         secondaryDirection: getFieldDefaultDirection(field, fieldConfigs),
       });
     },
-    [sort, onSortChange, fieldConfigs]
+    [sort, onSortChange, fieldConfigs],
   );
 
   const handleClearSecondary = useCallback(() => {
@@ -83,19 +68,11 @@ export function SortControls({
   const DirectionIcon = sort.direction === 'asc' ? ArrowUp : ArrowDown;
 
   return (
-    <div
-      data-testid="sort-controls"
-      className={cn('flex items-center gap-1', className)}
-    >
+    <div data-testid="sort-controls" className={cn('flex items-center gap-1', className)}>
       {/* Sort field dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size={compact ? 'sm' : 'default'}
-            className={cn('gap-1', compact && 'h-7 px-2 text-xs')}
-            aria-label="Sort by"
-          >
+          <Button variant="ghost" size={compact ? 'sm' : 'default'} className={cn('gap-1', compact && 'h-7 px-2 text-xs')} aria-label="Sort by">
             <ArrowUpDown className={cn('size-4', compact && 'size-3')} />
             {!compact && <span className="text-muted-foreground">Sort by</span>}
             <span className="font-medium">{getFieldLabel(sort.field, fieldConfigs)}</span>
@@ -125,10 +102,7 @@ export function SortControls({
         onClick={handleDirectionToggle}
         aria-label={`Toggle sort direction, currently ${sort.direction === 'asc' ? 'ascending' : 'descending'}`}
       >
-        <DirectionIcon
-          className={cn('size-4', compact && 'size-3')}
-          aria-label={sort.direction === 'asc' ? 'ascending' : 'descending'}
-        />
+        <DirectionIcon className={cn('size-4', compact && 'size-3')} aria-label={sort.direction === 'asc' ? 'ascending' : 'descending'} />
       </Button>
 
       {/* Secondary sort */}
@@ -137,25 +111,15 @@ export function SortControls({
           <span className="text-xs text-muted-foreground mx-1">then by</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size={compact ? 'sm' : 'default'}
-                className={cn('gap-1', compact && 'h-7 px-2 text-xs')}
-                aria-label="Then by"
-              >
+              <Button variant="ghost" size={compact ? 'sm' : 'default'} className={cn('gap-1', compact && 'h-7 px-2 text-xs')} aria-label="Then by">
                 <span className={sort.secondaryField ? 'font-medium' : 'text-muted-foreground'}>
-                  {sort.secondaryField
-                    ? getFieldLabel(sort.secondaryField, fieldConfigs)
-                    : 'None'}
+                  {sort.secondaryField ? getFieldLabel(sort.secondaryField, fieldConfigs) : 'None'}
                 </span>
                 <ChevronDown className={cn('size-4', compact && 'size-3')} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem
-                onClick={handleClearSecondary}
-                data-checked={!sort.secondaryField}
-              >
+              <DropdownMenuItem onClick={handleClearSecondary} data-checked={!sort.secondaryField}>
                 None
                 {!sort.secondaryField && <Check className="size-4 ml-auto" />}
               </DropdownMenuItem>
@@ -170,9 +134,7 @@ export function SortControls({
                     className="flex items-center justify-between gap-2"
                   >
                     {config.label}
-                    {sort.secondaryField === config.field && (
-                      <Check className="size-4" />
-                    )}
+                    {sort.secondaryField === config.field && <Check className="size-4" />}
                   </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>
@@ -187,8 +149,7 @@ export function SortControls({
               onClick={() =>
                 onSortChange({
                   ...sort,
-                  secondaryDirection:
-                    sort.secondaryDirection === 'asc' ? 'desc' : 'asc',
+                  secondaryDirection: sort.secondaryDirection === 'asc' ? 'desc' : 'asc',
                 })
               }
               aria-label="Toggle secondary sort direction"

@@ -22,9 +22,7 @@ function clickRadixTrigger(element: HTMLElement) {
 // ---------------------------------------------------------------------------
 
 const mockSkills = {
-  skills: [
-    { skill_id: 'test-skill', item_count: 10, collection_count: 2, last_activity: new Date().toISOString() },
-  ],
+  skills: [{ skill_id: 'test-skill', item_count: 10, collection_count: 2, last_activity: new Date().toISOString() }],
 };
 
 const mockCollections = {

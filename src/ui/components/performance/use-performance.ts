@@ -110,10 +110,7 @@ export function useScrollPosition(throttleMs = 100): number {
 /**
  * Intersection observer hook
  */
-export function useIntersectionObserver(
-  ref: React.RefObject<Element>,
-  options?: IntersectionObserverInit
-): boolean {
+export function useIntersectionObserver(ref: React.RefObject<Element>, options?: IntersectionObserverInit): boolean {
   const [isIntersecting, setIsIntersecting] = React.useState(false);
 
   React.useEffect(() => {

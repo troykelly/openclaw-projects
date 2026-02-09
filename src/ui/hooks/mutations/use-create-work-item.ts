@@ -23,8 +23,7 @@ export function useCreateWorkItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: CreateWorkItemBody) =>
-      apiClient.post<WorkItemDetail>('/api/work-items', body),
+    mutationFn: (body: CreateWorkItemBody) => apiClient.post<WorkItemDetail>('/api/work-items', body),
 
     onSuccess: () => {
       // Invalidate all work item queries so lists and trees refresh

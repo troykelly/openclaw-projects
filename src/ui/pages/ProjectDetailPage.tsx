@@ -15,36 +15,18 @@ import { useWorkItemTree } from '@/ui/hooks/queries/use-work-items';
 import { useBacklog } from '@/ui/hooks/queries/use-backlog';
 import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Skeleton,
-  SkeletonCard,
-  SkeletonTable,
-  ErrorState,
-} from '@/ui/components/feedback';
+import { Skeleton, SkeletonCard, SkeletonTable, ErrorState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/ui/components/ui/tabs';
 import { InlineEditableText } from '@/ui/components/inline-edit';
-import {
-  priorityColors,
-  kindColors,
-  mapApiPriority,
-  mapApiTreeToTreeItems,
-} from '@/ui/lib/work-item-utils';
+import { priorityColors, kindColors, mapApiPriority, mapApiTreeToTreeItems } from '@/ui/lib/work-item-utils';
 import { ListView } from './project-views/ListView';
 import { BoardView } from './project-views/BoardView';
 import { TreeView } from './project-views/TreeView';
 import { CalendarView } from './project-views/CalendarView';
-import {
-  ChevronRight,
-  List,
-  LayoutGrid,
-  GitBranch,
-  Calendar,
-  Clock,
-  FolderKanban,
-} from 'lucide-react';
+import { ChevronRight, List, LayoutGrid, GitBranch, Calendar, Clock, FolderKanban } from 'lucide-react';
 import type { WorkItemTreeNode, BacklogItem } from '@/ui/lib/api-types';
 
 /** Format a relative time string from a Date. */
@@ -220,11 +202,7 @@ export function ProjectDetailPage(): React.JSX.Element {
         <ErrorState
           type="generic"
           title="Failed to load project"
-          description={
-            projectError instanceof Error
-              ? projectError.message
-              : 'The requested project could not be loaded.'
-          }
+          description={projectError instanceof Error ? projectError.message : 'The requested project could not be loaded.'}
           onRetry={() => refetch()}
           action={
             <Button variant="outline" asChild>
@@ -237,10 +215,7 @@ export function ProjectDetailPage(): React.JSX.Element {
   }
 
   const project = projectData;
-  const progressPercent =
-    statusCounts.total > 0
-      ? Math.round((statusCounts.done / statusCounts.total) * 100)
-      : 0;
+  const progressPercent = statusCounts.total > 0 ? Math.round((statusCounts.done / statusCounts.total) * 100) : 0;
 
   return (
     <div data-testid="page-project-detail" className="flex flex-col h-full">
@@ -278,11 +253,7 @@ export function ProjectDetailPage(): React.JSX.Element {
               className="text-xl font-bold text-foreground leading-snug"
               validate={(v) => v.trim().length > 0}
             />
-            {project.description && (
-              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                {project.description}
-              </p>
-            )}
+            {project.description && <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{project.description}</p>}
           </div>
         </div>
 
@@ -291,27 +262,12 @@ export function ProjectDetailPage(): React.JSX.Element {
           <Badge variant="outline" className="text-xs capitalize">
             {project.kind}
           </Badge>
-          <Badge
-            variant="secondary"
-            className={`text-xs ${statusColors[project.status] ?? ''}`}
-          >
+          <Badge variant="secondary" className={`text-xs ${statusColors[project.status] ?? ''}`}>
             {statusLabels[project.status] ?? project.status}
           </Badge>
-          {project.priority && (
-            <Badge className={`text-xs ${priorityColors[project.priority] ?? ''}`}>
-              {project.priority}
-            </Badge>
-          )}
-          {project.not_before && (
-            <span className="text-xs text-muted-foreground">
-              Start: {formatDate(project.not_before)}
-            </span>
-          )}
-          {project.not_after && (
-            <span className="text-xs text-muted-foreground">
-              Due: {formatDate(project.not_after)}
-            </span>
-          )}
+          {project.priority && <Badge className={`text-xs ${priorityColors[project.priority] ?? ''}`}>{project.priority}</Badge>}
+          {project.not_before && <span className="text-xs text-muted-foreground">Start: {formatDate(project.not_before)}</span>}
+          {project.not_after && <span className="text-xs text-muted-foreground">Due: {formatDate(project.not_after)}</span>}
         </div>
 
         {/* Progress bar */}

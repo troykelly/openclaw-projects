@@ -69,15 +69,8 @@ export function shouldEmbed(note: NoteForEmbedding): boolean {
 /**
  * Update just the embedding status.
  */
-async function updateEmbeddingStatus(
-  pool: Pool,
-  noteId: string,
-  status: NoteEmbeddingStatus
-): Promise<void> {
-  await pool.query(`UPDATE note SET embedding_status = $2 WHERE id = $1`, [
-    noteId,
-    status,
-  ]);
+async function updateEmbeddingStatus(pool: Pool, noteId: string, status: NoteEmbeddingStatus): Promise<void> {
+  await pool.query(`UPDATE note SET embedding_status = $2 WHERE id = $1`, [noteId, status]);
 }
 
 /**
@@ -87,10 +80,7 @@ async function updateEmbeddingStatus(
  * @param noteId The note ID
  * @returns The embedding status
  */
-export async function embedNote(
-  pool: Pool,
-  noteId: string
-): Promise<NoteEmbeddingStatus> {
+export async function embedNote(pool: Pool, noteId: string): Promise<NoteEmbeddingStatus> {
   // Fetch note data
   const result = await pool.query(
     `SELECT
@@ -98,7 +88,7 @@ export async function embedNote(
       hide_from_agents as "hideFromAgents"
     FROM note
     WHERE id = $1 AND deleted_at IS NULL`,
-    [noteId]
+    [noteId],
   );
 
   if (result.rows.length === 0) {
@@ -123,10 +113,7 @@ export async function embedNote(
   try {
     // Prepare text for embedding
     // Title is repeated to increase its weight in the embedding
-    const text = `${note.title}\n\n${note.title}\n\n${note.content}`.slice(
-      0,
-      8000
-    );
+    const text = `${note.title}\n\n${note.title}\n\n${note.content}`.slice(0, 8000);
 
     const embeddingResult = await embeddingService.embed(text);
 
@@ -143,12 +130,7 @@ export async function embedNote(
            embedding_provider = $3,
            embedding_status = 'complete'
        WHERE id = $4`,
-      [
-        `[${embeddingResult.embedding.join(',')}]`,
-        embeddingResult.model,
-        embeddingResult.provider,
-        noteId,
-      ]
+      [`[${embeddingResult.embedding.join(',')}]`, embeddingResult.model, embeddingResult.provider, noteId],
     );
 
     return 'complete';
@@ -159,12 +141,7 @@ export async function embedNote(
       return 'failed';
     }
     // Log error but don't fail the request
-    console.error(
-      `[Embeddings] Failed to embed note ${noteId}:`,
-      error instanceof EmbeddingError
-        ? error.toSafeString()
-        : msg
-    );
+    console.error(`[Embeddings] Failed to embed note ${noteId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
 
     // Mark as failed (may also fail if pool is closed, ignore that)
     await updateEmbeddingStatus(pool, noteId, 'failed').catch(() => {});
@@ -196,10 +173,7 @@ export function triggerNoteEmbedding(pool: Pool, noteId: string): void {
  * @param options Backfill options
  * @returns Backfill results
  */
-export async function backfillNoteEmbeddings(
-  pool: Pool,
-  options: BackfillOptions = {}
-): Promise<BackfillResult> {
+export async function backfillNoteEmbeddings(pool: Pool, options: BackfillOptions = {}): Promise<BackfillResult> {
   const { limit = 100, onlyPending = true, batchSize = 10 } = options;
 
   if (!embeddingService.isConfigured()) {
@@ -207,9 +181,7 @@ export async function backfillNoteEmbeddings(
   }
 
   // Find notes needing embeddings
-  const statusFilter = onlyPending
-    ? "embedding_status IN ('pending', 'failed')"
-    : "embedding IS NULL OR embedding_status != 'complete'";
+  const statusFilter = onlyPending ? "embedding_status IN ('pending', 'failed')" : "embedding IS NULL OR embedding_status != 'complete'";
 
   const notesResult = await pool.query(
     `SELECT
@@ -219,7 +191,7 @@ export async function backfillNoteEmbeddings(
     WHERE deleted_at IS NULL AND (${statusFilter})
     ORDER BY updated_at DESC
     LIMIT $1`,
-    [limit]
+    [limit],
   );
 
   const notes = notesResult.rows as NoteForEmbedding[];
@@ -265,7 +237,7 @@ export async function backfillNoteEmbeddings(
             error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
-      })
+      }),
     );
 
     // Rate limit: wait between batches
@@ -283,9 +255,7 @@ export async function backfillNoteEmbeddings(
  * @param pool Database pool
  * @returns Embedding statistics
  */
-export async function getNoteEmbeddingStats(
-  pool: Pool
-): Promise<EmbeddingStatsResult> {
+export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsResult> {
   // Get counts by status
   const statusResult = await pool.query(`
     SELECT
@@ -352,7 +322,7 @@ export async function searchNotesSemantic(
     offset?: number;
     notebookId?: string;
     tags?: string[];
-  } = {}
+  } = {},
 ): Promise<{
   results: Array<{
     id: string;
@@ -380,9 +350,7 @@ export async function searchNotesSemantic(
     } catch (error) {
       console.warn(
         '[Embeddings] Query embedding failed, falling back to text search:',
-        error instanceof EmbeddingError
-          ? error.toSafeString()
-          : (error as Error).message
+        error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message,
       );
     }
   }
@@ -443,7 +411,7 @@ export async function searchNotesSemantic(
       WHERE ${whereClause}
       ORDER BY n.embedding <=> $${embeddingParamIndex}::vector
       LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-      params
+      params,
     );
 
     return {
@@ -483,7 +451,7 @@ export async function searchNotesSemantic(
     WHERE ${whereClause}
     ORDER BY n.updated_at DESC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    params
+    params,
   );
 
   return {

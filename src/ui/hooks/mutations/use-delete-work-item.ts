@@ -30,8 +30,7 @@ export function useDeleteWorkItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id }: DeleteWorkItemVariables) =>
-      apiClient.delete(`/api/work-items/${id}`),
+    mutationFn: ({ id }: DeleteWorkItemVariables) => apiClient.delete(`/api/work-items/${id}`),
 
     onSuccess: () => {
       // Invalidate all work item queries so lists/trees reflect the deletion

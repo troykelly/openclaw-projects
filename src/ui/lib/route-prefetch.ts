@@ -61,10 +61,7 @@ export function prefetchRoute(path: string): void {
  * to `setTimeout`.
  */
 export function prefetchAllRoutes(): void {
-  const schedule =
-    typeof requestIdleCallback === 'function'
-      ? requestIdleCallback
-      : (cb: () => void) => setTimeout(cb, 200);
+  const schedule = typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 200);
 
   schedule(() => {
     for (const path of Object.keys(routeImportMap)) {

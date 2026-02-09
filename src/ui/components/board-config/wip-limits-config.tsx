@@ -13,11 +13,7 @@ export interface WipLimitsConfigProps {
   onChange: (limits: Record<string, WipLimit>) => void;
 }
 
-export function WipLimitsConfig({
-  columns,
-  limits,
-  onChange,
-}: WipLimitsConfigProps) {
+export function WipLimitsConfig({ columns, limits, onChange }: WipLimitsConfigProps) {
   const handleLimitChange = (columnId: string, value: string) => {
     const numValue = parseInt(value, 10);
     const newLimits = { ...limits };
@@ -35,9 +31,7 @@ export function WipLimitsConfig({
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-medium mb-3">Work In Progress Limits</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Set maximum items per column. Exceeding the limit will show a warning.
-        </p>
+        <p className="text-sm text-muted-foreground mb-4">Set maximum items per column. Exceeding the limit will show a warning.</p>
       </div>
 
       <div className="space-y-3">

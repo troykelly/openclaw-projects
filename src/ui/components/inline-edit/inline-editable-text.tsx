@@ -87,7 +87,7 @@ export function InlineEditableText({
         handleCancel();
       }
     },
-    [handleSave, handleCancel, multiline]
+    [handleSave, handleCancel, multiline],
   );
 
   const handleBlur = useCallback(() => {
@@ -109,8 +109,7 @@ export function InlineEditableText({
   if (isEditing) {
     const commonProps = {
       value: editValue,
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-        setEditValue(e.target.value),
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditValue(e.target.value),
       onKeyDown: handleKeyDown,
       onBlur: handleBlur,
       disabled: isSaving,
@@ -118,22 +117,10 @@ export function InlineEditableText({
     };
 
     if (multiline) {
-      return (
-        <Textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          {...commonProps}
-          data-testid="inline-edit-textarea"
-        />
-      );
+      return <Textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} {...commonProps} data-testid="inline-edit-textarea" />;
     }
 
-    return (
-      <Input
-        ref={inputRef as React.RefObject<HTMLInputElement>}
-        {...commonProps}
-        data-testid="inline-edit-input"
-      />
-    );
+    return <Input ref={inputRef as React.RefObject<HTMLInputElement>} {...commonProps} data-testid="inline-edit-input" />;
   }
 
   return (
@@ -144,7 +131,7 @@ export function InlineEditableText({
         'cursor-text rounded px-1 -mx-1 hover:bg-muted/50 transition-colors',
         disabled && 'cursor-default hover:bg-transparent',
         !value && 'text-muted-foreground italic',
-        className
+        className,
       )}
       data-testid="inline-edit-display"
     >

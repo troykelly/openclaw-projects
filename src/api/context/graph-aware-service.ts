@@ -123,7 +123,7 @@ async function findUserContactId(pool: Pool, userEmail: string): Promise<string 
      WHERE ce.endpoint_type = 'email'
        AND lower(ce.endpoint_value) = lower($1)
      LIMIT 1`,
-    [userEmail]
+    [userEmail],
   );
 
   if (result.rows.length === 0) {
@@ -147,7 +147,7 @@ async function findUserContactId(pool: Pool, userEmail: string): Promise<string 
 async function traverseRelationships(
   pool: Pool,
   contactId: string,
-  options: GraphTraversalOptions = {}
+  options: GraphTraversalOptions = {},
 ): Promise<{
   contactIds: string[];
   relationshipIds: string[];
@@ -186,7 +186,7 @@ async function traverseRelationships(
     JOIN contact cb ON r.contact_b_id = cb.id
     JOIN relationship_type rt ON r.relationship_type_id = rt.id
     WHERE r.contact_a_id = $1 OR r.contact_b_id = $1`,
-    [contactId]
+    [contactId],
   );
 
   // Track group contact IDs for member expansion
@@ -206,8 +206,7 @@ async function traverseRelationships(
     // member_of: contact_b -> contact_a (inverse)
     // If the other contact is on the A side of a has_member relationship,
     // then the other contact is a group.
-    const isGroupRelationship =
-      relTypeName === 'has_member' && rawContactAId !== contactId;
+    const isGroupRelationship = relTypeName === 'has_member' && rawContactAId !== contactId;
 
     if (!seen.has(otherContactId)) {
       seen.add(otherContactId);
@@ -253,7 +252,7 @@ async function traverseRelationships(
       WHERE r_member.contact_a_id = ANY($1::uuid[])
         AND rt_member.name = 'has_member'
         AND cm.id != $2`,
-      [groupContactIds, contactId]
+      [groupContactIds, contactId],
     );
 
     for (const row of groupMemberResult.rows) {
@@ -286,18 +285,12 @@ async function traverseRelationships(
  * 3. Collect: user_email (personal), contact_ids, relationship_ids
  * 4. Build scope details for attribution
  */
-export async function collectGraphScopes(
-  pool: Pool,
-  userEmail: string,
-  options: GraphTraversalOptions = {}
-): Promise<GraphScope> {
+export async function collectGraphScopes(pool: Pool, userEmail: string, options: GraphTraversalOptions = {}): Promise<GraphScope> {
   const scope: GraphScope = {
     userEmail,
     contactIds: [],
     relationshipIds: [],
-    scopeDetails: [
-      { scopeType: 'personal', scopeId: userEmail, label: 'Personal' },
-    ],
+    scopeDetails: [{ scopeType: 'personal', scopeId: userEmail, label: 'Personal' }],
   };
 
   const maxDepth = options.maxDepth ?? 1;
@@ -333,13 +326,11 @@ function classifyScopeType(
     contact_id: string | null;
     relationship_id: string | null;
   },
-  scopes: GraphScope
+  scopes: GraphScope,
 ): { scopeType: ScopeType; scopeLabel: string } {
   // Check relationship scope first (most specific)
   if (memory.relationship_id && scopes.relationshipIds.includes(memory.relationship_id)) {
-    const detail = scopes.scopeDetails.find(
-      (s) => s.scopeType === 'relationship' && s.scopeId === memory.relationship_id
-    );
+    const detail = scopes.scopeDetails.find((s) => s.scopeType === 'relationship' && s.scopeId === memory.relationship_id);
     return {
       scopeType: 'relationship',
       scopeLabel: detail?.label ?? 'Relationship',
@@ -348,11 +339,7 @@ function classifyScopeType(
 
   // Check contact scope
   if (memory.contact_id && scopes.contactIds.includes(memory.contact_id)) {
-    const detail = scopes.scopeDetails.find(
-      (s) =>
-        (s.scopeType === 'contact' || s.scopeType === 'group') &&
-        s.scopeId === memory.contact_id
-    );
+    const detail = scopes.scopeDetails.find((s) => (s.scopeType === 'contact' || s.scopeType === 'group') && s.scopeId === memory.contact_id);
     return {
       scopeType: detail?.scopeType ?? 'contact',
       scopeLabel: detail?.label ?? 'Related contact',
@@ -383,7 +370,7 @@ async function multiScopeMemorySearch(
   options: {
     limit: number;
     minSimilarity: number;
-  }
+  },
 ): Promise<{
   results: Array<{
     id: string;
@@ -475,7 +462,7 @@ async function multiScopeMemorySearch(
         AND m.superseded_by IS NULL
       ORDER BY m.embedding <=> $${embParamIdx}::vector ASC
       LIMIT $${semanticLimitIdx}`,
-      semanticParams
+      semanticParams,
     );
 
     // If semantic search found results, return them
@@ -533,7 +520,7 @@ async function multiScopeMemorySearch(
       m.importance DESC,
       m.updated_at DESC
     LIMIT $${limitParamIdx}`,
-    params
+    params,
   );
 
   return {
@@ -558,10 +545,7 @@ async function multiScopeMemorySearch(
  *
  * Groups memories by scope type and formats them for agent consumption.
  */
-function buildGraphContextString(
-  memories: ScopedMemoryResult[],
-  maxLength: number
-): string {
+function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: number): string {
   if (memories.length === 0) {
     return '';
   }
@@ -632,20 +616,10 @@ function buildGraphContextString(
  * 4. Rank by combined relevance (similarity * importance/10 * confidence)
  * 5. Format with source attribution
  */
-export async function retrieveGraphAwareContext(
-  pool: Pool,
-  input: GraphAwareContextInput
-): Promise<GraphAwareContextResult> {
+export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareContextInput): Promise<GraphAwareContextResult> {
   const startTime = Date.now();
 
-  const {
-    userEmail,
-    prompt,
-    maxMemories = 10,
-    minSimilarity = 0.3,
-    maxDepth = 1,
-    maxContextLength = 4000,
-  } = input;
+  const { userEmail, prompt, maxMemories = 10, minSimilarity = 0.3, maxDepth = 1, maxContextLength = 4000 } = input;
 
   // Step 1: Collect scopes via graph traversal
   const scopes = await collectGraphScopes(pool, userEmail, { maxDepth });
@@ -666,7 +640,7 @@ export async function retrieveGraphAwareContext(
           contact_id: m.contact_id,
           relationship_id: m.relationship_id,
         },
-        scopes
+        scopes,
       );
 
       // Combined relevance: similarity * (importance/10) * confidence

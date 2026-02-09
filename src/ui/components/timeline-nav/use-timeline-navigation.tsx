@@ -3,14 +3,7 @@
  * Issue #393: Implement timeline zoom enhancements and navigation
  */
 import * as React from 'react';
-import {
-  getNextZoomIn,
-  getNextZoomOut,
-  addDays,
-  getStepDays,
-  startOfDay,
-  type ZoomLevel,
-} from './timeline-utils';
+import { getNextZoomIn, getNextZoomOut, addDays, getStepDays, startOfDay, type ZoomLevel } from './timeline-utils';
 
 export interface TimelineNavigationOptions {
   initialZoom?: ZoomLevel;
@@ -33,27 +26,18 @@ export interface TimelineNavigationState {
   canZoomOut: boolean;
 }
 
-export function useTimelineNavigation(
-  options: TimelineNavigationOptions = {}
-): TimelineNavigationState {
-  const {
-    initialZoom = 'week',
-    initialDate = new Date(),
-    onZoomChange,
-    onDateChange,
-  } = options;
+export function useTimelineNavigation(options: TimelineNavigationOptions = {}): TimelineNavigationState {
+  const { initialZoom = 'week', initialDate = new Date(), onZoomChange, onDateChange } = options;
 
   const [zoom, setZoomState] = React.useState<ZoomLevel>(initialZoom);
-  const [currentDate, setCurrentDateState] = React.useState<Date>(
-    startOfDay(initialDate)
-  );
+  const [currentDate, setCurrentDateState] = React.useState<Date>(startOfDay(initialDate));
 
   const setZoom = React.useCallback(
     (newZoom: ZoomLevel) => {
       setZoomState(newZoom);
       onZoomChange?.(newZoom);
     },
-    [onZoomChange]
+    [onZoomChange],
   );
 
   const setCurrentDate = React.useCallback(
@@ -61,7 +45,7 @@ export function useTimelineNavigation(
       setCurrentDateState(startOfDay(newDate));
       onDateChange?.(newDate);
     },
-    [onDateChange]
+    [onDateChange],
   );
 
   const zoomIn = React.useCallback(() => {

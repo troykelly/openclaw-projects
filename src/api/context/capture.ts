@@ -73,10 +73,7 @@ export function validateCaptureInput(input: ContextCaptureInput): string | null 
  * - Message count is less than 2
  * - Conversation content is less than 100 characters
  */
-export async function captureContext(
-  pool: Pool,
-  input: ContextCaptureInput
-): Promise<ContextCaptureResult> {
+export async function captureContext(pool: Pool, input: ContextCaptureInput): Promise<ContextCaptureResult> {
   const { conversation, messageCount, userId } = input;
 
   // Skip if conversation is too short
@@ -100,9 +97,7 @@ export async function captureContext(
 
   // Generate a title based on the first line or first 50 chars
   const firstLine = conversation.split('\n')[0].trim();
-  const title = firstLine.length > 50
-    ? firstLine.substring(0, 47) + '...'
-    : firstLine || 'Conversation Context';
+  const title = firstLine.length > 50 ? firstLine.substring(0, 47) + '...' : firstLine || 'Conversation Context';
 
   try {
     const result = await pool.query(
@@ -133,7 +128,7 @@ export async function captureContext(
         false,
         5, // Default importance
         1.0, // High confidence for auto-captured context
-      ]
+      ],
     );
 
     if (result.rows.length === 0) {

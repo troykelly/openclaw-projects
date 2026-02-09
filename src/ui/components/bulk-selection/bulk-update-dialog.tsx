@@ -5,14 +5,7 @@
 import * as React from 'react';
 import { Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Label } from '@/ui/components/ui/label';
 import { Input } from '@/ui/components/ui/input';
 import { cn } from '@/ui/lib/utils';
@@ -32,13 +25,7 @@ export interface BulkUpdateDialogProps {
   loading?: boolean;
 }
 
-export function BulkUpdateDialog({
-  open,
-  onOpenChange,
-  selectedCount,
-  onConfirm,
-  loading = false,
-}: BulkUpdateDialogProps) {
+export function BulkUpdateDialog({ open, onOpenChange, selectedCount, onConfirm, loading = false }: BulkUpdateDialogProps) {
   const [selectedField, setSelectedField] = React.useState<BulkUpdateField | null>(null);
   const [value, setValue] = React.useState('');
 
@@ -68,9 +55,7 @@ export function BulkUpdateDialog({
             </div>
             <DialogTitle>Update {selectedCount} contacts</DialogTitle>
           </div>
-          <DialogDescription>
-            Select a field to update for all selected contacts.
-          </DialogDescription>
+          <DialogDescription>Select a field to update for all selected contacts.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -85,9 +70,7 @@ export function BulkUpdateDialog({
                   data-selected={selectedField === field.id}
                   className={cn(
                     'px-3 py-1.5 rounded-md text-sm border transition-colors',
-                    selectedField === field.id
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-muted hover:bg-muted'
+                    selectedField === field.id ? 'border-primary bg-primary/10 text-primary' : 'border-muted hover:bg-muted',
                   )}
                   onClick={() => setSelectedField(field.id)}
                 >
@@ -101,28 +84,16 @@ export function BulkUpdateDialog({
           {selectedField && selectedFieldConfig && (
             <div className="space-y-2">
               <Label htmlFor="bulk-update-value">New Value</Label>
-              <Input
-                id="bulk-update-value"
-                placeholder={selectedFieldConfig.placeholder}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
+              <Input id="bulk-update-value" placeholder={selectedFieldConfig.placeholder} value={value} onChange={(e) => setValue(e.target.value)} />
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={loading || !selectedField || !value.trim()}
-          >
+          <Button onClick={handleConfirm} disabled={loading || !selectedField || !value.trim()}>
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

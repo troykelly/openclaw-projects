@@ -21,14 +21,7 @@ interface ShareDialogWrapperProps {
   isRevoking?: boolean;
 }
 
-export function ShareDialogWrapper({
-  noteId,
-  onClose,
-  onShare,
-  onRevoke,
-  isSharing,
-  isRevoking,
-}: ShareDialogWrapperProps) {
+export function ShareDialogWrapper({ noteId, onClose, onShare, onRevoke, isSharing, isRevoking }: ShareDialogWrapperProps) {
   const { data: sharesData, isLoading: sharesLoading } = useNoteShares(noteId);
   const { data: noteData, isLoading: noteLoading } = useNote(noteId);
 
@@ -41,33 +34,42 @@ export function ShareDialogWrapper({
         id: s.id,
         noteId: s.noteId,
         sharedWithEmail: s.sharedWithEmail,
-        permission: s.permission === 'read_write' ? 'edit' as const : 'view' as const,
+        permission: s.permission === 'read_write' ? ('edit' as const) : ('view' as const),
         createdAt: new Date(s.createdAt),
         createdBy: s.createdByEmail,
       }));
   }, [sharesData?.shares]);
 
   // Create a minimal note object for the ShareDialog (#663)
-  const note: Note = useMemo(() => ({
-    id: noteId,
-    title: noteData?.title ?? 'Note',
-    content: noteData?.content ?? '',
-    visibility: noteData?.visibility ?? 'private',
-    hideFromAgents: noteData?.hideFromAgents ?? false,
-    isPinned: noteData?.isPinned ?? false,
-    createdAt: noteData?.createdAt ? new Date(noteData.createdAt) : new Date(),
-    updatedAt: noteData?.updatedAt ? new Date(noteData.updatedAt) : new Date(),
-  }), [noteId, noteData]);
+  const note: Note = useMemo(
+    () => ({
+      id: noteId,
+      title: noteData?.title ?? 'Note',
+      content: noteData?.content ?? '',
+      visibility: noteData?.visibility ?? 'private',
+      hideFromAgents: noteData?.hideFromAgents ?? false,
+      isPinned: noteData?.isPinned ?? false,
+      createdAt: noteData?.createdAt ? new Date(noteData.createdAt) : new Date(),
+      updatedAt: noteData?.updatedAt ? new Date(noteData.updatedAt) : new Date(),
+    }),
+    [noteId, noteData],
+  );
 
   // Memoized close handler (#665)
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) onClose();
-  }, [onClose]);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) onClose();
+    },
+    [onClose],
+  );
 
   // Memoized share handler with permission conversion (#665)
-  const handleShare = useCallback(async (email: string, permission: 'view' | 'edit') => {
-    await onShare(email, permission === 'edit' ? 'read_write' : 'read');
-  }, [onShare]);
+  const handleShare = useCallback(
+    async (email: string, permission: 'view' | 'edit') => {
+      await onShare(email, permission === 'edit' ? 'read_write' : 'read');
+    },
+    [onShare],
+  );
 
   return (
     <ShareDialog

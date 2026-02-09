@@ -5,21 +5,10 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { FastifyRequest } from 'fastify';
-import {
-  extractUserIdForRateLimit,
-  getRateLimitConfig,
-  getEndpointRateLimitCategory,
-  type RateLimitCategory,
-} from '../../src/api/rate-limit/per-user.ts';
+import { extractUserIdForRateLimit, getRateLimitConfig, getEndpointRateLimitCategory, type RateLimitCategory } from '../../src/api/rate-limit/per-user.ts';
 
 // Mock request creator
-function createMockRequest(options: {
-  ip?: string;
-  sessionEmail?: string | null;
-  bearerToken?: string;
-  url?: string;
-  method?: string;
-}): FastifyRequest {
+function createMockRequest(options: { ip?: string; sessionEmail?: string | null; bearerToken?: string; url?: string; method?: string }): FastifyRequest {
   const { ip = '127.0.0.1', sessionEmail, bearerToken, url = '/api/test', method = 'GET' } = options;
 
   return {

@@ -14,13 +14,7 @@ export interface CapacityIndicatorProps {
   className?: string;
 }
 
-export function CapacityIndicator({
-  assignedHours,
-  capacityHours,
-  showDetails = false,
-  size = 'md',
-  className,
-}: CapacityIndicatorProps) {
+export function CapacityIndicator({ assignedHours, capacityHours, showDetails = false, size = 'md', className }: CapacityIndicatorProps) {
   const utilization = calculateUtilization(assignedHours, capacityHours);
   const status = getUtilizationStatus(utilization);
   const utilizationDisplay = Math.round(utilization);
@@ -47,22 +41,10 @@ export function CapacityIndicator({
     <div
       data-testid="capacity-indicator"
       data-status={status}
-      className={cn(
-        'inline-flex items-center gap-2 rounded-md px-2 py-1',
-        statusBgColors[status],
-        className
-      )}
+      className={cn('inline-flex items-center gap-2 rounded-md px-2 py-1', statusBgColors[status], className)}
     >
       {/* Percentage */}
-      <span
-        className={cn(
-          'font-semibold',
-          sizeClasses[size],
-          statusColors[status]
-        )}
-      >
-        {utilizationDisplay}%
-      </span>
+      <span className={cn('font-semibold', sizeClasses[size], statusColors[status])}>{utilizationDisplay}%</span>
 
       {/* Details */}
       {showDetails && (

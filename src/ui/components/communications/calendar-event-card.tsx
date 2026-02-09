@@ -1,22 +1,9 @@
 import * as React from 'react';
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  Video,
-  MoreVertical,
-  Unlink,
-} from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Video, MoreVertical, Unlink } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import type { LinkedCalendarEvent } from './types';
 
 export interface CalendarEventCardProps {
@@ -26,12 +13,7 @@ export interface CalendarEventCardProps {
   className?: string;
 }
 
-export function CalendarEventCard({
-  event,
-  onClick,
-  onUnlink,
-  className,
-}: CalendarEventCardProps) {
+export function CalendarEventCard({ event, onClick, onUnlink, className }: CalendarEventCardProps) {
   const isPast = event.endTime < new Date();
   const isToday = isSameDay(event.startTime, new Date());
 
@@ -42,20 +24,13 @@ export function CalendarEventCard({
         'group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50',
         onClick && 'cursor-pointer',
         isPast && 'opacity-60',
-        className
+        className,
       )}
       onClick={() => onClick?.(event)}
     >
       {/* Date box */}
-      <div
-        className={cn(
-          'flex size-12 shrink-0 flex-col items-center justify-center rounded-lg',
-          isToday ? 'bg-primary text-primary-foreground' : 'bg-muted'
-        )}
-      >
-        <span className="text-[10px] font-medium uppercase">
-          {event.startTime.toLocaleDateString([], { weekday: 'short' })}
-        </span>
+      <div className={cn('flex size-12 shrink-0 flex-col items-center justify-center rounded-lg', isToday ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+        <span className="text-[10px] font-medium uppercase">{event.startTime.toLocaleDateString([], { weekday: 'short' })}</span>
         <span className="text-lg font-bold">{event.startTime.getDate()}</span>
       </div>
 
@@ -67,12 +42,7 @@ export function CalendarEventCard({
           {onUnlink && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 opacity-0 group-hover:opacity-100"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <Button variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -95,11 +65,7 @@ export function CalendarEventCard({
         {/* Time */}
         <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="size-3" />
-          <span>
-            {event.isAllDay
-              ? 'All day'
-              : `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`}
-          </span>
+          <span>{event.isAllDay ? 'All day' : `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`}</span>
         </div>
 
         {/* Location */}
@@ -126,23 +92,13 @@ export function CalendarEventCard({
               {event.attendees.slice(0, 3).map((attendee, i) => (
                 <Badge
                   key={attendee.email}
-                  variant={
-                    attendee.status === 'accepted'
-                      ? 'default'
-                      : attendee.status === 'declined'
-                        ? 'destructive'
-                        : 'secondary'
-                  }
+                  variant={attendee.status === 'accepted' ? 'default' : attendee.status === 'declined' ? 'destructive' : 'secondary'}
                   className="text-[10px] px-1.5 py-0"
                 >
                   {attendee.name.split(' ')[0]}
                 </Badge>
               ))}
-              {event.attendees.length > 3 && (
-                <span className="text-xs text-muted-foreground">
-                  +{event.attendees.length - 3}
-                </span>
-              )}
+              {event.attendees.length > 3 && <span className="text-xs text-muted-foreground">+{event.attendees.length - 3}</span>}
             </div>
           </div>
         )}
@@ -156,9 +112,5 @@ function formatTime(date: Date): string {
 }
 
 function isSameDay(d1: Date, d2: Date): boolean {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 }

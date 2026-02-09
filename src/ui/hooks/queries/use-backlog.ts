@@ -10,8 +10,7 @@ import type { BacklogResponse } from '@/ui/lib/api-types.ts';
 /** Query key factory for backlog. */
 export const backlogKeys = {
   all: ['backlog'] as const,
-  list: (filters?: { priority?: string[]; kind?: string[] }) =>
-    [...backlogKeys.all, 'list', filters] as const,
+  list: (filters?: { priority?: string[]; kind?: string[] }) => [...backlogKeys.all, 'list', filters] as const,
 };
 
 /**
@@ -28,7 +27,6 @@ export function useBacklog(filters?: { priority?: string[]; kind?: string[] }) {
 
   return useQuery({
     queryKey: backlogKeys.list(filters),
-    queryFn: ({ signal }) =>
-      apiClient.get<BacklogResponse>(`/api/backlog${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<BacklogResponse>(`/api/backlog${queryString}`, { signal }),
   });
 }

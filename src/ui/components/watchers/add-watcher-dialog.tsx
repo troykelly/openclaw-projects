@@ -4,29 +4,12 @@
  */
 import * as React from 'react';
 import { Search } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { cn } from '@/ui/lib/utils';
-import {
-  getInitials,
-  NOTIFICATION_LEVELS,
-  type NotificationLevel,
-  type WatcherUser,
-} from './types';
+import { getInitials, NOTIFICATION_LEVELS, type NotificationLevel, type WatcherUser } from './types';
 
 export interface AddWatcherDialogProps {
   open: boolean;
@@ -37,26 +20,14 @@ export interface AddWatcherDialogProps {
   className?: string;
 }
 
-export function AddWatcherDialog({
-  open,
-  onOpenChange,
-  users,
-  existingWatcherIds,
-  onAdd,
-  className,
-}: AddWatcherDialogProps) {
+export function AddWatcherDialog({ open, onOpenChange, users, existingWatcherIds, onAdd, className }: AddWatcherDialogProps) {
   const [search, setSearch] = React.useState('');
-  const [notificationLevel, setNotificationLevel] =
-    React.useState<NotificationLevel>('all');
+  const [notificationLevel, setNotificationLevel] = React.useState<NotificationLevel>('all');
 
   // Filter out existing watchers and apply search
   const availableUsers = React.useMemo(() => {
     const existing = new Set(existingWatcherIds);
-    return users
-      .filter((user) => !existing.has(user.id))
-      .filter((user) =>
-        user.name.toLowerCase().includes(search.toLowerCase())
-      );
+    return users.filter((user) => !existing.has(user.id)).filter((user) => user.name.toLowerCase().includes(search.toLowerCase()));
   }, [users, existingWatcherIds, search]);
 
   const handleSelect = (userId: string) => {
@@ -77,23 +48,13 @@ export function AddWatcherDialog({
           {/* Search input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search users..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
 
           {/* Notification level selector */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Notification level</label>
-            <Select
-              value={notificationLevel}
-              onValueChange={(value) =>
-                setNotificationLevel(value as NotificationLevel)
-              }
-            >
+            <Select value={notificationLevel} onValueChange={(value) => setNotificationLevel(value as NotificationLevel)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -117,33 +78,20 @@ export function AddWatcherDialog({
                 onClick={() => handleSelect(user.id)}
               >
                 {user.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
+                  <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full object-cover" />
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                    {getInitials(user.name)}
-                  </div>
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">{getInitials(user.name)}</div>
                 )}
                 <span className="text-sm">{user.name}</span>
               </button>
             ))}
 
-            {availableUsers.length === 0 && (
-              <div className="py-4 text-center text-sm text-muted-foreground">
-                No users found
-              </div>
-            )}
+            {availableUsers.length === 0 && <div className="py-4 text-center text-sm text-muted-foreground">No users found</div>}
           </div>
 
           {/* Cancel button */}
           <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
           </div>

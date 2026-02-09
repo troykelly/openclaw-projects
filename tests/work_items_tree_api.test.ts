@@ -42,7 +42,7 @@ describe('Work Items Tree API', () => {
       // Create two top-level items (issues without parent)
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Issue 1', 'issue'), ('Issue 2', 'issue')`
+         VALUES ('Issue 1', 'issue'), ('Issue 2', 'issue')`,
       );
 
       const res = await app.inject({
@@ -64,7 +64,7 @@ describe('Work Items Tree API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project Alpha', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
@@ -72,7 +72,7 @@ describe('Work Items Tree API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Initiative 1', 'initiative', $1)
          RETURNING id::text as id`,
-        [projectId]
+        [projectId],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -80,14 +80,14 @@ describe('Work Items Tree API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Epic 1', 'epic', $1)
          RETURNING id::text as id`,
-        [initiativeId]
+        [initiativeId],
       );
       const epicId = (epic.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Issue 1', 'issue', $1)`,
-        [epicId]
+        [epicId],
       );
 
       const res = await app.inject({
@@ -124,7 +124,7 @@ describe('Work Items Tree API', () => {
     it('includes status in tree items', async () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
-         VALUES ('Open Item', 'issue', 'open')`
+         VALUES ('Open Item', 'issue', 'open')`,
       );
 
       const res = await app.inject({
@@ -142,7 +142,7 @@ describe('Work Items Tree API', () => {
     it('includes priority in tree items', async () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, priority)
-         VALUES ('High Priority', 'issue', 'P0')`
+         VALUES ('High Priority', 'issue', 'P0')`,
       );
 
       const res = await app.inject({
@@ -162,27 +162,27 @@ describe('Work Items Tree API', () => {
       const project1 = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project 1', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const project1Id = (project1.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Initiative 1-1', 'initiative', $1)`,
-        [project1Id]
+        [project1Id],
       );
 
       const project2 = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project 2', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const project2Id = (project2.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Initiative 2-1', 'initiative', $1)`,
-        [project2Id]
+        [project2Id],
       );
 
       const res = await app.inject({
@@ -219,7 +219,7 @@ describe('Work Items Tree API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
@@ -227,7 +227,7 @@ describe('Work Items Tree API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Initiative', 'initiative', $1)
          RETURNING id::text as id`,
-        [projectId]
+        [projectId],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -235,14 +235,14 @@ describe('Work Items Tree API', () => {
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Epic', 'epic', $1)
          RETURNING id::text as id`,
-        [initiativeId]
+        [initiativeId],
       );
       const epicId = (epic.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Issue', 'issue', $1)`,
-        [epicId]
+        [epicId],
       );
 
       const res = await app.inject({
@@ -270,14 +270,14 @@ describe('Work Items Tree API', () => {
       const project = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Project', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const projectId = (project.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Init 1', 'initiative', $1), ('Init 2', 'initiative', $1), ('Init 3', 'initiative', $1)`,
-        [projectId]
+        [projectId],
       );
 
       const res = await app.inject({

@@ -73,21 +73,14 @@ export function ListView({
 
   if (loading) {
     return (
-      <div
-        data-testid="list-loading"
-        className="flex items-center justify-center py-12"
-      >
+      <div data-testid="list-loading" className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (items.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
-        No items to display
-      </div>
-    );
+    return <div className="flex items-center justify-center py-12 text-muted-foreground">No items to display</div>;
   }
 
   return (

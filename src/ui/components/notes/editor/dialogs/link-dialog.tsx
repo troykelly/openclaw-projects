@@ -6,25 +6,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
 import { Button } from '@/ui/components/ui/button';
 import { validateUrl, normalizeUrl } from '../utils/url-validation';
 import type { LinkDialogProps } from '../types';
 
-export function LinkDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-}: LinkDialogProps): React.JSX.Element {
+export function LinkDialog({ open, onOpenChange, onSubmit }: LinkDialogProps): React.JSX.Element {
   const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,9 +54,7 @@ export function LinkDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Insert Link</DialogTitle>
-          <DialogDescription>
-            Enter a URL to create a link. Supported protocols: http, https, mailto, tel.
-          </DialogDescription>
+          <DialogDescription>Enter a URL to create a link. Supported protocols: http, https, mailto, tel.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">

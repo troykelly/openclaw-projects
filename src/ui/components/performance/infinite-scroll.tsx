@@ -16,15 +16,7 @@ export interface InfiniteScrollProps {
   className?: string;
 }
 
-export function InfiniteScroll({
-  children,
-  onLoadMore,
-  hasMore,
-  loading = false,
-  rootMargin = '100px',
-  loader,
-  className,
-}: InfiniteScrollProps) {
+export function InfiniteScroll({ children, onLoadMore, hasMore, loading = false, rootMargin = '100px', loader, className }: InfiniteScrollProps) {
   const sentinelRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -37,7 +29,7 @@ export function InfiniteScroll({
           onLoadMore();
         }
       },
-      { rootMargin }
+      { rootMargin },
     );
 
     observer.observe(sentinel);
@@ -53,20 +45,13 @@ export function InfiniteScroll({
 
       {/* Loading indicator */}
       {loading && (
-        <div
-          data-testid="infinite-scroll-loader"
-          className="flex items-center justify-center py-4"
-        >
+        <div data-testid="infinite-scroll-loader" className="flex items-center justify-center py-4">
           {loader || <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
         </div>
       )}
 
       {/* End of list indicator */}
-      {!hasMore && !loading && (
-        <div className="text-center py-4 text-sm text-muted-foreground">
-          No more items
-        </div>
-      )}
+      {!hasMore && !loading && <div className="text-center py-4 text-sm text-muted-foreground">No more items</div>}
     </div>
   );
 }

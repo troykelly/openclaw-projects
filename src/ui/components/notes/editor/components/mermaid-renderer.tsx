@@ -48,10 +48,7 @@ async function getMermaid(isDark: boolean = false): Promise<typeof mermaidType> 
  * Component to render mermaid diagrams after the preview HTML is mounted.
  * Scans for elements with data-mermaid attribute and renders the diagrams.
  */
-export function MermaidRenderer({
-  containerRef,
-  isDark = false,
-}: MermaidRendererProps): null {
+export function MermaidRenderer({ containerRef, isDark = false }: MermaidRendererProps): null {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;

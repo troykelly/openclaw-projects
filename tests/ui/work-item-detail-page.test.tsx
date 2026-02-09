@@ -38,22 +38,34 @@ const mockWorkItem: WorkItemDetail = {
 };
 
 const mockMemories = {
-  memories: [
-    { id: 'mem-1', title: 'Meeting Notes', content: 'Discussed priorities', created_at: '2026-01-15T10:00:00Z', updated_at: '2026-01-15T10:00:00Z' },
-  ],
+  memories: [{ id: 'mem-1', title: 'Meeting Notes', content: 'Discussed priorities', created_at: '2026-01-15T10:00:00Z', updated_at: '2026-01-15T10:00:00Z' }],
 };
 
 const mockCommunications = {
-  emails: [
-    { id: 'comm-1', thread_id: 't1', body: 'Email body', direction: 'inbound', received_at: '2026-01-20T10:00:00Z', raw: null },
-  ],
+  emails: [{ id: 'comm-1', thread_id: 't1', body: 'Email body', direction: 'inbound', received_at: '2026-01-20T10:00:00Z', raw: null }],
   calendar_events: [],
 };
 
 const mockActivity = {
   items: [
-    { id: 'act-1', type: 'created', work_item_id: 'item-1', work_item_title: 'Test Work Item', actor_email: 'user@test.com', description: 'Created the item', created_at: '2026-01-15T10:00:00Z' },
-    { id: 'act-2', type: 'status_change', work_item_id: 'item-1', work_item_title: 'Test Work Item', actor_email: 'agent@bot.com', description: 'Changed status to in_progress', created_at: '2026-01-16T10:00:00Z' },
+    {
+      id: 'act-1',
+      type: 'created',
+      work_item_id: 'item-1',
+      work_item_title: 'Test Work Item',
+      actor_email: 'user@test.com',
+      description: 'Created the item',
+      created_at: '2026-01-15T10:00:00Z',
+    },
+    {
+      id: 'act-2',
+      type: 'status_change',
+      work_item_id: 'item-1',
+      work_item_title: 'Test Work Item',
+      actor_email: 'agent@bot.com',
+      description: 'Changed status to in_progress',
+      created_at: '2026-01-16T10:00:00Z',
+    },
   ],
 };
 
@@ -106,9 +118,7 @@ function renderWithRouter(initialPath = '/work-items/item-1') {
   });
 
   // Lazy-load the page just like routes.tsx does
-  const WorkItemDetailPage = React.lazy(() =>
-    import('@/ui/pages/WorkItemDetailPage.js').then((m) => ({ default: m.WorkItemDetailPage }))
-  );
+  const WorkItemDetailPage = React.lazy(() => import('@/ui/pages/WorkItemDetailPage.js').then((m) => ({ default: m.WorkItemDetailPage })));
 
   const routes = [
     {

@@ -6,12 +6,7 @@
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
-import type {
-  FileStorage,
-  FileAttachment,
-  UploadRequest,
-  UploadResponse,
-} from './types.ts';
+import type { FileStorage, FileAttachment, UploadRequest, UploadResponse } from './types.ts';
 import { DEFAULT_MAX_FILE_SIZE_BYTES } from './types.ts';
 
 /**
@@ -41,11 +36,9 @@ export function calculateChecksum(data: Buffer): string {
 export class FileTooLargeError extends Error {
   constructor(
     public sizeBytes: number,
-    public maxSizeBytes: number
+    public maxSizeBytes: number,
   ) {
-    super(
-      `File size ${sizeBytes} bytes exceeds maximum allowed ${maxSizeBytes} bytes`
-    );
+    super(`File size ${sizeBytes} bytes exceeds maximum allowed ${maxSizeBytes} bytes`);
     this.name = 'FileTooLargeError';
   }
 }
@@ -67,7 +60,7 @@ export async function uploadFile(
   pool: Pool,
   storage: FileStorage,
   request: UploadRequest,
-  maxSizeBytes: number = DEFAULT_MAX_FILE_SIZE_BYTES
+  maxSizeBytes: number = DEFAULT_MAX_FILE_SIZE_BYTES,
 ): Promise<UploadResponse> {
   // Check file size
   if (request.data.length > maxSizeBytes) {
@@ -92,14 +85,7 @@ export async function uploadFile(
       uploaded_by
     ) VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id::text, created_at`,
-    [
-      storageKey,
-      request.filename,
-      request.contentType,
-      request.data.length,
-      checksum,
-      request.uploadedBy || null,
-    ]
+    [storageKey, request.filename, request.contentType, request.data.length, checksum, request.uploadedBy || null],
   );
 
   return {
@@ -116,10 +102,7 @@ export async function uploadFile(
 /**
  * Get file metadata by ID
  */
-export async function getFileMetadata(
-  pool: Pool,
-  fileId: string
-): Promise<FileAttachment | null> {
+export async function getFileMetadata(pool: Pool, fileId: string): Promise<FileAttachment | null> {
   const result = await pool.query(
     `SELECT
       id::text,
@@ -132,7 +115,7 @@ export async function getFileMetadata(
       created_at
     FROM file_attachment
     WHERE id = $1`,
-    [fileId]
+    [fileId],
   );
 
   if (result.rowCount === 0) {
@@ -155,11 +138,7 @@ export async function getFileMetadata(
 /**
  * Download a file
  */
-export async function downloadFile(
-  pool: Pool,
-  storage: FileStorage,
-  fileId: string
-): Promise<{ data: Buffer; metadata: FileAttachment }> {
+export async function downloadFile(pool: Pool, storage: FileStorage, fileId: string): Promise<{ data: Buffer; metadata: FileAttachment }> {
   const metadata = await getFileMetadata(pool, fileId);
 
   if (!metadata) {
@@ -178,7 +157,7 @@ export async function getFileUrl(
   pool: Pool,
   storage: FileStorage,
   fileId: string,
-  expiresIn: number = 3600
+  expiresIn: number = 3600,
 ): Promise<{ url: string; metadata: FileAttachment }> {
   const metadata = await getFileMetadata(pool, fileId);
 
@@ -194,11 +173,7 @@ export async function getFileUrl(
 /**
  * Delete a file
  */
-export async function deleteFile(
-  pool: Pool,
-  storage: FileStorage,
-  fileId: string
-): Promise<boolean> {
+export async function deleteFile(pool: Pool, storage: FileStorage, fileId: string): Promise<boolean> {
   const metadata = await getFileMetadata(pool, fileId);
 
   if (!metadata) {
@@ -223,17 +198,13 @@ export async function listFiles(
     limit?: number;
     offset?: number;
     uploadedBy?: string;
-  } = {}
+  } = {},
 ): Promise<{ files: FileAttachment[]; total: number }> {
   const limit = Math.min(options.limit || 50, 500);
   const offset = options.offset || 0;
 
-  const whereClause = options.uploadedBy
-    ? 'WHERE uploaded_by = $3'
-    : '';
-  const params = options.uploadedBy
-    ? [limit, offset, options.uploadedBy]
-    : [limit, offset];
+  const whereClause = options.uploadedBy ? 'WHERE uploaded_by = $3' : '';
+  const params = options.uploadedBy ? [limit, offset, options.uploadedBy] : [limit, offset];
 
   const result = await pool.query(
     `SELECT
@@ -249,14 +220,11 @@ export async function listFiles(
     ${whereClause}
     ORDER BY created_at DESC
     LIMIT $1 OFFSET $2`,
-    params
+    params,
   );
 
   const countParams = options.uploadedBy ? [options.uploadedBy] : [];
-  const countResult = await pool.query(
-    `SELECT COUNT(*) FROM file_attachment ${whereClause ? 'WHERE uploaded_by = $1' : ''}`,
-    countParams
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) FROM file_attachment ${whereClause ? 'WHERE uploaded_by = $1' : ''}`, countParams);
 
   return {
     files: result.rows.map((row) => ({

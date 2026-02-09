@@ -2,27 +2,14 @@
  * Clone Dialog component for duplicating work items
  */
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { Label } from '@/ui/components/ui/label';
 import type { CloneDialogProps, CloneOptions } from './types';
 
-export function CloneDialog({
-  open,
-  item,
-  onClone,
-  onCancel,
-  isCloning = false,
-}: CloneDialogProps) {
+export function CloneDialog({ open, item, onClone, onCancel, isCloning = false }: CloneDialogProps) {
   const [title, setTitle] = React.useState(`${item.title} (Copy)`);
   const [includeChildren, setIncludeChildren] = React.useState(false);
   const [includeTodos, setIncludeTodos] = React.useState(false);
@@ -53,7 +40,7 @@ export function CloneDialog({
         handleClone();
       }
     },
-    [canClone, handleClone]
+    [canClone, handleClone],
   );
 
   const handleDialogKeyDown = React.useCallback(
@@ -63,7 +50,7 @@ export function CloneDialog({
         onCancel();
       }
     },
-    [onCancel]
+    [onCancel],
   );
 
   return (
@@ -71,9 +58,7 @@ export function CloneDialog({
       <DialogContent onKeyDown={handleDialogKeyDown}>
         <DialogHeader>
           <DialogTitle>Clone {item.kind}</DialogTitle>
-          <DialogDescription>
-            Create a copy of this {item.kind} with optional children and todos.
-          </DialogDescription>
+          <DialogDescription>Create a copy of this {item.kind} with optional children and todos.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -97,16 +82,11 @@ export function CloneDialog({
               <Checkbox
                 id="include-children"
                 checked={includeChildren}
-                onCheckedChange={(checked) =>
-                  setIncludeChildren(checked === true)
-                }
+                onCheckedChange={(checked) => setIncludeChildren(checked === true)}
                 disabled={!item.hasChildren}
                 aria-label="Include children"
               />
-              <Label
-                htmlFor="include-children"
-                className={!item.hasChildren ? 'text-muted-foreground' : ''}
-              >
+              <Label htmlFor="include-children" className={!item.hasChildren ? 'text-muted-foreground' : ''}>
                 Include children
               </Label>
             </div>
@@ -119,10 +99,7 @@ export function CloneDialog({
                 disabled={!item.hasTodos}
                 aria-label="Include todos"
               />
-              <Label
-                htmlFor="include-todos"
-                className={!item.hasTodos ? 'text-muted-foreground' : ''}
-              >
+              <Label htmlFor="include-todos" className={!item.hasTodos ? 'text-muted-foreground' : ''}>
                 Include todos
               </Label>
             </div>

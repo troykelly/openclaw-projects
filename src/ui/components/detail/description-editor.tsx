@@ -11,11 +11,7 @@ export interface DescriptionEditorProps {
   className?: string;
 }
 
-export function DescriptionEditor({
-  description,
-  onDescriptionChange,
-  className,
-}: DescriptionEditorProps) {
+export function DescriptionEditor({ description, onDescriptionChange, className }: DescriptionEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(description || '');
   const [showPreview, setShowPreview] = useState(false);
@@ -45,17 +41,33 @@ export function DescriptionEditor({
     return lines.map((line, i) => {
       // Headers
       if (line.startsWith('### ')) {
-        return <h4 key={i} className="mt-4 mb-2 text-sm font-semibold">{line.slice(4)}</h4>;
+        return (
+          <h4 key={i} className="mt-4 mb-2 text-sm font-semibold">
+            {line.slice(4)}
+          </h4>
+        );
       }
       if (line.startsWith('## ')) {
-        return <h3 key={i} className="mt-4 mb-2 font-semibold">{line.slice(3)}</h3>;
+        return (
+          <h3 key={i} className="mt-4 mb-2 font-semibold">
+            {line.slice(3)}
+          </h3>
+        );
       }
       if (line.startsWith('# ')) {
-        return <h2 key={i} className="mt-4 mb-2 text-lg font-semibold">{line.slice(2)}</h2>;
+        return (
+          <h2 key={i} className="mt-4 mb-2 text-lg font-semibold">
+            {line.slice(2)}
+          </h2>
+        );
       }
       // Lists
       if (line.startsWith('- ') || line.startsWith('* ')) {
-        return <li key={i} className="ml-4">{line.slice(2)}</li>;
+        return (
+          <li key={i} className="ml-4">
+            {line.slice(2)}
+          </li>
+        );
       }
       // Empty line
       if (!line.trim()) {
@@ -75,7 +87,7 @@ export function DescriptionEditor({
             result.push(
               <code key={keyIndex++} className="rounded bg-muted px-1 text-sm">
                 {codeMatch[1]}
-              </code>
+              </code>,
             );
             remaining = remaining.slice(codeMatch[0].length);
             continue;
@@ -129,33 +141,18 @@ export function DescriptionEditor({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Description</h3>
         {!isEditing && onDescriptionChange && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1"
-            onClick={handleStartEdit}
-          >
+          <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={handleStartEdit}>
             <Pencil className="size-3" />
             Edit
           </Button>
         )}
         {isEditing && (
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn('h-7 gap-1', !showPreview && 'bg-muted')}
-              onClick={() => setShowPreview(false)}
-            >
+            <Button variant="ghost" size="sm" className={cn('h-7 gap-1', !showPreview && 'bg-muted')} onClick={() => setShowPreview(false)}>
               <Edit2 className="size-3" />
               Edit
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn('h-7 gap-1', showPreview && 'bg-muted')}
-              onClick={() => setShowPreview(true)}
-            >
+            <Button variant="ghost" size="sm" className={cn('h-7 gap-1', showPreview && 'bg-muted')} onClick={() => setShowPreview(true)}>
               <Eye className="size-3" />
               Preview
             </Button>
@@ -168,11 +165,7 @@ export function DescriptionEditor({
         <div className="space-y-3">
           {showPreview ? (
             <div className="min-h-32 rounded-md border bg-muted/30 p-3 text-sm">
-              {editValue ? (
-                renderMarkdown(editValue)
-              ) : (
-                <p className="text-muted-foreground">Nothing to preview</p>
-              )}
+              {editValue ? renderMarkdown(editValue) : <p className="text-muted-foreground">Nothing to preview</p>}
             </div>
           ) : (
             <Textarea
@@ -194,13 +187,9 @@ export function DescriptionEditor({
           </div>
         </div>
       ) : description ? (
-        <div className="prose prose-sm max-w-none rounded-md bg-muted/30 p-3">
-          {renderMarkdown(description)}
-        </div>
+        <div className="prose prose-sm max-w-none rounded-md bg-muted/30 p-3">{renderMarkdown(description)}</div>
       ) : (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          No description
-        </p>
+        <p className="py-4 text-center text-sm text-muted-foreground">No description</p>
       )}
     </div>
   );

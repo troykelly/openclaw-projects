@@ -38,10 +38,7 @@ export function getValidParentKinds(kind: TreeItemKind): TreeItemKind[] {
  * @param targetParent - The potential new parent (null for root)
  * @returns true if the move is valid
  */
-export function canMoveToParent(
-  item: { id: string; kind: TreeItemKind },
-  targetParent: { id: string; kind: TreeItemKind } | null
-): boolean {
+export function canMoveToParent(item: { id: string; kind: TreeItemKind }, targetParent: { id: string; kind: TreeItemKind } | null): boolean {
   // Can't move item to itself
   if (targetParent && item.id === targetParent.id) {
     return false;
@@ -72,11 +69,7 @@ export function canMoveToParent(
  * @param getChildren - Function to get children of an item
  * @returns true if the move would create a cycle
  */
-export function wouldCreateCycle(
-  itemId: string,
-  targetParentId: string,
-  getChildren: (id: string) => string[]
-): boolean {
+export function wouldCreateCycle(itemId: string, targetParentId: string, getChildren: (id: string) => string[]): boolean {
   // Check if targetParentId is a descendant of itemId
   const visited = new Set<string>();
   const queue = [itemId];

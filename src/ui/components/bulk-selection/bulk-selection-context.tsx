@@ -39,32 +39,26 @@ export function BulkSelectionProvider({ children }: BulkSelectionProviderProps) 
     setSelectedIds([]);
   }, []);
 
-  const isSelected = React.useCallback(
-    (id: string) => selectedIds.includes(id),
-    [selectedIds]
-  );
+  const isSelected = React.useCallback((id: string) => selectedIds.includes(id), [selectedIds]);
 
-  const selectRange = React.useCallback(
-    (startId: string, endId: string, allIds: string[]) => {
-      const startIndex = allIds.indexOf(startId);
-      const endIndex = allIds.indexOf(endId);
+  const selectRange = React.useCallback((startId: string, endId: string, allIds: string[]) => {
+    const startIndex = allIds.indexOf(startId);
+    const endIndex = allIds.indexOf(endId);
 
-      if (startIndex === -1 || endIndex === -1) return;
+    if (startIndex === -1 || endIndex === -1) return;
 
-      const minIndex = Math.min(startIndex, endIndex);
-      const maxIndex = Math.max(startIndex, endIndex);
-      const rangeIds = allIds.slice(minIndex, maxIndex + 1);
+    const minIndex = Math.min(startIndex, endIndex);
+    const maxIndex = Math.max(startIndex, endIndex);
+    const rangeIds = allIds.slice(minIndex, maxIndex + 1);
 
-      setSelectedIds((prev) => {
-        const newSelection = new Set(prev);
-        for (const id of rangeIds) {
-          newSelection.add(id);
-        }
-        return Array.from(newSelection);
-      });
-    },
-    []
-  );
+    setSelectedIds((prev) => {
+      const newSelection = new Set(prev);
+      for (const id of rangeIds) {
+        newSelection.add(id);
+      }
+      return Array.from(newSelection);
+    });
+  }, []);
 
   const value = React.useMemo(
     () => ({
@@ -75,14 +69,10 @@ export function BulkSelectionProvider({ children }: BulkSelectionProviderProps) 
       isSelected,
       selectRange,
     }),
-    [selectedIds, toggleSelection, selectAll, deselectAll, isSelected, selectRange]
+    [selectedIds, toggleSelection, selectAll, deselectAll, isSelected, selectRange],
   );
 
-  return (
-    <BulkSelectionContext.Provider value={value}>
-      {children}
-    </BulkSelectionContext.Provider>
-  );
+  return <BulkSelectionContext.Provider value={value}>{children}</BulkSelectionContext.Provider>;
 }
 
 export function useBulkSelection() {

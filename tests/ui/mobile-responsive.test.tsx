@@ -8,24 +8,13 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import * as React from 'react';
 
-import {
-  useMediaQuery,
-  BREAKPOINTS,
-  MEDIA_QUERIES,
-} from '@/ui/hooks/use-media-query';
+import { useMediaQuery, BREAKPOINTS, MEDIA_QUERIES } from '@/ui/hooks/use-media-query';
 
-import {
-  useMobileDetect,
-  type MobileDetectResult,
-} from '@/ui/hooks/use-mobile-detect';
+import { useMobileDetect, type MobileDetectResult } from '@/ui/hooks/use-mobile-detect';
 
-import {
-  MobileContainer,
-} from '@/ui/components/mobile/mobile-container';
+import { MobileContainer } from '@/ui/components/mobile/mobile-container';
 
-import {
-  TouchTarget,
-} from '@/ui/components/mobile/touch-target';
+import { TouchTarget } from '@/ui/components/mobile/touch-target';
 
 // ---------------------------------------------------------------------------
 // matchMedia mock helper
@@ -50,9 +39,7 @@ interface MockMediaQueryList {
  * Create a matchMedia mock where each query gets its own listener list.
  * Callers pass a `resolver` function that decides the initial `matches` value.
  */
-function createMatchMediaMock(
-  resolver: (query: string) => boolean,
-): { mock: typeof window.matchMedia; instances: Map<string, MockMediaQueryList> } {
+function createMatchMediaMock(resolver: (query: string) => boolean): { mock: typeof window.matchMedia; instances: Map<string, MockMediaQueryList> } {
   const instances = new Map<string, MockMediaQueryList>();
 
   const mock = vi.fn().mockImplementation((query: string): MockMediaQueryList => {
@@ -251,7 +238,11 @@ describe('MEDIA_QUERIES constants', () => {
 
 describe('MobileContainer responsive rendering', () => {
   it('should render with mobile-friendly padding classes', () => {
-    render(<MobileContainer><span>Test content</span></MobileContainer>);
+    render(
+      <MobileContainer>
+        <span>Test content</span>
+      </MobileContainer>,
+    );
     const container = screen.getByTestId('mobile-container');
     expect(container).toHaveClass('px-4');
     expect(container).toHaveClass('py-2');
@@ -262,7 +253,7 @@ describe('MobileContainer responsive rendering', () => {
     render(
       <MobileContainer className="bg-red-500">
         <span>Custom</span>
-      </MobileContainer>
+      </MobileContainer>,
     );
     const container = screen.getByTestId('mobile-container');
     expect(container).toHaveClass('bg-red-500');
@@ -272,7 +263,11 @@ describe('MobileContainer responsive rendering', () => {
 
 describe('TouchTarget touch-friendly sizing', () => {
   it('should default to 44px minimum (md size)', () => {
-    render(<TouchTarget><button type="button">Tap</button></TouchTarget>);
+    render(
+      <TouchTarget>
+        <button type="button">Tap</button>
+      </TouchTarget>,
+    );
     const wrapper = screen.getByTestId('touch-target');
     // md = min-h-11 min-w-11 (44px)
     expect(wrapper).toHaveClass('min-h-11');
@@ -280,14 +275,22 @@ describe('TouchTarget touch-friendly sizing', () => {
   });
 
   it('should apply sm size (36px minimum)', () => {
-    render(<TouchTarget size="sm"><button type="button">Small</button></TouchTarget>);
+    render(
+      <TouchTarget size="sm">
+        <button type="button">Small</button>
+      </TouchTarget>,
+    );
     const wrapper = screen.getByTestId('touch-target');
     expect(wrapper).toHaveClass('min-h-9');
     expect(wrapper).toHaveClass('min-w-9');
   });
 
   it('should apply lg size (56px minimum)', () => {
-    render(<TouchTarget size="lg"><button type="button">Large</button></TouchTarget>);
+    render(
+      <TouchTarget size="lg">
+        <button type="button">Large</button>
+      </TouchTarget>,
+    );
     const wrapper = screen.getByTestId('touch-target');
     expect(wrapper).toHaveClass('min-h-14');
     expect(wrapper).toHaveClass('min-w-14');

@@ -25,13 +25,7 @@ function formatDate(date: Date): string {
   });
 }
 
-export function DateNavigation({
-  currentDate,
-  onDateChange,
-  onJumpToToday,
-  zoom = 'week',
-  className,
-}: DateNavigationProps) {
+export function DateNavigation({ currentDate, onDateChange, onJumpToToday, zoom = 'week', className }: DateNavigationProps) {
   const stepDays = getStepDays(zoom);
 
   const handlePrevious = () => {
@@ -46,23 +40,11 @@ export function DateNavigation({
     <div className={cn('flex items-center gap-2', className)}>
       {/* Navigation arrows */}
       <div className="flex items-center">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={handlePrevious}
-          aria-label="Previous period"
-        >
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrevious} aria-label="Previous period">
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={handleNext}
-          aria-label="Next period"
-        >
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNext} aria-label="Next period">
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -74,12 +56,7 @@ export function DateNavigation({
       </div>
 
       {/* Today button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7"
-        onClick={onJumpToToday}
-      >
+      <Button variant="outline" size="sm" className="h-7" onClick={onJumpToToday}>
         Today
       </Button>
     </div>

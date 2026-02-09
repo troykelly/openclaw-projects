@@ -15,18 +15,9 @@ export interface BreadcrumbProps {
   className?: string;
 }
 
-export function Breadcrumb({
-  items,
-  showHome = true,
-  onHomeClick,
-  className,
-}: BreadcrumbProps) {
+export function Breadcrumb({ items, showHome = true, onHomeClick, className }: BreadcrumbProps) {
   return (
-    <nav
-      data-testid="breadcrumb"
-      aria-label="Breadcrumb"
-      className={cn('flex items-center gap-1 text-sm', className)}
-    >
+    <nav data-testid="breadcrumb" aria-label="Breadcrumb" className={cn('flex items-center gap-1 text-sm', className)}>
       <ol className="flex items-center gap-1">
         {showHome && (
           <li className="flex items-center">
@@ -38,9 +29,7 @@ export function Breadcrumb({
             >
               <Home className="size-4" />
             </button>
-            {items.length > 0 && (
-              <ChevronRight className="mx-1 size-4 text-muted-foreground" aria-hidden="true" />
-            )}
+            {items.length > 0 && <ChevronRight className="mx-1 size-4 text-muted-foreground" aria-hidden="true" />}
           </li>
         )}
         {items.map((item, index) => {
@@ -54,11 +43,7 @@ export function Breadcrumb({
                 </span>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={item.onClick}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                  <button type="button" onClick={item.onClick} className="text-muted-foreground hover:text-foreground transition-colors">
                     {item.label}
                   </button>
                   <ChevronRight className="mx-1 size-4 text-muted-foreground" aria-hidden="true" />

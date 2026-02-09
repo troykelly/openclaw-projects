@@ -60,10 +60,7 @@ export interface PostmarkSpamComplaintPayload {
 /**
  * Union type for all supported Postmark webhook payloads.
  */
-export type PostmarkWebhookPayload =
-  | PostmarkDeliveryPayload
-  | PostmarkBouncePayload
-  | PostmarkSpamComplaintPayload;
+export type PostmarkWebhookPayload = PostmarkDeliveryPayload | PostmarkBouncePayload | PostmarkSpamComplaintPayload;
 
 /**
  * Result of processing a Postmark delivery status webhook.
@@ -94,20 +91,12 @@ const STATUS_PRIORITY: Record<string, number> = {
 /**
  * Hard bounce types that indicate permanent delivery failure.
  */
-const HARD_BOUNCE_TYPES = [
-  'HardBounce',
-  'BadEmailAddress',
-  'Unsubscribe',
-  'AddressChange',
-  'DmarcPolicy',
-];
+const HARD_BOUNCE_TYPES = ['HardBounce', 'BadEmailAddress', 'Unsubscribe', 'AddressChange', 'DmarcPolicy'];
 
 /**
  * Map Postmark record type and bounce type to our delivery status.
  */
-function mapToDeliveryStatus(
-  payload: PostmarkWebhookPayload
-): 'delivered' | 'failed' | 'bounced' | null {
+function mapToDeliveryStatus(payload: PostmarkWebhookPayload): 'delivered' | 'failed' | 'bounced' | null {
   switch (payload.RecordType) {
     case 'Delivery':
       return 'delivered';
@@ -147,10 +136,7 @@ function canTransition(currentStatus: string, newStatus: string): boolean {
  * 3. Updates the message status and stores the raw webhook payload
  * 4. For hard bounces, flags the contact endpoint
  */
-export async function processPostmarkDeliveryStatus(
-  pool: Pool,
-  payload: PostmarkWebhookPayload
-): Promise<DeliveryStatusResult> {
+export async function processPostmarkDeliveryStatus(pool: Pool, payload: PostmarkWebhookPayload): Promise<DeliveryStatusResult> {
   const { MessageID } = payload;
 
   // Find message by provider_message_id
@@ -162,7 +148,7 @@ export async function processPostmarkDeliveryStatus(
      FROM external_message em
      JOIN external_thread et ON et.id = em.thread_id
      WHERE em.provider_message_id = $1`,
-    [MessageID]
+    [MessageID],
   );
 
   if (messageResult.rows.length === 0) {
@@ -192,7 +178,7 @@ export async function processPostmarkDeliveryStatus(
        SET provider_status_raw = $2::jsonb,
            status_updated_at = now()
        WHERE id = $1`,
-      [messageId, JSON.stringify(payload)]
+      [messageId, JSON.stringify(payload)],
     );
 
     return {
@@ -210,7 +196,7 @@ export async function processPostmarkDeliveryStatus(
        SET provider_status_raw = $2::jsonb,
            status_updated_at = now()
        WHERE id = $1`,
-      [messageId, JSON.stringify(payload)]
+      [messageId, JSON.stringify(payload)],
     );
 
     return {
@@ -227,14 +213,11 @@ export async function processPostmarkDeliveryStatus(
          provider_status_raw = $3::jsonb,
          status_updated_at = now()
      WHERE id = $1`,
-    [messageId, newStatus, JSON.stringify(payload)]
+    [messageId, newStatus, JSON.stringify(payload)],
   );
 
   // For hard bounces, flag the contact endpoint
-  if (
-    payload.RecordType === 'Bounce' &&
-    HARD_BOUNCE_TYPES.includes((payload as PostmarkBouncePayload).Type)
-  ) {
+  if (payload.RecordType === 'Bounce' && HARD_BOUNCE_TYPES.includes((payload as PostmarkBouncePayload).Type)) {
     const bouncePayload = payload as PostmarkBouncePayload;
     await pool.query(
       `UPDATE contact_endpoint
@@ -247,13 +230,11 @@ export async function processPostmarkDeliveryStatus(
           bounce_type: bouncePayload.Type,
           bounced_at: bouncePayload.BouncedAt,
         }),
-      ]
+      ],
     );
   }
 
-  console.log(
-    `[Postmark] Status updated: messageId=${messageId}, status=${newStatus}, type=${payload.RecordType}`
-  );
+  console.log(`[Postmark] Status updated: messageId=${messageId}, status=${newStatus}, type=${payload.RecordType}`);
 
   return {
     success: true,

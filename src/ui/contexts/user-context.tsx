@@ -26,11 +26,7 @@ const UserContext = createContext<UserContextValue | null>(null);
 /**
  * Provider component that fetches and provides user authentication state.
  */
-export function UserProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}): React.JSX.Element {
+export function UserProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
@@ -50,7 +46,7 @@ export function UserProvider({
       isLoading,
       isAuthenticated: !isError && !!data?.email,
     }),
-    [data?.email, isLoading, isError]
+    [data?.email, isLoading, isError],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

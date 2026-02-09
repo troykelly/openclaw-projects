@@ -54,14 +54,7 @@ export function CommentThread({
           placeholder="Edit comment..."
         />
       ) : (
-        <CommentCard
-          comment={comment}
-          currentUserId={currentUserId}
-          onReply={onReply}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onReact={onReact}
-        />
+        <CommentCard comment={comment} currentUserId={currentUserId} onReply={onReply} onEdit={onEdit} onDelete={onDelete} onReact={onReact} />
       )}
 
       {/* Replies */}
@@ -69,23 +62,14 @@ export function CommentThread({
         <div className="ml-8">
           {/* Toggle button */}
           {collapsed ? (
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setCollapsed(false)}
-            >
+            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(false)}>
               <MessageSquare className="h-3.5 w-3.5" />
               <span>{replies.length} replies</span>
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           ) : (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs mb-2"
-                onClick={() => setCollapsed(true)}
-              >
+              <Button variant="ghost" size="sm" className="h-6 text-xs mb-2" onClick={() => setCollapsed(true)}>
                 <ChevronUp className="h-3.5 w-3.5 mr-1" />
                 Hide replies
               </Button>
@@ -111,7 +95,7 @@ export function CommentThread({
                       onDelete={onDelete}
                       onReact={onReact}
                     />
-                  )
+                  ),
                 )}
               </div>
             </>

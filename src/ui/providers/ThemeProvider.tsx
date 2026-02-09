@@ -86,15 +86,8 @@ function applyThemeClasses(theme: Theme, systemIsDark: boolean): void {
   // light: no classes needed
 }
 
-export function ThemeProvider({
-  children,
-  defaultTheme = 'system',
-  storageKey = 'openclaw-theme',
-  enableTransitions = true,
-}: ThemeProviderProps) {
-  const [theme, setThemeState] = React.useState<Theme>(() =>
-    getInitialTheme(storageKey, defaultTheme)
-  );
+export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 'openclaw-theme', enableTransitions = true }: ThemeProviderProps) {
+  const [theme, setThemeState] = React.useState<Theme>(() => getInitialTheme(storageKey, defaultTheme));
 
   const [systemIsDark, setSystemIsDark] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -138,7 +131,7 @@ export function ThemeProvider({
         // localStorage may be unavailable
       }
     },
-    [storageKey]
+    [storageKey],
   );
 
   const toggleTheme = React.useCallback(() => {
@@ -154,7 +147,7 @@ export function ThemeProvider({
       isDark: resolved === 'dark',
       isOled: theme === 'oled',
     }),
-    [theme, resolved, setTheme, toggleTheme]
+    [theme, resolved, setTheme, toggleTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

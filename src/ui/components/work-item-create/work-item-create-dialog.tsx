@@ -1,32 +1,13 @@
 import * as React from 'react';
 import { useState, useCallback, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Label } from '@/ui/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, FileText } from 'lucide-react';
-import type {
-  WorkItemCreateDialogProps,
-  WorkItemKind,
-  WorkItemCreatePayload,
-  CreatedWorkItem,
-  ParentSelectorItem,
-} from './types';
+import type { WorkItemCreateDialogProps, WorkItemKind, WorkItemCreatePayload, CreatedWorkItem, ParentSelectorItem } from './types';
 
 const kindLabels: Record<WorkItemKind, string> = {
   project: 'Project',
@@ -74,13 +55,7 @@ function flattenTree(items: ApiTreeItem[], depth = 0): ParentSelectorItem[] {
   return result;
 }
 
-export function WorkItemCreateDialog({
-  open,
-  onOpenChange,
-  onCreated,
-  defaultParentId,
-  defaultKind = 'issue',
-}: WorkItemCreateDialogProps) {
+export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultParentId, defaultKind = 'issue' }: WorkItemCreateDialogProps) {
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<WorkItemKind>(defaultKind);
   const [description, setDescription] = useState('');
@@ -188,8 +163,7 @@ export function WorkItemCreateDialog({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          (errorData as { error?: string }).error ?? `Failed to create work item (${response.status})`;
+        const errorMessage = (errorData as { error?: string }).error ?? `Failed to create work item (${response.status})`;
         setError(errorMessage);
         setIsLoading(false);
         return;
@@ -204,18 +178,7 @@ export function WorkItemCreateDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [
-    title,
-    kind,
-    description,
-    parentId,
-    estimateMinutes,
-    isLoading,
-    validate,
-    onCreated,
-    onOpenChange,
-    resetForm,
-  ]);
+  }, [title, kind, description, parentId, estimateMinutes, isLoading, validate, onCreated, onOpenChange, resetForm]);
 
   const handleOpenChange = useCallback(
     (newOpen: boolean) => {
@@ -224,14 +187,12 @@ export function WorkItemCreateDialog({
       }
       onOpenChange(newOpen);
     },
-    [onOpenChange, resetForm]
+    [onOpenChange, resetForm],
   );
 
   // Filter parent options based on selected kind
   const allowedParentKind = parentKindMap[kind];
-  const filteredParentOptions = allowedParentKind
-    ? parentOptions.filter((p) => p.kind === allowedParentKind)
-    : [];
+  const filteredParentOptions = allowedParentKind ? parentOptions.filter((p) => p.kind === allowedParentKind) : [];
 
   const showParentSelector = kind !== 'project';
   const showEstimate = kind === 'issue' || kind === 'epic';
@@ -244,9 +205,7 @@ export function WorkItemCreateDialog({
             <FileText className="size-5" />
             Create Work Item
           </DialogTitle>
-          <DialogDescription>
-            Fill in the details to create a new work item.
-          </DialogDescription>
+          <DialogDescription>Fill in the details to create a new work item.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -261,9 +220,7 @@ export function WorkItemCreateDialog({
               aria-invalid={!!validationErrors.title}
               autoFocus
             />
-            {validationErrors.title && (
-              <p className="text-sm text-destructive">{validationErrors.title}</p>
-            )}
+            {validationErrors.title && <p className="text-sm text-destructive">{validationErrors.title}</p>}
           </div>
 
           {/* Kind */}
@@ -291,9 +248,7 @@ export function WorkItemCreateDialog({
                   <SelectItem key={value} value={value}>
                     <span className="flex flex-col">
                       <span>{label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {kindDescriptions[value as WorkItemKind]}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{kindDescriptions[value as WorkItemKind]}</span>
                     </span>
                   </SelectItem>
                 ))}
@@ -310,11 +265,7 @@ export function WorkItemCreateDialog({
                 onValueChange={(value) => setParentId(value === '__none__' ? undefined : value)}
                 disabled={kind === 'project' || loadingParents}
               >
-                <SelectTrigger
-                  id="parent"
-                  aria-label="Parent"
-                  disabled={kind === 'project' || loadingParents}
-                >
+                <SelectTrigger id="parent" aria-label="Parent" disabled={kind === 'project' || loadingParents}>
                   <SelectValue
                     placeholder={
                       loadingParents
@@ -329,29 +280,19 @@ export function WorkItemCreateDialog({
                   <SelectItem value="__none__">None</SelectItem>
                   {filteredParentOptions.map((option) => (
                     <SelectItem key={option.id} value={option.id}>
-                      <span style={{ paddingLeft: `${option.depth * 12}px` }}>
-                        {option.title}
-                      </span>
+                      <span style={{ paddingLeft: `${option.depth * 12}px` }}>{option.title}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {validationErrors.parent && (
-                <p className="text-sm text-destructive">{validationErrors.parent}</p>
-              )}
+              {validationErrors.parent && <p className="text-sm text-destructive">{validationErrors.parent}</p>}
             </div>
           )}
 
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Enter description..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
+            <Textarea id="description" placeholder="Enter description..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
 
           {/* Estimate (for issues/epics) */}
@@ -368,9 +309,7 @@ export function WorkItemCreateDialog({
                 max={525600}
                 aria-invalid={!!validationErrors.estimate}
               />
-              {validationErrors.estimate && (
-                <p className="text-sm text-destructive">{validationErrors.estimate}</p>
-              )}
+              {validationErrors.estimate && <p className="text-sm text-destructive">{validationErrors.estimate}</p>}
             </div>
           )}
 
@@ -383,11 +322,7 @@ export function WorkItemCreateDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isLoading}>

@@ -5,10 +5,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type {
-  NotificationsResponse,
-  UnreadCountResponse,
-} from '@/ui/lib/api-types.ts';
+import type { NotificationsResponse, UnreadCountResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for notifications. */
 export const notificationKeys = {
@@ -25,8 +22,7 @@ export const notificationKeys = {
 export function useNotifications() {
   return useQuery({
     queryKey: notificationKeys.list(),
-    queryFn: ({ signal }) =>
-      apiClient.get<NotificationsResponse>('/api/notifications', { signal }),
+    queryFn: ({ signal }) => apiClient.get<NotificationsResponse>('/api/notifications', { signal }),
   });
 }
 
@@ -40,8 +36,7 @@ export function useNotifications() {
 export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: notificationKeys.unreadCount(),
-    queryFn: ({ signal }) =>
-      apiClient.get<UnreadCountResponse>('/api/notifications/unread-count', { signal }),
+    queryFn: ({ signal }) => apiClient.get<UnreadCountResponse>('/api/notifications/unread-count', { signal }),
     refetchInterval: 30_000,
   });
 }

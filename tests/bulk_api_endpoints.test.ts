@@ -51,9 +51,7 @@ describe('Bulk API Endpoints', () => {
       expect(body.results.every((r: any) => r.status === 'created')).toBe(true);
 
       // Verify items in database
-      const dbResult = await pool.query(
-        "SELECT COUNT(*) FROM work_item WHERE title LIKE 'Task %'"
-      );
+      const dbResult = await pool.query("SELECT COUNT(*) FROM work_item WHERE title LIKE 'Task %'");
       expect(parseInt(dbResult.rows[0].count, 10)).toBe(3);
     });
 
@@ -105,9 +103,7 @@ describe('Bulk API Endpoints', () => {
 
     it('creates items with parent_work_item_id', async () => {
       // Create a parent first
-      const parentResult = await pool.query(
-        "INSERT INTO work_item (title, work_item_kind) VALUES ('Parent Epic', 'epic') RETURNING id::text as id"
-      );
+      const parentResult = await pool.query("INSERT INTO work_item (title, work_item_kind) VALUES ('Parent Epic', 'epic') RETURNING id::text as id");
       const parentId = parentResult.rows[0].id;
 
       const response = await app.inject({
@@ -125,10 +121,7 @@ describe('Bulk API Endpoints', () => {
       expect(response.json().created).toBe(2);
 
       // Verify parent relationship
-      const childResult = await pool.query(
-        'SELECT COUNT(*) FROM work_item WHERE parent_work_item_id = $1',
-        [parentId]
-      );
+      const childResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE parent_work_item_id = $1', [parentId]);
       expect(parseInt(childResult.rows[0].count, 10)).toBe(2);
     });
   });
@@ -138,10 +131,7 @@ describe('Bulk API Endpoints', () => {
       // Create items to delete
       const ids: string[] = [];
       for (let i = 0; i < 3; i++) {
-        const result = await pool.query(
-          "INSERT INTO work_item (title, work_item_kind) VALUES ($1, 'issue') RETURNING id::text as id",
-          [`Delete Test ${i}`]
-        );
+        const result = await pool.query("INSERT INTO work_item (title, work_item_kind) VALUES ($1, 'issue') RETURNING id::text as id", [`Delete Test ${i}`]);
         ids.push(result.rows[0].id);
       }
 
@@ -157,9 +147,7 @@ describe('Bulk API Endpoints', () => {
       expect(body.deleted).toBe(3);
 
       // Verify deleted
-      const dbResult = await pool.query(
-        "SELECT COUNT(*) FROM work_item WHERE title LIKE 'Delete Test %'"
-      );
+      const dbResult = await pool.query("SELECT COUNT(*) FROM work_item WHERE title LIKE 'Delete Test %'");
       expect(parseInt(dbResult.rows[0].count, 10)).toBe(0);
     });
 
@@ -193,10 +181,9 @@ describe('Bulk API Endpoints', () => {
     beforeEach(async () => {
       testIds = [];
       for (let i = 0; i < 3; i++) {
-        const result = await pool.query(
-          "INSERT INTO work_item (title, work_item_kind, status) VALUES ($1, 'issue', 'backlog') RETURNING id::text as id",
-          [`Patch Test ${i}`]
-        );
+        const result = await pool.query("INSERT INTO work_item (title, work_item_kind, status) VALUES ($1, 'issue', 'backlog') RETURNING id::text as id", [
+          `Patch Test ${i}`,
+        ]);
         testIds.push(result.rows[0].id);
       }
     });
@@ -217,10 +204,7 @@ describe('Bulk API Endpoints', () => {
       expect(response.json().affected).toBe(3);
 
       // Verify updates
-      const dbResult = await pool.query(
-        "SELECT COUNT(*) FROM work_item WHERE id = ANY($1::uuid[]) AND status = 'in_progress'",
-        [testIds]
-      );
+      const dbResult = await pool.query("SELECT COUNT(*) FROM work_item WHERE id = ANY($1::uuid[]) AND status = 'in_progress'", [testIds]);
       expect(parseInt(dbResult.rows[0].count, 10)).toBe(3);
     });
 
@@ -262,11 +246,7 @@ describe('Bulk API Endpoints', () => {
         method: 'POST',
         url: '/api/contacts/bulk',
         payload: {
-          contacts: [
-            { displayName: 'Contact 1' },
-            { displayName: 'Contact 2', notes: 'Some notes' },
-            { displayName: 'Contact 3' },
-          ],
+          contacts: [{ displayName: 'Contact 1' }, { displayName: 'Contact 2', notes: 'Some notes' }, { displayName: 'Contact 3' }],
         },
       });
 
@@ -277,9 +257,7 @@ describe('Bulk API Endpoints', () => {
       expect(body.results).toHaveLength(3);
 
       // Verify contacts in database
-      const dbResult = await pool.query(
-        "SELECT COUNT(*) FROM contact WHERE display_name LIKE 'Contact %'"
-      );
+      const dbResult = await pool.query("SELECT COUNT(*) FROM contact WHERE display_name LIKE 'Contact %'");
       expect(parseInt(dbResult.rows[0].count, 10)).toBe(3);
     });
 
@@ -291,9 +269,7 @@ describe('Bulk API Endpoints', () => {
           contacts: [
             {
               displayName: 'Contact With Email',
-              endpoints: [
-                { endpoint_type: 'email', endpoint_value: 'test@example.com' },
-              ],
+              endpoints: [{ endpoint_type: 'email', endpoint_value: 'test@example.com' }],
             },
           ],
         },
@@ -303,9 +279,7 @@ describe('Bulk API Endpoints', () => {
       expect(response.json().created).toBe(1);
 
       // Verify endpoint was created
-      const epResult = await pool.query(
-        "SELECT COUNT(*) FROM contact_endpoint WHERE endpoint_value = 'test@example.com'"
-      );
+      const epResult = await pool.query("SELECT COUNT(*) FROM contact_endpoint WHERE endpoint_value = 'test@example.com'");
       expect(parseInt(epResult.rows[0].count, 10)).toBe(1);
     });
 
@@ -362,9 +336,7 @@ describe('Bulk API Endpoints', () => {
       expect(body.created).toBe(3);
 
       // Verify memories in database
-      const dbResult = await pool.query(
-        "SELECT COUNT(*) FROM memory WHERE title LIKE 'Memory %'"
-      );
+      const dbResult = await pool.query("SELECT COUNT(*) FROM memory WHERE title LIKE 'Memory %'");
       expect(parseInt(dbResult.rows[0].count, 10)).toBe(3);
     });
 
@@ -415,7 +387,7 @@ describe('Bulk API Endpoints', () => {
           `INSERT INTO memory (title, content, memory_type)
            VALUES ($1, $2, 'note')
            RETURNING id::text as id`,
-          [`Update Memory ${i}`, `Content ${i}`]
+          [`Update Memory ${i}`, `Content ${i}`],
         );
         memoryIds.push(result.rows[0].id);
       }
@@ -440,10 +412,7 @@ describe('Bulk API Endpoints', () => {
       expect(body.updated).toBe(3);
 
       // Verify updates
-      const result = await pool.query(
-        'SELECT title, importance, content, confidence FROM memory WHERE id = ANY($1::uuid[]) ORDER BY title',
-        [memoryIds]
-      );
+      const result = await pool.query('SELECT title, importance, content, confidence FROM memory WHERE id = ANY($1::uuid[]) ORDER BY title', [memoryIds]);
       expect(result.rows[0].title).toBe('Updated Title 0');
       expect(result.rows[1].importance).toBe(8);
       expect(result.rows[2].confidence).toBe(0.9);

@@ -5,14 +5,7 @@
 import * as React from 'react';
 import { Upload, FileUp, Loader2 } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Label } from '@/ui/components/ui/label';
 import { Progress } from '@/ui/components/ui/progress';
 import { cn } from '@/ui/lib/utils';
@@ -26,13 +19,7 @@ export interface ImportDialogProps {
   progress?: number;
 }
 
-export function ImportDialog({
-  open,
-  onOpenChange,
-  onImport,
-  importing = false,
-  progress = 0,
-}: ImportDialogProps) {
+export function ImportDialog({ open, onOpenChange, onImport, importing = false, progress = 0 }: ImportDialogProps) {
   const [file, setFile] = React.useState<File | null>(null);
   const [format, setFormat] = React.useState<ImportFormat>('csv');
   const [duplicateHandling, setDuplicateHandling] = React.useState<DuplicateHandling>('skip');
@@ -100,9 +87,7 @@ export function ImportDialog({
             </div>
             <DialogTitle>Import Contacts</DialogTitle>
           </div>
-          <DialogDescription>
-            Upload a CSV or vCard file to import contacts.
-          </DialogDescription>
+          <DialogDescription>Upload a CSV or vCard file to import contacts.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -111,31 +96,20 @@ export function ImportDialog({
             className={cn(
               'border-2 border-dashed rounded-lg p-6 text-center transition-colors',
               dragActive && 'border-primary bg-primary/5',
-              !dragActive && 'border-muted-foreground/25'
+              !dragActive && 'border-muted-foreground/25',
             )}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.vcf"
-              onChange={handleFileInput}
-              className="hidden"
-              data-testid="file-input"
-            />
+            <input ref={fileInputRef} type="file" accept=".csv,.vcf" onChange={handleFileInput} className="hidden" data-testid="file-input" />
 
             {file ? (
               <div className="flex items-center justify-center gap-2">
                 <FileUp className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium">{file.name}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFile(null)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setFile(null)}>
                   Change
                 </Button>
               </div>
@@ -144,11 +118,7 @@ export function ImportDialog({
                 <FileUp className="h-8 w-8 mx-auto text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
                   Drop a file here or{' '}
-                  <button
-                    type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
+                  <button type="button" className="text-primary hover:underline" onClick={() => fileInputRef.current?.click()}>
                     upload
                   </button>
                 </p>
@@ -166,9 +136,7 @@ export function ImportDialog({
                   type="button"
                   className={cn(
                     'flex-1 px-3 py-2 rounded-md border text-sm transition-colors',
-                    format === f
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted hover:bg-muted'
+                    format === f ? 'border-primary bg-primary/10' : 'border-muted hover:bg-muted',
                   )}
                   onClick={() => setFormat(f)}
                 >
@@ -192,9 +160,7 @@ export function ImportDialog({
                   type="button"
                   className={cn(
                     'flex-1 px-3 py-2 rounded-md border text-sm transition-colors',
-                    duplicateHandling === option.value
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted hover:bg-muted'
+                    duplicateHandling === option.value ? 'border-primary bg-primary/10' : 'border-muted hover:bg-muted',
                   )}
                   onClick={() => setDuplicateHandling(option.value as DuplicateHandling)}
                 >
@@ -208,25 +174,16 @@ export function ImportDialog({
           {importing && (
             <div className="space-y-2">
               <Progress value={progress} />
-              <p className="text-sm text-muted-foreground text-center">
-                Importing... {progress}%
-              </p>
+              <p className="text-sm text-muted-foreground text-center">Importing... {progress}%</p>
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={importing}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={importing}>
             Cancel
           </Button>
-          <Button
-            onClick={handleImport}
-            disabled={!file || importing}
-          >
+          <Button onClick={handleImport} disabled={!file || importing}>
             {importing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

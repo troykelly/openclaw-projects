@@ -196,7 +196,7 @@ describe('MilestoneDialog', () => {
       expect.objectContaining({
         name: 'New Milestone',
         targetDate: '2024-12-31',
-      })
+      }),
     );
   });
 

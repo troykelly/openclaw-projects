@@ -34,10 +34,7 @@ export async function getPostmarkTransactionalToken(): Promise<string | null> {
   }
 }
 
-export async function sendPostmarkEmail(
-  token: string,
-  email: PostmarkEmail
-): Promise<PostmarkSendResult> {
+export async function sendPostmarkEmail(token: string, email: PostmarkEmail): Promise<PostmarkSendResult> {
   const res = await fetch('https://api.postmarkapp.com/email', {
     method: 'POST',
     headers: {

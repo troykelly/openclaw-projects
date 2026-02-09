@@ -32,7 +32,7 @@ describe('Analytics API', () => {
       const projectRes = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Test Project', 'open', 'project')
-         RETURNING id`
+         RETURNING id`,
       );
       const projectId = projectRes.rows[0].id;
 
@@ -43,7 +43,7 @@ describe('Analytics API', () => {
            ('Issue 1', 'open', 'issue', $1),
            ('Issue 2', 'in_progress', 'issue', $1),
            ('Issue 3', 'closed', 'issue', $1)`,
-        [projectId]
+        [projectId],
       );
 
       const response = await app.inject({
@@ -68,20 +68,20 @@ describe('Analytics API', () => {
       const project1Res = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Project 1', 'open', 'project')
-         RETURNING id`
+         RETURNING id`,
       );
       const project1Id = project1Res.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Project 2', 'open', 'project')
-         RETURNING id`
+         RETURNING id`,
       );
 
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, parent_work_item_id)
          VALUES ('Issue 1', 'open', 'issue', $1)`,
-        [project1Id]
+        [project1Id],
       );
 
       const response = await app.inject({
@@ -113,7 +113,7 @@ describe('Analytics API', () => {
       // Create a work item that was closed in the last week
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, updated_at)
-         VALUES ('Completed Issue', 'closed', 'issue', now() - interval '2 days')`
+         VALUES ('Completed Issue', 'closed', 'issue', now() - interval '2 days')`,
       );
 
       const response = await app.inject({
@@ -132,7 +132,7 @@ describe('Analytics API', () => {
       // Create a work item with effort estimate
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, estimate_minutes)
-         VALUES ('Issue with effort', 'closed', 'issue', 480)`
+         VALUES ('Issue with effort', 'closed', 'issue', 480)`,
       );
 
       const response = await app.inject({
@@ -151,7 +151,7 @@ describe('Analytics API', () => {
         `INSERT INTO work_item (title, status, work_item_kind, estimate_minutes)
          VALUES
            ('Open Issue', 'open', 'issue', 60),
-           ('Closed Issue', 'closed', 'issue', 120)`
+           ('Closed Issue', 'closed', 'issue', 120)`,
       );
 
       const response = await app.inject({
@@ -171,7 +171,7 @@ describe('Analytics API', () => {
       const epicRes = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Test Epic', 'open', 'epic')
-         RETURNING id`
+         RETURNING id`,
       );
       const epicId = epicRes.rows[0].id;
 
@@ -181,7 +181,7 @@ describe('Analytics API', () => {
            ('Issue 1', 'closed', 'issue', $1, 120),
            ('Issue 2', 'in_progress', 'issue', $1, 180),
            ('Issue 3', 'open', 'issue', $1, 300)`,
-        [epicId]
+        [epicId],
       );
 
       const response = await app.inject({
@@ -211,7 +211,7 @@ describe('Analytics API', () => {
       // Create an overdue work item (not_after in the past)
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, not_after)
-         VALUES ('Overdue Issue', 'open', 'issue', now() - interval '5 days')`
+         VALUES ('Overdue Issue', 'open', 'issue', now() - interval '5 days')`,
       );
 
       const response = await app.inject({
@@ -230,7 +230,7 @@ describe('Analytics API', () => {
       // Create a closed overdue work item
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind, not_after)
-         VALUES ('Closed Overdue', 'closed', 'issue', now() - interval '5 days')`
+         VALUES ('Closed Overdue', 'closed', 'issue', now() - interval '5 days')`,
       );
 
       const response = await app.inject({
@@ -251,21 +251,21 @@ describe('Analytics API', () => {
       const blockingRes = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Blocking Issue', 'open', 'issue')
-         RETURNING id`
+         RETURNING id`,
       );
       const blockingId = blockingRes.rows[0].id;
 
       const blockedRes = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
          VALUES ('Blocked Issue', 'open', 'issue')
-         RETURNING id`
+         RETURNING id`,
       );
       const blockedId = blockedRes.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $2, 'blocked_by')`,
-        [blockedId, blockingId]
+        [blockedId, blockingId],
       );
 
       const response = await app.inject({
@@ -285,7 +285,7 @@ describe('Analytics API', () => {
       // Create some activity by creating work items
       await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
-         VALUES ('New Issue', 'open', 'issue')`
+         VALUES ('New Issue', 'open', 'issue')`,
       );
 
       const response = await app.inject({

@@ -33,7 +33,7 @@ describe('Memory Items in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -42,7 +42,7 @@ describe('Memory Items in Work Item Detail', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Decision Note', 'We decided to use TypeScript', 'decision'),
                 ($1, 'Context Info', 'This is background information', 'context')`,
-        [itemId]
+        [itemId],
       );
 
       const res = await app.inject({
@@ -62,7 +62,7 @@ describe('Memory Items in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Empty Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -91,7 +91,7 @@ describe('Memory Items in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -116,7 +116,7 @@ describe('Memory Items in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -136,7 +136,7 @@ describe('Memory Items in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -144,7 +144,7 @@ describe('Memory Items in Work Item Detail', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Original Title', 'Original content', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -179,7 +179,7 @@ describe('Memory Items in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -187,7 +187,7 @@ describe('Memory Items in Work Item Detail', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'To Delete', 'Delete me', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 

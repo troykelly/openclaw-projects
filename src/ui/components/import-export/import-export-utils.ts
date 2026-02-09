@@ -2,57 +2,52 @@
  * Utility functions for import/export
  * Issue #398: Implement contact import/export (CSV, vCard)
  */
-import type {
-  CSVParseResult,
-  ColumnMapping,
-  ParsedContact,
-  ContactField,
-} from './types';
+import type { CSVParseResult, ColumnMapping, ParsedContact, ContactField } from './types';
 
 /** Common column name mappings */
 const COLUMN_NAME_MAPPINGS: Record<string, ContactField> = {
   // Name variations
-  'name': 'name',
+  name: 'name',
   'full name': 'name',
-  'fullname': 'name',
+  fullname: 'name',
   'display name': 'name',
-  'displayname': 'name',
+  displayname: 'name',
   'contact name': 'name',
-  
+
   // Email variations
-  'email': 'email',
+  email: 'email',
   'email address': 'email',
-  'emailaddress': 'email',
+  emailaddress: 'email',
   'e-mail': 'email',
-  'mail': 'email',
-  
+  mail: 'email',
+
   // Phone variations
-  'phone': 'phone',
+  phone: 'phone',
   'phone number': 'phone',
-  'phonenumber': 'phone',
-  'telephone': 'phone',
-  'tel': 'phone',
-  'mobile': 'phone',
-  'cell': 'phone',
-  
+  phonenumber: 'phone',
+  telephone: 'phone',
+  tel: 'phone',
+  mobile: 'phone',
+  cell: 'phone',
+
   // Organization variations
-  'organization': 'organization',
-  'company': 'organization',
+  organization: 'organization',
+  company: 'organization',
   'company name': 'organization',
-  'org': 'organization',
-  'employer': 'organization',
-  
+  org: 'organization',
+  employer: 'organization',
+
   // Role variations
-  'role': 'role',
-  'title': 'role',
+  role: 'role',
+  title: 'role',
   'job title': 'role',
-  'position': 'role',
-  
+  position: 'role',
+
   // Notes
-  'notes': 'notes',
-  'note': 'notes',
-  'comments': 'notes',
-  'description': 'notes',
+  notes: 'notes',
+  note: 'notes',
+  comments: 'notes',
+  description: 'notes',
 };
 
 /** Parse CSV string */
@@ -69,14 +64,14 @@ export function parseCSV(csvString: string): CSVParseResult {
   const rows: ParsedContact[] = [];
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
-    
+
     const values = parseCSVLine(lines[i]);
     const row: ParsedContact = {};
-    
+
     for (let j = 0; j < headers.length; j++) {
       row[headers[j]] = values[j] || '';
     }
-    
+
     rows.push(row);
   }
 
@@ -88,10 +83,10 @@ function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
-  
+
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    
+
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
@@ -106,7 +101,7 @@ function parseCSVLine(line: string): string[] {
       current += char;
     }
   }
-  
+
   result.push(current.trim());
   return result;
 }
@@ -176,12 +171,12 @@ export function exportToCSV(contacts: ParsedContact[], fields: ContactField[]): 
   const rows: string[] = [];
 
   // Header row
-  rows.push(fields.filter(f => f !== 'skip').join(','));
+  rows.push(fields.filter((f) => f !== 'skip').join(','));
 
   // Data rows
   for (const contact of contacts) {
     const values = fields
-      .filter(f => f !== 'skip')
+      .filter((f) => f !== 'skip')
       .map((field) => {
         const value = contact[field] || '';
         // Escape if contains comma, quote, or newline
@@ -201,10 +196,7 @@ export function exportToVCard(contacts: ParsedContact[]): string {
   const vcards: string[] = [];
 
   for (const contact of contacts) {
-    const lines: string[] = [
-      'BEGIN:VCARD',
-      'VERSION:3.0',
-    ];
+    const lines: string[] = ['BEGIN:VCARD', 'VERSION:3.0'];
 
     if (contact.name) {
       lines.push(`FN:${contact.name}`);

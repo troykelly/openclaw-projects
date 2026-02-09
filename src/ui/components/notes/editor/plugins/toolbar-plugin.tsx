@@ -5,17 +5,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import {
-  $getSelection,
-  $isRangeSelection,
-  FORMAT_TEXT_COMMAND,
-  UNDO_COMMAND,
-  REDO_COMMAND,
-} from 'lexical';
-import {
-  INSERT_ORDERED_LIST_COMMAND,
-  INSERT_UNORDERED_LIST_COMMAND,
-} from '@lexical/list';
+import { $getSelection, $isRangeSelection, FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND } from 'lexical';
+import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
 import { $setBlocksType } from '@lexical/selection';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { TOGGLE_LINK_COMMAND } from '@lexical/link';
@@ -101,9 +92,12 @@ export function ToolbarPlugin(): React.JSX.Element {
     });
   };
 
-  const handleLinkSubmit = useCallback((url: string) => {
-    editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
-  }, [editor]);
+  const handleLinkSubmit = useCallback(
+    (url: string) => {
+      editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
+    },
+    [editor],
+  );
 
   const insertCodeBlock = () => {
     editor.update(() => {
@@ -114,119 +108,50 @@ export function ToolbarPlugin(): React.JSX.Element {
     });
   };
 
-  const handleTableSubmit = useCallback((rows: number, columns: number) => {
-    editor.dispatchCommand(INSERT_TABLE_COMMAND, {
-      rows: rows.toString(),
-      columns: columns.toString(),
-      includeHeaders: true,
-    });
-  }, [editor]);
+  const handleTableSubmit = useCallback(
+    (rows: number, columns: number) => {
+      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+        rows: rows.toString(),
+        columns: columns.toString(),
+        includeHeaders: true,
+      });
+    },
+    [editor],
+  );
 
   const undo = () => editor.dispatchCommand(UNDO_COMMAND, undefined);
   const redo = () => editor.dispatchCommand(REDO_COMMAND, undefined);
 
   return (
     <div className="flex items-center gap-1 p-2 border-b bg-muted/30 flex-wrap">
-      <ToolbarButton
-        icon={<Undo className="h-4 w-4" />}
-        label="Undo (Ctrl+Z)"
-        onClick={undo}
-      />
-      <ToolbarButton
-        icon={<Redo className="h-4 w-4" />}
-        label="Redo (Ctrl+Y)"
-        onClick={redo}
-      />
+      <ToolbarButton icon={<Undo className="h-4 w-4" />} label="Undo (Ctrl+Z)" onClick={undo} />
+      <ToolbarButton icon={<Redo className="h-4 w-4" />} label="Redo (Ctrl+Y)" onClick={redo} />
 
       <ToolbarSeparator />
 
-      <ToolbarButton
-        icon={<Bold className="h-4 w-4" />}
-        label="Bold (Ctrl+B)"
-        onClick={formatBold}
-        active={isBold}
-      />
-      <ToolbarButton
-        icon={<Italic className="h-4 w-4" />}
-        label="Italic (Ctrl+I)"
-        onClick={formatItalic}
-        active={isItalic}
-      />
-      <ToolbarButton
-        icon={<Underline className="h-4 w-4" />}
-        label="Underline (Ctrl+U)"
-        onClick={formatUnderline}
-        active={isUnderline}
-      />
-      <ToolbarButton
-        icon={<Strikethrough className="h-4 w-4" />}
-        label="Strikethrough"
-        onClick={formatStrikethrough}
-        active={isStrikethrough}
-      />
+      <ToolbarButton icon={<Bold className="h-4 w-4" />} label="Bold (Ctrl+B)" onClick={formatBold} active={isBold} />
+      <ToolbarButton icon={<Italic className="h-4 w-4" />} label="Italic (Ctrl+I)" onClick={formatItalic} active={isItalic} />
+      <ToolbarButton icon={<Underline className="h-4 w-4" />} label="Underline (Ctrl+U)" onClick={formatUnderline} active={isUnderline} />
+      <ToolbarButton icon={<Strikethrough className="h-4 w-4" />} label="Strikethrough" onClick={formatStrikethrough} active={isStrikethrough} />
 
       <ToolbarSeparator />
 
-      <ToolbarButton
-        icon={<Heading1 className="h-4 w-4" />}
-        label="Heading 1"
-        onClick={() => formatHeading('h1')}
-      />
-      <ToolbarButton
-        icon={<Heading2 className="h-4 w-4" />}
-        label="Heading 2"
-        onClick={() => formatHeading('h2')}
-      />
-      <ToolbarButton
-        icon={<Heading3 className="h-4 w-4" />}
-        label="Heading 3"
-        onClick={() => formatHeading('h3')}
-      />
+      <ToolbarButton icon={<Heading1 className="h-4 w-4" />} label="Heading 1" onClick={() => formatHeading('h1')} />
+      <ToolbarButton icon={<Heading2 className="h-4 w-4" />} label="Heading 2" onClick={() => formatHeading('h2')} />
+      <ToolbarButton icon={<Heading3 className="h-4 w-4" />} label="Heading 3" onClick={() => formatHeading('h3')} />
 
       <ToolbarSeparator />
 
-      <ToolbarButton
-        icon={<List className="h-4 w-4" />}
-        label="Bullet List"
-        onClick={formatBulletList}
-      />
-      <ToolbarButton
-        icon={<ListOrdered className="h-4 w-4" />}
-        label="Numbered List"
-        onClick={formatNumberedList}
-      />
-      <ToolbarButton
-        icon={<Quote className="h-4 w-4" />}
-        label="Quote"
-        onClick={formatQuote}
-      />
-      <ToolbarButton
-        icon={<Link className="h-4 w-4" />}
-        label="Insert Link"
-        onClick={() => setLinkDialogOpen(true)}
-      />
-      <ToolbarButton
-        icon={<FileCode className="h-4 w-4" />}
-        label="Code Block"
-        onClick={insertCodeBlock}
-      />
-      <ToolbarButton
-        icon={<Table className="h-4 w-4" />}
-        label="Insert Table"
-        onClick={() => setTableDialogOpen(true)}
-      />
+      <ToolbarButton icon={<List className="h-4 w-4" />} label="Bullet List" onClick={formatBulletList} />
+      <ToolbarButton icon={<ListOrdered className="h-4 w-4" />} label="Numbered List" onClick={formatNumberedList} />
+      <ToolbarButton icon={<Quote className="h-4 w-4" />} label="Quote" onClick={formatQuote} />
+      <ToolbarButton icon={<Link className="h-4 w-4" />} label="Insert Link" onClick={() => setLinkDialogOpen(true)} />
+      <ToolbarButton icon={<FileCode className="h-4 w-4" />} label="Code Block" onClick={insertCodeBlock} />
+      <ToolbarButton icon={<Table className="h-4 w-4" />} label="Insert Table" onClick={() => setTableDialogOpen(true)} />
 
       {/* Dialogs */}
-      <LinkDialog
-        open={linkDialogOpen}
-        onOpenChange={setLinkDialogOpen}
-        onSubmit={handleLinkSubmit}
-      />
-      <TableDialog
-        open={tableDialogOpen}
-        onOpenChange={setTableDialogOpen}
-        onSubmit={handleTableSubmit}
-      />
+      <LinkDialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen} onSubmit={handleLinkSubmit} />
+      <TableDialog open={tableDialogOpen} onOpenChange={setTableDialogOpen} onSubmit={handleTableSubmit} />
     </div>
   );
 }

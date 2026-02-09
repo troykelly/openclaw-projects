@@ -15,29 +15,16 @@ export interface MentionListProps {
   className?: string;
 }
 
-export function MentionList({
-  mentions,
-  onMentionClick,
-  groupByType = false,
-  className,
-}: MentionListProps) {
+export function MentionList({ mentions, onMentionClick, groupByType = false, className }: MentionListProps) {
   if (mentions.length === 0) {
-    return (
-      <div className={cn('text-sm text-muted-foreground', className)}>
-        No mentions
-      </div>
-    );
+    return <div className={cn('text-sm text-muted-foreground', className)}>No mentions</div>;
   }
 
   if (!groupByType) {
     return (
       <div className={cn('flex flex-wrap gap-1', className)}>
         {mentions.map((mention) => (
-          <MentionBadge
-            key={`${mention.type}-${mention.id}`}
-            mention={mention}
-            onClick={onMentionClick}
-          />
+          <MentionBadge key={`${mention.type}-${mention.id}`} mention={mention} onClick={onMentionClick} />
         ))}
       </div>
     );
@@ -57,11 +44,7 @@ export function MentionList({
           </div>
           <div className="flex flex-wrap gap-1">
             {userMentions.map((mention) => (
-              <MentionBadge
-                key={mention.id}
-                mention={mention}
-                onClick={onMentionClick}
-              />
+              <MentionBadge key={mention.id} mention={mention} onClick={onMentionClick} />
             ))}
           </div>
         </div>
@@ -75,11 +58,7 @@ export function MentionList({
           </div>
           <div className="flex flex-wrap gap-1">
             {teamMentions.map((mention) => (
-              <MentionBadge
-                key={mention.id}
-                mention={mention}
-                onClick={onMentionClick}
-              />
+              <MentionBadge key={mention.id} mention={mention} onClick={onMentionClick} />
             ))}
           </div>
         </div>

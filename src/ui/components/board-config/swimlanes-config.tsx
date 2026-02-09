@@ -35,9 +35,7 @@ export function SwimlanesConfig({ value, onChange }: SwimlanesConfigProps) {
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-medium mb-3">Swimlanes</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Group cards into horizontal lanes across all columns.
-        </p>
+        <p className="text-sm text-muted-foreground mb-4">Group cards into horizontal lanes across all columns.</p>
       </div>
 
       <div className="space-y-2">
@@ -54,9 +52,7 @@ export function SwimlanesConfig({ value, onChange }: SwimlanesConfigProps) {
                 value={option.value}
                 checked={isSelected}
                 onChange={() => handleChange(option.value)}
-                className={cn(
-                  'h-4 w-4 border-gray-300 text-primary focus:ring-primary'
-                )}
+                className={cn('h-4 w-4 border-gray-300 text-primary focus:ring-primary')}
                 aria-label={option.label}
               />
               <Label htmlFor={inputId}>{option.label}</Label>

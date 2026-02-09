@@ -14,24 +14,14 @@ export interface VirtualListProps<T> {
   className?: string;
 }
 
-export function VirtualList<T>({
-  items,
-  itemHeight,
-  height,
-  renderItem,
-  overscan = 3,
-  className,
-}: VirtualListProps<T>) {
+export function VirtualList<T>({ items, itemHeight, height, renderItem, overscan = 3, className }: VirtualListProps<T>) {
   const [scrollTop, setScrollTop] = React.useState(0);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const totalHeight = items.length * itemHeight;
   const visibleCount = Math.ceil(height / itemHeight);
   const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
-  const endIndex = Math.min(
-    items.length,
-    startIndex + visibleCount + overscan * 2
-  );
+  const endIndex = Math.min(items.length, startIndex + visibleCount + overscan * 2);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
@@ -40,17 +30,8 @@ export function VirtualList<T>({
   const visibleItems = items.slice(startIndex, endIndex);
 
   return (
-    <div
-      ref={containerRef}
-      data-testid="virtual-list"
-      className={cn('overflow-auto', className)}
-      style={{ height }}
-      onScroll={handleScroll}
-    >
-      <div
-        data-testid="virtual-list-inner"
-        style={{ height: totalHeight, position: 'relative' }}
-      >
+    <div ref={containerRef} data-testid="virtual-list" className={cn('overflow-auto', className)} style={{ height }} onScroll={handleScroll}>
+      <div data-testid="virtual-list-inner" style={{ height: totalHeight, position: 'relative' }}>
         {visibleItems.map((item, index) => {
           const actualIndex = startIndex + index;
           return (

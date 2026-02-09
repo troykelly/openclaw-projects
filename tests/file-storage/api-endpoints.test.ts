@@ -143,7 +143,7 @@ describe('File Storage API Endpoints', () => {
       // First create a file
       await pool.query(
         `INSERT INTO file_attachment (id, storage_key, original_filename, content_type, size_bytes)
-         VALUES ('11111111-1111-1111-1111-111111111111', 'test/key.txt', 'test.txt', 'text/plain', 100)`
+         VALUES ('11111111-1111-1111-1111-111111111111', 'test/key.txt', 'test.txt', 'text/plain', 100)`,
       );
 
       const response = await app.inject({
@@ -249,7 +249,7 @@ describe('File Storage API Endpoints', () => {
       await pool.query(
         `INSERT INTO file_attachment (id, storage_key, original_filename, content_type, size_bytes)
          VALUES ($1, 'test/attachment.pdf', 'attachment.pdf', 'application/pdf', 1024)`,
-        [fileId]
+        [fileId],
       );
 
       // Attach file to work item

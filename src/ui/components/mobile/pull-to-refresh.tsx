@@ -13,12 +13,7 @@ export interface PullToRefreshProps {
   className?: string;
 }
 
-export function PullToRefresh({
-  onRefresh,
-  children,
-  threshold = 100,
-  className,
-}: PullToRefreshProps) {
+export function PullToRefresh({ onRefresh, children, threshold = 100, className }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [startY, setStartY] = React.useState(0);
@@ -77,20 +72,14 @@ export function PullToRefresh({
       {/* Refresh indicator */}
       <div
         data-testid="refresh-indicator"
-        className={cn(
-          'absolute top-0 left-0 right-0 flex items-center justify-center transition-all',
-          showIndicator ? 'visible' : 'invisible'
-        )}
+        className={cn('absolute top-0 left-0 right-0 flex items-center justify-center transition-all', showIndicator ? 'visible' : 'invisible')}
         style={{
           height: isRefreshing ? 48 : pullDistance,
           visibility: showIndicator ? 'visible' : 'hidden',
         }}
       >
         {isRefreshing ? (
-          <Loader2
-            data-testid="refresh-loading"
-            className="h-6 w-6 animate-spin text-primary"
-          />
+          <Loader2 data-testid="refresh-loading" className="h-6 w-6 animate-spin text-primary" />
         ) : (
           <div
             className="h-6 w-6 rounded-full border-2 border-primary transition-transform"

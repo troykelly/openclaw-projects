@@ -4,14 +4,7 @@ import { Mail, Calendar } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/ui/components/ui/dialog';
 
 export interface LinkCommunicationDialogProps {
   type: 'email' | 'calendar';
@@ -20,12 +13,7 @@ export interface LinkCommunicationDialogProps {
   onSubmit: (id: string) => void;
 }
 
-export function LinkCommunicationDialog({
-  type,
-  open,
-  onOpenChange,
-  onSubmit,
-}: LinkCommunicationDialogProps) {
+export function LinkCommunicationDialog({ type, open, onOpenChange, onSubmit }: LinkCommunicationDialogProps) {
   const [id, setId] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,9 +35,7 @@ export function LinkCommunicationDialog({
             <Icon className="size-5" />
             Link {isEmail ? 'Email' : 'Calendar Event'}
           </DialogTitle>
-          <DialogDescription>
-            Enter the {isEmail ? 'email' : 'calendar event'} ID to link it to this work item.
-          </DialogDescription>
+          <DialogDescription>Enter the {isEmail ? 'email' : 'calendar event'} ID to link it to this work item.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

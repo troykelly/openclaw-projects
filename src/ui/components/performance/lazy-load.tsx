@@ -11,12 +11,7 @@ export interface LazyLoadProps {
   threshold?: number;
 }
 
-export function LazyLoad({
-  children,
-  placeholder,
-  rootMargin = '100px',
-  threshold = 0,
-}: LazyLoadProps) {
+export function LazyLoad({ children, placeholder, rootMargin = '100px', threshold = 0 }: LazyLoadProps) {
   const [isLoaded, setIsLoaded] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -31,7 +26,7 @@ export function LazyLoad({
           observer.disconnect();
         }
       },
-      { rootMargin, threshold }
+      { rootMargin, threshold },
     );
 
     observer.observe(element);

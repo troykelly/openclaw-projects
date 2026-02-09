@@ -96,12 +96,9 @@ function validateWebhookUrl(url: string, fieldName: string): void {
   }
 
   // Must be HTTPS (allow localhost for dev)
-  const isLocalhost =
-    parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
   if (parsed.protocol !== 'https:' && !isLocalhost) {
-    throw new Error(
-      `${fieldName} must use HTTPS (got ${parsed.protocol}). Use https:// for webhook URLs.`
-    );
+    throw new Error(`${fieldName} must use HTTPS (got ${parsed.protocol}). Use https:// for webhook URLs.`);
   }
 }
 
@@ -136,9 +133,7 @@ export async function listPhoneNumbers(): Promise<PhoneNumberSummary[]> {
  * @param phoneNumber - Phone number in E.164 format or SID
  * @throws Error if Twilio not configured or number not found
  */
-export async function getPhoneNumberDetails(
-  phoneNumber: string
-): Promise<PhoneNumberDetails> {
+export async function getPhoneNumberDetails(phoneNumber: string): Promise<PhoneNumberDetails> {
   if (!isTwilioConfigured()) {
     throw new Error('Twilio not configured');
   }
@@ -166,9 +161,7 @@ export async function getPhoneNumberDetails(
 /**
  * Format a Twilio IncomingPhoneNumber instance to our details format.
  */
-function formatPhoneNumberDetails(
-  num: IncomingPhoneNumberInstance
-): PhoneNumberDetails {
+function formatPhoneNumberDetails(num: IncomingPhoneNumberInstance): PhoneNumberDetails {
   const n = num;
   return {
     phoneNumber: n.phoneNumber,
@@ -203,7 +196,7 @@ export async function updatePhoneNumberWebhooks(
   phoneNumber: string,
   options: WebhookUpdateOptions,
   pool?: Pool,
-  actorId?: string
+  actorId?: string,
 ): Promise<PhoneNumberDetails> {
   if (!isTwilioConfigured()) {
     throw new Error('Twilio not configured');
@@ -276,10 +269,7 @@ export async function updatePhoneNumberWebhooks(
   // Perform the update
   const updated = await client.incomingPhoneNumbers(sid).update(updatePayload);
 
-  console.log(
-    `[Twilio] Updated phone number webhooks: ${phoneNumber} (${sid})`,
-    Object.keys(updatePayload)
-  );
+  console.log(`[Twilio] Updated phone number webhooks: ${phoneNumber} (${sid})`, Object.keys(updatePayload));
 
   // Audit log the change
   if (pool) {
@@ -309,7 +299,7 @@ export async function updatePhoneNumberWebhooks(
             phone_number: phoneNumber,
             phone_number_sid: sid,
           }),
-        ]
+        ],
       );
     } catch (auditError) {
       // Log but don't fail the operation if audit logging fails

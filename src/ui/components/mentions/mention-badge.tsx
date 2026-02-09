@@ -13,16 +13,11 @@ export interface MentionBadgeProps {
   className?: string;
 }
 
-export function MentionBadge({
-  mention,
-  onClick,
-  href,
-  className,
-}: MentionBadgeProps) {
+export function MentionBadge({ mention, onClick, href, className }: MentionBadgeProps) {
   const baseClasses = cn(
     'inline-flex items-center px-1.5 py-0.5 rounded text-sm font-medium',
     'bg-primary/10 text-primary hover:bg-primary/20 transition-colors',
-    className
+    className,
   );
 
   const content = `@${mention.name}`;
@@ -37,11 +32,7 @@ export function MentionBadge({
 
   if (onClick) {
     return (
-      <button
-        type="button"
-        onClick={() => onClick(mention)}
-        className={baseClasses}
-      >
+      <button type="button" onClick={() => onClick(mention)} className={baseClasses}>
         {content}
       </button>
     );

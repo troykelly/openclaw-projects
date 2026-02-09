@@ -39,10 +39,8 @@ export const noteKeys = {
   details: () => [...noteKeys.all, 'detail'] as const,
   detail: (id: string) => [...noteKeys.details(), id] as const,
   versions: (id: string) => [...noteKeys.all, 'versions', id] as const,
-  version: (id: string, versionNumber: number) =>
-    [...noteKeys.versions(id), versionNumber] as const,
-  versionCompare: (id: string, from: number, to: number) =>
-    [...noteKeys.versions(id), 'compare', from, to] as const,
+  version: (id: string, versionNumber: number) => [...noteKeys.versions(id), versionNumber] as const,
+  versionCompare: (id: string, from: number, to: number) => [...noteKeys.versions(id), 'compare', from, to] as const,
   shares: (id: string) => [...noteKeys.all, 'shares', id] as const,
   sharedWithMe: () => [...noteKeys.all, 'shared-with-me'] as const,
 };
@@ -50,10 +48,7 @@ export const noteKeys = {
 /**
  * Build query string from ListNotesParams and user email.
  */
-function buildNotesQueryString(
-  userEmail: string | null,
-  params?: ListNotesParams
-): string {
+function buildNotesQueryString(userEmail: string | null, params?: ListNotesParams): string {
   const searchParams = new URLSearchParams();
 
   // user_email is required by the API
@@ -103,17 +98,13 @@ function buildNotesQueryString(
  * @param options - Optional query options (e.g., enabled, staleTime)
  * @returns TanStack Query result with `NotesResponse`
  */
-export function useNotes(
-  params?: ListNotesParams,
-  options?: { enabled?: boolean; staleTime?: number }
-) {
+export function useNotes(params?: ListNotesParams, options?: { enabled?: boolean; staleTime?: number }) {
   const userEmail = useUserEmail();
   const queryString = buildNotesQueryString(userEmail, params);
 
   return useQuery({
     queryKey: noteKeys.list(params),
-    queryFn: ({ signal }) =>
-      apiClient.get<NotesResponse>(`/api/notes${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<NotesResponse>(`/api/notes${queryString}`, { signal }),
     // Only fetch if we have a user email (authenticated)
     enabled: (options?.enabled ?? true) && !!userEmail,
     staleTime: options?.staleTime ?? NOTE_LIST_STALE_TIME,
@@ -133,8 +124,7 @@ export function useNote(id: string, options?: { staleTime?: number; enabled?: bo
 
   return useQuery({
     queryKey: noteKeys.detail(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<Note>(`/api/notes/${encodeURIComponent(id)}${queryString}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<Note>(`/api/notes/${encodeURIComponent(id)}${queryString}`, { signal }),
     enabled: (options?.enabled ?? true) && !!id && !!userEmail,
     staleTime: options?.staleTime ?? NOTE_STALE_TIME,
   });
@@ -147,10 +137,7 @@ export function useNote(id: string, options?: { staleTime?: number; enabled?: bo
  * @param options - Optional pagination and staleTime
  * @returns TanStack Query result with `NoteVersionsResponse`
  */
-export function useNoteVersions(
-  id: string,
-  options?: { limit?: number; offset?: number; staleTime?: number }
-) {
+export function useNoteVersions(id: string, options?: { limit?: number; offset?: number; staleTime?: number }) {
   const searchParams = new URLSearchParams();
   if (options?.limit !== undefined) {
     searchParams.set('limit', String(options.limit));
@@ -163,10 +150,7 @@ export function useNoteVersions(
   return useQuery({
     queryKey: noteKeys.versions(id),
     queryFn: ({ signal }) =>
-      apiClient.get<NoteVersionsResponse>(
-        `/api/notes/${encodeURIComponent(id)}/versions${queryString ? `?${queryString}` : ''}`,
-        { signal }
-      ),
+      apiClient.get<NoteVersionsResponse>(`/api/notes/${encodeURIComponent(id)}/versions${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: !!id,
     staleTime: options?.staleTime ?? NOTE_VERSIONS_STALE_TIME,
   });
@@ -180,18 +164,10 @@ export function useNoteVersions(
  * @param options - Optional query options
  * @returns TanStack Query result with `NoteVersion`
  */
-export function useNoteVersion(
-  id: string,
-  versionNumber: number,
-  options?: { staleTime?: number }
-) {
+export function useNoteVersion(id: string, versionNumber: number, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: noteKeys.version(id, versionNumber),
-    queryFn: ({ signal }) =>
-      apiClient.get<NoteVersion>(
-        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}`,
-        { signal }
-      ),
+    queryFn: ({ signal }) => apiClient.get<NoteVersion>(`/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}`, { signal }),
     enabled: !!id && versionNumber > 0,
     // Individual versions are immutable, so they can be cached indefinitely
     staleTime: options?.staleTime ?? Infinity,
@@ -207,19 +183,10 @@ export function useNoteVersion(
  * @param options - Optional query options
  * @returns TanStack Query result with `CompareVersionsResponse`
  */
-export function useNoteVersionCompare(
-  id: string,
-  from: number,
-  to: number,
-  options?: { staleTime?: number }
-) {
+export function useNoteVersionCompare(id: string, from: number, to: number, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: noteKeys.versionCompare(id, from, to),
-    queryFn: ({ signal }) =>
-      apiClient.get<CompareVersionsResponse>(
-        `/api/notes/${encodeURIComponent(id)}/versions/compare?from=${from}&to=${to}`,
-        { signal }
-      ),
+    queryFn: ({ signal }) => apiClient.get<CompareVersionsResponse>(`/api/notes/${encodeURIComponent(id)}/versions/compare?from=${from}&to=${to}`, { signal }),
     enabled: !!id && from > 0 && to > 0 && from !== to,
     // Version comparisons are deterministic, can be cached indefinitely
     staleTime: options?.staleTime ?? Infinity,
@@ -236,11 +203,7 @@ export function useNoteVersionCompare(
 export function useNoteShares(id: string, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: noteKeys.shares(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<NoteSharesResponse>(
-        `/api/notes/${encodeURIComponent(id)}/shares`,
-        { signal }
-      ),
+    queryFn: ({ signal }) => apiClient.get<NoteSharesResponse>(`/api/notes/${encodeURIComponent(id)}/shares`, { signal }),
     enabled: !!id,
     staleTime: options?.staleTime ?? NOTE_SHARES_STALE_TIME,
   });

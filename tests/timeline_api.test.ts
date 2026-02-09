@@ -28,7 +28,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
     const project = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, not_before, not_after, estimate_minutes)
        VALUES ('Project Alpha', 'project', '2025-01-01', '2025-03-31', 60)
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
     const projectId = project.rows[0].id;
 
@@ -36,7 +36,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Initiative 1', 'initiative', $1, '2025-01-01', '2025-02-15', 120)
        RETURNING id::text as id`,
-      [projectId]
+      [projectId],
     );
     const initiativeId = initiative.rows[0].id;
 
@@ -44,7 +44,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Epic 1', 'epic', $1, '2025-01-01', '2025-01-31', 180)
        RETURNING id::text as id`,
-      [initiativeId]
+      [initiativeId],
     );
     const epicId = epic.rows[0].id;
 
@@ -52,21 +52,21 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Issue 1', 'issue', $1, '2025-01-01', '2025-01-15', 60)
        RETURNING id::text as id`,
-      [epicId]
+      [epicId],
     );
 
     const issue2 = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Issue 2', 'issue', $1, '2025-01-16', '2025-01-31', 90)
        RETURNING id::text as id`,
-      [epicId]
+      [epicId],
     );
 
     // Add a dependency: issue2 depends on issue1
     await pool.query(
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, 'depends_on')`,
-      [issue2.rows[0].id, issue1.rows[0].id]
+      [issue2.rows[0].id, issue1.rows[0].id],
     );
 
     const response = await app.inject({
@@ -115,7 +115,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
     const issue = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
        VALUES ('Standalone issue', 'issue', '2025-01-01', '2025-01-15')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
 
     const response = await app.inject({
@@ -134,7 +134,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
     const project = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, estimate_minutes)
        VALUES ('No dates project', 'project', 480)
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
 
     const response = await app.inject({

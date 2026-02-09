@@ -12,13 +12,7 @@ import { Link } from 'react-router';
 import { Badge } from '@/ui/components/ui/badge';
 import { EmptyState, Skeleton } from '@/ui/components/feedback';
 import { priorityColors } from '@/ui/lib/work-item-utils';
-import {
-  Circle,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react';
+import { Circle, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 /** Item shape accepted by BoardView. */
 export interface BoardViewItem {
@@ -74,7 +68,7 @@ function getColumnItems(items: BoardViewItem[], columnStatus: string): BoardView
 export function BoardView({ items, isLoading }: BoardViewProps): React.JSX.Element {
   if (isLoading) {
     return (
-      <div  className="flex gap-4 overflow-x-auto">
+      <div className="flex gap-4 overflow-x-auto">
         {columns.map((col) => (
           <div key={col.status} className="flex-1 min-w-[260px] rounded-xl bg-muted/30 animate-pulse min-h-[300px]" />
         ))}
@@ -84,25 +78,18 @@ export function BoardView({ items, isLoading }: BoardViewProps): React.JSX.Eleme
 
   if (items.length === 0) {
     return (
-      <div >
-        <EmptyState
-          variant="folder"
-          title="No items to display"
-          description="Add work items to see them on the board."
-        />
+      <div>
+        <EmptyState variant="folder" title="No items to display" description="Add work items to see them on the board." />
       </div>
     );
   }
 
   return (
-    <div  className="flex gap-4 overflow-x-auto pb-2">
+    <div className="flex gap-4 overflow-x-auto pb-2">
       {columns.map((col) => {
         const columnItems = getColumnItems(items, col.status);
         return (
-          <div
-            key={col.status}
-            className="flex-1 min-w-[260px] max-w-[360px] flex flex-col rounded-xl"
-          >
+          <div key={col.status} className="flex-1 min-w-[260px] max-w-[360px] flex flex-col rounded-xl">
             {/* Column header */}
             <div className={`px-3 py-2.5 rounded-t-xl bg-gradient-to-b ${col.bgGradient} border-b border-border/30`}>
               <div className="flex items-center justify-between">
@@ -110,9 +97,7 @@ export function BoardView({ items, isLoading }: BoardViewProps): React.JSX.Eleme
                   <span className={`size-2 rounded-full ${col.color}`} />
                   <h3 className="font-semibold text-sm">{col.label}</h3>
                 </div>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                  {columnItems.length}
-                </span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{columnItems.length}</span>
               </div>
             </div>
 
@@ -130,9 +115,7 @@ export function BoardView({ items, isLoading }: BoardViewProps): React.JSX.Eleme
                   >
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground line-clamp-2 leading-snug">
-                          {item.title}
-                        </p>
+                        <p className="font-medium text-sm text-foreground line-clamp-2 leading-snug">{item.title}</p>
                       </div>
                       <div
                         className={`shrink-0 size-5 rounded flex items-center justify-center text-[10px] font-bold text-white ${kc.color}`}
@@ -142,11 +125,7 @@ export function BoardView({ items, isLoading }: BoardViewProps): React.JSX.Eleme
                       </div>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <Badge
-                        className={`text-[10px] px-1.5 py-0 ${priorityColors[item.priority] ?? 'bg-gray-500'}`}
-                      >
-                        {item.priority}
-                      </Badge>
+                      <Badge className={`text-[10px] px-1.5 py-0 ${priorityColors[item.priority] ?? 'bg-gray-500'}`}>{item.priority}</Badge>
                       {item.not_after && (
                         <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                           <Clock className="size-3" />

@@ -89,9 +89,7 @@ function renderWithRouter(initialPath = '/activity') {
     },
   });
 
-  const ActivityPage = React.lazy(() =>
-    import('@/ui/pages/ActivityPage.js').then((m) => ({ default: m.ActivityPage }))
-  );
+  const ActivityPage = React.lazy(() => import('@/ui/pages/ActivityPage.js').then((m) => ({ default: m.ActivityPage })));
 
   const routes = [
     {

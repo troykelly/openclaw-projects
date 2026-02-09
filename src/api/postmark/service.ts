@@ -4,19 +4,8 @@
  */
 
 import { Pool } from 'pg';
-import type {
-  PostmarkInboundPayload,
-  PostmarkEmailResult,
-  AttachmentMetadata,
-} from './types.ts';
-import {
-  normalizeEmail,
-  getMessageId,
-  getInReplyTo,
-  getReferences,
-  createEmailThreadKey,
-  getBestPlainText,
-} from './email-utils.ts';
+import type { PostmarkInboundPayload, PostmarkEmailResult, AttachmentMetadata } from './types.ts';
+import { normalizeEmail, getMessageId, getInReplyTo, getReferences, createEmailThreadKey, getBestPlainText } from './email-utils.ts';
 
 /**
  * Process an inbound Postmark email webhook.
@@ -31,10 +20,7 @@ import {
  * @param payload - Postmark webhook payload
  * @returns Result with all created/found IDs
  */
-export async function processPostmarkEmail(
-  pool: Pool,
-  payload: PostmarkInboundPayload
-): Promise<PostmarkEmailResult> {
+export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundPayload): Promise<PostmarkEmailResult> {
   const client = await pool.connect();
 
   try {
@@ -56,7 +42,7 @@ export async function processPostmarkEmail(
         WHERE ce.endpoint_type = 'email'
           AND ce.normalized_value = normalize_contact_endpoint_value('email', $1)
         LIMIT 1`,
-      [senderEmail]
+      [senderEmail],
     );
 
     let contactId: string;
@@ -75,7 +61,7 @@ export async function processPostmarkEmail(
                   updated_at = now()
             WHERE id = $1
               AND (display_name IS NULL OR display_name = '' OR display_name LIKE '%@%')`,
-          [contactId, senderName]
+          [contactId, senderName],
         );
       }
     } else {
@@ -87,7 +73,7 @@ export async function processPostmarkEmail(
         `INSERT INTO contact (display_name)
          VALUES ($1)
          RETURNING id::text as id`,
-        [displayName]
+        [displayName],
       );
       contactId = contact.rows[0].id;
 
@@ -102,7 +88,7 @@ export async function processPostmarkEmail(
             source: 'postmark',
             mailboxHash: payload.FromFull.MailboxHash,
           }),
-        ]
+        ],
       );
       endpointId = endpoint.rows[0].id;
     }
@@ -115,7 +101,7 @@ export async function processPostmarkEmail(
       `SELECT id::text as id FROM external_thread
         WHERE channel = 'email'
           AND external_thread_key = $1`,
-      [threadKey]
+      [threadKey],
     );
 
     let threadId: string;
@@ -129,7 +115,7 @@ export async function processPostmarkEmail(
         `UPDATE external_thread
             SET endpoint_id = $1, updated_at = now()
           WHERE id = $2`,
-        [endpointId, threadId]
+        [endpointId, threadId],
       );
     } else {
       isNewThread = true;
@@ -148,7 +134,7 @@ export async function processPostmarkEmail(
             inReplyTo,
             references,
           }),
-        ]
+        ],
       );
       threadId = thread.rows[0].id;
     }
@@ -186,18 +172,7 @@ export async function processPostmarkEmail(
          cc_addresses = EXCLUDED.cc_addresses,
          attachments = EXCLUDED.attachments
        RETURNING id::text as id`,
-      [
-        threadId,
-        messageId,
-        body,
-        JSON.stringify(payload),
-        payload.Date,
-        payload.Subject,
-        senderEmail,
-        toAddresses,
-        ccAddresses,
-        JSON.stringify(attachments),
-      ]
+      [threadId, messageId, body, JSON.stringify(payload), payload.Date, payload.Subject, senderEmail, toAddresses, ccAddresses, JSON.stringify(attachments)],
     );
     const messageDBId = message.rows[0].id;
 
@@ -230,7 +205,7 @@ export async function processPostmarkEmail(
 export async function getRecentEmails(
   pool: Pool,
   email: string,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<
   Array<{
     id: string;
@@ -259,7 +234,7 @@ export async function getRecentEmails(
         AND ce.normalized_value = normalize_contact_endpoint_value('email', $1)
       ORDER BY em.received_at DESC
       LIMIT $2`,
-    [email, limit]
+    [email, limit],
   );
 
   return result.rows.map((row) => ({
@@ -281,10 +256,7 @@ export async function getRecentEmails(
  * @param email - Email address
  * @returns Contact info or null if not found
  */
-export async function findContactByEmail(
-  pool: Pool,
-  email: string
-): Promise<{ contactId: string; endpointId: string; displayName: string } | null> {
+export async function findContactByEmail(pool: Pool, email: string): Promise<{ contactId: string; endpointId: string; displayName: string } | null> {
   const result = await pool.query(
     `SELECT ce.id::text as endpoint_id,
             c.id::text as contact_id,
@@ -294,7 +266,7 @@ export async function findContactByEmail(
       WHERE ce.endpoint_type = 'email'
         AND ce.normalized_value = normalize_contact_endpoint_value('email', $1)
       LIMIT 1`,
-    [email]
+    [email],
   );
 
   if (result.rows.length === 0) {

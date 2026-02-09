@@ -24,7 +24,7 @@ describe('Work items core model', () => {
       `SELECT EXISTS (
         SELECT FROM information_schema.tables
         WHERE table_name = 'work_item'
-      ) as exists`
+      ) as exists`,
     );
     expect(result.rows[0].exists).toBe(true);
   });
@@ -33,7 +33,7 @@ describe('Work items core model', () => {
     const inserted = await pool.query(
       `INSERT INTO work_item (title) VALUES ($1)
        RETURNING id::text as id, title`,
-      ['Test item']
+      ['Test item'],
     );
 
     expect(inserted.rows[0].title).toBe('Test item');
@@ -48,13 +48,10 @@ describe('Work items core model', () => {
     await pool.query(
       `INSERT INTO work_item_participant (work_item_id, participant, role)
        VALUES ($1, $2, $3)`,
-      [workItemId, 'troy', 'owner']
+      [workItemId, 'troy', 'owner'],
     );
 
-    const rows = await pool.query(
-      `SELECT participant, role FROM work_item_participant WHERE work_item_id = $1`,
-      [workItemId]
-    );
+    const rows = await pool.query(`SELECT participant, role FROM work_item_participant WHERE work_item_id = $1`, [workItemId]);
     expect(rows.rows).toEqual([{ participant: 'troy', role: 'owner' }]);
   });
 
@@ -68,13 +65,10 @@ describe('Work items core model', () => {
     await pool.query(
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, 'blocks')`,
-      [bId, aId]
+      [bId, aId],
     );
 
-    const deps = await pool.query(
-      `SELECT kind FROM work_item_dependency WHERE work_item_id = $1 AND depends_on_work_item_id = $2`,
-      [bId, aId]
-    );
+    const deps = await pool.query(`SELECT kind FROM work_item_dependency WHERE work_item_id = $1 AND depends_on_work_item_id = $2`, [bId, aId]);
     expect(deps.rows.length).toBe(1);
     expect(deps.rows[0].kind).toBe('blocks');
 
@@ -82,8 +76,8 @@ describe('Work items core model', () => {
       pool.query(
         `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
          VALUES ($1, $1, 'blocks')`,
-        [aId]
-      )
+        [aId],
+      ),
     ).rejects.toThrow(/work_item_dependency/);
   });
 });

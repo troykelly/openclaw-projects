@@ -21,35 +21,10 @@ export interface StatsWidgetProps {
 export function StatsWidget({ stats, className }: StatsWidgetProps) {
   return (
     <div className={cn('grid grid-cols-2 gap-4', className)}>
-      <StatCard
-        icon={CheckCircle}
-        label="Completed"
-        value={stats.completedThisWeek}
-        subLabel="this week"
-        className="text-green-500"
-        testId="stat-completed"
-      />
-      <StatCard
-        icon={Clock}
-        label="In Progress"
-        value={stats.inProgress}
-        className="text-blue-500"
-        testId="stat-in-progress"
-      />
-      <StatCard
-        icon={AlertTriangle}
-        label="Overdue"
-        value={stats.overdue}
-        className="text-red-500"
-        testId="stat-overdue"
-      />
-      <StatCard
-        icon={LayoutList}
-        label="Total"
-        value={stats.total}
-        className="text-muted-foreground"
-        testId="stat-total"
-      />
+      <StatCard icon={CheckCircle} label="Completed" value={stats.completedThisWeek} subLabel="this week" className="text-green-500" testId="stat-completed" />
+      <StatCard icon={Clock} label="In Progress" value={stats.inProgress} className="text-blue-500" testId="stat-in-progress" />
+      <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdue} className="text-red-500" testId="stat-overdue" />
+      <StatCard icon={LayoutList} label="Total" value={stats.total} className="text-muted-foreground" testId="stat-total" />
     </div>
   );
 }
@@ -63,19 +38,9 @@ interface StatCardProps {
   testId: string;
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  subLabel,
-  className,
-  testId,
-}: StatCardProps) {
+function StatCard({ icon: Icon, label, value, subLabel, className, testId }: StatCardProps) {
   return (
-    <div
-      data-testid={testId}
-      className={cn('flex items-center gap-3 p-3 rounded-lg bg-muted/50', className)}
-    >
+    <div data-testid={testId} className={cn('flex items-center gap-3 p-3 rounded-lg bg-muted/50', className)}>
       <Icon className="h-5 w-5 shrink-0" />
       <div>
         <div className="text-2xl font-bold">{value}</div>

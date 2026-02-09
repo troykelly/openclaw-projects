@@ -11,29 +11,12 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { useActivity } from '@/ui/hooks/queries/use-activity';
 import type { ActivityItem } from '@/ui/lib/api-types';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-  EmptyState,
-} from '@/ui/components/feedback';
+import { Skeleton, SkeletonList, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
-import {
-  Plus,
-  ArrowUpCircle,
-  MessageSquare,
-  UserPlus,
-  Brain,
-  Mail,
-  Bot,
-  Settings,
-  Activity,
-  Filter,
-  RefreshCw,
-} from 'lucide-react';
+import { Plus, ArrowUpCircle, MessageSquare, UserPlus, Brain, Mail, Bot, Settings, Activity, Filter, RefreshCw } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,10 +46,10 @@ interface DisplayActivityItem {
 /** Map an API activity item to a display-ready format. */
 function mapActivityItem(item: ActivityItem): DisplayActivityItem {
   const actorType = !item.actor_email
-    ? 'system' as const
+    ? ('system' as const)
     : item.actor_email.includes('agent') || item.actor_email.includes('openclaw')
-      ? 'agent' as const
-      : 'human' as const;
+      ? ('agent' as const)
+      : ('human' as const);
 
   const action = item.type === 'status_change' ? 'status_changed' : item.type;
 
@@ -215,10 +198,7 @@ export function ActivityPage(): React.JSX.Element {
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
 
   // Map and filter items
-  const allItems = useMemo(
-    () => (data?.items ?? []).map(mapActivityItem),
-    [data],
-  );
+  const allItems = useMemo(() => (data?.items ?? []).map(mapActivityItem), [data]);
 
   const filteredItems = useMemo(() => {
     if (activeFilter === 'all') return allItems;
@@ -298,11 +278,7 @@ export function ActivityPage(): React.JSX.Element {
         <h1 className="text-2xl font-semibold text-foreground mb-4">Activity Feed</h1>
         <Card>
           <CardContent className="p-8">
-            <EmptyState
-              variant="no-data"
-              title="No activity yet"
-              description="Activity will appear here when work items are created or updated."
-            />
+            <EmptyState variant="no-data" title="No activity yet" description="Activity will appear here when work items are created or updated." />
           </CardContent>
         </Card>
       </div>
@@ -315,16 +291,9 @@ export function ActivityPage(): React.JSX.Element {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Activity Feed</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Recent updates across all work items
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Recent updates across all work items</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          className="gap-1.5"
-        >
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
           <RefreshCw className="size-3.5" />
           Refresh
         </Button>
@@ -360,12 +329,7 @@ export function ActivityPage(): React.JSX.Element {
               <div className="p-8 text-center text-muted-foreground">
                 <Filter className="size-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No activities match the selected filter</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setActiveFilter('all')}
-                >
+                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setActiveFilter('all')}>
                   Show all activities
                 </Button>
               </div>
@@ -374,13 +338,8 @@ export function ActivityPage(): React.JSX.Element {
                 {groupedItems.map((group) => (
                   <div key={group.key}>
                     {/* Day separator */}
-                    <div
-                      data-testid="date-separator"
-                      className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b border-border px-4 py-2"
-                    >
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {group.label}
-                      </span>
+                    <div data-testid="date-separator" className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b border-border px-4 py-2">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{group.label}</span>
                       <Badge variant="outline" className="ml-2 text-xs">
                         {group.items.length}
                       </Badge>
@@ -388,10 +347,7 @@ export function ActivityPage(): React.JSX.Element {
 
                     {/* Activity rows */}
                     {group.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="px-4 py-3 hover:bg-muted/50 dark:hover:bg-muted/30 transition-colors border-b border-border last:border-0"
-                      >
+                      <div key={item.id} className="px-4 py-3 hover:bg-muted/50 dark:hover:bg-muted/30 transition-colors border-b border-border last:border-0">
                         <div className="flex items-start gap-3">
                           {/* Type icon */}
                           <div
@@ -404,12 +360,8 @@ export function ActivityPage(): React.JSX.Element {
                           {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-foreground">
-                                {item.actorName}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {item.actionLabel}
-                              </span>
+                              <span className="text-sm font-medium text-foreground">{item.actorName}</span>
+                              <span className="text-xs text-muted-foreground">{item.actionLabel}</span>
                               <Link
                                 to={`/work-items/${item.entityId}`}
                                 className="text-sm font-medium text-primary hover:underline truncate max-w-[200px] sm:max-w-none"
@@ -417,17 +369,11 @@ export function ActivityPage(): React.JSX.Element {
                                 {item.entityTitle}
                               </Link>
                             </div>
-                            {item.detail && (
-                              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-                                {item.detail}
-                              </p>
-                            )}
+                            {item.detail && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{item.detail}</p>}
                           </div>
 
                           {/* Timestamp */}
-                          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                            {formatTimestamp(item.timestamp)}
-                          </span>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{formatTimestamp(item.timestamp)}</span>
                         </div>
                       </div>
                     ))}

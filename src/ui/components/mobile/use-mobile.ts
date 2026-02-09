@@ -42,7 +42,7 @@ export function useTouchDevice(): boolean {
       'ontouchstart' in window ||
         navigator.maxTouchPoints > 0 ||
         // @ts-expect-error - msMaxTouchPoints is IE specific
-        navigator.msMaxTouchPoints > 0
+        navigator.msMaxTouchPoints > 0,
     );
   }, []);
 

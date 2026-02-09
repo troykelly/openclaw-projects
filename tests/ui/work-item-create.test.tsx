@@ -4,11 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import {
-  QuickAddDialog,
-  WorkItemCreateDialog,
-  type WorkItemKind,
-} from '@/ui/components/work-item-create';
+import { QuickAddDialog, WorkItemCreateDialog, type WorkItemKind } from '@/ui/components/work-item-create';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -44,9 +40,7 @@ describe('QuickAddDialog', () => {
       // Use getAllByRole to find options, which are more reliable than text matching
       const options = screen.getAllByRole('option');
       expect(options.length).toBe(4);
-      expect(options.map((o) => o.textContent)).toEqual(
-        expect.arrayContaining(['Project', 'Initiative', 'Epic', 'Issue'])
-      );
+      expect(options.map((o) => o.textContent)).toEqual(expect.arrayContaining(['Project', 'Initiative', 'Epic', 'Issue']));
     });
   });
 
@@ -76,7 +70,7 @@ describe('QuickAddDialog', () => {
           id: 'new-id',
           title: 'Test Item',
           kind: 'issue',
-        })
+        }),
       );
     });
   });
@@ -135,15 +129,7 @@ describe('QuickAddDialog', () => {
   });
 
   it('disables submit button while loading', async () => {
-    mockFetch.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(
-            () => resolve({ ok: true, json: () => Promise.resolve({}) }),
-            1000
-          )
-        )
-    );
+    mockFetch.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true, json: () => Promise.resolve({}) }), 1000)));
 
     render(<QuickAddDialog {...defaultProps} />);
 
@@ -171,13 +157,7 @@ describe('QuickAddDialog', () => {
         }),
     });
 
-    render(
-      <QuickAddDialog
-        {...defaultProps}
-        defaultParentId="parent-123"
-        onCreated={onCreated}
-      />
-    );
+    render(<QuickAddDialog {...defaultProps} defaultParentId="parent-123" onCreated={onCreated} />);
 
     const titleInput = screen.getByPlaceholderText(/title/i);
     fireEvent.change(titleInput, { target: { value: 'Child Item' } });
@@ -190,7 +170,7 @@ describe('QuickAddDialog', () => {
         '/api/work-items',
         expect.objectContaining({
           body: expect.stringContaining('"parentId":"parent-123"'),
-        })
+        }),
       );
     });
   });
@@ -287,13 +267,7 @@ describe('WorkItemCreateDialog', () => {
         }),
     });
 
-    render(
-      <WorkItemCreateDialog
-        {...defaultProps}
-        defaultKind="project"
-        onCreated={onCreated}
-      />
-    );
+    render(<WorkItemCreateDialog {...defaultProps} defaultKind="project" onCreated={onCreated} />);
 
     await waitFor(() => screen.getByLabelText(/title/i));
 
@@ -312,7 +286,7 @@ describe('WorkItemCreateDialog', () => {
         expect.objectContaining({
           title: 'Full Form Item',
           kind: 'project',
-        })
+        }),
       );
     });
   });

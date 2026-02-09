@@ -26,10 +26,7 @@ function renderMath(latex: string, displayMode: boolean): string {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Invalid LaTeX';
-    const escapedLatex = latex
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    const escapedLatex = latex.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return `<span class="math-error text-destructive bg-destructive/10 px-1 rounded" title="${errorMessage}">${escapedLatex}</span>`;
   }
 }
@@ -85,42 +82,44 @@ export function markdownToHtml(markdown: string): string {
 
   // Add a trailing newline to help with regex matching, will be trimmed later
   const normalizedHtml = html + '\n';
-  html = normalizedHtml.replace(/(\|[^\n]+\|\n\|[-:\s|]+\|\n(?:\|[^\n]+\|(?:\n|$))+)/g, (tableContent) => {
-    const lines = tableContent.trim().split('\n');
-    if (lines.length < 2) return tableContent;
+  html = normalizedHtml
+    .replace(/(\|[^\n]+\|\n\|[-:\s|]+\|\n(?:\|[^\n]+\|(?:\n|$))+)/g, (tableContent) => {
+      const lines = tableContent.trim().split('\n');
+      if (lines.length < 2) return tableContent;
 
-    // Check if second line is separator (|---|---|)
-    const separatorLine = lines[1];
-    if (!separatorLine.match(/^\|[-:\s|]+\|$/)) return tableContent;
+      // Check if second line is separator (|---|---|)
+      const separatorLine = lines[1];
+      if (!separatorLine.match(/^\|[-:\s|]+\|$/)) return tableContent;
 
-    const placeholder = `__TABLE_${tableIndex++}__`;
-    let tableHtml = '<table class="border-collapse border border-border my-4 w-full">';
+      const placeholder = `__TABLE_${tableIndex++}__`;
+      let tableHtml = '<table class="border-collapse border border-border my-4 w-full">';
 
-    // Parse header row
-    const headerCells = lines[0].split('|').filter(cell => cell.trim() !== '');
-    tableHtml += '<thead><tr class="border-b border-border">';
-    for (const cell of headerCells) {
-      tableHtml += `<th class="bg-muted font-semibold border border-border p-2 text-sm text-left">${cell.trim()}</th>`;
-    }
-    tableHtml += '</tr></thead>';
-
-    // Parse data rows (skip separator line)
-    tableHtml += '<tbody>';
-    for (let i = 2; i < lines.length; i++) {
-      const cells = lines[i].split('|').filter(cell => cell.trim() !== '');
-      if (cells.length > 0) {
-        tableHtml += '<tr class="border-b border-border">';
-        for (const cell of cells) {
-          tableHtml += `<td class="border border-border p-2 text-sm">${cell.trim()}</td>`;
-        }
-        tableHtml += '</tr>';
+      // Parse header row
+      const headerCells = lines[0].split('|').filter((cell) => cell.trim() !== '');
+      tableHtml += '<thead><tr class="border-b border-border">';
+      for (const cell of headerCells) {
+        tableHtml += `<th class="bg-muted font-semibold border border-border p-2 text-sm text-left">${cell.trim()}</th>`;
       }
-    }
-    tableHtml += '</tbody></table>';
+      tableHtml += '</tr></thead>';
 
-    tables.push({ placeholder, html: tableHtml });
-    return '\n' + placeholder + '\n';
-  }).trim();
+      // Parse data rows (skip separator line)
+      tableHtml += '<tbody>';
+      for (let i = 2; i < lines.length; i++) {
+        const cells = lines[i].split('|').filter((cell) => cell.trim() !== '');
+        if (cells.length > 0) {
+          tableHtml += '<tr class="border-b border-border">';
+          for (const cell of cells) {
+            tableHtml += `<td class="border border-border p-2 text-sm">${cell.trim()}</td>`;
+          }
+          tableHtml += '</tr>';
+        }
+      }
+      tableHtml += '</tbody></table>';
+
+      tables.push({ placeholder, html: tableHtml });
+      return '\n' + placeholder + '\n';
+    })
+    .trim();
 
   // Extract inline math ($...$) - must be after code blocks to avoid processing $ in code
   // Use a regex that matches single $ but not $$ (which is block math)
@@ -136,10 +135,7 @@ export function markdownToHtml(markdown: string): string {
   });
 
   // Now escape remaining HTML
-  html = html
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   // Headers
   html = html.replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>');
@@ -179,14 +175,10 @@ export function markdownToHtml(markdown: string): string {
   // Restore mermaid blocks with placeholder div for rendering
   // The actual rendering happens in MermaidRenderer component
   for (const block of mermaidBlocks) {
-    const escapedCode = block.code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    const escapedCode = block.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     html = html.replace(
       block.placeholder,
-      `<div class="mermaid-diagram my-4" data-mermaid="${escapedCode}"><div class="mermaid-placeholder bg-muted p-4 rounded-md text-center text-muted-foreground">Loading diagram...</div></div>`
+      `<div class="mermaid-diagram my-4" data-mermaid="${escapedCode}"><div class="mermaid-placeholder bg-muted p-4 rounded-md text-center text-muted-foreground">Loading diagram...</div></div>`,
     );
   }
 

@@ -4,14 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  ContactCard,
-  ContactList,
-  ContactDetailSheet,
-  ContactForm,
-  type Contact,
-  type ContactDetail,
-} from '@/ui/components/contacts';
+import { ContactCard, ContactList, ContactDetailSheet, ContactForm, type Contact, type ContactDetail } from '@/ui/components/contacts';
 
 const mockContact: Contact = {
   id: '1',
@@ -139,13 +132,7 @@ describe('ContactList', () => {
 
 describe('ContactDetailSheet', () => {
   it('renders contact details', () => {
-    render(
-      <ContactDetailSheet
-        contact={mockDetailContact}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('john@example.com')).toBeInTheDocument();
@@ -153,26 +140,14 @@ describe('ContactDetailSheet', () => {
   });
 
   it('shows linked work items', () => {
-    render(
-      <ContactDetailSheet
-        contact={mockDetailContact}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('Project Alpha')).toBeInTheDocument();
     expect(screen.getByText('Bug Fix')).toBeInTheDocument();
   });
 
   it('shows linked communications', () => {
-    render(
-      <ContactDetailSheet
-        contact={mockDetailContact}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('Project Update')).toBeInTheDocument();
     expect(screen.getByText('Weekly Sync')).toBeInTheDocument();
@@ -180,14 +155,7 @@ describe('ContactDetailSheet', () => {
 
   it('calls onEdit when edit clicked', () => {
     const onEdit = vi.fn();
-    render(
-      <ContactDetailSheet
-        contact={mockDetailContact}
-        open={true}
-        onOpenChange={() => {}}
-        onEdit={onEdit}
-      />
-    );
+    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} onEdit={onEdit} />);
 
     fireEvent.click(screen.getByText('Edit'));
     expect(onEdit).toHaveBeenCalledWith(mockDetailContact);
@@ -195,14 +163,7 @@ describe('ContactDetailSheet', () => {
 
   it('calls onWorkItemClick when item clicked', () => {
     const onWorkItemClick = vi.fn();
-    render(
-      <ContactDetailSheet
-        contact={mockDetailContact}
-        open={true}
-        onOpenChange={() => {}}
-        onWorkItemClick={onWorkItemClick}
-      />
-    );
+    render(<ContactDetailSheet contact={mockDetailContact} open={true} onOpenChange={() => {}} onWorkItemClick={onWorkItemClick} />);
 
     fireEvent.click(screen.getByText('Project Alpha'));
     expect(onWorkItemClick).toHaveBeenCalledWith(mockDetailContact.linkedWorkItems[0]);
@@ -211,13 +172,7 @@ describe('ContactDetailSheet', () => {
 
 describe('ContactForm', () => {
   it('renders form fields', () => {
-    render(
-      <ContactForm
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<ContactForm open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/)).toBeInTheDocument();
@@ -226,14 +181,7 @@ describe('ContactForm', () => {
   });
 
   it('pre-fills form when editing', () => {
-    render(
-      <ContactForm
-        contact={mockContact}
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<ContactForm contact={mockContact} open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByDisplayValue('John Doe')).toBeInTheDocument();
     expect(screen.getByDisplayValue('john@example.com')).toBeInTheDocument();
@@ -241,13 +189,7 @@ describe('ContactForm', () => {
 
   it('submits form data', () => {
     const onSubmit = vi.fn();
-    render(
-      <ContactForm
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={onSubmit}
-      />
-    );
+    render(<ContactForm open={true} onOpenChange={() => {}} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Test User' } });
     fireEvent.change(screen.getByLabelText(/Email/), { target: { value: 'test@test.com' } });
@@ -255,20 +197,16 @@ describe('ContactForm', () => {
     const submitButton = screen.getByRole('button', { name: 'Add Contact' });
     fireEvent.click(submitButton);
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Test User',
-      email: 'test@test.com',
-    }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Test User',
+        email: 'test@test.com',
+      }),
+    );
   });
 
   it('disables submit when required fields empty', () => {
-    render(
-      <ContactForm
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<ContactForm open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     const submitButton = screen.getByRole('button', { name: 'Add Contact' });
     expect(submitButton).toBeDisabled();

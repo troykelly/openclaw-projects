@@ -55,10 +55,7 @@ export class NotesPageObject {
     // The "Saving..." UI state is too transient to catch reliably with waitFor
     // since local API calls complete in milliseconds.
     await this.page.waitForResponse(
-      (resp) =>
-        resp.url().includes('/api/notes') &&
-        (resp.request().method() === 'POST' || resp.request().method() === 'PUT') &&
-        resp.ok(),
+      (resp) => resp.url().includes('/api/notes') && (resp.request().method() === 'POST' || resp.request().method() === 'PUT') && resp.ok(),
       { timeout: 10_000 },
     );
   }

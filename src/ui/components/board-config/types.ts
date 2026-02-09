@@ -22,15 +22,7 @@ export type WipLimit = number;
 
 export type CardDisplayMode = 'compact' | 'detailed';
 
-export type CardField =
-  | 'title'
-  | 'status'
-  | 'priority'
-  | 'assignee'
-  | 'dueDate'
-  | 'labels'
-  | 'estimate'
-  | 'progress';
+export type CardField = 'title' | 'status' | 'priority' | 'assignee' | 'dueDate' | 'labels' | 'estimate' | 'progress';
 
 export interface BoardSettings {
   columns: BoardColumn[];

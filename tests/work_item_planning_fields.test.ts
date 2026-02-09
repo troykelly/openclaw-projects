@@ -22,7 +22,7 @@ describe('Work item planning fields (priority/type/scheduling)', () => {
   it('adds priority and type columns with defaults', async () => {
     const inserted = await pool.query(
       `INSERT INTO work_item (title) VALUES ('Planning fields')
-       RETURNING priority::text as priority, task_type::text as task_type`
+       RETURNING priority::text as priority, task_type::text as task_type`,
     );
 
     expect(inserted.rows[0].priority).toMatch(/^P[0-4]$/);
@@ -34,15 +34,15 @@ describe('Work item planning fields (priority/type/scheduling)', () => {
     const ok = await pool.query(
       `INSERT INTO work_item (title, not_before, not_after)
        VALUES ('Window ok', now(), now() + interval '1 hour')
-       RETURNING id`
+       RETURNING id`,
     );
     expect(ok.rows.length).toBe(1);
 
     await expect(
       pool.query(
         `INSERT INTO work_item (title, not_before, not_after)
-         VALUES ('Window bad', now() + interval '2 hour', now() + interval '1 hour')`
-      )
+         VALUES ('Window bad', now() + interval '2 hour', now() + interval '1 hour')`,
+      ),
     ).rejects.toThrow(/work_item/);
   });
 });
