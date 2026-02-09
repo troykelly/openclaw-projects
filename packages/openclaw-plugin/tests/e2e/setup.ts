@@ -166,6 +166,7 @@ export interface E2ETestContext {
     projects: string[];
     contacts: string[];
     workItems: string[];
+    skills: string[];
   };
 }
 
@@ -181,6 +182,7 @@ export function createE2EContext(config: E2EConfig = defaultConfig): E2ETestCont
       projects: [],
       contacts: [],
       workItems: [],
+      skills: [],
     },
   };
 }
@@ -200,28 +202,56 @@ export function setupE2ELifecycle(context: E2ETestContext) {
 
   afterAll(async () => {
     // Cleanup all created resources
-    for (const id of context.createdIds.memories) {
-      try {
-        await context.apiClient.delete(`/api/memories/${id}`);
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
-
-    for (const id of context.createdIds.contacts) {
-      try {
-        await context.apiClient.delete(`/api/contacts/${id}`);
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
-
-    for (const id of context.createdIds.workItems) {
-      try {
-        await context.apiClient.delete(`/api/work-items/${id}`);
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
+    await cleanupResources(context);
   });
+}
+
+/**
+ * Cleanup all resources created during tests.
+ */
+export async function cleanupResources(context: E2ETestContext): Promise<void> {
+  // Cleanup memories
+  for (const id of context.createdIds.memories) {
+    try {
+      await context.apiClient.delete(`/api/memories/${id}`);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  // Cleanup contacts
+  for (const id of context.createdIds.contacts) {
+    try {
+      await context.apiClient.delete(`/api/contacts/${id}`);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  // Cleanup work items
+  for (const id of context.createdIds.workItems) {
+    try {
+      await context.apiClient.delete(`/api/work-items/${id}`);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  // Cleanup projects (if not already cleaned via workItems)
+  for (const id of context.createdIds.projects) {
+    try {
+      await context.apiClient.delete(`/api/work-items/${id}`);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  // Cleanup skills
+  for (const id of context.createdIds.skills) {
+    try {
+      await context.apiClient.delete(`/api/skill-store/${id}`);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
 }
