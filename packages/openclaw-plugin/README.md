@@ -459,7 +459,7 @@ For detailed troubleshooting, see [docs/troubleshooting.md](docs/troubleshooting
 If the status command reports `Auth: invalid`:
 - Verify your `apiKey` matches the `OPENCLAW_PROJECTS_AUTH_SECRET` in the backend `.env`
 - Check the secret retrieval method (file, command) is working
-- Ensure `OPENCLAW_PROJECTS_AUTH_DISABLED` is not set to `false` if using the quickstart compose
+- If using the quickstart compose, auth is disabled by default (`OPENCLAW_PROJECTS_AUTH_DISABLED=true`). If you have overridden this to `false` (enabling auth), ensure your `apiKey` is correctly configured
 
 ### No memories found
 
