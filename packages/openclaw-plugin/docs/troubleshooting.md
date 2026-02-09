@@ -132,10 +132,12 @@ If the status is healthy but you still have issues, continue with the specific s
 **Solutions:**
 
 1. **Increase timeout**
-   ```json
-   {
-     "secretCommandTimeout": 10000  // 10 seconds
-   }
+   ```yaml
+   plugins:
+     entries:
+       openclaw-projects:
+         config:
+           secretCommandTimeout: 10000  # 10 seconds
    ```
 
 2. **Check secret manager authentication**
@@ -158,10 +160,12 @@ If the status is healthy but you still have issues, continue with the specific s
 **Solutions:**
 
 1. **Check minRecallScore setting**
-   ```json
-   {
-     "minRecallScore": 0.5  // Lower threshold
-   }
+   ```yaml
+   plugins:
+     entries:
+       openclaw-projects:
+         config:
+           minRecallScore: 0.5  # Lower threshold
    ```
 
 2. **Try broader query**
@@ -267,11 +271,13 @@ If the status is healthy but you still have issues, continue with the specific s
 **Common causes:**
 
 1. **Missing required field**
-   ```json
-   {
-     "apiUrl": "https://api.example.com",  // Required
-     "apiKey": "..."  // One of apiKey/apiKeyFile/apiKeyCommand required
-   }
+   ```yaml
+   plugins:
+     entries:
+       openclaw-projects:
+         config:
+           apiUrl: "https://api.example.com"       # Required
+           apiKey: "..."  # One of apiKey/apiKeyFile/apiKeyCommand required
    ```
 
 2. **Invalid field type**
@@ -279,10 +285,12 @@ If the status is healthy but you still have issues, continue with the specific s
    - Ensure numbers aren't quoted
 
 3. **Invalid email format**
-   ```json
-   {
-     "postmarkFromEmail": "invalid"  // Must be valid email
-   }
+   ```yaml
+   plugins:
+     entries:
+       openclaw-projects:
+         config:
+           postmarkFromEmail: "invalid"  # Must be valid email
    ```
 
 ### "Cannot find module" errors
@@ -318,10 +326,12 @@ If the status is healthy but you still have issues, continue with the specific s
    ```
 
 2. **Increase timeout**
-   ```json
-   {
-     "timeout": 60000  // 60 seconds
-   }
+   ```yaml
+   plugins:
+     entries:
+       openclaw-projects:
+         config:
+           timeout: 60000  # 60 seconds
    ```
 
 3. **Check backend performance**
@@ -343,10 +353,12 @@ If the status is healthy but you still have issues, continue with the specific s
 
 ### Enable debug logging
 
-```json
-{
-  "debug": true
-}
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      config:
+        debug: true
 ```
 
 This will output:
