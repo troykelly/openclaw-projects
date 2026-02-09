@@ -78,7 +78,7 @@ describe('memory_store tool', () => {
   })
 
   describe('parameter validation', () => {
-    it('should require text parameter', async () => {
+    it('should require content parameter', async () => {
       const tool = createMemoryStoreTool({
         client: mockApiClient,
         logger: mockLogger,
@@ -89,11 +89,11 @@ describe('memory_store tool', () => {
       const result = await tool.execute({} as MemoryStoreParams)
       expect(result.success).toBe(false)
       if (!result.success) {
-        expect(result.error).toContain('text')
+        expect(result.error).toContain('content')
       }
     })
 
-    it('should reject empty text', async () => {
+    it('should reject empty content', async () => {
       const tool = createMemoryStoreTool({
         client: mockApiClient,
         logger: mockLogger,
@@ -101,11 +101,11 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: '' })
+      const result = await tool.execute({ content: '' })
       expect(result.success).toBe(false)
     })
 
-    it('should reject text over 5000 characters', async () => {
+    it('should reject content over 10000 characters', async () => {
       const tool = createMemoryStoreTool({
         client: mockApiClient,
         logger: mockLogger,
@@ -113,8 +113,8 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const longText = 'a'.repeat(5001)
-      const result = await tool.execute({ text: longText })
+      const longText = 'a'.repeat(10001)
+      const result = await tool.execute({ content: longText })
       expect(result.success).toBe(false)
     })
 
@@ -132,7 +132,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'User prefers oat milk', category: 'preference' })
+      await tool.execute({ content: 'User prefers oat milk', category: 'preference' })
       expect(mockPost).toHaveBeenCalled()
     })
 
@@ -145,7 +145,7 @@ describe('memory_store tool', () => {
       })
 
       const result = await tool.execute({
-        text: 'test',
+        content: 'test',
         category: 'invalid' as MemoryStoreParams['category'],
       })
       expect(result.success).toBe(false)
@@ -165,7 +165,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'Important fact', importance: 0.9 })
+      await tool.execute({ content: 'Important fact', importance: 0.9 })
       expect(mockPost).toHaveBeenCalled()
     })
 
@@ -177,7 +177,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: 'test', importance: 1.5 })
+      const result = await tool.execute({ content: 'test', importance: 1.5 })
       expect(result.success).toBe(false)
     })
 
@@ -189,7 +189,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: 'test', importance: -0.1 })
+      const result = await tool.execute({ content: 'test', importance: -0.1 })
       expect(result.success).toBe(false)
     })
   })
@@ -209,7 +209,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'test\x00\x1F text' })
+      await tool.execute({ content: 'test\x00\x1F text' })
 
       expect(mockPost).toHaveBeenCalledWith(
         expect.any(String),
@@ -234,7 +234,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: '  test text  ' })
+      await tool.execute({ content: '  test text  ' })
 
       expect(mockPost).toHaveBeenCalledWith(
         expect.any(String),
@@ -260,7 +260,7 @@ describe('memory_store tool', () => {
       })
 
       // Use a longer key that matches the pattern (20+ chars after sk-)
-      await tool.execute({ text: 'api key is sk-abc123xyz456def789ghijk' })
+      await tool.execute({ content: 'api key is sk-abc123xyz456def789ghijk' })
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('credential'),
@@ -285,7 +285,7 @@ describe('memory_store tool', () => {
       })
 
       await tool.execute({
-        text: 'User likes coffee',
+        content: 'User likes coffee',
         category: 'preference',
         importance: 0.8,
       })
@@ -315,7 +315,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'Some info' })
+      await tool.execute({ content:'Some info' })
 
       expect(mockPost).toHaveBeenCalledWith(
         '/api/memories',
@@ -340,7 +340,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'Some info' })
+      await tool.execute({ content:'Some info' })
 
       expect(mockPost).toHaveBeenCalledWith(
         '/api/memories',
@@ -373,7 +373,7 @@ describe('memory_store tool', () => {
       })
 
       const result = await tool.execute({
-        text: 'User birthday is March 15',
+        content: 'User birthday is March 15',
         category: 'fact',
         importance: 0.8,
       })
@@ -401,7 +401,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: longContent })
+      const result = await tool.execute({ content:longContent })
 
       expect(result.success).toBe(true)
       if (result.success) {
@@ -426,7 +426,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: 'test' })
+      const result = await tool.execute({ content:'test' })
 
       expect(result.success).toBe(false)
       if (!result.success) {
@@ -445,7 +445,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: 'test' })
+      const result = await tool.execute({ content:'test' })
 
       expect(result.success).toBe(false)
     })
@@ -463,7 +463,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      const result = await tool.execute({ text: 'test' })
+      const result = await tool.execute({ content:'test' })
 
       expect(result.success).toBe(false)
       if (!result.success) {
@@ -488,14 +488,14 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'Sensitive information here', category: 'fact' })
+      await tool.execute({ content:'Sensitive information here', category: 'fact' })
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         'memory_store invoked',
         expect.objectContaining({
           userId: 'agent-1',
           category: 'fact',
-          textLength: expect.any(Number),
+          contentLength: expect.any(Number),
         })
       )
 
@@ -518,7 +518,7 @@ describe('memory_store tool', () => {
         userId: 'agent-1',
       })
 
-      await tool.execute({ text: 'test' })
+      await tool.execute({ content:'test' })
 
       expect(mockLogger.error).toHaveBeenCalled()
     })
@@ -539,7 +539,7 @@ describe('memory_store tool', () => {
         userId: 'custom-user-456',
       })
 
-      await tool.execute({ text: 'test' })
+      await tool.execute({ content:'test' })
 
       expect(mockPost).toHaveBeenCalledWith(
         expect.any(String),
@@ -562,7 +562,7 @@ describe('memory_store tool', () => {
         userId: 'my-agent',
       })
 
-      const result = await tool.execute({ text: 'test' })
+      const result = await tool.execute({ content:'test' })
 
       expect(result.success).toBe(true)
       if (result.success) {

@@ -538,8 +538,7 @@ describe('Security Tests', () => {
         userId: 'isolated-user-456',
       })
 
-      // Use 'text' parameter, not 'content' (matching the schema)
-      await tool.execute({ text: 'test content for memory', category: 'fact' })
+      await tool.execute({ content: 'test content for memory', category: 'fact' })
 
       // The tool should call the API with the userId
       expect(mockPost).toHaveBeenCalled()

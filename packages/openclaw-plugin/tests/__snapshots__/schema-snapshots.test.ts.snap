@@ -536,6 +536,11 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       ],
       "type": "string",
     },
+    "content": {
+      "maxLength": 10000,
+      "minLength": 1,
+      "type": "string",
+    },
     "importance": {
       "maximum": 1,
       "minimum": 0,
@@ -553,14 +558,9 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       },
       "type": "array",
     },
-    "text": {
-      "maxLength": 5000,
-      "minLength": 1,
-      "type": "string",
-    },
   },
   "required": [
-    "text",
+    "content",
   ],
   "type": "object",
 }
