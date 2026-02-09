@@ -265,13 +265,27 @@ configure_claude_permissions() {
 
   log "Configuring Claude Code permissions (bypass for sandboxed container)"
   local settings="$HOME/.claude/settings.json"
+
+  # Check if node is available before attempting to use it
+  if ! command -v node >/dev/null 2>&1; then
+    log "WARN: node not available, cannot safely merge settings - will overwrite if file exists"
+    mkdir -p "$(dirname "$settings")"
+    echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
+    return 0
+  fi
+
   if [ -f "$settings" ]; then
-    node -e "
+    # Use node to merge settings (preserves existing configuration)
+    if ! node -e "
       const fs = require('fs');
       const s = JSON.parse(fs.readFileSync('$settings', 'utf8'));
       s.permissions = { ...s.permissions, defaultMode: 'bypassPermissions' };
       fs.writeFileSync('$settings', JSON.stringify(s, null, 2) + '\n');
-    "
+    " 2>/dev/null; then
+      log "WARN: Node script failed to merge settings, overwriting file"
+      mkdir -p "$(dirname "$settings")"
+      echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
+    fi
   else
     mkdir -p "$(dirname "$settings")"
     echo '{ "permissions": { "defaultMode": "bypassPermissions" } }' > "$settings"
