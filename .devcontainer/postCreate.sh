@@ -218,8 +218,14 @@ install_openclaw_gateway() {
   mkdir -p "$(dirname "$gateway_dir")"
 
   log "Cloning OpenClaw gateway from source..."
-  if ! git clone --depth 1 "$auth_url" "$gateway_dir" 2>&1; then
+  # Sanitize git output to prevent credential leakage
+  local clone_output
+  if ! clone_output=$(git clone --depth 1 "$auth_url" "$gateway_dir" 2>&1); then
+    # Remove any occurrence of the token from error output
+    local sanitized_output
+    sanitized_output=$(echo "$clone_output" | sed "s|${GITHUB_TOKEN}|[REDACTED]|g" | sed 's|x-access-token:[^@]*@|x-access-token:[REDACTED]@|g')
     log "WARN: Failed to clone OpenClaw gateway. Integration testing will be unavailable."
+    log "WARN: Git error (credentials sanitized): $sanitized_output"
     log "WARN: Verify GITHUB_TOKEN has access to github.com/openclaw/openclaw"
     return 1
   fi
