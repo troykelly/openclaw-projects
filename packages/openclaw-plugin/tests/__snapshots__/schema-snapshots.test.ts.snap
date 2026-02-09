@@ -44,6 +44,7 @@ exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`
 
 exports[`Schema Snapshots > Manifest configSchema > configSchema should match snapshot 1`] = `
 {
+  "additionalProperties": false,
   "anyOf": [
     {
       "required": [
@@ -88,6 +89,37 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
       "description": "Automatically recall relevant memories on conversation start",
       "type": "boolean",
     },
+    "baseUrl": {
+      "description": "Base URL for web app (used for generating note/notebook URLs)",
+      "format": "uri",
+      "type": "string",
+    },
+    "debug": {
+      "default": false,
+      "description": "Enable debug logging (never logs secrets)",
+      "type": "boolean",
+    },
+    "maxRecallMemories": {
+      "default": 5,
+      "description": "Maximum memories to inject in auto-recall",
+      "maximum": 20,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "maxRetries": {
+      "default": 3,
+      "description": "Maximum retries for failed requests",
+      "maximum": 5,
+      "minimum": 0,
+      "type": "integer",
+    },
+    "minRecallScore": {
+      "default": 0.7,
+      "description": "Minimum relevance score for auto-recall (0-1)",
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number",
+    },
     "postmarkFromEmail": {
       "description": "Postmark From Email address (direct value)",
       "format": "email",
@@ -117,6 +149,13 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
       "default": 5000,
       "description": "Timeout for secret command execution in milliseconds",
       "maximum": 30000,
+      "minimum": 1000,
+      "type": "integer",
+    },
+    "timeout": {
+      "default": 30000,
+      "description": "Request timeout in milliseconds",
+      "maximum": 60000,
       "minimum": 1000,
       "type": "integer",
     },
@@ -183,6 +222,7 @@ exports[`Schema Snapshots > Manifest configSchema > full manifest structure (exc
   "skills": [
     "skills",
   ],
+  "version": "0.0.3",
 }
 `;
 
@@ -219,6 +259,32 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
     "helpText": "Automatically inject relevant memories at conversation start",
     "label": "Auto-Recall",
   },
+  "baseUrl": {
+    "group": "Advanced",
+    "helpText": "Base URL for the web app (used for generating links)",
+    "label": "Web App URL",
+    "placeholder": "https://app.example.com",
+  },
+  "debug": {
+    "group": "Advanced",
+    "helpText": "Enable debug logging (never logs secrets)",
+    "label": "Debug Mode",
+  },
+  "maxRecallMemories": {
+    "group": "Memory",
+    "helpText": "Maximum number of memories to inject during auto-recall",
+    "label": "Max Recall Memories",
+  },
+  "maxRetries": {
+    "group": "Advanced",
+    "helpText": "Maximum number of retries for failed requests",
+    "label": "Max Retries",
+  },
+  "minRecallScore": {
+    "group": "Memory",
+    "helpText": "Minimum relevance score (0-1) for auto-recall",
+    "label": "Min Recall Score",
+  },
   "postmarkFromEmail": {
     "group": "Postmark Email",
     "label": "Postmark From Email",
@@ -249,6 +315,11 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
     "group": "Advanced",
     "helpText": "Timeout in milliseconds for secret retrieval commands",
     "label": "Secret Command Timeout",
+  },
+  "timeout": {
+    "group": "Advanced",
+    "helpText": "Timeout in milliseconds for API requests",
+    "label": "Request Timeout",
   },
   "twilioAccountSid": {
     "group": "Twilio SMS",

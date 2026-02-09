@@ -227,7 +227,7 @@ export class ApiClient {
             message: errorBody.message || response.statusText,
             code: getErrorCode(response.status),
             details: errorBody.details,
-            retryAfter: retryAfter ? parseInt(retryAfter, 10) : undefined,
+            retryAfter: retryAfter ? Number.parseInt(retryAfter, 10) : undefined,
           },
         }
       }

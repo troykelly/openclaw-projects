@@ -38,7 +38,6 @@ import type { PluginConfig, } from './config.js'
 import {
   validateConfig,
   validateRawConfig,
-  resolveConfigSecrets,
   redactConfig,
 } from './config.js'
 import { createLogger, type Logger } from './logger.js'

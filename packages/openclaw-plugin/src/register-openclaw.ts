@@ -21,7 +21,7 @@ import type {
   PluginHookAgentEndEvent,
 } from './types/openclaw-api.js'
 import { ZodError } from 'zod'
-import { validateRawConfig, resolveConfigSecretsSync, redactConfig, type PluginConfig } from './config.js'
+import { validateRawConfig, resolveConfigSecretsSync, redactConfig, type PluginConfig, type RawPluginConfig } from './config.js'
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
 import { extractContext, getUserScopeKey } from './context.js'
@@ -2170,7 +2170,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // synchronously during this call.
   const logger = api.logger ?? createLogger('openclaw-projects')
 
-  let rawConfig
+  let rawConfig: RawPluginConfig
   try {
     rawConfig = validateRawConfig(api.config)
   } catch (error: unknown) {
@@ -2652,7 +2652,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         const options = (args[1] ?? {}) as { limit?: string }
         const result = await handlers.memory_recall({
           query,
-          limit: options.limit ? parseInt(options.limit, 10) : 5,
+          limit: options.limit ? Number.parseInt(options.limit, 10) : 5,
         })
         if (result.success && result.data) {
           console.log(result.data.content)

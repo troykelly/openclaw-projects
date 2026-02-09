@@ -5,7 +5,6 @@ import {
   PluginConfigSchema,
   RawPluginConfigSchema,
   validateConfig,
-  validateRawConfig,
   safeValidateConfig,
   safeValidateRawConfig,
   redactConfig,
