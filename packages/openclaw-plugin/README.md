@@ -150,7 +150,51 @@ After installation, verify the plugin is loaded:
 openclaw plugins info openclaw-projects
 ```
 
-Check that the plugin is healthy and can reach the backend:
+### Health Check (status command)
+
+The plugin includes a built-in health check that verifies API connectivity, authentication, and reports latency:
+
+```bash
+openclaw openclaw-projects status
+```
+
+**Healthy output:**
+
+```
+openclaw-projects status:
+  API URL:    http://localhost:3000
+  Status:     healthy
+  Auth:       valid
+  Latency:    12ms
+```
+
+**Unhealthy output (backend unreachable):**
+
+```
+openclaw-projects status:
+  API URL:    http://localhost:3000
+  Status:     unhealthy
+  Error:      Connection refused (ECONNREFUSED)
+```
+
+**Unhealthy output (authentication failure):**
+
+```
+openclaw-projects status:
+  API URL:    http://localhost:3000
+  Status:     unhealthy
+  Auth:       invalid (401 Unauthorized)
+  Latency:    8ms
+```
+
+The status command checks:
+- **API connectivity** -- can the plugin reach the backend URL?
+- **Authentication** -- is the API key valid and accepted?
+- **Response time** -- how long does the health check take (latency in ms)?
+
+Use this command as the first diagnostic step when tools fail or behave unexpectedly.
+
+You can also use the general plugin doctor command:
 
 ```bash
 openclaw plugins doctor
@@ -385,6 +429,8 @@ When `autoCapture` is enabled (default), the plugin automatically analyzes compl
 
 ## Troubleshooting
 
+> **First step for any issue:** Run `openclaw openclaw-projects status` to check connectivity, authentication, and latency. See [Health Check](#health-check-status-command) above for expected output.
+
 ### Plugin not loading
 
 Verify the plugin is installed and the manifest is detected:
@@ -395,11 +441,25 @@ openclaw plugins info openclaw-projects
 
 ### Connection issues
 
-Check that the backend API is reachable:
+Run the status command to diagnose:
 
 ```bash
-openclaw plugins doctor
+openclaw openclaw-projects status
 ```
+
+If the status shows unhealthy, check:
+- Is the backend running? `curl http://localhost:3000/health`
+- Is the `apiUrl` in your config correct?
+- Are there firewall rules blocking the connection?
+
+For detailed troubleshooting, see [docs/troubleshooting.md](docs/troubleshooting.md).
+
+### Authentication failures
+
+If the status command reports `Auth: invalid`:
+- Verify your `apiKey` matches the `OPENCLAW_PROJECTS_AUTH_SECRET` in the backend `.env`
+- Check the secret retrieval method (file, command) is working
+- Ensure `OPENCLAW_PROJECTS_AUTH_DISABLED` is not set to `false` if using the quickstart compose
 
 ### No memories found
 
@@ -409,9 +469,10 @@ openclaw plugins doctor
 
 ### API errors
 
-- Verify `apiUrl` is correct and accessible
+- Run `openclaw openclaw-projects status` to verify connectivity
 - Check that the API key is valid
 - Review network connectivity
+- Enable debug logging (`debug: true` in config) for detailed request/response info
 
 ## Contributing
 

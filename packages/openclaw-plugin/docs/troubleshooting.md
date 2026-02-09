@@ -2,6 +2,42 @@
 
 This guide covers common issues and their solutions.
 
+## First Step: Run the Health Check
+
+Before investigating specific errors, run the built-in status command:
+
+```bash
+openclaw openclaw-projects status
+```
+
+This checks API connectivity, authentication, and response time in a single command.
+
+**Healthy output:**
+
+```
+openclaw-projects status:
+  API URL:    http://localhost:3000
+  Status:     healthy
+  Auth:       valid
+  Latency:    12ms
+```
+
+**Unhealthy output:**
+
+```
+openclaw-projects status:
+  API URL:    http://localhost:3000
+  Status:     unhealthy
+  Error:      Connection refused (ECONNREFUSED)
+```
+
+The status command verifies:
+- **API connectivity** -- can the plugin reach the backend at the configured `apiUrl`?
+- **Authentication** -- is the configured API key accepted by the backend?
+- **Response time** -- latency in milliseconds (high latency may indicate network or backend performance issues)
+
+If the status is healthy but you still have issues, continue with the specific sections below.
+
 ## Connection Issues
 
 ### "Connection refused" or "ECONNREFUSED"
