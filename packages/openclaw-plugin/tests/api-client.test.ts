@@ -332,6 +332,69 @@ describe('ApiClient', () => {
       expect(result.success).toBe(false)
     })
 
+    it('should retry on 429 status', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new Headers({ 'Retry-After': '1' }),
+          json: async () => ({ message: 'Rate limit exceeded' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 1 }),
+        })
+
+      const client = createApiClient({
+        config: { ...defaultConfig, maxRetries: 1 },
+        logger: mockLogger,
+      })
+      const result = await client.get('/items')
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(result.success).toBe(true)
+    })
+
+    it('should use Retry-After header value as delay for 429 responses', async () => {
+      const sleepCalls: number[] = []
+      const originalSetTimeout = globalThis.setTimeout
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: (...args: unknown[]) => void, ms?: number) => {
+        if (ms && ms > 100) {
+          sleepCalls.push(ms)
+        }
+        // Execute immediately for test speed
+        fn()
+        return 0 as unknown as ReturnType<typeof setTimeout>
+      })
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new Headers({ 'Retry-After': '5' }),
+          json: async () => ({ message: 'Rate limit exceeded' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 1 }),
+        })
+
+      const client = createApiClient({
+        config: { ...defaultConfig, maxRetries: 1 },
+        logger: mockLogger,
+      })
+      await client.get('/items')
+
+      // The retry delay should be 5000ms (5 seconds * 1000)
+      expect(sleepCalls).toContain(5000)
+
+      vi.mocked(globalThis.setTimeout).mockRestore()
+    })
+
     it('should fail on 5xx errors when maxRetries is 0', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,

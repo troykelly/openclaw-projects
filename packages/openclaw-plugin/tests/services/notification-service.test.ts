@@ -117,6 +117,32 @@ describe('Notification Service', () => {
       )
     })
 
+    it('should poll immediately on start', async () => {
+      (mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: { notifications: [], total: 0 },
+      })
+
+      const service = createNotificationService({
+        logger: mockLogger,
+        apiClient: mockApiClient,
+        userId: 'user@example.com',
+        events: mockEmitter,
+        config: { enabled: true, pollIntervalMs: 60000 },
+      })
+
+      await service.start()
+      // Flush the microtask queue so the poll() promise resolves
+      await vi.advanceTimersByTimeAsync(0)
+
+      // Should have polled immediately without waiting for interval
+      expect(mockApiClient.get).toHaveBeenCalledTimes(1)
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('/api/notifications'),
+        expect.anything()
+      )
+    })
+
     it('should stop service cleanly', async () => {
       const service = createNotificationService({
         logger: mockLogger,
@@ -332,12 +358,13 @@ describe('Notification Service', () => {
         config: { enabled: true, pollIntervalMs: 5000 },
       })
 
-      await service.start()
-
       expect(service.getLastPollTime()).toBeNull()
 
-      await vi.advanceTimersByTimeAsync(5000)
+      await service.start()
+      // Flush the initial poll
+      await vi.advanceTimersByTimeAsync(0)
 
+      // Should be set after the initial poll
       expect(service.getLastPollTime()).toBeDefined()
     })
   })

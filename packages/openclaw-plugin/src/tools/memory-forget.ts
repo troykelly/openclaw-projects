@@ -282,12 +282,21 @@ async function deleteByQuery(
     }
   }
 
-  // Delete each memory
+  // Delete memories in parallel batches of 10
+  const BATCH_SIZE = 10
   const deletedIds: string[] = []
-  for (const memory of memories) {
-    const deleteResponse = await client.delete(`/api/memories/${memory.id}`, { userId })
-    if (deleteResponse.success) {
-      deletedIds.push(memory.id)
+  for (let i = 0; i < memories.length; i += BATCH_SIZE) {
+    const batch = memories.slice(i, i + BATCH_SIZE)
+    const results = await Promise.all(
+      batch.map(async (memory) => {
+        const deleteResponse = await client.delete(`/api/memories/${memory.id}`, { userId })
+        return { id: memory.id, success: deleteResponse.success }
+      })
+    )
+    for (const result of results) {
+      if (result.success) {
+        deletedIds.push(result.id)
+      }
     }
   }
 
