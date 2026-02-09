@@ -159,6 +159,28 @@ How to isolate memories between users.
 - `"identity"` - Memories scoped to specific identity/account
 - `"session"` - Memories isolated to single session
 
+### maxRecallMemories
+
+Maximum number of memories to inject during auto-recall.
+
+| Property | Value |
+|----------|-------|
+| Type | integer |
+| Default | `5` |
+| Minimum | `1` |
+| Maximum | `20` |
+
+### minRecallScore
+
+Minimum similarity score for memories to be included in auto-recall. Higher values return fewer but more relevant memories.
+
+| Property | Value |
+|----------|-------|
+| Type | number |
+| Default | `0.7` |
+| Minimum | `0` |
+| Maximum | `1` |
+
 ## Advanced Options
 
 ### secretCommandTimeout
@@ -180,6 +202,8 @@ HTTP request timeout in milliseconds.
 |----------|-------|
 | Type | integer |
 | Default | `30000` |
+| Minimum | `1000` |
+| Maximum | `60000` |
 
 ### maxRetries
 
@@ -189,15 +213,27 @@ Maximum number of retry attempts for failed requests.
 |----------|-------|
 | Type | integer |
 | Default | `3` |
+| Minimum | `0` |
+| Maximum | `5` |
 
 ### debug
 
-Enable debug logging.
+Enable debug logging. Secrets are never included in debug output.
 
 | Property | Value |
 |----------|-------|
 | Type | boolean |
 | Default | `false` |
+
+### baseUrl
+
+Base URL for the web application. Used for generating links to notes and notebooks in tool responses.
+
+| Property | Value |
+|----------|-------|
+| Type | string (URL) |
+| Required | No |
+| Example | `"https://app.your-domain.com"` |
 
 ## Example Configurations
 

@@ -153,10 +153,10 @@ If the status is healthy but you still have issues, continue with the specific s
 
 **Solutions:**
 
-1. **Check minScore setting**
+1. **Check minRecallScore setting**
    ```json
    {
-     "minScore": 0.5  // Lower threshold
+     "minRecallScore": 0.5  // Lower threshold
    }
    ```
 
