@@ -44,7 +44,7 @@ This is **not** part of OpenClaw itself — it's an independent project that Ope
 OpenClaw agents connect to this backend via the plugin:
 
 ```bash
-pnpm add @troykelly/openclaw-projects
+openclaw plugins install @troykelly/openclaw-projects
 ```
 
 The plugin provides tools for memory, projects, todos, and contacts that agents can use during conversations. See [packages/openclaw-plugin/README.md](packages/openclaw-plugin/README.md) for details.
