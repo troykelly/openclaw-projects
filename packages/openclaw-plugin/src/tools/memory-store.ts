@@ -13,10 +13,10 @@ import { MemoryCategory } from './memory-recall.js'
 
 /** Parameters for memory_store tool */
 export const MemoryStoreParamsSchema = z.object({
-  text: z
+  content: z
     .string()
-    .min(1, 'Text cannot be empty')
-    .max(5000, 'Text must be 5000 characters or less'),
+    .min(1, 'Content cannot be empty')
+    .max(10000, 'Content must be 10000 characters or less'),
   category: MemoryCategory.optional(),
   importance: z.number().min(0).max(1).optional(),
   tags: z
@@ -158,24 +158,24 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
       }
 
       const {
-        text,
+        content,
         category = 'other',
         importance = 0.7,
         tags = [],
         relationship_id,
       } = parseResult.data
 
-      // Sanitize text
-      const sanitizedText = sanitizeText(text)
+      // Sanitize content
+      const sanitizedText = sanitizeText(content)
       if (sanitizedText.length === 0) {
-        return { success: false, error: 'Text cannot be empty after sanitization' }
+        return { success: false, error: 'Content cannot be empty after sanitization' }
       }
 
       // Check for potential credentials (warn but don't block)
       if (mayContainCredentials(sanitizedText)) {
         logger.warn('Potential credential detected in memory_store', {
           userId,
-          textLength: sanitizedText.length,
+          contentLength: sanitizedText.length,
         })
       }
 
@@ -185,7 +185,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         category,
         importance,
         tags,
-        textLength: sanitizedText.length,
+        contentLength: sanitizedText.length,
       })
 
       try {
