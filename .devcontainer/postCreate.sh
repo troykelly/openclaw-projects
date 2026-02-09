@@ -84,7 +84,7 @@ install_codex_binary() {
 
   local tmp
   tmp=$(mktemp -d)
-  trap 'rm -rf "$tmp"' RETURN
+  trap 'rm -rf "${tmp:-}"' RETURN
 
   log "Downloading: $asset_url"
   curl -fsSL "$asset_url" -o "$tmp/codex.tar.gz"
