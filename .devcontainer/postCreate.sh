@@ -34,7 +34,28 @@ install_claude_code() {
   fi
 
   log "Installing Claude Code via official installer (https://claude.ai/install.sh)"
-  curl -fsSL https://claude.ai/install.sh | bash
+
+  # Download to temp file first for security (avoid piping directly to bash)
+  local install_script
+  install_script=$(mktemp)
+  trap 'rm -f "${install_script:-}"' RETURN
+
+  log "Downloading Claude Code installer..."
+  if ! curl -fsSL --max-time 60 https://claude.ai/install.sh -o "$install_script"; then
+    log "ERROR: Failed to download Claude Code installer"
+    return 1
+  fi
+
+  # Verify the script starts with a shebang and basic sanity check
+  if ! head -n 1 "$install_script" | grep -q '^#!.*bash'; then
+    log "ERROR: Downloaded installer does not appear to be a bash script"
+    return 1
+  fi
+
+  # NOTE: Anthropic does not currently provide checksums for install.sh
+  # Consider adding verification if/when available
+  log "Executing Claude Code installer..."
+  bash "$install_script"
 
   export PATH="$HOME/.claude/bin:$HOME/.local/bin:$PATH"
 
