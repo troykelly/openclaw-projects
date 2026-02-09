@@ -121,6 +121,8 @@ export function createNotificationService(
       const queryParams = new URLSearchParams()
       queryParams.set('limit', '20')
       if (lastSeenId) {
+        // "since" is a notification ID (not a timestamp) — the backend returns
+        // only notifications created after this ID, providing cursor-based pagination.
         queryParams.set('since', lastSeenId)
       }
 
@@ -183,7 +185,8 @@ export function createNotificationService(
         pollIntervalMs: config.pollIntervalMs,
       })
 
-      // Start polling
+      // Poll immediately on start, then at the configured interval
+      poll()
       pollingInterval = setInterval(() => {
         poll()
       }, config.pollIntervalMs)

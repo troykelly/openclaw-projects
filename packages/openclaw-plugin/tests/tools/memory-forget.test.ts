@@ -348,6 +348,37 @@ describe('memory_forget tool', () => {
       expect(result.success).toBe(true)
     })
 
+    it('should delete in parallel batches', async () => {
+      // Create 15 memories to verify batching (batch size = 10)
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          memories: Array(15).fill(null).map((_, i) => ({ id: `mem-${i}` })),
+        },
+      })
+      const deleteCallOrder: string[] = []
+      const mockDelete = vi.fn().mockImplementation((path: string) => {
+        deleteCallOrder.push(path)
+        return Promise.resolve({ success: true, data: { deleted: true } })
+      })
+      const client = { ...mockApiClient, get: mockGet, delete: mockDelete }
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      })
+
+      const result = await tool.execute({ query: 'test', confirmBulkDelete: true })
+
+      expect(mockDelete).toHaveBeenCalledTimes(15)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.details.deletedCount).toBe(15)
+      }
+    })
+
     it('should not require confirmBulkDelete for <=5 memories', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,

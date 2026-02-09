@@ -73,8 +73,8 @@ function calculateRetryDelay(attempt: number, baseDelay = 1000, maxDelay = 10000
  * Check if an error is retryable.
  */
 function isRetryableStatus(status: number): boolean {
-  // Retry on 5xx server errors and network errors (status 0)
-  return status === 0 || (status >= 500 && status < 600)
+  // Retry on 5xx server errors, 429 rate-limited, and network errors (status 0)
+  return status === 0 || status === 429 || (status >= 500 && status < 600)
 }
 
 /**
@@ -125,7 +125,11 @@ export class ApiClient {
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       if (attempt > 0) {
-        const delay = calculateRetryDelay(attempt - 1)
+        // For 429 responses, prefer the server-specified Retry-After delay
+        const delay =
+          lastError?.status === 429 && lastError.retryAfter
+            ? lastError.retryAfter * 1000
+            : calculateRetryDelay(attempt - 1)
         this.logger.debug(`Retrying request (attempt ${attempt + 1}/${this.maxRetries + 1})`, {
           path,
           delay,
@@ -142,7 +146,6 @@ export class ApiClient {
 
         lastError = result.error
 
-        // Don't retry 4xx errors (except we could retry 429, but typically you'd wait for Retry-After)
         if (!isRetryableStatus(result.error.status)) {
           return result
         }
