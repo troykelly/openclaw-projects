@@ -56,24 +56,13 @@ cd openclaw-projects
 cp .env.example .env
 ```
 
-Generate required secrets:
+Generate required secrets using the setup wizard:
 
 ```bash
-# Generate and save secrets to .env
-cat >> .env << 'EOF'
-# Generated secrets
-POSTGRES_PASSWORD=$(openssl rand -base64 32)
-COOKIE_SECRET=$(openssl rand -base64 48)
-S3_SECRET_KEY=$(openssl rand -hex 32)
-OPENCLAW_PROJECTS_AUTH_SECRET=$(openssl rand -base64 32)
-OPENCLAW_GATEWAY_TOKEN=$(openssl rand -hex 32)
-EOF
-
-# Actually generate them
-sed -i "s/\$(openssl rand -base64 32)/$(openssl rand -base64 32)/g" .env
-sed -i "s/\$(openssl rand -base64 48)/$(openssl rand -base64 48)/g" .env
-sed -i "s/\$(openssl rand -hex 32)/$(openssl rand -hex 32)/g" .env
+./scripts/setup.sh
 ```
+
+The script generates unique random secrets for each variable and writes them to `.env`. For CI or unattended environments, use `./scripts/setup.sh --non-interactive`.
 
 Configure your domain and DNS provider:
 
@@ -127,7 +116,7 @@ On your OpenClaw gateway (skip if using full stack - it's pre-configured):
 openclaw plugins install @troykelly/openclaw-projects
 
 # Or specify a specific version
-openclaw plugins install @troykelly/openclaw-projects@1.0.0
+openclaw plugins install @troykelly/openclaw-projects@0.0.3
 ```
 
 ## Step 3: Configure the Plugin
@@ -135,7 +124,7 @@ openclaw plugins install @troykelly/openclaw-projects@1.0.0
 ### Full Stack (docker-compose.full.yml)
 
 The plugin is automatically configured via environment variables:
-- `OPENCLAW_PROJECTS_API_URL`: Set to `http://api:3001` (internal Docker network)
+- `OPENCLAW_PROJECTS_API_URL`: Set to `http://api:3000` (internal Docker network)
 - `OPENCLAW_PROJECTS_AUTH_SECRET`: Shared with the API container
 
 ### External Gateway
@@ -262,10 +251,10 @@ If the gateway can't reach the API:
 
 ```bash
 # Test internal network connectivity (from gateway container)
-docker exec openclaw-gateway wget -q -O - http://api:3001/health
+docker exec openclaw-gateway wget -q -O - http://api:3000/health
 
 # Check API is healthy
-docker exec openclaw-api wget -q -O - http://localhost:3001/health
+docker exec openclaw-api wget -q -O - http://localhost:3000/health
 ```
 
 ## Step 5: Use the Skill Store (Optional)
