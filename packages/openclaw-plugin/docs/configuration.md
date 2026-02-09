@@ -31,9 +31,9 @@ The base URL of your openclaw-projects backend API.
 
 **Security Note**: Must be HTTPS in production environments.
 
-### API Key Options
+### API Key Options (Optional)
 
-You must provide the API key using one of these three methods:
+When your backend has authentication enabled, provide the API key using one of these three methods. If your backend has auth disabled (e.g., the quickstart compose), no API key is needed.
 
 #### apiKey
 
@@ -42,7 +42,7 @@ Direct API key value. **Least secure** - only use for development.
 | Property | Value |
 |----------|-------|
 | Type | string |
-| Required | One of apiKey/apiKeyFile/apiKeyCommand |
+| Required | No (required only when backend auth is enabled) |
 | Example | `"sk-abc123..."` |
 
 #### apiKeyFile
@@ -52,7 +52,7 @@ Path to a file containing the API key. File should have restricted permissions (
 | Property | Value |
 |----------|-------|
 | Type | string |
-| Required | One of apiKey/apiKeyFile/apiKeyCommand |
+| Required | No (required only when backend auth is enabled) |
 | Example | `"~/.secrets/openclaw-api-key"` |
 
 #### apiKeyCommand
@@ -62,7 +62,7 @@ Shell command to execute to retrieve the API key. **Most secure** - integrates w
 | Property | Value |
 |----------|-------|
 | Type | string |
-| Required | One of apiKey/apiKeyFile/apiKeyCommand |
+| Required | No (required only when backend auth is enabled) |
 | Example | `"op read op://Personal/openclaw/api_key"` |
 
 ## Twilio Configuration (SMS)
@@ -296,6 +296,5 @@ The plugin respects standard environment variables when applicable:
 The plugin validates configuration at startup. Invalid configuration will prevent the plugin from loading. Common validation errors:
 
 - Missing required `apiUrl`
-- No API key method specified
 - Invalid email format for `postmarkFromEmail`
 - Invalid phone format (must be E.164)

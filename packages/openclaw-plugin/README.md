@@ -238,9 +238,10 @@ Configure the plugin in your OpenClaw config file or pass config programmaticall
 | Option | Type | Description |
 |--------|------|-------------|
 | `apiUrl` | string | Backend API URL (must be HTTPS in production) |
-| `apiKey` | string | API authentication key (direct value) |
 
-You must provide the API key via one of three methods:
+### Authentication (Optional)
+
+When your backend has authentication enabled, provide the API key via one of three methods. If your backend has auth disabled (e.g., the quickstart compose), no API key is needed.
 
 | Method | Config Key | Description |
 |--------|-----------|-------------|

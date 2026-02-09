@@ -277,7 +277,7 @@ If the status is healthy but you still have issues, continue with the specific s
        openclaw-projects:
          config:
            apiUrl: "https://api.example.com"       # Required
-           apiKey: "..."  # One of apiKey/apiKeyFile/apiKeyCommand required
+           # apiKey is optional — only needed when backend auth is enabled
    ```
 
 2. **Invalid field type**
