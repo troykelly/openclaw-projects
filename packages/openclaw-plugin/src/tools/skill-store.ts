@@ -12,6 +12,7 @@ import { z } from 'zod'
 import type { ApiClient, ApiResponse } from '../api-client.js'
 import type { Logger } from '../logger.js'
 import type { PluginConfig } from '../config.js'
+import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js'
 
 /** Maximum serialized size of the data field (1MB). */
 const DATA_MAX_BYTES = 1_048_576
@@ -160,44 +161,10 @@ export interface SkillStoreTool {
 }
 
 /**
- * Sanitize text input to remove control characters.
- */
-function sanitizeText(text: string): string {
-  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim()
-}
-
-/**
  * Check if text may contain credentials.
  */
 function mayContainCredentials(text: string): boolean {
   return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(text))
-}
-
-/**
- * Sanitize error message to not expose internal details.
- */
-function sanitizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message
-      .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[host]')
-      .replace(/:\d{2,5}\b/g, '')
-      .replace(/\b(?:localhost|internal[-\w]*)\b/gi, '[internal]')
-
-    if (message.includes('[internal]') || message.includes('[host]')) {
-      return 'Operation failed. Please try again.'
-    }
-
-    return message
-  }
-  return 'An unexpected error occurred.'
-}
-
-/**
- * Truncate text for display preview.
- */
-function truncateForPreview(text: string, maxLength = 100): string {
-  if (text.length <= maxLength) return text
-  return `${text.substring(0, maxLength)}...`
 }
 
 /**

@@ -10,6 +10,7 @@ import type { ApiClient } from '../api-client.js'
 import type { Logger } from '../logger.js'
 import type { PluginConfig } from '../config.js'
 import { MemoryCategory } from './memory-recall.js'
+import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js'
 
 /** Parameters for memory_store tool */
 export const MemoryStoreParamsSchema = z.object({
@@ -90,49 +91,10 @@ const CREDENTIAL_PATTERNS = [
 ]
 
 /**
- * Sanitize text input to remove control characters.
- */
-function sanitizeText(text: string): string {
-  // Remove control characters (ASCII 0-31 except tab, newline, carriage return)
-  const sanitized = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-  // Trim whitespace
-  return sanitized.trim()
-}
-
-/**
  * Check if text may contain credentials.
  */
 function mayContainCredentials(text: string): boolean {
   return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(text))
-}
-
-/**
- * Truncate text for display preview.
- */
-function truncateForPreview(text: string, maxLength = 100): string {
-  if (text.length <= maxLength) {
-    return text
-  }
-  return `${text.substring(0, maxLength)}...`
-}
-
-/**
- * Create a sanitized error message that doesn't expose internal details.
- */
-function sanitizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message
-      .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[host]')
-      .replace(/:\d{2,5}\b/g, '')
-      .replace(/\b(?:localhost|internal[-\w]*)\b/gi, '[internal]')
-
-    if (message.includes('[internal]') || message.includes('[host]')) {
-      return 'Failed to store memory. Please try again.'
-    }
-
-    return message
-  }
-  return 'An unexpected error occurred while storing memory.'
 }
 
 /**

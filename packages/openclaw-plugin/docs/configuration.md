@@ -156,9 +156,9 @@ How to isolate memories between users.
 | Type | `"agent"` \| `"identity"` \| `"session"` |
 | Default | `"agent"` |
 
-- `"agent"` - Memories shared across all sessions for the user
-- `"identity"` - Memories scoped to specific identity/account
-- `"session"` - Memories isolated to single session
+- `"agent"` - Scope by agent ID; single user per agent (default)
+- `"identity"` - Scope by canonical user identity across agents and sessions
+- `"session"` - Scope by session key; maximum isolation between sessions
 
 ### maxRecallMemories
 
