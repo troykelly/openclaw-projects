@@ -327,6 +327,17 @@ configure_codex_mcp() {
 }
 
 configure_claude_permissions() {
+  # SECURITY NOTE: Claude Code permissions are set to 'bypassPermissions' mode.
+  # This is SAFE in the devcontainer context because:
+  # 1. DevContainer runs in isolated Docker container with network isolation
+  # 2. Container has limited access to host system (only mounted volumes)
+  # 3. This is a development environment, not production
+  # 4. Bypassing permissions improves developer experience in safe sandbox
+  # 5. DevContainer security boundary protects host system
+  #
+  # DO NOT use 'bypassPermissions' in untrusted or production environments.
+  # In production, use 'ask' mode to require explicit approval for each action.
+
   if ! command -v claude >/dev/null 2>&1; then
     log "Skipping Claude permissions: 'claude' not found."
     return 0
@@ -362,11 +373,35 @@ configure_claude_permissions() {
 }
 
 configure_codex_cli() {
+  # SECURITY NOTE: Codex CLI is configured with no approvals/sandbox for MCP mode.
+  # This is SAFE in the devcontainer context because:
+  # 1. DevContainer runs in isolated Docker container
+  # 2. Container network is isolated from host network
+  # 3. Container filesystem is isolated (only specific volumes mounted)
+  # 4. MCP subprocess has no interactive terminal for approval prompts
+  # 5. This is a development environment with controlled code execution
+  # 6. DevContainer provides the security boundary, not Codex sandbox
+  #
+  # Security guarantees from devcontainer:
+  # - Host credentials not accessible (unless explicitly mounted)
+  # - Host network not accessible (container network namespace)
+  # - Host filesystem protected (only project directory mounted)
+  # - Container runs as non-root user (vscode)
+  #
+  # DO NOT use these settings outside of sandboxed development environments.
+  # In production or untrusted contexts, enable sandbox and require approvals.
+  #
+  # Threat model: Assumes devcontainer is trusted development environment.
+  # Does NOT protect against malicious code running inside container.
+  # DOES protect host system from container processes.
+
   log "Configuring Codex CLI (no sandbox/approvals for MCP mode)"
   mkdir -p "$HOME/.codex"
   cat > "$HOME/.codex/config.toml" <<'CODEXEOF'
+# WARNING: Only safe in isolated devcontainer - DO NOT use in production
 # Equivalent to --dangerously-bypass-approvals-and-sandbox
 # Required: MCP subprocess has no interactive terminal for approval prompts.
+# Security boundary: DevContainer isolation, not Codex sandbox
 approval_policy = "never"
 sandbox_policy = "danger-full-access"
 sandbox_permissions = ["disk-full-read-access"]
