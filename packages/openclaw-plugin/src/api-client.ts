@@ -94,7 +94,7 @@ function getErrorCode(status: number): string {
  */
 export class ApiClient {
   private readonly baseUrl: string
-  private readonly apiKey: string
+  private readonly apiKey: string | undefined
   private readonly logger: Logger
   private readonly timeout: number
   private readonly maxRetries: number
@@ -193,9 +193,12 @@ export class ApiClient {
 
     try {
       const headers: Record<string, string> = {
-        Authorization: `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
         'X-Request-Id': requestId,
+      }
+
+      if (this.apiKey) {
+        headers.Authorization = `Bearer ${this.apiKey}`
       }
 
       if (options?.userId) {
