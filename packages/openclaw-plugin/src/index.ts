@@ -4,9 +4,9 @@
  * This plugin provides memory management, projects, todos, and contacts
  * integration for OpenClaw agents.
  *
- * Supports two registration patterns:
- * 1. OpenClaw 2026 API: `export default (api) => { ... }` (recommended)
- * 2. Legacy API: `register(ctx)` returns plugin instance (deprecated)
+ * Registration pattern:
+ * - OpenClaw 2026 API: `export default (api) => { ... }` (recommended)
+ * - Legacy API: `register(ctx)` returns plugin instance
  */
 
 // Re-export the OpenClaw 2026 API default export
@@ -279,12 +279,10 @@ function createPluginInstance(
 }
 
 /**
- * Registers the plugin with OpenClaw (synchronous version).
+ * Registers the plugin with OpenClaw.
  *
- * This function supports configurations with direct secret values only.
- * For file or command-based secrets, use registerAsync instead.
- *
- * @deprecated Use registerAsync for flexible secret handling
+ * Validates the raw configuration and resolves direct secret values
+ * to produce a fully initialized plugin instance.
  */
 export function register(ctx: RegistrationContext): PluginInstance {
   const logger = ctx.logger ?? createLogger('openclaw-projects')
@@ -312,28 +310,6 @@ export function register(ctx: RegistrationContext): PluginInstance {
     maxRetries: rawConfig.maxRetries,
     debug: rawConfig.debug,
   })
-
-  return createPluginInstance(config, logger, ctx.runtime)
-}
-
-/**
- * Registers the plugin with OpenClaw (asynchronous version).
- *
- * This function supports all secret loading methods:
- * - Direct values (apiKey: "sk-xxx")
- * - File references (apiKeyFile: "~/.secrets/api_key")
- * - Command references (apiKeyCommand: "op read op://...")
- *
- * Preferred over register() for flexible secret handling.
- */
-export async function registerAsync(ctx: RegistrationContext): Promise<PluginInstance> {
-  const logger = ctx.logger ?? createLogger('openclaw-projects')
-
-  // Validate raw configuration
-  const rawConfig = validateRawConfig(ctx.config)
-
-  // Resolve all secrets
-  const config = await resolveConfigSecrets(rawConfig)
 
   return createPluginInstance(config, logger, ctx.runtime)
 }

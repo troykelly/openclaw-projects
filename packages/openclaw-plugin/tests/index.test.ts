@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as pluginExports from '../src/index.js'
 import {
   register,
   plugin,
@@ -48,6 +49,10 @@ describe('Plugin Entry Point', () => {
     it('should export plugin object', () => {
       expect(plugin).toBeDefined()
       expect(typeof plugin).toBe('object')
+    })
+
+    it('should not export registerAsync (removed dead export)', () => {
+      expect('registerAsync' in pluginExports).toBe(false)
     })
   })
 
