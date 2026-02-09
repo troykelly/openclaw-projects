@@ -14,12 +14,7 @@ export interface OrganizationCardProps {
   className?: string;
 }
 
-export function OrganizationCard({
-  organization,
-  onClick,
-  selected = false,
-  className,
-}: OrganizationCardProps) {
+export function OrganizationCard({ organization, onClick, selected = false, className }: OrganizationCardProps) {
   return (
     <button
       className={cn(
@@ -27,23 +22,16 @@ export function OrganizationCard({
         'hover:bg-muted/50',
         selected && 'border-primary bg-primary/5',
         onClick && 'cursor-pointer',
-        className
+        className,
       )}
       onClick={() => onClick?.(organization.id)}
     >
       <div className="flex items-start gap-3">
         {/* Logo or placeholder */}
         {organization.logo ? (
-          <img
-            src={organization.logo}
-            alt={`${organization.name} logo`}
-            className="w-12 h-12 rounded-lg object-cover"
-          />
+          <img src={organization.logo} alt={`${organization.name} logo`} className="w-12 h-12 rounded-lg object-cover" />
         ) : (
-          <div
-            data-testid="org-logo-placeholder"
-            className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center"
-          >
+          <div data-testid="org-logo-placeholder" className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
             <Building2 className="h-6 w-6 text-muted-foreground" />
           </div>
         )}
@@ -61,11 +49,7 @@ export function OrganizationCard({
           )}
 
           {/* Description */}
-          {organization.description && (
-            <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
-              {organization.description}
-            </div>
-          )}
+          {organization.description && <div className="text-sm text-muted-foreground mt-1 line-clamp-2">{organization.description}</div>}
 
           {/* Contact count */}
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">

@@ -3,12 +3,7 @@
  * Issue #392: Implement resource allocation and workload view
  */
 import * as React from 'react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { cn } from '@/ui/lib/utils';
 import { formatHours } from './workload-utils';
 
@@ -37,12 +32,7 @@ const DEFAULT_COLORS = [
   '#14b8a6', // teal
 ];
 
-export function WorkloadBar({
-  assignedHours,
-  capacityHours,
-  segments,
-  className,
-}: WorkloadBarProps) {
+export function WorkloadBar({ assignedHours, capacityHours, segments, className }: WorkloadBarProps) {
   const isOverallocated = assignedHours > capacityHours;
   const [hoveredSegment, setHoveredSegment] = React.useState<string | null>(null);
 
@@ -52,11 +42,7 @@ export function WorkloadBar({
 
   return (
     <TooltipProvider>
-      <div
-        data-testid="workload-bar"
-        data-overallocated={isOverallocated}
-        className={cn('relative h-8 rounded-md bg-muted overflow-hidden', className)}
-      >
+      <div data-testid="workload-bar" data-overallocated={isOverallocated} className={cn('relative h-8 rounded-md bg-muted overflow-hidden', className)}>
         {/* Segments */}
         <div className="absolute inset-0 flex">
           {segments.map((segment, index) => {
@@ -68,10 +54,7 @@ export function WorkloadBar({
                 <TooltipTrigger asChild>
                   <div
                     data-testid="workload-segment"
-                    className={cn(
-                      'h-full transition-opacity cursor-pointer',
-                      hoveredSegment && hoveredSegment !== segment.id && 'opacity-50'
-                    )}
+                    className={cn('h-full transition-opacity cursor-pointer', hoveredSegment && hoveredSegment !== segment.id && 'opacity-50')}
                     style={{
                       width: `${widthPercent}%`,
                       backgroundColor: color,
@@ -94,19 +77,13 @@ export function WorkloadBar({
         {/* Capacity line */}
         <div
           data-testid="capacity-line"
-          className={cn(
-            'absolute top-0 bottom-0 w-0.5 bg-foreground/50',
-            isOverallocated && 'bg-destructive'
-          )}
+          className={cn('absolute top-0 bottom-0 w-0.5 bg-foreground/50', isOverallocated && 'bg-destructive')}
           style={{ left: `${capacityLinePosition}%` }}
         />
 
         {/* Over-allocation indicator */}
         {isOverallocated && (
-          <div
-            className="absolute top-0 bottom-0 right-0 bg-destructive/20"
-            style={{ width: `${((assignedHours - capacityHours) / maxWidth) * 100}%` }}
-          />
+          <div className="absolute top-0 bottom-0 right-0 bg-destructive/20" style={{ width: `${((assignedHours - capacityHours) / maxWidth) * 100}%` }} />
         )}
       </div>
     </TooltipProvider>

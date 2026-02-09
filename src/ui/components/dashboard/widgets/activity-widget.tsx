@@ -35,12 +35,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function ActivityWidget({
-  activities,
-  onActivityClick,
-  limit = 5,
-  className,
-}: ActivityWidgetProps) {
+export function ActivityWidget({ activities, onActivityClick, limit = 5, className }: ActivityWidgetProps) {
   if (activities.length === 0) {
     return (
       <div className={cn('flex flex-col items-center justify-center h-full text-muted-foreground', className)}>
@@ -64,9 +59,7 @@ export function ActivityWidget({
           <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm">{activity.description}</p>
-            <span className="text-xs text-muted-foreground">
-              {formatRelativeTime(activity.timestamp)}
-            </span>
+            <span className="text-xs text-muted-foreground">{formatRelativeTime(activity.timestamp)}</span>
           </div>
         </button>
       ))}

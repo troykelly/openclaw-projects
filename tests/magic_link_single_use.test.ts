@@ -94,10 +94,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       const token = new URL(loginUrl).searchParams.get('token')!;
 
       // Manually expire the token in the database
-      await pool.query(
-        `UPDATE auth_magic_link SET expires_at = NOW() - INTERVAL '1 hour' WHERE email = $1`,
-        [testEmail]
-      );
+      await pool.query(`UPDATE auth_magic_link SET expires_at = NOW() - INTERVAL '1 hour' WHERE email = $1`, [testEmail]);
 
       // Try to use expired token
       const res = await app.inject({
@@ -229,7 +226,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
             method: 'POST',
             url: '/api/auth/request-link',
             payload: { email: testEmail },
-          })
+          }),
         );
 
       const responses = await Promise.all(requests);

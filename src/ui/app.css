@@ -7,31 +7,31 @@
 /* Design system theme - Human-Agent Collaboration Workspace */
 @theme {
   /* Colors - Light mode defaults */
-  --color-background: #FAFAFA;
-  --color-surface: #FFFFFF;
-  --color-border: #E5E5E5;
-  --color-input: #E5E5E5;
-  --color-ring: #6366F1;
+  --color-background: #fafafa;
+  --color-surface: #ffffff;
+  --color-border: #e5e5e5;
+  --color-input: #e5e5e5;
+  --color-ring: #6366f1;
 
   --color-foreground: #171717;
-  --color-muted: #F5F5F5;
+  --color-muted: #f5f5f5;
   --color-muted-foreground: #737373;
 
-  --color-primary: #6366F1;
-  --color-primary-foreground: #FFFFFF;
+  --color-primary: #6366f1;
+  --color-primary-foreground: #ffffff;
 
-  --color-secondary: #F5F5F5;
+  --color-secondary: #f5f5f5;
   --color-secondary-foreground: #171717;
 
-  --color-accent: #6366F1;
-  --color-accent-foreground: #FFFFFF;
+  --color-accent: #6366f1;
+  --color-accent-foreground: #ffffff;
 
-  --color-destructive: #EF4444;
-  --color-destructive-foreground: #FFFFFF;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
 
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
 
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -48,45 +48,45 @@
 /* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-background: #0A0A0A;
+    --color-background: #0a0a0a;
     --color-surface: #171717;
     --color-border: #262626;
     --color-input: #262626;
 
-    --color-foreground: #FAFAFA;
+    --color-foreground: #fafafa;
     --color-muted: #262626;
-    --color-muted-foreground: #A3A3A3;
+    --color-muted-foreground: #a3a3a3;
 
-    --color-primary: #818CF8;
-    --color-primary-foreground: #0A0A0A;
+    --color-primary: #818cf8;
+    --color-primary-foreground: #0a0a0a;
 
     --color-secondary: #262626;
-    --color-secondary-foreground: #FAFAFA;
+    --color-secondary-foreground: #fafafa;
 
-    --color-accent: #818CF8;
-    --color-accent-foreground: #0A0A0A;
+    --color-accent: #818cf8;
+    --color-accent-foreground: #0a0a0a;
   }
 }
 
 /* Dark mode class for manual toggle */
 .dark {
-  --color-background: #0A0A0A;
+  --color-background: #0a0a0a;
   --color-surface: #171717;
   --color-border: #262626;
   --color-input: #262626;
 
-  --color-foreground: #FAFAFA;
+  --color-foreground: #fafafa;
   --color-muted: #262626;
-  --color-muted-foreground: #A3A3A3;
+  --color-muted-foreground: #a3a3a3;
 
-  --color-primary: #818CF8;
-  --color-primary-foreground: #0A0A0A;
+  --color-primary: #818cf8;
+  --color-primary-foreground: #0a0a0a;
 
   --color-secondary: #262626;
-  --color-secondary-foreground: #FAFAFA;
+  --color-secondary-foreground: #fafafa;
 
-  --color-accent: #818CF8;
-  --color-accent-foreground: #0A0A0A;
+  --color-accent: #818cf8;
+  --color-accent-foreground: #0a0a0a;
 
   /* Dark mode shadows - use subtle glows instead */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -98,21 +98,21 @@
 /* OLED mode - true black for OLED screens */
 .oled {
   --color-background: #000000;
-  --color-surface: #0A0A0A;
-  --color-border: #1A1A1A;
-  --color-input: #1A1A1A;
+  --color-surface: #0a0a0a;
+  --color-border: #1a1a1a;
+  --color-input: #1a1a1a;
 
-  --color-foreground: #FFFFFF;
-  --color-muted: #1A1A1A;
-  --color-muted-foreground: #B3B3B3;
+  --color-foreground: #ffffff;
+  --color-muted: #1a1a1a;
+  --color-muted-foreground: #b3b3b3;
 
-  --color-primary: #A5B4FC;
+  --color-primary: #a5b4fc;
   --color-primary-foreground: #000000;
 
-  --color-secondary: #1A1A1A;
-  --color-secondary-foreground: #FFFFFF;
+  --color-secondary: #1a1a1a;
+  --color-secondary-foreground: #ffffff;
 
-  --color-accent: #A5B4FC;
+  --color-accent: #a5b4fc;
   --color-accent-foreground: #000000;
 }
 
@@ -121,7 +121,10 @@
 .theme-transition *,
 .theme-transition *::before,
 .theme-transition *::after {
-  transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out !important;
+  transition:
+    background-color 0.2s ease-out,
+    border-color 0.2s ease-out,
+    color 0.2s ease-out !important;
 }
 
 /* Prevent white flash on page load */
@@ -143,7 +146,10 @@ html {
     -moz-osx-font-smoothing: grayscale;
   }
 
-  code, pre, kbd, samp {
+  code,
+  pre,
+  kbd,
+  samp {
     font-family: var(--font-mono);
   }
 
@@ -223,12 +229,7 @@ html {
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
     animation: skeleton-wave 1.5s infinite;
   }
 

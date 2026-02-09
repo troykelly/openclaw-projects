@@ -32,26 +32,9 @@ import {
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { Switch } from '@/ui/components/ui/switch';
 import { Label } from '@/ui/components/ui/label';
 import { NoteEditor } from '../editor';
@@ -82,13 +65,7 @@ function generateAutoTitle(): string {
 export interface NoteDetailProps {
   note?: Note;
   notebooks?: Notebook[];
-  onSave?: (data: {
-    title: string;
-    content: string;
-    notebookId?: string;
-    visibility: NoteVisibility;
-    hideFromAgents: boolean;
-  }) => Promise<void>;
+  onSave?: (data: { title: string; content: string; notebookId?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => Promise<void>;
   onBack?: () => void;
   onShare?: () => void;
   onViewHistory?: () => void;
@@ -135,13 +112,17 @@ export function NoteDetail({
     notebookId?: string;
     visibility: NoteVisibility;
     hideFromAgents: boolean;
-  } | null>(note ? {
-    title: note.title,
-    content: note.content,
-    notebookId: note.notebookId,
-    visibility: note.visibility,
-    hideFromAgents: note.hideFromAgents,
-  } : null);
+  } | null>(
+    note
+      ? {
+          title: note.title,
+          content: note.content,
+          notebookId: note.notebookId,
+          visibility: note.visibility,
+          hideFromAgents: note.hideFromAgents,
+        }
+      : null,
+  );
 
   // Check if there are unsaved changes
   const hasChanges = useMemo(() => {
@@ -355,10 +336,7 @@ export function NoteDetail({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Select
-                  value={visibility}
-                  onValueChange={(v) => setVisibility(v as NoteVisibility)}
-                >
+                <Select value={visibility} onValueChange={(v) => setVisibility(v as NoteVisibility)}>
                   <SelectTrigger className="w-auto gap-2 border-0 bg-transparent">
                     {getVisibilityIcon()}
                     <SelectValue />
@@ -444,10 +422,7 @@ export function NoteDetail({
                 {onDelete && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={onDelete}
-                    >
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
                       <Trash2 className="mr-2 size-4" />
                       Delete note
                     </DropdownMenuItem>
@@ -464,10 +439,7 @@ export function NoteDetail({
         {/* Notebook selector */}
         <div className="flex items-center gap-2">
           <BookOpen className="size-4 text-muted-foreground" />
-          <Select
-            value={notebookId ?? 'none'}
-            onValueChange={(v) => setNotebookId(v === 'none' ? undefined : v)}
-          >
+          <Select value={notebookId ?? 'none'} onValueChange={(v) => setNotebookId(v === 'none' ? undefined : v)}>
             <SelectTrigger className="w-[140px] h-7 text-xs">
               <SelectValue placeholder="No notebook" />
             </SelectTrigger>
@@ -486,12 +458,7 @@ export function NoteDetail({
 
         {/* Hide from agents toggle */}
         <div className="flex items-center gap-2">
-          <Switch
-            id="hide-from-agents"
-            checked={hideFromAgents}
-            onCheckedChange={setHideFromAgents}
-            className="h-4 w-7"
-          />
+          <Switch id="hide-from-agents" checked={hideFromAgents} onCheckedChange={setHideFromAgents} className="h-4 w-7" />
           <Label htmlFor="hide-from-agents" className="text-xs text-muted-foreground cursor-pointer">
             {hideFromAgents ? (
               <span className="flex items-center gap-1">

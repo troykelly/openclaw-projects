@@ -51,12 +51,7 @@ describe('PresenceIndicator', () => {
   });
 
   it('excludes current user from display', () => {
-    render(
-      <PresenceIndicator
-        viewers={mockViewers}
-        currentUserEmail="alice@example.com"
-      />
-    );
+    render(<PresenceIndicator viewers={mockViewers} currentUserEmail="alice@example.com" />);
 
     // Should not show Alice's avatar
     expect(screen.queryByText('AS')).not.toBeInTheDocument();
@@ -66,12 +61,7 @@ describe('PresenceIndicator', () => {
   });
 
   it('shows overflow count when exceeding maxAvatars', () => {
-    render(
-      <PresenceIndicator
-        viewers={mockViewers}
-        maxAvatars={2}
-      />
-    );
+    render(<PresenceIndicator viewers={mockViewers} maxAvatars={2} />);
 
     // Should show first 2 avatars
     expect(screen.getByText('AS')).toBeInTheDocument();
@@ -99,9 +89,7 @@ describe('PresenceIndicator', () => {
   });
 
   it('applies size classes correctly', () => {
-    const { rerender } = render(
-      <PresenceIndicator viewers={[mockViewers[0]]} size="sm" />
-    );
+    const { rerender } = render(<PresenceIndicator viewers={[mockViewers[0]]} size="sm" />);
 
     // Small size should have h-6 w-6 classes
     const avatar = screen.getByText('AS');
@@ -247,9 +235,7 @@ describe('PresenceIndicator', () => {
   });
 
   it('generates consistent colors from email', () => {
-    const { rerender } = render(
-      <PresenceIndicator viewers={[mockViewers[0]]} />
-    );
+    const { rerender } = render(<PresenceIndicator viewers={[mockViewers[0]]} />);
 
     const avatar1 = screen.getByText('AS');
     const style1 = avatar1.getAttribute('style');
@@ -288,7 +274,7 @@ describe('useNotePresence hook', () => {
           userEmail: 'user@example.com',
           autoJoin: true,
           apiUrl: '/api',
-        })
+        }),
       );
 
       await waitForHook(() => {
@@ -298,7 +284,7 @@ describe('useNotePresence hook', () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userEmail: 'user@example.com' }),
-          })
+          }),
         );
       });
     } finally {
@@ -310,7 +296,8 @@ describe('useNotePresence hook', () => {
     const { renderHook, waitFor: waitForHook } = await import('@testing-library/react');
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
 
-    const mockFetch = vi.fn()
+    const mockFetch = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ collaborators: [] }),
@@ -327,7 +314,7 @@ describe('useNotePresence hook', () => {
           userEmail: 'user@example.com',
           autoJoin: true,
           apiUrl: '/api',
-        })
+        }),
       );
 
       // Wait for join to complete
@@ -339,14 +326,14 @@ describe('useNotePresence hook', () => {
       unmount();
 
       // Wait a tick for leave to be called
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/notes/test-note-456/presence',
         expect.objectContaining({
           method: 'DELETE',
           headers: { 'X-User-Email': 'user@example.com' },
-        })
+        }),
       );
     } finally {
       globalThis.fetch = originalFetch;
@@ -362,11 +349,10 @@ describe('useNotePresence hook', () => {
 
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        collaborators: [
-          { email: 'initial@example.com', displayName: 'Initial', lastSeenAt: new Date().toISOString() }
-        ]
-      }),
+      json: () =>
+        Promise.resolve({
+          collaborators: [{ email: 'initial@example.com', displayName: 'Initial', lastSeenAt: new Date().toISOString() }],
+        }),
     });
     const originalFetch = globalThis.fetch;
     globalThis.fetch = mockFetch;
@@ -378,7 +364,7 @@ describe('useNotePresence hook', () => {
           userEmail: 'user@example.com',
           autoJoin: true,
           apiUrl: '/api',
-        })
+        }),
       );
 
       // Wait for initial state to be set from join response
@@ -398,7 +384,8 @@ describe('useNotePresence hook', () => {
     const { renderHook, act, waitFor: waitForHook } = await import('@testing-library/react');
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
 
-    const mockFetch = vi.fn()
+    const mockFetch = vi
+      .fn()
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ collaborators: [] }),
@@ -415,7 +402,7 @@ describe('useNotePresence hook', () => {
           userEmail: 'user@example.com',
           autoJoin: true,
           apiUrl: '/api',
-        })
+        }),
       );
 
       // Wait for join
@@ -438,7 +425,7 @@ describe('useNotePresence hook', () => {
             userEmail: 'user@example.com',
             cursorPosition: { line: 10, column: 5 },
           }),
-        })
+        }),
       );
     } finally {
       globalThis.fetch = originalFetch;

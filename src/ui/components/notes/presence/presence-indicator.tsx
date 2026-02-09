@@ -6,12 +6,7 @@
  */
 
 import * as React from 'react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { cn } from '@/ui/lib/utils';
 import type { NotePresenceUser } from './use-note-presence';
 
@@ -103,15 +98,7 @@ const overlapClasses = {
 /**
  * Single avatar component
  */
-function Avatar({
-  user,
-  size = 'md',
-  className,
-}: {
-  user: NotePresenceUser;
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-}) {
+function Avatar({ user, size = 'md', className }: { user: NotePresenceUser; size?: 'sm' | 'md' | 'lg'; className?: string }) {
   const initials = getInitials(user);
   const bgColor = stringToColor(user.email);
 
@@ -122,22 +109,14 @@ function Avatar({
         src={user.avatarUrl}
         alt={user.displayName || user.email}
         referrerPolicy="no-referrer"
-        className={cn(
-          'rounded-full border-2 border-background object-cover',
-          sizeClasses[size],
-          className
-        )}
+        className={cn('rounded-full border-2 border-background object-cover', sizeClasses[size], className)}
       />
     );
   }
 
   return (
     <div
-      className={cn(
-        'flex items-center justify-center rounded-full border-2 border-background font-medium text-white',
-        sizeClasses[size],
-        className
-      )}
+      className={cn('flex items-center justify-center rounded-full border-2 border-background font-medium text-white', sizeClasses[size], className)}
       style={{ backgroundColor: bgColor }}
       aria-label={user.displayName || user.email}
     >
@@ -158,17 +137,9 @@ function Avatar({
  * />
  * ```
  */
-export function PresenceIndicator({
-  viewers,
-  maxAvatars = 3,
-  size = 'md',
-  currentUserEmail,
-  className,
-}: PresenceIndicatorProps) {
+export function PresenceIndicator({ viewers, maxAvatars = 3, size = 'md', currentUserEmail, className }: PresenceIndicatorProps) {
   // Filter out current user
-  const otherViewers = currentUserEmail
-    ? viewers.filter((v) => v.email !== currentUserEmail)
-    : viewers;
+  const otherViewers = currentUserEmail ? viewers.filter((v) => v.email !== currentUserEmail) : viewers;
 
   if (otherViewers.length === 0) {
     return null;
@@ -179,16 +150,10 @@ export function PresenceIndicator({
 
   const tooltipContent = (
     <div className="space-y-1">
-      <p className="font-medium">
-        {otherViewers.length === 1
-          ? '1 person viewing'
-          : `${otherViewers.length} people viewing`}
-      </p>
+      <p className="font-medium">{otherViewers.length === 1 ? '1 person viewing' : `${otherViewers.length} people viewing`}</p>
       <ul className="text-sm text-muted-foreground">
         {otherViewers.map((viewer) => (
-          <li key={viewer.email}>
-            {viewer.displayName || viewer.email}
-          </li>
+          <li key={viewer.email}>{viewer.displayName || viewer.email}</li>
         ))}
       </ul>
     </div>
@@ -204,19 +169,14 @@ export function PresenceIndicator({
             aria-label={`${otherViewers.length} ${otherViewers.length === 1 ? 'person' : 'people'} viewing`}
           >
             {visibleViewers.map((viewer, index) => (
-              <Avatar
-                key={viewer.email}
-                user={viewer}
-                size={size}
-                className={index > 0 ? overlapClasses[size] : undefined}
-              />
+              <Avatar key={viewer.email} user={viewer} size={size} className={index > 0 ? overlapClasses[size] : undefined} />
             ))}
             {overflowCount > 0 && (
               <div
                 className={cn(
                   'flex items-center justify-center rounded-full border-2 border-background bg-muted font-medium text-muted-foreground',
                   sizeClasses[size],
-                  overlapClasses[size]
+                  overlapClasses[size],
                 )}
               >
                 +{overflowCount}

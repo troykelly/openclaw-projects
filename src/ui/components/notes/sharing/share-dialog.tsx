@@ -4,44 +4,16 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  Copy,
-  Check,
-  Trash2,
-  Link2,
-  Mail,
-  Users,
-  Globe,
-  Lock,
-  Loader2,
-} from 'lucide-react';
+import { Copy, Check, Trash2, Link2, Mail, Users, Globe, Lock, Loader2 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
 import { Badge } from '@/ui/components/ui/badge';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { Separator } from '@/ui/components/ui/separator';
 import type { Note, NoteShare, NoteVisibility } from '../types';
 
@@ -57,17 +29,7 @@ export interface ShareDialogProps {
   className?: string;
 }
 
-export function ShareDialog({
-  open,
-  onOpenChange,
-  note,
-  shares = [],
-  onAddShare,
-  onRemoveShare,
-  onUpdateVisibility,
-  shareUrl,
-  className,
-}: ShareDialogProps) {
+export function ShareDialog({ open, onOpenChange, note, shares = [], onAddShare, onRemoveShare, onUpdateVisibility, shareUrl, className }: ShareDialogProps) {
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState<'view' | 'edit'>('view');
   const [copying, setCopying] = useState(false);
@@ -109,7 +71,7 @@ export function ShareDialog({
         setRemovingId(null);
       }
     },
-    [onRemoveShare]
+    [onRemoveShare],
   );
 
   const handleVisibilityChange = useCallback(
@@ -122,7 +84,7 @@ export function ShareDialog({
         setUpdatingVisibility(false);
       }
     },
-    [onUpdateVisibility, note.visibility]
+    [onUpdateVisibility, note.visibility],
   );
 
   const getVisibilityIcon = (v: NoteVisibility) => {
@@ -141,27 +103,17 @@ export function ShareDialog({
       <DialogContent className={cn('sm:max-w-md', className)}>
         <DialogHeader>
           <DialogTitle>Share "{note.title || 'Untitled'}"</DialogTitle>
-          <DialogDescription>
-            Control who can access this note
-          </DialogDescription>
+          <DialogDescription>Control who can access this note</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Visibility setting */}
           <div className="space-y-2">
             <Label>Visibility</Label>
-            <Select
-              value={note.visibility}
-              onValueChange={(v) => handleVisibilityChange(v as NoteVisibility)}
-              disabled={updatingVisibility}
-            >
+            <Select value={note.visibility} onValueChange={(v) => handleVisibilityChange(v as NoteVisibility)} disabled={updatingVisibility}>
               <SelectTrigger>
                 <div className="flex items-center gap-2">
-                  {updatingVisibility ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    getVisibilityIcon(note.visibility)
-                  )}
+                  {updatingVisibility ? <Loader2 className="size-4 animate-spin" /> : getVisibilityIcon(note.visibility)}
                   <SelectValue />
                 </div>
               </SelectTrigger>
@@ -171,9 +123,7 @@ export function ShareDialog({
                     <Lock className="size-4" />
                     <div>
                       <div>Private</div>
-                      <div className="text-xs text-muted-foreground">
-                        Only you can access
-                      </div>
+                      <div className="text-xs text-muted-foreground">Only you can access</div>
                     </div>
                   </div>
                 </SelectItem>
@@ -182,9 +132,7 @@ export function ShareDialog({
                     <Users className="size-4" />
                     <div>
                       <div>Shared</div>
-                      <div className="text-xs text-muted-foreground">
-                        Share with specific people
-                      </div>
+                      <div className="text-xs text-muted-foreground">Share with specific people</div>
                     </div>
                   </div>
                 </SelectItem>
@@ -193,9 +141,7 @@ export function ShareDialog({
                     <Globe className="size-4" />
                     <div>
                       <div>Public</div>
-                      <div className="text-xs text-muted-foreground">
-                        Anyone with the link
-                      </div>
+                      <div className="text-xs text-muted-foreground">Anyone with the link</div>
                     </div>
                   </div>
                 </SelectItem>
@@ -210,30 +156,15 @@ export function ShareDialog({
               <div className="space-y-2">
                 <Label>Share link</Label>
                 <div className="flex gap-2">
-                  <Input
-                    value={shareUrl}
-                    readOnly
-                    className="flex-1 text-xs"
-                  />
+                  <Input value={shareUrl} readOnly className="flex-1 text-xs" />
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={handleCopyLink}
-                          disabled={copying}
-                        >
-                          {copied ? (
-                            <Check className="size-4 text-green-500" />
-                          ) : (
-                            <Copy className="size-4" />
-                          )}
+                        <Button variant="outline" size="icon" onClick={handleCopyLink} disabled={copying}>
+                          {copied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {copied ? 'Copied!' : 'Copy link'}
-                      </TooltipContent>
+                      <TooltipContent>{copied ? 'Copied!' : 'Copy link'}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -261,10 +192,7 @@ export function ShareDialog({
                       }
                     }}
                   />
-                  <Select
-                    value={permission}
-                    onValueChange={(v) => setPermission(v as 'view' | 'edit')}
-                  >
+                  <Select value={permission} onValueChange={(v) => setPermission(v as 'view' | 'edit')}>
                     <SelectTrigger className="w-24">
                       <SelectValue />
                     </SelectTrigger>
@@ -274,11 +202,7 @@ export function ShareDialog({
                     </SelectContent>
                   </Select>
                   <Button onClick={handleAddShare} disabled={adding || !email.trim()}>
-                    {adding ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Mail className="size-4" />
-                    )}
+                    {adding ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
                   </Button>
                 </div>
               </div>
@@ -292,18 +216,13 @@ export function ShareDialog({
                   <ScrollArea className="max-h-[140px]">
                     <div className="space-y-2">
                       {shares.map((share) => (
-                        <div
-                          key={share.id}
-                          className="flex items-center justify-between gap-2 rounded-md border p-2"
-                        >
+                        <div key={share.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
                               {share.sharedWithEmail.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <div className="truncate text-sm">
-                                {share.sharedWithEmail}
-                              </div>
+                              <div className="truncate text-sm">{share.sharedWithEmail}</div>
                               <Badge variant="secondary" className="text-xs">
                                 {share.permission === 'edit' ? 'Can edit' : 'Can view'}
                               </Badge>
@@ -317,11 +236,7 @@ export function ShareDialog({
                               onClick={() => handleRemoveShare(share.id)}
                               disabled={removingId === share.id}
                             >
-                              {removingId === share.id ? (
-                                <Loader2 className="size-3 animate-spin" />
-                              ) : (
-                                <Trash2 className="size-3" />
-                              )}
+                              {removingId === share.id ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
                             </Button>
                           )}
                         </div>

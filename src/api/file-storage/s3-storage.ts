@@ -3,13 +3,7 @@
  * Part of Issue #215.
  */
 
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-} from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl as s3GetSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { FileStorage, S3Config } from './types.ts';
 
@@ -45,7 +39,7 @@ export class S3Storage implements FileStorage {
         Key: key,
         Body: data,
         ContentType: contentType,
-      })
+      }),
     );
 
     return key;
@@ -59,7 +53,7 @@ export class S3Storage implements FileStorage {
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
-      })
+      }),
     );
 
     if (!response.Body) {
@@ -96,7 +90,7 @@ export class S3Storage implements FileStorage {
       new DeleteObjectCommand({
         Bucket: this.bucket,
         Key: key,
-      })
+      }),
     );
   }
 
@@ -109,7 +103,7 @@ export class S3Storage implements FileStorage {
         new HeadObjectCommand({
           Bucket: this.bucket,
           Key: key,
-        })
+        }),
       );
       return true;
     } catch (error) {

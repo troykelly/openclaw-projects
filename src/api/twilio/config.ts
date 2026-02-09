@@ -15,11 +15,7 @@ export interface TwilioConfig {
  * Check if Twilio is configured with required environment variables.
  */
 export function isTwilioConfigured(): boolean {
-  return !!(
-    process.env.TWILIO_ACCOUNT_SID &&
-    process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_FROM_NUMBER
-  );
+  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
 }
 
 /**
@@ -32,9 +28,7 @@ export function getTwilioConfig(): TwilioConfig {
   const fromNumber = process.env.TWILIO_FROM_NUMBER;
 
   if (!accountSid || !authToken || !fromNumber) {
-    throw new Error(
-      'Twilio not configured. Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER'
-    );
+    throw new Error('Twilio not configured. Required env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER');
   }
 
   return { accountSid, authToken, fromNumber };

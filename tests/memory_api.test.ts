@@ -40,7 +40,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -58,14 +58,14 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Memory Title', 'Memory content here', 'note')`,
-        [itemId]
+        [itemId],
       );
 
       const res = await app.inject({
@@ -96,7 +96,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -106,7 +106,7 @@ describe('Memory Items API', () => {
            ($1, 'First Memory', 'First content', 'note', '2024-01-01'),
            ($1, 'Second Memory', 'Second content', 'decision', '2024-01-02'),
            ($1, 'Third Memory', 'Third content', 'context', '2024-01-03')`,
-        [itemId]
+        [itemId],
       );
 
       const res = await app.inject({
@@ -138,7 +138,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -165,7 +165,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -184,7 +184,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -201,7 +201,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -218,7 +218,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -247,7 +247,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -255,7 +255,7 @@ describe('Memory Items API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Original Title', 'Original content', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -275,7 +275,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -283,7 +283,7 @@ describe('Memory Items API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Title', 'Original content', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -302,7 +302,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -310,7 +310,7 @@ describe('Memory Items API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Title', 'Content', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -329,7 +329,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -337,7 +337,7 @@ describe('Memory Items API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type, updated_at)
          VALUES ($1, 'Title', 'Content', 'note', '2024-01-01')
          RETURNING id::text as id, updated_at`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
       const originalUpdatedAt = (memory.rows[0] as { updated_at: Date }).updated_at;
@@ -368,7 +368,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -376,7 +376,7 @@ describe('Memory Items API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Title', 'Content', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -388,10 +388,7 @@ describe('Memory Items API', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
-      const check = await pool.query(
-        `SELECT id FROM memory WHERE id = $1`,
-        [memoryId]
-      );
+      const check = await pool.query(`SELECT id FROM memory WHERE id = $1`, [memoryId]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -401,7 +398,7 @@ describe('Memory Items API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -409,7 +406,7 @@ describe('Memory Items API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Title', 'Content', 'note')
          RETURNING id::text as id`,
-        [itemId]
+        [itemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -417,10 +414,7 @@ describe('Memory Items API', () => {
       await pool.query(`DELETE FROM work_item WHERE id = $1`, [itemId]);
 
       // Verify memory still exists but work_item_id is null (ON DELETE SET NULL)
-      const check = await pool.query(
-        `SELECT id, work_item_id FROM memory WHERE id = $1`,
-        [memoryId]
-      );
+      const check = await pool.query(`SELECT id, work_item_id FROM memory WHERE id = $1`, [memoryId]);
       expect(check.rows.length).toBe(1);
       expect(check.rows[0].work_item_id).toBeNull();
     });

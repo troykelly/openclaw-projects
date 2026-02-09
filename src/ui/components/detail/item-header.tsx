@@ -1,16 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
-import {
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  ChevronRight,
-  Pencil,
-  Check,
-  X,
-  Trash2,
-} from 'lucide-react';
+import { Folder, Target, Layers, FileText, ChevronRight, Pencil, Check, X, Trash2 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
@@ -48,7 +38,7 @@ function getStatusVariant(status: WorkItemStatus): 'default' | 'secondary' | 'de
 }
 
 function getStatusLabel(status: WorkItemStatus): string {
-  return status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export interface ItemHeaderProps {
@@ -62,16 +52,7 @@ export interface ItemHeaderProps {
   className?: string;
 }
 
-export function ItemHeader({
-  title,
-  kind,
-  status,
-  parentTitle,
-  onTitleChange,
-  onParentClick,
-  onDelete,
-  className,
-}: ItemHeaderProps) {
+export function ItemHeader({ title, kind, status, parentTitle, onTitleChange, onParentClick, onDelete, className }: ItemHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(title);
 
@@ -105,10 +86,7 @@ export function ItemHeader({
       {/* Breadcrumb */}
       {parentTitle && (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <button
-            className="hover:text-foreground hover:underline"
-            onClick={onParentClick}
-          >
+          <button className="hover:text-foreground hover:underline" onClick={onParentClick}>
             {parentTitle}
           </button>
           <ChevronRight className="size-4" />
@@ -122,13 +100,7 @@ export function ItemHeader({
         <div className="min-w-0 flex-1 space-y-2">
           {isEditing ? (
             <div className="flex items-center gap-2">
-              <Input
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                className="text-xl font-semibold"
-              />
+              <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} onKeyDown={handleKeyDown} autoFocus className="text-xl font-semibold" />
               <Button variant="ghost" size="icon" onClick={handleSave}>
                 <Check className="size-4" />
                 <span className="sr-only">Save</span>
@@ -142,12 +114,7 @@ export function ItemHeader({
             <div className="group flex items-start gap-2">
               <h1 className="text-xl font-semibold">{title}</h1>
               {onTitleChange && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="mt-0.5 size-6 opacity-0 group-hover:opacity-100"
-                  onClick={handleStartEdit}
-                >
+                <Button variant="ghost" size="icon" className="mt-0.5 size-6 opacity-0 group-hover:opacity-100" onClick={handleStartEdit}>
                   <Pencil className="size-3" />
                   <span className="sr-only">Edit title</span>
                 </Button>

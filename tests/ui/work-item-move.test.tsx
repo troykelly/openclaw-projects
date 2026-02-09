@@ -4,12 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import {
-  MoveToDialog,
-  useWorkItemMove,
-  canMoveToParent,
-  getValidParentKinds,
-} from '@/ui/components/work-item-move';
+import { MoveToDialog, useWorkItemMove, canMoveToParent, getValidParentKinds } from '@/ui/components/work-item-move';
 import type { TreeItemKind } from '@/ui/components/tree/types';
 
 // Mock fetch globally
@@ -31,88 +26,45 @@ describe('Hierarchy validation', () => {
     });
 
     it('returns [project, initiative, epic] for issue', () => {
-      expect(getValidParentKinds('issue')).toEqual([
-        'project',
-        'initiative',
-        'epic',
-      ]);
+      expect(getValidParentKinds('issue')).toEqual(['project', 'initiative', 'epic']);
     });
   });
 
   describe('canMoveToParent', () => {
     it('allows moving initiative under project', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'initiative' },
-          { id: '2', kind: 'project' }
-        )
-      ).toBe(true);
+      expect(canMoveToParent({ id: '1', kind: 'initiative' }, { id: '2', kind: 'project' })).toBe(true);
     });
 
     it('disallows moving project under anything', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'project' },
-          { id: '2', kind: 'project' }
-        )
-      ).toBe(false);
+      expect(canMoveToParent({ id: '1', kind: 'project' }, { id: '2', kind: 'project' })).toBe(false);
     });
 
     it('disallows moving epic under issue', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'epic' },
-          { id: '2', kind: 'issue' }
-        )
-      ).toBe(false);
+      expect(canMoveToParent({ id: '1', kind: 'epic' }, { id: '2', kind: 'issue' })).toBe(false);
     });
 
     it('allows moving epic under project', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'epic' },
-          { id: '2', kind: 'project' }
-        )
-      ).toBe(true);
+      expect(canMoveToParent({ id: '1', kind: 'epic' }, { id: '2', kind: 'project' })).toBe(true);
     });
 
     it('allows moving epic under initiative', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'epic' },
-          { id: '2', kind: 'initiative' }
-        )
-      ).toBe(true);
+      expect(canMoveToParent({ id: '1', kind: 'epic' }, { id: '2', kind: 'initiative' })).toBe(true);
     });
 
     it('allows moving issue under epic', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'issue' },
-          { id: '2', kind: 'epic' }
-        )
-      ).toBe(true);
+      expect(canMoveToParent({ id: '1', kind: 'issue' }, { id: '2', kind: 'epic' })).toBe(true);
     });
 
     it('disallows moving item under itself', () => {
-      expect(
-        canMoveToParent(
-          { id: '1', kind: 'issue' },
-          { id: '1', kind: 'epic' }
-        )
-      ).toBe(false);
+      expect(canMoveToParent({ id: '1', kind: 'issue' }, { id: '1', kind: 'epic' })).toBe(false);
     });
 
     it('allows moving to null parent (root) for project', () => {
-      expect(
-        canMoveToParent({ id: '1', kind: 'project' }, null)
-      ).toBe(true);
+      expect(canMoveToParent({ id: '1', kind: 'project' }, null)).toBe(true);
     });
 
     it('disallows moving to null parent (root) for non-project', () => {
-      expect(
-        canMoveToParent({ id: '1', kind: 'issue' }, null)
-      ).toBe(false);
+      expect(canMoveToParent({ id: '1', kind: 'issue' }, null)).toBe(false);
     });
   });
 });
@@ -223,22 +175,14 @@ describe('useWorkItemMove hook', () => {
     mockFetch.mockReset();
   });
 
-  function TestComponent({
-    onMoved,
-  }: {
-    onMoved?: () => void;
-  }) {
+  function TestComponent({ onMoved }: { onMoved?: () => void }) {
     const { moveItem, isMoving } = useWorkItemMove({
       onMoved,
     });
 
     return (
       <div>
-        <button
-          onClick={() => moveItem({ id: 'test-1', title: 'Test Item' }, 'new-parent-id')}
-          disabled={isMoving}
-          data-testid="move-btn"
-        >
+        <button onClick={() => moveItem({ id: 'test-1', title: 'Test Item' }, 'new-parent-id')} disabled={isMoving} data-testid="move-btn">
           Move
         </button>
         <span data-testid="is-moving">{isMoving ? 'true' : 'false'}</span>
@@ -259,18 +203,13 @@ describe('useWorkItemMove hook', () => {
         expect.objectContaining({
           method: 'PATCH',
           body: expect.stringContaining('new-parent-id'),
-        })
+        }),
       );
     });
   });
 
   it('sets isMoving while API call is in progress', async () => {
-    mockFetch.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(() => resolve({ ok: true }), 100)
-        )
-    );
+    mockFetch.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 100)));
 
     render(<TestComponent />);
 

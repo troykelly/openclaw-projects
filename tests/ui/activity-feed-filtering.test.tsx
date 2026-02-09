@@ -9,32 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  ActivityFeedFilters,
-  type ActivityFeedFiltersProps,
-} from '@/ui/components/activity-feed/activity-feed-filters';
-import {
-  ActivityDetailCard,
-  type ActivityDetailCardProps,
-} from '@/ui/components/activity-feed/activity-detail-card';
-import {
-  CollapsedActivityGroup,
-  type CollapsedActivityGroupProps,
-} from '@/ui/components/activity-feed/collapsed-activity-group';
-import {
-  ActivityFeedPersonalization,
-  type ActivityFeedPersonalizationProps,
-} from '@/ui/components/activity-feed/activity-feed-personalization';
-import {
-  ActivityQuickFilters,
-  type ActivityQuickFiltersProps,
-} from '@/ui/components/activity-feed/activity-quick-filters';
-import type {
-  ActivityFilters,
-  ActivityItem,
-  QuickFilterPreset,
-  ActivityPersonalizationSettings,
-} from '@/ui/components/activity-feed/types';
+import { ActivityFeedFilters, type ActivityFeedFiltersProps } from '@/ui/components/activity-feed/activity-feed-filters';
+import { ActivityDetailCard, type ActivityDetailCardProps } from '@/ui/components/activity-feed/activity-detail-card';
+import { CollapsedActivityGroup, type CollapsedActivityGroupProps } from '@/ui/components/activity-feed/collapsed-activity-group';
+import { ActivityFeedPersonalization, type ActivityFeedPersonalizationProps } from '@/ui/components/activity-feed/activity-feed-personalization';
+import { ActivityQuickFilters, type ActivityQuickFiltersProps } from '@/ui/components/activity-feed/activity-quick-filters';
+import type { ActivityFilters, ActivityItem, QuickFilterPreset, ActivityPersonalizationSettings } from '@/ui/components/activity-feed/types';
 
 describe('ActivityFeedFilters', () => {
   const defaultProps: ActivityFeedFiltersProps = {
@@ -113,9 +93,11 @@ describe('ActivityFeedFilters', () => {
     fireEvent.click(screen.getByText(/actor/i));
     fireEvent.click(screen.getByText(/human/i));
 
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      actorType: 'human',
-    }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorType: 'human',
+      }),
+    );
   });
 
   it('should show my activity toggle', () => {
@@ -129,9 +111,11 @@ describe('ActivityFeedFilters', () => {
 
     fireEvent.click(screen.getByText(/my activity/i));
 
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      myActivityOnly: true,
-    }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        myActivityOnly: true,
+      }),
+    );
   });
 
   it('should show clear filters button when filters active', () => {
@@ -438,9 +422,11 @@ describe('ActivityFeedPersonalization', () => {
     const toggle = screen.getByRole('switch', { name: /my activity first/i });
     fireEvent.click(toggle);
 
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      showMyActivityFirst: false,
-    }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showMyActivityFirst: false,
+      }),
+    );
   });
 
   it('should hide refresh interval when auto refresh disabled', () => {

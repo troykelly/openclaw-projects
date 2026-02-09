@@ -43,14 +43,12 @@ function getDateRange(items: TimelineItem[]): TimelineDateRange {
 function flattenItems(
   items: TimelineItem[],
   expandedIds: Set<string>,
-  parentMap: Map<string, TimelineItem[]>
+  parentMap: Map<string, TimelineItem[]>,
 ): Array<{ item: TimelineItem; depth: number; hasChildren: boolean }> {
   const result: Array<{ item: TimelineItem; depth: number; hasChildren: boolean }> = [];
 
   function traverse(parentId: string | undefined, depth: number) {
-    const children = parentId
-      ? parentMap.get(parentId) || []
-      : items.filter((i) => !i.parentId);
+    const children = parentId ? parentMap.get(parentId) || [] : items.filter((i) => !i.parentId);
 
     for (const item of children) {
       const hasChildren = parentMap.has(item.id);
@@ -104,10 +102,7 @@ export function GanttChart({
 
   const dateRange = useMemo(() => getDateRange(items), [items]);
   const parentMap = useMemo(() => buildParentMap(items), [items]);
-  const flatItems = useMemo(
-    () => flattenItems(items, expandedIds, parentMap),
-    [items, expandedIds, parentMap]
-  );
+  const flatItems = useMemo(() => flattenItems(items, expandedIds, parentMap), [items, expandedIds, parentMap]);
 
   const unitWidth = getUnitWidth(zoom);
   const totalDays = getDaysBetween(dateRange.start, dateRange.end);
@@ -150,7 +145,7 @@ export function GanttChart({
         width: Math.max(duration * pixelsPerDay, 4),
       };
     },
-    [dateRange, zoom, unitWidth]
+    [dateRange, zoom, unitWidth],
   );
 
   const isOverdue = useCallback((item: TimelineItem) => {
@@ -170,25 +165,15 @@ export function GanttChart({
             <ZoomOut className="mr-1 size-4" />
             Zoom Out
           </Button>
-          <span className="ml-2 text-sm text-muted-foreground">
-            {zoom.charAt(0).toUpperCase() + zoom.slice(1)} view
-          </span>
+          <span className="ml-2 text-sm text-muted-foreground">{zoom.charAt(0).toUpperCase() + zoom.slice(1)} view</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant={showDependencies ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setShowDependencies(!showDependencies)}
-          >
+          <Button variant={showDependencies ? 'secondary' : 'outline'} size="sm" onClick={() => setShowDependencies(!showDependencies)}>
             <Route className="mr-1 size-4" />
             Dependencies
           </Button>
-          <Button
-            variant={showCriticalPath ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setShowCriticalPath(!showCriticalPath)}
-          >
+          <Button variant={showCriticalPath ? 'secondary' : 'outline'} size="sm" onClick={() => setShowCriticalPath(!showCriticalPath)}>
             <Target className="mr-1 size-4" />
             Critical Path
           </Button>
@@ -218,11 +203,7 @@ export function GanttChart({
         {/* Scrollable timeline area */}
         <ScrollArea className="flex-1">
           <div style={{ width: `${totalWidth}px`, minWidth: '100%' }}>
-            <TimelineHeader
-              dateRange={dateRange}
-              zoom={zoom}
-              todayPosition={todayPosition}
-            />
+            <TimelineHeader dateRange={dateRange} zoom={zoom} todayPosition={todayPosition} />
 
             {/* Rows */}
             <div>
@@ -245,10 +226,7 @@ export function GanttChart({
 
             {/* Dependency arrows (simplified - full implementation would use SVG paths) */}
             {showDependencies && (
-              <svg
-                className="pointer-events-none absolute inset-0"
-                style={{ width: `${totalWidth}px`, height: `${flatItems.length * ROW_HEIGHT + 32}px` }}
-              >
+              <svg className="pointer-events-none absolute inset-0" style={{ width: `${totalWidth}px`, height: `${flatItems.length * ROW_HEIGHT + 32}px` }}>
                 {/* Dependency arrows would be rendered here */}
               </svg>
             )}

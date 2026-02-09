@@ -7,10 +7,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { parse } from 'yaml';
 import { join } from 'node:path';
 
-const WORKFLOW_PATH = join(
-  import.meta.dirname,
-  '../../.github/workflows/containers.yml'
-);
+const WORKFLOW_PATH = join(import.meta.dirname, '../../.github/workflows/containers.yml');
 
 interface WorkflowJob {
   name?: string;
@@ -166,52 +163,38 @@ describe('containers.yml workflow', () => {
       });
 
       it('should setup QEMU for multi-arch builds', () => {
-        const qemu = steps.find((s) =>
-          s.uses?.includes('docker/setup-qemu-action')
-        );
+        const qemu = steps.find((s) => s.uses?.includes('docker/setup-qemu-action'));
         expect(qemu).toBeDefined();
       });
 
       it('should setup BuildKit (buildx)', () => {
-        const buildx = steps.find((s) =>
-          s.uses?.includes('docker/setup-buildx-action')
-        );
+        const buildx = steps.find((s) => s.uses?.includes('docker/setup-buildx-action'));
         expect(buildx).toBeDefined();
       });
 
       it('should login to ghcr.io', () => {
-        const login = steps.find((s) =>
-          s.uses?.includes('docker/login-action')
-        );
+        const login = steps.find((s) => s.uses?.includes('docker/login-action'));
         expect(login).toBeDefined();
         expect(login?.with?.registry).toBe('ghcr.io');
       });
 
       it('should use metadata-action for OCI labels and tags', () => {
-        const metadata = steps.find((s) =>
-          s.uses?.includes('docker/metadata-action')
-        );
+        const metadata = steps.find((s) => s.uses?.includes('docker/metadata-action'));
         expect(metadata).toBeDefined();
       });
 
       it('should use build-push-action for building images', () => {
-        const build = steps.find((s) =>
-          s.uses?.includes('docker/build-push-action')
-        );
+        const build = steps.find((s) => s.uses?.includes('docker/build-push-action'));
         expect(build).toBeDefined();
       });
 
       it('should use Trivy for vulnerability scanning', () => {
-        const trivy = steps.find((s) =>
-          s.uses?.includes('aquasecurity/trivy-action')
-        );
+        const trivy = steps.find((s) => s.uses?.includes('aquasecurity/trivy-action'));
         expect(trivy).toBeDefined();
       });
 
       it('should configure Trivy to be informational (exit-code 0) to allow builds with base image vulnerabilities', () => {
-        const trivy = steps.find((s) =>
-          s.uses?.includes('aquasecurity/trivy-action')
-        );
+        const trivy = steps.find((s) => s.uses?.includes('aquasecurity/trivy-action'));
         const exitCode = String(trivy?.with?.['exit-code'] ?? '');
         // Exit code 0 = informational only (base images may have unfixable vulnerabilities)
         expect(exitCode === '0' || exitCode.includes("'0'")).toBe(true);
@@ -223,9 +206,7 @@ describe('containers.yml workflow', () => {
 
     describe('multi-arch configuration', () => {
       it('should build for linux/amd64 and linux/arm64', () => {
-        const build = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/build-push-action')
-        );
+        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
         const platforms = String(build?.with?.platforms ?? '');
         expect(platforms).toContain('linux/amd64');
         expect(platforms).toContain('linux/arm64');
@@ -234,9 +215,7 @@ describe('containers.yml workflow', () => {
 
     describe('caching configuration', () => {
       it('should use GitHub Actions cache for BuildKit', () => {
-        const build = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/build-push-action')
-        );
+        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
         const cacheFrom = String(build?.with?.['cache-from'] ?? '');
         const cacheTo = String(build?.with?.['cache-to'] ?? '');
         expect(cacheFrom).toContain('type=gha');
@@ -246,9 +225,7 @@ describe('containers.yml workflow', () => {
 
     describe('tag strategy', () => {
       it('should configure metadata-action with correct tag types', () => {
-        const metadata = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/metadata-action')
-        );
+        const metadata = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const tags = String(metadata?.with?.tags ?? '');
 
         // Edge tag for main branch
@@ -259,9 +236,7 @@ describe('containers.yml workflow', () => {
       });
 
       it('should include SHA tag for traceability', () => {
-        const metadata = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/metadata-action')
-        );
+        const metadata = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const tags = String(metadata?.with?.tags ?? '');
         expect(tags).toContain('type=sha');
       });
@@ -269,9 +244,7 @@ describe('containers.yml workflow', () => {
 
     describe('push conditions', () => {
       it('should only push on non-PR events', () => {
-        const build = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/build-push-action')
-        );
+        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
         const push = String(build?.with?.push ?? '');
         // Should be a conditional that prevents push on PRs
         expect(push).toContain('pull_request');
@@ -280,9 +253,7 @@ describe('containers.yml workflow', () => {
 
     describe('SBOM generation', () => {
       it('should generate SBOM attestation', () => {
-        const build = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/build-push-action')
-        );
+        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
         // SBOM can be enabled via sbom: true or via provenance/attestations
         const sbom = build?.with?.sbom;
         const attestations = build?.with?.attestations;
@@ -292,9 +263,7 @@ describe('containers.yml workflow', () => {
 
     describe('registry configuration', () => {
       it('should push to ghcr.io/troykelly/openclaw-projects-{name}', () => {
-        const metadata = workflow.jobs['build'].steps.find((s) =>
-          s.uses?.includes('docker/metadata-action')
-        );
+        const metadata = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const images = String(metadata?.with?.images ?? '');
         expect(images).toContain('ghcr.io/troykelly/openclaw-projects-');
       });

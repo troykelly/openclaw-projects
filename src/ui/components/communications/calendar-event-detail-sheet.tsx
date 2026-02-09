@@ -1,29 +1,11 @@
 import * as React from 'react';
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  Video,
-  User,
-  Unlink,
-  FileText,
-  Check,
-  X,
-  HelpCircle,
-} from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Video, User, Unlink, FileText, Check, X, HelpCircle } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/ui/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { LinkedCalendarEvent, CalendarAttendee } from './types';
 
 function getStatusIcon(status: CalendarAttendee['status']) {
@@ -47,13 +29,7 @@ export interface CalendarEventDetailSheetProps {
   onJoinMeeting?: (event: LinkedCalendarEvent) => void;
 }
 
-export function CalendarEventDetailSheet({
-  event,
-  open,
-  onOpenChange,
-  onUnlink,
-  onJoinMeeting,
-}: CalendarEventDetailSheetProps) {
+export function CalendarEventDetailSheet({ event, open, onOpenChange, onUnlink, onJoinMeeting }: CalendarEventDetailSheetProps) {
   if (!event) return null;
 
   const isPast = event.endTime < new Date();
@@ -87,12 +63,7 @@ export function CalendarEventDetailSheet({
                 </Button>
               )}
               {onUnlink && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => onUnlink(event)}
-                >
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => onUnlink(event)}>
                   <Unlink className="mr-1 size-3" />
                   Unlink
                 </Button>
@@ -117,11 +88,7 @@ export function CalendarEventDetailSheet({
 
               <div className="flex items-center gap-2">
                 <Clock className="size-4 text-muted-foreground" />
-                <span>
-                  {event.isAllDay
-                    ? 'All day'
-                    : `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`}
-                </span>
+                <span>{event.isAllDay ? 'All day' : `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`}</span>
               </div>
 
               {/* Location */}
@@ -136,13 +103,7 @@ export function CalendarEventDetailSheet({
               {event.meetingLink && (
                 <div className="flex items-center gap-2 text-primary">
                   <Video className="size-4" />
-                  <a
-                    href={event.meetingLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <a href={event.meetingLink} target="_blank" rel="noopener noreferrer" className="hover:underline" onClick={(e) => e.stopPropagation()}>
                     Join video call
                   </a>
                 </div>
@@ -170,19 +131,14 @@ export function CalendarEventDetailSheet({
 
                   <div className="space-y-2">
                     {event.attendees.map((attendee) => (
-                      <div
-                        key={attendee.email}
-                        className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2"
-                      >
+                      <div key={attendee.email} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
                         <div>
                           <p className="text-sm font-medium">{attendee.name}</p>
                           <p className="text-xs text-muted-foreground">{attendee.email}</p>
                         </div>
                         <div className="flex items-center gap-1">
                           {getStatusIcon(attendee.status)}
-                          <span className="text-xs capitalize text-muted-foreground">
-                            {attendee.status}
-                          </span>
+                          <span className="text-xs capitalize text-muted-foreground">{attendee.status}</span>
                         </div>
                       </div>
                     ))}

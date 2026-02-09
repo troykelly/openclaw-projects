@@ -8,18 +8,18 @@
  * 3. Command reference (e.g., apiKeyCommand: "op read op://...")
  */
 
-import { z } from 'zod'
-import { resolveSecret, resolveSecretSync, type SecretConfig } from './secrets.js'
+import { z } from 'zod';
+import { resolveSecret, resolveSecretSync, type SecretConfig } from './secrets.js';
 
 /** User scoping strategies for memory isolation */
-export const UserScopingSchema = z.enum(['agent', 'identity', 'session'])
-export type UserScoping = z.infer<typeof UserScopingSchema>
+export const UserScopingSchema = z.enum(['agent', 'identity', 'session']);
+export type UserScoping = z.infer<typeof UserScopingSchema>;
 
 /**
  * Checks if running in production mode.
  */
 function isProduction(): boolean {
-  return process.env.NODE_ENV === 'production'
+  return process.env.NODE_ENV === 'production';
 }
 
 /**
@@ -130,13 +130,7 @@ export const RawPluginConfigSchema = z
       .describe('Request timeout in ms'),
 
     /** Maximum retries for failed requests */
-    maxRetries: z
-      .number()
-      .int()
-      .min(0, 'maxRetries must be at least 0')
-      .max(5, 'maxRetries must be at most 5')
-      .default(3)
-      .describe('Maximum retries'),
+    maxRetries: z.number().int().min(0, 'maxRetries must be at least 0').max(5, 'maxRetries must be at most 5').default(3).describe('Maximum retries'),
 
     /** Enable debug logging (never logs secrets) */
     debug: z.boolean().default(false).describe('Enable debug logging'),
@@ -144,9 +138,9 @@ export const RawPluginConfigSchema = z
     /** Base URL for web app (used for generating note/notebook URLs) */
     baseUrl: z.string().url().optional().describe('Web app base URL'),
   })
-  .strict()
+  .strict();
 
-export type RawPluginConfig = z.infer<typeof RawPluginConfigSchema>
+export type RawPluginConfig = z.infer<typeof RawPluginConfigSchema>;
 
 /**
  * Resolved plugin configuration (after secret resolution).
@@ -203,9 +197,9 @@ export const PluginConfigSchema = z.object({
 
   /** Base URL for web app */
   baseUrl: z.string().url().optional(),
-})
+});
 
-export type PluginConfig = z.infer<typeof PluginConfigSchema>
+export type PluginConfig = z.infer<typeof PluginConfigSchema>;
 
 /**
  * Validates raw plugin configuration (before secret resolution).
@@ -213,21 +207,19 @@ export type PluginConfig = z.infer<typeof PluginConfigSchema>
  * Throws a ZodError if validation fails.
  */
 export function validateRawConfig(config: unknown): RawPluginConfig {
-  return RawPluginConfigSchema.parse(config)
+  return RawPluginConfigSchema.parse(config);
 }
 
 /**
  * Safely validates raw configuration without throwing.
  * Returns a result object with either the validated config or errors.
  */
-export function safeValidateRawConfig(
-  config: unknown
-): { success: true; data: RawPluginConfig } | { success: false; errors: z.ZodIssue[] } {
-  const result = RawPluginConfigSchema.safeParse(config)
+export function safeValidateRawConfig(config: unknown): { success: true; data: RawPluginConfig } | { success: false; errors: z.ZodIssue[] } {
+  const result = RawPluginConfigSchema.safeParse(config);
   if (result.success) {
-    return { success: true, data: result.data }
+    return { success: true, data: result.data };
   }
-  return { success: false, errors: result.error.issues }
+  return { success: false, errors: result.error.issues };
 }
 
 /**
@@ -235,7 +227,7 @@ export function safeValidateRawConfig(
  * Throws a ZodError if validation fails.
  */
 export function validateConfig(config: unknown): PluginConfig {
-  return PluginConfigSchema.parse(config)
+  return PluginConfigSchema.parse(config);
 }
 
 /**
@@ -245,53 +237,41 @@ export function validateConfig(config: unknown): PluginConfig {
  * Note: This validates raw config for backwards compatibility.
  * Use safeValidateRawConfig for explicit raw config validation.
  */
-export function safeValidateConfig(
-  config: unknown
-): { success: true; data: RawPluginConfig } | { success: false; errors: z.ZodIssue[] } {
-  return safeValidateRawConfig(config)
+export function safeValidateConfig(config: unknown): { success: true; data: RawPluginConfig } | { success: false; errors: z.ZodIssue[] } {
+  return safeValidateRawConfig(config);
 }
 
 /** Secret fields that should be redacted in logs */
-const SECRET_FIELDS = [
-  'apiKey',
-  'twilioAccountSid',
-  'twilioAuthToken',
-  'twilioPhoneNumber',
-  'postmarkToken',
-] as const
+const SECRET_FIELDS = ['apiKey', 'twilioAccountSid', 'twilioAuthToken', 'twilioPhoneNumber', 'postmarkToken'] as const;
 
 /**
  * Create a safe-to-log version of config with secrets redacted.
  */
 export function redactConfig(config: PluginConfig): PluginConfig {
-  const redacted = { ...config }
+  const redacted = { ...config };
   for (const field of SECRET_FIELDS) {
     if (redacted[field]) {
       // Type assertion needed because we're setting string fields to '[REDACTED]'
-      ;(redacted as unknown as Record<string, string>)[field] = '[REDACTED]'
+      (redacted as unknown as Record<string, string>)[field] = '[REDACTED]';
     }
   }
-  return redacted
+  return redacted;
 }
 
 /**
  * Builds a SecretConfig from the raw config for a given secret name.
  */
-function buildSecretConfig(
-  rawConfig: RawPluginConfig,
-  secretName: keyof RawPluginConfig,
-  timeout: number
-): SecretConfig {
-  const direct = rawConfig[secretName] as string | undefined
-  const file = rawConfig[`${secretName}File` as keyof RawPluginConfig] as string | undefined
-  const command = rawConfig[`${secretName}Command` as keyof RawPluginConfig] as string | undefined
+function buildSecretConfig(rawConfig: RawPluginConfig, secretName: keyof RawPluginConfig, timeout: number): SecretConfig {
+  const direct = rawConfig[secretName] as string | undefined;
+  const file = rawConfig[`${secretName}File` as keyof RawPluginConfig] as string | undefined;
+  const command = rawConfig[`${secretName}Command` as keyof RawPluginConfig] as string | undefined;
 
   return {
     direct,
     file,
     command,
     commandTimeout: timeout,
-  }
+  };
 }
 
 /**
@@ -302,21 +282,19 @@ function buildSecretConfig(
  * @throws If required secrets cannot be resolved
  */
 export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<PluginConfig> {
-  const timeout = rawConfig.secretCommandTimeout
+  const timeout = rawConfig.secretCommandTimeout;
 
   // Resolve API key (optional — omitted for auth-disabled backends)
-  const apiKey =
-    (await resolveSecret(buildSecretConfig(rawConfig, 'apiKey', timeout), 'apiKey')) || undefined
+  const apiKey = (await resolveSecret(buildSecretConfig(rawConfig, 'apiKey', timeout), 'apiKey')) || undefined;
 
   // Resolve optional secrets in parallel
-  const [twilioAccountSid, twilioAuthToken, twilioPhoneNumber, postmarkToken, postmarkFromEmail] =
-    await Promise.all([
-      resolveSecret(buildSecretConfig(rawConfig, 'twilioAccountSid', timeout), 'twilioAccountSid'),
-      resolveSecret(buildSecretConfig(rawConfig, 'twilioAuthToken', timeout), 'twilioAuthToken'),
-      resolveSecret(buildSecretConfig(rawConfig, 'twilioPhoneNumber', timeout), 'twilioPhoneNumber'),
-      resolveSecret(buildSecretConfig(rawConfig, 'postmarkToken', timeout), 'postmarkToken'),
-      resolveSecret(buildSecretConfig(rawConfig, 'postmarkFromEmail', timeout), 'postmarkFromEmail'),
-    ])
+  const [twilioAccountSid, twilioAuthToken, twilioPhoneNumber, postmarkToken, postmarkFromEmail] = await Promise.all([
+    resolveSecret(buildSecretConfig(rawConfig, 'twilioAccountSid', timeout), 'twilioAccountSid'),
+    resolveSecret(buildSecretConfig(rawConfig, 'twilioAuthToken', timeout), 'twilioAuthToken'),
+    resolveSecret(buildSecretConfig(rawConfig, 'twilioPhoneNumber', timeout), 'twilioPhoneNumber'),
+    resolveSecret(buildSecretConfig(rawConfig, 'postmarkToken', timeout), 'postmarkToken'),
+    resolveSecret(buildSecretConfig(rawConfig, 'postmarkFromEmail', timeout), 'postmarkFromEmail'),
+  ]);
 
   // Build the resolved config
   const resolvedConfig: PluginConfig = {
@@ -337,10 +315,10 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     maxRetries: rawConfig.maxRetries,
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
-  }
+  };
 
   // Validate the resolved config
-  return validateConfig(resolvedConfig)
+  return validateConfig(resolvedConfig);
 }
 
 /**
@@ -355,33 +333,17 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
  * @throws If required secrets cannot be resolved
  */
 export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConfig {
-  const timeout = rawConfig.secretCommandTimeout
+  const timeout = rawConfig.secretCommandTimeout;
 
   // Resolve API key (optional — omitted for auth-disabled backends)
-  const apiKey =
-    resolveSecretSync(buildSecretConfig(rawConfig, 'apiKey', timeout), 'apiKey') || undefined
+  const apiKey = resolveSecretSync(buildSecretConfig(rawConfig, 'apiKey', timeout), 'apiKey') || undefined;
 
   // Resolve optional secrets
-  const twilioAccountSid = resolveSecretSync(
-    buildSecretConfig(rawConfig, 'twilioAccountSid', timeout),
-    'twilioAccountSid'
-  )
-  const twilioAuthToken = resolveSecretSync(
-    buildSecretConfig(rawConfig, 'twilioAuthToken', timeout),
-    'twilioAuthToken'
-  )
-  const twilioPhoneNumber = resolveSecretSync(
-    buildSecretConfig(rawConfig, 'twilioPhoneNumber', timeout),
-    'twilioPhoneNumber'
-  )
-  const postmarkToken = resolveSecretSync(
-    buildSecretConfig(rawConfig, 'postmarkToken', timeout),
-    'postmarkToken'
-  )
-  const postmarkFromEmail = resolveSecretSync(
-    buildSecretConfig(rawConfig, 'postmarkFromEmail', timeout),
-    'postmarkFromEmail'
-  )
+  const twilioAccountSid = resolveSecretSync(buildSecretConfig(rawConfig, 'twilioAccountSid', timeout), 'twilioAccountSid');
+  const twilioAuthToken = resolveSecretSync(buildSecretConfig(rawConfig, 'twilioAuthToken', timeout), 'twilioAuthToken');
+  const twilioPhoneNumber = resolveSecretSync(buildSecretConfig(rawConfig, 'twilioPhoneNumber', timeout), 'twilioPhoneNumber');
+  const postmarkToken = resolveSecretSync(buildSecretConfig(rawConfig, 'postmarkToken', timeout), 'postmarkToken');
+  const postmarkFromEmail = resolveSecretSync(buildSecretConfig(rawConfig, 'postmarkFromEmail', timeout), 'postmarkFromEmail');
 
   // Build the resolved config
   const resolvedConfig: PluginConfig = {
@@ -402,8 +364,8 @@ export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConf
     maxRetries: rawConfig.maxRetries,
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
-  }
+  };
 
   // Validate the resolved config
-  return validateConfig(resolvedConfig)
+  return validateConfig(resolvedConfig);
 }

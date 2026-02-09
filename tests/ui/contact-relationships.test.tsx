@@ -9,37 +9,13 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  RelationshipBadge,
-  type RelationshipBadgeProps,
-} from '@/ui/components/relationships/relationship-badge';
-import {
-  RelationshipCard,
-  type RelationshipCardProps,
-} from '@/ui/components/relationships/relationship-card';
-import {
-  AddRelationshipDialog,
-  type AddRelationshipDialogProps,
-} from '@/ui/components/relationships/add-relationship-dialog';
-import {
-  RelationshipFilter,
-  type RelationshipFilterProps,
-} from '@/ui/components/relationships/relationship-filter';
-import {
-  ContactRelationshipSection,
-  type ContactRelationshipSectionProps,
-} from '@/ui/components/relationships/contact-relationship-section';
-import type {
-  RelationshipType,
-  RelationshipStrength,
-  ContactRelationship,
-  Contact,
-} from '@/ui/components/relationships/types';
-import {
-  RELATIONSHIP_TYPES,
-  getRelationshipLabel,
-  getRelationshipCategory,
-} from '@/ui/components/relationships/relationship-utils';
+import { RelationshipBadge, type RelationshipBadgeProps } from '@/ui/components/relationships/relationship-badge';
+import { RelationshipCard, type RelationshipCardProps } from '@/ui/components/relationships/relationship-card';
+import { AddRelationshipDialog, type AddRelationshipDialogProps } from '@/ui/components/relationships/add-relationship-dialog';
+import { RelationshipFilter, type RelationshipFilterProps } from '@/ui/components/relationships/relationship-filter';
+import { ContactRelationshipSection, type ContactRelationshipSectionProps } from '@/ui/components/relationships/contact-relationship-section';
+import type { RelationshipType, RelationshipStrength, ContactRelationship, Contact } from '@/ui/components/relationships/types';
+import { RELATIONSHIP_TYPES, getRelationshipLabel, getRelationshipCategory } from '@/ui/components/relationships/relationship-utils';
 
 describe('RelationshipBadge', () => {
   const defaultProps: RelationshipBadgeProps = {
@@ -242,7 +218,7 @@ describe('AddRelationshipDialog', () => {
           contactId: 'contact-1',
           relatedContactId: 'contact-2',
           type: 'colleague',
-        })
+        }),
       );
     });
   });
@@ -324,14 +300,7 @@ describe('RelationshipFilter', () => {
   it('should call clear handlers when clear clicked', () => {
     const onTypeChange = vi.fn();
     const onStrengthChange = vi.fn();
-    render(
-      <RelationshipFilter
-        {...defaultProps}
-        selectedTypes={['colleague']}
-        onTypeChange={onTypeChange}
-        onStrengthChange={onStrengthChange}
-      />
-    );
+    render(<RelationshipFilter {...defaultProps} selectedTypes={['colleague']} onTypeChange={onTypeChange} onStrengthChange={onStrengthChange} />);
 
     fireEvent.click(screen.getByRole('button', { name: /clear/i }));
 
@@ -416,9 +385,7 @@ describe('ContactRelationshipSection', () => {
 
   it('should call onRemoveRelationship when relationship removed', () => {
     const onRemoveRelationship = vi.fn();
-    render(
-      <ContactRelationshipSection {...defaultProps} onRemoveRelationship={onRemoveRelationship} />
-    );
+    render(<ContactRelationshipSection {...defaultProps} onRemoveRelationship={onRemoveRelationship} />);
 
     const removeButtons = screen.getAllByRole('button', { name: /remove/i });
     fireEvent.click(removeButtons[0]);

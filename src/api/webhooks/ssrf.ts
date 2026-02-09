@@ -18,19 +18,10 @@ const PRIVATE_IPV4_RANGES: Array<{ network: number; mask: number; label: string 
 ];
 
 /** Known blocked hostnames. */
-const BLOCKED_HOSTNAMES = new Set([
-  'localhost',
-  'localhost.localdomain',
-  'metadata.google.internal',
-  'metadata.google',
-]);
+const BLOCKED_HOSTNAMES = new Set(['localhost', 'localhost.localdomain', 'metadata.google.internal', 'metadata.google']);
 
 /** Blocked hostname suffixes. */
-const BLOCKED_SUFFIXES = [
-  '.internal',
-  '.local',
-  '.localhost',
-];
+const BLOCKED_SUFFIXES = ['.internal', '.local', '.localhost'];
 
 /** Convert dotted-quad IPv4 to 32-bit integer. */
 function ip4ToInt(ip: string): number {
@@ -69,8 +60,7 @@ function isPrivateIPv6(ip: string): string | null {
     return 'private (IPv6 ULA)';
   }
   // fe80::/10 — link-local
-  if (normalized.startsWith('fe8') || normalized.startsWith('fe9') ||
-      normalized.startsWith('fea') || normalized.startsWith('feb')) {
+  if (normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) {
     return 'link-local (IPv6)';
   }
   // IPv4-mapped IPv6 in dotted-decimal form: ::ffff:x.x.x.x
@@ -139,9 +129,7 @@ export function validateSsrf(url: string): string | null {
 
   // If hostname is an IP literal, check against private ranges
   // Remove brackets from IPv6 literals for net.isIP check
-  const bareHost = hostname.startsWith('[') && hostname.endsWith(']')
-    ? hostname.slice(1, -1)
-    : hostname;
+  const bareHost = hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
 
   const ipVersion = isIP(bareHost);
 
@@ -166,9 +154,7 @@ export function validateSsrf(url: string): string | null {
  * Replaces values with `***` for headers that commonly contain credentials.
  * All other header values are also redacted to be safe.
  */
-export function redactWebhookHeaders(
-  headers: Record<string, string> | null | undefined
-): Record<string, string> | null {
+export function redactWebhookHeaders(headers: Record<string, string> | null | undefined): Record<string, string> | null {
   if (!headers || typeof headers !== 'object') {
     return null;
   }

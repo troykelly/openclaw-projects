@@ -50,14 +50,7 @@ export interface RouterSidebarProps {
  * the current URL automatically by react-router, and hovering over a link
  * triggers preloading of the target page chunk for instant navigation.
  */
-export function RouterSidebar({
-  items = defaultNavItems,
-  onCreateClick,
-  onSearchClick,
-  collapsed = false,
-  onCollapsedChange,
-  className,
-}: RouterSidebarProps) {
+export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearchClick, collapsed = false, onCollapsedChange, className }: RouterSidebarProps) {
   const handleToggleCollapse = () => {
     onCollapsedChange?.(!collapsed);
   };
@@ -70,7 +63,7 @@ export function RouterSidebar({
         className={cn(
           'flex h-full flex-col border-r border-border/50 bg-gradient-to-b from-surface to-background transition-all duration-300 ease-out',
           collapsed ? 'w-[68px]' : 'w-60',
-          className
+          className,
         )}
       >
         {/* Logo / Header */}
@@ -79,9 +72,7 @@ export function RouterSidebar({
             <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-sm">
               <span className="text-sm font-bold text-primary-foreground">O</span>
             </div>
-            {!collapsed && (
-              <span className="text-base font-semibold tracking-tight text-foreground">OpenClaw Projects</span>
-            )}
+            {!collapsed && <span className="text-base font-semibold tracking-tight text-foreground">OpenClaw Projects</span>}
           </div>
           {!collapsed && (
             <button
@@ -103,7 +94,7 @@ export function RouterSidebar({
                   onClick={onCreateClick}
                   className={cn(
                     'flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90',
-                    collapsed && 'px-0'
+                    collapsed && 'px-0',
                   )}
                   aria-label="Create new work item"
                 >
@@ -135,19 +126,14 @@ export function RouterSidebar({
                     cn(
                       'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                       collapsed && 'justify-center px-0',
-                      isActive
-                        ? 'bg-primary/10 text-primary shadow-sm'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )
                   }
                   end={item.to === '/activity'}
                 >
                   {({ isActive }) => (
                     <>
-                      <Icon className={cn(
-                        'size-[18px] shrink-0 transition-transform duration-150',
-                        !isActive && 'group-hover:scale-110'
-                      )} />
+                      <Icon className={cn('size-[18px] shrink-0 transition-transform duration-150', !isActive && 'group-hover:scale-110')} />
                       {!collapsed && <span>{item.label}</span>}
                     </>
                   )}
@@ -177,7 +163,7 @@ export function RouterSidebar({
               <button
                 className={cn(
                   'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                  collapsed && 'justify-center px-0'
+                  collapsed && 'justify-center px-0',
                 )}
                 onClick={onSearchClick}
               >
@@ -208,9 +194,7 @@ export function RouterSidebar({
                   cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                     collapsed && 'justify-center px-0',
-                    isActive
-                      ? 'bg-primary/10 text-primary shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )
                 }
               >

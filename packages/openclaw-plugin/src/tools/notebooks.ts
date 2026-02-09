@@ -8,11 +8,11 @@
  * - notebook_get: Get a notebook by ID
  */
 
-import { z } from 'zod'
-import type { ApiClient } from '../api-client.js'
-import type { Logger } from '../logger.js'
-import type { PluginConfig } from '../config.js'
-import { sanitizeText, sanitizeErrorMessage } from '../utils/sanitize.js'
+import { z } from 'zod';
+import type { ApiClient } from '../api-client.js';
+import type { Logger } from '../logger.js';
+import type { PluginConfig } from '../config.js';
+import { sanitizeText, sanitizeErrorMessage } from '../utils/sanitize.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Common Types
@@ -20,22 +20,22 @@ import { sanitizeText, sanitizeErrorMessage } from '../utils/sanitize.js'
 
 /** Notebook from API */
 export interface Notebook {
-  id: string
-  name: string
-  description: string | null
-  userEmail: string
-  isArchived: boolean
-  noteCount?: number
-  createdAt: string
-  updatedAt: string
+  id: string;
+  name: string;
+  description: string | null;
+  userEmail: string;
+  isArchived: boolean;
+  noteCount?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Tool options shared by all notebook tools */
 export interface NotebookToolOptions {
-  client: ApiClient
-  logger: Logger
-  config: PluginConfig
-  userId: string
+  client: ApiClient;
+  logger: Logger;
+  config: PluginConfig;
+  userId: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,42 +46,42 @@ export const NotebookListParamsSchema = z.object({
   includeArchived: z.boolean().optional().default(false),
   limit: z.number().min(1).max(100).optional().default(50),
   offset: z.number().min(0).optional().default(0),
-})
-export type NotebookListParams = z.infer<typeof NotebookListParamsSchema>
+});
+export type NotebookListParams = z.infer<typeof NotebookListParamsSchema>;
 
 export interface NotebookListSuccess {
-  success: true
+  success: true;
   data: {
     notebooks: Array<{
-      id: string
-      name: string
-      description: string | null
-      isArchived: boolean
-      noteCount: number
-      url?: string
-    }>
-    total: number
-    limit: number
-    offset: number
-  }
+      id: string;
+      name: string;
+      description: string | null;
+      isArchived: boolean;
+      noteCount: number;
+      url?: string;
+    }>;
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
 export interface NotebookListFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
-export type NotebookListResult = NotebookListSuccess | NotebookListFailure
+export type NotebookListResult = NotebookListSuccess | NotebookListFailure;
 
 export interface NotebookListTool {
-  name: string
-  description: string
-  parameters: typeof NotebookListParamsSchema
-  execute: (params: NotebookListParams) => Promise<NotebookListResult>
+  name: string;
+  description: string;
+  parameters: typeof NotebookListParamsSchema;
+  execute: (params: NotebookListParams) => Promise<NotebookListResult>;
 }
 
 export function createNotebookListTool(options: NotebookToolOptions): NotebookListTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'notebook_list',
@@ -91,57 +91,55 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
     parameters: NotebookListParamsSchema,
 
     async execute(params: NotebookListParams): Promise<NotebookListResult> {
-      const parseResult = NotebookListParamsSchema.safeParse(params)
+      const parseResult = NotebookListParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const { includeArchived, limit, offset } = parseResult.data
+      const { includeArchived, limit, offset } = parseResult.data;
 
       logger.info('notebook_list invoked', {
         userId,
         includeArchived,
         limit,
-      })
+      });
 
       try {
         const queryParams = new URLSearchParams({
           user_email: userId,
           limit: String(limit),
           offset: String(offset),
-        })
+        });
 
         if (includeArchived) {
-          queryParams.set('includeArchived', 'true')
+          queryParams.set('includeArchived', 'true');
         }
 
         const response = await client.get<{
-          notebooks: Notebook[]
-          total: number
-          limit: number
-          offset: number
-        }>(`/api/notebooks?${queryParams}`, { userId })
+          notebooks: Notebook[];
+          total: number;
+          limit: number;
+          offset: number;
+        }>(`/api/notebooks?${queryParams}`, { userId });
 
         if (!response.success) {
           logger.error('notebook_list API error', {
             userId,
             status: response.error.status,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to list notebooks',
-          }
+          };
         }
 
-        const result = response.data
+        const result = response.data;
 
         logger.debug('notebook_list completed', {
           userId,
           count: result.notebooks.length,
-        })
+        });
 
         return {
           success: true,
@@ -158,19 +156,19 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
             limit: result.limit,
             offset: result.offset,
           },
-        }
+        };
       } catch (error) {
         logger.error('notebook_list failed', {
           userId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,41 +176,38 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const NotebookCreateParamsSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Name cannot be empty')
-    .max(200, 'Name must be 200 characters or less'),
+  name: z.string().min(1, 'Name cannot be empty').max(200, 'Name must be 200 characters or less'),
   description: z.string().max(1000).optional(),
-})
-export type NotebookCreateParams = z.infer<typeof NotebookCreateParamsSchema>
+});
+export type NotebookCreateParams = z.infer<typeof NotebookCreateParamsSchema>;
 
 export interface NotebookCreateSuccess {
-  success: true
+  success: true;
   data: {
-    id: string
-    name: string
-    description: string | null
-    createdAt: string
-    url?: string
-  }
+    id: string;
+    name: string;
+    description: string | null;
+    createdAt: string;
+    url?: string;
+  };
 }
 
 export interface NotebookCreateFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
-export type NotebookCreateResult = NotebookCreateSuccess | NotebookCreateFailure
+export type NotebookCreateResult = NotebookCreateSuccess | NotebookCreateFailure;
 
 export interface NotebookCreateTool {
-  name: string
-  description: string
-  parameters: typeof NotebookCreateParamsSchema
-  execute: (params: NotebookCreateParams) => Promise<NotebookCreateResult>
+  name: string;
+  description: string;
+  parameters: typeof NotebookCreateParamsSchema;
+  execute: (params: NotebookCreateParams) => Promise<NotebookCreateResult>;
 }
 
 export function createNotebookCreateTool(options: NotebookToolOptions): NotebookCreateTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'notebook_create',
@@ -222,25 +217,23 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
     parameters: NotebookCreateParamsSchema,
 
     async execute(params: NotebookCreateParams): Promise<NotebookCreateResult> {
-      const parseResult = NotebookCreateParamsSchema.safeParse(params)
+      const parseResult = NotebookCreateParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const { name, description } = parseResult.data
+      const { name, description } = parseResult.data;
 
-      const sanitizedName = sanitizeText(name)
+      const sanitizedName = sanitizeText(name);
       if (sanitizedName.length === 0) {
-        return { success: false, error: 'Name cannot be empty after sanitization' }
+        return { success: false, error: 'Name cannot be empty after sanitization' };
       }
 
       logger.info('notebook_create invoked', {
         userId,
         nameLength: sanitizedName.length,
-      })
+      });
 
       try {
         const response = await client.post<Notebook>(
@@ -250,26 +243,26 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
             name: sanitizedName,
             description: description ? sanitizeText(description) : undefined,
           },
-          { userId }
-        )
+          { userId },
+        );
 
         if (!response.success) {
           logger.error('notebook_create API error', {
             userId,
             status: response.error.status,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to create notebook',
-          }
+          };
         }
 
-        const notebook = response.data
+        const notebook = response.data;
 
         logger.debug('notebook_create completed', {
           userId,
           notebookId: notebook.id,
-        })
+        });
 
         return {
           success: true,
@@ -280,19 +273,19 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
             createdAt: notebook.createdAt,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${notebook.id}` } : {}),
           },
-        }
+        };
       } catch (error) {
         logger.error('notebook_create failed', {
           userId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -302,108 +295,103 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
 export const NotebookGetParamsSchema = z.object({
   notebookId: z.string().uuid('Notebook ID must be a valid UUID'),
   includeNotes: z.boolean().optional().default(false),
-})
-export type NotebookGetParams = z.infer<typeof NotebookGetParamsSchema>
+});
+export type NotebookGetParams = z.infer<typeof NotebookGetParamsSchema>;
 
 export interface NotebookNote {
-  id: string
-  title: string
-  visibility: string
-  updatedAt: string
+  id: string;
+  title: string;
+  visibility: string;
+  updatedAt: string;
 }
 
 export interface NotebookGetSuccess {
-  success: true
+  success: true;
   data: {
-    id: string
-    name: string
-    description: string | null
-    isArchived: boolean
-    noteCount: number
-    createdAt: string
-    updatedAt: string
-    url?: string
+    id: string;
+    name: string;
+    description: string | null;
+    isArchived: boolean;
+    noteCount: number;
+    createdAt: string;
+    updatedAt: string;
+    url?: string;
     notes?: Array<{
-      id: string
-      title: string
-      visibility: string
-      url?: string
-    }>
-  }
+      id: string;
+      title: string;
+      visibility: string;
+      url?: string;
+    }>;
+  };
 }
 
 export interface NotebookGetFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
-export type NotebookGetResult = NotebookGetSuccess | NotebookGetFailure
+export type NotebookGetResult = NotebookGetSuccess | NotebookGetFailure;
 
 export interface NotebookGetTool {
-  name: string
-  description: string
-  parameters: typeof NotebookGetParamsSchema
-  execute: (params: NotebookGetParams) => Promise<NotebookGetResult>
+  name: string;
+  description: string;
+  parameters: typeof NotebookGetParamsSchema;
+  execute: (params: NotebookGetParams) => Promise<NotebookGetResult>;
 }
 
 export function createNotebookGetTool(options: NotebookToolOptions): NotebookGetTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'notebook_get',
     description:
-      'Get a notebook by its ID. Optionally include a list of notes in the notebook. ' +
-      'Only accessible if you own the notebook or have shared access.',
+      'Get a notebook by its ID. Optionally include a list of notes in the notebook. ' + 'Only accessible if you own the notebook or have shared access.',
     parameters: NotebookGetParamsSchema,
 
     async execute(params: NotebookGetParams): Promise<NotebookGetResult> {
-      const parseResult = NotebookGetParamsSchema.safeParse(params)
+      const parseResult = NotebookGetParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const { notebookId, includeNotes } = parseResult.data
+      const { notebookId, includeNotes } = parseResult.data;
 
       logger.info('notebook_get invoked', {
         userId,
         notebookId,
         includeNotes,
-      })
+      });
 
       try {
-        const queryParams = new URLSearchParams({ user_email: userId })
+        const queryParams = new URLSearchParams({ user_email: userId });
         if (includeNotes) {
-          queryParams.set('expand', 'notes')
+          queryParams.set('expand', 'notes');
         }
 
-        const response = await client.get<
-          Notebook & { notes?: NotebookNote[] }
-        >(`/api/notebooks/${notebookId}?${queryParams}`, { userId })
+        const response = await client.get<Notebook & { notes?: NotebookNote[] }>(`/api/notebooks/${notebookId}?${queryParams}`, { userId });
 
         if (!response.success) {
           if (response.error.status === 404) {
-            return { success: false, error: 'Notebook not found or access denied' }
+            return { success: false, error: 'Notebook not found or access denied' };
           }
           logger.error('notebook_get API error', {
             userId,
             notebookId,
             status: response.error.status,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to get notebook',
-          }
+          };
         }
 
-        const notebook = response.data
+        const notebook = response.data;
 
         logger.debug('notebook_get completed', {
           userId,
           notebookId,
-        })
+        });
 
         const result: NotebookGetSuccess = {
           success: true,
@@ -417,7 +405,7 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
             updatedAt: notebook.updatedAt,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${notebook.id}` } : {}),
           },
-        }
+        };
 
         if (includeNotes && notebook.notes) {
           result.data.notes = notebook.notes.map((n) => ({
@@ -425,21 +413,21 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
             title: n.title,
             visibility: n.visibility,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${n.id}` } : {}),
-          }))
+          }));
         }
 
-        return result
+        return result;
       } catch (error) {
         logger.error('notebook_get failed', {
           userId,
           notebookId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }

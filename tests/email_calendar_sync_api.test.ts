@@ -54,7 +54,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns existing OAuth connections', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-access-token', 'test-refresh-token', ARRAY['email', 'calendar'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-access-token', 'test-refresh-token', ARRAY['email', 'calendar'], now() + interval '1 hour')`,
         );
 
         const response = await app.inject({
@@ -109,7 +109,7 @@ describe('Email & Calendar Sync API', () => {
         const insertRes = await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
            VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')
-           RETURNING id`
+           RETURNING id`,
         );
         const connectionId = insertRes.rows[0].id;
 
@@ -120,10 +120,7 @@ describe('Email & Calendar Sync API', () => {
 
         expect(response.statusCode).toBe(204);
 
-        const checkRes = await pool.query(
-          `SELECT id FROM oauth_connection WHERE id = $1`,
-          [connectionId]
-        );
+        const checkRes = await pool.query(`SELECT id FROM oauth_connection WHERE id = $1`, [connectionId]);
         expect(checkRes.rows).toHaveLength(0);
       });
 
@@ -144,7 +141,7 @@ describe('Email & Calendar Sync API', () => {
         // Create OAuth connection first
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')`,
         );
 
         const response = await app.inject({
@@ -178,16 +175,14 @@ describe('Email & Calendar Sync API', () => {
     describe('GET /api/emails', () => {
       it('returns synced emails for a user', async () => {
         // Create contact and endpoint
-        const contactRes = await pool.query(
-          `INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`
-        );
+        const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
         const contactId = contactRes.rows[0].id;
 
         const endpointRes = await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
            VALUES ($1, 'email', 'test@example.com', 'test@example.com')
            RETURNING id`,
-          [contactId]
+          [contactId],
         );
         const endpointId = endpointRes.rows[0].id;
 
@@ -196,14 +191,14 @@ describe('Email & Calendar Sync API', () => {
           `INSERT INTO external_thread (endpoint_id, channel, external_thread_key, sync_provider)
            VALUES ($1, 'email', 'thread-123', 'google')
            RETURNING id`,
-          [endpointId]
+          [endpointId],
         );
         const threadId = threadRes.rows[0].id;
 
         await pool.query(
           `INSERT INTO external_message (thread_id, external_message_key, direction, body, subject)
            VALUES ($1, 'msg-123', 'inbound', 'Hello!', 'Test Subject')`,
-          [threadId]
+          [threadId],
         );
 
         const response = await app.inject({
@@ -224,20 +219,18 @@ describe('Email & Calendar Sync API', () => {
         // Create OAuth connection
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')`,
         );
 
         // Create contact and thread
-        const contactRes = await pool.query(
-          `INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`
-        );
+        const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
         const contactId = contactRes.rows[0].id;
 
         const endpointRes = await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
            VALUES ($1, 'email', 'recipient@example.com', 'recipient@example.com')
            RETURNING id`,
-          [contactId]
+          [contactId],
         );
         const endpointId = endpointRes.rows[0].id;
 
@@ -245,7 +238,7 @@ describe('Email & Calendar Sync API', () => {
           `INSERT INTO external_thread (endpoint_id, channel, external_thread_key, sync_provider)
            VALUES ($1, 'email', 'thread-456', 'google')
            RETURNING id`,
-          [endpointId]
+          [endpointId],
         );
         const threadId = threadRes.rows[0].id;
 
@@ -268,16 +261,14 @@ describe('Email & Calendar Sync API', () => {
     describe('POST /api/emails/create-work-item', () => {
       it('creates a work item from an email', async () => {
         // Create contact and endpoint
-        const contactRes = await pool.query(
-          `INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`
-        );
+        const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
         const contactId = contactRes.rows[0].id;
 
         const endpointRes = await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
            VALUES ($1, 'email', 'test@example.com', 'test@example.com')
            RETURNING id`,
-          [contactId]
+          [contactId],
         );
         const endpointId = endpointRes.rows[0].id;
 
@@ -286,7 +277,7 @@ describe('Email & Calendar Sync API', () => {
           `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
            VALUES ($1, 'email', 'thread-789')
            RETURNING id`,
-          [endpointId]
+          [endpointId],
         );
         const threadId = threadRes.rows[0].id;
 
@@ -294,7 +285,7 @@ describe('Email & Calendar Sync API', () => {
           `INSERT INTO external_message (thread_id, external_message_key, direction, body, subject)
            VALUES ($1, 'msg-789', 'inbound', 'Please review the document.', 'Action Required: Review')
            RETURNING id`,
-          [threadId]
+          [threadId],
         );
         const messageId = messageRes.rows[0].id;
 
@@ -321,7 +312,7 @@ describe('Email & Calendar Sync API', () => {
       it('triggers calendar sync for a user', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
         );
 
         const response = await app.inject({
@@ -343,7 +334,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns calendar events', async () => {
         await pool.query(
           `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
-           VALUES ('user@example.com', 'google', 'evt-123', 'Team Meeting', now(), now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'evt-123', 'Team Meeting', now(), now() + interval '1 hour')`,
         );
 
         const response = await app.inject({
@@ -365,7 +356,7 @@ describe('Email & Calendar Sync API', () => {
         await pool.query(
           `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
            VALUES ('user@example.com', 'google', 'evt-456', 'Future Meeting', $1, $2)`,
-          [tomorrow.toISOString(), new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString()]
+          [tomorrow.toISOString(), new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString()],
         );
 
         const response = await app.inject({
@@ -383,7 +374,7 @@ describe('Email & Calendar Sync API', () => {
       it('creates a calendar event', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
         );
 
         const startTime = new Date();
@@ -412,7 +403,7 @@ describe('Email & Calendar Sync API', () => {
       it('creates a calendar event from a work item deadline', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
         );
 
         const deadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -420,7 +411,7 @@ describe('Email & Calendar Sync API', () => {
           `INSERT INTO work_item (title, status, work_item_kind, not_after)
            VALUES ('Important Task', 'open', 'issue', $1)
            RETURNING id`,
-          [deadline.toISOString()]
+          [deadline.toISOString()],
         );
         const workItemId = workItemRes.rows[0].id;
 
@@ -443,7 +434,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 404 for non-existent work item', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
         );
 
         const response = await app.inject({
@@ -462,13 +453,13 @@ describe('Email & Calendar Sync API', () => {
       it('returns 400 for work item without deadline', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
         );
 
         const workItemRes = await pool.query(
           `INSERT INTO work_item (title, status, work_item_kind)
            VALUES ('Task without deadline', 'open', 'issue')
-           RETURNING id`
+           RETURNING id`,
         );
         const workItemId = workItemRes.rows[0].id;
 
@@ -491,7 +482,7 @@ describe('Email & Calendar Sync API', () => {
         const insertRes = await pool.query(
           `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
            VALUES ('user@example.com', 'google', 'evt-del', 'Delete Me', now(), now() + interval '1 hour')
-           RETURNING id`
+           RETURNING id`,
         );
         const eventId = insertRes.rows[0].id;
 
@@ -512,7 +503,7 @@ describe('Email & Calendar Sync API', () => {
         await pool.query(
           `INSERT INTO work_item (title, status, work_item_kind, not_after)
            VALUES ('Task with deadline', 'open', 'issue', $1)`,
-          [deadline.toISOString()]
+          [deadline.toISOString()],
         );
 
         const response = await app.inject({
@@ -531,7 +522,7 @@ describe('Email & Calendar Sync API', () => {
         await pool.query(
           `INSERT INTO work_item (title, status, work_item_kind, not_after)
            VALUES ('Next week task', 'open', 'issue', $1)`,
-          [nextWeek.toISOString()]
+          [nextWeek.toISOString()],
         );
 
         const startDate = new Date();

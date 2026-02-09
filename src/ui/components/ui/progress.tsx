@@ -21,10 +21,7 @@ export function Progress({ value = 0, max = 100, className, ...props }: Progress
       className={cn('relative h-2 w-full overflow-hidden rounded-full bg-muted', className)}
       {...props}
     >
-      <div
-        className="h-full bg-primary transition-all duration-300"
-        style={{ width: `${percentage}%` }}
-      />
+      <div className="h-full bg-primary transition-all duration-300" style={{ width: `${percentage}%` }} />
     </div>
   );
 }

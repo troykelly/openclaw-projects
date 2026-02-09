@@ -160,19 +160,11 @@ export interface RevokeNoteShareVariables {
  * };
  * ```
  */
-export function useShareNoteWithUser(): UseMutationResult<
-  NoteUserShare,
-  ApiRequestError,
-  ShareNoteWithUserVariables
-> {
+export function useShareNoteWithUser(): UseMutationResult<NoteUserShare, ApiRequestError, ShareNoteWithUserVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ noteId, body }: ShareNoteWithUserVariables) =>
-      apiClient.post<NoteUserShare>(
-        `/api/notes/${encodeURIComponent(noteId)}/share`,
-        body
-      ),
+    mutationFn: ({ noteId, body }: ShareNoteWithUserVariables) => apiClient.post<NoteUserShare>(`/api/notes/${encodeURIComponent(noteId)}/share`, body),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares and note detail for this note
@@ -181,10 +173,7 @@ export function useShareNoteWithUser(): UseMutationResult<
     },
 
     onError: (error) => {
-      console.error(
-        '[useShareNoteWithUser] Failed to share note:',
-        error.message
-      );
+      console.error('[useShareNoteWithUser] Failed to share note:', error.message);
     },
   });
 }
@@ -246,19 +235,12 @@ export function useShareNoteWithUser(): UseMutationResult<
  * });
  * ```
  */
-export function useCreateNoteShareLink(): UseMutationResult<
-  CreateLinkShareResponse,
-  ApiRequestError,
-  CreateNoteShareLinkVariables
-> {
+export function useCreateNoteShareLink(): UseMutationResult<CreateLinkShareResponse, ApiRequestError, CreateNoteShareLinkVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ noteId, body }: CreateNoteShareLinkVariables) =>
-      apiClient.post<CreateLinkShareResponse>(
-        `/api/notes/${encodeURIComponent(noteId)}/share/link`,
-        body
-      ),
+      apiClient.post<CreateLinkShareResponse>(`/api/notes/${encodeURIComponent(noteId)}/share/link`, body),
 
     onSuccess: (_, { noteId }) => {
       // Invalidate shares and note detail for this note
@@ -267,10 +249,7 @@ export function useCreateNoteShareLink(): UseMutationResult<
     },
 
     onError: (error) => {
-      console.error(
-        '[useCreateNoteShareLink] Failed to create share link:',
-        error.message
-      );
+      console.error('[useCreateNoteShareLink] Failed to create share link:', error.message);
     },
   });
 }
@@ -332,36 +311,25 @@ export function useCreateNoteShareLink(): UseMutationResult<
  * });
  * ```
  */
-export function useUpdateNoteShare(): UseMutationResult<
-  NoteShare,
-  ApiRequestError,
-  UpdateNoteShareVariables
-> {
+export function useUpdateNoteShare(): UseMutationResult<NoteShare, ApiRequestError, UpdateNoteShareVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ noteId, shareId, body }: UpdateNoteShareVariables) =>
-      apiClient.put<NoteShare>(
-        `/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`,
-        body
-      ),
+      apiClient.put<NoteShare>(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`, body),
 
     onMutate: async ({ noteId, shareId, body }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: noteKeys.shares(noteId) });
 
       // Snapshot previous value
-      const previousShares = queryClient.getQueryData<NoteSharesResponse>(
-        noteKeys.shares(noteId)
-      );
+      const previousShares = queryClient.getQueryData<NoteSharesResponse>(noteKeys.shares(noteId));
 
       // Optimistically update the share
       if (previousShares) {
         queryClient.setQueryData<NoteSharesResponse>(noteKeys.shares(noteId), {
           ...previousShares,
-          shares: previousShares.shares.map((share) =>
-            share.id === shareId ? { ...share, ...body } : share
-          ),
+          shares: previousShares.shares.map((share) => (share.id === shareId ? { ...share, ...body } : share)),
         });
       }
 
@@ -373,10 +341,7 @@ export function useUpdateNoteShare(): UseMutationResult<
       if (context?.previousShares) {
         queryClient.setQueryData(noteKeys.shares(noteId), context.previousShares);
       }
-      console.error(
-        '[useUpdateNoteShare] Failed to update share:',
-        error.message
-      );
+      console.error('[useUpdateNoteShare] Failed to update share:', error.message);
     },
 
     onSettled: (_, _error, { noteId }) => {
@@ -447,27 +412,19 @@ export function useUpdateNoteShare(): UseMutationResult<
  * ))}
  * ```
  */
-export function useRevokeNoteShare(): UseMutationResult<
-  void,
-  ApiRequestError,
-  RevokeNoteShareVariables
-> {
+export function useRevokeNoteShare(): UseMutationResult<void, ApiRequestError, RevokeNoteShareVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ noteId, shareId }: RevokeNoteShareVariables) =>
-      apiClient.delete(
-        `/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`
-      ),
+      apiClient.delete(`/api/notes/${encodeURIComponent(noteId)}/shares/${encodeURIComponent(shareId)}`),
 
     onMutate: async ({ noteId, shareId }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: noteKeys.shares(noteId) });
 
       // Snapshot previous value
-      const previousShares = queryClient.getQueryData<NoteSharesResponse>(
-        noteKeys.shares(noteId)
-      );
+      const previousShares = queryClient.getQueryData<NoteSharesResponse>(noteKeys.shares(noteId));
 
       // Optimistically remove the share
       if (previousShares) {
@@ -485,10 +442,7 @@ export function useRevokeNoteShare(): UseMutationResult<
       if (context?.previousShares) {
         queryClient.setQueryData(noteKeys.shares(noteId), context.previousShares);
       }
-      console.error(
-        '[useRevokeNoteShare] Failed to revoke share:',
-        error.message
-      );
+      console.error('[useRevokeNoteShare] Failed to revoke share:', error.message);
     },
 
     onSettled: (_, _error, { noteId }) => {

@@ -135,10 +135,7 @@ describe('SearchPage', () => {
 
     // API should have been called with the query
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith(
-        expect.stringContaining('q=login'),
-        expect.anything(),
-      );
+      expect(apiClient.get).toHaveBeenCalledWith(expect.stringContaining('q=login'), expect.anything());
     });
   });
 
@@ -205,9 +202,7 @@ describe('SearchPage', () => {
   });
 
   it('shows error state on API failure', async () => {
-    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('Network error'),
-    );
+    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
 
     renderSearchPage('/search?q=error');
 

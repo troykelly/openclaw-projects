@@ -64,11 +64,7 @@ function getSortValue(item: Record<string, unknown>, field: SortField): string |
 /**
  * Compare two values for sorting
  */
-function compareValues(
-  a: string | number | null,
-  b: string | number | null,
-  direction: SortDirection
-): number {
+function compareValues(a: string | number | null, b: string | number | null, direction: SortDirection): number {
   // Handle null values - push to end
   if (a === null && b === null) return 0;
   if (a === null) return 1;
@@ -87,10 +83,7 @@ function compareValues(
 /**
  * Sort items by the given sort state
  */
-export function sortItems<T extends Record<string, unknown>>(
-  items: T[],
-  sort: SortState
-): T[] {
+export function sortItems<T extends Record<string, unknown>>(items: T[], sort: SortState): T[] {
   return [...items].sort((a, b) => {
     // Primary sort
     const aValue = getSortValue(a, sort.field);
@@ -111,10 +104,7 @@ export function sortItems<T extends Record<string, unknown>>(
 /**
  * Hook for managing sort state with localStorage persistence
  */
-export function useSortState(
-  viewId: string,
-  defaultSort: SortState = DEFAULT_SORT
-) {
+export function useSortState(viewId: string, defaultSort: SortState = DEFAULT_SORT) {
   // Initialize from localStorage or default
   const [sort, setSortInternal] = useState<SortState>(() => {
     if (typeof window !== 'undefined') {

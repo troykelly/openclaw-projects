@@ -5,10 +5,10 @@
  * This file will be replaced by actual gateway integration tests in #959.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'vitest';
 
 describe('Gateway Test Placeholder', () => {
   it('should pass placeholder test', () => {
-    expect(true).toBe(true)
-  })
-})
+    expect(true).toBe(true);
+  });
+});

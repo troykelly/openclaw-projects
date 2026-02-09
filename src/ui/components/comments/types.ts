@@ -33,4 +33,4 @@ export interface Comment {
 /** Common reaction emojis */
 export const REACTION_EMOJIS = ['👍', '❤️', '🎉', '😕', '🚀', '👀'] as const;
 
-export type ReactionEmoji = typeof REACTION_EMOJIS[number];
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];

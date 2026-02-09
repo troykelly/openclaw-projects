@@ -5,12 +5,7 @@ import * as React from 'react';
 import { cn } from '@/ui/lib/utils';
 import type { MilestoneProgressProps } from './types';
 
-export function MilestoneProgress({
-  progress,
-  status = 'upcoming',
-  isAtRisk = false,
-  className,
-}: MilestoneProgressProps) {
+export function MilestoneProgress({ progress, status = 'upcoming', isAtRisk = false, className }: MilestoneProgressProps) {
   const percentage = Math.round(progress * 100);
 
   // Determine color based on status and risk
@@ -38,17 +33,9 @@ export function MilestoneProgress({
       aria-valuenow={percentage}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn(
-        'h-2 w-full rounded-full overflow-hidden',
-        getColorClass(),
-        'bg-opacity-20',
-        className
-      )}
+      className={cn('h-2 w-full rounded-full overflow-hidden', getColorClass(), 'bg-opacity-20', className)}
     >
-      <div
-        className={cn('h-full transition-all duration-300', getColorClass())}
-        style={{ width: `${percentage}%` }}
-      />
+      <div className={cn('h-full transition-all duration-300', getColorClass())} style={{ width: `${percentage}%` }} />
     </div>
   );
 }

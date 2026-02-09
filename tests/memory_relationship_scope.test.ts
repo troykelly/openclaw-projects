@@ -9,12 +9,7 @@ import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
-import {
-  createMemory,
-  getMemory,
-  listMemories,
-  searchMemories,
-} from '../src/api/memory/index.ts';
+import { createMemory, getMemory, listMemories, searchMemories } from '../src/api/memory/index.ts';
 
 describe('Memory Relationship Scope (Issue #493)', () => {
   const app = buildServer();
@@ -45,20 +40,14 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     relationshipTypeId: string;
   }> {
     // Create contacts
-    const contactA = await pool.query(
-      `INSERT INTO contact (display_name) VALUES ('Troy') RETURNING id::text as id`
-    );
+    const contactA = await pool.query(`INSERT INTO contact (display_name) VALUES ('Troy') RETURNING id::text as id`);
     const contactAId = (contactA.rows[0] as { id: string }).id;
 
-    const contactB = await pool.query(
-      `INSERT INTO contact (display_name) VALUES ('Alex') RETURNING id::text as id`
-    );
+    const contactB = await pool.query(`INSERT INTO contact (display_name) VALUES ('Alex') RETURNING id::text as id`);
     const contactBId = (contactB.rows[0] as { id: string }).id;
 
     // Get partner_of type (pre-seeded)
-    const typeResult = await pool.query(
-      `SELECT id::text as id FROM relationship_type WHERE name = 'partner_of' LIMIT 1`
-    );
+    const typeResult = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = 'partner_of' LIMIT 1`);
     const relationshipTypeId = (typeResult.rows[0] as { id: string }).id;
 
     // Create relationship
@@ -66,7 +55,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       `INSERT INTO relationship (contact_a_id, contact_b_id, relationship_type_id)
        VALUES ($1, $2, $3)
        RETURNING id::text as id`,
-      [contactAId, contactBId, relationshipTypeId]
+      [contactAId, contactBId, relationshipTypeId],
     );
     const relationshipId = (relResult.rows[0] as { id: string }).id;
 
@@ -80,7 +69,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       const result = await pool.query(
         `SELECT column_name, data_type, is_nullable
          FROM information_schema.columns
-         WHERE table_name = 'memory' AND column_name = 'relationship_id'`
+         WHERE table_name = 'memory' AND column_name = 'relationship_id'`,
       );
       expect(result.rows.length).toBe(1);
       const col = result.rows[0] as {
@@ -101,7 +90,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
          WHERE tc.table_name = 'memory'
            AND tc.constraint_type = 'FOREIGN KEY'
            AND ccu.table_name = 'relationship'
-           AND ccu.column_name = 'id'`
+           AND ccu.column_name = 'id'`,
       );
       expect(result.rows.length).toBeGreaterThan(0);
     });
@@ -109,7 +98,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     it('partial index exists on relationship_id', async () => {
       const result = await pool.query(
         `SELECT indexname, indexdef FROM pg_indexes
-         WHERE tablename = 'memory' AND indexname = 'idx_memory_relationship_id'`
+         WHERE tablename = 'memory' AND indexname = 'idx_memory_relationship_id'`,
       );
       expect(result.rows.length).toBe(1);
       const idx = result.rows[0] as { indexname: string; indexdef: string };
@@ -189,19 +178,15 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       const rel1 = await createTestRelationship();
 
       // Create a second relationship (different contacts)
-      const contactC = await pool.query(
-        `INSERT INTO contact (display_name) VALUES ('Jordan') RETURNING id::text as id`
-      );
+      const contactC = await pool.query(`INSERT INTO contact (display_name) VALUES ('Jordan') RETURNING id::text as id`);
       const contactCId = (contactC.rows[0] as { id: string }).id;
-      const typeResult = await pool.query(
-        `SELECT id::text as id FROM relationship_type WHERE name = 'friend_of' LIMIT 1`
-      );
+      const typeResult = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = 'friend_of' LIMIT 1`);
       const friendTypeId = (typeResult.rows[0] as { id: string }).id;
       const rel2Result = await pool.query(
         `INSERT INTO relationship (contact_a_id, contact_b_id, relationship_type_id)
          VALUES ($1, $2, $3)
          RETURNING id::text as id`,
-        [rel1.contactAId, contactCId, friendTypeId]
+        [rel1.contactAId, contactCId, friendTypeId],
       );
       const rel2Id = (rel2Result.rows[0] as { id: string }).id;
 
@@ -274,7 +259,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       // Should filter results to only the relationship-scoped memory
       if (result.results.length > 0) {
-        expect(result.results.every(r => r.relationshipId === relationshipId)).toBe(true);
+        expect(result.results.every((r) => r.relationshipId === relationshipId)).toBe(true);
       }
     });
   });
@@ -400,11 +385,11 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, relationship_id)
          VALUES ('Anniversary', 'Their anniversary is March 15', 'fact', $1)`,
-        [relationshipId]
+        [relationshipId],
       );
       await pool.query(
         `INSERT INTO memory (title, content, memory_type)
-         VALUES ('Other anniversary', 'Someone else''s anniversary', 'fact')`
+         VALUES ('Other anniversary', 'Someone else''s anniversary', 'fact')`,
       );
 
       const res = await app.inject({
@@ -433,7 +418,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
         `INSERT INTO memory (title, content, memory_type, relationship_id)
          VALUES ('Old anniversary', 'March 15', 'fact', $1)
          RETURNING id::text as id`,
-        [relationshipId]
+        [relationshipId],
       );
       const oldId = (original.rows[0] as { id: string }).id;
 
@@ -458,7 +443,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
     it('migration can be reversed (column exists now)', async () => {
       const before = await pool.query(
         `SELECT 1 FROM information_schema.columns
-         WHERE table_name = 'memory' AND column_name = 'relationship_id'`
+         WHERE table_name = 'memory' AND column_name = 'relationship_id'`,
       );
       expect(before.rows.length).toBe(1);
     });

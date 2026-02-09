@@ -3,12 +3,7 @@
  * Issue #673: Hardcoded regex patterns for route matching
  */
 import { describe, it, expect } from 'vitest';
-import {
-  ROUTE_PATTERNS,
-  matchNotesRoute,
-  matchWorkItemsRoute,
-  extractWorkItemId,
-} from '@/ui/lib/route-patterns';
+import { ROUTE_PATTERNS, matchNotesRoute, matchWorkItemsRoute, extractWorkItemId } from '@/ui/lib/route-patterns';
 
 describe('ROUTE_PATTERNS', () => {
   describe('notebookNote', () => {

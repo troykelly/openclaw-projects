@@ -15,12 +15,7 @@ export interface ContactListProps {
   className?: string;
 }
 
-export function ContactList({
-  contacts,
-  onContactClick,
-  onAddContact,
-  className,
-}: ContactListProps) {
+export function ContactList({ contacts, onContactClick, onAddContact, className }: ContactListProps) {
   const [search, setSearch] = useState('');
 
   const filteredContacts = useMemo(() => {
@@ -32,7 +27,7 @@ export function ContactList({
         c.name.toLowerCase().includes(query) ||
         c.email.toLowerCase().includes(query) ||
         c.company?.toLowerCase().includes(query) ||
-        c.role?.toLowerCase().includes(query)
+        c.role?.toLowerCase().includes(query),
     );
   }, [contacts, search]);
 
@@ -53,12 +48,7 @@ export function ContactList({
       <div className="border-b p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contacts..."
-            className="pl-9"
-          />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search contacts..." className="pl-9" />
         </div>
       </div>
 
@@ -66,19 +56,13 @@ export function ContactList({
       <ScrollArea className="flex-1">
         <div className="space-y-2 p-4">
           {filteredContacts.map((contact) => (
-            <ContactCard
-              key={contact.id}
-              contact={contact}
-              onClick={onContactClick}
-            />
+            <ContactCard key={contact.id} contact={contact} onClick={onContactClick} />
           ))}
 
           {filteredContacts.length === 0 && (
             <div className="py-12 text-center">
               <UserPlus className="mx-auto size-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">
-                {search ? 'No contacts found' : 'No contacts yet'}
-              </p>
+              <p className="mt-4 text-muted-foreground">{search ? 'No contacts found' : 'No contacts yet'}</p>
               {!search && onAddContact && (
                 <Button variant="outline" size="sm" className="mt-4" onClick={onAddContact}>
                   Add your first contact

@@ -48,7 +48,7 @@ describe('Contacts Page', () => {
       const session = await pool2.query(
         `INSERT INTO auth_session (email, expires_at)
          VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const sessionId = (session.rows[0] as { id: string }).id;
       await pool2.end();
@@ -72,7 +72,7 @@ describe('Contacts Page', () => {
       // Create some contacts (using display_name, the actual column name)
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Alice Smith'), ('Bob Jones')`
+         VALUES ('Alice Smith'), ('Bob Jones')`,
       );
 
       const res = await app.inject({
@@ -106,7 +106,7 @@ describe('Contacts Page', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Original Name')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -129,7 +129,7 @@ describe('Contacts Page', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('To Delete')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -153,7 +153,7 @@ describe('Contacts Page', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('With Endpoints')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -161,7 +161,7 @@ describe('Contacts Page', () => {
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'test@example.com', 'test@example.com')`,
-        [contactId]
+        [contactId],
       );
 
       const res = await app.inject({
@@ -182,20 +182,18 @@ describe('Contacts Page', () => {
     it('supports search filtering contacts', async () => {
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Alice Smith'), ('Bob Jones'), ('Charlie Acme')`
+         VALUES ('Alice Smith'), ('Bob Jones'), ('Charlie Acme')`,
       );
 
       // Add email endpoints for searching
-      const contacts = await pool.query(
-        `SELECT id::text as id, display_name FROM contact ORDER BY display_name`
-      );
+      const contacts = await pool.query(`SELECT id::text as id, display_name FROM contact ORDER BY display_name`);
       const rows = contacts.rows as Array<{ id: string; display_name: string }>;
 
       // Alice has acme email
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'alice@acme.com', 'alice@acme.com')`,
-        [rows[0].id]
+        [rows[0].id],
       );
 
       const res = await app.inject({
@@ -217,7 +215,7 @@ describe('Contacts Page', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Linked Contact')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -225,7 +223,7 @@ describe('Contacts Page', () => {
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'linked@example.com', 'linked@example.com')
          RETURNING id::text as id`,
-        [contactId]
+        [contactId],
       );
       const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -233,7 +231,7 @@ describe('Contacts Page', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -242,14 +240,14 @@ describe('Contacts Page', () => {
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'email', 'linked@example.com')
          RETURNING id::text as id`,
-        [endpointId]
+        [endpointId],
       );
       const threadId = (thread.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id)
          VALUES ($1, $2)`,
-        [itemId, threadId]
+        [itemId, threadId],
       );
 
       const res = await app.inject({

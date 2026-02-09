@@ -32,10 +32,7 @@ function getWeekDays(date: Date): DayEvents[] {
     days.push({
       date: day,
       events: [],
-      isToday:
-        day.getDate() === today.getDate() &&
-        day.getMonth() === today.getMonth() &&
-        day.getFullYear() === today.getFullYear(),
+      isToday: day.getDate() === today.getDate() && day.getMonth() === today.getMonth() && day.getFullYear() === today.getFullYear(),
       isCurrentMonth: day.getMonth() === date.getMonth(),
     });
   }
@@ -48,12 +45,7 @@ function getEventsForDate(events: CalendarEvent[], date: Date): CalendarEvent[] 
   return events.filter((event) => event.date === dateStr);
 }
 
-export function WeekView({
-  currentDate,
-  events,
-  onEventClick,
-  onDateClick,
-}: WeekViewProps) {
+export function WeekView({ currentDate, events, onEventClick, onDateClick }: WeekViewProps) {
   const days = getWeekDays(currentDate);
 
   // Add events to days
@@ -67,13 +59,7 @@ export function WeekView({
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b">
         {daysWithEvents.map((day, index) => (
-          <div
-            key={index}
-            className={cn(
-              'px-2 py-2 text-center border-r',
-              day.isToday && 'bg-accent/20'
-            )}
-          >
+          <div key={index} className={cn('px-2 py-2 text-center border-r', day.isToday && 'bg-accent/20')}>
             <div className="text-sm text-muted-foreground">
               {DAY_NAMES[index]} {day.date.getDate()}
             </div>
@@ -87,19 +73,12 @@ export function WeekView({
           <div
             key={index}
             data-testid={`week-day-${index}`}
-            className={cn(
-              'border-r p-2 cursor-pointer hover:bg-muted/50',
-              day.isToday && 'bg-accent/10'
-            )}
+            className={cn('border-r p-2 cursor-pointer hover:bg-muted/50', day.isToday && 'bg-accent/10')}
             onClick={() => onDateClick?.(day.date)}
           >
             <div className="space-y-2">
               {day.events.map((event) => (
-                <CalendarItem
-                  key={event.id}
-                  event={event}
-                  onClick={onEventClick}
-                />
+                <CalendarItem key={event.id} event={event} onClick={onEventClick} />
               ))}
             </div>
           </div>

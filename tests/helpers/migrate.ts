@@ -13,9 +13,7 @@ function defaultDbHost(): string {
   return existsSync('/.dockerenv') ? 'postgres' : 'localhost';
 }
 
-export const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  `postgres://openclaw:openclaw@${defaultDbHost()}:5432/openclaw?sslmode=disable`;
+export const DATABASE_URL = process.env.DATABASE_URL || `postgres://openclaw:openclaw@${defaultDbHost()}:5432/openclaw?sslmode=disable`;
 
 type Migration = {
   version: number;
@@ -108,10 +106,7 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
           await pool.query('BEGIN');
           try {
             await applySql(pool, m.upPath);
-            await pool.query(
-              'INSERT INTO schema_migrations(version, dirty) VALUES ($1, false) ON CONFLICT (version) DO NOTHING',
-              [m.version]
-            );
+            await pool.query('INSERT INTO schema_migrations(version, dirty) VALUES ($1, false) ON CONFLICT (version) DO NOTHING', [m.version]);
             await pool.query('COMMIT');
           } catch (e) {
             await pool.query('ROLLBACK');
@@ -124,9 +119,7 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
       }
 
       // down
-      const rows = await pool.query<{ version: number }>(
-        'SELECT version::int as version FROM schema_migrations ORDER BY version DESC'
-      );
+      const rows = await pool.query<{ version: number }>('SELECT version::int as version FROM schema_migrations ORDER BY version DESC');
       const toRollback = steps ? rows.rows.slice(0, steps) : rows.rows;
 
       let count = 0;

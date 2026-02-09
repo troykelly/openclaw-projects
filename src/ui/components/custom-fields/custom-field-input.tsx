@@ -9,35 +9,17 @@ import { Label } from '@/ui/components/ui/label';
 import { cn } from '@/ui/lib/utils';
 import type { CustomFieldInputProps } from './types';
 
-export function CustomFieldInput({
-  field,
-  value,
-  onChange,
-  disabled = false,
-  error,
-}: CustomFieldInputProps) {
+export function CustomFieldInput({ field, value, onChange, disabled = false, error }: CustomFieldInputProps) {
   const renderInput = () => {
     switch (field.type) {
       case 'text':
         return (
-          <Input
-            type="text"
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder={field.description}
-          />
+          <Input type="text" value={(value as string) || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={field.description} />
         );
 
       case 'longtext':
         return (
-          <Textarea
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder={field.description}
-            rows={3}
-          />
+          <Textarea value={(value as string) || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={field.description} rows={3} />
         );
 
       case 'number':
@@ -45,9 +27,7 @@ export function CustomFieldInput({
           <Input
             type="number"
             value={value !== undefined && value !== null ? String(value) : ''}
-            onChange={(e) =>
-              onChange(e.target.value ? Number(e.target.value) : null)
-            }
+            onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
             disabled={disabled}
             min={field.validation?.min}
             max={field.validation?.max}
@@ -55,14 +35,7 @@ export function CustomFieldInput({
         );
 
       case 'date':
-        return (
-          <Input
-            type="date"
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-          />
-        );
+        return <Input type="date" value={(value as string) || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} />;
 
       case 'select':
         return (
@@ -110,37 +83,14 @@ export function CustomFieldInput({
         );
 
       case 'checkbox':
-        return (
-          <Checkbox
-            checked={Boolean(value)}
-            onCheckedChange={(checked) => onChange(checked)}
-            disabled={disabled}
-            aria-label={field.name}
-          />
-        );
+        return <Checkbox checked={Boolean(value)} onCheckedChange={(checked) => onChange(checked)} disabled={disabled} aria-label={field.name} />;
 
       case 'url':
-        return (
-          <Input
-            type="url"
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder="https://..."
-          />
-        );
+        return <Input type="url" value={(value as string) || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder="https://..." />;
 
       case 'user':
         // User picker would need contact integration
-        return (
-          <Input
-            type="text"
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            placeholder="User ID"
-          />
-        );
+        return <Input type="text" value={(value as string) || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder="User ID" />;
 
       default:
         return null;
@@ -155,9 +105,7 @@ export function CustomFieldInput({
         </Label>
         {field.required && <span className="text-destructive">*</span>}
       </div>
-      {field.description && field.type !== 'text' && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      )}
+      {field.description && field.type !== 'text' && <p className="text-xs text-muted-foreground">{field.description}</p>}
       {renderInput()}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

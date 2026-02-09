@@ -12,15 +12,7 @@ export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   animation?: 'pulse' | 'wave' | 'none';
 }
 
-export function Skeleton({
-  width,
-  height,
-  variant = 'default',
-  animation = 'pulse',
-  className,
-  style,
-  ...props
-}: SkeletonProps) {
+export function Skeleton({ width, height, variant = 'default', animation = 'pulse', className, style, ...props }: SkeletonProps) {
   return (
     <div
       data-testid="skeleton"
@@ -31,7 +23,7 @@ export function Skeleton({
         variant === 'default' && 'rounded-md',
         variant === 'circular' && 'rounded-full',
         variant === 'rectangular' && 'rounded-none',
-        className
+        className,
       )}
       style={{
         width: typeof width === 'number' ? `${width}px` : width,
@@ -44,21 +36,11 @@ export function Skeleton({
 }
 
 // Preset skeleton components for common use cases
-export function SkeletonText({
-  lines = 3,
-  className,
-}: {
-  lines?: number;
-  className?: string;
-}) {
+export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {
   return (
     <div className={cn('space-y-2', className)}>
       {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton
-          key={i}
-          height={16}
-          width={i === lines - 1 ? '70%' : '100%'}
-        />
+        <Skeleton key={i} height={16} width={i === lines - 1 ? '70%' : '100%'} />
       ))}
     </div>
   );
@@ -66,10 +48,7 @@ export function SkeletonText({
 
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div
-      data-testid="skeleton-card"
-      className={cn('rounded-lg border bg-card p-4 space-y-3', className)}
-    >
+    <div data-testid="skeleton-card" className={cn('rounded-lg border bg-card p-4 space-y-3', className)}>
       <div className="flex items-center gap-3">
         <Skeleton variant="circular" width={40} height={40} />
         <div className="flex-1 space-y-2">
@@ -82,15 +61,7 @@ export function SkeletonCard({ className }: { className?: string }) {
   );
 }
 
-export function SkeletonList({
-  count = 5,
-  variant = 'card',
-  className,
-}: {
-  count?: number;
-  variant?: 'card' | 'row';
-  className?: string;
-}) {
+export function SkeletonList({ count = 5, variant = 'card', className }: { count?: number; variant?: 'card' | 'row'; className?: string }) {
   if (variant === 'row') {
     return (
       <div className={cn('space-y-2', className)}>
@@ -116,15 +87,7 @@ export function SkeletonList({
   );
 }
 
-export function SkeletonTable({
-  rows = 5,
-  columns = 4,
-  className,
-}: {
-  rows?: number;
-  columns?: number;
-  className?: string;
-}) {
+export function SkeletonTable({ rows = 5, columns = 4, className }: { rows?: number; columns?: number; className?: string }) {
   return (
     <div className={cn('space-y-3', className)}>
       {/* Header */}

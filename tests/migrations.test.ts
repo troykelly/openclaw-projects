@@ -94,9 +94,7 @@ describe('Migrations', () => {
     `);
     expect(result.rows[0].exists).toBe(false);
 
-    const fn = await pool.query(
-      "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'new_uuid') as exists"
-    );
+    const fn = await pool.query("SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'new_uuid') as exists");
     expect(fn.rows[0].exists).toBe(false);
   });
 });

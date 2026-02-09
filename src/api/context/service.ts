@@ -106,11 +106,7 @@ export function validateContextInput(input: ContextRetrievalInput): string | nul
 
   // maxContextLength validation
   if (input.maxContextLength !== undefined) {
-    if (
-      typeof input.maxContextLength !== 'number' ||
-      input.maxContextLength < 100 ||
-      input.maxContextLength > 10000
-    ) {
+    if (typeof input.maxContextLength !== 'number' || input.maxContextLength < 100 || input.maxContextLength > 10000) {
       return 'maxContextLength must be between 100 and 10000';
     }
   }
@@ -131,20 +127,10 @@ export function validateContextInput(input: ContextRetrievalInput): string | nul
  * Uses semantic search to find relevant memories, and optionally
  * includes active projects and pending todos.
  */
-export async function retrieveContext(
-  pool: Pool,
-  input: ContextRetrievalInput
-): Promise<ContextRetrievalResult> {
+export async function retrieveContext(pool: Pool, input: ContextRetrievalInput): Promise<ContextRetrievalResult> {
   const startTime = Date.now();
 
-  const {
-    prompt,
-    maxMemories = 5,
-    maxContextLength = 2000,
-    includeProjects = false,
-    includeTodos = false,
-    minSimilarity = 0.5,
-  } = input;
+  const { prompt, maxMemories = 5, maxContextLength = 2000, includeProjects = false, includeTodos = false, minSimilarity = 0.5 } = input;
 
   // Initialize result
   const sources: ContextSources = {
@@ -192,7 +178,7 @@ export async function retrieveContext(
          WHERE kind = 'project'
            AND status NOT IN ('completed', 'archived', 'deleted')
          ORDER BY updated_at DESC
-         LIMIT 5`
+         LIMIT 5`,
       );
 
       sources.projects = projectResult.rows.map((row) => ({
@@ -222,7 +208,7 @@ export async function retrieveContext(
            CASE WHEN not_after IS NOT NULL THEN 0 ELSE 1 END,
            not_after ASC,
            updated_at DESC
-         LIMIT 10`
+         LIMIT 10`,
       );
 
       sources.todos = todoResult.rows.map((row) => ({

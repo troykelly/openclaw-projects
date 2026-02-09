@@ -9,26 +9,11 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  CommentInput,
-  type CommentInputProps,
-} from '@/ui/components/comments/comment-input';
-import {
-  CommentCard,
-  type CommentCardProps,
-} from '@/ui/components/comments/comment-card';
-import {
-  CommentThread,
-  type CommentThreadProps,
-} from '@/ui/components/comments/comment-thread';
-import {
-  CommentsSection,
-  type CommentsSectionProps,
-} from '@/ui/components/comments/comments-section';
-import {
-  CommentReactions,
-  type CommentReactionsProps,
-} from '@/ui/components/comments/comment-reactions';
+import { CommentInput, type CommentInputProps } from '@/ui/components/comments/comment-input';
+import { CommentCard, type CommentCardProps } from '@/ui/components/comments/comment-card';
+import { CommentThread, type CommentThreadProps } from '@/ui/components/comments/comment-thread';
+import { CommentsSection, type CommentsSectionProps } from '@/ui/components/comments/comments-section';
+import { CommentReactions, type CommentReactionsProps } from '@/ui/components/comments/comment-reactions';
 import type { Comment, CommentReaction, Author } from '@/ui/components/comments/types';
 
 describe('CommentInput', () => {
@@ -458,14 +443,7 @@ describe('CommentThread inline editing', () => {
   it('should show CommentInput instead of CommentCard when editingId matches parent', () => {
     const onEditSave = vi.fn();
     const onEditCancel = vi.fn();
-    render(
-      <CommentThread
-        {...defaultProps}
-        editingId="comment-1"
-        onEditSave={onEditSave}
-        onEditCancel={onEditCancel}
-      />
-    );
+    render(<CommentThread {...defaultProps} editingId="comment-1" onEditSave={onEditSave} onEditCancel={onEditCancel} />);
 
     // The parent comment content should NOT be visible as plain text
     expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument();
@@ -477,14 +455,7 @@ describe('CommentThread inline editing', () => {
   it('should show CommentInput instead of CommentCard when editingId matches reply', () => {
     const onEditSave = vi.fn();
     const onEditCancel = vi.fn();
-    render(
-      <CommentThread
-        {...defaultProps}
-        editingId="reply-1"
-        onEditSave={onEditSave}
-        onEditCancel={onEditCancel}
-      />
-    );
+    render(<CommentThread {...defaultProps} editingId="reply-1" onEditSave={onEditSave} onEditCancel={onEditCancel} />);
 
     // The reply content should NOT be shown as plain text (it should be in a textarea)
     // The parent should still render as normal CommentCard
@@ -498,14 +469,7 @@ describe('CommentThread inline editing', () => {
   it('should call onEditSave with correct args when edit is submitted', async () => {
     const onEditSave = vi.fn();
     const onEditCancel = vi.fn();
-    render(
-      <CommentThread
-        {...defaultProps}
-        editingId="comment-1"
-        onEditSave={onEditSave}
-        onEditCancel={onEditCancel}
-      />
-    );
+    render(<CommentThread {...defaultProps} editingId="comment-1" onEditSave={onEditSave} onEditCancel={onEditCancel} />);
 
     // Modify the textarea content
     const textarea = screen.getByDisplayValue('Parent comment content');
@@ -524,14 +488,7 @@ describe('CommentThread inline editing', () => {
   it('should call onEditCancel when cancel is clicked', () => {
     const onEditSave = vi.fn();
     const onEditCancel = vi.fn();
-    render(
-      <CommentThread
-        {...defaultProps}
-        editingId="comment-1"
-        onEditSave={onEditSave}
-        onEditCancel={onEditCancel}
-      />
-    );
+    render(<CommentThread {...defaultProps} editingId="comment-1" onEditSave={onEditSave} onEditCancel={onEditCancel} />);
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
@@ -539,14 +496,7 @@ describe('CommentThread inline editing', () => {
   });
 
   it('should not show edit input when editingId is null', () => {
-    render(
-      <CommentThread
-        {...defaultProps}
-        editingId={null}
-        onEditSave={vi.fn()}
-        onEditCancel={vi.fn()}
-      />
-    );
+    render(<CommentThread {...defaultProps} editingId={null} onEditSave={vi.fn()} onEditCancel={vi.fn()} />);
 
     // Both parent and reply should render as normal cards
     expect(screen.getByText('Parent comment content')).toBeInTheDocument();
@@ -651,9 +601,7 @@ describe('CommentsSection inline editing', () => {
 
   it('should call onEditComment and exit edit mode on save', async () => {
     const onEditComment = vi.fn();
-    const { container } = render(
-      <CommentsSection {...defaultProps} onEditComment={onEditComment} />
-    );
+    const { container } = render(<CommentsSection {...defaultProps} onEditComment={onEditComment} />);
 
     await triggerEditOnComment(container);
 

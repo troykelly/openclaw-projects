@@ -10,35 +10,12 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  FileText,
-  Lock,
-  AlertCircle,
-  Loader2,
-  Copy,
-  Check,
-  User,
-  Calendar,
-  Eye,
-  Edit,
-} from 'lucide-react';
+import { FileText, Lock, AlertCircle, Loader2, Copy, Check, User, Calendar, Eye, Edit } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/ui/components/ui/card';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import { NoteEditor } from '../editor';
 import type { Note } from '../types';
 
@@ -59,12 +36,7 @@ export interface SharedNotePageProps {
  * This is the first line of defense - content is escaped BEFORE any processing.
  */
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 /**
@@ -113,15 +85,7 @@ function markdownToHtml(markdown: string): string {
   return html;
 }
 
-export function SharedNotePage({
-  status,
-  note,
-  canEdit = false,
-  onSave,
-  onRequestAccess,
-  errorMessage,
-  className,
-}: SharedNotePageProps) {
+export function SharedNotePage({ status, note, canEdit = false, onSave, onRequestAccess, errorMessage, className }: SharedNotePageProps) {
   const [content, setContent] = useState(note?.content || '');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -162,9 +126,7 @@ export function SharedNotePage({
           <CardHeader className="text-center">
             <FileText className="mx-auto size-12 text-muted-foreground/50" />
             <CardTitle className="mt-4">Note not found</CardTitle>
-            <CardDescription>
-              This note may have been deleted or the link is incorrect.
-            </CardDescription>
+            <CardDescription>This note may have been deleted or the link is incorrect.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -179,9 +141,7 @@ export function SharedNotePage({
           <CardHeader className="text-center">
             <Lock className="mx-auto size-12 text-amber-500" />
             <CardTitle className="mt-4">Access denied</CardTitle>
-            <CardDescription>
-              You don't have permission to view this note.
-            </CardDescription>
+            <CardDescription>You don't have permission to view this note.</CardDescription>
           </CardHeader>
           {onRequestAccess && (
             <CardFooter className="justify-center">
@@ -201,9 +161,7 @@ export function SharedNotePage({
           <CardHeader className="text-center">
             <AlertCircle className="mx-auto size-12 text-destructive" />
             <CardTitle className="mt-4">Something went wrong</CardTitle>
-            <CardDescription>
-              {errorMessage || 'Unable to load this note. Please try again later.'}
-            </CardDescription>
+            <CardDescription>{errorMessage || 'Unable to load this note. Please try again later.'}</CardDescription>
           </CardHeader>
           <CardFooter className="justify-center">
             <Button variant="outline" onClick={() => window.location.reload()}>
@@ -228,9 +186,7 @@ export function SharedNotePage({
         <div className="mx-auto max-w-4xl px-4 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold truncate">
-                {note.title || 'Untitled'}
-              </h1>
+              <h1 className="text-2xl font-bold truncate">{note.title || 'Untitled'}</h1>
               <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <User className="size-4" />
@@ -261,16 +217,10 @@ export function SharedNotePage({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="sm" onClick={handleCopyLink}>
-                      {copied ? (
-                        <Check className="size-4 text-green-500" />
-                      ) : (
-                        <Copy className="size-4" />
-                      )}
+                      {copied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {copied ? 'Copied!' : 'Copy link'}
-                  </TooltipContent>
+                  <TooltipContent>{copied ? 'Copied!' : 'Copy link'}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
@@ -300,13 +250,7 @@ export function SharedNotePage({
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl px-4 py-6">
           {canEdit ? (
-            <NoteEditor
-              initialContent={content}
-              onChange={setContent}
-              onSave={handleSave}
-              saving={saving}
-              className="min-h-[400px]"
-            />
+            <NoteEditor initialContent={content} onChange={setContent} onSave={handleSave} saving={saving} className="min-h-[400px]" />
           ) : (
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
@@ -320,9 +264,7 @@ export function SharedNotePage({
 
       {/* Footer */}
       <footer className="border-t py-4 text-center text-xs text-muted-foreground">
-        <p>
-          Shared via OpenClaw Projects &middot; v{note.version}
-        </p>
+        <p>Shared via OpenClaw Projects &middot; v{note.version}</p>
       </footer>
     </div>
   );

@@ -9,19 +9,9 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  ThemeProvider,
-  useTheme,
-  type ThemeProviderProps,
-} from '@/ui/components/dark-mode/theme-provider';
-import {
-  ThemeToggle,
-  type ThemeToggleProps,
-} from '@/ui/components/dark-mode/theme-toggle';
-import {
-  ThemeSelector,
-  type ThemeSelectorProps,
-} from '@/ui/components/dark-mode/theme-selector';
+import { ThemeProvider, useTheme, type ThemeProviderProps } from '@/ui/components/dark-mode/theme-provider';
+import { ThemeToggle, type ThemeToggleProps } from '@/ui/components/dark-mode/theme-toggle';
+import { ThemeSelector, type ThemeSelectorProps } from '@/ui/components/dark-mode/theme-selector';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -62,9 +52,7 @@ const createMatchMedia = (matches: boolean) => {
     },
     dispatchEvent: vi.fn(),
     _triggerChange: (newMatches: boolean) => {
-      listeners.forEach((listener) =>
-        listener({ matches: newMatches } as MediaQueryListEvent)
-      );
+      listeners.forEach((listener) => listener({ matches: newMatches } as MediaQueryListEvent));
     },
   });
 };
@@ -92,7 +80,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider>
         <TestConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('system');
@@ -103,7 +91,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <TestConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
@@ -114,7 +102,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <TestConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
@@ -124,7 +112,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider defaultTheme="oled">
         <TestConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('oled');
@@ -141,7 +129,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider storageKey="test-theme">
         <ThemeSetter />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByText('Set Dark'));
@@ -154,7 +142,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider storageKey="test-theme">
         <TestConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
@@ -166,7 +154,7 @@ describe('ThemeProvider', () => {
     render(
       <ThemeProvider defaultTheme="system">
         <TestConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('resolved')).toHaveTextContent('dark');
@@ -185,7 +173,7 @@ describe('ThemeToggle', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeToggle />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByRole('button', { name: /toggle theme/i })).toBeInTheDocument();
@@ -195,7 +183,7 @@ describe('ThemeToggle', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeToggle />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     const button = screen.getByRole('button', { name: /toggle theme/i });
@@ -208,7 +196,7 @@ describe('ThemeToggle', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <ThemeToggle />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('sun-icon')).toBeInTheDocument();
@@ -218,7 +206,7 @@ describe('ThemeToggle', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeToggle />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('moon-icon')).toBeInTheDocument();
@@ -236,7 +224,7 @@ describe('ThemeSelector', () => {
     render(
       <ThemeProvider>
         <ThemeSelector />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByRole('radio', { name: /light/i })).toBeInTheDocument();
@@ -248,7 +236,7 @@ describe('ThemeSelector', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <ThemeSelector />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByRole('radio', { name: /dark/i })).toBeChecked();
@@ -258,7 +246,7 @@ describe('ThemeSelector', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeSelector />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByRole('radio', { name: /dark/i }));
@@ -269,7 +257,7 @@ describe('ThemeSelector', () => {
     render(
       <ThemeProvider>
         <ThemeSelector showOled />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByRole('radio', { name: /oled/i })).toBeInTheDocument();
@@ -293,7 +281,7 @@ describe('Dark mode CSS', () => {
     render(
       <ThemeProvider defaultTheme="light" enableTransitions>
         <div>Content</div>
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     // Provider should add transition class

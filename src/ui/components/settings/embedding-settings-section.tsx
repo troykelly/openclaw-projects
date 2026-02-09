@@ -1,14 +1,6 @@
 import * as React from 'react';
 import { useCallback, useState } from 'react';
-import {
-  Cpu,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Loader2,
-  Zap,
-  DollarSign,
-} from 'lucide-react';
+import { Cpu, CheckCircle, XCircle, AlertTriangle, Loader2, Zap, DollarSign } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Switch } from '@/ui/components/ui/switch';
 import { Input } from '@/ui/components/ui/input';
@@ -17,13 +9,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Skeleton } from '@/ui/components/feedback';
 import { cn } from '@/ui/lib/utils';
 import { useEmbeddingSettings } from './use-embedding-settings';
-import type {
-  EmbeddingProvider,
-  AvailableProvider,
-  EmbeddingBudget,
-  EmbeddingUsage,
-  EmbeddingTestResult,
-} from './types';
+import type { EmbeddingProvider, AvailableProvider, EmbeddingBudget, EmbeddingUsage, EmbeddingTestResult } from './types';
 
 interface SettingRowProps {
   label: string;
@@ -101,9 +87,7 @@ function ProviderStatus({ provider }: ProviderStatusProps) {
         <XCircle className="size-5 text-muted-foreground" />
         <div>
           <p className="text-sm font-medium">No provider configured</p>
-          <p className="text-xs text-muted-foreground">
-            Set an API key for VoyageAI, OpenAI, or Gemini
-          </p>
+          <p className="text-xs text-muted-foreground">Set an API key for VoyageAI, OpenAI, or Gemini</p>
         </div>
       </div>
     );
@@ -145,27 +129,14 @@ function ProviderList({ providers }: ProviderListProps) {
       <p className="text-sm font-medium">Provider Priority</p>
       <div className="flex flex-wrap gap-2">
         {providers.map((p) => (
-          <Badge
-            key={p.name}
-            variant={p.configured ? 'default' : 'outline'}
-            className={cn(
-              'gap-1.5',
-              !p.configured && 'text-muted-foreground'
-            )}
-          >
+          <Badge key={p.name} variant={p.configured ? 'default' : 'outline'} className={cn('gap-1.5', !p.configured && 'text-muted-foreground')}>
             <span className="text-xs opacity-60">#{p.priority}</span>
             {formatProviderName(p.name)}
-            {p.configured ? (
-              <CheckCircle className="size-3" />
-            ) : (
-              <XCircle className="size-3 opacity-50" />
-            )}
+            {p.configured ? <CheckCircle className="size-3" /> : <XCircle className="size-3 opacity-50" />}
           </Badge>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
-        First configured provider will be used
-      </p>
+      <p className="text-xs text-muted-foreground">First configured provider will be used</p>
     </div>
   );
 }
@@ -182,22 +153,16 @@ function TestResultDisplay({ result, onDismiss }: TestResultDisplayProps) {
         'flex items-center justify-between rounded-lg border p-3',
         result.success
           ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950'
-          : 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950'
+          : 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950',
       )}
     >
       <div className="flex items-center gap-2">
-        {result.success ? (
-          <CheckCircle className="size-4 text-green-600 dark:text-green-400" />
-        ) : (
-          <XCircle className="size-4 text-red-600 dark:text-red-400" />
-        )}
+        {result.success ? <CheckCircle className="size-4 text-green-600 dark:text-green-400" /> : <XCircle className="size-4 text-red-600 dark:text-red-400" />}
         <span className="text-sm">
           {result.success ? (
             <>
               Connection successful
-              {result.latencyMs && (
-                <span className="ml-1 text-muted-foreground">({result.latencyMs}ms)</span>
-              )}
+              {result.latencyMs && <span className="ml-1 text-muted-foreground">({result.latencyMs}ms)</span>}
             </>
           ) : (
             result.error || 'Connection failed'
@@ -231,14 +196,7 @@ function BudgetProgress({ label, spent, limit }: BudgetProgressProps) {
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className={cn(
-            'h-full transition-all',
-            percentage >= 100
-              ? 'bg-destructive'
-              : percentage >= 80
-                ? 'bg-yellow-500'
-                : 'bg-green-500'
-          )}
+          className={cn('h-full transition-all', percentage >= 100 ? 'bg-destructive' : percentage >= 80 ? 'bg-yellow-500' : 'bg-green-500')}
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -282,15 +240,7 @@ interface BudgetInputProps {
   disabled?: boolean;
 }
 
-function BudgetInput({
-  label,
-  description,
-  value,
-  onChange,
-  min = 0,
-  max = 10000,
-  disabled,
-}: BudgetInputProps) {
+function BudgetInput({ label, description, value, onChange, min = 0, max = 10000, disabled }: BudgetInputProps) {
   const [localValue, setLocalValue] = useState(value.toString());
 
   const handleBlur = useCallback(() => {
@@ -332,15 +282,7 @@ function BudgetInput({
 }
 
 export function EmbeddingSettingsSection() {
-  const {
-    state,
-    isSaving,
-    isTesting,
-    testResult,
-    updateBudget,
-    testConnection,
-    clearTestResult,
-  } = useEmbeddingSettings();
+  const { state, isSaving, isTesting, testResult, updateBudget, testConnection, clearTestResult } = useEmbeddingSettings();
 
   if (state.kind === 'loading') {
     return (
@@ -396,25 +338,16 @@ export function EmbeddingSettingsSection() {
             <Cpu className="size-5 text-muted-foreground" />
             <CardTitle>Embedding Provider</CardTitle>
           </div>
-          <CardDescription>
-            Configure the AI provider for semantic search and memory embeddings
-          </CardDescription>
+          <CardDescription>Configure the AI provider for semantic search and memory embeddings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ProviderStatus provider={provider} />
 
-          {testResult && (
-            <TestResultDisplay result={testResult} onDismiss={clearTestResult} />
-          )}
+          {testResult && <TestResultDisplay result={testResult} onDismiss={clearTestResult} />}
 
           <div className="flex items-center justify-between">
             <ProviderList providers={availableProviders} />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={testConnection}
-              disabled={!provider || isTesting}
-            >
+            <Button variant="outline" size="sm" onClick={testConnection} disabled={!provider || isTesting}>
               {isTesting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
@@ -446,16 +379,8 @@ export function EmbeddingSettingsSection() {
         <CardContent className="space-y-6">
           {/* Spend Progress */}
           <div className="space-y-3">
-            <BudgetProgress
-              label="Today"
-              spent={budget.todaySpendUsd}
-              limit={budget.dailyLimitUsd}
-            />
-            <BudgetProgress
-              label="This Month"
-              spent={budget.monthSpendUsd}
-              limit={budget.monthlyLimitUsd}
-            />
+            <BudgetProgress label="Today" spent={budget.todaySpendUsd} limit={budget.dailyLimitUsd} />
+            <BudgetProgress label="This Month" spent={budget.monthSpendUsd} limit={budget.monthlyLimitUsd} />
           </div>
 
           {/* Budget Limits */}
@@ -474,11 +399,7 @@ export function EmbeddingSettingsSection() {
               onChange={(v) => updateBudget({ monthlyLimitUsd: v })}
               max={100000}
             />
-            <SettingRow
-              label="Pause on Limit"
-              description="Stop generating embeddings when budget is exceeded"
-              htmlFor="pause-on-limit"
-            >
+            <SettingRow label="Pause on Limit" description="Stop generating embeddings when budget is exceeded" htmlFor="pause-on-limit">
               <Switch
                 id="pause-on-limit"
                 checked={budget.pauseOnLimit}

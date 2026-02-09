@@ -16,16 +16,10 @@ describe('Required Postgres extensions', () => {
   });
 
   it('has timescaledb, postgis, pg_cron, and pgvector installed', async () => {
-    const result = await pool.query(
-      `SELECT extname FROM pg_extension WHERE extname = ANY($1::text[]) ORDER BY extname`,
-      [['timescaledb', 'postgis', 'pg_cron', 'vector']]
-    );
-
-    expect(result.rows.map((r) => r.extname)).toEqual([
-      'pg_cron',
-      'postgis',
-      'timescaledb',
-      'vector',
+    const result = await pool.query(`SELECT extname FROM pg_extension WHERE extname = ANY($1::text[]) ORDER BY extname`, [
+      ['timescaledb', 'postgis', 'pg_cron', 'vector'],
     ]);
+
+    expect(result.rows.map((r) => r.extname)).toEqual(['pg_cron', 'postgis', 'timescaledb', 'vector']);
   });
 });

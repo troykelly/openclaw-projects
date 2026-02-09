@@ -70,10 +70,7 @@ export const NOTE_SHORTCUTS: Record<keyof NoteKeyboardShortcuts, ShortcutDefinit
   onRedo: { key: 'z', ctrl: true, shift: true, description: 'Redo', category: 'edit' },
 };
 
-function matchesShortcut(
-  event: KeyboardEvent,
-  shortcut: ShortcutDefinition
-): boolean {
+function matchesShortcut(event: KeyboardEvent, shortcut: ShortcutDefinition): boolean {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
   // On Mac, use meta (Cmd); on others, use ctrl
@@ -84,18 +81,11 @@ function matchesShortcut(
   const expectedAlt = shortcut.alt ?? false;
 
   return (
-    event.key.toLowerCase() === shortcut.key.toLowerCase() &&
-    modifierKey === expectedCtrl &&
-    event.shiftKey === expectedShift &&
-    event.altKey === expectedAlt
+    event.key.toLowerCase() === shortcut.key.toLowerCase() && modifierKey === expectedCtrl && event.shiftKey === expectedShift && event.altKey === expectedAlt
   );
 }
 
-export function useNoteKeyboardShortcuts({
-  shortcuts,
-  enabled = true,
-  scope,
-}: UseNoteKeyboardShortcutsOptions): void {
+export function useNoteKeyboardShortcuts({ shortcuts, enabled = true, scope }: UseNoteKeyboardShortcutsOptions): void {
   const shortcutsRef = useRef(shortcuts);
   shortcutsRef.current = shortcuts;
 
@@ -105,10 +95,7 @@ export function useNoteKeyboardShortcuts({
 
       // Don't trigger shortcuts when typing in inputs (except for save)
       const target = event.target as HTMLElement;
-      const isInput =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
       // Check each shortcut
       for (const [action, shortcut] of Object.entries(NOTE_SHORTCUTS)) {
@@ -118,10 +105,7 @@ export function useNoteKeyboardShortcuts({
 
         if (matchesShortcut(event, shortcut)) {
           // Allow save and formatting in inputs
-          const allowInInput =
-            action === 'onSave' ||
-            shortcut.category === 'format' ||
-            shortcut.category === 'edit';
+          const allowInInput = action === 'onSave' || shortcut.category === 'format' || shortcut.category === 'edit';
 
           if (!isInput || allowInInput) {
             event.preventDefault();
@@ -131,7 +115,7 @@ export function useNoteKeyboardShortcuts({
         }
       }
     },
-    [enabled]
+    [enabled],
   );
 
   useEffect(() => {

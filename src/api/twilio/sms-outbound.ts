@@ -65,10 +65,7 @@ function validateMessageBody(body: string): void {
 /**
  * Find or create contact endpoint for a phone number.
  */
-async function findOrCreateEndpoint(
-  client: PoolClient,
-  phone: E164PhoneNumber
-): Promise<{ contactId: string; endpointId: string; isNew: boolean }> {
+async function findOrCreateEndpoint(client: PoolClient, phone: E164PhoneNumber): Promise<{ contactId: string; endpointId: string; isNew: boolean }> {
   // Try to find existing endpoint
   const existing = await client.query(
     `SELECT ce.id::text as endpoint_id, ce.contact_id::text as contact_id
@@ -76,7 +73,7 @@ async function findOrCreateEndpoint(
      WHERE ce.endpoint_type = 'phone'
        AND ce.normalized_value = normalize_contact_endpoint_value('phone', $1)
      LIMIT 1`,
-    [phone]
+    [phone],
   );
 
   if (existing.rows.length > 0) {
@@ -92,7 +89,7 @@ async function findOrCreateEndpoint(
     `INSERT INTO contact (display_name)
      VALUES ($1)
      RETURNING id::text as id`,
-    [phone]
+    [phone],
   );
   const contactId = contact.rows[0].id;
 
@@ -101,7 +98,7 @@ async function findOrCreateEndpoint(
     `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
      VALUES ($1, 'phone', $2, $3::jsonb)
      RETURNING id::text as id`,
-    [contactId, phone, JSON.stringify({ source: 'outbound_sms' })]
+    [contactId, phone, JSON.stringify({ source: 'outbound_sms' })],
   );
   const endpointId = endpoint.rows[0].id;
 
@@ -111,12 +108,7 @@ async function findOrCreateEndpoint(
 /**
  * Find or create thread for SMS conversation.
  */
-async function findOrCreateThread(
-  client: PoolClient,
-  endpointId: string,
-  fromPhone: E164PhoneNumber,
-  toPhone: E164PhoneNumber
-): Promise<string> {
+async function findOrCreateThread(client: PoolClient, endpointId: string, fromPhone: E164PhoneNumber, toPhone: E164PhoneNumber): Promise<string> {
   const threadKey = createSmsThreadKey(fromPhone, toPhone);
 
   const result = await client.query(
@@ -125,11 +117,7 @@ async function findOrCreateThread(
      ON CONFLICT (channel, external_thread_key)
      DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, updated_at = now()
      RETURNING id::text as id`,
-    [
-      endpointId,
-      threadKey,
-      JSON.stringify({ fromPhone, toPhone, source: 'twilio_outbound' }),
-    ]
+    [endpointId, threadKey, JSON.stringify({ fromPhone, toPhone, source: 'twilio_outbound' })],
   );
 
   return result.rows[0].id;
@@ -138,16 +126,13 @@ async function findOrCreateThread(
 /**
  * Check for existing message with same idempotency key.
  */
-async function findExistingMessage(
-  client: PoolClient,
-  idempotencyKey: string
-): Promise<{ messageId: string; threadId: string } | null> {
+async function findExistingMessage(client: PoolClient, idempotencyKey: string): Promise<{ messageId: string; threadId: string } | null> {
   const result = await client.query(
     `SELECT em.id::text as message_id, em.thread_id::text as thread_id
      FROM external_message em
      WHERE em.raw->>'idempotency_key' = $1
      LIMIT 1`,
-    [idempotencyKey]
+    [idempotencyKey],
   );
 
   if (result.rows.length === 0) {
@@ -172,18 +157,13 @@ async function findExistingMessage(
  *
  * Returns immediately (<100ms target) - actual sending is async.
  */
-export async function enqueueSmsMessage(
-  pool: Pool,
-  request: SendSmsRequest
-): Promise<SendSmsResponse> {
+export async function enqueueSmsMessage(pool: Pool, request: SendSmsRequest): Promise<SendSmsResponse> {
   // Validate inputs
   const toPhone = validatePhoneNumber(request.to);
   validateMessageBody(request.body);
 
   // Get configured from number (for thread key)
-  const fromPhone = isTwilioConfigured()
-    ? normalizePhoneNumber(getTwilioConfig().fromNumber)
-    : '+10000000000'; // Placeholder for tests
+  const fromPhone = isTwilioConfigured() ? normalizePhoneNumber(getTwilioConfig().fromNumber) : '+10000000000'; // Placeholder for tests
 
   // Generate idempotency key if not provided
   const idempotencyKey = request.idempotencyKey || `sms:${uuidv4()}`;
@@ -212,10 +192,7 @@ export async function enqueueSmsMessage(
     let threadId: string;
     if (request.threadId) {
       // Verify thread exists
-      const thread = await client.query(
-        `SELECT id FROM external_thread WHERE id = $1`,
-        [request.threadId]
-      );
+      const thread = await client.query(`SELECT id FROM external_thread WHERE id = $1`, [request.threadId]);
       if (thread.rows.length === 0) {
         throw new Error(`Thread not found: ${request.threadId}`);
       }
@@ -243,24 +220,21 @@ export async function enqueueSmsMessage(
           from: fromPhone,
           idempotency_key: idempotencyKey,
         }),
-      ]
+      ],
     );
     const messageId = message.rows[0].id;
 
     // Enqueue job for sending
-    await client.query(
-      `SELECT internal_job_enqueue($1, now(), $2, $3)`,
-      [
-        'message.send.sms',
-        JSON.stringify({
-          message_id: messageId,
-          to: toPhone,
-          from: fromPhone,
-          body: request.body,
-        }),
-        idempotencyKey,
-      ]
-    );
+    await client.query(`SELECT internal_job_enqueue($1, now(), $2, $3)`, [
+      'message.send.sms',
+      JSON.stringify({
+        message_id: messageId,
+        to: toPhone,
+        from: fromPhone,
+        body: request.body,
+      }),
+      idempotencyKey,
+    ]);
 
     await client.query('COMMIT');
 
@@ -286,10 +260,7 @@ export async function enqueueSmsMessage(
  * 2. Updates the message status and provider_message_id
  * 3. Returns success/failure for the job processor
  */
-export async function handleSmsSendJob(
-  pool: Pool,
-  job: InternalJob
-): Promise<JobProcessorResult> {
+export async function handleSmsSendJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const payload = job.payload as {
     message_id: string;
     to: string;
@@ -312,17 +283,14 @@ export async function handleSmsSendJob(
        SET delivery_status = 'failed',
            provider_status_raw = $2::jsonb
        WHERE id = $1`,
-      [payload.message_id, JSON.stringify({ error: 'Twilio not configured' })]
+      [payload.message_id, JSON.stringify({ error: 'Twilio not configured' })],
     );
     throw new Error('Twilio not configured');
   }
 
   try {
     // Update status to sending
-    await pool.query(
-      `UPDATE external_message SET delivery_status = 'sending' WHERE id = $1`,
-      [payload.message_id]
-    );
+    await pool.query(`UPDATE external_message SET delivery_status = 'sending' WHERE id = $1`, [payload.message_id]);
 
     // Get Twilio client
     const twilioClient = requireTwilioClient();
@@ -351,12 +319,10 @@ export async function handleSmsSendJob(
           dateCreated: twilioMessage.dateCreated,
           direction: twilioMessage.direction,
         }),
-      ]
+      ],
     );
 
-    console.log(
-      `[Twilio] SMS sent: messageId=${payload.message_id}, sid=${twilioMessage.sid}`
-    );
+    console.log(`[Twilio] SMS sent: messageId=${payload.message_id}, sid=${twilioMessage.sid}`);
 
     return { success: true };
   } catch (error) {
@@ -368,7 +334,7 @@ export async function handleSmsSendJob(
        SET delivery_status = 'failed',
            provider_status_raw = $2::jsonb
        WHERE id = $1`,
-      [payload.message_id, JSON.stringify({ error: err.message })]
+      [payload.message_id, JSON.stringify({ error: err.message })],
     );
 
     console.error(`[Twilio] SMS send failed: messageId=${payload.message_id}`, err);

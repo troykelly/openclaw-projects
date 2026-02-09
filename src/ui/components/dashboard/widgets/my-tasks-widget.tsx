@@ -38,12 +38,7 @@ function formatStatus(status: string): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function MyTasksWidget({
-  tasks,
-  onTaskClick,
-  limit = 5,
-  className,
-}: MyTasksWidgetProps) {
+export function MyTasksWidget({ tasks, onTaskClick, limit = 5, className }: MyTasksWidgetProps) {
   const displayTasks = tasks.slice(0, limit);
   const remaining = tasks.length - limit;
 
@@ -60,9 +55,7 @@ export function MyTasksWidget({
     <div className={cn('space-y-2', className)}>
       {/* Header with count */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-muted-foreground uppercase font-medium">
-          Assigned
-        </span>
+        <span className="text-xs text-muted-foreground uppercase font-medium">Assigned</span>
         <Badge variant="secondary" className="text-xs">
           {tasks.length}
         </Badge>
@@ -90,9 +83,7 @@ export function MyTasksWidget({
       {/* Show more */}
       {remaining > 0 && (
         <div className="pt-2 text-center">
-          <span className="text-xs text-muted-foreground">
-            +{remaining} more tasks
-          </span>
+          <span className="text-xs text-muted-foreground">+{remaining} more tasks</span>
         </div>
       )}
     </div>

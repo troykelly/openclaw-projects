@@ -11,23 +11,14 @@ import {
 } from '@/ui/components/ui/alert-dialog';
 import type { DeleteConfirmDialogProps } from './types';
 
-export function DeleteConfirmDialog({
-  open,
-  onOpenChange,
-  item,
-  items,
-  onConfirm,
-  isDeleting,
-}: DeleteConfirmDialogProps) {
+export function DeleteConfirmDialog({ open, onOpenChange, item, items, onConfirm, isDeleting }: DeleteConfirmDialogProps) {
   const isBulk = items && items.length > 0;
   const totalItems = isBulk ? items.length : 1;
   const title = item?.title ?? '';
   const childCount = item?.childCount ?? 0;
 
   // Calculate total child count for bulk delete
-  const totalChildCount = isBulk
-    ? items.reduce((sum, i) => sum + (i.childCount ?? 0), 0)
-    : childCount;
+  const totalChildCount = isBulk ? items.reduce((sum, i) => sum + (i.childCount ?? 0), 0) : childCount;
 
   const getTitle = () => {
     if (isBulk) {
@@ -46,9 +37,7 @@ export function DeleteConfirmDialog({
     }
 
     if (totalChildCount > 0) {
-      parts.push(
-        `This will also delete ${totalChildCount} child item${totalChildCount === 1 ? '' : 's'}.`
-      );
+      parts.push(`This will also delete ${totalChildCount} child item${totalChildCount === 1 ? '' : 's'}.`);
     }
 
     parts.push('You can undo this action for a short time after deletion.');
@@ -65,11 +54,7 @@ export function DeleteConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
+          <AlertDialogAction onClick={onConfirm} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             {isDeleting ? 'Deleting...' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>

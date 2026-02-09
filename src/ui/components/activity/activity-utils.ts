@@ -79,9 +79,7 @@ export function groupActivitiesByDate(activities: Activity[]): ActivityGroup[] {
   if (activities.length === 0) return [];
 
   // Sort by timestamp descending
-  const sorted = [...activities].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  const sorted = [...activities].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const groups: Map<string, ActivityGroup> = new Map();
 

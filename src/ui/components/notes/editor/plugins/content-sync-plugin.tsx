@@ -11,9 +11,7 @@ import { $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import type { EditorState } from 'lexical';
 import type { ContentSyncPluginProps } from '../types';
 
-export function ContentSyncPlugin({
-  onChange,
-}: ContentSyncPluginProps): React.JSX.Element {
+export function ContentSyncPlugin({ onChange }: ContentSyncPluginProps): React.JSX.Element {
   // Export to markdown on change
   const handleChange = useCallback(
     (editorState: EditorState) => {
@@ -22,10 +20,8 @@ export function ContentSyncPlugin({
         onChange?.(markdown);
       });
     },
-    [onChange]
+    [onChange],
   );
 
-  return (
-    <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
-  );
+  return <OnChangePlugin onChange={handleChange} ignoreSelectionChange />;
 }

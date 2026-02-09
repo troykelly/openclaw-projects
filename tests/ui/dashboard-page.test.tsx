@@ -9,11 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type {
-  WorkItemsResponse,
-  ActivityResponse,
-  WorkItemSummary,
-} from '@/ui/lib/api-types';
+import type { WorkItemsResponse, ActivityResponse, WorkItemSummary } from '@/ui/lib/api-types';
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -150,7 +146,7 @@ function renderDashboard(initialPath = '/dashboard') {
   const DashboardPage = React.lazy(() =>
     import('@/ui/pages/DashboardPage.js').then((m) => ({
       default: m.DashboardPage,
-    }))
+    })),
   );
 
   const routes = [

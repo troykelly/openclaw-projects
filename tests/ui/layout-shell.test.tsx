@@ -25,12 +25,12 @@ import { AppShell, type AppShellProps } from '@/ui/components/layout/app-shell';
 
 /** CSS classes that must NEVER appear on navigation chrome */
 const FORBIDDEN_PATTERNS = [
-  /bg-surface\/\d/,       // bg-surface/95, bg-surface/80 etc
-  /backdrop-blur/,         // backdrop-blur-sm, backdrop-blur-md etc
-  /bg-gradient-to/,        // bg-gradient-to-b, bg-gradient-to-r etc
-  /bg-linear-to/,          // Tailwind v4 gradient syntax
-  /bg-transparent/,        // fully transparent
-  /bg-opacity-/,           // legacy opacity utility
+  /bg-surface\/\d/, // bg-surface/95, bg-surface/80 etc
+  /backdrop-blur/, // backdrop-blur-sm, backdrop-blur-md etc
+  /bg-gradient-to/, // bg-gradient-to-b, bg-gradient-to-r etc
+  /bg-linear-to/, // Tailwind v4 gradient syntax
+  /bg-transparent/, // fully transparent
+  /bg-opacity-/, // legacy opacity utility
 ];
 
 /**
@@ -107,7 +107,7 @@ describe('Sidebar - Opaque Background', () => {
     const sidebar = screen.getByTestId('sidebar');
     const cls = getClasses(sidebar);
     // Must have a solid background color class (bg-surface or bg-white or equivalent)
-    expect(cls).toMatch(/bg-surface(?!\/)/)
+    expect(cls).toMatch(/bg-surface(?!\/)/);
   });
 
   it('should have a solid border (not semi-transparent)', () => {
@@ -153,12 +153,7 @@ describe('Sidebar - Opaque Background', () => {
 
   it('should toggle collapsed state when collapse button is clicked', () => {
     const onCollapsedChange = vi.fn();
-    render(
-      <Sidebar
-        collapsed={false}
-        onCollapsedChange={onCollapsedChange}
-      />
-    );
+    render(<Sidebar collapsed={false} onCollapsedChange={onCollapsedChange} />);
     const collapseButton = screen.getByLabelText('Collapse sidebar');
     fireEvent.click(collapseButton);
     expect(onCollapsedChange).toHaveBeenCalledWith(true);
@@ -166,12 +161,7 @@ describe('Sidebar - Opaque Background', () => {
 
   it('should toggle expanded state when expand button is clicked', () => {
     const onCollapsedChange = vi.fn();
-    render(
-      <Sidebar
-        collapsed={true}
-        onCollapsedChange={onCollapsedChange}
-      />
-    );
+    render(<Sidebar collapsed={true} onCollapsedChange={onCollapsedChange} />);
     const expandButton = screen.getByLabelText('Expand sidebar');
     fireEvent.click(expandButton);
     expect(onCollapsedChange).toHaveBeenCalledWith(false);
@@ -292,11 +282,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render the header with solid opaque background', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     // The header should exist and have solid background
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
@@ -309,11 +295,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render the header with sticky positioning', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -323,11 +305,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render the header with z-10 stacking', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -336,11 +314,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render header with border-b for visual separation', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -349,11 +323,7 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render header at h-14 height', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -383,21 +353,13 @@ describe('AppShell - Layout Structure', () => {
   });
 
   it('should render breadcrumbs in the header when provided', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Dashboard' }, { label: 'My Project' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Dashboard' }, { label: 'My Project' }]}>Content</AppShell>);
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('My Project')).toBeInTheDocument();
   });
 
   it('should render header actions on the right side', () => {
-    render(
-      <AppShell header={<button>Action</button>}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell header={<button>Action</button>}>Content</AppShell>);
     expect(screen.getByText('Action')).toBeInTheDocument();
   });
 
@@ -435,11 +397,7 @@ describe('Z-Index Hierarchy', () => {
   });
 
   it('should have header at z-10 (within content column)', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     const header = screen.getByTestId('app-shell').querySelector('header');
     expect(header).not.toBeNull();
     if (header) {
@@ -448,11 +406,7 @@ describe('Z-Index Hierarchy', () => {
   });
 
   it('should maintain proper stacking order: header(10) < sidebar(20) < mobile-nav(50)', () => {
-    render(
-      <AppShell breadcrumbs={[{ label: 'Test' }]}>
-        Content
-      </AppShell>
-    );
+    render(<AppShell breadcrumbs={[{ label: 'Test' }]}>Content</AppShell>);
     const sidebar = screen.getByTestId('sidebar');
     const mobileNav = screen.getByTestId('mobile-nav');
     const header = screen.getByTestId('app-shell').querySelector('header');
@@ -491,7 +445,7 @@ describe('Content Area - Independent Scrolling', () => {
     render(
       <AppShell>
         <div data-testid="inner-content">Scrollable content</div>
-      </AppShell>
+      </AppShell>,
     );
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="overflow-y-auto"]');
@@ -502,7 +456,7 @@ describe('Content Area - Independent Scrolling', () => {
     render(
       <AppShell>
         <div data-testid="inner-content">Content</div>
-      </AppShell>
+      </AppShell>,
     );
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="flex-1"]');
@@ -513,7 +467,7 @@ describe('Content Area - Independent Scrolling', () => {
     render(
       <AppShell>
         <div data-testid="inner-content">Content</div>
-      </AppShell>
+      </AppShell>,
     );
     // Content area should have p-6 for desktop, p-4 for mobile via responsive classes
     const innerContent = screen.getByTestId('inner-content');
@@ -530,7 +484,7 @@ describe('Content Area - Independent Scrolling', () => {
     render(
       <AppShell>
         <div data-testid="inner-content">Content</div>
-      </AppShell>
+      </AppShell>,
     );
     const innerContent = screen.getByTestId('inner-content');
     const scrollContainer = innerContent.closest('[class*="overflow-y-auto"]');

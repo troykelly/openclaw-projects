@@ -33,18 +33,8 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import type {
-  SkillStoreItem,
-  SkillStoreCollection,
-  SkillStoreSchedule,
-  SkillStoreSearchResponse,
-} from '@/ui/lib/api-types';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-  EmptyState,
-} from '@/ui/components/feedback';
+import type { SkillStoreItem, SkillStoreCollection, SkillStoreSchedule, SkillStoreSearchResponse } from '@/ui/lib/api-types';
+import { Skeleton, SkeletonList, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Badge } from '@/ui/components/ui/badge';
@@ -53,27 +43,9 @@ import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import { Switch } from '@/ui/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import {
   useSkillStoreSkills,
   useSkillStoreCollections,
@@ -176,9 +148,7 @@ function JsonViewer({ data }: { data: unknown }): React.JSX.Element {
   }, [data]);
 
   return (
-    <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto">
-      {formatted}
-    </pre>
+    <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto whitespace-pre-wrap break-all max-h-[400px] overflow-y-auto">{formatted}</pre>
   );
 }
 
@@ -204,9 +174,7 @@ function HeadersViewer({ headers }: { headers: Record<string, string> }): React.
         {Object.entries(headers).map(([name, value]) => (
           <div key={name} className="flex gap-2">
             <span className="text-muted-foreground">{name}:</span>
-            <span className="text-foreground">
-              {!revealed && isSensitiveHeader(name) ? '••••••••' : value}
-            </span>
+            <span className="text-foreground">{!revealed && isSensitiveHeader(name) ? '••••••••' : value}</span>
           </div>
         ))}
       </div>
@@ -392,9 +360,7 @@ export function SkillStorePage(): React.JSX.Element {
   const skills = skillsQuery.data?.skills ?? [];
   const collections = collectionsQuery.data?.collections ?? [];
   const schedules = schedulesQuery.data?.schedules ?? [];
-  const totalItems = activeSearch
-    ? searchData?.total ?? 0
-    : itemsQuery.data?.total ?? 0;
+  const totalItems = activeSearch ? (searchData?.total ?? 0) : (itemsQuery.data?.total ?? 0);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -406,9 +372,7 @@ export function SkillStorePage(): React.JSX.Element {
               <Package className="size-6" />
               Skill Store
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Inspect and manage skill store data, collections, and schedules.
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">Inspect and manage skill store data, collections, and schedules.</p>
           </div>
         </div>
 
@@ -449,13 +413,9 @@ export function SkillStorePage(): React.JSX.Element {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   {skills.find((s) => s.skill_id === selectedSkillId) && (
                     <>
-                      <span>
-                        {skills.find((s) => s.skill_id === selectedSkillId)?.collection_count ?? 0} collections
-                      </span>
+                      <span>{skills.find((s) => s.skill_id === selectedSkillId)?.collection_count ?? 0} collections</span>
                       <span className="text-border">|</span>
-                      <span>
-                        Last activity: {formatRelative(skills.find((s) => s.skill_id === selectedSkillId)?.last_activity)}
-                      </span>
+                      <span>Last activity: {formatRelative(skills.find((s) => s.skill_id === selectedSkillId)?.last_activity)}</span>
                     </>
                   )}
                 </div>
@@ -473,11 +433,7 @@ export function SkillStorePage(): React.JSX.Element {
                   >
                     <AlertCircle className="size-4 shrink-0" />
                     <span className="flex-1">{mutationError}</span>
-                    <button
-                      onClick={() => setMutationError(null)}
-                      className="shrink-0 text-destructive/70 hover:text-destructive"
-                      aria-label="Dismiss error"
-                    >
+                    <button onClick={() => setMutationError(null)} className="shrink-0 text-destructive/70 hover:text-destructive" aria-label="Dismiss error">
                       <X className="size-4" />
                     </button>
                   </div>
@@ -584,8 +540,7 @@ export function SkillStorePage(): React.JSX.Element {
             <DialogHeader>
               <DialogTitle>Delete Item</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete &quot;{deleteTarget?.title ?? deleteTarget?.key}&quot;?
-                This performs a soft delete.
+                Are you sure you want to delete &quot;{deleteTarget?.title ?? deleteTarget?.key}&quot;? This performs a soft delete.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -661,12 +616,7 @@ function ItemsPanel({
 }: ItemsPanelProps) {
   if (isError) {
     return (
-      <ErrorState
-        type="generic"
-        title="Failed to load items"
-        description={error instanceof Error ? error.message : 'Unknown error'}
-        onRetry={onRefetch}
-      />
+      <ErrorState type="generic" title="Failed to load items" description={error instanceof Error ? error.message : 'Unknown error'} onRetry={onRefetch} />
     );
   }
 
@@ -700,10 +650,7 @@ function ItemsPanel({
         </div>
 
         {/* Collection filter */}
-        <Select
-          value={selectedCollection || 'all'}
-          onValueChange={onCollectionChange}
-        >
+        <Select value={selectedCollection || 'all'} onValueChange={onCollectionChange}>
           <SelectTrigger className="w-[180px]" data-testid="collection-filter">
             <SelectValue placeholder="All collections" />
           </SelectTrigger>
@@ -747,139 +694,126 @@ function ItemsPanel({
             <EmptyState
               variant="documents"
               title={activeSearch ? 'No search results' : 'No items found'}
-              description={
-                activeSearch
-                  ? 'Try a different search query.'
-                  : 'No items match the current filters.'
-              }
+              description={activeSearch ? 'Try a different search query.' : 'No items match the current filters.'}
             />
           </CardContent>
         </Card>
       ) : (
         <>
-        <ScrollArea className="flex-1">
-          <div className="space-y-2" data-testid="item-list">
-            {items.map((item) => (
-              <Card
-                key={item.id}
-                data-testid="skill-store-item-card"
-                className="group cursor-pointer transition-colors hover:bg-accent/30"
-                role="button"
-                tabIndex={0}
-                aria-label={`View item: ${item.title || item.key}`}
-                onClick={() => onItemClick(item)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onItemClick(item);
-                  }
-                }}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${getStatusBadgeClass(item.status)}`}
-                        >
-                          {item.status}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {item.collection}
-                        </Badge>
-                        {item.pinned && (
-                          <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-500/20">
-                            pinned
+          <ScrollArea className="flex-1">
+            <div className="space-y-2" data-testid="item-list">
+              {items.map((item) => (
+                <Card
+                  key={item.id}
+                  data-testid="skill-store-item-card"
+                  className="group cursor-pointer transition-colors hover:bg-accent/30"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View item: ${item.title || item.key}`}
+                  onClick={() => onItemClick(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onItemClick(item);
+                    }
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <Badge variant="outline" className={`text-xs ${getStatusBadgeClass(item.status)}`}>
+                            {item.status}
                           </Badge>
-                        )}
-                        {item.priority > 0 && (
                           <Badge variant="secondary" className="text-xs">
-                            P{item.priority}
+                            {item.collection}
                           </Badge>
-                        )}
-                      </div>
-                      <h3 className="font-medium text-foreground leading-tight">
-                        {item.title || item.key}
-                      </h3>
-                      {item.summary && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {item.summary}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                        <span className="font-mono">{item.key}</span>
-                        {item.tags.length > 0 && (
+                          {item.pinned && (
+                            <Badge variant="secondary" className="text-xs bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-500/20">
+                              pinned
+                            </Badge>
+                          )}
+                          {item.priority > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              P{item.priority}
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="font-medium text-foreground leading-tight">{item.title || item.key}</h3>
+                        {item.summary && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.summary}</p>}
+                        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          <span className="font-mono">{item.key}</span>
+                          {item.tags.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Tag className="size-3" />
+                              {item.tags.slice(0, 3).join(', ')}
+                              {item.tags.length > 3 && ` +${item.tags.length - 3}`}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
-                            <Tag className="size-3" />
-                            {item.tags.slice(0, 3).join(', ')}
-                            {item.tags.length > 3 && ` +${item.tags.length - 3}`}
+                            <Calendar className="size-3" />
+                            {formatRelative(item.updated_at)}
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Calendar className="size-3" />
-                          {formatRelative(item.updated_at)}
-                        </span>
+                        </div>
                       </div>
+
+                      {/* Delete button */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteItem(item);
+                            }}
+                            data-testid="item-delete-button"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete item</TooltipContent>
+                      </Tooltip>
                     </div>
-
-                    {/* Delete button */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteItem(item);
-                          }}
-                          data-testid="item-delete-button"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete item</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
-
-        {/* Pagination controls */}
-        {!activeSearch && totalItems > pageSize && (
-          <div className="flex items-center justify-between pt-3 border-t" data-testid="pagination-controls">
-            <span className="text-sm text-muted-foreground">
-              Showing {offset + 1}&ndash;{Math.min(offset + pageSize, totalItems)} of {totalItems}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={offset === 0}
-                onClick={() => onPageChange(Math.max(0, offset - pageSize))}
-                aria-label="Previous page"
-                data-testid="pagination-prev"
-              >
-                <ChevronLeft className="size-4 mr-1" />
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={offset + pageSize >= totalItems}
-                onClick={() => onPageChange(offset + pageSize)}
-                aria-label="Next page"
-                data-testid="pagination-next"
-              >
-                Next
-                <ChevronRight className="size-4 ml-1" />
-              </Button>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          </div>
-        )}
+          </ScrollArea>
+
+          {/* Pagination controls */}
+          {!activeSearch && totalItems > pageSize && (
+            <div className="flex items-center justify-between pt-3 border-t" data-testid="pagination-controls">
+              <span className="text-sm text-muted-foreground">
+                Showing {offset + 1}&ndash;{Math.min(offset + pageSize, totalItems)} of {totalItems}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={offset === 0}
+                  onClick={() => onPageChange(Math.max(0, offset - pageSize))}
+                  aria-label="Previous page"
+                  data-testid="pagination-prev"
+                >
+                  <ChevronLeft className="size-4 mr-1" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={offset + pageSize >= totalItems}
+                  onClick={() => onPageChange(offset + pageSize)}
+                  aria-label="Next page"
+                  data-testid="pagination-next"
+                >
+                  Next
+                  <ChevronRight className="size-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -899,14 +833,7 @@ interface CollectionsPanelProps {
   onCollectionClick: (name: string) => void;
 }
 
-function CollectionsPanel({
-  collections,
-  isLoading,
-  isError,
-  error,
-  onRefetch,
-  onCollectionClick,
-}: CollectionsPanelProps) {
+function CollectionsPanel({ collections, isLoading, isError, error, onRefetch, onCollectionClick }: CollectionsPanelProps) {
   if (isError) {
     return (
       <ErrorState
@@ -926,11 +853,7 @@ function CollectionsPanel({
     return (
       <Card>
         <CardContent className="p-8">
-          <EmptyState
-            variant="documents"
-            title="No collections"
-            description="This skill has no collections yet."
-          />
+          <EmptyState variant="documents" title="No collections" description="This skill has no collections yet." />
         </CardContent>
       </Card>
     );
@@ -995,27 +918,12 @@ interface SchedulesPanelProps {
   isTogglePending: boolean;
 }
 
-function SchedulesPanel({
-  schedules,
-  isLoading,
-  isError,
-  error,
-  onRefetch,
-  onTrigger,
-  onToggle,
-  isTriggerPending,
-  isTogglePending,
-}: SchedulesPanelProps) {
+function SchedulesPanel({ schedules, isLoading, isError, error, onRefetch, onTrigger, onToggle, isTriggerPending, isTogglePending }: SchedulesPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (isError) {
     return (
-      <ErrorState
-        type="generic"
-        title="Failed to load schedules"
-        description={error instanceof Error ? error.message : 'Unknown error'}
-        onRetry={onRefetch}
-      />
+      <ErrorState type="generic" title="Failed to load schedules" description={error instanceof Error ? error.message : 'Unknown error'} onRetry={onRefetch} />
     );
   }
 
@@ -1027,11 +935,7 @@ function SchedulesPanel({
     return (
       <Card>
         <CardContent className="p-8">
-          <EmptyState
-            variant="documents"
-            title="No schedules"
-            description="This skill has no scheduled jobs."
-          />
+          <EmptyState variant="documents" title="No schedules" description="This skill has no scheduled jobs." />
         </CardContent>
       </Card>
     );
@@ -1062,18 +966,13 @@ function SchedulesPanel({
                     }}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <code className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
-                        {schedule.cron_expression}
-                      </code>
+                      <code className="text-sm font-mono bg-muted px-2 py-0.5 rounded">{schedule.cron_expression}</code>
                       {schedule.collection && (
                         <Badge variant="secondary" className="text-xs">
                           {schedule.collection}
                         </Badge>
                       )}
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${getRunStatusBadgeClass(schedule.last_run_status)}`}
-                      >
+                      <Badge variant="outline" className={`text-xs ${getRunStatusBadgeClass(schedule.last_run_status)}`}>
                         {schedule.last_run_status ?? 'never run'}
                       </Badge>
                       {!schedule.enabled && (
@@ -1118,9 +1017,7 @@ function SchedulesPanel({
                           />
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {schedule.enabled ? 'Pause schedule' : 'Resume schedule'}
-                      </TooltipContent>
+                      <TooltipContent>{schedule.enabled ? 'Pause schedule' : 'Resume schedule'}</TooltipContent>
                     </Tooltip>
 
                     <button
@@ -1194,15 +1091,13 @@ function ItemDetailDialog({ item, open, onOpenChange, onDelete }: ItemDetailDial
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {item.title || item.key}
-            <Badge
-              variant="outline"
-              className={`text-xs ${getStatusBadgeClass(item.status)}`}
-            >
+            <Badge variant="outline" className={`text-xs ${getStatusBadgeClass(item.status)}`}>
               {item.status}
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            <span className="font-mono">{item.skill_id}</span> / <span className="font-mono">{item.collection}</span> / <span className="font-mono">{item.key}</span>
+            <span className="font-mono">{item.skill_id}</span> / <span className="font-mono">{item.collection}</span> /{' '}
+            <span className="font-mono">{item.key}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -1240,7 +1135,9 @@ function ItemDetailDialog({ item, open, onOpenChange, onDelete }: ItemDetailDial
             {item.embedding_status && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">Embedding</p>
-                <Badge variant="secondary" className="text-xs">{item.embedding_status}</Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {item.embedding_status}
+                </Badge>
               </div>
             )}
             {item.expires_at && (
@@ -1280,9 +1177,7 @@ function ItemDetailDialog({ item, open, onOpenChange, onDelete }: ItemDetailDial
           {item.content && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">Content</p>
-              <div className="text-sm text-foreground bg-muted/30 rounded-md p-3 whitespace-pre-wrap max-h-[200px] overflow-y-auto">
-                {item.content}
-              </div>
+              <div className="text-sm text-foreground bg-muted/30 rounded-md p-3 whitespace-pre-wrap max-h-[200px] overflow-y-auto">{item.content}</div>
             </div>
           )}
 
@@ -1301,16 +1196,13 @@ function ItemDetailDialog({ item, open, onOpenChange, onDelete }: ItemDetailDial
                 <div className="flex items-center gap-2 text-sm">
                   <ExternalLink className="size-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground">Media:</span>
-                  <a
-                    href={item.media_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline break-all text-xs"
-                  >
+                  <a href={item.media_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all text-xs">
                     {item.media_url}
                   </a>
                   {item.media_type && (
-                    <Badge variant="secondary" className="text-xs">{item.media_type}</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {item.media_type}
+                    </Badge>
                   )}
                 </div>
               )}
@@ -1318,12 +1210,7 @@ function ItemDetailDialog({ item, open, onOpenChange, onDelete }: ItemDetailDial
                 <div className="flex items-center gap-2 text-sm">
                   <ExternalLink className="size-4 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground">Source:</span>
-                  <a
-                    href={item.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline break-all text-xs"
-                  >
+                  <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all text-xs">
                     {item.source_url}
                   </a>
                 </div>
@@ -1336,10 +1223,7 @@ function ItemDetailDialog({ item, open, onOpenChange, onDelete }: ItemDetailDial
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => onDelete(item)}
-          >
+          <Button variant="destructive" onClick={() => onDelete(item)}>
             <Trash2 className="mr-2 size-4" />
             Delete
           </Button>

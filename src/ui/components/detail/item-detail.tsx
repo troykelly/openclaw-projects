@@ -9,14 +9,7 @@ import { DescriptionEditor } from './description-editor';
 import { TodoList } from './todo-list';
 import { AttachmentsSection } from './attachments-section';
 import { DependenciesSection } from './dependencies-section';
-import type {
-  WorkItemDetail,
-  WorkItemStatus,
-  WorkItemPriority,
-  WorkItemTodo,
-  WorkItemAttachment,
-  WorkItemDependency,
-} from './types';
+import type { WorkItemDetail, WorkItemStatus, WorkItemPriority, WorkItemTodo, WorkItemAttachment, WorkItemDependency } from './types';
 
 export interface ItemDetailProps {
   item: WorkItemDetail;
@@ -107,22 +100,14 @@ export function ItemDetail({
               {/* Description */}
               <Card>
                 <CardContent className="pt-4">
-                  <DescriptionEditor
-                    description={item.description}
-                    onDescriptionChange={onDescriptionChange}
-                  />
+                  <DescriptionEditor description={item.description} onDescriptionChange={onDescriptionChange} />
                 </CardContent>
               </Card>
 
               {/* Checklist */}
               <Card>
                 <CardContent className="pt-4">
-                  <TodoList
-                    todos={item.todos}
-                    onAdd={onTodoAdd}
-                    onToggle={onTodoToggle}
-                    onDelete={onTodoDelete}
-                  />
+                  <TodoList todos={item.todos} onAdd={onTodoAdd} onToggle={onTodoToggle} onDelete={onTodoDelete} />
                 </CardContent>
               </Card>
             </div>
@@ -132,22 +117,14 @@ export function ItemDetail({
               {/* Attachments */}
               <Card>
                 <CardContent className="pt-4">
-                  <AttachmentsSection
-                    attachments={item.attachments}
-                    onAttachmentClick={onAttachmentClick}
-                    onLinkNew={onLinkAttachment}
-                  />
+                  <AttachmentsSection attachments={item.attachments} onAttachmentClick={onAttachmentClick} onLinkNew={onLinkAttachment} />
                 </CardContent>
               </Card>
 
               {/* Dependencies */}
               <Card>
                 <CardContent className="pt-4">
-                  <DependenciesSection
-                    dependencies={item.dependencies}
-                    onDependencyClick={onDependencyClick}
-                    onAddDependency={onAddDependency}
-                  />
+                  <DependenciesSection dependencies={item.dependencies} onDependencyClick={onDependencyClick} onAddDependency={onAddDependency} />
                 </CardContent>
               </Card>
             </div>

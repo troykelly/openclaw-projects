@@ -43,7 +43,7 @@ export function OrganizationFilter({
               className={cn(
                 'w-full flex items-center justify-between px-2 py-1.5 rounded text-sm',
                 'hover:bg-muted transition-colors text-left',
-                selectedOrganizationId === null && 'bg-muted font-medium'
+                selectedOrganizationId === null && 'bg-muted font-medium',
               )}
               onClick={() => onOrganizationChange(null)}
             >
@@ -60,14 +60,12 @@ export function OrganizationFilter({
                 className={cn(
                   'w-full flex items-center justify-between px-2 py-1.5 rounded text-sm',
                   'hover:bg-muted transition-colors text-left',
-                  selectedOrganizationId === org.id && 'bg-muted font-medium'
+                  selectedOrganizationId === org.id && 'bg-muted font-medium',
                 )}
                 onClick={() => onOrganizationChange(org.id)}
               >
                 <span className="truncate">{org.name}</span>
-                <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                  {org.contactCount}
-                </span>
+                <span className="text-xs text-muted-foreground shrink-0 ml-2">{org.contactCount}</span>
               </button>
             ))}
           </div>
@@ -88,7 +86,7 @@ export function OrganizationFilter({
               className={cn(
                 'w-full flex items-center justify-between px-2 py-1.5 rounded text-sm',
                 'hover:bg-muted transition-colors text-left',
-                selectedGroupId === null && 'bg-muted font-medium'
+                selectedGroupId === null && 'bg-muted font-medium',
               )}
               onClick={() => onGroupChange(null)}
             >
@@ -105,20 +103,15 @@ export function OrganizationFilter({
                 className={cn(
                   'w-full flex items-center justify-between px-2 py-1.5 rounded text-sm',
                   'hover:bg-muted transition-colors text-left',
-                  selectedGroupId === group.id && 'bg-muted font-medium'
+                  selectedGroupId === group.id && 'bg-muted font-medium',
                 )}
                 onClick={() => onGroupChange(group.id)}
               >
                 <span className="flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: group.color }}
-                  />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
                   <span className="truncate">{group.name}</span>
                 </span>
-                <span className="text-xs text-muted-foreground shrink-0 ml-2">
-                  {group.memberCount}
-                </span>
+                <span className="text-xs text-muted-foreground shrink-0 ml-2">{group.memberCount}</span>
               </button>
             ))}
           </div>

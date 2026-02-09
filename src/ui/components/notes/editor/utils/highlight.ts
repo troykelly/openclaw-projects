@@ -97,14 +97,22 @@ export async function loadLanguage(lang: string): Promise<boolean> {
   try {
     const module = await loader();
     // Determine the canonical name for this language
-    const canonicalName = langLower === 'py' ? 'python'
-      : langLower === 'yml' ? 'yaml'
-      : langLower === 'html' ? 'xml'
-      : langLower === 'cs' ? 'csharp'
-      : langLower === 'rb' ? 'ruby'
-      : langLower === 'md' ? 'markdown'
-      : langLower === 'docker' ? 'dockerfile'
-      : langLower;
+    const canonicalName =
+      langLower === 'py'
+        ? 'python'
+        : langLower === 'yml'
+          ? 'yaml'
+          : langLower === 'html'
+            ? 'xml'
+            : langLower === 'cs'
+              ? 'csharp'
+              : langLower === 'rb'
+                ? 'ruby'
+                : langLower === 'md'
+                  ? 'markdown'
+                  : langLower === 'docker'
+                    ? 'dockerfile'
+                    : langLower;
 
     hljs.registerLanguage(canonicalName, module.default);
 
@@ -154,10 +162,7 @@ export function getOrLoadLanguage(lang: string): string | undefined {
  */
 export function highlightCode(code: string, language?: string): string {
   const trimmedCode = code.trim();
-  const escapedCode = trimmedCode
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const escapedCode = trimmedCode.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   if (!language) {
     // For auto-detection, only use core languages to avoid expensive checks

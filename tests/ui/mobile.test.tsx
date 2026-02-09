@@ -9,26 +9,11 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  MobileContainer,
-  type MobileContainerProps,
-} from '@/ui/components/mobile/mobile-container';
-import {
-  TouchTarget,
-  type TouchTargetProps,
-} from '@/ui/components/mobile/touch-target';
-import {
-  SwipeActions,
-  type SwipeActionsProps,
-} from '@/ui/components/mobile/swipe-actions';
-import {
-  PullToRefresh,
-  type PullToRefreshProps,
-} from '@/ui/components/mobile/pull-to-refresh';
-import {
-  useMediaQuery,
-  useMobile,
-} from '@/ui/components/mobile/use-mobile';
+import { MobileContainer, type MobileContainerProps } from '@/ui/components/mobile/mobile-container';
+import { TouchTarget, type TouchTargetProps } from '@/ui/components/mobile/touch-target';
+import { SwipeActions, type SwipeActionsProps } from '@/ui/components/mobile/swipe-actions';
+import { PullToRefresh, type PullToRefreshProps } from '@/ui/components/mobile/pull-to-refresh';
+import { useMediaQuery, useMobile } from '@/ui/components/mobile/use-mobile';
 
 // Test wrapper for hooks
 function TestMobileHook() {
@@ -142,12 +127,7 @@ describe('SwipeActions', () => {
 
   it('should call action on tap after swipe', () => {
     const onDelete = vi.fn();
-    render(
-      <SwipeActions
-        {...defaultProps}
-        leftAction={{ label: 'Delete', onAction: onDelete }}
-      />
-    );
+    render(<SwipeActions {...defaultProps} leftAction={{ label: 'Delete', onAction: onDelete }} />);
     const swipeable = screen.getByTestId('swipe-actions');
 
     fireEvent.touchStart(swipeable, { touches: [{ clientX: 0, clientY: 0 }] });
@@ -204,9 +184,7 @@ describe('PullToRefresh', () => {
   });
 
   it('should show loading state during refresh', async () => {
-    const onRefresh = vi.fn().mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100))
-    );
+    const onRefresh = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
     render(<PullToRefresh {...defaultProps} onRefresh={onRefresh} threshold={50} />);
     const container = screen.getByTestId('pull-to-refresh');
 
@@ -219,7 +197,7 @@ describe('PullToRefresh', () => {
     await act(async () => {
       fireEvent.touchEnd(container);
       // Wait for state update
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     expect(screen.getByTestId('refresh-loading')).toBeInTheDocument();

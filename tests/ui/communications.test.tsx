@@ -157,37 +157,19 @@ describe('CalendarEventCard', () => {
 
 describe('EmailDetailSheet', () => {
   it('renders email subject', () => {
-    render(
-      <EmailDetailSheet
-        email={mockEmail}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<EmailDetailSheet email={mockEmail} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('Project Update - Q1 Review')).toBeInTheDocument();
   });
 
   it('renders email body', () => {
-    render(
-      <EmailDetailSheet
-        email={mockEmail}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<EmailDetailSheet email={mockEmail} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText(/I wanted to share the latest project updates/)).toBeInTheDocument();
   });
 
   it('shows sender info', () => {
-    render(
-      <EmailDetailSheet
-        email={mockEmail}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<EmailDetailSheet email={mockEmail} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('john@example.com')).toBeInTheDocument();
@@ -195,14 +177,7 @@ describe('EmailDetailSheet', () => {
 
   it('calls onUnlink when unlink clicked', () => {
     const onUnlink = vi.fn();
-    render(
-      <EmailDetailSheet
-        email={mockEmail}
-        open={true}
-        onOpenChange={() => {}}
-        onUnlink={onUnlink}
-      />
-    );
+    render(<EmailDetailSheet email={mockEmail} open={true} onOpenChange={() => {}} onUnlink={onUnlink} />);
 
     fireEvent.click(screen.getByText('Unlink'));
     expect(onUnlink).toHaveBeenCalledWith(mockEmail);
@@ -211,25 +186,13 @@ describe('EmailDetailSheet', () => {
 
 describe('CalendarEventDetailSheet', () => {
   it('renders event title', () => {
-    render(
-      <CalendarEventDetailSheet
-        event={mockEvent}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<CalendarEventDetailSheet event={mockEvent} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('Sprint Planning Meeting')).toBeInTheDocument();
   });
 
   it('shows attendees list', () => {
-    render(
-      <CalendarEventDetailSheet
-        event={mockEvent}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<CalendarEventDetailSheet event={mockEvent} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('Jane Smith')).toBeInTheDocument();
@@ -237,13 +200,7 @@ describe('CalendarEventDetailSheet', () => {
   });
 
   it('shows attendee status', () => {
-    render(
-      <CalendarEventDetailSheet
-        event={mockEvent}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<CalendarEventDetailSheet event={mockEvent} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText('accepted')).toBeInTheDocument();
     expect(screen.getByText('tentative')).toBeInTheDocument();
@@ -251,27 +208,14 @@ describe('CalendarEventDetailSheet', () => {
 
   it('shows join meeting button when meeting link exists', () => {
     const onJoinMeeting = vi.fn();
-    render(
-      <CalendarEventDetailSheet
-        event={mockEvent}
-        open={true}
-        onOpenChange={() => {}}
-        onJoinMeeting={onJoinMeeting}
-      />
-    );
+    render(<CalendarEventDetailSheet event={mockEvent} open={true} onOpenChange={() => {}} onJoinMeeting={onJoinMeeting} />);
 
     fireEvent.click(screen.getByText('Join meeting'));
     expect(onJoinMeeting).toHaveBeenCalledWith(mockEvent);
   });
 
   it('shows description', () => {
-    render(
-      <CalendarEventDetailSheet
-        event={mockEvent}
-        open={true}
-        onOpenChange={() => {}}
-      />
-    );
+    render(<CalendarEventDetailSheet event={mockEvent} open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByText(/Weekly sprint planning/)).toBeInTheDocument();
   });
@@ -279,49 +223,28 @@ describe('CalendarEventDetailSheet', () => {
 
 describe('ItemCommunications', () => {
   it('renders emails and calendar tabs', () => {
-    render(
-      <ItemCommunications
-        emails={mockEmails}
-        calendarEvents={mockEvents}
-      />
-    );
+    render(<ItemCommunications emails={mockEmails} calendarEvents={mockEvents} />);
 
     expect(screen.getByRole('tab', { name: /Emails/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Calendar/i })).toBeInTheDocument();
   });
 
   it('shows email count badge', () => {
-    render(
-      <ItemCommunications
-        emails={mockEmails}
-        calendarEvents={mockEvents}
-      />
-    );
+    render(<ItemCommunications emails={mockEmails} calendarEvents={mockEvents} />);
 
     // Total count badge
     expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('shows emails by default', () => {
-    render(
-      <ItemCommunications
-        emails={mockEmails}
-        calendarEvents={mockEvents}
-      />
-    );
+    render(<ItemCommunications emails={mockEmails} calendarEvents={mockEvents} />);
 
     expect(screen.getByText('Project Update - Q1 Review')).toBeInTheDocument();
   });
 
   it('has clickable calendar tab', () => {
     const onEventClick = vi.fn();
-    render(
-      <ItemCommunications
-        emails={[]}
-        calendarEvents={mockEvents}
-        onEventClick={onEventClick}
-      />
-    );
+    render(<ItemCommunications emails={[]} calendarEvents={mockEvents} onEventClick={onEventClick} />);
 
     // Calendar tab should be present and clickable
     const calendarTab = screen.getByRole('tab', { name: /Calendar/i });
@@ -331,38 +254,21 @@ describe('ItemCommunications', () => {
   });
 
   it('shows empty state when no emails', () => {
-    render(
-      <ItemCommunications
-        emails={[]}
-        calendarEvents={mockEvents}
-      />
-    );
+    render(<ItemCommunications emails={[]} calendarEvents={mockEvents} />);
 
     expect(screen.getByText('No linked emails')).toBeInTheDocument();
   });
 
   it('shows link email button when handler provided', () => {
     const onLinkEmail = vi.fn();
-    render(
-      <ItemCommunications
-        emails={[]}
-        calendarEvents={[]}
-        onLinkEmail={onLinkEmail}
-      />
-    );
+    render(<ItemCommunications emails={[]} calendarEvents={[]} onLinkEmail={onLinkEmail} />);
 
     expect(screen.getByText('Link Email')).toBeInTheDocument();
   });
 
   it('calls onEmailClick when email clicked', () => {
     const onEmailClick = vi.fn();
-    render(
-      <ItemCommunications
-        emails={mockEmails}
-        calendarEvents={[]}
-        onEmailClick={onEmailClick}
-      />
-    );
+    render(<ItemCommunications emails={mockEmails} calendarEvents={[]} onEmailClick={onEmailClick} />);
 
     fireEvent.click(screen.getByText('Project Update - Q1 Review'));
     expect(onEmailClick).toHaveBeenCalledWith(mockEmails[0]);
@@ -371,41 +277,20 @@ describe('ItemCommunications', () => {
 
 describe('LinkCommunicationDialog', () => {
   it('renders email link dialog', () => {
-    render(
-      <LinkCommunicationDialog
-        type="email"
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<LinkCommunicationDialog type="email" open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByRole('heading', { name: 'Link Email' })).toBeInTheDocument();
   });
 
   it('renders calendar link dialog', () => {
-    render(
-      <LinkCommunicationDialog
-        type="calendar"
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<LinkCommunicationDialog type="calendar" open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     expect(screen.getByRole('heading', { name: 'Link Calendar Event' })).toBeInTheDocument();
   });
 
   it('submits with entered ID', () => {
     const onSubmit = vi.fn();
-    render(
-      <LinkCommunicationDialog
-        type="email"
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={onSubmit}
-      />
-    );
+    render(<LinkCommunicationDialog type="email" open={true} onOpenChange={() => {}} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText(/Email ID/), { target: { value: 'test-id-123' } });
     fireEvent.click(screen.getByRole('button', { name: /Link Email/i }));
@@ -414,14 +299,7 @@ describe('LinkCommunicationDialog', () => {
   });
 
   it('disables submit when ID is empty', () => {
-    render(
-      <LinkCommunicationDialog
-        type="email"
-        open={true}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-      />
-    );
+    render(<LinkCommunicationDialog type="email" open={true} onOpenChange={() => {}} onSubmit={() => {}} />);
 
     const submitButton = screen.getByRole('button', { name: /Link Email/i });
     expect(submitButton).toBeDisabled();

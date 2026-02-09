@@ -37,13 +37,7 @@ function formatDueDate(dueDate: string): string {
   return date.toLocaleDateString();
 }
 
-export function UpcomingDueWidget({
-  items,
-  onItemClick,
-  groupByUrgency = false,
-  limit = 5,
-  className,
-}: UpcomingDueWidgetProps) {
+export function UpcomingDueWidget({ items, onItemClick, groupByUrgency = false, limit = 5, className }: UpcomingDueWidgetProps) {
   if (items.length === 0) {
     return (
       <div className={cn('flex flex-col items-center justify-center h-full text-muted-foreground', className)}>
@@ -54,9 +48,7 @@ export function UpcomingDueWidget({
   }
 
   // Sort by due date
-  const sortedItems = [...items].sort(
-    (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-  );
+  const sortedItems = [...items].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
   if (groupByUrgency) {
     const overdueItems = sortedItems.filter((item) => isOverdue(item.dueDate));
@@ -72,11 +64,7 @@ export function UpcomingDueWidget({
             </div>
             <div className="space-y-2">
               {overdueItems.slice(0, limit).map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  onClick={() => onItemClick(item.id)}
-                />
+                <ItemRow key={item.id} item={item} onClick={() => onItemClick(item.id)} />
               ))}
             </div>
           </div>
@@ -84,16 +72,10 @@ export function UpcomingDueWidget({
 
         {upcomingItems.length > 0 && (
           <div>
-            <div className="text-xs text-muted-foreground font-medium mb-2">
-              Upcoming
-            </div>
+            <div className="text-xs text-muted-foreground font-medium mb-2">Upcoming</div>
             <div className="space-y-2">
               {upcomingItems.slice(0, limit).map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  onClick={() => onItemClick(item.id)}
-                />
+                <ItemRow key={item.id} item={item} onClick={() => onItemClick(item.id)} />
               ))}
             </div>
           </div>
@@ -105,23 +87,13 @@ export function UpcomingDueWidget({
   return (
     <div className={cn('space-y-2', className)}>
       {sortedItems.slice(0, limit).map((item) => (
-        <ItemRow
-          key={item.id}
-          item={item}
-          onClick={() => onItemClick(item.id)}
-        />
+        <ItemRow key={item.id} item={item} onClick={() => onItemClick(item.id)} />
       ))}
     </div>
   );
 }
 
-function ItemRow({
-  item,
-  onClick,
-}: {
-  item: DueItem;
-  onClick: () => void;
-}) {
+function ItemRow({ item, onClick }: { item: DueItem; onClick: () => void }) {
   const overdue = isOverdue(item.dueDate);
 
   return (
@@ -129,10 +101,7 @@ function ItemRow({
       type="button"
       data-testid={overdue ? `overdue-${item.id}` : undefined}
       onClick={onClick}
-      className={cn(
-        'w-full flex items-center justify-between gap-2 p-2 rounded hover:bg-muted text-left transition-colors',
-        overdue && 'text-red-600'
-      )}
+      className={cn('w-full flex items-center justify-between gap-2 p-2 rounded hover:bg-muted text-left transition-colors', overdue && 'text-red-600')}
     >
       <span className="text-sm truncate">{item.title}</span>
       <Badge variant={overdue ? 'destructive' : 'outline'} className="text-xs shrink-0">

@@ -29,12 +29,7 @@ export interface WorkItemTemplate {
 /**
  * Template categories
  */
-export type TemplateCategory =
-  | 'sprint'
-  | 'feature'
-  | 'bugfix'
-  | 'project'
-  | 'custom';
+export type TemplateCategory = 'sprint' | 'feature' | 'bugfix' | 'project' | 'custom';
 
 /**
  * Props for TemplateSelector component

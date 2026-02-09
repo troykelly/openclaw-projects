@@ -26,10 +26,7 @@ export interface PrefetchLinkProps extends NavLinkProps {
  * focus events.  All standard NavLink props (className function, end,
  * children render function, etc.) are forwarded.
  */
-export const PrefetchLink = React.forwardRef<
-  HTMLAnchorElement,
-  PrefetchLinkProps
->(function PrefetchLink(
+export const PrefetchLink = React.forwardRef<HTMLAnchorElement, PrefetchLinkProps>(function PrefetchLink(
   { prefetchPath, to, onMouseEnter, onFocus, ...rest },
   ref,
 ) {
@@ -51,14 +48,5 @@ export const PrefetchLink = React.forwardRef<
     [path, onFocus],
   );
 
-  return (
-    <NavLink
-      ref={ref}
-      to={to}
-      onMouseEnter={handleMouseEnter}
-      onFocus={handleFocus}
-      data-prefetch-path={path}
-      {...rest}
-    />
-  );
+  return <NavLink ref={ref} to={to} onMouseEnter={handleMouseEnter} onFocus={handleFocus} data-prefetch-path={path} {...rest} />;
 });

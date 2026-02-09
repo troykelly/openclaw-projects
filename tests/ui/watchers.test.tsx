@@ -9,32 +9,12 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  WatchButton,
-  type WatchButtonProps,
-} from '@/ui/components/watchers/watch-button';
-import {
-  WatcherList,
-  type WatcherListProps,
-} from '@/ui/components/watchers/watcher-list';
-import {
-  AddWatcherDialog,
-  type AddWatcherDialogProps,
-} from '@/ui/components/watchers/add-watcher-dialog';
-import {
-  WatchedItemsList,
-  type WatchedItemsListProps,
-} from '@/ui/components/watchers/watched-items-list';
-import {
-  WatcherSettings,
-  type WatcherSettingsProps,
-} from '@/ui/components/watchers/watcher-settings';
-import type {
-  Watcher,
-  WatchedItem,
-  NotificationLevel,
-  AutoWatchSettings,
-} from '@/ui/components/watchers/types';
+import { WatchButton, type WatchButtonProps } from '@/ui/components/watchers/watch-button';
+import { WatcherList, type WatcherListProps } from '@/ui/components/watchers/watcher-list';
+import { AddWatcherDialog, type AddWatcherDialogProps } from '@/ui/components/watchers/add-watcher-dialog';
+import { WatchedItemsList, type WatchedItemsListProps } from '@/ui/components/watchers/watched-items-list';
+import { WatcherSettings, type WatcherSettingsProps } from '@/ui/components/watchers/watcher-settings';
+import type { Watcher, WatchedItem, NotificationLevel, AutoWatchSettings } from '@/ui/components/watchers/types';
 
 describe('WatchButton', () => {
   const defaultProps: WatchButtonProps = {

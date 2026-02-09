@@ -53,10 +53,7 @@ export interface ListShortcutCallbacks {
 }
 
 /** Combined callbacks for all keyboard shortcut categories. */
-export interface KeyboardShortcutCallbacks
-  extends GlobalShortcutCallbacks,
-    GoToShortcutCallbacks,
-    ListShortcutCallbacks {}
+export interface KeyboardShortcutCallbacks extends GlobalShortcutCallbacks, GoToShortcutCallbacks, ListShortcutCallbacks {}
 
 /** Options for the useKeyboardShortcuts hook. */
 export interface UseKeyboardShortcutsOptions {
@@ -175,10 +172,7 @@ export interface UseKeyboardShortcutsReturn {
  * @param options   - Configuration (enable/disable)
  * @returns Help dialog state and shortcut definitions
  */
-export function useKeyboardShortcuts(
-  callbacks: KeyboardShortcutCallbacks,
-  options: UseKeyboardShortcutsOptions = {},
-): UseKeyboardShortcutsReturn {
+export function useKeyboardShortcuts(callbacks: KeyboardShortcutCallbacks, options: UseKeyboardShortcutsOptions = {}): UseKeyboardShortcutsReturn {
   const { enabled = true } = options;
 
   const [helpOpen, setHelpOpen] = useState(false);
@@ -211,10 +205,7 @@ export function useKeyboardShortcuts(
 
   // --- Go-to navigation sequences ---
 
-  const goTo = useCallback(
-    (section: string) => () => cbRef.current.onNavigate?.(section),
-    [],
-  );
+  const goTo = useCallback((section: string) => () => cbRef.current.onNavigate?.(section), []);
 
   useSequentialHotkeys(['g', 'd'], goTo('dashboard'), { enabled });
   useSequentialHotkeys(['g', 'a'], goTo('activity'), { enabled });

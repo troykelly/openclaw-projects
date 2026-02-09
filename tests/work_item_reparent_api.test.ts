@@ -23,11 +23,7 @@ describe('Work Item Reparent API (issue #105)', () => {
     await pool.end();
   });
 
-  async function createItem(
-    title: string,
-    kind: string,
-    parentId?: string
-  ): Promise<string> {
+  async function createItem(title: string, kind: string, parentId?: string): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/work-items',
@@ -54,10 +50,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       expect(res.json().ok).toBe(true);
 
       // Verify the epic is now under initiative 2
-      const check = await pool.query(
-        'SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1',
-        [epicId]
-      );
+      const check = await pool.query('SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1', [epicId]);
       expect((check.rows[0] as { parent_id: string }).parent_id).toBe(init2Id);
     });
 
@@ -75,10 +68,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       });
       expect(res.statusCode).toBe(200);
 
-      const check = await pool.query(
-        'SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1',
-        [issueId]
-      );
+      const check = await pool.query('SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1', [issueId]);
       expect((check.rows[0] as { parent_id: string }).parent_id).toBe(epic2Id);
     });
 
@@ -94,10 +84,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       });
       expect(res.statusCode).toBe(200);
 
-      const check = await pool.query(
-        'SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1',
-        [initId]
-      );
+      const check = await pool.query('SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1', [initId]);
       expect((check.rows[0] as { parent_id: string }).parent_id).toBe(project2Id);
     });
 
@@ -112,10 +99,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       });
       expect(res.statusCode).toBe(200);
 
-      const check = await pool.query(
-        'SELECT parent_work_item_id FROM work_item WHERE id = $1',
-        [initId]
-      );
+      const check = await pool.query('SELECT parent_work_item_id FROM work_item WHERE id = $1', [initId]);
       expect(check.rows[0].parent_work_item_id).toBeNull();
     });
 
@@ -144,7 +128,7 @@ describe('Work Item Reparent API (issue #105)', () => {
         `SELECT id::text as id FROM work_item
          WHERE parent_work_item_id = $1
          ORDER BY sort_order`,
-        [init2Id]
+        [init2Id],
       );
       const order = siblings.rows.map((r: { id: string }) => r.id);
       expect(order[0]).toBe(epic2Id); // B

@@ -9,28 +9,11 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  ConnectionStatusIndicator,
-  type ConnectionStatusIndicatorProps,
-} from '@/ui/components/realtime/connection-status-indicator';
-import {
-  RealtimeProvider,
-  useRealtime,
-  type RealtimeProviderProps,
-} from '@/ui/components/realtime/realtime-context';
-import {
-  OfflineIndicator,
-  type OfflineIndicatorProps,
-} from '@/ui/components/realtime/offline-indicator';
-import {
-  RealtimeEventHandler,
-  type RealtimeEventHandlerProps,
-} from '@/ui/components/realtime/realtime-event-handler';
-import type {
-  ConnectionStatus,
-  RealtimeEvent,
-  Subscription,
-} from '@/ui/components/realtime/types';
+import { ConnectionStatusIndicator, type ConnectionStatusIndicatorProps } from '@/ui/components/realtime/connection-status-indicator';
+import { RealtimeProvider, useRealtime, type RealtimeProviderProps } from '@/ui/components/realtime/realtime-context';
+import { OfflineIndicator, type OfflineIndicatorProps } from '@/ui/components/realtime/offline-indicator';
+import { RealtimeEventHandler, type RealtimeEventHandlerProps } from '@/ui/components/realtime/realtime-event-handler';
+import type { ConnectionStatus, RealtimeEvent, Subscription } from '@/ui/components/realtime/types';
 
 // Mock WebSocket
 class MockWebSocket {
@@ -145,12 +128,8 @@ describe('RealtimeProvider', () => {
     return (
       <div>
         <span data-testid="status">{status}</span>
-        <button onClick={() => subscribe({ type: 'item', id: 'item-1' })}>
-          Subscribe
-        </button>
-        <button onClick={() => unsubscribe({ type: 'item', id: 'item-1' })}>
-          Unsubscribe
-        </button>
+        <button onClick={() => subscribe({ type: 'item', id: 'item-1' })}>Subscribe</button>
+        <button onClick={() => unsubscribe({ type: 'item', id: 'item-1' })}>Unsubscribe</button>
       </div>
     );
   }
@@ -160,7 +139,7 @@ describe('RealtimeProvider', () => {
     render(
       <RealtimeProvider url="ws://localhost/ws">
         <TestConsumer />
-      </RealtimeProvider>
+      </RealtimeProvider>,
     );
 
     // Initially should be in connecting state
@@ -171,7 +150,7 @@ describe('RealtimeProvider', () => {
     render(
       <RealtimeProvider url="ws://localhost/ws">
         <div data-testid="child">Child content</div>
-      </RealtimeProvider>
+      </RealtimeProvider>,
     );
 
     expect(screen.getByTestId('child')).toBeInTheDocument();
@@ -181,7 +160,7 @@ describe('RealtimeProvider', () => {
     render(
       <RealtimeProvider url="ws://localhost/ws">
         <TestConsumer />
-      </RealtimeProvider>
+      </RealtimeProvider>,
     );
 
     // Subscribe button should be present and clickable
@@ -194,7 +173,7 @@ describe('RealtimeProvider', () => {
     render(
       <RealtimeProvider url="ws://localhost/ws">
         <TestConsumer />
-      </RealtimeProvider>
+      </RealtimeProvider>,
     );
 
     // Unsubscribe button should be present and clickable
@@ -280,7 +259,7 @@ describe('RealtimeEventHandler', () => {
     render(
       <RealtimeEventHandler {...defaultProps}>
         <div>Child content</div>
-      </RealtimeEventHandler>
+      </RealtimeEventHandler>,
     );
     expect(screen.getByText('Child content')).toBeInTheDocument();
   });
@@ -292,7 +271,7 @@ describe('RealtimeEventHandler', () => {
         <RealtimeEventHandler eventType="item:updated" onEvent={onEvent}>
           <div>Content</div>
         </RealtimeEventHandler>
-      </RealtimeProvider>
+      </RealtimeProvider>,
     );
 
     // This would be called by the provider when event received
@@ -305,7 +284,7 @@ describe('RealtimeEventHandler', () => {
     render(
       <RealtimeEventHandler eventType="item:updated" onEvent={onEvent} entityId="item-1">
         <div>Content</div>
-      </RealtimeEventHandler>
+      </RealtimeEventHandler>,
     );
 
     // Handler should only be called for matching entity

@@ -33,18 +33,20 @@ describe('Skill Store Search (Issue #798)', () => {
   });
 
   // Helper to insert an item with embedding
-  async function insertItem(overrides: {
-    skill_id?: string;
-    title?: string;
-    summary?: string;
-    content?: string;
-    collection?: string;
-    key?: string;
-    tags?: string[];
-    status?: string;
-    user_email?: string;
-    deleted_at?: string;
-  } = {}): Promise<string> {
+  async function insertItem(
+    overrides: {
+      skill_id?: string;
+      title?: string;
+      summary?: string;
+      content?: string;
+      collection?: string;
+      key?: string;
+      tags?: string[];
+      status?: string;
+      user_email?: string;
+      deleted_at?: string;
+    } = {},
+  ): Promise<string> {
     const result = await pool.query(
       `INSERT INTO skill_store_item (skill_id, collection, key, title, summary, content, tags, status, user_email, deleted_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::skill_store_item_status, 'active'), $9, $10::timestamptz)
@@ -60,16 +62,14 @@ describe('Skill Store Search (Issue #798)', () => {
         overrides.status ?? null,
         overrides.user_email ?? null,
         overrides.deleted_at ?? null,
-      ]
+      ],
     );
     return result.rows[0].id;
   }
 
   describe('searchSkillStoreFullText', () => {
     it('finds items matching search query via tsvector', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'PostgreSQL Optimization Guide', summary: 'How to tune database queries' });
       await insertItem({ skill_id: 'sk1', title: 'Redis Caching Patterns', summary: 'In-memory caching strategies' });
@@ -85,35 +85,29 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('requires skill_id parameter', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await expect(
         searchSkillStoreFullText(pool, {
           skill_id: '',
           query: 'test',
-        })
+        }),
       ).rejects.toThrow(/skill_id/);
     });
 
     it('requires query parameter', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await expect(
         searchSkillStoreFullText(pool, {
           skill_id: 'sk1',
           query: '',
-        })
+        }),
       ).rejects.toThrow(/query/);
     });
 
     it('filters by collection', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', collection: 'articles', title: 'Database Article', content: 'Full database content' });
       await insertItem({ skill_id: 'sk1', collection: 'config', title: 'Database Config', content: 'Database configuration' });
@@ -129,9 +123,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('filters by tags', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Tagged Item', content: 'Some searchable content', tags: ['javascript', 'tutorial'] });
       await insertItem({ skill_id: 'sk1', title: 'Untagged Item', content: 'Other searchable content' });
@@ -147,9 +139,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('filters by status', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Active Item', content: 'Searchable content here' });
       await insertItem({ skill_id: 'sk1', title: 'Archived Item', content: 'Searchable content too', status: 'archived' });
@@ -165,9 +155,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('filters by user_email', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'User Item', content: 'Personal content', user_email: 'alice@example.com' });
       await insertItem({ skill_id: 'sk1', title: 'Other User Item', content: 'Other content', user_email: 'bob@example.com' });
@@ -183,9 +171,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('excludes soft-deleted items', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Active Item', content: 'Searchable content' });
       const deletedId = await insertItem({ skill_id: 'sk1', title: 'Deleted Item', content: 'Also searchable content' });
@@ -201,9 +187,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('supports pagination with limit and offset', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       for (let i = 0; i < 5; i++) {
         await insertItem({ skill_id: 'sk1', title: `Article ${i}`, content: `Searchable article content number ${i}` });
@@ -220,9 +204,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('returns relevance score', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Exact Match Item', summary: 'Exact Match', content: 'Exact match content' });
 
@@ -239,15 +221,9 @@ describe('Skill Store Search (Issue #798)', () => {
 
   describe('searchSkillStoreSemantic', () => {
     it('performs semantic search when embedding service is available', async () => {
-      const { searchSkillStoreSemantic } = await import(
-        '../src/api/skill-store/search.ts'
-      );
-      const { embeddingService } = await import(
-        '../src/api/embeddings/service.ts'
-      );
-      const { generateSkillStoreItemEmbedding, buildSkillStoreEmbeddingText } = await import(
-        '../src/api/embeddings/skill-store-integration.ts'
-      );
+      const { searchSkillStoreSemantic } = await import('../src/api/skill-store/search.ts');
+      const { embeddingService } = await import('../src/api/embeddings/service.ts');
+      const { generateSkillStoreItemEmbedding, buildSkillStoreEmbeddingText } = await import('../src/api/embeddings/skill-store-integration.ts');
 
       // Insert items and generate embeddings
       const id1 = await insertItem({ skill_id: 'sk1', title: 'Machine Learning Basics', summary: 'Introduction to ML algorithms' });
@@ -271,9 +247,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('falls back to full-text search when embedding service unavailable', async () => {
-      const { searchSkillStoreSemantic } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreSemantic } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Database Tuning', summary: 'PostgreSQL query optimization techniques' });
 
@@ -289,15 +263,9 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('filters by min_similarity when doing semantic search', async () => {
-      const { searchSkillStoreSemantic } = await import(
-        '../src/api/skill-store/search.ts'
-      );
-      const { embeddingService } = await import(
-        '../src/api/embeddings/service.ts'
-      );
-      const { generateSkillStoreItemEmbedding } = await import(
-        '../src/api/embeddings/skill-store-integration.ts'
-      );
+      const { searchSkillStoreSemantic } = await import('../src/api/skill-store/search.ts');
+      const { embeddingService } = await import('../src/api/embeddings/service.ts');
+      const { generateSkillStoreItemEmbedding } = await import('../src/api/embeddings/skill-store-integration.ts');
 
       if (embeddingService.isConfigured()) {
         const id1 = await insertItem({ skill_id: 'sk1', title: 'Artificial Intelligence', summary: 'Deep learning and neural networks' });
@@ -317,9 +285,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('excludes soft-deleted items', async () => {
-      const { searchSkillStoreSemantic } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreSemantic } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Active Search Item', summary: 'Active content for search' });
       const deletedId = await insertItem({ skill_id: 'sk1', title: 'Deleted Search Item', summary: 'Deleted content for search' });
@@ -338,21 +304,19 @@ describe('Skill Store Search (Issue #798)', () => {
 
   describe('searchSkillStoreHybrid', () => {
     it('combines semantic and full-text results with RRF', async () => {
-      const { searchSkillStoreHybrid } = await import(
-        '../src/api/skill-store/search.ts'
-      );
-      const { embeddingService } = await import(
-        '../src/api/embeddings/service.ts'
-      );
-      const { generateSkillStoreItemEmbedding, buildSkillStoreEmbeddingText } = await import(
-        '../src/api/embeddings/skill-store-integration.ts'
-      );
+      const { searchSkillStoreHybrid } = await import('../src/api/skill-store/search.ts');
+      const { embeddingService } = await import('../src/api/embeddings/service.ts');
+      const { generateSkillStoreItemEmbedding, buildSkillStoreEmbeddingText } = await import('../src/api/embeddings/skill-store-integration.ts');
 
       const id1 = await insertItem({ skill_id: 'sk1', title: 'TypeScript Handbook', summary: 'Guide to TypeScript programming language features' });
       const id2 = await insertItem({ skill_id: 'sk1', title: 'JavaScript Basics', summary: 'Introduction to JavaScript language' });
 
       if (embeddingService.isConfigured()) {
-        const text1 = buildSkillStoreEmbeddingText({ title: 'TypeScript Handbook', summary: 'Guide to TypeScript programming language features', content: null });
+        const text1 = buildSkillStoreEmbeddingText({
+          title: 'TypeScript Handbook',
+          summary: 'Guide to TypeScript programming language features',
+          content: null,
+        });
         await generateSkillStoreItemEmbedding(pool, id1, text1);
         const text2 = buildSkillStoreEmbeddingText({ title: 'JavaScript Basics', summary: 'Introduction to JavaScript language', content: null });
         await generateSkillStoreItemEmbedding(pool, id2, text2);
@@ -368,9 +332,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('accepts custom semantic_weight', async () => {
-      const { searchSkillStoreHybrid } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreHybrid } = await import('../src/api/skill-store/search.ts');
 
       await insertItem({ skill_id: 'sk1', title: 'Test Item', summary: 'Content for hybrid search' });
 
@@ -386,9 +348,7 @@ describe('Skill Store Search (Issue #798)', () => {
     });
 
     it('falls back to full-text only when no semantic results available', async () => {
-      const { searchSkillStoreHybrid } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreHybrid } = await import('../src/api/skill-store/search.ts');
 
       // Items without embeddings — hybrid should still work via full-text
       await insertItem({ skill_id: 'sk1', title: 'Full Text Only Item', summary: 'Only full text available here' });
@@ -488,9 +448,7 @@ describe('Skill Store Search (Issue #798)', () => {
 
   describe('Issue #826 validation fixes', () => {
     it('escapes ILIKE wildcards in fallback search', async () => {
-      const { searchSkillStoreFullText } = await import(
-        '../src/api/skill-store/search.ts'
-      );
+      const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
       // Insert an item that should NOT match a % wildcard query
       await insertItem({ skill_id: 'sk1', title: 'Normal Item', summary: 'Regular content' });
@@ -505,9 +463,7 @@ describe('Skill Store Search (Issue #798)', () => {
       // The % should be escaped, so it should not match everything
       // Only items actually containing "10%" should match
       for (const item of result.results) {
-        expect(
-          (item.title?.includes('10%') || item.summary?.includes('10%') || item.content?.includes('10%'))
-        ).toBe(true);
+        expect(item.title?.includes('10%') || item.summary?.includes('10%') || item.content?.includes('10%')).toBe(true);
       }
     });
 

@@ -28,8 +28,7 @@ export function useSearch(query: string, types?: string[]) {
 
   return useQuery({
     queryKey: searchKeys.query(query, types),
-    queryFn: ({ signal }) =>
-      apiClient.get<SearchResponse>(`/api/search?${params.toString()}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<SearchResponse>(`/api/search?${params.toString()}`, { signal }),
     enabled: query.length > 0,
   });
 }

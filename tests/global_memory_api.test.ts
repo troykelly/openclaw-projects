@@ -93,7 +93,7 @@ describe('Global Memory API (issue #120)', () => {
       expect(body.hasMore).toBe(false);
 
       // Check that linked work item info is included
-      const mem1 = body.items.find(m => m.title === 'Memory 1');
+      const mem1 = body.items.find((m) => m.title === 'Memory 1');
       expect(mem1?.linkedItemTitle).toBe('Project Alpha');
       expect(mem1?.linkedItemKind).toBe('project');
       expect(mem1?.linkedItemId).toBe(workItemId1);
@@ -240,7 +240,7 @@ describe('Global Memory API (issue #120)', () => {
         payload: { title: 'Older Memory', content: 'Content' },
       });
       // Small delay to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await app.inject({
         method: 'POST',
         url: `/api/work-items/${workItemId1}/memories`,

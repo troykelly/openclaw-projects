@@ -28,18 +28,12 @@ describe('Twilio SMS Webhook', () => {
   const authToken = 'test-twilio-auth-token-for-tests';
 
   // Create a valid Twilio signature
-  function createTwilioSignature(
-    url: string,
-    params: Record<string, string>,
-    token: string
-  ): string {
+  function createTwilioSignature(url: string, params: Record<string, string>, token: string): string {
     const paramString = Object.keys(params)
       .sort()
       .reduce((acc, key) => acc + key + params[key], '');
     const data = url + paramString;
-    return createHmac('sha1', token)
-      .update(Buffer.from(data, 'utf-8'))
-      .digest('base64');
+    return createHmac('sha1', token).update(Buffer.from(data, 'utf-8')).digest('base64');
   }
 
   function createTwilioPayload(overrides: Partial<TwilioSmsWebhookPayload> = {}): TwilioSmsWebhookPayload {
@@ -105,7 +99,7 @@ describe('Twilio SMS Webhook', () => {
            FROM contact c
            JOIN contact_endpoint ce ON ce.contact_id = c.id
           WHERE ce.endpoint_type = 'phone'
-            AND ce.normalized_value LIKE '%4155551234%'`
+            AND ce.normalized_value LIKE '%4155551234%'`,
       );
       expect(contactResult.rows.length).toBe(1);
       expect(contactResult.rows[0].display_name).toContain('+14155551234');
@@ -160,9 +154,7 @@ describe('Twilio SMS Webhook', () => {
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
 
-      const threadResult = await pool.query(
-        `SELECT * FROM external_thread WHERE channel = 'phone'`
-      );
+      const threadResult = await pool.query(`SELECT * FROM external_thread WHERE channel = 'phone'`);
       expect(threadResult.rows.length).toBe(1);
       expect(threadResult.rows[0].external_thread_key).toContain('sms:');
       expect(threadResult.rows[0].metadata).toEqual(
@@ -170,7 +162,7 @@ describe('Twilio SMS Webhook', () => {
           fromPhone: expect.any(String),
           toPhone: expect.any(String),
           source: 'twilio',
-        })
+        }),
       );
     });
 
@@ -188,10 +180,7 @@ describe('Twilio SMS Webhook', () => {
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
 
-      const messageResult = await pool.query(
-        `SELECT raw FROM external_message WHERE external_message_key = $1`,
-        [payload.MessageSid]
-      );
+      const messageResult = await pool.query(`SELECT raw FROM external_message WHERE external_message_key = $1`, [payload.MessageSid]);
       expect(messageResult.rows.length).toBe(1);
       expect(messageResult.rows[0].raw.MessageSid).toBe(payload.MessageSid);
       expect(messageResult.rows[0].raw.NumMedia).toBe('1');
@@ -210,9 +199,7 @@ describe('Twilio SMS Webhook', () => {
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
 
-      const endpointResult = await pool.query(
-        `SELECT endpoint_value, normalized_value FROM contact_endpoint WHERE endpoint_type = 'phone'`
-      );
+      const endpointResult = await pool.query(`SELECT endpoint_value, normalized_value FROM contact_endpoint WHERE endpoint_type = 'phone'`);
       expect(endpointResult.rows.length).toBe(1);
       expect(endpointResult.rows[0].endpoint_value).toBe('+14155551234');
     });
@@ -231,16 +218,14 @@ describe('Twilio SMS Webhook', () => {
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
       });
 
-      const endpointResult = await pool.query(
-        `SELECT metadata FROM contact_endpoint WHERE endpoint_type = 'phone'`
-      );
+      const endpointResult = await pool.query(`SELECT metadata FROM contact_endpoint WHERE endpoint_type = 'phone'`);
       expect(endpointResult.rows[0].metadata).toEqual(
         expect.objectContaining({
           source: 'twilio',
           fromCity: 'San Francisco',
           fromState: 'CA',
           fromCountry: 'US',
-        })
+        }),
       );
     });
 
@@ -279,10 +264,7 @@ describe('Twilio SMS Webhook', () => {
       expect(response.statusCode).toBe(200);
 
       // Should only have one message (ON CONFLICT updates)
-      const count = await pool.query(
-        `SELECT COUNT(*) FROM external_message WHERE external_message_key = $1`,
-        [payload.MessageSid]
-      );
+      const count = await pool.query(`SELECT COUNT(*) FROM external_message WHERE external_message_key = $1`, [payload.MessageSid]);
       expect(parseInt(count.rows[0].count, 10)).toBe(1);
     });
   });

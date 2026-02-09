@@ -22,7 +22,6 @@ export const activityKeys = {
 export function useActivity(limit = 50) {
   return useQuery({
     queryKey: activityKeys.list(limit),
-    queryFn: ({ signal }) =>
-      apiClient.get<ActivityResponse>(`/api/activity?limit=${limit}`, { signal }),
+    queryFn: ({ signal }) => apiClient.get<ActivityResponse>(`/api/activity?limit=${limit}`, { signal }),
   });
 }

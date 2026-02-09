@@ -31,12 +31,7 @@ const availableFields: { value: CardField; label: string }[] = [
   { value: 'progress', label: 'Progress' },
 ];
 
-export function CardDisplayConfig({
-  mode,
-  onChange,
-  visibleFields,
-  onVisibleFieldsChange,
-}: CardDisplayConfigProps) {
+export function CardDisplayConfig({ mode, onChange, visibleFields, onVisibleFieldsChange }: CardDisplayConfigProps) {
   const handleFieldToggle = (field: CardField) => {
     if (visibleFields.includes(field)) {
       onVisibleFieldsChange(visibleFields.filter((f) => f !== field));
@@ -61,9 +56,7 @@ export function CardDisplayConfig({
                   value={option.value}
                   checked={mode === option.value}
                   onChange={() => onChange(option.value)}
-                  className={cn(
-                    'h-4 w-4 border-gray-300 text-primary focus:ring-primary'
-                  )}
+                  className={cn('h-4 w-4 border-gray-300 text-primary focus:ring-primary')}
                   aria-label={option.label}
                 />
                 <Label htmlFor={inputId}>{option.label}</Label>
@@ -75,9 +68,7 @@ export function CardDisplayConfig({
 
       <div>
         <h3 className="text-sm font-medium mb-3">Visible Fields</h3>
-        <p className="text-sm text-muted-foreground mb-3">
-          Select which fields to display on cards.
-        </p>
+        <p className="text-sm text-muted-foreground mb-3">Select which fields to display on cards.</p>
         <div className="grid grid-cols-2 gap-2">
           {availableFields.map((field) => (
             <div key={field.value} className="flex items-center space-x-2">

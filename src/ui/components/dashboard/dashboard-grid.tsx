@@ -39,9 +39,7 @@ export function DashboardGrid({
       <div className={cn('flex flex-col items-center justify-center py-12', className)}>
         <LayoutGrid className="h-12 w-12 text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">No widgets yet</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Add widgets to customize your dashboard
-        </p>
+        <p className="text-sm text-muted-foreground mb-4">Add widgets to customize your dashboard</p>
         {onAddWidget && (
           <Button onClick={onAddWidget}>
             <Plus className="h-4 w-4 mr-2" />
@@ -99,10 +97,7 @@ export function DashboardGrid({
               key={widget.id}
               data-testid={`grid-cell-${widget.id}`}
               style={style}
-              className={cn(
-                'relative',
-                isEditing && 'ring-2 ring-primary/20 ring-offset-2 rounded-lg'
-              )}
+              className={cn('relative', isEditing && 'ring-2 ring-primary/20 ring-offset-2 rounded-lg')}
             >
               {renderWidget ? (
                 renderWidget(widget)
@@ -111,15 +106,9 @@ export function DashboardGrid({
                   id={widget.id}
                   title={widget.type}
                   onRemove={isEditing ? () => onRemoveWidget(widget.id) : undefined}
-                  onConfigure={
-                    onConfigureWidget
-                      ? () => onConfigureWidget(widget.id)
-                      : undefined
-                  }
+                  onConfigure={onConfigureWidget ? () => onConfigureWidget(widget.id) : undefined}
                 >
-                  <div className="text-muted-foreground text-sm">
-                    Widget: {widget.type}
-                  </div>
+                  <div className="text-muted-foreground text-sm">Widget: {widget.type}</div>
                 </DashboardWidget>
               )}
             </div>

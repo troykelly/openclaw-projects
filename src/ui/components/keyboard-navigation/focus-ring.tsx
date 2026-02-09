@@ -45,12 +45,7 @@ export function FocusRing({ children, className }: FocusRingProps) {
   return (
     <div
       data-focus-visible={isFocusVisible}
-      className={cn(
-        'relative inline-flex',
-        isFocusVisible &&
-          'ring-2 ring-ring ring-offset-2 ring-offset-background rounded',
-        className
-      )}
+      className={cn('relative inline-flex', isFocusVisible && 'ring-2 ring-ring ring-offset-2 ring-offset-background rounded', className)}
       onFocus={handleFocus}
       onBlur={handleBlur}
     >

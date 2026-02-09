@@ -33,12 +33,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   /**
    * Helper to create a note via API and return its ID
    */
-  async function createNote(
-    userEmail: string,
-    title: string,
-    content: string,
-    visibility: 'private' | 'shared' | 'public' = 'private'
-  ): Promise<string> {
+  async function createNote(userEmail: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notes',
@@ -56,12 +51,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   /**
    * Helper to update a note via API (which creates a new version via trigger)
    */
-  async function updateNote(
-    noteId: string,
-    title: string,
-    content: string,
-    userEmail: string
-  ): Promise<void> {
+  async function updateNote(noteId: string, title: string, content: string, userEmail: string): Promise<void> {
     const res = await app.inject({
       method: 'PUT',
       url: `/api/notes/${noteId}`,
@@ -78,26 +68,18 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
    * Helper to get version count for a note
    */
   async function getVersionCount(noteId: string): Promise<number> {
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM note_version WHERE note_id = $1`,
-      [noteId]
-    );
+    const result = await pool.query(`SELECT COUNT(*) as count FROM note_version WHERE note_id = $1`, [noteId]);
     return parseInt(result.rows[0].count, 10);
   }
 
   /**
    * Helper to share a note with another user
    */
-  async function shareNote(
-    noteId: string,
-    ownerEmail: string,
-    sharedWithEmail: string,
-    permission: 'read' | 'read_write' = 'read'
-  ): Promise<void> {
+  async function shareNote(noteId: string, ownerEmail: string, sharedWithEmail: string, permission: 'read' | 'read_write' = 'read'): Promise<void> {
     await pool.query(
       `INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
        VALUES ($1, $2, $3, $4)`,
-      [noteId, sharedWithEmail, permission, ownerEmail]
+      [noteId, sharedWithEmail, permission, ownerEmail],
     );
   }
 
@@ -437,10 +419,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       await updateNote(noteId, 'New Title', 'New content', testUserEmail);
 
       // Verify current state
-      const beforeResult = await pool.query(
-        `SELECT title, content FROM note WHERE id = $1`,
-        [noteId]
-      );
+      const beforeResult = await pool.query(`SELECT title, content FROM note WHERE id = $1`, [noteId]);
       expect(beforeResult.rows[0].title).toBe('New Title');
       expect(beforeResult.rows[0].content).toBe('New content');
 
@@ -464,10 +443,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       expect(result.message).toContain('restored');
 
       // Verify note was updated
-      const afterResult = await pool.query(
-        `SELECT title, content FROM note WHERE id = $1`,
-        [noteId]
-      );
+      const afterResult = await pool.query(`SELECT title, content FROM note WHERE id = $1`, [noteId]);
       expect(afterResult.rows[0].title).toBe('Original Title');
       expect(afterResult.rows[0].content).toBe('Original content');
     });
@@ -488,10 +464,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       expect(afterVersionCount).toBe(beforeVersionCount + 1);
 
       // The new version should have change_type = 'restore'
-      const latestVersion = await pool.query(
-        `SELECT change_type FROM note_version WHERE note_id = $1 ORDER BY version_number DESC LIMIT 1`,
-        [noteId]
-      );
+      const latestVersion = await pool.query(`SELECT change_type FROM note_version WHERE note_id = $1 ORDER BY version_number DESC LIMIT 1`, [noteId]);
       expect(latestVersion.rows[0].change_type).toBe('restore');
     });
 

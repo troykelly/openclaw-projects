@@ -5,10 +5,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { CommunicationsPage } from '@/ui/pages/CommunicationsPage';
-import type {
-  LinkedEmail,
-  LinkedCalendarEvent,
-} from '@/ui/components/communications/types';
+import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
 import { useEmails, useCalendarEvents } from '@/ui/hooks/queries/use-global-communications';
 
 // ---------------------------------------------------------------------------
@@ -75,9 +72,7 @@ const mockEvents: LinkedCalendarEvent[] = [
     description: 'Review quarterly goals and progress.',
     startTime: new Date('2026-01-17T14:00:00Z'),
     endTime: new Date('2026-01-17T15:00:00Z'),
-    attendees: [
-      { name: 'Carol White', email: 'carol@example.com', status: 'accepted' },
-    ],
+    attendees: [{ name: 'Carol White', email: 'carol@example.com', status: 'accepted' }],
     meetingLink: 'https://meet.example.com/quarterly',
   },
 ];
@@ -416,9 +411,7 @@ describe('CommunicationsPage', () => {
       render(<CommunicationsPage emails={[]} calendarEvents={[]} />);
 
       // Empty state on the all tab
-      expect(
-        screen.getByText('Emails and calendar events linked to your work items will appear here.'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Emails and calendar events linked to your work items will appear here.')).toBeInTheDocument();
     });
   });
 

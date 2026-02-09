@@ -9,22 +9,10 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  MentionAutocomplete,
-  type MentionAutocompleteProps,
-} from '@/ui/components/mentions/mention-autocomplete';
-import {
-  MentionBadge,
-  type MentionBadgeProps,
-} from '@/ui/components/mentions/mention-badge';
-import {
-  MentionInput,
-  type MentionInputProps,
-} from '@/ui/components/mentions/mention-input';
-import {
-  MentionList,
-  type MentionListProps,
-} from '@/ui/components/mentions/mention-list';
+import { MentionAutocomplete, type MentionAutocompleteProps } from '@/ui/components/mentions/mention-autocomplete';
+import { MentionBadge, type MentionBadgeProps } from '@/ui/components/mentions/mention-badge';
+import { MentionInput, type MentionInputProps } from '@/ui/components/mentions/mention-input';
+import { MentionList, type MentionListProps } from '@/ui/components/mentions/mention-list';
 import {
   parseMentions,
   extractMentionIds,
@@ -103,14 +91,7 @@ describe('MentionAutocomplete', () => {
   it('should support keyboard navigation', () => {
     const onSelect = vi.fn();
     const onNavigate = vi.fn();
-    render(
-      <MentionAutocomplete
-        {...defaultProps}
-        onSelect={onSelect}
-        onNavigate={onNavigate}
-        highlightedIndex={1}
-      />
-    );
+    render(<MentionAutocomplete {...defaultProps} onSelect={onSelect} onNavigate={onNavigate} highlightedIndex={1} />);
 
     const secondItem = screen.getByTestId('mention-option-1');
     expect(secondItem).toHaveAttribute('data-highlighted', 'true');
@@ -399,9 +380,7 @@ describe('Mention Utilities', () => {
 
   describe('serializeMentions', () => {
     it('should convert mentions array to token string', () => {
-      const mentions: Mention[] = [
-        { id: 'user-1', name: 'Alice', type: 'user' },
-      ];
+      const mentions: Mention[] = [{ id: 'user-1', name: 'Alice', type: 'user' }];
 
       const result = serializeMentions('Hello ', mentions[0], '!');
 

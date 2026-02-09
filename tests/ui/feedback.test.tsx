@@ -196,12 +196,7 @@ describe('EmptyState', () => {
 
 describe('FirstTimeGuidance', () => {
   it('renders guidance content', () => {
-    render(
-      <FirstTimeGuidance
-        title="Welcome!"
-        description="Get started with these steps"
-      />
-    );
+    render(<FirstTimeGuidance title="Welcome!" description="Get started with these steps" />);
 
     expect(screen.getByText('Welcome!')).toBeInTheDocument();
     expect(screen.getByText('Get started with these steps')).toBeInTheDocument();
@@ -216,7 +211,7 @@ describe('FirstTimeGuidance', () => {
           { title: 'Step 1', description: 'Do this first' },
           { title: 'Step 2', description: 'Then this' },
         ]}
-      />
+      />,
     );
 
     expect(screen.getByText('Step 1')).toBeInTheDocument();
@@ -225,13 +220,7 @@ describe('FirstTimeGuidance', () => {
 
   it('calls onGetStarted when clicked', () => {
     const onGetStarted = vi.fn();
-    render(
-      <FirstTimeGuidance
-        title="Welcome"
-        description="Get started"
-        onGetStarted={onGetStarted}
-      />
-    );
+    render(<FirstTimeGuidance title="Welcome" description="Get started" onGetStarted={onGetStarted} />);
 
     fireEvent.click(screen.getByText('Get Started'));
     expect(onGetStarted).toHaveBeenCalled();
@@ -245,7 +234,11 @@ describe('LoadingButton', () => {
   });
 
   it('shows loading text when loading', () => {
-    render(<LoadingButton loading loadingText="Submitting...">Submit</LoadingButton>);
+    render(
+      <LoadingButton loading loadingText="Submitting...">
+        Submit
+      </LoadingButton>,
+    );
     expect(screen.getByText('Submitting...')).toBeInTheDocument();
   });
 
@@ -314,7 +307,11 @@ describe('Transition Components', () => {
 
   describe('Slide', () => {
     it('renders content when visible', () => {
-      render(<Slide show={true} direction="up">Content</Slide>);
+      render(
+        <Slide show={true} direction="up">
+          Content
+        </Slide>,
+      );
       expect(screen.getByText('Content')).toBeInTheDocument();
     });
   });

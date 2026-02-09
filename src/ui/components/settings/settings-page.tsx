@@ -7,31 +7,12 @@
  */
 import * as React from 'react';
 import { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  Sun,
-  Moon,
-  Monitor,
-  Bell,
-  Layout,
-  Clock,
-  Eye,
-  User,
-  Keyboard,
-  Info,
-  CheckCircle,
-  Smartphone,
-} from 'lucide-react';
+import { Sun, Moon, Monitor, Bell, Layout, Clock, Eye, User, Keyboard, Info, CheckCircle, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Switch } from '@/ui/components/ui/switch';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Skeleton } from '@/ui/components/feedback';
 import { Separator } from '@/ui/components/ui/separator';
 import { cn } from '@/ui/lib/utils';
@@ -76,24 +57,33 @@ type SectionId = (typeof SECTIONS)[number]['id'];
 
 /** Keyboard shortcut data for the shortcuts section. */
 const KEYBOARD_SHORTCUTS = [
-  { group: 'Global', shortcuts: [
-    { keys: ['Cmd/Ctrl', 'K'], description: 'Open command palette' },
-    { keys: ['Cmd/Ctrl', '/'], description: 'Show keyboard shortcuts' },
-    { keys: ['Esc'], description: 'Close modal / cancel' },
-  ]},
-  { group: 'Navigation', shortcuts: [
-    { keys: ['G', 'then', 'A'], description: 'Go to Activity' },
-    { keys: ['G', 'then', 'P'], description: 'Go to Projects' },
-    { keys: ['G', 'then', 'T'], description: 'Go to Timeline' },
-    { keys: ['G', 'then', 'C'], description: 'Go to Contacts' },
-    { keys: ['G', 'then', 'S'], description: 'Go to Settings' },
-  ]},
-  { group: 'Work Items', shortcuts: [
-    { keys: ['N'], description: 'Quick add new item' },
-    { keys: ['Shift', 'N'], description: 'Full create form' },
-    { keys: ['J'], description: 'Next item in list' },
-    { keys: ['K'], description: 'Previous item in list' },
-  ]},
+  {
+    group: 'Global',
+    shortcuts: [
+      { keys: ['Cmd/Ctrl', 'K'], description: 'Open command palette' },
+      { keys: ['Cmd/Ctrl', '/'], description: 'Show keyboard shortcuts' },
+      { keys: ['Esc'], description: 'Close modal / cancel' },
+    ],
+  },
+  {
+    group: 'Navigation',
+    shortcuts: [
+      { keys: ['G', 'then', 'A'], description: 'Go to Activity' },
+      { keys: ['G', 'then', 'P'], description: 'Go to Projects' },
+      { keys: ['G', 'then', 'T'], description: 'Go to Timeline' },
+      { keys: ['G', 'then', 'C'], description: 'Go to Contacts' },
+      { keys: ['G', 'then', 'S'], description: 'Go to Settings' },
+    ],
+  },
+  {
+    group: 'Work Items',
+    shortcuts: [
+      { keys: ['N'], description: 'Quick add new item' },
+      { keys: ['Shift', 'N'], description: 'Full create form' },
+      { keys: ['J'], description: 'Next item in list' },
+      { keys: ['K'], description: 'Previous item in list' },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -115,27 +105,13 @@ function ThemeOption({ value, label, icon: Icon, isSelected, onChange, descripti
       data-testid={`theme-option-${value}`}
       className={cn(
         'flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all',
-        isSelected
-          ? 'border-primary bg-primary/5'
-          : 'border-border hover:border-primary/50 hover:bg-muted/50'
+        isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50',
       )}
     >
-      <input
-        type="radio"
-        name="theme"
-        value={value}
-        checked={isSelected}
-        onChange={() => onChange(value)}
-        className="sr-only"
-        aria-label={label}
-      />
+      <input type="radio" name="theme" value={value} checked={isSelected} onChange={() => onChange(value)} className="sr-only" aria-label={label} />
       <Icon className={cn('size-6', isSelected ? 'text-primary' : 'text-muted-foreground')} />
-      <span className={cn('text-sm font-medium', isSelected ? 'text-foreground' : 'text-muted-foreground')}>
-        {label}
-      </span>
-      {description && (
-        <span className="text-[10px] text-muted-foreground text-center">{description}</span>
-      )}
+      <span className={cn('text-sm font-medium', isSelected ? 'text-foreground' : 'text-muted-foreground')}>{label}</span>
+      {description && <span className="text-[10px] text-muted-foreground text-center">{description}</span>}
     </label>
   );
 }
@@ -168,7 +144,7 @@ function SaveConfirmation({ visible }: { visible: boolean }) {
       data-testid="save-confirmation"
       className={cn(
         'fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-lg transition-all duration-300',
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none',
       )}
     >
       <CheckCircle className="size-4" />
@@ -229,9 +205,7 @@ function ProfileSection({ email, id }: ProfileSectionProps) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{email}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground truncate">
-              ID: {id}
-            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">ID: {id}</p>
           </div>
         </div>
       </CardContent>
@@ -284,35 +258,10 @@ function AppearanceSection({
             <div>
               <label className="mb-3 block text-sm font-medium">Theme</label>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <ThemeOption
-                  value="light"
-                  label="Light"
-                  icon={Sun}
-                  isSelected={theme === 'light'}
-                  onChange={onThemeChange}
-                />
-                <ThemeOption
-                  value="dark"
-                  label="Dark"
-                  icon={Moon}
-                  isSelected={theme === 'dark'}
-                  onChange={onThemeChange}
-                />
-                <ThemeOption
-                  value="oled"
-                  label="OLED"
-                  icon={Smartphone}
-                  isSelected={theme === 'oled'}
-                  onChange={onThemeChange}
-                  description="True black"
-                />
-                <ThemeOption
-                  value="system"
-                  label="System"
-                  icon={Monitor}
-                  isSelected={theme === 'system'}
-                  onChange={onThemeChange}
-                />
+                <ThemeOption value="light" label="Light" icon={Sun} isSelected={theme === 'light'} onChange={onThemeChange} />
+                <ThemeOption value="dark" label="Dark" icon={Moon} isSelected={theme === 'dark'} onChange={onThemeChange} />
+                <ThemeOption value="oled" label="OLED" icon={Smartphone} isSelected={theme === 'oled'} onChange={onThemeChange} description="True black" />
+                <ThemeOption value="system" label="System" icon={Monitor} isSelected={theme === 'system'} onChange={onThemeChange} />
               </div>
             </div>
           </div>
@@ -330,10 +279,7 @@ function AppearanceSection({
         </CardHeader>
         <CardContent className="space-y-1 divide-y">
           <SettingRow label="Default View" description="The page to show when you open the app">
-            <Select
-              value={defaultView}
-              onValueChange={(v) => onDefaultViewChange(v as DefaultView)}
-            >
+            <Select value={defaultView} onValueChange={(v) => onDefaultViewChange(v as DefaultView)}>
               <SelectTrigger className="w-[140px]" aria-label="Default view">
                 <SelectValue />
               </SelectTrigger>
@@ -346,17 +292,8 @@ function AppearanceSection({
             </Select>
           </SettingRow>
 
-          <SettingRow
-            label="Sidebar Collapsed"
-            description="Start with the sidebar collapsed"
-            htmlFor="sidebar-collapsed"
-          >
-            <Switch
-              id="sidebar-collapsed"
-              checked={sidebarCollapsed}
-              onCheckedChange={onSidebarCollapsedChange}
-              aria-label="Sidebar collapsed"
-            />
+          <SettingRow label="Sidebar Collapsed" description="Start with the sidebar collapsed" htmlFor="sidebar-collapsed">
+            <Switch id="sidebar-collapsed" checked={sidebarCollapsed} onCheckedChange={onSidebarCollapsedChange} aria-label="Sidebar collapsed" />
           </SettingRow>
         </CardContent>
       </Card>
@@ -371,24 +308,12 @@ function AppearanceSection({
           <CardDescription>Control what items are shown</CardDescription>
         </CardHeader>
         <CardContent className="space-y-1 divide-y">
-          <SettingRow
-            label="Show Completed Items"
-            description="Show completed items in lists"
-            htmlFor="show-completed"
-          >
-            <Switch
-              id="show-completed"
-              checked={showCompleted}
-              onCheckedChange={onShowCompletedChange}
-              aria-label="Show completed items"
-            />
+          <SettingRow label="Show Completed Items" description="Show completed items in lists" htmlFor="show-completed">
+            <Switch id="show-completed" checked={showCompleted} onCheckedChange={onShowCompletedChange} aria-label="Show completed items" />
           </SettingRow>
 
           <SettingRow label="Items Per Page" description="Number of items to show in lists">
-            <Select
-              value={String(itemsPerPage)}
-              onValueChange={onItemsPerPageChange}
-            >
+            <Select value={String(itemsPerPage)} onValueChange={onItemsPerPageChange}>
               <SelectTrigger className="w-[100px]">
                 <SelectValue />
               </SelectTrigger>
@@ -444,12 +369,7 @@ interface NotificationsSectionProps {
   onDigestFrequencyChange: (frequency: EmailDigestFrequency) => void;
 }
 
-function NotificationsSection({
-  emailNotifications,
-  emailDigestFrequency,
-  onEmailNotificationsChange,
-  onDigestFrequencyChange,
-}: NotificationsSectionProps) {
+function NotificationsSection({ emailNotifications, emailDigestFrequency, onEmailNotificationsChange, onDigestFrequencyChange }: NotificationsSectionProps) {
   return (
     <Card data-testid="settings-card">
       <CardHeader>
@@ -460,25 +380,12 @@ function NotificationsSection({
         <CardDescription>Configure how you receive notifications</CardDescription>
       </CardHeader>
       <CardContent className="space-y-1 divide-y">
-        <SettingRow
-          label="Email Notifications"
-          description="Receive email notifications for updates"
-          htmlFor="email-notifications"
-        >
-          <Switch
-            id="email-notifications"
-            checked={emailNotifications}
-            onCheckedChange={onEmailNotificationsChange}
-            aria-label="Email notifications"
-          />
+        <SettingRow label="Email Notifications" description="Receive email notifications for updates" htmlFor="email-notifications">
+          <Switch id="email-notifications" checked={emailNotifications} onCheckedChange={onEmailNotificationsChange} aria-label="Email notifications" />
         </SettingRow>
 
         <SettingRow label="Email Digest" description="How often to receive digest emails">
-          <Select
-            value={emailDigestFrequency}
-            onValueChange={(v) => onDigestFrequencyChange(v as EmailDigestFrequency)}
-            disabled={!emailNotifications}
-          >
+          <Select value={emailDigestFrequency} onValueChange={(v) => onDigestFrequencyChange(v as EmailDigestFrequency)} disabled={!emailNotifications}>
             <SelectTrigger className="w-[120px]">
               <SelectValue />
             </SelectTrigger>
@@ -511,18 +418,13 @@ function KeyboardShortcutsSection() {
               <h4 className="mb-3 text-sm font-medium text-foreground">{group.group}</h4>
               <div className="space-y-2">
                 {group.shortcuts.map((shortcut, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2"
-                  >
+                  <div key={i} className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2">
                     <span className="text-sm text-muted-foreground">{shortcut.description}</span>
                     <KeyCombo keys={shortcut.keys} />
                   </div>
                 ))}
               </div>
-              {group !== KEYBOARD_SHORTCUTS[KEYBOARD_SHORTCUTS.length - 1] && (
-                <Separator className="mt-4" />
-              )}
+              {group !== KEYBOARD_SHORTCUTS[KEYBOARD_SHORTCUTS.length - 1] && <Separator className="mt-4" />}
             </div>
           ))}
         </div>
@@ -561,20 +463,13 @@ function AboutSection() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Documentation</span>
-              <a
-                href="https://docs.openclaw.ai/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
-              >
+              <a href="https://docs.openclaw.ai/" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
                 docs.openclaw.ai
               </a>
             </div>
           </div>
           <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-center">
-            <p className="text-sm text-muted-foreground">
-              Built for integration with the OpenClaw AI agent gateway.
-            </p>
+            <p className="text-sm text-muted-foreground">Built for integration with the OpenClaw AI agent gateway.</p>
           </div>
         </div>
       </CardContent>
@@ -735,10 +630,7 @@ export function SettingsPage() {
         {/* Layout: sidebar + content */}
         <div className="flex flex-col gap-8 md:flex-row">
           {/* Sidebar navigation */}
-          <nav
-            data-testid="settings-sidebar"
-            className="w-full shrink-0 md:w-48 md:sticky md:top-6 md:self-start"
-          >
+          <nav data-testid="settings-sidebar" className="w-full shrink-0 md:w-48 md:sticky md:top-6 md:self-start">
             <ul className="flex flex-row gap-1 overflow-x-auto pb-2 md:flex-col md:gap-0.5 md:pb-0">
               {SECTIONS.map(({ id, label, icon: Icon }) => (
                 <li key={id}>
@@ -748,9 +640,7 @@ export function SettingsPage() {
                     data-testid={`settings-nav-${id}`}
                     className={cn(
                       'flex w-full items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                      activeSection === id
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      activeSection === id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
                     <Icon className="size-4 shrink-0" />
@@ -764,12 +654,20 @@ export function SettingsPage() {
           {/* Main content */}
           <div className="min-w-0 flex-1 space-y-8">
             {/* Profile */}
-            <div ref={(el) => { sectionRefs.current.profile = el; }}>
+            <div
+              ref={(el) => {
+                sectionRefs.current.profile = el;
+              }}
+            >
               <ProfileSection email={settings.email} id={settings.id} />
             </div>
 
             {/* Appearance */}
-            <div ref={(el) => { sectionRefs.current.appearance = el; }}>
+            <div
+              ref={(el) => {
+                sectionRefs.current.appearance = el;
+              }}
+            >
               <AppearanceSection
                 theme={settings.theme}
                 defaultView={settings.default_view}
@@ -787,7 +685,11 @@ export function SettingsPage() {
             </div>
 
             {/* Notifications */}
-            <div ref={(el) => { sectionRefs.current.notifications = el; }}>
+            <div
+              ref={(el) => {
+                sectionRefs.current.notifications = el;
+              }}
+            >
               <NotificationsSection
                 emailNotifications={settings.email_notifications}
                 emailDigestFrequency={settings.email_digest_frequency}
@@ -797,12 +699,20 @@ export function SettingsPage() {
             </div>
 
             {/* Keyboard Shortcuts */}
-            <div ref={(el) => { sectionRefs.current.shortcuts = el; }}>
+            <div
+              ref={(el) => {
+                sectionRefs.current.shortcuts = el;
+              }}
+            >
               <KeyboardShortcutsSection />
             </div>
 
             {/* About */}
-            <div ref={(el) => { sectionRefs.current.about = el; }}>
+            <div
+              ref={(el) => {
+                sectionRefs.current.about = el;
+              }}
+            >
               <AboutSection />
             </div>
           </div>

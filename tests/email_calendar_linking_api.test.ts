@@ -51,7 +51,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, 'email', $2)
        RETURNING id::text as id`,
-      [endpointId, `thread-${Date.now()}`]
+      [endpointId, `thread-${Date.now()}`],
     );
     threadId = (threadResult.rows[0] as { id: string }).id;
 
@@ -60,7 +60,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
        VALUES ($1, $2, 'inbound', 'Email body', $3)
        RETURNING id::text as id`,
-      [threadId, `email-${Date.now()}`, JSON.stringify({ subject: 'Test Email', from: 'sender@example.com' })]
+      [threadId, `email-${Date.now()}`, JSON.stringify({ subject: 'Test Email', from: 'sender@example.com' })],
     );
     emailMessageId = (emailResult.rows[0] as { id: string }).id;
 
@@ -77,7 +77,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
           title: 'Meeting',
           startTime: new Date().toISOString(),
         }),
-      ]
+      ],
     );
     calendarEventId = (calendarResult.rows[0] as { id: string }).id;
   });
@@ -153,10 +153,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify the link is removed
-      const check = await pool.query(
-        'SELECT 1 FROM work_item_communication WHERE work_item_id = $1 AND message_id = $2',
-        [workItemId, emailMessageId]
-      );
+      const check = await pool.query('SELECT 1 FROM work_item_communication WHERE work_item_id = $1 AND message_id = $2', [workItemId, emailMessageId]);
       expect(check.rows.length).toBe(0);
     });
 
@@ -253,10 +250,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify the link is removed
-      const check = await pool.query(
-        'SELECT 1 FROM work_item_communication WHERE work_item_id = $1 AND message_id = $2',
-        [workItemId, calendarEventId]
-      );
+      const check = await pool.query('SELECT 1 FROM work_item_communication WHERE work_item_id = $1 AND message_id = $2', [workItemId, calendarEventId]);
       expect(check.rows.length).toBe(0);
     });
 

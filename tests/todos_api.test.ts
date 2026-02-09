@@ -245,7 +245,7 @@ describe('Todos API (issue #108)', () => {
         url: `/api/work-items/${workItemId}/todos`,
       });
       const body = list.json() as { todos: Array<{ id: string }> };
-      expect(body.todos.find(t => t.id === todoId)).toBeUndefined();
+      expect(body.todos.find((t) => t.id === todoId)).toBeUndefined();
     });
 
     it('returns 404 for non-existent todo', async () => {

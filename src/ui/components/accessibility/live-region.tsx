@@ -13,20 +13,9 @@ export interface LiveRegionProps {
   className?: string;
 }
 
-export function LiveRegion({
-  children,
-  politeness = 'polite',
-  atomic = true,
-  role,
-  className,
-}: LiveRegionProps) {
+export function LiveRegion({ children, politeness = 'polite', atomic = true, role, className }: LiveRegionProps) {
   return (
-    <div
-      aria-live={politeness}
-      aria-atomic={atomic}
-      role={role}
-      className={cn(className)}
-    >
+    <div aria-live={politeness} aria-atomic={atomic} role={role} className={cn(className)}>
       {children}
     </div>
   );

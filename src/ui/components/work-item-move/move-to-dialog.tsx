@@ -1,14 +1,7 @@
 import * as React from 'react';
 import { useState, useMemo } from 'react';
 import { Search, FolderTree, ChevronRight } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
@@ -32,15 +25,7 @@ const kindColors: Record<TreeItemKind, string> = {
   issue: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
 };
 
-export function MoveToDialog({
-  open,
-  onOpenChange,
-  item,
-  items,
-  potentialParents,
-  onMove,
-  isMoving,
-}: MoveToDialogProps) {
+export function MoveToDialog({ open, onOpenChange, item, items, potentialParents, onMove, isMoving }: MoveToDialogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
@@ -122,12 +107,7 @@ export function MoveToDialog({
           {/* Search input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search parents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Search parents..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
           </div>
 
           {/* Parent list */}
@@ -147,24 +127,17 @@ export function MoveToDialog({
                       'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       isSelected && 'bg-primary/10 ring-1 ring-primary',
-                      isCurrent && 'opacity-50 cursor-not-allowed'
+                      isCurrent && 'opacity-50 cursor-not-allowed',
                     )}
                   >
                     <span className="text-lg">{kindIcons[parent.kind]}</span>
                     <div className="flex-1 min-w-0">
                       <div className="truncate font-medium">{parent.title}</div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <Badge
-                          variant="secondary"
-                          className={cn('text-xs', kindColors[parent.kind])}
-                        >
+                        <Badge variant="secondary" className={cn('text-xs', kindColors[parent.kind])}>
                           {parent.kind}
                         </Badge>
-                        {isCurrent && (
-                          <span className="text-xs text-muted-foreground">
-                            (current)
-                          </span>
-                        )}
+                        {isCurrent && <span className="text-xs text-muted-foreground">(current)</span>}
                       </div>
                     </div>
                     {isSelected && <ChevronRight className="size-4 text-primary" />}
@@ -175,11 +148,7 @@ export function MoveToDialog({
               {filteredParents.length === 0 && (
                 <div className="py-8 text-center text-muted-foreground">
                   <FolderTree className="mx-auto mb-2 size-8 opacity-50" />
-                  <p className="text-sm">
-                    {searchQuery
-                      ? 'No matching parents found'
-                      : 'No valid parents available'}
-                  </p>
+                  <p className="text-sm">{searchQuery ? 'No matching parents found' : 'No valid parents available'}</p>
                 </div>
               )}
             </div>
@@ -190,10 +159,7 @@ export function MoveToDialog({
           <Button variant="outline" onClick={handleCancel} disabled={isMoving}>
             Cancel
           </Button>
-          <Button
-            onClick={handleMove}
-            disabled={selectedParentId === null || isMoving}
-          >
+          <Button onClick={handleMove} disabled={selectedParentId === null || isMoving}>
             {isMoving ? 'Moving...' : 'Move'}
           </Button>
         </DialogFooter>

@@ -77,9 +77,7 @@ describe('Recurrence Service', () => {
       expect(occurrences.length).toBeLessThanOrEqual(5);
       // Each occurrence should be after the previous
       for (let i = 1; i < occurrences.length; i++) {
-        expect(occurrences[i].getTime()).toBeGreaterThan(
-          occurrences[i - 1].getTime()
-        );
+        expect(occurrences[i].getTime()).toBeGreaterThan(occurrences[i - 1].getTime());
       }
     });
   });
@@ -100,12 +98,10 @@ describe('Recurrence Service', () => {
       const dbResult = await pool.query(
         `SELECT is_recurrence_template, recurrence_rule
          FROM work_item WHERE id = $1`,
-        [result.id]
+        [result.id],
       );
       expect(dbResult.rows[0].is_recurrence_template).toBe(true);
-      expect(dbResult.rows[0].recurrence_rule).toBe(
-        'RRULE:FREQ=DAILY;BYHOUR=9;BYMINUTE=0'
-      );
+      expect(dbResult.rows[0].recurrence_rule).toBe('RRULE:FREQ=DAILY;BYHOUR=9;BYMINUTE=0');
     });
 
     it('creates template with end date', async () => {
@@ -118,10 +114,7 @@ describe('Recurrence Service', () => {
         recurrenceEnd: endDate,
       });
 
-      const dbResult = await pool.query(
-        `SELECT recurrence_end FROM work_item WHERE id = $1`,
-        [result.id]
-      );
+      const dbResult = await pool.query(`SELECT recurrence_end FROM work_item WHERE id = $1`, [result.id]);
       expect(dbResult.rows[0].recurrence_end).toBeDefined();
     });
 
@@ -133,10 +126,7 @@ describe('Recurrence Service', () => {
         taskType: 'meeting',
       });
 
-      const dbResult = await pool.query(
-        `SELECT priority, task_type FROM work_item WHERE id = $1`,
-        [result.id]
-      );
+      const dbResult = await pool.query(`SELECT priority, task_type FROM work_item WHERE id = $1`, [result.id]);
       expect(dbResult.rows[0].priority).toBe('P1');
       expect(dbResult.rows[0].task_type).toBe('meeting');
     });
@@ -164,10 +154,7 @@ describe('Recurrence Service', () => {
       expect(result.rrule).toBeNull();
 
       // Verify it's not a template
-      const dbResult = await pool.query(
-        `SELECT is_recurrence_template FROM work_item WHERE id = $1`,
-        [result.id]
-      );
+      const dbResult = await pool.query(`SELECT is_recurrence_template FROM work_item WHERE id = $1`, [result.id]);
       expect(dbResult.rows[0].is_recurrence_template).toBe(false);
     });
 
@@ -184,17 +171,12 @@ describe('Recurrence Service', () => {
 
   describe('getRecurrenceInfo', () => {
     it('returns null for non-existent work item', async () => {
-      const info = await getRecurrenceInfo(
-        pool,
-        '00000000-0000-0000-0000-000000000000'
-      );
+      const info = await getRecurrenceInfo(pool, '00000000-0000-0000-0000-000000000000');
       expect(info).toBeNull();
     });
 
     it('returns null for non-recurring work item', async () => {
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Regular Task') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Regular Task') RETURNING id::text`);
       const info = await getRecurrenceInfo(pool, result.rows[0].id);
       expect(info).toBeNull();
     });
@@ -273,7 +255,7 @@ describe('Recurrence Service', () => {
       const dbResult = await pool.query(
         `SELECT is_recurrence_template, recurrence_rule
          FROM work_item WHERE id = $1`,
-        [template.id]
+        [template.id],
       );
       expect(dbResult.rows[0].is_recurrence_template).toBe(false);
       expect(dbResult.rows[0].recurrence_rule).toBeNull();
@@ -299,7 +281,7 @@ describe('Recurrence Service', () => {
       const dbResult = await pool.query(
         `SELECT title, description, priority, recurrence_parent_id::text, not_before
          FROM work_item WHERE id = $1`,
-        [instanceId]
+        [instanceId],
       );
       expect(dbResult.rows[0].title).toBe('Instance Test');
       expect(dbResult.rows[0].description).toBe('Test description');
@@ -309,15 +291,9 @@ describe('Recurrence Service', () => {
     });
 
     it('returns null for non-template', async () => {
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Not a template') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Not a template') RETURNING id::text`);
 
-      const instanceId = await createInstance(
-        pool,
-        result.rows[0].id,
-        new Date()
-      );
+      const instanceId = await createInstance(pool, result.rows[0].id, new Date());
       expect(instanceId).toBeNull();
     });
   });
@@ -351,10 +327,7 @@ describe('Recurrence Service', () => {
       const instanceId = await createInstance(pool, template.id, new Date());
 
       // Complete the instance
-      await pool.query(
-        `UPDATE work_item SET status = 'closed' WHERE id = $1`,
-        [instanceId]
-      );
+      await pool.query(`UPDATE work_item SET status = 'closed' WHERE id = $1`, [instanceId]);
 
       const allInstances = await getInstances(pool, template.id, {
         includeCompleted: true,

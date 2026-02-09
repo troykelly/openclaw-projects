@@ -55,11 +55,7 @@ interface MicrosoftContactsResponse {
   value: MicrosoftContactResponse[];
 }
 
-export function buildAuthorizationUrl(
-  config: OAuthConfig,
-  state: string,
-  scopes?: string[]
-): OAuthAuthorizationUrl {
+export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes?: string[]): OAuthAuthorizationUrl {
   const effectiveScopes = scopes || config.scopes;
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
@@ -84,11 +80,7 @@ export function buildAuthorizationUrl(
   };
 }
 
-export async function exchangeCodeForTokens(
-  code: string,
-  config?: OAuthConfig,
-  codeVerifier?: string
-): Promise<OAuthTokens> {
+export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, codeVerifier?: string): Promise<OAuthTokens> {
   const effectiveConfig = config || requireProviderConfig('microsoft');
 
   const params = new URLSearchParams({
@@ -119,12 +111,7 @@ export async function exchangeCodeForTokens(
       status: response.status,
       error: errorText,
     });
-    throw new OAuthError(
-      'Failed to complete OAuth authorization',
-      'TOKEN_EXCHANGE_FAILED',
-      'microsoft',
-      response.status
-    );
+    throw new OAuthError('Failed to complete OAuth authorization', 'TOKEN_EXCHANGE_FAILED', 'microsoft', response.status);
   }
 
   const data = (await response.json()) as MicrosoftTokenResponse;
@@ -138,10 +125,7 @@ export async function exchangeCodeForTokens(
   };
 }
 
-export async function refreshAccessToken(
-  refreshToken: string,
-  config?: OAuthConfig
-): Promise<OAuthTokens> {
+export async function refreshAccessToken(refreshToken: string, config?: OAuthConfig): Promise<OAuthTokens> {
   const effectiveConfig = config || requireProviderConfig('microsoft');
 
   const params = new URLSearchParams({
@@ -188,12 +172,7 @@ export async function getUserEmail(accessToken: string): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new OAuthError(
-      'Failed to get user profile',
-      'PROFILE_FETCH_FAILED',
-      'microsoft',
-      response.status
-    );
+    throw new OAuthError('Failed to get user profile', 'PROFILE_FETCH_FAILED', 'microsoft', response.status);
   }
 
   const data = (await response.json()) as MicrosoftUserResponse;
@@ -224,7 +203,7 @@ function mapMicrosoftContact(contact: MicrosoftContactResponse): ProviderContact
 
 export async function fetchContacts(
   accessToken: string,
-  options?: { deltaLink?: string; pageSize?: number }
+  options?: { deltaLink?: string; pageSize?: number },
 ): Promise<{ contacts: ProviderContact[]; deltaLink?: string; nextLink?: string }> {
   let url: string;
 
@@ -245,12 +224,7 @@ export async function fetchContacts(
   });
 
   if (!response.ok) {
-    throw new OAuthError(
-      'Failed to fetch contacts',
-      'CONTACTS_FETCH_FAILED',
-      'microsoft',
-      response.status
-    );
+    throw new OAuthError('Failed to fetch contacts', 'CONTACTS_FETCH_FAILED', 'microsoft', response.status);
   }
 
   const data = (await response.json()) as MicrosoftContactsResponse;
@@ -262,10 +236,7 @@ export async function fetchContacts(
   };
 }
 
-export async function fetchAllContacts(
-  accessToken: string,
-  syncCursor?: string
-): Promise<{ contacts: ProviderContact[]; syncCursor?: string }> {
+export async function fetchAllContacts(accessToken: string, syncCursor?: string): Promise<{ contacts: ProviderContact[]; syncCursor?: string }> {
   const allContacts: ProviderContact[] = [];
   let nextLink: string | undefined;
   let deltaLink: string | undefined = syncCursor;
@@ -285,12 +256,7 @@ export async function fetchAllContacts(
     });
 
     if (!response.ok) {
-      throw new OAuthError(
-        'Failed to fetch contacts page',
-        'CONTACTS_FETCH_FAILED',
-        'microsoft',
-        response.status
-      );
+      throw new OAuthError('Failed to fetch contacts page', 'CONTACTS_FETCH_FAILED', 'microsoft', response.status);
     }
 
     const data = (await response.json()) as MicrosoftContactsResponse;

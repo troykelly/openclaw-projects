@@ -92,7 +92,7 @@ export class OAuthError extends Error {
     message: string,
     public code: string,
     public provider?: OAuthProvider,
-    public statusCode: number = 400
+    public statusCode: number = 400,
   ) {
     super(message);
     this.name = 'OAuthError';
@@ -122,12 +122,7 @@ export class ProviderNotConfiguredError extends OAuthError {
 
 export class NoConnectionError extends OAuthError {
   constructor(provider: OAuthProvider, userEmail: string) {
-    super(
-      `No OAuth connection found for ${userEmail} with provider ${provider}`,
-      'NO_CONNECTION',
-      provider,
-      404
-    );
+    super(`No OAuth connection found for ${userEmail} with provider ${provider}`, 'NO_CONNECTION', provider, 404);
     this.name = 'NoConnectionError';
   }
 }

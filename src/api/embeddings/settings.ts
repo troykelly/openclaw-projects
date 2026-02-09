@@ -4,11 +4,7 @@
  */
 
 import type { Pool } from 'pg';
-import {
-  getConfigSummary,
-  isProviderConfigured,
-  loadApiKey,
-} from './config.ts';
+import { getConfigSummary, isProviderConfigured, loadApiKey } from './config.ts';
 import { PROVIDER_PRIORITY, PROVIDER_DETAILS, type EmbeddingProviderName } from './types.ts';
 
 /**
@@ -183,10 +179,7 @@ export async function getBudgetSettings(pool: Pool): Promise<BudgetSettings> {
 /**
  * Update budget settings
  */
-export async function updateBudgetSettings(
-  pool: Pool,
-  updates: BudgetUpdateRequest
-): Promise<BudgetSettings> {
+export async function updateBudgetSettings(pool: Pool, updates: BudgetUpdateRequest): Promise<BudgetSettings> {
   const fields: string[] = [];
   const values: (number | boolean)[] = [];
   let paramIndex = 1;
@@ -207,10 +200,7 @@ export async function updateBudgetSettings(
   }
 
   if (fields.length > 0) {
-    await pool.query(
-      `UPDATE embedding_settings SET ${fields.join(', ')} WHERE id = 1`,
-      values
-    );
+    await pool.query(`UPDATE embedding_settings SET ${fields.join(', ')} WHERE id = 1`, values);
   }
 
   return getBudgetSettings(pool);
@@ -269,13 +259,8 @@ export async function getUsageStats(pool: Pool): Promise<{
 /**
  * Get full embedding settings response
  */
-export async function getEmbeddingSettings(
-  pool: Pool
-): Promise<EmbeddingSettingsResponse> {
-  const [budget, usage] = await Promise.all([
-    getBudgetSettings(pool),
-    getUsageStats(pool),
-  ]);
+export async function getEmbeddingSettings(pool: Pool): Promise<EmbeddingSettingsResponse> {
+  const [budget, usage] = await Promise.all([getBudgetSettings(pool), getUsageStats(pool)]);
 
   return {
     provider: getProviderStatus(),
@@ -288,18 +273,11 @@ export async function getEmbeddingSettings(
 /**
  * Record embedding usage
  */
-export async function recordEmbeddingUsage(
-  pool: Pool,
-  provider: EmbeddingProviderName,
-  tokens: number
-): Promise<void> {
+export async function recordEmbeddingUsage(pool: Pool, provider: EmbeddingProviderName, tokens: number): Promise<void> {
   const costPerMillion = PROVIDER_COSTS[provider];
   const costUsd = (tokens / 1_000_000) * costPerMillion;
 
-  await pool.query(
-    `SELECT increment_embedding_usage($1, $2, $3)`,
-    [provider, tokens, costUsd]
-  );
+  await pool.query(`SELECT increment_embedding_usage($1, $2, $3)`, [provider, tokens, costUsd]);
 }
 
 /**

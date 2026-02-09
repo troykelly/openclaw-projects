@@ -51,11 +51,7 @@ export function extractMentionIds(text: string): string[] {
 /**
  * Serialize a mention into the token format
  */
-export function serializeMentions(
-  before: string,
-  mention: Mention,
-  after: string
-): string {
+export function serializeMentions(before: string, mention: Mention, after: string): string {
   return `${before}@[${mention.name}](${mention.type}:${mention.id})${after}`;
 }
 
@@ -80,10 +76,7 @@ export function getInitials(name: string): string {
  * Find the @ trigger position in text
  * Returns the index of @ and the query after it, or null if no trigger
  */
-export function findMentionTrigger(
-  text: string,
-  cursorPosition: number
-): { start: number; query: string } | null {
+export function findMentionTrigger(text: string, cursorPosition: number): { start: number; query: string } | null {
   // Look backwards from cursor for @
   let searchPos = cursorPosition - 1;
 
@@ -120,7 +113,5 @@ export function findMentionTrigger(
 export function filterUsers(users: MentionUser[], query: string): MentionUser[] {
   if (!query) return users;
   const lowerQuery = query.toLowerCase();
-  return users.filter((user) =>
-    user.name.toLowerCase().includes(lowerQuery)
-  );
+  return users.filter((user) => user.name.toLowerCase().includes(lowerQuery));
 }

@@ -13,10 +13,7 @@ import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
 import { EmptyState, Skeleton } from '@/ui/components/feedback';
 import { priorityColors } from '@/ui/lib/work-item-utils';
-import {
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /** Item shape accepted by CalendarView. */
 export interface CalendarViewItem {
@@ -108,10 +105,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
 
-  const grid = useMemo(
-    () => buildCalendarGrid(currentYear, currentMonth),
-    [currentYear, currentMonth],
-  );
+  const grid = useMemo(() => buildCalendarGrid(currentYear, currentMonth), [currentYear, currentMonth]);
 
   const monthLabel = new Date(currentYear, currentMonth).toLocaleDateString(undefined, {
     month: 'long',
@@ -148,7 +142,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
 
   if (isLoading) {
     return (
-      <div  className="space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Skeleton width={200} height={24} />
           <div className="flex gap-2">
@@ -163,7 +157,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
   }
 
   return (
-    <div  className="space-y-4">
+    <div className="space-y-4">
       {/* Calendar header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">{monthLabel}</h3>
@@ -185,10 +179,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
         {/* Day name headers */}
         <div className="grid grid-cols-7 bg-muted/50">
           {dayNames.map((day) => (
-            <div
-              key={day}
-              className="px-2 py-2 text-center text-xs font-medium text-muted-foreground border-b border-border"
-            >
+            <div key={day} className="px-2 py-2 text-center text-xs font-medium text-muted-foreground border-b border-border">
               {day}
             </div>
           ))}
@@ -198,12 +189,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
         <div className="grid grid-cols-7">
           {grid.map((cell, idx) => {
             if (!cell.date) {
-              return (
-                <div
-                  key={`empty-${idx}`}
-                  className="min-h-[80px] sm:min-h-[100px] border-b border-r border-border bg-muted/10 last:border-r-0"
-                />
-              );
+              return <div key={`empty-${idx}`} className="min-h-[80px] sm:min-h-[100px] border-b border-r border-border bg-muted/10 last:border-r-0" />;
             }
 
             const dateStr = toDateStr(cell.date);
@@ -222,18 +208,12 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
                 <div className="flex items-center justify-between px-1 mb-1">
                   <span
                     className={`text-xs font-medium ${
-                      isToday
-                        ? 'text-primary-foreground bg-primary size-5 rounded-full flex items-center justify-center'
-                        : 'text-muted-foreground'
+                      isToday ? 'text-primary-foreground bg-primary size-5 rounded-full flex items-center justify-center' : 'text-muted-foreground'
                     }`}
                   >
                     {cell.dayOfMonth}
                   </span>
-                  {dayItems.length > 2 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      +{dayItems.length - 2}
-                    </span>
-                  )}
+                  {dayItems.length > 2 && <span className="text-[10px] text-muted-foreground">+{dayItems.length - 2}</span>}
                 </div>
 
                 {/* Items */}
@@ -245,11 +225,7 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
                       className="flex items-center gap-1 px-1 py-0.5 rounded text-[10px] leading-tight truncate hover:bg-muted/50 transition-colors"
                       title={item.title}
                     >
-                      <span
-                        className={`shrink-0 size-1.5 rounded-full ${
-                          statusDotColors[item.status] ?? statusDotColors.open
-                        }`}
-                      />
+                      <span className={`shrink-0 size-1.5 rounded-full ${statusDotColors[item.status] ?? statusDotColors.open}`} />
                       <span className="truncate text-foreground">{item.title}</span>
                     </Link>
                   ))}
@@ -262,17 +238,11 @@ export function CalendarView({ items, isLoading }: CalendarViewProps): React.JSX
 
       {/* Footer info */}
       {itemsWithDates.length === 0 && items.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center py-4">
-          No items have due dates set. Add due dates to work items to see them on the calendar.
-        </p>
+        <p className="text-xs text-muted-foreground text-center py-4">No items have due dates set. Add due dates to work items to see them on the calendar.</p>
       )}
 
       {items.length === 0 && (
-        <EmptyState
-          variant="calendar"
-          title="No items to display"
-          description="Add work items to this project to see them on the calendar."
-        />
+        <EmptyState variant="calendar" title="No items to display" description="Add work items to this project to see them on the calendar." />
       )}
     </div>
   );

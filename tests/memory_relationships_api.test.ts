@@ -9,11 +9,7 @@ describe('Memory Relationships API', () => {
   const app = buildServer();
   let pool: Pool;
 
-  const hasApiKey = !!(
-    process.env.VOYAGERAI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.GEMINI_API_KEY
-  );
+  const hasApiKey = !!(process.env.VOYAGERAI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -37,22 +33,18 @@ describe('Memory Relationships API', () => {
       `INSERT INTO work_item (title, description, kind)
        VALUES ($1, 'Test description', 'project')
        RETURNING id::text as id`,
-      [title]
+      [title],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   // Helper to create a memory
-  async function createMemory(
-    workItemId: string,
-    title: string,
-    content: string
-  ): Promise<string> {
+  async function createMemory(workItemId: string, title: string, content: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO memory (work_item_id, title, content, memory_type)
        VALUES ($1, $2, $3, 'note')
        RETURNING id::text as id`,
-      [workItemId, title, content]
+      [workItemId, title, content],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -63,7 +55,7 @@ describe('Memory Relationships API', () => {
       `INSERT INTO contact (display_name)
        VALUES ($1)
        RETURNING id::text as id`,
-      [name]
+      [name],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -196,7 +188,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_contact (memory_id, contact_id, relationship_type)
          VALUES ($1, $2, 'about'), ($1, $3, 'from')`,
-        [memoryId, contact1Id, contact2Id]
+        [memoryId, contact1Id, contact2Id],
       );
 
       const res = await app.inject({
@@ -220,7 +212,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_contact (memory_id, contact_id, relationship_type)
          VALUES ($1, $2, 'about'), ($1, $3, 'from')`,
-        [memoryId, contact1Id, contact2Id]
+        [memoryId, contact1Id, contact2Id],
       );
 
       const res = await app.inject({
@@ -253,7 +245,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_contact (memory_id, contact_id, relationship_type)
          VALUES ($1, $2, 'about')`,
-        [memoryId, contactId]
+        [memoryId, contactId],
       );
 
       const res = await app.inject({
@@ -264,10 +256,7 @@ describe('Memory Relationships API', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
-      const check = await pool.query(
-        'SELECT 1 FROM memory_contact WHERE memory_id = $1 AND contact_id = $2',
-        [memoryId, contactId]
-      );
+      const check = await pool.query('SELECT 1 FROM memory_contact WHERE memory_id = $1 AND contact_id = $2', [memoryId, contactId]);
       expect(check.rows).toHaveLength(0);
     });
 
@@ -291,7 +280,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_contact (memory_id, contact_id, relationship_type)
          VALUES ($1, $3, 'about'), ($2, $3, 'from')`,
-        [memory1Id, memory2Id, contactId]
+        [memory1Id, memory2Id, contactId],
       );
 
       const res = await app.inject({
@@ -413,14 +402,14 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_relationship (memory_id, related_memory_id, relationship_type)
          VALUES ($1, $2, 'supports')`,
-        [memory1Id, memory2Id]
+        [memory1Id, memory2Id],
       );
 
       // Memory 3 -> Memory 1 (incoming to memory 1)
       await pool.query(
         `INSERT INTO memory_relationship (memory_id, related_memory_id, relationship_type)
          VALUES ($1, $2, 'related')`,
-        [memory3Id, memory1Id]
+        [memory3Id, memory1Id],
       );
 
       const res = await app.inject({
@@ -451,7 +440,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_relationship (memory_id, related_memory_id, relationship_type)
          VALUES ($1, $2, 'supports'), ($3, $1, 'related')`,
-        [memory1Id, memory2Id, memory3Id]
+        [memory1Id, memory2Id, memory3Id],
       );
 
       const res = await app.inject({
@@ -484,7 +473,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_relationship (memory_id, related_memory_id, relationship_type)
          VALUES ($1, $2, 'supports')`,
-        [memory1Id, memory2Id]
+        [memory1Id, memory2Id],
       );
 
       // Delete using reverse order (should still work)
@@ -496,10 +485,7 @@ describe('Memory Relationships API', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
-      const check = await pool.query(
-        'SELECT 1 FROM memory_relationship WHERE memory_id = $1 AND related_memory_id = $2',
-        [memory1Id, memory2Id]
-      );
+      const check = await pool.query('SELECT 1 FROM memory_relationship WHERE memory_id = $1 AND related_memory_id = $2', [memory1Id, memory2Id]);
       expect(check.rows).toHaveLength(0);
     });
 
@@ -609,7 +595,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO work_item_contact (work_item_id, contact_id, relationship)
          VALUES ($1, $2, 'owner')`,
-        [workItemId, contactId]
+        [workItemId, contactId],
       );
 
       const res = await app.inject({
@@ -636,7 +622,7 @@ describe('Memory Relationships API', () => {
       await pool.query(
         `INSERT INTO memory_contact (memory_id, contact_id, relationship_type)
          VALUES ($1, $2, 'mentioned')`,
-        [memoryId, contactId]
+        [memoryId, contactId],
       );
 
       const res = await app.inject({

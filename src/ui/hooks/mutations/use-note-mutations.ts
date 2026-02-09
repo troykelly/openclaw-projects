@@ -38,13 +38,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
 import type { ApiRequestError } from '@/ui/lib/api-client.ts';
-import type {
-  Note,
-  NotesResponse,
-  CreateNoteBody,
-  UpdateNoteBody,
-  RestoreVersionResponse,
-} from '@/ui/lib/api-types.ts';
+import type { Note, NotesResponse, CreateNoteBody, UpdateNoteBody, RestoreVersionResponse } from '@/ui/lib/api-types.ts';
 import { noteKeys } from '@/ui/hooks/queries/use-notes.ts';
 import { notebookKeys } from '@/ui/hooks/queries/use-notebooks.ts';
 import { useUserEmail } from '@/ui/contexts/user-context';
@@ -151,11 +145,7 @@ export interface RestoreNoteVersionVariables {
  * }
  * ```
  */
-export function useCreateNote(): UseMutationResult<
-  Note,
-  ApiRequestError,
-  CreateNoteBody
-> {
+export function useCreateNote(): UseMutationResult<Note, ApiRequestError, CreateNoteBody> {
   const queryClient = useQueryClient();
   const userEmail = useUserEmail();
 
@@ -237,11 +227,7 @@ export function useCreateNote(): UseMutationResult<
  * mutate({ id: 'note-123', body: { notebookId: 'notebook-456' } });
  * ```
  */
-export function useUpdateNote(): UseMutationResult<
-  Note,
-  ApiRequestError,
-  UpdateNoteVariables
-> {
+export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, UpdateNoteVariables> {
   const queryClient = useQueryClient();
   const userEmail = useUserEmail();
 
@@ -291,11 +277,7 @@ export function useUpdateNote(): UseMutationResult<
         if (data) {
           queryClient.setQueryData<NotesResponse>(queryKey, {
             ...data,
-            notes: data.notes.map((note) =>
-              note.id === id
-                ? { ...note, ...body, updatedAt: new Date().toISOString() }
-                : note
-            ),
+            notes: data.notes.map((note) => (note.id === id ? { ...note, ...body, updatedAt: new Date().toISOString() } : note)),
           });
         }
       });
@@ -369,11 +351,7 @@ export function useUpdateNote(): UseMutationResult<
  * };
  * ```
  */
-export function useDeleteNote(): UseMutationResult<
-  void,
-  ApiRequestError,
-  string
-> {
+export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string> {
   const queryClient = useQueryClient();
   const userEmail = useUserEmail();
 
@@ -382,9 +360,7 @@ export function useDeleteNote(): UseMutationResult<
       if (!userEmail) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      return apiClient.delete(
-        `/api/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(userEmail)}`
-      );
+      return apiClient.delete(`/api/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(userEmail)}`);
     },
 
     onMutate: async (id) => {
@@ -473,11 +449,7 @@ export function useDeleteNote(): UseMutationResult<
  * </button>
  * ```
  */
-export function useRestoreNote(): UseMutationResult<
-  Note,
-  ApiRequestError,
-  string
-> {
+export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, string> {
   const queryClient = useQueryClient();
   const userEmail = useUserEmail();
 
@@ -552,11 +524,7 @@ export function useRestoreNote(): UseMutationResult<
  * };
  * ```
  */
-export function useRestoreNoteVersion(): UseMutationResult<
-  RestoreVersionResponse,
-  ApiRequestError,
-  RestoreNoteVersionVariables
-> {
+export function useRestoreNoteVersion(): UseMutationResult<RestoreVersionResponse, ApiRequestError, RestoreNoteVersionVariables> {
   const queryClient = useQueryClient();
   const userEmail = useUserEmail();
 
@@ -567,7 +535,7 @@ export function useRestoreNoteVersion(): UseMutationResult<
       }
       return apiClient.post<RestoreVersionResponse>(
         `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore?user_email=${encodeURIComponent(userEmail)}`,
-        {}
+        {},
       );
     },
 
@@ -579,10 +547,7 @@ export function useRestoreNoteVersion(): UseMutationResult<
     },
 
     onError: (error) => {
-      console.error(
-        '[useRestoreNoteVersion] Failed to restore version:',
-        error.message
-      );
+      console.error('[useRestoreNoteVersion] Failed to restore version:', error.message);
     },
   });
 }

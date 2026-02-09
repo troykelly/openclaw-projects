@@ -128,7 +128,7 @@ export function requireSecretOrDisabled(): void {
     throw new Error(
       '[Auth] No authentication secret configured. ' +
         'Set OPENCLAW_PROJECTS_AUTH_SECRET, OPENCLAW_PROJECTS_AUTH_SECRET_FILE, or OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND. ' +
-        'For development, you can set OPENCLAW_PROJECTS_AUTH_DISABLED=true.'
+        'For development, you can set OPENCLAW_PROJECTS_AUTH_DISABLED=true.',
     );
   }
 }

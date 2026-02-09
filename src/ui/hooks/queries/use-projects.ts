@@ -22,7 +22,6 @@ export const projectKeys = {
 export function useProjects() {
   return useQuery({
     queryKey: projectKeys.list(),
-    queryFn: ({ signal }) =>
-      apiClient.get<WorkItemsResponse>('/api/work-items?kind=project', { signal }),
+    queryFn: ({ signal }) => apiClient.get<WorkItemsResponse>('/api/work-items?kind=project', { signal }),
   });
 }

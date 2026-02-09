@@ -24,7 +24,7 @@ describe('Bulk Operations API', () => {
       const result = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ($1, 'issue', 'backlog') RETURNING id::text as id`,
-        [`bulk-test-item-${i}`]
+        [`bulk-test-item-${i}`],
       );
       testItemIds.push(result.rows[0].id);
     }
@@ -40,7 +40,7 @@ describe('Bulk Operations API', () => {
          SET status = $1, updated_at = now()
          WHERE id = ANY($2::uuid[])
          RETURNING id::text as id, status`,
-        ['in_progress', idsToUpdate]
+        ['in_progress', idsToUpdate],
       );
 
       expect(result.rows.length).toBe(3);
@@ -57,14 +57,11 @@ describe('Bulk Operations API', () => {
         `UPDATE work_item
          SET status = $1, updated_at = now()
          WHERE id = ANY($2::uuid[])`,
-        ['in_progress', idsToUpdate]
+        ['in_progress', idsToUpdate],
       );
 
       // Check unchanged items
-      const result = await pool.query(
-        `SELECT id::text as id, status FROM work_item WHERE id = ANY($1::uuid[])`,
-        [testItemIds.slice(2)]
-      );
+      const result = await pool.query(`SELECT id::text as id, status FROM work_item WHERE id = ANY($1::uuid[])`, [testItemIds.slice(2)]);
 
       result.rows.forEach((row: { id: string; status: string }) => {
         expect(row.status).toBe('backlog');
@@ -81,7 +78,7 @@ describe('Bulk Operations API', () => {
          SET priority = $1, updated_at = now()
          WHERE id = ANY($2::uuid[])
          RETURNING id::text as id, priority::text as priority`,
-        ['P0', idsToUpdate]
+        ['P0', idsToUpdate],
       );
 
       expect(result.rows.length).toBe(3);
@@ -95,23 +92,14 @@ describe('Bulk Operations API', () => {
     it('deletes multiple items', async () => {
       const idsToDelete = testItemIds.slice(0, 2);
 
-      await pool.query(
-        `DELETE FROM work_item WHERE id = ANY($1::uuid[])`,
-        [idsToDelete]
-      );
+      await pool.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[])`, [idsToDelete]);
 
       // Verify deleted
-      const result = await pool.query(
-        `SELECT id::text as id FROM work_item WHERE id = ANY($1::uuid[])`,
-        [idsToDelete]
-      );
+      const result = await pool.query(`SELECT id::text as id FROM work_item WHERE id = ANY($1::uuid[])`, [idsToDelete]);
       expect(result.rows.length).toBe(0);
 
       // Verify remaining
-      const remaining = await pool.query(
-        `SELECT id::text as id FROM work_item WHERE id = ANY($1::uuid[])`,
-        [testItemIds.slice(2)]
-      );
+      const remaining = await pool.query(`SELECT id::text as id FROM work_item WHERE id = ANY($1::uuid[])`, [testItemIds.slice(2)]);
       expect(remaining.rows.length).toBe(3);
     });
   });
@@ -122,7 +110,7 @@ describe('Bulk Operations API', () => {
       const parentResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ($1, 'epic', 'backlog') RETURNING id::text as id`,
-        ['bulk-test-parent']
+        ['bulk-test-parent'],
       );
       const parentId = parentResult.rows[0].id;
 
@@ -132,14 +120,14 @@ describe('Bulk Operations API', () => {
         `UPDATE work_item
          SET parent_work_item_id = $1, updated_at = now()
          WHERE id = ANY($2::uuid[])`,
-        [parentId, idsToReparent]
+        [parentId, idsToReparent],
       );
 
       // Verify reparenting
       const result = await pool.query(
         `SELECT id::text as id, parent_work_item_id::text as parent_id
          FROM work_item WHERE id = ANY($1::uuid[])`,
-        [idsToReparent]
+        [idsToReparent],
       );
 
       result.rows.forEach((row: { id: string; parent_id: string }) => {
@@ -152,7 +140,7 @@ describe('Bulk Operations API', () => {
       const parentResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ($1, 'epic', 'backlog') RETURNING id::text as id`,
-        ['bulk-test-parent-2']
+        ['bulk-test-parent-2'],
       );
       const parentId = parentResult.rows[0].id;
 
@@ -160,7 +148,7 @@ describe('Bulk Operations API', () => {
         `UPDATE work_item
          SET parent_work_item_id = $1
          WHERE id = ANY($2::uuid[])`,
-        [parentId, testItemIds.slice(0, 3)]
+        [parentId, testItemIds.slice(0, 3)],
       );
 
       // Now unparent
@@ -169,14 +157,14 @@ describe('Bulk Operations API', () => {
         `UPDATE work_item
          SET parent_work_item_id = NULL, updated_at = now()
          WHERE id = ANY($1::uuid[])`,
-        [idsToUnparent]
+        [idsToUnparent],
       );
 
       // Verify
       const result = await pool.query(
         `SELECT id::text as id, parent_work_item_id
          FROM work_item WHERE id = ANY($1::uuid[])`,
-        [idsToUnparent]
+        [idsToUnparent],
       );
 
       result.rows.forEach((row: { id: string; parent_work_item_id: unknown }) => {
@@ -193,17 +181,11 @@ describe('Bulk Operations API', () => {
         await client.query('BEGIN');
 
         // Update first item
-        await client.query(
-          `UPDATE work_item SET status = 'in_progress' WHERE id = $1`,
-          [testItemIds[0]]
-        );
+        await client.query(`UPDATE work_item SET status = 'in_progress' WHERE id = $1`, [testItemIds[0]]);
 
         // Simulate error by trying to update with invalid data
         try {
-          await client.query(
-            `UPDATE work_item SET status = 'invalid_status_that_does_not_exist' WHERE id = $1`,
-            [testItemIds[1]]
-          );
+          await client.query(`UPDATE work_item SET status = 'invalid_status_that_does_not_exist' WHERE id = $1`, [testItemIds[1]]);
         } catch {
           // Expected
         }
@@ -214,10 +196,7 @@ describe('Bulk Operations API', () => {
       }
 
       // Verify first item was not updated due to rollback
-      const result = await pool.query(
-        `SELECT status FROM work_item WHERE id = $1`,
-        [testItemIds[0]]
-      );
+      const result = await pool.query(`SELECT status FROM work_item WHERE id = $1`, [testItemIds[0]]);
       expect(result.rows[0].status).toBe('backlog');
     });
   });

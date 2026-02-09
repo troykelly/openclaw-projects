@@ -4,14 +4,7 @@
  */
 
 import type { Pool } from 'pg';
-import type {
-  ThreadInfo,
-  ThreadMessage,
-  RelatedWorkItem,
-  ContactMemory,
-  ThreadHistoryResponse,
-  ThreadHistoryOptions,
-} from './types.ts';
+import type { ThreadInfo, ThreadMessage, RelatedWorkItem, ContactMemory, ThreadHistoryResponse, ThreadHistoryOptions } from './types.ts';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -19,10 +12,7 @@ const MAX_LIMIT = 200;
 /**
  * Fetch thread information by ID.
  */
-async function fetchThreadInfo(
-  pool: Pool,
-  threadId: string
-): Promise<ThreadInfo | null> {
+async function fetchThreadInfo(pool: Pool, threadId: string): Promise<ThreadInfo | null> {
   const result = await pool.query(
     `SELECT
        et.id::text as id,
@@ -37,7 +27,7 @@ async function fetchThreadInfo(
      JOIN contact_endpoint ce ON ce.id = et.endpoint_id
      JOIN contact c ON c.id = ce.contact_id
      WHERE et.id = $1`,
-    [threadId]
+    [threadId],
   );
 
   if (result.rows.length === 0) {
@@ -72,11 +62,7 @@ async function fetchThreadInfo(
 /**
  * Fetch messages for a thread with pagination.
  */
-async function fetchMessages(
-  pool: Pool,
-  threadId: string,
-  options: ThreadHistoryOptions
-): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
+async function fetchMessages(pool: Pool, threadId: string, options: ThreadHistoryOptions): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
   const limit = Math.min(options.limit || DEFAULT_LIMIT, MAX_LIMIT);
   const params: (string | number | Date)[] = [threadId, limit + 1];
   const conditions: string[] = ['em.thread_id = $1'];
@@ -109,7 +95,7 @@ async function fetchMessages(
      WHERE ${whereClause}
      ORDER BY em.received_at DESC
      LIMIT $2`,
-    params
+    params,
   );
 
   const hasMore = result.rows.length > limit;
@@ -143,10 +129,7 @@ async function fetchMessages(
 /**
  * Fetch work items related to a thread.
  */
-async function fetchRelatedWorkItems(
-  pool: Pool,
-  threadId: string
-): Promise<RelatedWorkItem[]> {
+async function fetchRelatedWorkItems(pool: Pool, threadId: string): Promise<RelatedWorkItem[]> {
   const result = await pool.query(
     `SELECT
        wi.id::text as id,
@@ -160,7 +143,7 @@ async function fetchRelatedWorkItems(
      WHERE wic.thread_id = $1
      ORDER BY wi.updated_at DESC
      LIMIT 20`,
-    [threadId]
+    [threadId],
   );
 
   return result.rows.map((row) => {
@@ -186,10 +169,7 @@ async function fetchRelatedWorkItems(
 /**
  * Fetch memories related to the contact.
  */
-async function fetchContactMemories(
-  pool: Pool,
-  contactId: string
-): Promise<ContactMemory[]> {
+async function fetchContactMemories(pool: Pool, contactId: string): Promise<ContactMemory[]> {
   const result = await pool.query(
     `SELECT
        m.id::text as id,
@@ -203,7 +183,7 @@ async function fetchContactMemories(
        AND m.superseded_by IS NULL
      ORDER BY m.importance DESC, m.created_at DESC
      LIMIT 10`,
-    [contactId]
+    [contactId],
   );
 
   return result.rows.map((row) => {
@@ -227,11 +207,7 @@ async function fetchContactMemories(
 /**
  * Get thread history with messages, related work items, and contact memories.
  */
-export async function getThreadHistory(
-  pool: Pool,
-  threadId: string,
-  options: ThreadHistoryOptions = {}
-): Promise<ThreadHistoryResponse | null> {
+export async function getThreadHistory(pool: Pool, threadId: string, options: ThreadHistoryOptions = {}): Promise<ThreadHistoryResponse | null> {
   // Fetch thread info first
   const thread = await fetchThreadInfo(pool, threadId);
 
@@ -243,16 +219,10 @@ export async function getThreadHistory(
   const { messages, hasMore } = await fetchMessages(pool, threadId, options);
 
   // Fetch related work items (default: include)
-  const relatedWorkItems =
-    options.includeWorkItems !== false
-      ? await fetchRelatedWorkItems(pool, threadId)
-      : [];
+  const relatedWorkItems = options.includeWorkItems !== false ? await fetchRelatedWorkItems(pool, threadId) : [];
 
   // Fetch contact memories (default: include)
-  const contactMemories =
-    options.includeMemories !== false
-      ? await fetchContactMemories(pool, thread.contact.id)
-      : [];
+  const contactMemories = options.includeMemories !== false ? await fetchContactMemories(pool, thread.contact.id) : [];
 
   // Build pagination info
   const pagination: ThreadHistoryResponse['pagination'] = {
@@ -276,13 +246,7 @@ export async function getThreadHistory(
 /**
  * Check if a thread exists.
  */
-export async function threadExists(
-  pool: Pool,
-  threadId: string
-): Promise<boolean> {
-  const result = await pool.query(
-    `SELECT 1 FROM external_thread WHERE id = $1`,
-    [threadId]
-  );
+export async function threadExists(pool: Pool, threadId: string): Promise<boolean> {
+  const result = await pool.query(`SELECT 1 FROM external_thread WHERE id = $1`, [threadId]);
   return result.rows.length > 0;
 }

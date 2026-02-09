@@ -9,33 +9,13 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  ActivityCard,
-  type ActivityCardProps,
-} from '@/ui/components/activity/activity-card';
-import {
-  ActivityTimeline,
-  type ActivityTimelineProps,
-} from '@/ui/components/activity/activity-timeline';
-import {
-  ActivityFilter,
-  type ActivityFilterProps,
-} from '@/ui/components/activity/activity-filter';
-import {
-  ContactActivitySection,
-  type ContactActivitySectionProps,
-} from '@/ui/components/activity/contact-activity-section';
-import {
-  ActivityStats,
-  type ActivityStatsProps,
-} from '@/ui/components/activity/activity-stats';
+import { ActivityCard, type ActivityCardProps } from '@/ui/components/activity/activity-card';
+import { ActivityTimeline, type ActivityTimelineProps } from '@/ui/components/activity/activity-timeline';
+import { ActivityFilter, type ActivityFilterProps } from '@/ui/components/activity/activity-filter';
+import { ContactActivitySection, type ContactActivitySectionProps } from '@/ui/components/activity/contact-activity-section';
+import { ActivityStats, type ActivityStatsProps } from '@/ui/components/activity/activity-stats';
 import type { Activity, ActivityType } from '@/ui/components/activity/types';
-import {
-  groupActivitiesByDate,
-  getActivityIcon,
-  getActivityLabel,
-  calculateStats,
-} from '@/ui/components/activity/activity-utils';
+import { groupActivitiesByDate, getActivityIcon, getActivityLabel, calculateStats } from '@/ui/components/activity/activity-utils';
 
 describe('ActivityCard', () => {
   const defaultProps: ActivityCardProps = {

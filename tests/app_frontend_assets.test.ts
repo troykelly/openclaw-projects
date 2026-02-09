@@ -53,10 +53,7 @@ describe('Frontend Assets (Issue #779)', () => {
         url,
       });
 
-      expect(
-        assetResponse.statusCode,
-        `Asset ${url} should return 200 but got ${assetResponse.statusCode}`
-      ).toBe(200);
+      expect(assetResponse.statusCode, `Asset ${url} should return 200 but got ${assetResponse.statusCode}`).toBe(200);
     }
   });
 

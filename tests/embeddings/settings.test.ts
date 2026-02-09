@@ -185,10 +185,7 @@ describe('Embedding Settings Service', () => {
     it('records new usage', async () => {
       await recordEmbeddingUsage(pool, 'openai', 10000);
 
-      const result = await pool.query(
-        'SELECT * FROM embedding_usage WHERE date = CURRENT_DATE AND provider = $1',
-        ['openai']
-      );
+      const result = await pool.query('SELECT * FROM embedding_usage WHERE date = CURRENT_DATE AND provider = $1', ['openai']);
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].request_count).toBe(1);
       expect(result.rows[0].token_count).toBe('10000');
@@ -198,10 +195,7 @@ describe('Embedding Settings Service', () => {
       await recordEmbeddingUsage(pool, 'openai', 10000);
       await recordEmbeddingUsage(pool, 'openai', 5000);
 
-      const result = await pool.query(
-        'SELECT * FROM embedding_usage WHERE date = CURRENT_DATE AND provider = $1',
-        ['openai']
-      );
+      const result = await pool.query('SELECT * FROM embedding_usage WHERE date = CURRENT_DATE AND provider = $1', ['openai']);
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].request_count).toBe(2);
       expect(result.rows[0].token_count).toBe('15000');

@@ -25,7 +25,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
          FROM pg_tables
         WHERE schemaname = 'public'
           AND tablename IN ('internal_job', 'webhook_outbox')
-        ORDER BY tablename`
+        ORDER BY tablename`,
     );
 
     expect(tables.rows.map((r) => r.tablename)).toEqual(['internal_job', 'webhook_outbox']);
@@ -36,7 +36,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
       `INSERT INTO work_item (title, not_after)
        VALUES ($1, now() + interval '2 hours')
        RETURNING id::text as id`,
-      ['Due soon']
+      ['Due soon'],
     );
     const workItemId = wi.rows[0].id as string;
 
@@ -48,7 +48,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
       `SELECT kind, payload->>'work_item_id' as work_item_id
          FROM internal_job
         WHERE kind = 'nudge.work_item.not_after'
-        ORDER BY created_at`
+        ORDER BY created_at`,
     );
 
     expect(jobs.rows).toEqual([
@@ -62,7 +62,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
   it('claims jobs with a locking strategy that prevents double-processing (SKIP LOCKED)', async () => {
     await pool.query(
       `INSERT INTO internal_job (kind, run_at, payload)
-       VALUES ('test', now(), '{}'::jsonb)`
+       VALUES ('test', now(), '{}'::jsonb)`,
     );
 
     const c1 = await pool.connect();
@@ -75,13 +75,13 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
       const r1 = await c1.query(
         `SELECT id::text as id
            FROM internal_job_claim($1, $2)`,
-        ['worker-a', 10]
+        ['worker-a', 10],
       );
 
       const r2 = await c2.query(
         `SELECT id::text as id
            FROM internal_job_claim($1, $2)`,
-        ['worker-b', 10]
+        ['worker-b', 10],
       );
 
       expect(r1.rows.length).toBe(1);
@@ -99,14 +99,14 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
     const inserted = await pool.query(
       `INSERT INTO internal_job (kind, run_at, payload)
        VALUES ('test', now(), '{}'::jsonb)
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
     const jobId = inserted.rows[0].id as string;
 
     const claimed = await pool.query(
       `SELECT id::text as id
          FROM internal_job_claim($1, $2)`,
-      ['worker-a', 1]
+      ['worker-a', 1],
     );
     expect(claimed.rows.map((r) => r.id)).toEqual([jobId]);
 
@@ -117,7 +117,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
               (run_at > now()) as run_at_in_future
          FROM internal_job
         WHERE id = $1`,
-      [jobId]
+      [jobId],
     );
 
     expect(row.rows[0].attempts).toBe(1);
@@ -132,7 +132,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
       `SELECT jobname, schedule, command
          FROM cron.job
         WHERE jobname = 'internal_nudge_enqueue'
-        LIMIT 1`
+        LIMIT 1`,
     );
 
     expect(job.rows.length).toBe(1);

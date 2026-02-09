@@ -90,23 +90,12 @@ export interface ActivityFeedProps {
   className?: string;
 }
 
-export function ActivityFeed({
-  items,
-  loading = false,
-  hasMore = false,
-  onLoadMore,
-  onItemClick,
-  onMarkAllRead,
-  className,
-}: ActivityFeedProps) {
+export function ActivityFeed({ items, loading = false, hasMore = false, onLoadMore, onItemClick, onMarkAllRead, className }: ActivityFeedProps) {
   const [filter, setFilter] = useState<ActivityFilter>({});
 
   const filteredItems = useMemo(() => filterItems(items, filter), [items, filter]);
   const groupedItems = useMemo(() => groupByTime(filteredItems), [filteredItems]);
-  const unreadCount = useMemo(
-    () => items.filter((item) => !item.read).length,
-    [items]
-  );
+  const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items]);
 
   const handleLoadMore = useCallback(() => {
     if (!loading && hasMore) {
@@ -121,11 +110,7 @@ export function ActivityFeed({
         <div className="flex items-center gap-2">
           <Bell className="size-5" />
           <h2 className="text-lg font-semibold">Activity</h2>
-          {unreadCount > 0 && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-              {unreadCount}
-            </span>
-          )}
+          {unreadCount > 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">{unreadCount}</span>}
         </div>
         {unreadCount > 0 && onMarkAllRead && (
           <Button variant="ghost" size="sm" onClick={onMarkAllRead}>
@@ -144,16 +129,10 @@ export function ActivityFeed({
         <div className="space-y-6 p-4">
           {groupedItems.map((group) => (
             <div key={group.label}>
-              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
-                {group.label}
-              </h3>
+              <h3 className="mb-3 text-sm font-medium text-muted-foreground">{group.label}</h3>
               <div className="space-y-2">
                 {group.items.map((item) => (
-                  <ActivityCard
-                    key={item.id}
-                    item={item}
-                    onClick={onItemClick}
-                  />
+                  <ActivityCard key={item.id} item={item} onClick={onItemClick} />
                 ))}
               </div>
             </div>
@@ -166,11 +145,7 @@ export function ActivityFeed({
             </div>
           )}
 
-          {loading && (
-            <div className="py-8 text-center text-muted-foreground">
-              Loading...
-            </div>
-          )}
+          {loading && <div className="py-8 text-center text-muted-foreground">Loading...</div>}
 
           {hasMore && !loading && (
             <div className="py-4 text-center">

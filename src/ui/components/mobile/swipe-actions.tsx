@@ -19,13 +19,7 @@ export interface SwipeActionsProps {
   className?: string;
 }
 
-export function SwipeActions({
-  children,
-  leftAction,
-  rightAction,
-  threshold = 50,
-  className,
-}: SwipeActionsProps) {
+export function SwipeActions({ children, leftAction, rightAction, threshold = 50, className }: SwipeActionsProps) {
   const [swipeOffset, setSwipeOffset] = React.useState(0);
   const [startX, setStartX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
@@ -92,10 +86,8 @@ export function SwipeActions({
           onClick={handleLeftAction}
           className={cn(
             'absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center',
-            leftAction.color === 'destructive'
-              ? 'bg-destructive text-destructive-foreground'
-              : 'bg-primary text-primary-foreground',
-            swipeOffset > threshold ? 'visible' : 'invisible'
+            leftAction.color === 'destructive' ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground',
+            swipeOffset > threshold ? 'visible' : 'invisible',
           )}
           style={{ visibility: swipeOffset > 0 ? 'visible' : 'hidden' }}
         >
@@ -110,10 +102,8 @@ export function SwipeActions({
           onClick={handleRightAction}
           className={cn(
             'absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center',
-            rightAction.color === 'destructive'
-              ? 'bg-destructive text-destructive-foreground'
-              : 'bg-primary text-primary-foreground',
-            swipeOffset < -threshold ? 'visible' : 'invisible'
+            rightAction.color === 'destructive' ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground',
+            swipeOffset < -threshold ? 'visible' : 'invisible',
           )}
           style={{ visibility: swipeOffset < 0 ? 'visible' : 'hidden' }}
         >

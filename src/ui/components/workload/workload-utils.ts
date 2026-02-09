@@ -43,10 +43,7 @@ export interface WorkloadSummary {
  * Calculate utilization percentage
  * @returns Percentage (0-100+)
  */
-export function calculateUtilization(
-  assignedHours: number,
-  capacityHours: number
-): number {
+export function calculateUtilization(assignedHours: number, capacityHours: number): number {
   if (capacityHours === 0) {
     return Infinity;
   }
@@ -57,9 +54,7 @@ export function calculateUtilization(
  * Calculate total workload per team member
  * @returns Map of memberId -> total hours
  */
-export function calculateWorkload(
-  assignments: WorkAssignment[]
-): Map<string, number> {
+export function calculateWorkload(assignments: WorkAssignment[]): Map<string, number> {
   const workload = new Map<string, number>();
 
   for (const assignment of assignments) {
@@ -74,10 +69,7 @@ export function calculateWorkload(
  * Detect which team members are over-allocated
  * @returns Array of member IDs that are over their capacity
  */
-export function detectOverallocation(
-  members: TeamMember[],
-  workload: Map<string, number>
-): string[] {
+export function detectOverallocation(members: TeamMember[], workload: Map<string, number>): string[] {
   const overallocated: string[] = [];
 
   for (const member of members) {
@@ -104,9 +96,7 @@ export function formatHours(hours: number): string {
 /**
  * Get utilization status for styling
  */
-export function getUtilizationStatus(
-  utilizationPercent: number
-): 'low' | 'medium' | 'high' {
+export function getUtilizationStatus(utilizationPercent: number): 'low' | 'medium' | 'high' {
   if (utilizationPercent > 100) {
     return 'high';
   }
@@ -119,18 +109,10 @@ export function getUtilizationStatus(
 /**
  * Calculate workload summary for a team member
  */
-export function getWorkloadSummary(
-  member: TeamMember,
-  assignments: WorkAssignment[]
-): WorkloadSummary {
-  const memberAssignments = assignments.filter(
-    (a) => a.memberId === member.id
-  );
+export function getWorkloadSummary(member: TeamMember, assignments: WorkAssignment[]): WorkloadSummary {
+  const memberAssignments = assignments.filter((a) => a.memberId === member.id);
   const totalHours = memberAssignments.reduce((sum, a) => sum + a.hours, 0);
-  const utilizationPercent = calculateUtilization(
-    totalHours,
-    member.hoursPerWeek
-  );
+  const utilizationPercent = calculateUtilization(totalHours, member.hoursPerWeek);
   const isOverallocated = utilizationPercent > 100;
   const availableHours = Math.max(0, member.hoursPerWeek - totalHours);
 

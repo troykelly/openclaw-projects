@@ -72,21 +72,12 @@ export function ErrorState({
   const defaults = getDefaultMessage(type);
 
   return (
-    <div
-      data-testid="error-state"
-      role="alert"
-      className={cn(
-        'flex flex-col items-center justify-center py-12 text-center',
-        className
-      )}
-    >
+    <div data-testid="error-state" role="alert" className={cn('flex flex-col items-center justify-center py-12 text-center', className)}>
       <div className="text-muted-foreground/50">{getErrorIcon(type)}</div>
 
       <h3 className="mt-4 text-lg font-semibold">{title ?? defaults.title}</h3>
 
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        {description ?? defaults.description}
-      </p>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">{description ?? defaults.description}</p>
 
       {(onRetry || action) && (
         <div className="mt-6 flex gap-3">
@@ -111,11 +102,7 @@ export interface InlineErrorProps {
 
 export function InlineError({ message, className }: InlineErrorProps) {
   return (
-    <p
-      data-testid="inline-error"
-      role="alert"
-      className={cn('text-sm text-destructive flex items-center gap-1', className)}
-    >
+    <p data-testid="inline-error" role="alert" className={cn('text-sm text-destructive flex items-center gap-1', className)}>
       <AlertCircle className="size-3" />
       {message}
     </p>
@@ -132,14 +119,7 @@ export interface ErrorBannerProps {
 
 export function ErrorBanner({ message, onDismiss, onRetry, className }: ErrorBannerProps) {
   return (
-    <div
-      data-testid="error-banner"
-      role="alert"
-      className={cn(
-        'flex items-center gap-3 rounded-lg bg-destructive/10 p-3 text-destructive',
-        className
-      )}
-    >
+    <div data-testid="error-banner" role="alert" className={cn('flex items-center gap-3 rounded-lg bg-destructive/10 p-3 text-destructive', className)}>
       <AlertCircle className="size-5 shrink-0" />
       <p className="flex-1 text-sm">{message}</p>
       {onRetry && (

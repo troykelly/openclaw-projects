@@ -5,14 +5,7 @@
 import * as React from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Label } from '@/ui/components/ui/label';
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { cn } from '@/ui/lib/utils';
@@ -28,19 +21,10 @@ export interface ExportDialogProps {
   exporting?: boolean;
 }
 
-export function ExportDialog({
-  open,
-  onOpenChange,
-  onExport,
-  contactCount,
-  selectedCount,
-  exporting = false,
-}: ExportDialogProps) {
+export function ExportDialog({ open, onOpenChange, onExport, contactCount, selectedCount, exporting = false }: ExportDialogProps) {
   const [format, setFormat] = React.useState<ExportFormat>('csv');
   const [scope, setScope] = React.useState<ExportScope>('all');
-  const [selectedFields, setSelectedFields] = React.useState<Set<ContactField>>(
-    new Set(['name', 'email', 'phone', 'organization', 'role'])
-  );
+  const [selectedFields, setSelectedFields] = React.useState<Set<ContactField>>(new Set(['name', 'email', 'phone', 'organization', 'role']));
 
   const toggleField = (field: ContactField) => {
     const newFields = new Set(selectedFields);
@@ -74,9 +58,7 @@ export function ExportDialog({
             </div>
             <DialogTitle>Export Contacts</DialogTitle>
           </div>
-          <DialogDescription>
-            Export contacts in your preferred format.
-          </DialogDescription>
+          <DialogDescription>Export contacts in your preferred format.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -84,19 +66,19 @@ export function ExportDialog({
           <div className="space-y-2">
             <Label>Format</Label>
             <div className="flex gap-2">
-              {([
-                { value: 'csv', label: 'CSV' },
-                { value: 'vcard', label: 'vCard' },
-                { value: 'json', label: 'JSON' },
-              ] as { value: ExportFormat; label: string }[]).map((f) => (
+              {(
+                [
+                  { value: 'csv', label: 'CSV' },
+                  { value: 'vcard', label: 'vCard' },
+                  { value: 'json', label: 'JSON' },
+                ] as { value: ExportFormat; label: string }[]
+              ).map((f) => (
                 <button
                   key={f.value}
                   type="button"
                   className={cn(
                     'flex-1 px-3 py-2 rounded-md border text-sm transition-colors',
-                    format === f.value
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted hover:bg-muted'
+                    format === f.value ? 'border-primary bg-primary/10' : 'border-muted hover:bg-muted',
                   )}
                   onClick={() => setFormat(f.value)}
                 >
@@ -114,9 +96,7 @@ export function ExportDialog({
                 type="button"
                 className={cn(
                   'flex-1 px-3 py-2 rounded-md border text-sm transition-colors',
-                  scope === 'all'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted hover:bg-muted'
+                  scope === 'all' ? 'border-primary bg-primary/10' : 'border-muted hover:bg-muted',
                 )}
                 onClick={() => setScope('all')}
               >
@@ -127,10 +107,8 @@ export function ExportDialog({
                 disabled={selectedCount === 0}
                 className={cn(
                   'flex-1 px-3 py-2 rounded-md border text-sm transition-colors',
-                  scope === 'selected'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-muted hover:bg-muted',
-                  selectedCount === 0 && 'opacity-50 cursor-not-allowed'
+                  scope === 'selected' ? 'border-primary bg-primary/10' : 'border-muted hover:bg-muted',
+                  selectedCount === 0 && 'opacity-50 cursor-not-allowed',
                 )}
                 onClick={() => setScope('selected')}
               >
@@ -145,14 +123,8 @@ export function ExportDialog({
               <Label>Fields to include</Label>
               <div className="grid grid-cols-2 gap-2">
                 {CONTACT_FIELDS.map((field) => (
-                  <label
-                    key={field.id}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={selectedFields.has(field.id)}
-                      onCheckedChange={() => toggleField(field.id)}
-                    />
+                  <label key={field.id} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={selectedFields.has(field.id)} onCheckedChange={() => toggleField(field.id)} />
                     <span className="text-sm">{field.label}</span>
                   </label>
                 ))}
@@ -162,11 +134,7 @@ export function ExportDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={exporting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={exporting}>
             Cancel
           </Button>
           <Button onClick={handleExport} disabled={exporting}>

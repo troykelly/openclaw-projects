@@ -82,27 +82,18 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       // Default error UI
       return (
-        <div
-          className="flex h-full min-h-[200px] items-center justify-center p-6"
-          data-testid="error-boundary-fallback"
-        >
+        <div className="flex h-full min-h-[200px] items-center justify-center p-6" data-testid="error-boundary-fallback">
           <Card className="max-w-md">
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center">
                 <div className="mb-4 rounded-full bg-destructive/10 p-3">
                   <AlertCircle className="size-6 text-destructive" aria-hidden="true" />
                 </div>
-                <h2 className="mb-2 text-lg font-semibold">
-                  {title ?? 'Something went wrong'}
-                </h2>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  {description ?? 'An unexpected error occurred. Please try refreshing the page.'}
-                </p>
+                <h2 className="mb-2 text-lg font-semibold">{title ?? 'Something went wrong'}</h2>
+                <p className="mb-4 text-sm text-muted-foreground">{description ?? 'An unexpected error occurred. Please try refreshing the page.'}</p>
                 {import.meta.env.DEV && error && (
                   <details className="mb-4 w-full text-left">
-                    <summary className="cursor-pointer text-xs text-muted-foreground">
-                      Error details
-                    </summary>
+                    <summary className="cursor-pointer text-xs text-muted-foreground">Error details</summary>
                     <pre className="mt-2 max-h-32 overflow-auto rounded bg-muted p-2 text-xs">
                       {error.message}
                       {'\n'}
@@ -111,19 +102,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   </details>
                 )}
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={this.handleReset}
-                    aria-label="Try again"
-                  >
+                  <Button variant="outline" onClick={this.handleReset} aria-label="Try again">
                     <RefreshCw className="mr-2 size-4" aria-hidden="true" />
                     Try Again
                   </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => window.location.reload()}
-                    aria-label="Refresh page"
-                  >
+                  <Button variant="default" onClick={() => window.location.reload()} aria-label="Refresh page">
                     Refresh Page
                   </Button>
                 </div>

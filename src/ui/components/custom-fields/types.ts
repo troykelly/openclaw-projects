@@ -5,16 +5,7 @@
 /**
  * Available custom field types
  */
-export type CustomFieldType =
-  | 'text'
-  | 'longtext'
-  | 'number'
-  | 'date'
-  | 'select'
-  | 'multiselect'
-  | 'checkbox'
-  | 'url'
-  | 'user';
+export type CustomFieldType = 'text' | 'longtext' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox' | 'url' | 'user';
 
 /**
  * Validation rules for custom fields

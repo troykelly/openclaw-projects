@@ -16,14 +16,7 @@ export interface WatchButtonProps {
   className?: string;
 }
 
-export function WatchButton({
-  isWatching,
-  onToggle,
-  watcherCount,
-  loading = false,
-  compact = false,
-  className,
-}: WatchButtonProps) {
+export function WatchButton({ isWatching, onToggle, watcherCount, loading = false, compact = false, className }: WatchButtonProps) {
   return (
     <Button
       variant={isWatching ? 'secondary' : 'outline'}
@@ -35,21 +28,12 @@ export function WatchButton({
       {loading ? (
         <Loader2 data-testid="watch-loading" className="h-4 w-4 animate-spin" />
       ) : (
-        <Eye
-          data-testid="watch-icon"
-          className={cn('h-4 w-4', isWatching && 'fill-current')}
-        />
+        <Eye data-testid="watch-icon" className={cn('h-4 w-4', isWatching && 'fill-current')} />
       )}
 
-      {!compact && (
-        <span>{isWatching ? 'Watching' : 'Watch'}</span>
-      )}
+      {!compact && <span>{isWatching ? 'Watching' : 'Watch'}</span>}
 
-      {watcherCount !== undefined && watcherCount > 0 && (
-        <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">
-          {watcherCount}
-        </span>
-      )}
+      {watcherCount !== undefined && watcherCount > 0 && <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded">{watcherCount}</span>}
     </Button>
   );
 }

@@ -57,18 +57,12 @@ describe('Webhook Verification', () => {
      * Calculate Twilio signature for testing.
      * Twilio uses HMAC-SHA1 of URL + sorted POST params.
      */
-    function calculateTwilioSignature(
-      url: string,
-      params: Record<string, string>,
-      token: string
-    ): string {
+    function calculateTwilioSignature(url: string, params: Record<string, string>, token: string): string {
       const paramString = Object.keys(params)
         .sort()
         .reduce((acc, key) => acc + key + params[key], '');
       const data = url + paramString;
-      return createHmac('sha1', token)
-        .update(Buffer.from(data, 'utf-8'))
-        .digest('base64');
+      return createHmac('sha1', token).update(Buffer.from(data, 'utf-8')).digest('base64');
     }
 
     it('returns false when TWILIO_AUTH_TOKEN is not configured', () => {
@@ -355,9 +349,7 @@ describe('Webhook Verification', () => {
     const secret = 'my-hmac-secret-key';
 
     function calculateHmacSha256(body: string, key: string): string {
-      return createHmac('sha256', key)
-        .update(Buffer.from(body, 'utf-8'))
-        .digest('hex');
+      return createHmac('sha256', key).update(Buffer.from(body, 'utf-8')).digest('hex');
     }
 
     it('returns false when secret env var is not configured', () => {

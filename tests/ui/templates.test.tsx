@@ -39,9 +39,7 @@ describe('useTemplates hook', () => {
     const { result } = renderHook(() => useTemplates());
 
     expect(result.current.templates.length).toBeGreaterThan(0);
-    expect(result.current.templates.some((t) => t.id === 'builtin-sprint')).toBe(
-      true
-    );
+    expect(result.current.templates.some((t) => t.id === 'builtin-sprint')).toBe(true);
   });
 
   it('can save a custom template', () => {
@@ -62,9 +60,7 @@ describe('useTemplates hook', () => {
       result.current.saveTemplate(template);
     });
 
-    const customTemplates = result.current.templates.filter(
-      (t) => t.category === 'custom'
-    );
+    const customTemplates = result.current.templates.filter((t) => t.category === 'custom');
     expect(customTemplates.length).toBe(1);
     expect(customTemplates[0].name).toBe('My Template');
   });
@@ -87,18 +83,14 @@ describe('useTemplates hook', () => {
       result.current.saveTemplate(template);
     });
 
-    const customTemplate = result.current.templates.find(
-      (t) => t.name === 'Delete Me'
-    );
+    const customTemplate = result.current.templates.find((t) => t.name === 'Delete Me');
     expect(customTemplate).toBeDefined();
 
     act(() => {
       result.current.deleteTemplate(customTemplate!.id);
     });
 
-    expect(
-      result.current.templates.find((t) => t.name === 'Delete Me')
-    ).toBeUndefined();
+    expect(result.current.templates.find((t) => t.name === 'Delete Me')).toBeUndefined();
   });
 
   it('persists templates to localStorage', () => {
@@ -120,9 +112,7 @@ describe('useTemplates hook', () => {
     const stored = localStorageMock.getItem('work-item-templates');
     expect(stored).not.toBeNull();
     const parsed = JSON.parse(stored!);
-    expect(parsed.some((t: WorkItemTemplate) => t.name === 'Persisted')).toBe(
-      true
-    );
+    expect(parsed.some((t: WorkItemTemplate) => t.name === 'Persisted')).toBe(true);
   });
 
   it('filters templates by category', () => {
@@ -144,13 +134,7 @@ describe('TemplateSelector', () => {
   });
 
   it('renders template categories', () => {
-    render(
-      <TemplateSelector
-        open={true}
-        onSelect={mockOnSelect}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<TemplateSelector open={true} onSelect={mockOnSelect} onCancel={mockOnCancel} />);
 
     // Check for tab triggers specifically
     expect(screen.getByRole('tab', { name: /sprint/i })).toBeInTheDocument();
@@ -158,25 +142,13 @@ describe('TemplateSelector', () => {
   });
 
   it('shows built-in templates', () => {
-    render(
-      <TemplateSelector
-        open={true}
-        onSelect={mockOnSelect}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<TemplateSelector open={true} onSelect={mockOnSelect} onCancel={mockOnCancel} />);
 
     expect(screen.getByText('Sprint Planning')).toBeInTheDocument();
   });
 
   it('calls onSelect with template when clicking Use Template', () => {
-    render(
-      <TemplateSelector
-        open={true}
-        onSelect={mockOnSelect}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<TemplateSelector open={true} onSelect={mockOnSelect} onCancel={mockOnCancel} />);
 
     // Click on a template card
     fireEvent.click(screen.getByText('Sprint Planning'));
@@ -187,7 +159,7 @@ describe('TemplateSelector', () => {
     expect(mockOnSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Sprint Planning',
-      })
+      }),
     );
   });
 });
@@ -228,10 +200,7 @@ describe('TemplateManager', () => {
       },
       createdAt: new Date().toISOString(),
     };
-    localStorageMock.setItem(
-      'work-item-templates',
-      JSON.stringify([customTemplate])
-    );
+    localStorageMock.setItem('work-item-templates', JSON.stringify([customTemplate]));
 
     render(<TemplateManager />);
 
@@ -239,9 +208,7 @@ describe('TemplateManager', () => {
     const customCard = screen.getByText('My Custom').closest('[data-template]');
     expect(customCard).toBeInTheDocument();
 
-    const deleteButton = customCard?.querySelector(
-      '[aria-label="Delete template"]'
-    );
+    const deleteButton = customCard?.querySelector('[aria-label="Delete template"]');
     expect(deleteButton).toBeInTheDocument();
   });
 });
@@ -265,53 +232,25 @@ describe('SaveTemplateDialog', () => {
   });
 
   it('renders dialog with item title as default template name', () => {
-    render(
-      <SaveTemplateDialog
-        open={true}
-        item={mockItem}
-        onSave={mockOnSave}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<SaveTemplateDialog open={true} item={mockItem} onSave={mockOnSave} onCancel={mockOnCancel} />);
 
     expect(screen.getByDisplayValue('My Project')).toBeInTheDocument();
   });
 
   it('shows category selection', () => {
-    render(
-      <SaveTemplateDialog
-        open={true}
-        item={mockItem}
-        onSave={mockOnSave}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<SaveTemplateDialog open={true} item={mockItem} onSave={mockOnSave} onCancel={mockOnCancel} />);
 
     expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
   });
 
   it('shows include children option', () => {
-    render(
-      <SaveTemplateDialog
-        open={true}
-        item={mockItem}
-        onSave={mockOnSave}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<SaveTemplateDialog open={true} item={mockItem} onSave={mockOnSave} onCancel={mockOnCancel} />);
 
     expect(screen.getByText(/include children/i)).toBeInTheDocument();
   });
 
   it('calls onSave with template data when Save clicked', () => {
-    render(
-      <SaveTemplateDialog
-        open={true}
-        item={mockItem}
-        onSave={mockOnSave}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<SaveTemplateDialog open={true} item={mockItem} onSave={mockOnSave} onCancel={mockOnCancel} />);
 
     // Edit template name
     const nameInput = screen.getByDisplayValue('My Project');
@@ -328,25 +267,16 @@ describe('SaveTemplateDialog', () => {
       expect.objectContaining({
         name: 'My Template',
         description: 'A great template',
-      })
+      }),
     );
   });
 
   it('disables save when name is empty', () => {
-    render(
-      <SaveTemplateDialog
-        open={true}
-        item={mockItem}
-        onSave={mockOnSave}
-        onCancel={mockOnCancel}
-      />
-    );
+    render(<SaveTemplateDialog open={true} item={mockItem} onSave={mockOnSave} onCancel={mockOnCancel} />);
 
     const nameInput = screen.getByDisplayValue('My Project');
     fireEvent.change(nameInput, { target: { value: '' } });
 
-    expect(
-      screen.getByRole('button', { name: /save template/i })
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: /save template/i })).toBeDisabled();
   });
 });

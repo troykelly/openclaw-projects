@@ -13,11 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, renderHook } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import {
-  useKeyboardShortcuts,
-  SHORTCUT_DEFINITIONS,
-  type KeyboardShortcutCallbacks,
-} from '@/ui/hooks/use-keyboard-shortcuts';
+import { useKeyboardShortcuts, SHORTCUT_DEFINITIONS, type KeyboardShortcutCallbacks } from '@/ui/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsDialog } from '@/ui/components/keyboard-shortcuts/KeyboardShortcutsDialog';
 
 // ---------------------------------------------------------------------------
@@ -36,13 +32,7 @@ vi.mock('@/ui/lib/api-client', () => ({
 // ---------------------------------------------------------------------------
 // Helper: render the hook inside a wrapper that exposes callbacks
 // ---------------------------------------------------------------------------
-function HookWrapper({
-  callbacks,
-  onHelpOpen,
-}: {
-  callbacks: KeyboardShortcutCallbacks;
-  onHelpOpen?: (open: boolean) => void;
-}) {
+function HookWrapper({ callbacks, onHelpOpen }: { callbacks: KeyboardShortcutCallbacks; onHelpOpen?: (open: boolean) => void }) {
   const { helpOpen, setHelpOpen, shortcuts } = useKeyboardShortcuts(callbacks);
 
   React.useEffect(() => {
@@ -55,11 +45,7 @@ function HookWrapper({
       <button data-testid="close-help" onClick={() => setHelpOpen(false)}>
         Close
       </button>
-      <KeyboardShortcutsDialog
-        open={helpOpen}
-        onOpenChange={setHelpOpen}
-        shortcuts={shortcuts}
-      />
+      <KeyboardShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} shortcuts={shortcuts} />
     </div>
   );
 }
@@ -84,9 +70,7 @@ describe('useKeyboardShortcuts', () => {
     render(<HookWrapper callbacks={{ onOpenSearch }} />);
 
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
     });
 
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
@@ -97,9 +81,7 @@ describe('useKeyboardShortcuts', () => {
     render(<HookWrapper callbacks={{ onOpenSearch }} />);
 
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
     });
 
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
@@ -110,9 +92,7 @@ describe('useKeyboardShortcuts', () => {
     render(<HookWrapper callbacks={{ onNewItem }} />);
 
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'n', metaKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', metaKey: true }));
     });
 
     expect(onNewItem).toHaveBeenCalledTimes(1);
@@ -123,9 +103,7 @@ describe('useKeyboardShortcuts', () => {
     render(<HookWrapper callbacks={{ onNewItem }} />);
 
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'n', ctrlKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', ctrlKey: true }));
     });
 
     expect(onNewItem).toHaveBeenCalledTimes(1);
@@ -139,17 +117,13 @@ describe('useKeyboardShortcuts', () => {
 
     // Open
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: '/', metaKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', metaKey: true }));
     });
     expect(screen.getByTestId('help-open')).toHaveTextContent('true');
 
     // Close
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: '/', metaKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '/', metaKey: true }));
     });
     expect(screen.getByTestId('help-open')).toHaveTextContent('false');
   });
@@ -159,9 +133,7 @@ describe('useKeyboardShortcuts', () => {
     render(<HookWrapper callbacks={{ onToggleSidebar }} />);
 
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'b', metaKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', metaKey: true }));
     });
 
     expect(onToggleSidebar).toHaveBeenCalledTimes(1);
@@ -297,14 +269,10 @@ describe('useKeyboardShortcuts', () => {
     input.focus();
 
     act(() => {
-      input.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'j', bubbles: true }),
-      );
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
     });
     act(() => {
-      input.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'n', metaKey: true, bubbles: true }),
-      );
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', metaKey: true, bubbles: true }));
     });
 
     expect(onMoveDown).not.toHaveBeenCalled();
@@ -321,9 +289,7 @@ describe('useKeyboardShortcuts', () => {
     textarea.focus();
 
     act(() => {
-      textarea.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'k', bubbles: true }),
-      );
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true }));
     });
 
     expect(onMoveUp).not.toHaveBeenCalled();
@@ -342,14 +308,10 @@ describe('useKeyboardShortcuts', () => {
     select.focus();
 
     act(() => {
-      select.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'g', bubbles: true }),
-      );
+      select.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', bubbles: true }));
     });
     act(() => {
-      select.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'a', bubbles: true }),
-      );
+      select.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
     });
 
     expect(onNavigate).not.toHaveBeenCalled();
@@ -369,9 +331,7 @@ describe('useKeyboardShortcuts', () => {
     render(<DisabledWrapper />);
 
     act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
-      );
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
     });
 
     expect(onOpenSearch).not.toHaveBeenCalled();
@@ -380,37 +340,19 @@ describe('useKeyboardShortcuts', () => {
 
 describe('KeyboardShortcutsDialog', () => {
   it('renders nothing when closed', () => {
-    render(
-      <KeyboardShortcutsDialog
-        open={false}
-        onOpenChange={vi.fn()}
-        shortcuts={SHORTCUT_DEFINITIONS}
-      />,
-    );
+    render(<KeyboardShortcutsDialog open={false} onOpenChange={vi.fn()} shortcuts={SHORTCUT_DEFINITIONS} />);
 
     expect(screen.queryByText('Keyboard Shortcuts')).not.toBeInTheDocument();
   });
 
   it('renders the dialog title when open', () => {
-    render(
-      <KeyboardShortcutsDialog
-        open={true}
-        onOpenChange={vi.fn()}
-        shortcuts={SHORTCUT_DEFINITIONS}
-      />,
-    );
+    render(<KeyboardShortcutsDialog open={true} onOpenChange={vi.fn()} shortcuts={SHORTCUT_DEFINITIONS} />);
 
     expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
   });
 
   it('displays all shortcut groups', () => {
-    render(
-      <KeyboardShortcutsDialog
-        open={true}
-        onOpenChange={vi.fn()}
-        shortcuts={SHORTCUT_DEFINITIONS}
-      />,
-    );
+    render(<KeyboardShortcutsDialog open={true} onOpenChange={vi.fn()} shortcuts={SHORTCUT_DEFINITIONS} />);
 
     expect(screen.getByText('Global')).toBeInTheDocument();
     expect(screen.getByText('Navigation')).toBeInTheDocument();
@@ -418,13 +360,7 @@ describe('KeyboardShortcutsDialog', () => {
   });
 
   it('displays individual shortcut descriptions', () => {
-    render(
-      <KeyboardShortcutsDialog
-        open={true}
-        onOpenChange={vi.fn()}
-        shortcuts={SHORTCUT_DEFINITIONS}
-      />,
-    );
+    render(<KeyboardShortcutsDialog open={true} onOpenChange={vi.fn()} shortcuts={SHORTCUT_DEFINITIONS} />);
 
     expect(screen.getByText('Open command palette')).toBeInTheDocument();
     expect(screen.getByText('Create new work item')).toBeInTheDocument();
@@ -442,28 +378,14 @@ describe('KeyboardShortcutsDialog', () => {
   });
 
   it('shows the disabled-in-text-fields note', () => {
-    render(
-      <KeyboardShortcutsDialog
-        open={true}
-        onOpenChange={vi.fn()}
-        shortcuts={SHORTCUT_DEFINITIONS}
-      />,
-    );
+    render(<KeyboardShortcutsDialog open={true} onOpenChange={vi.fn()} shortcuts={SHORTCUT_DEFINITIONS} />);
 
-    expect(
-      screen.getByText('Shortcuts are disabled when typing in text fields'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Shortcuts are disabled when typing in text fields')).toBeInTheDocument();
   });
 
   it('calls onOpenChange when dialog is closed', () => {
     const onOpenChange = vi.fn();
-    render(
-      <KeyboardShortcutsDialog
-        open={true}
-        onOpenChange={onOpenChange}
-        shortcuts={SHORTCUT_DEFINITIONS}
-      />,
-    );
+    render(<KeyboardShortcutsDialog open={true} onOpenChange={onOpenChange} shortcuts={SHORTCUT_DEFINITIONS} />);
 
     // Close using the X button (Radix Dialog renders a close button)
     const closeButton = screen.getByRole('button', { name: /close/i });

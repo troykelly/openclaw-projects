@@ -234,9 +234,7 @@ describe('SettingsPage', () => {
     });
 
     it('displays initials from compound email', async () => {
-      mockFetch.mockImplementation(
-        createMockFetch({ ...defaultSettings, email: 'john.doe@example.com' }),
-      );
+      mockFetch.mockImplementation(createMockFetch({ ...defaultSettings, email: 'john.doe@example.com' }));
 
       render(<SettingsPage />);
 
@@ -492,8 +490,7 @@ describe('SettingsPage', () => {
       // Card title "Keyboard Shortcuts" (also in sidebar nav)
       const cards = screen.getAllByTestId('settings-card');
       const shortcutsCard = cards.find(
-        (card) => within(card).queryByText('Keyboard Shortcuts') !== null
-          && within(card).queryByText(/Speed up your workflow/) !== null,
+        (card) => within(card).queryByText('Keyboard Shortcuts') !== null && within(card).queryByText(/Speed up your workflow/) !== null,
       );
       expect(shortcutsCard).toBeTruthy();
     });
@@ -506,9 +503,7 @@ describe('SettingsPage', () => {
       // Find the shortcuts card and search within it to avoid conflicts
       // with "Navigation" card title in Appearance section
       const cards = screen.getAllByTestId('settings-card');
-      const shortcutsCard = cards.find(
-        (card) => within(card).queryByText(/Speed up your workflow/) !== null,
-      )!;
+      const shortcutsCard = cards.find((card) => within(card).queryByText(/Speed up your workflow/) !== null)!;
       expect(shortcutsCard).toBeTruthy();
 
       expect(within(shortcutsCard).getByText('Global')).toBeInTheDocument();
@@ -577,9 +572,7 @@ describe('SettingsPage', () => {
 
       await waitForLoaded();
 
-      expect(
-        screen.getByText(/Built for integration with the OpenClaw AI agent gateway/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Built for integration with the OpenClaw AI agent gateway/)).toBeInTheDocument();
     });
   });
 
@@ -685,8 +678,8 @@ describe('useSettings hook behavior', () => {
                 ok: true,
                 json: () => Promise.resolve({ ...defaultSettings, theme: 'dark' }),
               }),
-            100
-          )
+            100,
+          ),
         );
       }
       if (url === '/api/settings') {

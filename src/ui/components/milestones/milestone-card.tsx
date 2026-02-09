@@ -17,11 +17,7 @@ const STATUS_VARIANT: Record<MilestoneStatus, 'default' | 'secondary' | 'destruc
   missed: 'destructive',
 };
 
-export function MilestoneCard({
-  milestone,
-  onClick,
-  className,
-}: MilestoneCardProps) {
+export function MilestoneCard({ milestone, onClick, className }: MilestoneCardProps) {
   const percentage = Math.round(milestone.progress * 100);
   const isAtRisk = isMilestoneAtRisk(milestone.progress, milestone.targetDate);
 
@@ -29,27 +25,17 @@ export function MilestoneCard({
     <button
       type="button"
       onClick={() => onClick?.(milestone)}
-      className={cn(
-        'w-full text-left p-4 rounded-lg border bg-card transition-colors',
-        onClick && 'hover:bg-muted/50 cursor-pointer',
-        className
-      )}
+      className={cn('w-full text-left p-4 rounded-lg border bg-card transition-colors', onClick && 'hover:bg-muted/50 cursor-pointer', className)}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
           <FlagIcon className="h-4 w-4 text-primary" />
           <h4 className="font-medium">{milestone.name}</h4>
         </div>
-        <Badge variant={STATUS_VARIANT[milestone.status]}>
-          {STATUS_LABELS[milestone.status]}
-        </Badge>
+        <Badge variant={STATUS_VARIANT[milestone.status]}>{STATUS_LABELS[milestone.status]}</Badge>
       </div>
 
-      {milestone.description && (
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-          {milestone.description}
-        </p>
-      )}
+      {milestone.description && <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{milestone.description}</p>}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
         <CalendarIcon className="h-4 w-4" />
@@ -63,11 +49,7 @@ export function MilestoneCard({
           </span>
           <span className="font-medium">{percentage}%</span>
         </div>
-        <MilestoneProgress
-          progress={milestone.progress}
-          status={milestone.status}
-          isAtRisk={isAtRisk}
-        />
+        <MilestoneProgress progress={milestone.progress} status={milestone.status} isAtRisk={isAtRisk} />
       </div>
     </button>
   );

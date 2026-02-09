@@ -2,25 +2,13 @@
  * Dialog for saving a work item as a template
  */
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Checkbox } from '@/ui/components/ui/checkbox';
-import type {
-  SaveTemplateDialogProps,
-  WorkItemTemplate,
-  TemplateCategory,
-  TemplateStructure,
-} from './types';
+import type { SaveTemplateDialogProps, WorkItemTemplate, TemplateCategory, TemplateStructure } from './types';
 
 const CATEGORIES: { value: TemplateCategory; label: string }[] = [
   { value: 'sprint', label: 'Sprint' },
@@ -30,12 +18,7 @@ const CATEGORIES: { value: TemplateCategory; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ];
 
-export function SaveTemplateDialog({
-  open,
-  item,
-  onSave,
-  onCancel,
-}: SaveTemplateDialogProps) {
+export function SaveTemplateDialog({ open, item, onSave, onCancel }: SaveTemplateDialogProps) {
   const [name, setName] = React.useState(item.title);
   const [description, setDescription] = React.useState('');
   const [category, setCategory] = React.useState<TemplateCategory>('custom');
@@ -82,20 +65,13 @@ export function SaveTemplateDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Save as Template</DialogTitle>
-          <DialogDescription>
-            Create a reusable template from this {item.kind}.
-          </DialogDescription>
+          <DialogDescription>Create a reusable template from this {item.kind}.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="template-name">Template Name</Label>
-            <Input
-              id="template-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter template name"
-            />
+            <Input id="template-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter template name" />
           </div>
 
           <div className="space-y-2">
@@ -134,9 +110,7 @@ export function SaveTemplateDialog({
                 onCheckedChange={(checked) => setIncludeChildren(checked === true)}
                 aria-label="Include children"
               />
-              <Label htmlFor="include-children">
-                Include children ({item.children?.length} items)
-              </Label>
+              <Label htmlFor="include-children">Include children ({item.children?.length} items)</Label>
             </div>
           )}
         </div>

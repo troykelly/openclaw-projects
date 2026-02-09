@@ -9,10 +9,7 @@ import { CustomFieldInput } from '@/ui/components/custom-fields/custom-field-inp
 import { CustomFieldList } from '@/ui/components/custom-fields/custom-field-list';
 import { CustomFieldManager } from '@/ui/components/custom-fields/custom-field-manager';
 import { validateFieldValue } from '@/ui/components/custom-fields/validation';
-import type {
-  CustomFieldDefinition,
-  CustomFieldValue,
-} from '@/ui/components/custom-fields/types';
+import type { CustomFieldDefinition, CustomFieldValue } from '@/ui/components/custom-fields/types';
 
 describe('CustomFieldInput', () => {
   const baseField: CustomFieldDefinition = {
@@ -24,9 +21,7 @@ describe('CustomFieldInput', () => {
   };
 
   it('renders text input for text type', () => {
-    render(
-      <CustomFieldInput field={baseField} value="" onChange={vi.fn()} />
-    );
+    render(<CustomFieldInput field={baseField} value="" onChange={vi.fn()} />);
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
@@ -72,9 +67,7 @@ describe('CustomFieldInput', () => {
 
   it('renders checkbox for checkbox type', () => {
     const field: CustomFieldDefinition = { ...baseField, type: 'checkbox' };
-    render(
-      <CustomFieldInput field={field} value={false} onChange={vi.fn()} />
-    );
+    render(<CustomFieldInput field={field} value={false} onChange={vi.fn()} />);
     expect(screen.getByRole('checkbox')).toBeInTheDocument();
   });
 
@@ -86,9 +79,7 @@ describe('CustomFieldInput', () => {
 
   it('calls onChange when value changes', () => {
     const onChange = vi.fn();
-    render(
-      <CustomFieldInput field={baseField} value="" onChange={onChange} />
-    );
+    render(<CustomFieldInput field={baseField} value="" onChange={onChange} />);
 
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'New value' },
@@ -148,13 +139,7 @@ describe('CustomFieldList', () => {
   ];
 
   it('renders all custom fields', () => {
-    render(
-      <CustomFieldList
-        fields={mockFields}
-        values={mockValues}
-        onChange={vi.fn()}
-      />
-    );
+    render(<CustomFieldList fields={mockFields} values={mockValues} onChange={vi.fn()} />);
 
     expect(screen.getByText('Sprint')).toBeInTheDocument();
     expect(screen.getByText('Points')).toBeInTheDocument();
@@ -162,13 +147,7 @@ describe('CustomFieldList', () => {
   });
 
   it('displays field values', () => {
-    render(
-      <CustomFieldList
-        fields={mockFields}
-        values={mockValues}
-        onChange={vi.fn()}
-      />
-    );
+    render(<CustomFieldList fields={mockFields} values={mockValues} onChange={vi.fn()} />);
 
     expect(screen.getByDisplayValue('Sprint 5')).toBeInTheDocument();
     expect(screen.getByDisplayValue('8')).toBeInTheDocument();
@@ -176,13 +155,7 @@ describe('CustomFieldList', () => {
 
   it('calls onChange with updated values', () => {
     const onChange = vi.fn();
-    render(
-      <CustomFieldList
-        fields={mockFields}
-        values={mockValues}
-        onChange={onChange}
-      />
-    );
+    render(<CustomFieldList fields={mockFields} values={mockValues} onChange={onChange} />);
 
     const sprintInput = screen.getByDisplayValue('Sprint 5');
     fireEvent.change(sprintInput, { target: { value: 'Sprint 6' } });
@@ -191,14 +164,7 @@ describe('CustomFieldList', () => {
   });
 
   it('renders in read-only mode', () => {
-    render(
-      <CustomFieldList
-        fields={mockFields}
-        values={mockValues}
-        onChange={vi.fn()}
-        readOnly
-      />
-    );
+    render(<CustomFieldList fields={mockFields} values={mockValues} onChange={vi.fn()} readOnly />);
 
     expect(screen.getByText('Sprint 5')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
@@ -269,7 +235,7 @@ describe('CustomFieldManager', () => {
       expect.objectContaining({
         name: 'New Field',
         type: 'text',
-      })
+      }),
     );
   });
 

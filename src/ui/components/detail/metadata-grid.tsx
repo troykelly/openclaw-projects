@@ -1,24 +1,10 @@
 import * as React from 'react';
 import { useState } from 'react';
-import {
-  Calendar,
-  Clock,
-  User,
-  AlertCircle,
-  Pencil,
-  Check,
-  X,
-} from 'lucide-react';
+import { Calendar, Clock, User, AlertCircle, Pencil, Check, X } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import type { WorkItemStatus, WorkItemPriority } from './types';
 
 function formatDate(date: Date | undefined): string {
@@ -48,15 +34,7 @@ interface MetadataFieldProps {
   options?: Array<{ value: string; label: string }>;
 }
 
-function MetadataField({
-  icon,
-  label,
-  value,
-  editable,
-  onEdit,
-  editType = 'text',
-  options,
-}: MetadataFieldProps) {
+function MetadataField({ icon, label, value, editable, onEdit, editType = 'text', options }: MetadataFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
@@ -91,12 +69,7 @@ function MetadataField({
                 </SelectContent>
               </Select>
             ) : editType === 'date' ? (
-              <Input
-                type="date"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="h-8 text-sm"
-              />
+              <Input type="date" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="h-8 text-sm" />
             ) : (
               <Input
                 type={editType === 'number' ? 'number' : 'text'}
@@ -116,12 +89,7 @@ function MetadataField({
           <div className="group flex items-center gap-1">
             <p className="text-sm">{value}</p>
             {editable && onEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-5 opacity-0 group-hover:opacity-100"
-                onClick={() => setIsEditing(true)}
-              >
+              <Button variant="ghost" size="icon" className="size-5 opacity-0 group-hover:opacity-100" onClick={() => setIsEditing(true)}>
                 <Pencil className="size-3" />
               </Button>
             )}
@@ -182,10 +150,8 @@ export function MetadataGrid({
   onActualChange,
   className,
 }: MetadataGridProps) {
-  const getPriorityLabel = (p: WorkItemPriority) =>
-    PRIORITY_OPTIONS.find(o => o.value === p)?.label ?? p;
-  const getStatusLabel = (s: WorkItemStatus) =>
-    STATUS_OPTIONS.find(o => o.value === s)?.label ?? s;
+  const getPriorityLabel = (p: WorkItemPriority) => PRIORITY_OPTIONS.find((o) => o.value === p)?.label ?? p;
+  const getStatusLabel = (s: WorkItemStatus) => STATUS_OPTIONS.find((o) => o.value === s)?.label ?? s;
 
   return (
     <div className={cn('grid gap-1 sm:grid-cols-2', className)}>

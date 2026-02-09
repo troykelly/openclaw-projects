@@ -5,12 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import type { Pool, QueryResult } from 'pg';
-import {
-  captureContext,
-  validateCaptureInput,
-  type ContextCaptureInput,
-  type ContextCaptureResult,
-} from '../../src/api/context/capture.ts';
+import { captureContext, validateCaptureInput, type ContextCaptureInput, type ContextCaptureResult } from '../../src/api/context/capture.ts';
 
 // Mock pool
 function createMockPool(): Pool {
@@ -121,7 +116,8 @@ describe('Context Capture Service', () => {
     });
 
     it('should store context as memory for valid input', async () => {
-      const longConversation = 'This is a conversation summary that is long enough to meet the minimum content requirement. The user discussed their preferences and decisions during this session.';
+      const longConversation =
+        'This is a conversation summary that is long enough to meet the minimum content requirement. The user discussed their preferences and decisions during this session.';
       const input: ContextCaptureInput = {
         conversation: longConversation,
         messageCount: 10,
@@ -129,15 +125,17 @@ describe('Context Capture Service', () => {
       };
 
       (mockPool.query as Mock).mockResolvedValue({
-        rows: [{
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Conversation Context',
-          content: longConversation.substring(0, 2000),
-          memory_type: 'context',
-          importance: 5,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }],
+        rows: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Conversation Context',
+            content: longConversation.substring(0, 2000),
+            memory_type: 'context',
+            importance: 5,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
       });
 
       const result = await captureContext(mockPool, input);
@@ -155,15 +153,17 @@ describe('Context Capture Service', () => {
       };
 
       (mockPool.query as Mock).mockResolvedValue({
-        rows: [{
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Conversation Context',
-          content: veryLongConversation.substring(0, 2000),
-          memory_type: 'context',
-          importance: 5,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }],
+        rows: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Conversation Context',
+            content: veryLongConversation.substring(0, 2000),
+            memory_type: 'context',
+            importance: 5,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
       });
 
       await captureContext(mockPool, input);
@@ -171,29 +171,32 @@ describe('Context Capture Service', () => {
       const query = (mockPool.query as Mock).mock.calls[0][0] as string;
       const params = (mockPool.query as Mock).mock.calls[0][1] as unknown[];
       // Content parameter (4th or 5th position depending on query structure)
-      const contentParam = params.find(p => typeof p === 'string' && p.length === 2000);
+      const contentParam = params.find((p) => typeof p === 'string' && p.length === 2000);
       expect(contentParam).toBeDefined();
       expect((contentParam as string).length).toBe(2000);
     });
 
     it('should use auto-capture agent name', async () => {
-      const conversation = 'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
+      const conversation =
+        'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
         messageCount: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
-        rows: [{
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Conversation Context',
-          content: conversation,
-          memory_type: 'context',
-          importance: 5,
-          created_by_agent: 'auto-capture',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }],
+        rows: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Conversation Context',
+            content: conversation,
+            memory_type: 'context',
+            importance: 5,
+            created_by_agent: 'auto-capture',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
       });
 
       await captureContext(mockPool, input);
@@ -203,7 +206,8 @@ describe('Context Capture Service', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      const conversation = 'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
+      const conversation =
+        'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
         messageCount: 5,
@@ -219,22 +223,25 @@ describe('Context Capture Service', () => {
     });
 
     it('should set memory type to context', async () => {
-      const conversation = 'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
+      const conversation =
+        'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
         messageCount: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
-        rows: [{
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Conversation Context',
-          content: conversation,
-          memory_type: 'context',
-          importance: 5,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }],
+        rows: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Conversation Context',
+            content: conversation,
+            memory_type: 'context',
+            importance: 5,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
       });
 
       await captureContext(mockPool, input);
@@ -246,7 +253,8 @@ describe('Context Capture Service', () => {
     });
 
     it('should return captured count of 0 when no rows returned', async () => {
-      const conversation = 'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
+      const conversation =
+        'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
         messageCount: 5,
@@ -263,22 +271,25 @@ describe('Context Capture Service', () => {
     });
 
     it('should set default importance of 5', async () => {
-      const conversation = 'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
+      const conversation =
+        'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
         messageCount: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
-        rows: [{
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Conversation Context',
-          content: conversation,
-          memory_type: 'context',
-          importance: 5,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }],
+        rows: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Conversation Context',
+            content: conversation,
+            memory_type: 'context',
+            importance: 5,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
       });
 
       await captureContext(mockPool, input);
@@ -290,22 +301,25 @@ describe('Context Capture Service', () => {
 
   describe('Result types', () => {
     it('should have proper structure for success result', async () => {
-      const conversation = 'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
+      const conversation =
+        'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
         messageCount: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
-        rows: [{
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Conversation Context',
-          content: conversation,
-          memory_type: 'context',
-          importance: 5,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }],
+        rows: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Conversation Context',
+            content: conversation,
+            memory_type: 'context',
+            importance: 5,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
       });
 
       const result = await captureContext(mockPool, input);

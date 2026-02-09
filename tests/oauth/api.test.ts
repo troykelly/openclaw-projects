@@ -175,7 +175,7 @@ describe('OAuth API Endpoints', () => {
       // Insert a test connection
       await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes)
-         VALUES ('test@example.com', 'google', 'test-token', ARRAY['contacts'])`
+         VALUES ('test@example.com', 'google', 'test-token', ARRAY['contacts'])`,
       );
 
       const response = await app.inject({
@@ -195,7 +195,7 @@ describe('OAuth API Endpoints', () => {
       const insertResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes)
          VALUES ('test@example.com', 'google', 'test-token', ARRAY['contacts'])
-         RETURNING id::text`
+         RETURNING id::text`,
       );
       const connectionId = insertResult.rows[0].id;
 
@@ -207,10 +207,7 @@ describe('OAuth API Endpoints', () => {
       expect(response.statusCode).toBe(204);
 
       // Verify deletion
-      const checkResult = await pool.query(
-        'SELECT id FROM oauth_connection WHERE id = $1',
-        [connectionId]
-      );
+      const checkResult = await pool.query('SELECT id FROM oauth_connection WHERE id = $1', [connectionId]);
       expect(checkResult.rows).toHaveLength(0);
     });
 

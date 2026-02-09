@@ -30,41 +30,33 @@ export function useLabels(): UseLabelsReturn {
     fetchLabels();
   }, [fetchLabels]);
 
-  const createLabel = React.useCallback(
-    async (data: CreateLabelData): Promise<Label> => {
-      const response = await fetch('/api/labels', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to create label: ${response.status}`);
-      }
-      const newLabel = await response.json();
-      setLabels((prev) => [...prev, newLabel]);
-      return newLabel;
-    },
-    []
-  );
+  const createLabel = React.useCallback(async (data: CreateLabelData): Promise<Label> => {
+    const response = await fetch('/api/labels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to create label: ${response.status}`);
+    }
+    const newLabel = await response.json();
+    setLabels((prev) => [...prev, newLabel]);
+    return newLabel;
+  }, []);
 
-  const updateLabel = React.useCallback(
-    async (id: string, data: UpdateLabelData): Promise<Label> => {
-      const response = await fetch(`/api/labels/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to update label: ${response.status}`);
-      }
-      const updatedLabel = await response.json();
-      setLabels((prev) =>
-        prev.map((label) => (label.id === id ? updatedLabel : label))
-      );
-      return updatedLabel;
-    },
-    []
-  );
+  const updateLabel = React.useCallback(async (id: string, data: UpdateLabelData): Promise<Label> => {
+    const response = await fetch(`/api/labels/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update label: ${response.status}`);
+    }
+    const updatedLabel = await response.json();
+    setLabels((prev) => prev.map((label) => (label.id === id ? updatedLabel : label)));
+    return updatedLabel;
+  }, []);
 
   const deleteLabel = React.useCallback(async (id: string): Promise<void> => {
     const response = await fetch(`/api/labels/${id}`, {

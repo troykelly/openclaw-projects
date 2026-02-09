@@ -32,8 +32,7 @@ export function useCreateMemory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ workItemId, body }: CreateMemoryVariables) =>
-      apiClient.post<Memory>(`/api/work-items/${workItemId}/memories`, body),
+    mutationFn: ({ workItemId, body }: CreateMemoryVariables) => apiClient.post<Memory>(`/api/work-items/${workItemId}/memories`, body),
 
     onSuccess: (_data, { workItemId }) => {
       // Invalidate the work item's memories list and global memories

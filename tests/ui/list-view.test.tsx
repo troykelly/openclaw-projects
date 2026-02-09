@@ -9,27 +9,11 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  ListView,
-  type ListViewProps,
-} from '@/ui/components/list-view/list-view';
-import {
-  ColumnConfig,
-  type ColumnConfigProps,
-} from '@/ui/components/list-view/column-config';
-import {
-  ListHeader,
-  type ListHeaderProps,
-} from '@/ui/components/list-view/list-header';
-import {
-  ListRow,
-  type ListRowProps,
-} from '@/ui/components/list-view/list-row';
-import type {
-  Column,
-  ColumnDefinition,
-  ListItem,
-} from '@/ui/components/list-view/types';
+import { ListView, type ListViewProps } from '@/ui/components/list-view/list-view';
+import { ColumnConfig, type ColumnConfigProps } from '@/ui/components/list-view/column-config';
+import { ListHeader, type ListHeaderProps } from '@/ui/components/list-view/list-header';
+import { ListRow, type ListRowProps } from '@/ui/components/list-view/list-row';
+import type { Column, ColumnDefinition, ListItem } from '@/ui/components/list-view/types';
 
 // Mock data
 const mockColumns: ColumnDefinition[] = [
@@ -116,13 +100,7 @@ describe('ListView', () => {
 
   it('should call onSelectionChange when items selected', () => {
     const onSelectionChange = vi.fn();
-    render(
-      <ListView
-        {...defaultProps}
-        selectable
-        onSelectionChange={onSelectionChange}
-      />
-    );
+    render(<ListView {...defaultProps} selectable onSelectionChange={onSelectionChange} />);
 
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]); // First item checkbox (0 is header)
@@ -132,13 +110,7 @@ describe('ListView', () => {
 
   it('should support select all', () => {
     const onSelectionChange = vi.fn();
-    render(
-      <ListView
-        {...defaultProps}
-        selectable
-        onSelectionChange={onSelectionChange}
-      />
-    );
+    render(<ListView {...defaultProps} selectable onSelectionChange={onSelectionChange} />);
 
     const headerCheckbox = screen.getAllByRole('checkbox')[0];
     fireEvent.click(headerCheckbox);
@@ -167,14 +139,7 @@ describe('ListView', () => {
 
   it('should toggle sort direction on repeated clicks', () => {
     const onSort = vi.fn();
-    render(
-      <ListView
-        {...defaultProps}
-        onSort={onSort}
-        sortColumn="title"
-        sortDirection="asc"
-      />
-    );
+    render(<ListView {...defaultProps} onSort={onSort} sortColumn="title" sortDirection="asc" />);
 
     fireEvent.click(screen.getByText('Title'));
 
@@ -182,26 +147,14 @@ describe('ListView', () => {
   });
 
   it('should show sort indicator on sorted column', () => {
-    render(
-      <ListView
-        {...defaultProps}
-        sortColumn="title"
-        sortDirection="asc"
-      />
-    );
+    render(<ListView {...defaultProps} sortColumn="title" sortDirection="asc" />);
 
     const titleHeader = screen.getByText('Title').closest('th');
     expect(titleHeader).toHaveAttribute('data-sorted', 'true');
   });
 
   it('should highlight selected rows', () => {
-    render(
-      <ListView
-        {...defaultProps}
-        selectable
-        selectedIds={['item-1']}
-      />
-    );
+    render(<ListView {...defaultProps} selectable selectedIds={['item-1']} />);
 
     const row = screen.getByTestId('list-row-item-1');
     expect(row).toHaveAttribute('data-selected', 'true');
@@ -225,7 +178,7 @@ describe('ListHeader', () => {
     render(
       <table>
         <ListHeader {...defaultProps} />
-      </table>
+      </table>,
     );
     expect(screen.getByText('Title')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
@@ -235,7 +188,7 @@ describe('ListHeader', () => {
     render(
       <table>
         <ListHeader {...defaultProps} selectable />
-      </table>
+      </table>,
     );
     expect(screen.getByRole('checkbox')).toBeInTheDocument();
   });
@@ -245,7 +198,7 @@ describe('ListHeader', () => {
     render(
       <table>
         <ListHeader {...defaultProps} selectable onSelectAll={onSelectAll} />
-      </table>
+      </table>,
     );
 
     fireEvent.click(screen.getByRole('checkbox'));
@@ -257,7 +210,7 @@ describe('ListHeader', () => {
     render(
       <table>
         <ListHeader {...defaultProps} selectable allSelected />
-      </table>
+      </table>,
     );
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
@@ -267,7 +220,7 @@ describe('ListHeader', () => {
     render(
       <table>
         <ListHeader {...defaultProps} onSort={onSort} />
-      </table>
+      </table>,
     );
 
     fireEvent.click(screen.getByText('Status'));
@@ -277,14 +230,11 @@ describe('ListHeader', () => {
 
   it('should not call onSort for non-sortable columns', () => {
     const onSort = vi.fn();
-    const columnsWithNonSortable = [
-      ...mockColumns.slice(0, -1),
-      { id: 'actions', label: 'Actions', width: 80, sortable: false },
-    ];
+    const columnsWithNonSortable = [...mockColumns.slice(0, -1), { id: 'actions', label: 'Actions', width: 80, sortable: false }];
     render(
       <table>
         <ListHeader {...defaultProps} columns={columnsWithNonSortable} onSort={onSort} />
-      </table>
+      </table>,
     );
 
     fireEvent.click(screen.getByText('Actions'));
@@ -314,7 +264,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} />
         </tbody>
-      </table>
+      </table>,
     );
     expect(screen.getByText('Implement feature A')).toBeInTheDocument();
     expect(screen.getByText('high')).toBeInTheDocument();
@@ -328,7 +278,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} onClick={onClick} />
         </tbody>
-      </table>
+      </table>,
     );
 
     fireEvent.click(screen.getByText('Implement feature A'));
@@ -342,7 +292,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} selectable />
         </tbody>
-      </table>
+      </table>,
     );
     expect(screen.getByRole('checkbox')).toBeInTheDocument();
   });
@@ -354,7 +304,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} selectable onSelect={onSelect} />
         </tbody>
-      </table>
+      </table>,
     );
 
     fireEvent.click(screen.getByRole('checkbox'));
@@ -368,7 +318,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} selectable selected />
         </tbody>
-      </table>
+      </table>,
     );
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
@@ -379,7 +329,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} selected />
         </tbody>
-      </table>
+      </table>,
     );
 
     const row = screen.getByTestId(`list-row-${mockItem.id}`);
@@ -393,7 +343,7 @@ describe('ListRow', () => {
         <tbody>
           <ListRow {...defaultProps} item={itemWithNulls} />
         </tbody>
-      </table>
+      </table>,
     );
     expect(screen.getByText('Write documentation')).toBeInTheDocument();
   });
@@ -453,9 +403,7 @@ describe('ColumnConfig', () => {
     const dueDateCheckbox = screen.getByRole('checkbox', { name: /due date/i });
     fireEvent.click(dueDateCheckbox);
 
-    expect(onColumnsChange).toHaveBeenCalledWith(
-      expect.arrayContaining(['title', 'status', 'priority', 'assignee', 'dueDate'])
-    );
+    expect(onColumnsChange).toHaveBeenCalledWith(expect.arrayContaining(['title', 'status', 'priority', 'assignee', 'dueDate']));
   });
 
   it('should not allow hiding required columns', () => {

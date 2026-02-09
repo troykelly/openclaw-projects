@@ -32,36 +32,14 @@ import { MetadataGrid } from '@/ui/components/detail/metadata-grid';
 import { DescriptionEditor } from '@/ui/components/detail/description-editor';
 import { TodoList } from '@/ui/components/detail/todo-list';
 import { DependenciesSection } from '@/ui/components/detail/dependencies-section';
-import type {
-  WorkItemDetail as DetailComponentType,
-  WorkItemStatus,
-  WorkItemPriority,
-  WorkItemKind,
-  WorkItemDependency,
-} from '@/ui/components/detail/types';
+import type { WorkItemDetail as DetailComponentType, WorkItemStatus, WorkItemPriority, WorkItemKind, WorkItemDependency } from '@/ui/components/detail/types';
 import { ItemMemories } from '@/ui/components/memory/item-memories';
 import { MemoryEditor } from '@/ui/components/memory/memory-editor';
 import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
-import {
-  DeleteConfirmDialog,
-  UndoToast,
-  useWorkItemDelete,
-} from '@/ui/components/work-item-delete';
-import {
-  ChevronRight,
-  Calendar,
-  Network,
-  FileText,
-  CheckSquare,
-  GitBranch,
-  Activity,
-  Brain,
-  Mail,
-  Users,
-  Clock,
-} from 'lucide-react';
+import { DeleteConfirmDialog, UndoToast, useWorkItemDelete } from '@/ui/components/work-item-delete';
+import { ChevronRight, Calendar, Network, FileText, CheckSquare, GitBranch, Activity, Brain, Mail, Users, Clock } from 'lucide-react';
 
 /** Format a relative time string from a Date. */
 function formatRelativeTime(date: Date): string {
@@ -184,20 +162,16 @@ export function WorkItemDetailPage(): React.JSX.Element {
     body: e.body || undefined,
   }));
 
-  const calendarEvents: LinkedCalendarEvent[] = (commsData?.calendar_events ?? []).map(
-    (e) => ({
-      id: e.id,
-      title: 'Calendar Event',
-      startTime: e.received_at ? new Date(e.received_at) : new Date(),
-      endTime: e.received_at ? new Date(e.received_at) : new Date(),
-      attendees: [],
-    }),
-  );
+  const calendarEvents: LinkedCalendarEvent[] = (commsData?.calendar_events ?? []).map((e) => ({
+    id: e.id,
+    title: 'Calendar Event',
+    startTime: e.received_at ? new Date(e.received_at) : new Date(),
+    endTime: e.received_at ? new Date(e.received_at) : new Date(),
+    attendees: [],
+  }));
 
   // Filter activity for this work item
-  const itemActivity = (activityData?.items ?? []).filter(
-    (a) => a.work_item_id === itemId,
-  );
+  const itemActivity = (activityData?.items ?? []).filter((a) => a.work_item_id === itemId);
 
   // Handlers
   const handleUpdate = useCallback(
@@ -210,8 +184,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleTitleChange = (title: string) => handleUpdate({ title });
   const handleDescriptionChange = (description: string) => handleUpdate({ description });
   const handleStatusChange = (status: WorkItemStatus) => handleUpdate({ status });
-  const handlePriorityChange = (priority: WorkItemPriority) =>
-    handleUpdate({ priority: mapPriorityToApi(priority) });
+  const handlePriorityChange = (priority: WorkItemPriority) => handleUpdate({ priority: mapPriorityToApi(priority) });
   const handleDueDateChange = (date: string) => handleUpdate({ notAfter: date || null });
   const handleStartDateChange = (date: string) => handleUpdate({ notBefore: date || null });
   const handleEstimateChange = (minutes: string) => {
@@ -458,10 +431,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                 <TabsContent value="description" data-testid="tab-content-description">
                   <Card>
                     <CardContent className="pt-4">
-                      <DescriptionEditor
-                        description={workItem.description}
-                        onDescriptionChange={handleDescriptionChange}
-                      />
+                      <DescriptionEditor description={workItem.description} onDescriptionChange={handleDescriptionChange} />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -479,10 +449,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                 <TabsContent value="dependencies" data-testid="tab-content-dependencies">
                   <Card>
                     <CardContent className="pt-4">
-                      <DependenciesSection
-                        dependencies={workItem.dependencies}
-                        onDependencyClick={handleDependencyClick}
-                      />
+                      <DependenciesSection dependencies={workItem.dependencies} onDependencyClick={handleDependencyClick} />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -501,10 +468,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                       ) : (
                         <div className="space-y-3">
                           {itemActivity.map((act) => (
-                            <div
-                              key={act.id}
-                              className="flex items-start gap-3 py-2 border-b border-border last:border-0"
-                            >
+                            <div key={act.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
                               <div
                                 className={`size-7 rounded-full flex items-center justify-center shrink-0 ${
                                   act.actor_email?.includes('agent')
@@ -512,20 +476,14 @@ export function WorkItemDetailPage(): React.JSX.Element {
                                     : 'bg-primary/10 text-primary dark:bg-primary/20'
                                 }`}
                               >
-                                <span className="text-xs font-medium">
-                                  {(act.actor_email ?? 'S').charAt(0).toUpperCase()}
-                                </span>
+                                <span className="text-xs font-medium">{(act.actor_email ?? 'S').charAt(0).toUpperCase()}</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm">
-                                  <span className="font-medium text-foreground">
-                                    {act.actor_email || 'System'}
-                                  </span>{' '}
+                                  <span className="font-medium text-foreground">{act.actor_email || 'System'}</span>{' '}
                                   <span className="text-muted-foreground">{act.description}</span>
                                 </p>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {formatRelativeTime(new Date(act.created_at))}
-                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{formatRelativeTime(new Date(act.created_at))}</p>
                               </div>
                             </div>
                           ))}
@@ -556,12 +514,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                   {memoriesLoading ? (
                     <Skeleton width="100%" height={80} />
                   ) : (
-                    <ItemMemories
-                      memories={memories}
-                      onAddMemory={handleAddMemory}
-                      onEditMemory={handleEditMemory}
-                      onDeleteMemory={handleDeleteMemory}
-                    />
+                    <ItemMemories memories={memories} onAddMemory={handleAddMemory} onEditMemory={handleEditMemory} onDeleteMemory={handleDeleteMemory} />
                   )}
                 </CardContent>
               </Card>
@@ -572,7 +525,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Mail className="size-4 text-muted-foreground" />
                     Communications
-                    {(emails.length + calendarEvents.length) > 0 && (
+                    {emails.length + calendarEvents.length > 0 && (
                       <Badge variant="secondary" className="text-xs px-1.5 py-0">
                         {emails.length + calendarEvents.length}
                       </Badge>
@@ -583,12 +536,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                   {communicationsLoading ? (
                     <Skeleton width="100%" height={80} />
                   ) : (
-                    <ItemCommunications
-                      emails={emails}
-                      calendarEvents={calendarEvents}
-                      onUnlinkEmail={handleUnlinkEmail}
-                      onUnlinkEvent={handleUnlinkEvent}
-                    />
+                    <ItemCommunications emails={emails} calendarEvents={calendarEvents} onUnlinkEmail={handleUnlinkEmail} onUnlinkEvent={handleUnlinkEvent} />
                   )}
                 </CardContent>
               </Card>
@@ -609,9 +557,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
                       {participants.map((p, idx) => (
                         <li key={idx} className="flex items-center gap-2">
                           <div className="size-7 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                            <span className="text-xs font-medium text-primary">
-                              {(p.participant ?? 'U')[0].toUpperCase()}
-                            </span>
+                            <span className="text-xs font-medium text-primary">{(p.participant ?? 'U')[0].toUpperCase()}</span>
                           </div>
                           <span className="text-sm">{p.participant ?? 'Unknown'}</span>
                           {p.role && (
@@ -642,22 +588,11 @@ export function WorkItemDetailPage(): React.JSX.Element {
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        item={
-          workItem
-            ? { id: workItem.id, title: workItem.title, kind: workItem.kind, childCount: 0 }
-            : undefined
-        }
+        item={workItem ? { id: workItem.id, title: workItem.title, kind: workItem.kind, childCount: 0 } : undefined}
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
       />
-      {undoState && (
-        <UndoToast
-          visible={!!undoState}
-          itemTitle={undoState.itemTitle}
-          onUndo={undoState.onUndo}
-          onDismiss={dismissUndo}
-        />
-      )}
+      {undoState && <UndoToast visible={!!undoState} itemTitle={undoState.itemTitle} onUndo={undoState.onUndo} onDismiss={dismissUndo} />}
     </div>
   );
 }

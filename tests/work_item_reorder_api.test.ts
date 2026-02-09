@@ -49,7 +49,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       `SELECT id::text as id FROM work_item
        WHERE parent_work_item_id = $1
        ORDER BY sort_order ASC`,
-      [parentId]
+      [parentId],
     );
     return result.rows.map((r: { id: string }) => r.id);
   }
@@ -86,10 +86,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('moves item after a specific sibling', async () => {
       // First normalize the sort_orders to have gaps
       for (let i = 0; i < childIds.length; i++) {
-        await pool.query('UPDATE work_item SET sort_order = $1 WHERE id = $2', [
-          (i + 1) * 1000,
-          childIds[i],
-        ]);
+        await pool.query('UPDATE work_item SET sort_order = $1 WHERE id = $2', [(i + 1) * 1000, childIds[i]]);
       }
 
       // Move D after A (A, D, B, C)
@@ -110,10 +107,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('moves item before a specific sibling', async () => {
       // First normalize the sort_orders to have gaps
       for (let i = 0; i < childIds.length; i++) {
-        await pool.query('UPDATE work_item SET sort_order = $1 WHERE id = $2', [
-          (i + 1) * 1000,
-          childIds[i],
-        ]);
+        await pool.query('UPDATE work_item SET sort_order = $1 WHERE id = $2', [(i + 1) * 1000, childIds[i]]);
       }
 
       // Move D before B (A, D, B, C)
@@ -200,10 +194,7 @@ describe('Work Item Reorder API (issue #104)', () => {
     it('handles reordering to same position (no-op)', async () => {
       // First normalize the sort_orders to have gaps
       for (let i = 0; i < childIds.length; i++) {
-        await pool.query('UPDATE work_item SET sort_order = $1 WHERE id = $2', [
-          (i + 1) * 1000,
-          childIds[i],
-        ]);
+        await pool.query('UPDATE work_item SET sort_order = $1 WHERE id = $2', [(i + 1) * 1000, childIds[i]]);
       }
 
       // Move B after A (it's already there)
@@ -239,7 +230,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const result = await pool.query(
         `SELECT id::text as id FROM work_item
          WHERE parent_work_item_id IS NULL
-         ORDER BY sort_order ASC`
+         ORDER BY sort_order ASC`,
       );
       const topLevelOrder = result.rows.map((r: { id: string }) => r.id);
       expect(topLevelOrder[0]).toBe(init2Id);

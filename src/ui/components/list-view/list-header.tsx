@@ -34,11 +34,7 @@ export function ListHeader({
       <tr>
         {selectable && (
           <th className="w-10 px-2 py-3">
-            <Checkbox
-              checked={indeterminate ? 'indeterminate' : allSelected}
-              onCheckedChange={onSelectAll}
-              aria-label="Select all"
-            />
+            <Checkbox checked={indeterminate ? 'indeterminate' : allSelected} onCheckedChange={onSelectAll} aria-label="Select all" />
           </th>
         )}
         {columns.map((column) => {
@@ -52,7 +48,7 @@ export function ListHeader({
                 'px-4 py-3 text-left text-sm font-medium text-muted-foreground',
                 canSort && 'cursor-pointer hover:text-foreground',
                 column.align === 'center' && 'text-center',
-                column.align === 'right' && 'text-right'
+                column.align === 'right' && 'text-right',
               )}
               style={{ width: column.width }}
               onClick={() => canSort && onSort?.(column.id)}
@@ -60,15 +56,7 @@ export function ListHeader({
             >
               <div className="flex items-center gap-1">
                 <span>{column.label}</span>
-                {isSorted && (
-                  <span className="ml-1">
-                    {sortDirection === 'asc' ? (
-                      <ArrowUp className="h-4 w-4" />
-                    ) : (
-                      <ArrowDown className="h-4 w-4" />
-                    )}
-                  </span>
-                )}
+                {isSorted && <span className="ml-1">{sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}</span>}
               </div>
             </th>
           );

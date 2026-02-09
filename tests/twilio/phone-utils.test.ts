@@ -4,12 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  normalizePhoneNumber,
-  getLocalNumber,
-  formatPhoneForDisplay,
-  createSmsThreadKey,
-} from '../../src/api/twilio/phone-utils.ts';
+import { normalizePhoneNumber, getLocalNumber, formatPhoneForDisplay, createSmsThreadKey } from '../../src/api/twilio/phone-utils.ts';
 
 describe('Phone Utils', () => {
   describe('normalizePhoneNumber', () => {

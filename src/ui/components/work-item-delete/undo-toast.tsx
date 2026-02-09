@@ -4,14 +4,7 @@ import type { UndoToastProps } from './types';
 
 const DEFAULT_TIMEOUT = 5000;
 
-export function UndoToast({
-  visible,
-  itemTitle,
-  itemCount,
-  onUndo,
-  onDismiss,
-  timeout = DEFAULT_TIMEOUT,
-}: UndoToastProps) {
+export function UndoToast({ visible, itemTitle, itemCount, onUndo, onDismiss, timeout = DEFAULT_TIMEOUT }: UndoToastProps) {
   React.useEffect(() => {
     if (!visible) return;
 
@@ -34,10 +27,7 @@ export function UndoToast({
   };
 
   return (
-    <div
-      role="alert"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background px-4 py-3 shadow-lg"
-    >
+    <div role="alert" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border bg-background px-4 py-3 shadow-lg">
       <span className="text-sm">{getMessage()}</span>
       <Button variant="outline" size="sm" onClick={onUndo}>
         Undo

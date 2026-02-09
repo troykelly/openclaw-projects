@@ -9,27 +9,11 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  OrganizationCard,
-  type OrganizationCardProps,
-} from '@/ui/components/organizations/organization-card';
-import {
-  ContactGroupBadge,
-  type ContactGroupBadgeProps,
-} from '@/ui/components/organizations/contact-group-badge';
-import {
-  ContactGroupManager,
-  type ContactGroupManagerProps,
-} from '@/ui/components/organizations/contact-group-manager';
-import {
-  OrganizationFilter,
-  type OrganizationFilterProps,
-} from '@/ui/components/organizations/organization-filter';
-import type {
-  Organization,
-  ContactGroup,
-  ContactRelationship,
-} from '@/ui/components/organizations/types';
+import { OrganizationCard, type OrganizationCardProps } from '@/ui/components/organizations/organization-card';
+import { ContactGroupBadge, type ContactGroupBadgeProps } from '@/ui/components/organizations/contact-group-badge';
+import { ContactGroupManager, type ContactGroupManagerProps } from '@/ui/components/organizations/contact-group-manager';
+import { OrganizationFilter, type OrganizationFilterProps } from '@/ui/components/organizations/organization-filter';
+import type { Organization, ContactGroup, ContactRelationship } from '@/ui/components/organizations/types';
 
 describe('OrganizationCard', () => {
   const defaultProps: OrganizationCardProps = {
@@ -77,12 +61,7 @@ describe('OrganizationCard', () => {
   });
 
   it('should show logo if provided', () => {
-    render(
-      <OrganizationCard
-        {...defaultProps}
-        organization={{ ...defaultProps.organization, logo: 'https://acme.com/logo.png' }}
-      />
-    );
+    render(<OrganizationCard {...defaultProps} organization={{ ...defaultProps.organization, logo: 'https://acme.com/logo.png' }} />);
     const logo = screen.getByRole('img');
     expect(logo).toHaveAttribute('src', 'https://acme.com/logo.png');
   });
@@ -195,9 +174,7 @@ describe('ContactGroupManager', () => {
     await waitFor(() => {
       // VIP Clients is assigned, should not be in dropdown
       const dropdownItems = screen.getAllByRole('option');
-      const hasVIP = dropdownItems.some((item) =>
-        item.textContent?.includes('VIP Clients')
-      );
+      const hasVIP = dropdownItems.some((item) => item.textContent?.includes('VIP Clients'));
       expect(hasVIP).toBe(false);
     });
   });
@@ -324,9 +301,7 @@ describe('Integration', () => {
     expect(groupFiltered).toHaveLength(2);
 
     // Filter by both
-    const bothFiltered = contacts.filter(
-      (c) => c.organizationId === 'org-1' && c.groups.includes('group-1')
-    );
+    const bothFiltered = contacts.filter((c) => c.organizationId === 'org-1' && c.groups.includes('group-1'));
     expect(bothFiltered).toHaveLength(1);
   });
 });

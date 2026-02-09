@@ -9,12 +9,7 @@
 
 import { execSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
-import {
-  type EmbeddingProviderName,
-  PROVIDER_PRIORITY,
-  PROVIDER_DETAILS,
-  type ProviderDetails,
-} from './types.ts';
+import { type EmbeddingProviderName, PROVIDER_PRIORITY, PROVIDER_DETAILS, type ProviderDetails } from './types.ts';
 
 /**
  * Environment variable names for each provider's API key.
@@ -65,9 +60,7 @@ export function loadApiKey(envVarBase: string): string {
       const stats = statSync(file);
       const mode = stats.mode & 0o777;
       if (mode & 0o004) {
-        console.warn(
-          `[Embeddings] Warning: API key file ${file} is world-readable (mode ${mode.toString(8)})`
-        );
+        console.warn(`[Embeddings] Warning: API key file ${file} is world-readable (mode ${mode.toString(8)})`);
       }
 
       const content = readFileSync(file, 'utf-8');
@@ -105,10 +98,7 @@ export function getApiKey(provider: EmbeddingProviderName): string {
   const envVar = PROVIDER_ENV_VARS[provider];
   const key = loadApiKey(envVar);
   if (!key) {
-    throw new Error(
-      `[Embeddings] No API key configured for ${provider}. ` +
-        `Set ${envVar}, ${envVar}_FILE, or ${envVar}_COMMAND.`
-    );
+    throw new Error(`[Embeddings] No API key configured for ${provider}. ` + `Set ${envVar}, ${envVar}_FILE, or ${envVar}_COMMAND.`);
   }
   return key;
 }
@@ -128,9 +118,7 @@ export function getActiveProvider(): EmbeddingProviderName | null {
     if (isProviderConfigured(explicitProvider)) {
       return explicitProvider;
     }
-    console.warn(
-      `[Embeddings] EMBEDDING_PROVIDER=${explicitProvider} specified but not configured. Falling back to auto-detection.`
-    );
+    console.warn(`[Embeddings] EMBEDDING_PROVIDER=${explicitProvider} specified but not configured. Falling back to auto-detection.`);
   }
 
   // Auto-detect first configured provider in priority order

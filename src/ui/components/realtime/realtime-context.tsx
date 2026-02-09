@@ -47,13 +47,7 @@ interface EventHandler {
   entityId?: string;
 }
 
-export function RealtimeProvider({
-  url,
-  children,
-  reconnectOptions: userReconnectOptions,
-  onStatusChange,
-  onError,
-}: RealtimeProviderProps) {
+export function RealtimeProvider({ url, children, reconnectOptions: userReconnectOptions, onStatusChange, onError }: RealtimeProviderProps) {
   const reconnectOptions = {
     ...DEFAULT_RECONNECT_OPTIONS,
     ...userReconnectOptions,
@@ -71,7 +65,7 @@ export function RealtimeProvider({
       setStatus(newStatus);
       onStatusChange?.(newStatus);
     },
-    [onStatusChange]
+    [onStatusChange],
   );
 
   const connect = React.useCallback(() => {
@@ -108,9 +102,8 @@ export function RealtimeProvider({
         if (reconnectAttemptRef.current < reconnectOptions.maxAttempts) {
           updateStatus('reconnecting');
           const delay = Math.min(
-            reconnectOptions.initialDelay *
-              Math.pow(reconnectOptions.backoffMultiplier, reconnectAttemptRef.current),
-            reconnectOptions.maxDelay
+            reconnectOptions.initialDelay * Math.pow(reconnectOptions.backoffMultiplier, reconnectAttemptRef.current),
+            reconnectOptions.maxDelay,
           );
           reconnectAttemptRef.current++;
           reconnectTimeoutRef.current = setTimeout(connect, delay);
@@ -193,24 +186,15 @@ export function RealtimeProvider({
     }
   }, []);
 
-  const addEventHandler = React.useCallback(
-    (
-      eventType: RealtimeEventType,
-      handler: (event: RealtimeEvent) => void,
-      entityId?: string
-    ) => {
-      const handlerObj: EventHandler = { eventType, handler, entityId };
-      eventHandlersRef.current.push(handlerObj);
+  const addEventHandler = React.useCallback((eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entityId?: string) => {
+    const handlerObj: EventHandler = { eventType, handler, entityId };
+    eventHandlersRef.current.push(handlerObj);
 
-      // Return cleanup function
-      return () => {
-        eventHandlersRef.current = eventHandlersRef.current.filter(
-          (h) => h !== handlerObj
-        );
-      };
-    },
-    []
-  );
+    // Return cleanup function
+    return () => {
+      eventHandlersRef.current = eventHandlersRef.current.filter((h) => h !== handlerObj);
+    };
+  }, []);
 
   const sendEvent = React.useCallback((event: RealtimeEvent) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -230,9 +214,5 @@ export function RealtimeProvider({
     sendEvent,
   };
 
-  return (
-    <RealtimeContext.Provider value={value}>
-      {children}
-    </RealtimeContext.Provider>
-  );
+  return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }

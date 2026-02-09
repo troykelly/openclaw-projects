@@ -29,18 +29,16 @@ describe('Communications API', () => {
   // Helper to create a contact + endpoint + thread + message
   async function createTestThread(
     channel: string = 'email',
-    threadKey: string = 'test-thread'
+    threadKey: string = 'test-thread',
   ): Promise<{ contactId: string; endpointId: string; threadId: string; messageId: string }> {
-    const contact = await pool.query(
-      `INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text as id`
-    );
+    const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text as id`);
     const contactId = (contact.rows[0] as { id: string }).id;
 
     const endpoint = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, $2::contact_endpoint_type, 'test@example.com')
        RETURNING id::text as id`,
-      [contactId, channel]
+      [contactId, channel],
     );
     const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -48,7 +46,7 @@ describe('Communications API', () => {
       `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
        VALUES ($1, $2::contact_endpoint_type, $3)
        RETURNING id::text as id`,
-      [endpointId, channel, threadKey]
+      [endpointId, channel, threadKey],
     );
     const threadId = (thread.rows[0] as { id: string }).id;
 
@@ -56,7 +54,7 @@ describe('Communications API', () => {
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
        VALUES ($1, 'msg-1', 'inbound', 'Test message body', '2024-03-01T10:00:00Z')
        RETURNING id::text as id`,
-      [threadId]
+      [threadId],
     );
     const messageId = (message.rows[0] as { id: string }).id;
 
@@ -77,7 +75,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -97,7 +95,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -108,7 +106,7 @@ describe('Communications API', () => {
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [itemId, threadId, messageId]
+        [itemId, threadId, messageId],
       );
 
       const res = await app.inject({
@@ -140,7 +138,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -158,14 +156,14 @@ describe('Communications API', () => {
             from: 'alice@example.com',
           }),
           messageId,
-        ]
+        ],
       );
 
       // Link to work item
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'follow_up')`,
-        [itemId, threadId, messageId]
+        [itemId, threadId, messageId],
       );
 
       const res = await app.inject({
@@ -210,7 +208,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -227,7 +225,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -245,7 +243,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -275,7 +273,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -307,7 +305,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -324,7 +322,7 @@ describe('Communications API', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -333,7 +331,7 @@ describe('Communications API', () => {
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [itemId, threadId, messageId]
+        [itemId, threadId, messageId],
       );
 
       // Get the communication link ID (it's the work_item_id since it's a 1:1 table)
@@ -347,10 +345,7 @@ describe('Communications API', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
-      const check = await pool.query(
-        `SELECT * FROM work_item_communication WHERE work_item_id = $1`,
-        [itemId]
-      );
+      const check = await pool.query(`SELECT * FROM work_item_communication WHERE work_item_id = $1`, [itemId]);
       expect(check.rows.length).toBe(0);
     });
   });

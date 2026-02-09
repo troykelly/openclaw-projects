@@ -54,11 +54,7 @@ describe('Migrate Dockerfile hardening', () => {
     });
 
     it('defines OCI label build args', () => {
-      const requiredArgs = [
-        'BUILD_DATE',
-        'VCS_REF',
-        'VERSION',
-      ];
+      const requiredArgs = ['BUILD_DATE', 'VCS_REF', 'VERSION'];
 
       for (const arg of requiredArgs) {
         expect(dockerfileContent).toContain(`ARG ${arg}`);
@@ -91,12 +87,18 @@ describe('Migrate Dockerfile hardening', () => {
     beforeAll(() => {
       // Build the image with test labels
       const buildCommand = [
-        'docker', 'build',
-        '-f', DOCKERFILE_PATH,
-        '-t', IMAGE_NAME,
-        '--build-arg', 'BUILD_DATE=2026-02-04T00:00:00Z',
-        '--build-arg', 'VCS_REF=abc123',
-        '--build-arg', 'VERSION=1.0.0-test',
+        'docker',
+        'build',
+        '-f',
+        DOCKERFILE_PATH,
+        '-t',
+        IMAGE_NAME,
+        '--build-arg',
+        'BUILD_DATE=2026-02-04T00:00:00Z',
+        '--build-arg',
+        'VCS_REF=abc123',
+        '--build-arg',
+        'VERSION=1.0.0-test',
         BUILD_CONTEXT,
       ].join(' ');
 
@@ -113,10 +115,7 @@ describe('Migrate Dockerfile hardening', () => {
     });
 
     it('image has OCI labels set correctly', () => {
-      const inspectResult = execSync(
-        `docker inspect ${IMAGE_NAME} --format '{{json .Config.Labels}}'`,
-        { encoding: 'utf-8' }
-      );
+      const inspectResult = execSync(`docker inspect ${IMAGE_NAME} --format '{{json .Config.Labels}}'`, { encoding: 'utf-8' });
 
       const labels = JSON.parse(inspectResult);
 
@@ -130,10 +129,7 @@ describe('Migrate Dockerfile hardening', () => {
 
     it('image runs as non-root user', () => {
       // Run a test container and check the user
-      const result = spawnSync('docker', [
-        'run', '--rm', '--entrypoint', 'id',
-        IMAGE_NAME,
-      ], { encoding: 'utf-8' });
+      const result = spawnSync('docker', ['run', '--rm', '--entrypoint', 'id', IMAGE_NAME], { encoding: 'utf-8' });
 
       const output = result.stdout || result.stderr;
 
@@ -143,20 +139,14 @@ describe('Migrate Dockerfile hardening', () => {
     });
 
     it('migrations directory is present', () => {
-      const result = spawnSync('docker', [
-        'run', '--rm', '--entrypoint', 'ls',
-        IMAGE_NAME, '-la', '/migrations',
-      ], { encoding: 'utf-8' });
+      const result = spawnSync('docker', ['run', '--rm', '--entrypoint', 'ls', IMAGE_NAME, '-la', '/migrations'], { encoding: 'utf-8' });
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('001_init.up.sql');
     });
 
     it('migrate binary is executable', () => {
-      const result = spawnSync('docker', [
-        'run', '--rm',
-        IMAGE_NAME, '--version',
-      ], { encoding: 'utf-8' });
+      const result = spawnSync('docker', ['run', '--rm', IMAGE_NAME, '--version'], { encoding: 'utf-8' });
 
       // migrate tool should output version info
       expect(result.stdout + result.stderr).toMatch(/\d+\.\d+/);
@@ -165,15 +155,25 @@ describe('Migrate Dockerfile hardening', () => {
 
   describe('Multi-architecture build validation', () => {
     it('builds for linux/amd64', () => {
-      const result = spawnSync('docker', [
-        'buildx', 'build',
-        '--platform', 'linux/amd64',
-        '-f', DOCKERFILE_PATH,
-        '--build-arg', 'BUILD_DATE=2026-02-04T00:00:00Z',
-        '--build-arg', 'VCS_REF=test',
-        '--build-arg', 'VERSION=test',
-        BUILD_CONTEXT,
-      ], { encoding: 'utf-8', timeout: 120000 });
+      const result = spawnSync(
+        'docker',
+        [
+          'buildx',
+          'build',
+          '--platform',
+          'linux/amd64',
+          '-f',
+          DOCKERFILE_PATH,
+          '--build-arg',
+          'BUILD_DATE=2026-02-04T00:00:00Z',
+          '--build-arg',
+          'VCS_REF=test',
+          '--build-arg',
+          'VERSION=test',
+          BUILD_CONTEXT,
+        ],
+        { encoding: 'utf-8', timeout: 120000 },
+      );
 
       expect(result.status).toBe(0);
     }, 180000);
@@ -187,15 +187,25 @@ describe('Migrate Dockerfile hardening', () => {
         return;
       }
 
-      const result = spawnSync('docker', [
-        'buildx', 'build',
-        '--platform', 'linux/arm64',
-        '-f', DOCKERFILE_PATH,
-        '--build-arg', 'BUILD_DATE=2026-02-04T00:00:00Z',
-        '--build-arg', 'VCS_REF=test',
-        '--build-arg', 'VERSION=test',
-        BUILD_CONTEXT,
-      ], { encoding: 'utf-8', timeout: 120000 });
+      const result = spawnSync(
+        'docker',
+        [
+          'buildx',
+          'build',
+          '--platform',
+          'linux/arm64',
+          '-f',
+          DOCKERFILE_PATH,
+          '--build-arg',
+          'BUILD_DATE=2026-02-04T00:00:00Z',
+          '--build-arg',
+          'VCS_REF=test',
+          '--build-arg',
+          'VERSION=test',
+          BUILD_CONTEXT,
+        ],
+        { encoding: 'utf-8', timeout: 120000 },
+      );
 
       expect(result.status).toBe(0);
     }, 180000);
@@ -214,16 +224,12 @@ describe('Migrate Dockerfile hardening', () => {
 
       // Verify the manifest includes both architectures by checking Docker Hub
       // (The image we use - migrate/migrate:v4.19.1 - is published for amd64 and arm64)
-      const result = spawnSync('docker', [
-        'manifest', 'inspect', fromLine!,
-      ], { encoding: 'utf-8', timeout: 30000 });
+      const result = spawnSync('docker', ['manifest', 'inspect', fromLine!], { encoding: 'utf-8', timeout: 30000 });
 
       // If manifest inspect works, check it has both platforms
       if (result.status === 0) {
         const manifest = JSON.parse(result.stdout);
-        const platforms = manifest.manifests?.map((m: { platform?: { architecture?: string } }) =>
-          m.platform?.architecture
-        ) || [];
+        const platforms = manifest.manifests?.map((m: { platform?: { architecture?: string } }) => m.platform?.architecture) || [];
 
         expect(platforms).toContain('amd64');
         expect(platforms).toContain('arm64');

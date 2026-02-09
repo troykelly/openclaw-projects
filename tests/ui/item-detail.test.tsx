@@ -57,28 +57,14 @@ describe('ItemHeader', () => {
   });
 
   it('renders breadcrumb when parent is provided', () => {
-    render(
-      <ItemHeader
-        title="Test"
-        kind="issue"
-        status="in_progress"
-        parentTitle="Parent Epic"
-      />
-    );
+    render(<ItemHeader title="Test" kind="issue" status="in_progress" parentTitle="Parent Epic" />);
 
     expect(screen.getByText('Parent Epic')).toBeInTheDocument();
   });
 
   it('shows edit button on hover and allows inline editing', () => {
     const onTitleChange = vi.fn();
-    render(
-      <ItemHeader
-        title="Test"
-        kind="issue"
-        status="in_progress"
-        onTitleChange={onTitleChange}
-      />
-    );
+    render(<ItemHeader title="Test" kind="issue" status="in_progress" onTitleChange={onTitleChange} />);
 
     // Edit button has sr-only text "Edit title", find it by that text
     const editButton = screen.getByText('Edit title');
@@ -108,14 +94,7 @@ describe('ItemHeader', () => {
 
 describe('MetadataGrid', () => {
   it('renders all metadata fields', () => {
-    render(
-      <MetadataGrid
-        status="in_progress"
-        priority="high"
-        assignee="John"
-        estimateMinutes={120}
-      />
-    );
+    render(<MetadataGrid status="in_progress" priority="high" assignee="John" estimateMinutes={120} />);
 
     expect(screen.getByText('In Progress')).toBeInTheDocument();
     expect(screen.getByText('High')).toBeInTheDocument();
@@ -297,13 +276,7 @@ describe('ItemDetail', () => {
     const onTitleChange = vi.fn();
     const onTodoToggle = vi.fn();
 
-    render(
-      <ItemDetail
-        item={mockItem}
-        onTitleChange={onTitleChange}
-        onTodoToggle={onTodoToggle}
-      />
-    );
+    render(<ItemDetail item={mockItem} onTitleChange={onTitleChange} onTodoToggle={onTodoToggle} />);
 
     // Toggle a todo
     const checkboxes = screen.getAllByRole('checkbox');

@@ -24,7 +24,7 @@ function getWeekNumber(date: Date): number {
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 function getUnitWidth(zoom: TimelineZoom): number {
@@ -73,12 +73,7 @@ export interface TimelineHeaderProps {
   className?: string;
 }
 
-export function TimelineHeader({
-  dateRange,
-  zoom,
-  todayPosition,
-  className,
-}: TimelineHeaderProps) {
+export function TimelineHeader({ dateRange, zoom, todayPosition, className }: TimelineHeaderProps) {
   const units = getUnits(dateRange, zoom);
   const unitWidth = getUnitWidth(zoom);
 
@@ -89,11 +84,7 @@ export function TimelineHeader({
         return (
           <div
             key={i}
-            className={cn(
-              'shrink-0 border-r px-2 text-xs',
-              'flex items-center justify-center',
-              isToday && 'bg-primary/10 font-medium'
-            )}
+            className={cn('shrink-0 border-r px-2 text-xs', 'flex items-center justify-center', isToday && 'bg-primary/10 font-medium')}
             style={{ width: `${unitWidth}px` }}
           >
             {formatHeaderDate(date, zoom)}
@@ -103,13 +94,8 @@ export function TimelineHeader({
 
       {/* Today marker */}
       {todayPosition !== undefined && todayPosition >= 0 && (
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-red-500"
-          style={{ left: `${todayPosition}px` }}
-        >
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded bg-red-500 px-1 text-xs text-white">
-            Today
-          </div>
+        <div className="absolute top-0 bottom-0 w-0.5 bg-red-500" style={{ left: `${todayPosition}px` }}>
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded bg-red-500 px-1 text-xs text-white">Today</div>
         </div>
       )}
     </div>

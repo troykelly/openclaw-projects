@@ -28,7 +28,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
     const project = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, not_before, not_after, estimate_minutes)
        VALUES ('Project', 'project', '2025-01-01', '2025-03-31', 60)
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
     const projectId = project.rows[0].id;
 
@@ -36,47 +36,47 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Initiative', 'initiative', $1, '2025-01-01', '2025-02-15', 120)
        RETURNING id::text as id`,
-      [projectId]
+      [projectId],
     );
 
     const epic = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Epic', 'epic', $1, '2025-01-01', '2025-01-31', 180)
        RETURNING id::text as id`,
-      [init.rows[0].id]
+      [init.rows[0].id],
     );
 
     const issueA = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Issue A', 'issue', $1, '2025-01-01', '2025-01-10', 480)
        RETURNING id::text as id`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     const issueB = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Issue B', 'issue', $1, '2025-01-11', '2025-01-20', 240)
        RETURNING id::text as id`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     const issueC = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Issue C', 'issue', $1, '2025-01-21', '2025-01-31', 120)
        RETURNING id::text as id`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     // Add dependencies: A -> B -> C (chain)
     await pool.query(
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, 'depends_on')`,
-      [issueB.rows[0].id, issueA.rows[0].id]
+      [issueB.rows[0].id, issueA.rows[0].id],
     );
     await pool.query(
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, 'depends_on')`,
-      [issueC.rows[0].id, issueB.rows[0].id]
+      [issueC.rows[0].id, issueB.rows[0].id],
     );
 
     const response = await app.inject({
@@ -119,7 +119,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
     const issue = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, not_before, not_after)
        VALUES ('Standalone', 'issue', '2025-01-01', '2025-01-15')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
 
     const response = await app.inject({
@@ -140,7 +140,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
     const project = await pool.query(
       `INSERT INTO work_item (title, work_item_kind)
        VALUES ('Project', 'project')
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
     const projectId = project.rows[0].id;
 
@@ -148,34 +148,34 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
        VALUES ('Init', 'initiative', $1)
        RETURNING id::text as id`,
-      [projectId]
+      [projectId],
     );
 
     const epic = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
        VALUES ('Epic', 'epic', $1)
        RETURNING id::text as id`,
-      [init.rows[0].id]
+      [init.rows[0].id],
     );
 
     const blocker = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, estimate_minutes)
        VALUES ('Blocker (open)', 'issue', $1, 'open', 120)
        RETURNING id::text as id`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     const blocked = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, estimate_minutes)
        VALUES ('Blocked (open)', 'issue', $1, 'open', 60)
        RETURNING id::text as id`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     await pool.query(
       `INSERT INTO work_item_dependency (work_item_id, depends_on_work_item_id, kind)
        VALUES ($1, $2, 'depends_on')`,
-      [blocked.rows[0].id, blocker.rows[0].id]
+      [blocked.rows[0].id, blocker.rows[0].id],
     );
 
     const response = await app.inject({

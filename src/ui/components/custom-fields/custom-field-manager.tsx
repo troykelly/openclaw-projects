@@ -8,14 +8,7 @@ import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Checkbox } from '@/ui/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,12 +22,7 @@ import {
 import { Badge } from '@/ui/components/ui/badge';
 import { cn } from '@/ui/lib/utils';
 import { fieldTypeHasOptions, fieldTypeHasValidation } from './validation';
-import type {
-  CustomFieldManagerProps,
-  CustomFieldType,
-  CreateCustomFieldData,
-  FIELD_TYPE_LABELS,
-} from './types';
+import type { CustomFieldManagerProps, CustomFieldType, CreateCustomFieldData, FIELD_TYPE_LABELS } from './types';
 
 const FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
   { value: 'text', label: 'Text' },
@@ -47,15 +35,7 @@ const FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
   { value: 'url', label: 'URL' },
 ];
 
-export function CustomFieldManager({
-  projectId,
-  fields,
-  onCreate,
-  onUpdate,
-  onDelete,
-  onReorder,
-  className,
-}: CustomFieldManagerProps) {
+export function CustomFieldManager({ projectId, fields, onCreate, onUpdate, onDelete, onReorder, className }: CustomFieldManagerProps) {
   const [showCreate, setShowCreate] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
 
@@ -68,10 +48,7 @@ export function CustomFieldManager({
   const [minValue, setMinValue] = React.useState('');
   const [maxValue, setMaxValue] = React.useState('');
 
-  const sortedFields = React.useMemo(
-    () => [...fields].sort((a, b) => a.order - b.order),
-    [fields]
-  );
+  const sortedFields = React.useMemo(() => [...fields].sort((a, b) => a.order - b.order), [fields]);
 
   const resetForm = () => {
     setName('');
@@ -127,9 +104,7 @@ export function CustomFieldManager({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium">Custom Fields</h3>
-          <p className="text-sm text-muted-foreground">
-            Define custom fields for work items in this project
-          </p>
+          <p className="text-sm text-muted-foreground">Define custom fields for work items in this project</p>
         </div>
         <Button onClick={() => setShowCreate(true)} aria-label="Add field">
           <PlusIcon className="h-4 w-4 mr-2" />
@@ -140,15 +115,10 @@ export function CustomFieldManager({
       {/* Field list */}
       <div className="space-y-2">
         {sortedFields.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
-            No custom fields defined yet
-          </p>
+          <p className="text-center text-muted-foreground py-8">No custom fields defined yet</p>
         ) : (
           sortedFields.map((field) => (
-            <div
-              key={field.id}
-              className="flex items-center gap-3 p-3 rounded-lg border bg-card"
-            >
+            <div key={field.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
               <GripVerticalIcon className="h-4 w-4 text-muted-foreground cursor-grab" />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -160,11 +130,7 @@ export function CustomFieldManager({
                     </Badge>
                   )}
                 </div>
-                {field.description && (
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {field.description}
-                  </p>
-                )}
+                {field.description && <p className="text-sm text-muted-foreground mt-0.5">{field.description}</p>}
               </div>
               <Button
                 variant="ghost"
@@ -185,21 +151,13 @@ export function CustomFieldManager({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Custom Field</DialogTitle>
-            <DialogDescription>
-              Add a new custom field for work items in this project.
-            </DialogDescription>
+            <DialogDescription>Add a new custom field for work items in this project.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="field-name">Field Name</Label>
-              <Input
-                id="field-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Sprint, Story Points"
-                aria-label="Field name"
-              />
+              <Input id="field-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Sprint, Story Points" aria-label="Field name" />
             </div>
 
             <div className="space-y-2">
@@ -221,20 +179,11 @@ export function CustomFieldManager({
 
             <div className="space-y-2">
               <Label htmlFor="field-description">Description (optional)</Label>
-              <Input
-                id="field-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Help text for this field"
-              />
+              <Input id="field-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Help text for this field" />
             </div>
 
             <div className="flex items-center gap-2">
-              <Checkbox
-                id="field-required"
-                checked={required}
-                onCheckedChange={(checked) => setRequired(checked === true)}
-              />
+              <Checkbox id="field-required" checked={required} onCheckedChange={(checked) => setRequired(checked === true)} />
               <Label htmlFor="field-required">Required field</Label>
             </div>
 
@@ -255,21 +204,11 @@ export function CustomFieldManager({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="field-min">Min Value</Label>
-                  <Input
-                    id="field-min"
-                    type="number"
-                    value={minValue}
-                    onChange={(e) => setMinValue(e.target.value)}
-                  />
+                  <Input id="field-min" type="number" value={minValue} onChange={(e) => setMinValue(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="field-max">Max Value</Label>
-                  <Input
-                    id="field-max"
-                    type="number"
-                    value={maxValue}
-                    onChange={(e) => setMaxValue(e.target.value)}
-                  />
+                  <Input id="field-max" type="number" value={maxValue} onChange={(e) => setMaxValue(e.target.value)} />
                 </div>
               </div>
             )}
@@ -298,16 +237,12 @@ export function CustomFieldManager({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Custom Field</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the field "{fieldToDelete?.name}"?
-              This will remove all values from existing work items.
+              Are you sure you want to delete the field "{fieldToDelete?.name}"? This will remove all values from existing work items.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Confirm
             </AlertDialogAction>
           </AlertDialogFooter>

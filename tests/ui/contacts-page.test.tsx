@@ -57,9 +57,7 @@ const mockContacts: Contact[] = [
     display_name: 'Bob Smith',
     notes: null,
     created_at: '2024-01-20T10:00:00Z',
-    endpoints: [
-      { type: 'email', value: 'bob@example.com' },
-    ],
+    endpoints: [{ type: 'email', value: 'bob@example.com' }],
   },
   {
     id: 'c-3',
@@ -205,9 +203,7 @@ describe('ContactsPage', () => {
   });
 
   it('shows error state when API fails', async () => {
-    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('Network error'),
-    );
+    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
 
     render(<ContactsPage />, { wrapper: createWrapper() });
 

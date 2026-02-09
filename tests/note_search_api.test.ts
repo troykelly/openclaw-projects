@@ -45,10 +45,7 @@ describe('Note Search API', () => {
     await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
 
     // Create test notebook
-    const notebookResult = await pool.query(
-      `INSERT INTO notebook (user_email, name) VALUES ($1, $2) RETURNING id::text`,
-      [ownerEmail, 'Test Search Notebook']
-    );
+    const notebookResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, $2) RETURNING id::text`, [ownerEmail, 'Test Search Notebook']);
     createdNotebookIds.push(notebookResult.rows[0].id);
 
     // Create various test notes for search testing
@@ -103,15 +100,7 @@ describe('Note Search API', () => {
           user_email, title, content, visibility, hide_from_agents, tags, notebook_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id::text`,
-        [
-          ownerEmail,
-          note.title,
-          note.content,
-          note.visibility,
-          note.hideFromAgents,
-          note.tags,
-          note.visibility === 'public' ? createdNotebookIds[0] : null,
-        ]
+        [ownerEmail, note.title, note.content, note.visibility, note.hideFromAgents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
       );
       createdNoteIds.push(result.rows[0].id);
     }
@@ -121,7 +110,7 @@ describe('Note Search API', () => {
     await pool.query(
       `INSERT INTO note_share (note_id, shared_with_email, permission, created_by_email)
        VALUES ($1, $2, $3, $4)`,
-      [sharedNoteId, sharedUserEmail, 'read', ownerEmail]
+      [sharedNoteId, sharedUserEmail, 'read', ownerEmail],
     );
 
     // Wait for search index to update
@@ -560,10 +549,7 @@ describe('Note Search API', () => {
         // Text search snippets may contain <mark> tags
         if (firstResult.snippet.includes('TypeScript')) {
           // Either has mark tags or contains the search term
-          expect(
-            firstResult.snippet.includes('<mark>') ||
-              firstResult.snippet.toLowerCase().includes('typescript')
-          ).toBe(true);
+          expect(firstResult.snippet.includes('<mark>') || firstResult.snippet.toLowerCase().includes('typescript')).toBe(true);
         }
       }
     });

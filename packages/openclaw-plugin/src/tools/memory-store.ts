@@ -5,80 +5,71 @@
  * Relationship scope added in Issue #493.
  */
 
-import { z } from 'zod'
-import type { ApiClient } from '../api-client.js'
-import type { Logger } from '../logger.js'
-import type { PluginConfig } from '../config.js'
-import { MemoryCategory } from './memory-recall.js'
-import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js'
+import { z } from 'zod';
+import type { ApiClient } from '../api-client.js';
+import type { Logger } from '../logger.js';
+import type { PluginConfig } from '../config.js';
+import { MemoryCategory } from './memory-recall.js';
+import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js';
 
 /** Parameters for memory_store tool */
 export const MemoryStoreParamsSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Content cannot be empty')
-    .max(10000, 'Content must be 10000 characters or less'),
+  content: z.string().min(1, 'Content cannot be empty').max(10000, 'Content must be 10000 characters or less'),
   category: MemoryCategory.optional(),
   importance: z.number().min(0).max(1).optional(),
-  tags: z
-    .array(z.string().min(1).max(100))
-    .max(20, 'Maximum 20 tags per memory')
-    .optional(),
-  relationship_id: z
-    .string()
-    .uuid('relationship_id must be a valid UUID')
-    .optional(),
-})
-export type MemoryStoreParams = z.infer<typeof MemoryStoreParamsSchema>
+  tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per memory').optional(),
+  relationship_id: z.string().uuid('relationship_id must be a valid UUID').optional(),
+});
+export type MemoryStoreParams = z.infer<typeof MemoryStoreParamsSchema>;
 
 /** Stored memory response from API */
 export interface StoredMemory {
-  id: string
-  content: string
-  category?: string
-  importance?: number
-  tags?: string[]
-  createdAt?: string
+  id: string;
+  content: string;
+  category?: string;
+  importance?: number;
+  tags?: string[];
+  createdAt?: string;
 }
 
 /** Successful tool result */
 export interface MemoryStoreSuccess {
-  success: true
+  success: true;
   data: {
-    content: string
+    content: string;
     details: {
-      id: string
-      category: string
-      importance: number
-      tags: string[]
-      userId: string
-    }
-  }
+      id: string;
+      category: string;
+      importance: number;
+      tags: string[];
+      userId: string;
+    };
+  };
 }
 
 /** Failed tool result */
 export interface MemoryStoreFailure {
-  success: false
-  error: string
+  success: false;
+  error: string;
 }
 
 /** Tool result type */
-export type MemoryStoreResult = MemoryStoreSuccess | MemoryStoreFailure
+export type MemoryStoreResult = MemoryStoreSuccess | MemoryStoreFailure;
 
 /** Tool configuration */
 export interface MemoryStoreToolOptions {
-  client: ApiClient
-  logger: Logger
-  config: PluginConfig
-  userId: string
+  client: ApiClient;
+  logger: Logger;
+  config: PluginConfig;
+  userId: string;
 }
 
 /** Tool definition */
 export interface MemoryStoreTool {
-  name: string
-  description: string
-  parameters: typeof MemoryStoreParamsSchema
-  execute: (params: MemoryStoreParams) => Promise<MemoryStoreResult>
+  name: string;
+  description: string;
+  parameters: typeof MemoryStoreParamsSchema;
+  execute: (params: MemoryStoreParams) => Promise<MemoryStoreResult>;
 }
 
 /** Patterns that may indicate credentials */
@@ -88,20 +79,20 @@ const CREDENTIAL_PATTERNS = [
   /password[:\s]*\S{8,}/i, // Passwords
   /secret[_-]?key[:\s]*[a-zA-Z0-9]{16,}/i, // Secret keys
   /bearer\s+[a-zA-Z0-9._-]{20,}/i, // Bearer tokens
-]
+];
 
 /**
  * Check if text may contain credentials.
  */
 function mayContainCredentials(text: string): boolean {
-  return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(text))
+  return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 /**
  * Creates the memory_store tool.
  */
 export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemoryStoreTool {
-  const { client, logger, userId } = options
+  const { client, logger, userId } = options;
 
   return {
     name: 'memory_store',
@@ -111,26 +102,18 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
 
     async execute(params: MemoryStoreParams): Promise<MemoryStoreResult> {
       // Validate parameters
-      const parseResult = MemoryStoreParamsSchema.safeParse(params)
+      const parseResult = MemoryStoreParamsSchema.safeParse(params);
       if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors
-          .map((e) => `${e.path.join('.')}: ${e.message}`)
-          .join(', ')
-        return { success: false, error: errorMessage }
+        const errorMessage = parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { success: false, error: errorMessage };
       }
 
-      const {
-        content,
-        category = 'other',
-        importance = 0.7,
-        tags = [],
-        relationship_id,
-      } = parseResult.data
+      const { content, category = 'other', importance = 0.7, tags = [], relationship_id } = parseResult.data;
 
       // Sanitize content
-      const sanitizedText = sanitizeText(content)
+      const sanitizedText = sanitizeText(content);
       if (sanitizedText.length === 0) {
-        return { success: false, error: 'Content cannot be empty after sanitization' }
+        return { success: false, error: 'Content cannot be empty after sanitization' };
       }
 
       // Check for potential credentials (warn but don't block)
@@ -138,7 +121,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         logger.warn('Potential credential detected in memory_store', {
           userId,
           contentLength: sanitizedText.length,
-        })
+        });
       }
 
       // Log invocation (without content for privacy)
@@ -148,7 +131,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         importance,
         tags,
         contentLength: sanitizedText.length,
-      })
+      });
 
       try {
         // Store memory via API
@@ -157,40 +140,36 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
           category,
           importance,
           tags,
-        }
+        };
         if (relationship_id) {
-          payload.relationship_id = relationship_id
+          payload.relationship_id = relationship_id;
         }
 
-        const response = await client.post<StoredMemory>(
-          '/api/memories',
-          payload,
-          { userId }
-        )
+        const response = await client.post<StoredMemory>('/api/memories', payload, { userId });
 
         if (!response.success) {
           logger.error('memory_store API error', {
             userId,
             status: response.error.status,
             code: response.error.code,
-          })
+          });
           return {
             success: false,
             error: response.error.message || 'Failed to store memory',
-          }
+          };
         }
 
-        const stored = response.data
+        const stored = response.data;
 
         // Format response
-        const preview = truncateForPreview(sanitizedText)
-        const tagSuffix = tags.length > 0 ? ` (tags: ${tags.join(', ')})` : ''
-        const content = `Stored memory [${category}]: "${preview}"${tagSuffix}`
+        const preview = truncateForPreview(sanitizedText);
+        const tagSuffix = tags.length > 0 ? ` (tags: ${tags.join(', ')})` : '';
+        const content = `Stored memory [${category}]: "${preview}"${tagSuffix}`;
 
         logger.debug('memory_store completed', {
           userId,
           memoryId: stored.id,
-        })
+        });
 
         return {
           success: true,
@@ -204,18 +183,18 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
               userId,
             },
           },
-        }
+        };
       } catch (error) {
         logger.error('memory_store failed', {
           userId,
           error: error instanceof Error ? error.message : String(error),
-        })
+        });
 
         return {
           success: false,
           error: sanitizeErrorMessage(error),
-        }
+        };
       }
     },
-  }
+  };
 }

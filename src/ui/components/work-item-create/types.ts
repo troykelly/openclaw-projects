@@ -1,11 +1,6 @@
 export type WorkItemKind = 'project' | 'initiative' | 'epic' | 'issue';
 
-export type WorkItemStatus =
-  | 'not_started'
-  | 'in_progress'
-  | 'blocked'
-  | 'done'
-  | 'cancelled';
+export type WorkItemStatus = 'not_started' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 
 export type WorkItemPriority = 'urgent' | 'high' | 'medium' | 'low';
 

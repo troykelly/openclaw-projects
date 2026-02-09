@@ -20,10 +20,7 @@ import { normalizePhoneNumber, createSmsThreadKey } from './phone-utils.ts';
  * @param payload - Twilio webhook payload
  * @returns Result with all created/found IDs
  */
-export async function processTwilioSms(
-  pool: Pool,
-  payload: TwilioSmsWebhookPayload
-): Promise<TwilioSmsResult> {
+export async function processTwilioSms(pool: Pool, payload: TwilioSmsWebhookPayload): Promise<TwilioSmsResult> {
   const client = await pool.connect();
 
   try {
@@ -40,7 +37,7 @@ export async function processTwilioSms(
         WHERE ce.endpoint_type = 'phone'
           AND ce.normalized_value = normalize_contact_endpoint_value('phone', $1)
         LIMIT 1`,
-      [fromPhone]
+      [fromPhone],
     );
 
     let contactId: string;
@@ -60,7 +57,7 @@ export async function processTwilioSms(
         `INSERT INTO contact (display_name)
          VALUES ($1)
          RETURNING id::text as id`,
-        [displayName]
+        [displayName],
       );
       contactId = contact.rows[0].id;
 
@@ -77,7 +74,7 @@ export async function processTwilioSms(
             fromState: payload.FromState,
             fromCountry: payload.FromCountry,
           }),
-        ]
+        ],
       );
       endpointId = endpoint.rows[0].id;
     }
@@ -99,7 +96,7 @@ export async function processTwilioSms(
           toPhone,
           source: 'twilio',
         }),
-      ]
+      ],
     );
     const threadId = thread.rows[0].id;
 
@@ -110,7 +107,7 @@ export async function processTwilioSms(
        ON CONFLICT (thread_id, external_message_key)
        DO UPDATE SET body = EXCLUDED.body, raw = EXCLUDED.raw
        RETURNING id::text as id`,
-      [threadId, payload.MessageSid, payload.Body, JSON.stringify(payload)]
+      [threadId, payload.MessageSid, payload.Body, JSON.stringify(payload)],
     );
     const messageId = message.rows[0].id;
 
@@ -161,7 +158,7 @@ function formatDisplayNameFromPayload(payload: TwilioSmsWebhookPayload): string 
 export async function getRecentSmsMessages(
   pool: Pool,
   phone: E164PhoneNumber,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<
   Array<{
     id: string;
@@ -186,7 +183,7 @@ export async function getRecentSmsMessages(
         AND ce.normalized_value = normalize_contact_endpoint_value('phone', $1)
       ORDER BY em.received_at DESC
       LIMIT $2`,
-    [phone, limit]
+    [phone, limit],
   );
 
   return result.rows.map((row) => ({
@@ -206,10 +203,7 @@ export async function getRecentSmsMessages(
  * @param phone - Phone number in E.164 format
  * @returns Contact info or null if not found
  */
-export async function findContactByPhone(
-  pool: Pool,
-  phone: E164PhoneNumber
-): Promise<{ contactId: string; endpointId: string; displayName: string } | null> {
+export async function findContactByPhone(pool: Pool, phone: E164PhoneNumber): Promise<{ contactId: string; endpointId: string; displayName: string } | null> {
   const result = await pool.query(
     `SELECT ce.id::text as endpoint_id,
             c.id::text as contact_id,
@@ -219,7 +213,7 @@ export async function findContactByPhone(
       WHERE ce.endpoint_type = 'phone'
         AND ce.normalized_value = normalize_contact_endpoint_value('phone', $1)
       LIMIT 1`,
-    [phone]
+    [phone],
   );
 
   if (result.rows.length === 0) {

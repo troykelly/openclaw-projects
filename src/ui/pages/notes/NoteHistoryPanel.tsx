@@ -9,11 +9,7 @@
 import { useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-} from '@/ui/components/feedback';
+import { Skeleton, SkeletonList, ErrorState } from '@/ui/components/feedback';
 import { VersionHistory } from '@/ui/components/notes';
 import { useNoteVersions } from '@/ui/hooks/queries/use-notes';
 import { useRestoreNoteVersion } from '@/ui/hooks/mutations/use-note-mutations';
@@ -42,12 +38,11 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
         // Close panel after successful restore
         onClose();
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Failed to restore version';
+        const message = error instanceof Error ? error.message : 'Failed to restore version';
         setRestoreError(message);
       }
     },
-    [noteId, restoreVersionMutation, refetch, onClose]
+    [noteId, restoreVersionMutation, refetch, onClose],
   );
 
   if (isLoading) {
@@ -73,11 +68,7 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
             <X className="size-4" />
           </Button>
         </div>
-        <ErrorState
-          type="generic"
-          title="Failed to load versions"
-          description="Unable to load version history for this note."
-        />
+        <ErrorState type="generic" title="Failed to load versions" description="Unable to load version history for this note." />
       </div>
     );
   }
@@ -104,20 +95,12 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
       </div>
       {/* Restore error display */}
       {restoreError && (
-        <div
-          className="mx-4 mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-          role="alert"
-        >
+        <div className="mx-4 mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
           {restoreError}
         </div>
       )}
       <div className="flex-1 overflow-auto">
-        <VersionHistory
-          versions={versions}
-          currentVersion={versionsData.currentVersion}
-          onRestore={handleRestore}
-          className="h-full"
-        />
+        <VersionHistory versions={versions} currentVersion={versionsData.currentVersion} onRestore={handleRestore} className="h-full" />
       </div>
     </div>
   );

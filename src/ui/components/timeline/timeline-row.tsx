@@ -26,53 +26,27 @@ export interface TimelineRowLabelProps {
   className?: string;
 }
 
-export function TimelineRowLabel({
-  item,
-  depth,
-  isExpanded,
-  hasChildren,
-  onToggle,
-  onClick,
-  className,
-}: TimelineRowLabelProps) {
+export function TimelineRowLabel({ item, depth, isExpanded, hasChildren, onToggle, onClick, className }: TimelineRowLabelProps) {
   return (
     <div
       data-testid="timeline-row-label"
-      className={cn(
-        'flex h-8 items-center border-b bg-background',
-        'hover:bg-muted/50',
-        className
-      )}
+      className={cn('flex h-8 items-center border-b bg-background', 'hover:bg-muted/50', className)}
       style={{ paddingLeft: `${depth * 16 + 8}px` }}
     >
       {/* Expand toggle */}
       {hasChildren ? (
-        <button
-          className="mr-1 shrink-0"
-          onClick={() => onToggle?.(item.id)}
-          aria-label={isExpanded ? 'Collapse' : 'Expand'}
-        >
-          <ChevronRight
-            className={cn(
-              'size-4 text-muted-foreground transition-transform',
-              isExpanded && 'rotate-90'
-            )}
-          />
+        <button className="mr-1 shrink-0" onClick={() => onToggle?.(item.id)} aria-label={isExpanded ? 'Collapse' : 'Expand'}>
+          <ChevronRight className={cn('size-4 text-muted-foreground transition-transform', isExpanded && 'rotate-90')} />
         </button>
       ) : (
         <span className="mr-1 w-4" />
       )}
 
       {/* Kind icon */}
-      <span className="mr-2 shrink-0 text-muted-foreground">
-        {getKindIcon(item.kind)}
-      </span>
+      <span className="mr-2 shrink-0 text-muted-foreground">{getKindIcon(item.kind)}</span>
 
       {/* Title */}
-      <button
-        className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-        onClick={() => onClick?.(item)}
-      >
+      <button className="min-w-0 flex-1 truncate text-left text-sm hover:underline" onClick={() => onClick?.(item)}>
         {item.title}
       </button>
     </div>
@@ -86,21 +60,9 @@ export interface TimelineRowProps {
   children?: React.ReactNode;
 }
 
-export function TimelineRow({
-  item,
-  totalWidth,
-  className,
-  children,
-}: TimelineRowProps) {
+export function TimelineRow({ item, totalWidth, className, children }: TimelineRowProps) {
   return (
-    <div
-      data-testid="timeline-row"
-      className={cn(
-        'relative h-8 border-b',
-        className
-      )}
-      style={{ width: `${totalWidth}px` }}
-    >
+    <div data-testid="timeline-row" className={cn('relative h-8 border-b', className)} style={{ width: `${totalWidth}px` }}>
       {children}
     </div>
   );

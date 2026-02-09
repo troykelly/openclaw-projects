@@ -80,10 +80,7 @@ function validateText(text: string): void {
   }
 
   if (text.length > MAX_EMBEDDING_TEXT_LENGTH) {
-    throw new EmbeddingError(
-      'invalid_input',
-      `Text exceeds maximum length of ${MAX_EMBEDDING_TEXT_LENGTH} characters`
-    );
+    throw new EmbeddingError('invalid_input', `Text exceeds maximum length of ${MAX_EMBEDDING_TEXT_LENGTH} characters`);
   }
 }
 
@@ -182,10 +179,7 @@ export function createEmbeddingService(): EmbeddingService {
       }
     },
 
-    async embedBatch(
-      texts: string[],
-      options?: BatchOptions
-    ): Promise<(EmbeddingResult | null)[]> {
+    async embedBatch(texts: string[], options?: BatchOptions): Promise<(EmbeddingResult | null)[]> {
       const provider = getOrCreateProvider();
       if (!provider) {
         return texts.map(() => null);
@@ -208,10 +202,7 @@ export function createEmbeddingService(): EmbeddingService {
             model: provider.model,
           } as EmbeddingResult;
         } catch (error) {
-          console.error(
-            `[Embeddings] Failed to embed text ${index}:`,
-            (error as EmbeddingError).toSafeString?.() ?? (error as Error).message
-          );
+          console.error(`[Embeddings] Failed to embed text ${index}:`, (error as EmbeddingError).toSafeString?.() ?? (error as Error).message);
           return null;
         } finally {
           semaphore.release();

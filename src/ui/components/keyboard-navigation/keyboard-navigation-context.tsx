@@ -3,14 +3,9 @@
  * Issue #410: Implement keyboard navigation throughout
  */
 import * as React from 'react';
-import type {
-  KeyboardNavigationContextValue,
-  KeyboardShortcut,
-} from './types';
+import type { KeyboardNavigationContextValue, KeyboardShortcut } from './types';
 
-const KeyboardNavigationContext = React.createContext<
-  KeyboardNavigationContextValue | undefined
->(undefined);
+const KeyboardNavigationContext = React.createContext<KeyboardNavigationContextValue | undefined>(undefined);
 
 interface KeyboardNavigationProviderProps {
   children: React.ReactNode;
@@ -20,33 +15,22 @@ interface KeyboardNavigationProviderProps {
 function isInputElement(element: Element | null): boolean {
   if (!element) return false;
   const tagName = element.tagName.toLowerCase();
-  return (
-    tagName === 'input' ||
-    tagName === 'textarea' ||
-    tagName === 'select' ||
-    element.getAttribute('contenteditable') === 'true'
-  );
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || element.getAttribute('contenteditable') === 'true';
 }
 
-export function KeyboardNavigationProvider({
-  children,
-  initialFocusIndex = -1,
-}: KeyboardNavigationProviderProps) {
+export function KeyboardNavigationProvider({ children, initialFocusIndex = -1 }: KeyboardNavigationProviderProps) {
   const [focusedIndex, setFocusedIndex] = React.useState(initialFocusIndex);
   const [isEnabled, setEnabled] = React.useState(true);
   const shortcutsRef = React.useRef<Map<string, KeyboardShortcut>>(new Map());
 
-  const registerShortcut = React.useCallback(
-    (shortcut: KeyboardShortcut): (() => void) => {
-      const key = shortcut.key.toLowerCase();
-      shortcutsRef.current.set(key, shortcut);
+  const registerShortcut = React.useCallback((shortcut: KeyboardShortcut): (() => void) => {
+    const key = shortcut.key.toLowerCase();
+    shortcutsRef.current.set(key, shortcut);
 
-      return () => {
-        shortcutsRef.current.delete(key);
-      };
-    },
-    []
-  );
+    return () => {
+      shortcutsRef.current.delete(key);
+    };
+  }, []);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -97,22 +81,16 @@ export function KeyboardNavigationProvider({
       isEnabled,
       setEnabled,
     }),
-    [focusedIndex, registerShortcut, isEnabled]
+    [focusedIndex, registerShortcut, isEnabled],
   );
 
-  return (
-    <KeyboardNavigationContext.Provider value={value}>
-      {children}
-    </KeyboardNavigationContext.Provider>
-  );
+  return <KeyboardNavigationContext.Provider value={value}>{children}</KeyboardNavigationContext.Provider>;
 }
 
 export function useKeyboardNavigation(): KeyboardNavigationContextValue {
   const context = React.useContext(KeyboardNavigationContext);
   if (!context) {
-    throw new Error(
-      'useKeyboardNavigation must be used within KeyboardNavigationProvider'
-    );
+    throw new Error('useKeyboardNavigation must be used within KeyboardNavigationProvider');
   }
   return context;
 }

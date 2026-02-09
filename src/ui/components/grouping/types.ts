@@ -5,15 +5,7 @@
 /**
  * Fields that can be used for grouping
  */
-export type GroupField =
-  | 'none'
-  | 'status'
-  | 'priority'
-  | 'kind'
-  | 'assignee'
-  | 'parent'
-  | 'label'
-  | 'dueDate';
+export type GroupField = 'none' | 'status' | 'priority' | 'kind' | 'assignee' | 'parent' | 'label' | 'dueDate';
 
 /**
  * A group of items

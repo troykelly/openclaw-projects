@@ -49,17 +49,13 @@ describe('.env.example comprehensive documentation (Issue #536)', () => {
   });
 
   describe('required variables marked', () => {
-    const requiredVars = [
-      'POSTGRES_PASSWORD',
-      'COOKIE_SECRET',
-      'S3_SECRET_KEY',
-    ];
+    const requiredVars = ['POSTGRES_PASSWORD', 'COOKIE_SECRET', 'S3_SECRET_KEY'];
 
     it.each(requiredVars)('%s is marked as (REQUIRED)', (varName) => {
       // Find the line with the variable and check nearby comment
       const varIndex = lines.findIndex((line) => line.startsWith(`${varName}=`) || line.startsWith(`# ${varName}=`));
       expect(varIndex).toBeGreaterThan(-1);
-      
+
       // Look for (REQUIRED) in the preceding comment lines (up to 5 lines before)
       const contextStart = Math.max(0, varIndex - 5);
       const contextLines = lines.slice(contextStart, varIndex + 1).join('\n');
@@ -86,30 +82,23 @@ describe('.env.example comprehensive documentation (Issue #536)', () => {
   describe('variable comments', () => {
     it('each variable has a comment explaining what it does', () => {
       // Extract variable declarations (lines starting with VAR= or # VAR=)
-      const varLines = lines.filter((line) => 
-        /^#?\s*[A-Z][A-Z0-9_]+=/.test(line) && !line.startsWith('# =')
-      );
-      
+      const varLines = lines.filter((line) => /^#?\s*[A-Z][A-Z0-9_]+=/.test(line) && !line.startsWith('# ='));
+
       // For each variable, check there's a descriptive comment within 5 lines before it
       let missingComments = 0;
       for (const varLine of varLines) {
         const varIndex = lines.indexOf(varLine);
         const contextStart = Math.max(0, varIndex - 5);
         const contextLines = lines.slice(contextStart, varIndex);
-        
+
         // Check if any line in context is a descriptive comment (not a section header)
-        const hasComment = contextLines.some((line) => 
-          line.startsWith('#') && 
-          !line.startsWith('# =') && 
-          line.length > 2 &&
-          !/^#\s*$/.test(line)
-        );
-        
+        const hasComment = contextLines.some((line) => line.startsWith('#') && !line.startsWith('# =') && line.length > 2 && !/^#\s*$/.test(line));
+
         if (!hasComment) {
           missingComments++;
         }
       }
-      
+
       // Allow up to 5% without comments (some may be in groups)
       const threshold = Math.ceil(varLines.length * 0.05);
       expect(missingComments).toBeLessThanOrEqual(threshold);

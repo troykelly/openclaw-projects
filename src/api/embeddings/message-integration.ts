@@ -33,18 +33,11 @@ export interface MessageWithEmbedding {
  * @param content The content to embed (body + optional subject)
  * @returns The embedding status
  */
-export async function generateMessageEmbedding(
-  pool: Pool,
-  messageId: string,
-  content: string
-): Promise<MessageEmbeddingStatus> {
+export async function generateMessageEmbedding(pool: Pool, messageId: string, content: string): Promise<MessageEmbeddingStatus> {
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Mark as pending - can be backfilled later
-    await pool.query(
-      `UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`,
-      [messageId]
-    );
+    await pool.query(`UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`, [messageId]);
     return 'pending';
   }
 
@@ -52,10 +45,7 @@ export async function generateMessageEmbedding(
     const result = await embeddingService.embed(content);
 
     if (!result) {
-      await pool.query(
-        `UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`,
-        [messageId]
-      );
+      await pool.query(`UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`, [messageId]);
       return 'pending';
     }
 
@@ -67,29 +57,16 @@ export async function generateMessageEmbedding(
            embedding_provider = $3,
            embedding_status = 'complete'
        WHERE id = $4`,
-      [
-        `[${result.embedding.join(',')}]`,
-        result.model,
-        result.provider,
-        messageId,
-      ]
+      [`[${result.embedding.join(',')}]`, result.model, result.provider, messageId],
     );
 
     return 'complete';
   } catch (error) {
     // Log error but don't fail the request
-    console.error(
-      `[Embeddings] Failed to embed message ${messageId}:`,
-      error instanceof EmbeddingError
-        ? error.toSafeString()
-        : (error as Error).message
-    );
+    console.error(`[Embeddings] Failed to embed message ${messageId}:`, error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message);
 
     // Mark as failed
-    await pool.query(
-      `UPDATE external_message SET embedding_status = 'failed' WHERE id = $1`,
-      [messageId]
-    );
+    await pool.query(`UPDATE external_message SET embedding_status = 'failed' WHERE id = $1`, [messageId]);
 
     return 'failed';
   }
@@ -103,10 +80,7 @@ export async function generateMessageEmbedding(
  * 2. Generates embedding for body (+ subject if present)
  * 3. Updates the message with embedding data
  */
-export async function handleMessageEmbedJob(
-  pool: Pool,
-  job: InternalJob
-): Promise<JobProcessorResult> {
+export async function handleMessageEmbedJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
   const payload = job.payload as { message_id: string };
 
   if (!payload.message_id) {
@@ -123,7 +97,7 @@ export async function handleMessageEmbedJob(
       `SELECT id::text as id, body, subject, embedding_status
        FROM external_message
        WHERE id = $1`,
-      [payload.message_id]
+      [payload.message_id],
     );
   } catch (error) {
     const err = error as Error;
@@ -157,9 +131,7 @@ export async function handleMessageEmbedJob(
   }
 
   // Build content for embedding (subject + body for emails, just body for SMS)
-  const content = message.subject
-    ? `${message.subject}\n\n${message.body}`
-    : message.body;
+  const content = message.subject ? `${message.subject}\n\n${message.body}` : message.body;
 
   // Generate embedding
   const status = await generateMessageEmbedding(pool, message.id, content);
@@ -173,9 +145,7 @@ export async function handleMessageEmbedJob(
     };
   }
 
-  console.log(
-    `[Embeddings] Message ${message.id}: status=${status}`
-  );
+  console.log(`[Embeddings] Message ${message.id}: status=${status}`);
 
   return { success: true };
 }
@@ -195,7 +165,7 @@ export async function searchMessagesSemantic(
     direction?: 'inbound' | 'outbound';
     dateFrom?: Date;
     dateTo?: Date;
-  } = {}
+  } = {},
 ): Promise<{
   results: Array<MessageWithEmbedding & { similarity: number }>;
   searchType: 'semantic' | 'text';
@@ -217,9 +187,7 @@ export async function searchMessagesSemantic(
     } catch (error) {
       console.warn(
         '[Embeddings] Query embedding failed, falling back to text search:',
-        error instanceof EmbeddingError
-          ? error.toSafeString()
-          : (error as Error).message
+        error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message,
       );
     }
   }
@@ -289,7 +257,7 @@ export async function searchMessagesSemantic(
        ${whereClause}
        ORDER BY m.embedding <=> $${embeddingParamIndex}::vector
        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-      params
+      params,
     );
 
     return {
@@ -330,7 +298,7 @@ export async function searchMessagesSemantic(
      ${whereClause}
      ORDER BY m.received_at DESC
      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`,
-    params
+    params,
   );
 
   return {
@@ -347,7 +315,7 @@ export async function backfillMessageEmbeddings(
   options: {
     batchSize?: number;
     force?: boolean;
-  } = {}
+  } = {},
 ): Promise<{
   processed: number;
   succeeded: number;
@@ -356,9 +324,7 @@ export async function backfillMessageEmbeddings(
   const { batchSize = 100, force = false } = options;
 
   // Find messages without embeddings (or all if force=true)
-  const condition = force
-    ? '1=1'
-    : "(embedding_status IS NULL OR embedding_status != 'complete')";
+  const condition = force ? '1=1' : "(embedding_status IS NULL OR embedding_status != 'complete')";
 
   const result = await pool.query(
     `SELECT m.id::text as id, m.body, m.subject
@@ -368,16 +334,14 @@ export async function backfillMessageEmbeddings(
        AND length(trim(m.body)) > 0
      ORDER BY m.received_at ASC
      LIMIT $1`,
-    [batchSize]
+    [batchSize],
   );
 
   let succeeded = 0;
   let failed = 0;
 
   for (const row of result.rows as Array<{ id: string; body: string; subject?: string }>) {
-    const content = row.subject
-      ? `${row.subject}\n\n${row.body}`
-      : row.body;
+    const content = row.subject ? `${row.subject}\n\n${row.body}` : row.body;
 
     const status = await generateMessageEmbedding(pool, row.id, content);
 

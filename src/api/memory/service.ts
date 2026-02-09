@@ -18,14 +18,7 @@ import type {
 } from './types.ts';
 
 /** Valid memory types for validation */
-const VALID_MEMORY_TYPES: MemoryType[] = [
-  'preference',
-  'fact',
-  'note',
-  'decision',
-  'context',
-  'reference',
-];
+const VALID_MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'note', 'decision', 'context', 'reference'];
 
 /**
  * Maps database row to MemoryEntry
@@ -64,10 +57,7 @@ export function isValidMemoryType(type: string): type is MemoryType {
 /**
  * Creates a new memory.
  */
-export async function createMemory(
-  pool: Pool,
-  input: CreateMemoryInput
-): Promise<MemoryEntry> {
+export async function createMemory(pool: Pool, input: CreateMemoryInput): Promise<MemoryEntry> {
   const memoryType = input.memoryType ?? 'note';
 
   if (!isValidMemoryType(memoryType)) {
@@ -112,7 +102,7 @@ export async function createMemory(
       input.importance ?? 5,
       input.confidence ?? 1.0,
       input.expiresAt ?? null,
-    ]
+    ],
   );
 
   return mapRowToMemory(result.rows[0] as Record<string, unknown>);
@@ -121,10 +111,7 @@ export async function createMemory(
 /**
  * Gets a memory by ID.
  */
-export async function getMemory(
-  pool: Pool,
-  id: string
-): Promise<MemoryEntry | null> {
+export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | null> {
   const result = await pool.query(
     `SELECT
       id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
@@ -134,7 +121,7 @@ export async function getMemory(
       embedding_status, created_at, updated_at
     FROM memory
     WHERE id = $1`,
-    [id]
+    [id],
   );
 
   if (result.rows.length === 0) {
@@ -147,11 +134,7 @@ export async function getMemory(
 /**
  * Updates a memory.
  */
-export async function updateMemory(
-  pool: Pool,
-  id: string,
-  input: UpdateMemoryInput
-): Promise<MemoryEntry | null> {
+export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryInput): Promise<MemoryEntry | null> {
   const updates: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -230,7 +213,7 @@ export async function updateMemory(
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, created_at, updated_at`,
-    params
+    params,
   );
 
   if (result.rows.length === 0) {
@@ -244,20 +227,14 @@ export async function updateMemory(
  * Deletes a memory.
  */
 export async function deleteMemory(pool: Pool, id: string): Promise<boolean> {
-  const result = await pool.query(
-    'DELETE FROM memory WHERE id = $1 RETURNING id',
-    [id]
-  );
+  const result = await pool.query('DELETE FROM memory WHERE id = $1 RETURNING id', [id]);
   return result.rows.length > 0;
 }
 
 /**
  * Lists memories with flexible filtering.
  */
-export async function listMemories(
-  pool: Pool,
-  options: ListMemoriesOptions = {}
-): Promise<ListMemoriesResult> {
+export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}): Promise<ListMemoriesResult> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -314,10 +291,7 @@ export async function listMemories(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) as total FROM memory ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) as total FROM memory ${whereClause}`, params);
   const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get paginated results
@@ -337,7 +311,7 @@ export async function listMemories(
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return {
@@ -352,7 +326,7 @@ export async function listMemories(
 export async function getGlobalMemories(
   pool: Pool,
   userEmail: string,
-  options: { memoryType?: MemoryType; limit?: number; offset?: number } = {}
+  options: { memoryType?: MemoryType; limit?: number; offset?: number } = {},
 ): Promise<ListMemoriesResult> {
   const conditions: string[] = [
     'user_email = $1',
@@ -374,10 +348,7 @@ export async function getGlobalMemories(
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) as total FROM memory ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) as total FROM memory ${whereClause}`, params);
   const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get paginated results
@@ -397,7 +368,7 @@ export async function getGlobalMemories(
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return {
@@ -409,19 +380,12 @@ export async function getGlobalMemories(
 /**
  * Supersedes a memory with a new one.
  */
-export async function supersedeMemory(
-  pool: Pool,
-  oldMemoryId: string,
-  newMemoryInput: CreateMemoryInput
-): Promise<MemoryEntry> {
+export async function supersedeMemory(pool: Pool, oldMemoryId: string, newMemoryInput: CreateMemoryInput): Promise<MemoryEntry> {
   // Create the new memory
   const newMemory = await createMemory(pool, newMemoryInput);
 
   // Mark the old memory as superseded
-  await pool.query(
-    'UPDATE memory SET superseded_by = $1, updated_at = NOW() WHERE id = $2',
-    [newMemory.id, oldMemoryId]
-  );
+  await pool.query('UPDATE memory SET superseded_by = $1, updated_at = NOW() WHERE id = $2', [newMemory.id, oldMemoryId]);
 
   return newMemory;
 }
@@ -433,7 +397,7 @@ export async function cleanupExpiredMemories(pool: Pool): Promise<number> {
   const result = await pool.query(
     `DELETE FROM memory
      WHERE expires_at IS NOT NULL AND expires_at < NOW()
-     RETURNING id`
+     RETURNING id`,
   );
   return result.rows.length;
 }
@@ -441,11 +405,7 @@ export async function cleanupExpiredMemories(pool: Pool): Promise<number> {
 /**
  * Searches memories semantically using embeddings or falls back to text search.
  */
-export async function searchMemories(
-  pool: Pool,
-  query: string,
-  options: SearchMemoriesOptions = {}
-): Promise<MemorySearchResult> {
+export async function searchMemories(pool: Pool, query: string, options: SearchMemoriesOptions = {}): Promise<MemorySearchResult> {
   const limit = Math.min(options.limit ?? 20, 100);
   const offset = options.offset ?? 0;
   const minSimilarity = options.minSimilarity ?? 0.3;
@@ -461,10 +421,7 @@ export async function searchMemories(
         const queryEmbedding = embeddingResult.embedding;
         // Build semantic search conditions with proper indexing
         // $1 = embedding, $2 = minSimilarity, then filter params, then limit/offset
-        const semanticConditions: string[] = [
-          '(expires_at IS NULL OR expires_at > NOW())',
-          'superseded_by IS NULL',
-        ];
+        const semanticConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL'];
         const semanticParams: unknown[] = [];
         let semanticIdx = 3; // Start after embedding and minSimilarity
 
@@ -517,7 +474,7 @@ export async function searchMemories(
             ${whereClause}
           ORDER BY similarity DESC, importance DESC
           LIMIT $${semanticIdx} OFFSET $${semanticIdx + 1}`,
-          allParams
+          allParams,
         );
 
         return {
@@ -537,10 +494,7 @@ export async function searchMemories(
   // Fall back to text search
   // Build text search conditions with proper indexing
   // $1 = query text, then filter params, then limit/offset
-  const textConditions: string[] = [
-    '(expires_at IS NULL OR expires_at > NOW())',
-    'superseded_by IS NULL',
-  ];
+  const textConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL'];
   const textParams: unknown[] = [query];
   let textIdx = 2; // Start after query
 
@@ -591,7 +545,7 @@ export async function searchMemories(
       ${whereClause}
     ORDER BY similarity DESC, importance DESC
     LIMIT $${textIdx} OFFSET $${textIdx + 1}`,
-    textParams
+    textParams,
   );
 
   return {

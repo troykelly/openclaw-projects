@@ -1,29 +1,11 @@
 import * as React from 'react';
 import { useState, useCallback } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, Plus } from 'lucide-react';
-import type {
-  QuickAddDialogProps,
-  WorkItemKind,
-  WorkItemCreatePayload,
-  CreatedWorkItem,
-} from './types';
+import type { QuickAddDialogProps, WorkItemKind, WorkItemCreatePayload, CreatedWorkItem } from './types';
 
 const kindLabels: Record<WorkItemKind, string> = {
   project: 'Project',
@@ -32,13 +14,7 @@ const kindLabels: Record<WorkItemKind, string> = {
   issue: 'Issue',
 };
 
-export function QuickAddDialog({
-  open,
-  onOpenChange,
-  onCreated,
-  defaultParentId,
-  defaultKind = 'issue',
-}: QuickAddDialogProps) {
+export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId, defaultKind = 'issue' }: QuickAddDialogProps) {
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<WorkItemKind>(defaultKind);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,8 +49,7 @@ export function QuickAddDialog({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          (errorData as { error?: string }).error ?? `Failed to create work item (${response.status})`;
+        const errorMessage = (errorData as { error?: string }).error ?? `Failed to create work item (${response.status})`;
         setError(errorMessage);
         setIsLoading(false);
         return;
@@ -101,7 +76,7 @@ export function QuickAddDialog({
         onOpenChange(false);
       }
     },
-    [handleSubmit, onOpenChange]
+    [handleSubmit, onOpenChange],
   );
 
   const handleOpenChange = useCallback(
@@ -111,7 +86,7 @@ export function QuickAddDialog({
       }
       onOpenChange(newOpen);
     },
-    [onOpenChange, resetForm]
+    [onOpenChange, resetForm],
   );
 
   return (
@@ -122,17 +97,12 @@ export function QuickAddDialog({
             <Plus className="size-5" />
             Quick Add
           </DialogTitle>
-          <DialogDescription>
-            Create a new work item quickly.
-          </DialogDescription>
+          <DialogDescription>Create a new work item quickly.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="flex items-center gap-3">
-            <Select
-              value={kind}
-              onValueChange={(value) => setKind(value as WorkItemKind)}
-            >
+            <Select value={kind} onValueChange={(value) => setKind(value as WorkItemKind)}>
               <SelectTrigger className="w-[140px]" aria-label="Kind">
                 <SelectValue placeholder="Kind" />
               </SelectTrigger>
@@ -145,14 +115,7 @@ export function QuickAddDialog({
               </SelectContent>
             </Select>
 
-            <Input
-              placeholder="Title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex-1"
-              autoFocus
-            />
+            <Input placeholder="Title..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={handleKeyDown} className="flex-1" autoFocus />
           </div>
 
           {error && (
@@ -163,11 +126,7 @@ export function QuickAddDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isLoading}>

@@ -1,28 +1,11 @@
 import * as React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  ChevronRight,
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  MoreHorizontal,
-  Plus,
-  Pencil,
-  Trash2,
-  GripVertical,
-  FolderInput,
-} from 'lucide-react';
+import { ChevronRight, Folder, Target, Layers, FileText, MoreHorizontal, Plus, Pencil, Trash2, GripVertical, FolderInput } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import type { TreeItem, TreeItemKind, TreeItemStatus } from './types';
 import { InlineEditableText } from '@/ui/components/inline-edit';
 
@@ -96,14 +79,7 @@ export function TreeItemRow({
   onMoveRequest,
   onTitleChange,
 }: TreeItemRowProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: {
       itemId: item.id,
@@ -156,7 +132,7 @@ export function TreeItemRow({
         'group flex items-center gap-1 rounded-md px-2 py-1.5 outline-none transition-colors',
         'hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring',
         isSelected && 'bg-muted',
-        isDragging && 'opacity-50'
+        isDragging && 'opacity-50',
       )}
       style={combinedStyle}
       tabIndex={0}
@@ -167,12 +143,7 @@ export function TreeItemRow({
       onKeyDown={handleKeyDown}
     >
       {/* Drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100"
-        aria-label="Drag to reorder"
-      >
+      <div {...attributes} {...listeners} className="cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label="Drag to reorder">
         <GripVertical className="size-4 text-muted-foreground" />
       </div>
 
@@ -188,20 +159,11 @@ export function TreeItemRow({
         disabled={!hasChildren}
         aria-label={isExpanded ? 'Collapse' : 'Expand'}
       >
-        <ChevronRight
-          className={cn(
-            'size-4 transition-transform',
-            isExpanded && 'rotate-90',
-            !hasChildren && 'invisible'
-          )}
-        />
+        <ChevronRight className={cn('size-4 transition-transform', isExpanded && 'rotate-90', !hasChildren && 'invisible')} />
       </Button>
 
       {/* Status indicator */}
-      <div
-        className={cn('size-2 shrink-0 rounded-full', getStatusColor(item.status))}
-        title={item.status.replace('_', ' ')}
-      />
+      <div className={cn('size-2 shrink-0 rounded-full', getStatusColor(item.status))} title={item.status.replace('_', ' ')} />
 
       {/* Kind icon */}
       <span className="shrink-0 text-muted-foreground">{getKindIcon(item.kind)}</span>
@@ -260,10 +222,7 @@ export function TreeItemRow({
             </DropdownMenuItem>
           )}
           {onDelete && (
-            <DropdownMenuItem
-              onClick={() => onDelete(item.id)}
-              className="text-destructive focus:text-destructive"
-            >
+            <DropdownMenuItem onClick={() => onDelete(item.id)} className="text-destructive focus:text-destructive">
               <Trash2 className="mr-2 size-4" />
               Delete
             </DropdownMenuItem>

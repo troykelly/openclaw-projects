@@ -35,9 +35,7 @@ describe('Note Presence Timeout Configuration (Issue #698)', () => {
       process.env.NOTE_PRESENCE_TIMEOUT_MINUTES = 'invalid';
 
       expect(getPresenceTimeoutMinutes()).toBe(5);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid NOTE_PRESENCE_TIMEOUT_MINUTES')
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid NOTE_PRESENCE_TIMEOUT_MINUTES'));
     });
 
     it('clamps value to minimum (1 minute)', () => {
@@ -45,9 +43,7 @@ describe('Note Presence Timeout Configuration (Issue #698)', () => {
       process.env.NOTE_PRESENCE_TIMEOUT_MINUTES = '0';
 
       expect(getPresenceTimeoutMinutes()).toBe(1);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('out of range')
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('out of range'));
     });
 
     it('clamps value to maximum (60 minutes)', () => {
@@ -55,9 +51,7 @@ describe('Note Presence Timeout Configuration (Issue #698)', () => {
       process.env.NOTE_PRESENCE_TIMEOUT_MINUTES = '120';
 
       expect(getPresenceTimeoutMinutes()).toBe(60);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('out of range')
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('out of range'));
     });
 
     it('accepts values at lower boundary (1)', () => {
@@ -75,9 +69,7 @@ describe('Note Presence Timeout Configuration (Issue #698)', () => {
       process.env.NOTE_PRESENCE_TIMEOUT_MINUTES = '-5';
 
       expect(getPresenceTimeoutMinutes()).toBe(1);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('out of range')
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('out of range'));
     });
 
     it('handles empty string', () => {

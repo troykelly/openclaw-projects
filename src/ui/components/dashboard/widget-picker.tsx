@@ -4,13 +4,7 @@
  */
 import * as React from 'react';
 import { Search, CheckSquare, Calendar, Activity, BarChart, Zap, Bell } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { cn } from '@/ui/lib/utils';
@@ -33,13 +27,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Bell,
 };
 
-export function WidgetPicker({
-  open,
-  onOpenChange,
-  onSelect,
-  excludeTypes = [],
-  className,
-}: WidgetPickerProps) {
+export function WidgetPicker({ open, onOpenChange, onSelect, excludeTypes = [], className }: WidgetPickerProps) {
   const [search, setSearch] = React.useState('');
 
   const availableWidgets = React.useMemo(() => {
@@ -48,10 +36,7 @@ export function WidgetPicker({
       if (excluded.has(widget.type)) return false;
       if (!search) return true;
       const lowerSearch = search.toLowerCase();
-      return (
-        widget.name.toLowerCase().includes(lowerSearch) ||
-        widget.description.toLowerCase().includes(lowerSearch)
-      );
+      return widget.name.toLowerCase().includes(lowerSearch) || widget.description.toLowerCase().includes(lowerSearch);
     });
   }, [excludeTypes, search]);
 
@@ -73,12 +58,7 @@ export function WidgetPicker({
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search widgets..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Search widgets..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
 
           {/* Widget list */}
@@ -96,20 +76,14 @@ export function WidgetPicker({
                   <Icon className="h-6 w-6 text-primary" />
                   <div>
                     <div className="font-medium text-sm">{widget.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {widget.description}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{widget.description}</div>
                   </div>
                 </button>
               );
             })}
           </div>
 
-          {availableWidgets.length === 0 && (
-            <div className="py-8 text-center text-muted-foreground">
-              No widgets match your search
-            </div>
-          )}
+          {availableWidgets.length === 0 && <div className="py-8 text-center text-muted-foreground">No widgets match your search</div>}
 
           {/* Cancel button */}
           <div className="flex justify-end">

@@ -5,11 +5,7 @@
 
 import { Pool } from 'pg';
 import type { CloudflareEmailPayload, CloudflareEmailResult } from './types.ts';
-import {
-  normalizeEmail,
-  createEmailThreadKey,
-  getBestPlainText,
-} from '../postmark/email-utils.ts';
+import { normalizeEmail, createEmailThreadKey, getBestPlainText } from '../postmark/email-utils.ts';
 
 /**
  * Parse the Message-ID header, removing angle brackets if present.
@@ -43,10 +39,7 @@ function parseReferences(value: string | undefined): string[] {
  * @param payload - Cloudflare Worker webhook payload
  * @returns Result with all created/found IDs
  */
-export async function processCloudflareEmail(
-  pool: Pool,
-  payload: CloudflareEmailPayload
-): Promise<CloudflareEmailResult> {
+export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmailPayload): Promise<CloudflareEmailResult> {
   const client = await pool.connect();
 
   try {
@@ -56,8 +49,7 @@ export async function processCloudflareEmail(
     const senderEmail = normalizeEmail(payload.from);
 
     // Extract threading info from headers
-    const messageId =
-      parseMessageId(payload.headers['message-id']) || `cf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const messageId = parseMessageId(payload.headers['message-id']) || `cf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const inReplyTo = parseMessageId(payload.headers['in-reply-to']);
     const references = parseReferences(payload.headers.references);
 
@@ -68,7 +60,7 @@ export async function processCloudflareEmail(
         WHERE ce.endpoint_type = 'email'
           AND ce.normalized_value = normalize_contact_endpoint_value('email', $1)
         LIMIT 1`,
-      [senderEmail]
+      [senderEmail],
     );
 
     let contactId: string;
@@ -87,7 +79,7 @@ export async function processCloudflareEmail(
         `INSERT INTO contact (display_name)
          VALUES ($1)
          RETURNING id::text as id`,
-        [displayName]
+        [displayName],
       );
       contactId = contact.rows[0].id;
 
@@ -101,7 +93,7 @@ export async function processCloudflareEmail(
           JSON.stringify({
             source: 'cloudflare-email',
           }),
-        ]
+        ],
       );
       endpointId = endpoint.rows[0].id;
     }
@@ -114,7 +106,7 @@ export async function processCloudflareEmail(
       `SELECT id::text as id FROM external_thread
         WHERE channel = 'email'
           AND external_thread_key = $1`,
-      [threadKey]
+      [threadKey],
     );
 
     let threadId: string;
@@ -128,7 +120,7 @@ export async function processCloudflareEmail(
         `UPDATE external_thread
             SET endpoint_id = $1, updated_at = now()
           WHERE id = $2`,
-        [endpointId, threadId]
+        [endpointId, threadId],
       );
     } else {
       isNewThread = true;
@@ -147,7 +139,7 @@ export async function processCloudflareEmail(
             inReplyTo,
             references,
           }),
-        ]
+        ],
       );
       threadId = thread.rows[0].id;
     }
@@ -174,16 +166,7 @@ export async function processCloudflareEmail(
          from_address = EXCLUDED.from_address,
          to_addresses = EXCLUDED.to_addresses
        RETURNING id::text as id`,
-      [
-        threadId,
-        messageId,
-        body,
-        JSON.stringify(payload),
-        payload.timestamp || new Date().toISOString(),
-        payload.subject,
-        senderEmail,
-        [toAddress],
-      ]
+      [threadId, messageId, body, JSON.stringify(payload), payload.timestamp || new Date().toISOString(), payload.subject, senderEmail, [toAddress]],
     );
     const messageDBId = message.rows[0].id;
 

@@ -5,11 +5,7 @@
 import * as React from 'react';
 import { Columns3 } from 'lucide-react';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/ui/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { Label } from '@/ui/components/ui/label';
 import type { ColumnDefinition } from './types';
@@ -21,12 +17,7 @@ export interface ColumnConfigProps {
   defaultColumns?: string[];
 }
 
-export function ColumnConfig({
-  columns,
-  visibleColumns,
-  onColumnsChange,
-  defaultColumns,
-}: ColumnConfigProps) {
+export function ColumnConfig({ columns, visibleColumns, onColumnsChange, defaultColumns }: ColumnConfigProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleToggleColumn = (columnId: string) => {
@@ -72,10 +63,7 @@ export function ColumnConfig({
                     disabled={isRequired}
                     aria-label={column.label}
                   />
-                  <Label
-                    htmlFor={`column-${column.id}`}
-                    className="text-sm cursor-pointer"
-                  >
+                  <Label htmlFor={`column-${column.id}`} className="text-sm cursor-pointer">
                     {column.label}
                   </Label>
                 </div>
@@ -83,12 +71,7 @@ export function ColumnConfig({
             })}
           </div>
           <div className="pt-2 border-t">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={handleReset}
-            >
+            <Button variant="ghost" size="sm" className="w-full" onClick={handleReset}>
               Reset to default
             </Button>
           </div>

@@ -63,11 +63,7 @@ export function CommentInput({
             Cancel
           </Button>
         )}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={!content.trim() || loading}
-        >
+        <Button type="submit" size="sm" disabled={!content.trim() || loading}>
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (

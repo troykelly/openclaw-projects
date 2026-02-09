@@ -27,13 +27,7 @@ export interface FadeProps {
   unmountOnHide?: boolean;
 }
 
-export function Fade({
-  show,
-  duration = 200,
-  children,
-  className,
-  unmountOnHide = false,
-}: FadeProps) {
+export function Fade({ show, duration = 200, children, className, unmountOnHide = false }: FadeProps) {
   const reducedMotion = useReducedMotion();
   const [mounted, setMounted] = useState(show);
 
@@ -50,12 +44,7 @@ export function Fade({
 
   return (
     <div
-      className={cn(
-        'transition-opacity',
-        reducedMotion ? 'duration-0' : `duration-${duration}`,
-        show ? 'opacity-100' : 'opacity-0',
-        className
-      )}
+      className={cn('transition-opacity', reducedMotion ? 'duration-0' : `duration-${duration}`, show ? 'opacity-100' : 'opacity-0', className)}
       style={{ transitionDuration: reducedMotion ? '0ms' : `${duration}ms` }}
     >
       {children}
@@ -73,14 +62,7 @@ export interface SlideProps {
   className?: string;
 }
 
-export function Slide({
-  show,
-  direction = 'up',
-  duration = 200,
-  distance = 20,
-  children,
-  className,
-}: SlideProps) {
+export function Slide({ show, direction = 'up', duration = 200, distance = 20, children, className }: SlideProps) {
   const reducedMotion = useReducedMotion();
 
   const transforms = {
@@ -113,13 +95,7 @@ export interface ScaleProps {
   className?: string;
 }
 
-export function Scale({
-  show,
-  duration = 200,
-  origin = 'center',
-  children,
-  className,
-}: ScaleProps) {
+export function Scale({ show, duration = 200, origin = 'center', children, className }: ScaleProps) {
   const reducedMotion = useReducedMotion();
 
   const origins = {
@@ -152,24 +128,14 @@ export interface CollapseProps {
   className?: string;
 }
 
-export function Collapse({
-  show,
-  duration = 200,
-  direction = 'vertical',
-  children,
-  className,
-}: CollapseProps) {
+export function Collapse({ show, duration = 200, direction = 'vertical', children, className }: CollapseProps) {
   const reducedMotion = useReducedMotion();
   const contentRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (contentRef.current) {
-      setSize(
-        direction === 'vertical'
-          ? contentRef.current.scrollHeight
-          : contentRef.current.scrollWidth
-      );
+      setSize(direction === 'vertical' ? contentRef.current.scrollHeight : contentRef.current.scrollWidth);
     }
   }, [children, direction]);
 
@@ -178,10 +144,7 @@ export function Collapse({
 
   return (
     <div
-      className={cn(
-        'overflow-hidden transition-all',
-        className
-      )}
+      className={cn('overflow-hidden transition-all', className)}
       style={{
         transitionDuration: reducedMotion ? '0ms' : `${duration}ms`,
         [sizeProperty]: show ? (size ?? 'none') : 0,
@@ -202,13 +165,7 @@ export interface StaggerChildrenProps {
   className?: string;
 }
 
-export function StaggerChildren({
-  show,
-  staggerDelay = 50,
-  initialDelay = 0,
-  children,
-  className,
-}: StaggerChildrenProps) {
+export function StaggerChildren({ show, staggerDelay = 50, initialDelay = 0, children, className }: StaggerChildrenProps) {
   const reducedMotion = useReducedMotion();
 
   return (

@@ -14,10 +14,7 @@ import type { E164PhoneNumber } from './types.ts';
  * @param defaultCountryCode - Default country code if missing (e.g., '1' for US)
  * @returns E.164 formatted number (e.g., +14155551234)
  */
-export function normalizePhoneNumber(
-  phone: string,
-  defaultCountryCode: string = '1'
-): E164PhoneNumber {
+export function normalizePhoneNumber(phone: string, defaultCountryCode: string = '1'): E164PhoneNumber {
   // Strip all non-digit characters except leading +
   let cleaned = phone.replace(/[^\d+]/g, '');
 

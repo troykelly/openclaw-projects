@@ -23,9 +23,7 @@ import {
   relationshipSet,
 } from '../src/api/relationships/index.ts';
 
-import {
-  getRelationshipTypeByName,
-} from '../src/api/relationship-types/index.ts';
+import { getRelationshipTypeByName } from '../src/api/relationship-types/index.ts';
 
 /** Helper: create a test contact and return its ID.
  *  Supports both schemas: with and without contact_kind column. */
@@ -33,7 +31,7 @@ async function createContact(pool: Pool, displayName: string, kind = 'person'): 
   // Check if contact_kind column exists (it's from a separate 044 migration)
   const colCheck = await pool.query(
     `SELECT column_name FROM information_schema.columns
-     WHERE table_name = 'contact' AND column_name = 'contact_kind'`
+     WHERE table_name = 'contact' AND column_name = 'contact_kind'`,
   );
   const hasContactKind = colCheck.rows.length > 0;
 
@@ -42,7 +40,7 @@ async function createContact(pool: Pool, displayName: string, kind = 'person'): 
       `INSERT INTO contact (display_name, contact_kind)
        VALUES ($1, $2::contact_kind)
        RETURNING id::text as id`,
-      [displayName, kind]
+      [displayName, kind],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -51,7 +49,7 @@ async function createContact(pool: Pool, displayName: string, kind = 'person'): 
     `INSERT INTO contact (display_name)
      VALUES ($1)
      RETURNING id::text as id`,
-    [displayName]
+    [displayName],
   );
   return (result.rows[0] as { id: string }).id;
 }
@@ -122,7 +120,7 @@ describe('Relationship Service (Epic #486, Issue #491)', () => {
           contactAId: contactId,
           contactBId: contactId,
           relationshipTypeId: friendType!.id,
-        })
+        }),
       ).rejects.toThrow();
     });
 
@@ -142,7 +140,7 @@ describe('Relationship Service (Epic #486, Issue #491)', () => {
           contactAId,
           contactBId,
           relationshipTypeId: friendType!.id,
-        })
+        }),
       ).rejects.toThrow();
     });
 
@@ -239,11 +237,7 @@ describe('Relationship Service (Epic #486, Issue #491)', () => {
     });
 
     it('returns null for non-existent ID', async () => {
-      const result = await updateRelationship(
-        pool,
-        '00000000-0000-0000-0000-000000000000',
-        { notes: 'Nope' }
-      );
+      const result = await updateRelationship(pool, '00000000-0000-0000-0000-000000000000', { notes: 'Nope' });
       expect(result).toBeNull();
     });
   });
@@ -574,7 +568,7 @@ describe('Relationship Service (Epic #486, Issue #491)', () => {
           contactA: 'Alice',
           contactB: 'NonexistentPerson',
           relationshipType: 'friend_of',
-        })
+        }),
       ).rejects.toThrow(/cannot be resolved/i);
     });
   });

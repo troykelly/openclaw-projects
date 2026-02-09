@@ -89,16 +89,12 @@ describe('Email Utils', () => {
 
   describe('getMessageId', () => {
     it('extracts Message-ID without brackets', () => {
-      const headers: PostmarkHeader[] = [
-        { Name: 'Message-ID', Value: '<abc123@example.com>' },
-      ];
+      const headers: PostmarkHeader[] = [{ Name: 'Message-ID', Value: '<abc123@example.com>' }];
       expect(getMessageId(headers)).toBe('abc123@example.com');
     });
 
     it('handles Message-Id variant', () => {
-      const headers: PostmarkHeader[] = [
-        { Name: 'Message-Id', Value: '<abc123@example.com>' },
-      ];
+      const headers: PostmarkHeader[] = [{ Name: 'Message-Id', Value: '<abc123@example.com>' }];
       expect(getMessageId(headers)).toBe('abc123@example.com');
     });
 
@@ -109,9 +105,7 @@ describe('Email Utils', () => {
 
   describe('getInReplyTo', () => {
     it('extracts In-Reply-To without brackets', () => {
-      const headers: PostmarkHeader[] = [
-        { Name: 'In-Reply-To', Value: '<parent123@example.com>' },
-      ];
+      const headers: PostmarkHeader[] = [{ Name: 'In-Reply-To', Value: '<parent123@example.com>' }];
       expect(getInReplyTo(headers)).toBe('parent123@example.com');
     });
 
@@ -122,17 +116,13 @@ describe('Email Utils', () => {
 
   describe('getReferences', () => {
     it('extracts space-separated references', () => {
-      const headers: PostmarkHeader[] = [
-        { Name: 'References', Value: '<ref1@example.com> <ref2@example.com>' },
-      ];
+      const headers: PostmarkHeader[] = [{ Name: 'References', Value: '<ref1@example.com> <ref2@example.com>' }];
       const refs = getReferences(headers);
       expect(refs).toEqual(['ref1@example.com', 'ref2@example.com']);
     });
 
     it('handles angle brackets in references', () => {
-      const headers: PostmarkHeader[] = [
-        { Name: 'References', Value: '<ref1@example.com>' },
-      ];
+      const headers: PostmarkHeader[] = [{ Name: 'References', Value: '<ref1@example.com>' }];
       const refs = getReferences(headers);
       expect(refs).toEqual(['ref1@example.com']);
     });

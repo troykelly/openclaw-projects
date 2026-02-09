@@ -93,15 +93,6 @@ export interface BootstrapOptions {
 }
 
 /** Available bootstrap sections */
-export const BOOTSTRAP_SECTIONS = [
-  'user',
-  'preferences',
-  'projects',
-  'reminders',
-  'activity',
-  'messages',
-  'contacts',
-  'stats',
-] as const;
+export const BOOTSTRAP_SECTIONS = ['user', 'preferences', 'projects', 'reminders', 'activity', 'messages', 'contacts', 'stats'] as const;
 
-export type BootstrapSection = typeof BOOTSTRAP_SECTIONS[number];
+export type BootstrapSection = (typeof BOOTSTRAP_SECTIONS)[number];

@@ -4,36 +4,12 @@
  */
 
 import React from 'react';
-import {
-  FileText,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  Share2,
-  Pin,
-  PinOff,
-  Eye,
-  EyeOff,
-  Lock,
-  Users,
-  Globe,
-} from 'lucide-react';
+import { FileText, MoreVertical, Pencil, Trash2, Share2, Pin, PinOff, Eye, EyeOff, Lock, Users, Globe } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/ui/components/ui/dropdown-menu';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
 import type { Note } from '../types';
 
 function getVisibilityIcon(visibility: Note['visibility']) {
@@ -68,15 +44,7 @@ export interface NoteCardProps {
   className?: string;
 }
 
-export function NoteCard({
-  note,
-  onClick,
-  onEdit,
-  onDelete,
-  onShare,
-  onTogglePin,
-  className,
-}: NoteCardProps) {
+export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin, className }: NoteCardProps) {
   // Strip markdown for preview
   const plainContent = note.content
     .replace(/^#{1,6}\s+/gm, '')
@@ -96,16 +64,14 @@ export function NoteCard({
         'group relative rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50',
         note.isPinned && 'border-primary/30 bg-primary/5',
         onClick && 'cursor-pointer',
-        className
+        className,
       )}
       onClick={() => onClick?.(note)}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          {note.isPinned && (
-            <Pin className="size-3 text-primary shrink-0 fill-primary" />
-          )}
+          {note.isPinned && <Pin className="size-3 text-primary shrink-0 fill-primary" />}
           <h3 className="font-medium leading-tight truncate">{note.title || 'Untitled'}</h3>
         </div>
 
@@ -114,9 +80,7 @@ export function NoteCard({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-muted-foreground">
-                  {getVisibilityIcon(note.visibility)}
-                </span>
+                <span className="text-muted-foreground">{getVisibilityIcon(note.visibility)}</span>
               </TooltipTrigger>
               <TooltipContent>
                 <p>{getVisibilityLabel(note.visibility)}</p>
@@ -144,12 +108,7 @@ export function NoteCard({
           {(onEdit || onDelete || onShare || onTogglePin) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 opacity-0 group-hover:opacity-100"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <Button variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>

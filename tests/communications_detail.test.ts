@@ -33,7 +33,7 @@ describe('Communications in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -41,7 +41,7 @@ describe('Communications in Work Item Detail', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Test Contact')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -49,7 +49,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'test@example.com', 'test@example.com')
          RETURNING id::text as id`,
-        [contactId]
+        [contactId],
       );
       const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -58,7 +58,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'email', 'thread-123')
          RETURNING id::text as id`,
-        [endpointId]
+        [endpointId],
       );
       const threadId = (thread.rows[0] as { id: string }).id;
 
@@ -67,7 +67,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'msg-123', 'inbound', 'Test body content', now())
          RETURNING id::text as id`,
-        [threadId]
+        [threadId],
       );
       const messageId = (message.rows[0] as { id: string }).id;
 
@@ -75,7 +75,7 @@ describe('Communications in Work Item Detail', () => {
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [itemId, threadId, messageId]
+        [itemId, threadId, messageId],
       );
 
       const res = await app.inject({
@@ -94,7 +94,7 @@ describe('Communications in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Empty Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -125,7 +125,7 @@ describe('Communications in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -133,7 +133,7 @@ describe('Communications in Work Item Detail', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Test Contact')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -141,7 +141,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'link@example.com', 'link@example.com')
          RETURNING id::text as id`,
-        [contactId]
+        [contactId],
       );
       const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -150,7 +150,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'email', 'unlinked-thread')
          RETURNING id::text as id`,
-        [endpointId]
+        [endpointId],
       );
       const threadId = (thread.rows[0] as { id: string }).id;
 
@@ -172,7 +172,7 @@ describe('Communications in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -192,7 +192,7 @@ describe('Communications in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 
@@ -200,7 +200,7 @@ describe('Communications in Work Item Detail', () => {
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Test Contact')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const contactId = (contact.rows[0] as { id: string }).id;
 
@@ -208,7 +208,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'delete@example.com', 'delete@example.com')
          RETURNING id::text as id`,
-        [contactId]
+        [contactId],
       );
       const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -217,7 +217,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'email', 'delete-thread')
          RETURNING id::text as id`,
-        [endpointId]
+        [endpointId],
       );
       const threadId = (thread.rows[0] as { id: string }).id;
 
@@ -226,7 +226,7 @@ describe('Communications in Work Item Detail', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'delete-msg', 'inbound', 'Delete me', now())
          RETURNING id::text as id`,
-        [threadId]
+        [threadId],
       );
       const messageId = (message.rows[0] as { id: string }).id;
 
@@ -234,7 +234,7 @@ describe('Communications in Work Item Detail', () => {
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [itemId, threadId, messageId]
+        [itemId, threadId, messageId],
       );
 
       // DELETE uses thread_id as commId
@@ -258,7 +258,7 @@ describe('Communications in Work Item Detail', () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const itemId = (item.rows[0] as { id: string }).id;
 

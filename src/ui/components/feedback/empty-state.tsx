@@ -1,28 +1,9 @@
 import * as React from 'react';
-import {
-  Inbox,
-  Search,
-  FileText,
-  FolderOpen,
-  Users,
-  Calendar,
-  Mail,
-  Bell,
-  PlusCircle,
-} from 'lucide-react';
+import { Inbox, Search, FileText, FolderOpen, Users, Calendar, Mail, Bell, PlusCircle } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 
-export type EmptyStateVariant =
-  | 'generic'
-  | 'search'
-  | 'inbox'
-  | 'documents'
-  | 'folder'
-  | 'contacts'
-  | 'calendar'
-  | 'email'
-  | 'notifications';
+export type EmptyStateVariant = 'generic' | 'search' | 'inbox' | 'documents' | 'folder' | 'contacts' | 'calendar' | 'email' | 'notifications';
 
 function getEmptyIcon(variant: EmptyStateVariant) {
   switch (variant) {
@@ -123,22 +104,12 @@ export function EmptyState({
   const defaults = getDefaultContent(variant);
 
   return (
-    <div
-      data-testid="empty-state"
-      className={cn(
-        'flex flex-col items-center justify-center py-12 text-center',
-        className
-      )}
-    >
-      <div className="text-muted-foreground/50">
-        {icon ?? getEmptyIcon(variant)}
-      </div>
+    <div data-testid="empty-state" className={cn('flex flex-col items-center justify-center py-12 text-center', className)}>
+      <div className="text-muted-foreground/50">{icon ?? getEmptyIcon(variant)}</div>
 
       <h3 className="mt-4 text-lg font-semibold">{title ?? defaults.title}</h3>
 
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        {description ?? defaults.description}
-      </p>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">{description ?? defaults.description}</p>
 
       {(onAction || onSecondaryAction) && (
         <div className="mt-6 flex gap-3">
@@ -173,22 +144,9 @@ export interface FirstTimeGuidanceProps {
   className?: string;
 }
 
-export function FirstTimeGuidance({
-  title,
-  description,
-  steps,
-  onGetStarted,
-  onSkip,
-  className,
-}: FirstTimeGuidanceProps) {
+export function FirstTimeGuidance({ title, description, steps, onGetStarted, onSkip, className }: FirstTimeGuidanceProps) {
   return (
-    <div
-      data-testid="first-time-guidance"
-      className={cn(
-        'rounded-lg border border-primary/20 bg-primary/5 p-6 text-center',
-        className
-      )}
-    >
+    <div data-testid="first-time-guidance" className={cn('rounded-lg border border-primary/20 bg-primary/5 p-6 text-center', className)}>
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="mt-2 text-muted-foreground">{description}</p>
 
@@ -196,11 +154,7 @@ export function FirstTimeGuidance({
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {steps.map((step, i) => (
             <div key={i} className="rounded-lg bg-background p-4">
-              {step.icon && (
-                <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  {step.icon}
-                </div>
-              )}
+              {step.icon && <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">{step.icon}</div>}
               <h4 className="font-medium">{step.title}</h4>
               <p className="mt-1 text-xs text-muted-foreground">{step.description}</p>
             </div>

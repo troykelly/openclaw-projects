@@ -41,11 +41,10 @@ vi.mock('@/ui/components/ui/command', () => {
         return () => document.removeEventListener('keydown', handler);
       }, [open, onOpenChange]);
       if (!open) return null;
-      return React.createElement('div', { role: 'dialog', 'data-testid': 'command-dialog' },
-        React.createElement('div', { className: 'sr-only' },
-          React.createElement('h2', null, title),
-          React.createElement('p', null, description),
-        ),
+      return React.createElement(
+        'div',
+        { role: 'dialog', 'data-testid': 'command-dialog' },
+        React.createElement('div', { className: 'sr-only' }, React.createElement('h2', null, title), React.createElement('p', null, description)),
         children,
       );
     },
@@ -59,27 +58,25 @@ vi.mock('@/ui/components/ui/command', () => {
     CommandList: ({ children }: any) => React.createElement('div', { 'data-slot': 'command-list' }, children),
     CommandEmpty: ({ children }: any) => React.createElement('div', { 'data-slot': 'command-empty' }, children),
     CommandGroup: ({ heading, children }: any) =>
-      React.createElement('div', { 'data-slot': 'command-group' },
-        heading ? React.createElement('div', null, heading) : null,
+      React.createElement('div', { 'data-slot': 'command-group' }, heading ? React.createElement('div', null, heading) : null, children),
+    CommandItem: ({ children, onSelect, disabled, value, ...props }: any) =>
+      React.createElement(
+        'div',
+        {
+          'data-slot': 'command-item',
+          role: 'option',
+          onClick: () => !disabled && onSelect?.(),
+          ...props,
+        },
         children,
       ),
-    CommandItem: ({ children, onSelect, disabled, value, ...props }: any) =>
-      React.createElement('div', {
-        'data-slot': 'command-item',
-        role: 'option',
-        onClick: () => !disabled && onSelect?.(),
-        ...props,
-      }, children),
     CommandSeparator: () => React.createElement('hr'),
     CommandShortcut: ({ children }: any) => React.createElement('span', null, children),
     Command: ({ children }: any) => React.createElement('div', null, children),
   };
 });
 
-import {
-  CommandPalette,
-  type SearchResult,
-} from '@/ui/components/command-palette';
+import { CommandPalette, type SearchResult } from '@/ui/components/command-palette';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -397,9 +394,7 @@ describe('CommandPalette', () => {
     });
 
     it('displays search results matching the query', async () => {
-      const searchResults: SearchResult[] = [
-        { id: 'wi-1', type: 'issue', title: 'Fix login bug', subtitle: 'Auth module' },
-      ];
+      const searchResults: SearchResult[] = [{ id: 'wi-1', type: 'issue', title: 'Fix login bug', subtitle: 'Auth module' }];
       const onSearch = vi.fn().mockResolvedValue(searchResults);
       renderPalette({ open: true, onSearch });
 
@@ -409,47 +404,50 @@ describe('CommandPalette', () => {
       // Wait for the debounced search to fire and results to render.
       // cmdk filters items by matching input against CommandItem value,
       // so only results whose value contains 'fix' will appear.
-      await waitFor(() => {
-        expect(screen.getByText('Fix login bug')).toBeInTheDocument();
-        expect(screen.getByText('Auth module')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Fix login bug')).toBeInTheDocument();
+          expect(screen.getByText('Auth module')).toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
     });
 
     it('displays contact search results', async () => {
-      const searchResults: SearchResult[] = [
-        { id: 'c-1', type: 'contact', title: 'Jane Doe' },
-      ];
+      const searchResults: SearchResult[] = [{ id: 'c-1', type: 'contact', title: 'Jane Doe' }];
       const onSearch = vi.fn().mockResolvedValue(searchResults);
       renderPalette({ open: true, onSearch });
 
       const input = screen.getByPlaceholderText('Type a command or search...');
       fireEvent.change(input, { target: { value: 'jane' } });
 
-      await waitFor(() => {
-        expect(screen.getByText('Jane Doe')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
     });
 
     it('calls onSelect when clicking a search result', async () => {
-      const searchResults: SearchResult[] = [
-        { id: 'wi-1', type: 'issue', title: 'Fix login bug' },
-      ];
+      const searchResults: SearchResult[] = [{ id: 'wi-1', type: 'issue', title: 'Fix login bug' }];
       const onSearch = vi.fn().mockResolvedValue(searchResults);
       const { props } = renderPalette({ open: true, onSearch });
 
       const input = screen.getByPlaceholderText('Type a command or search...');
       fireEvent.change(input, { target: { value: 'fix' } });
 
-      await waitFor(() => {
-        expect(screen.getByText('Fix login bug')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Fix login bug')).toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
 
       fireEvent.click(screen.getByText('Fix login bug'));
 
       await waitFor(() => {
-        expect(props.onSelect).toHaveBeenCalledWith(
-          expect.objectContaining({ id: 'wi-1', title: 'Fix login bug' }),
-        );
+        expect(props.onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'wi-1', title: 'Fix login bug' }));
       });
     });
 
@@ -461,9 +459,12 @@ describe('CommandPalette', () => {
       const input = screen.getByPlaceholderText('Type a command or search...');
       fireEvent.change(input, { target: { value: 'test' } });
 
-      await waitFor(() => {
-        expect(screen.getByText('Searching...')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Searching...')).toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
     });
 
     it('hides navigation commands when search query is entered', async () => {
@@ -529,9 +530,7 @@ describe('CommandPalette', () => {
 
   describe('Recent items', () => {
     it('shows recent items when provided via props', async () => {
-      const recentItems = [
-        { id: 'r-1', type: 'issue' as const, title: 'Recent Issue' },
-      ];
+      const recentItems = [{ id: 'r-1', type: 'issue' as const, title: 'Recent Issue' }];
       renderPalette({ open: true, recentItems });
 
       await waitFor(() => {

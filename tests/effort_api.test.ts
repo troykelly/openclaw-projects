@@ -28,7 +28,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
          VALUES ('Test task', 120, 90)
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = inserted.rows[0].id;
 
@@ -47,7 +47,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title)
          VALUES ('No estimates')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = inserted.rows[0].id;
 
@@ -67,7 +67,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
     it('returns estimate_minutes and actual_minutes in list items', async () => {
       await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
-         VALUES ('Task A', 60, 45)`
+         VALUES ('Task A', 60, 45)`,
       );
 
       const response = await app.inject({
@@ -135,7 +135,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
          VALUES ('Original task', 60, 30)
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = inserted.rows[0].id;
 
@@ -159,7 +159,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
          VALUES ('Task with estimates', 60, 30)
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = inserted.rows[0].id;
 
@@ -183,7 +183,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title, estimate_minutes, actual_minutes)
          VALUES ('Preserve estimates', 60, 30)
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = inserted.rows[0].id;
 
@@ -205,7 +205,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
       const inserted = await pool.query(
         `INSERT INTO work_item (title)
          VALUES ('Test')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const id = inserted.rows[0].id;
 
@@ -256,33 +256,33 @@ describe('Effort rollups in API', () => {
     const project = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, estimate_minutes, actual_minutes)
        VALUES ('Project', 'project', 10, 5)
-       RETURNING id::text as id`
+       RETURNING id::text as id`,
     );
 
     const initiative = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes)
        VALUES ('Initiative', 'initiative', $1, 20, 10)
        RETURNING id::text as id`,
-      [project.rows[0].id]
+      [project.rows[0].id],
     );
 
     const epic = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes)
        VALUES ('Epic', 'epic', $1, 30, 15)
        RETURNING id::text as id`,
-      [initiative.rows[0].id]
+      [initiative.rows[0].id],
     );
 
     await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes)
        VALUES ('Issue A', 'issue', $1, 40, 20)`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes)
        VALUES ('Issue B', 'issue', $1, 50, 25)`,
-      [epic.rows[0].id]
+      [epic.rows[0].id],
     );
 
     // Test project rollup
@@ -294,7 +294,7 @@ describe('Effort rollups in API', () => {
     expect(projectResponse.statusCode).toBe(200);
     const projectRollup = projectResponse.json();
     expect(projectRollup.total_estimate_minutes).toBe(150); // 10 + 20 + 30 + 40 + 50
-    expect(projectRollup.total_actual_minutes).toBe(75);    // 5 + 10 + 15 + 20 + 25
+    expect(projectRollup.total_actual_minutes).toBe(75); // 5 + 10 + 15 + 20 + 25
 
     // Test epic rollup
     const epicResponse = await app.inject({
@@ -305,7 +305,7 @@ describe('Effort rollups in API', () => {
     expect(epicResponse.statusCode).toBe(200);
     const epicRollup = epicResponse.json();
     expect(epicRollup.total_estimate_minutes).toBe(120); // 30 + 40 + 50
-    expect(epicRollup.total_actual_minutes).toBe(60);    // 15 + 20 + 25
+    expect(epicRollup.total_actual_minutes).toBe(60); // 15 + 20 + 25
   });
 
   it('returns 404 for rollup of non-existent work item', async () => {

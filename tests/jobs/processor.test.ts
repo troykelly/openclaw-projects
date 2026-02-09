@@ -2,13 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { Pool } from 'pg';
 import { runMigrate } from '../helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from '../helpers/db.ts';
-import {
-  claimJobs,
-  completeJob,
-  failJob,
-  processJobs,
-  getPendingJobCounts,
-} from '../../src/api/jobs/processor.ts';
+import { claimJobs, completeJob, failJob, processJobs, getPendingJobCounts } from '../../src/api/jobs/processor.ts';
 
 // Set up OpenClaw config for webhook tests
 vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://test-gateway.openclaw.ai');
@@ -35,7 +29,7 @@ describe('Job processor (Issue #222)', () => {
       // Insert a job that's due
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
-         VALUES ('test.job', now(), '{"test": true}'::jsonb)`
+         VALUES ('test.job', now(), '{"test": true}'::jsonb)`,
       );
 
       const jobs = await claimJobs(pool, 'test-worker', 10);
@@ -48,7 +42,7 @@ describe('Job processor (Issue #222)', () => {
     it('does not claim future jobs', async () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
-         VALUES ('test.job', now() + interval '1 hour', '{"test": true}'::jsonb)`
+         VALUES ('test.job', now() + interval '1 hour', '{"test": true}'::jsonb)`,
       );
 
       const jobs = await claimJobs(pool, 'test-worker', 10);
@@ -59,7 +53,7 @@ describe('Job processor (Issue #222)', () => {
     it('does not claim completed jobs', async () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload, completed_at)
-         VALUES ('test.job', now(), '{"test": true}'::jsonb, now())`
+         VALUES ('test.job', now(), '{"test": true}'::jsonb, now())`,
       );
 
       const jobs = await claimJobs(pool, 'test-worker', 10);
@@ -71,7 +65,7 @@ describe('Job processor (Issue #222)', () => {
       for (let i = 0; i < 5; i++) {
         await pool.query(
           `INSERT INTO internal_job (kind, run_at, payload)
-           VALUES ('test.job', now(), '{"index": ${i}}'::jsonb)`
+           VALUES ('test.job', now(), '{"index": ${i}}'::jsonb)`,
         );
       }
 
@@ -86,16 +80,13 @@ describe('Job processor (Issue #222)', () => {
       const result = await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('test.job', now(), '{}'::jsonb)
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const jobId = result.rows[0].id as string;
 
       await completeJob(pool, jobId);
 
-      const job = await pool.query(
-        `SELECT completed_at FROM internal_job WHERE id = $1`,
-        [jobId]
-      );
+      const job = await pool.query(`SELECT completed_at FROM internal_job WHERE id = $1`, [jobId]);
 
       expect(job.rows[0].completed_at).not.toBeNull();
     });
@@ -106,7 +97,7 @@ describe('Job processor (Issue #222)', () => {
       const result = await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('test.job', now(), '{}'::jsonb)
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const jobId = result.rows[0].id as string;
 
@@ -115,7 +106,7 @@ describe('Job processor (Issue #222)', () => {
       const job = await pool.query(
         `SELECT attempts, last_error, (run_at > now()) as scheduled_future
          FROM internal_job WHERE id = $1`,
-        [jobId]
+        [jobId],
       );
 
       expect(job.rows[0].attempts).toBe(1);
@@ -130,7 +121,7 @@ describe('Job processor (Issue #222)', () => {
       const wi = await pool.query(
         `INSERT INTO work_item (title, not_before, status, work_item_kind)
          VALUES ('Call mom', now() - interval '1 hour', 'open', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = wi.rows[0].id as string;
 
@@ -138,7 +129,7 @@ describe('Job processor (Issue #222)', () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('reminder.work_item.not_before', now(), $1)`,
-        [JSON.stringify({ work_item_id: workItemId, not_before: new Date().toISOString() })]
+        [JSON.stringify({ work_item_id: workItemId, not_before: new Date().toISOString() })],
       );
 
       // Process jobs
@@ -152,7 +143,7 @@ describe('Job processor (Issue #222)', () => {
       const webhooks = await pool.query(
         `SELECT kind, destination, body
          FROM webhook_outbox
-         WHERE kind = 'reminder.work_item.not_before'`
+         WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(webhooks.rows.length).toBe(1);
@@ -165,7 +156,7 @@ describe('Job processor (Issue #222)', () => {
       const wi = await pool.query(
         `INSERT INTO work_item (title, not_after, status, work_item_kind)
          VALUES ('Deadline soon', now() + interval '2 hours', 'open', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = wi.rows[0].id as string;
 
@@ -173,7 +164,7 @@ describe('Job processor (Issue #222)', () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('nudge.work_item.not_after', now(), $1)`,
-        [JSON.stringify({ work_item_id: workItemId, not_after: new Date().toISOString() })]
+        [JSON.stringify({ work_item_id: workItemId, not_after: new Date().toISOString() })],
       );
 
       // Process jobs
@@ -186,7 +177,7 @@ describe('Job processor (Issue #222)', () => {
       const webhooks = await pool.query(
         `SELECT kind, destination
          FROM webhook_outbox
-         WHERE kind = 'nudge.work_item.not_after'`
+         WHERE kind = 'nudge.work_item.not_after'`,
       );
 
       expect(webhooks.rows.length).toBe(1);
@@ -198,7 +189,7 @@ describe('Job processor (Issue #222)', () => {
       const wi = await pool.query(
         `INSERT INTO work_item (title, not_before, status, work_item_kind)
          VALUES ('Done task', now() - interval '1 hour', 'completed', 'issue')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = wi.rows[0].id as string;
 
@@ -206,7 +197,7 @@ describe('Job processor (Issue #222)', () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('reminder.work_item.not_before', now(), $1)`,
-        [JSON.stringify({ work_item_id: workItemId, not_before: new Date().toISOString() })]
+        [JSON.stringify({ work_item_id: workItemId, not_before: new Date().toISOString() })],
       );
 
       // Process jobs
@@ -216,9 +207,7 @@ describe('Job processor (Issue #222)', () => {
       expect(stats.succeeded).toBe(1); // Skipped silently counts as success
 
       // Verify no webhook was enqueued
-      const webhooks = await pool.query(
-        `SELECT COUNT(*) as count FROM webhook_outbox`
-      );
+      const webhooks = await pool.query(`SELECT COUNT(*) as count FROM webhook_outbox`);
 
       expect(parseInt(webhooks.rows[0].count as string, 10)).toBe(0);
     });
@@ -226,7 +215,7 @@ describe('Job processor (Issue #222)', () => {
     it('fails unknown job kinds', async () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
-         VALUES ('unknown.job.kind', now(), '{}'::jsonb)`
+         VALUES ('unknown.job.kind', now(), '{}'::jsonb)`,
       );
 
       const stats = await processJobs(pool, 10);
@@ -240,10 +229,12 @@ describe('Job processor (Issue #222)', () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('reminder.work_item.not_before', now(), $1)`,
-        [JSON.stringify({
-          work_item_id: '00000000-0000-0000-0000-000000000000',
-          not_before: new Date().toISOString()
-        })]
+        [
+          JSON.stringify({
+            work_item_id: '00000000-0000-0000-0000-000000000000',
+            not_before: new Date().toISOString(),
+          }),
+        ],
       );
 
       const stats = await processJobs(pool, 10);
@@ -259,7 +250,7 @@ describe('Job processor (Issue #222)', () => {
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('reminder.work_item.not_before', now(), '{}'),
                 ('reminder.work_item.not_before', now(), '{}'),
-                ('nudge.work_item.not_after', now(), '{}')`
+                ('nudge.work_item.not_after', now(), '{}')`,
       );
 
       const counts = await getPendingJobCounts(pool);
@@ -271,7 +262,7 @@ describe('Job processor (Issue #222)', () => {
     it('excludes completed jobs', async () => {
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload, completed_at)
-         VALUES ('reminder.work_item.not_before', now(), '{}', now())`
+         VALUES ('reminder.work_item.not_before', now(), '{}', now())`,
       );
 
       const counts = await getPendingJobCounts(pool);

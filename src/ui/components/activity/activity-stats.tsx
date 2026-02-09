@@ -44,9 +44,7 @@ export function ActivityStats({ activities, className }: ActivityStatsProps) {
         <div className="flex items-center justify-center mb-1">
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </div>
-        <div className="text-lg font-semibold truncate">
-          {mostCommonLabel || '-'}
-        </div>
+        <div className="text-lg font-semibold truncate">{mostCommonLabel || '-'}</div>
         <div className="text-xs text-muted-foreground">Most Common</div>
       </div>
 

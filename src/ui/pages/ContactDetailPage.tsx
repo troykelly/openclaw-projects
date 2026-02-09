@@ -12,46 +12,19 @@
  */
 import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import {
-  ArrowLeft,
-  Mail,
-  Phone,
-  Pencil,
-  Trash2,
-  Link2,
-  Calendar,
-  FileText,
-  MessageSquare,
-} from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Pencil, Trash2, Link2, Calendar, FileText, MessageSquare } from 'lucide-react';
 import { apiClient } from '@/ui/lib/api-client';
 import type { Contact, ContactBody } from '@/ui/lib/api-types';
 import { getInitials } from '@/ui/lib/work-item-utils';
-import {
-  Skeleton,
-  SkeletonText,
-  ErrorState,
-  EmptyState,
-} from '@/ui/components/feedback';
+import { Skeleton, SkeletonText, ErrorState, EmptyState } from '@/ui/components/feedback';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { Badge } from '@/ui/components/ui/badge';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/ui/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
 import { useContactDetail } from '@/ui/hooks/queries/use-contacts';
 
 export function ContactDetailPage(): React.JSX.Element {
@@ -61,13 +34,7 @@ export function ContactDetailPage(): React.JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const {
-    data: contact,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useContactDetail(contactId ?? '');
+  const { data: contact, isLoading, isError, error, refetch } = useContactDetail(contactId ?? '');
 
   const handleBack = useCallback(() => {
     navigate('/contacts');
@@ -128,11 +95,7 @@ export function ContactDetailPage(): React.JSX.Element {
         <ErrorState
           type={isError ? 'generic' : 'not-found'}
           title={isError ? 'Failed to load contact' : 'Contact not found'}
-          description={
-            isError && error instanceof Error
-              ? error.message
-              : 'The contact you are looking for does not exist or has been removed.'
-          }
+          description={isError && error instanceof Error ? error.message : 'The contact you are looking for does not exist or has been removed.'}
           onRetry={isError ? () => refetch() : undefined}
         />
       </div>
@@ -145,13 +108,7 @@ export function ContactDetailPage(): React.JSX.Element {
   return (
     <div data-testid="page-contact-detail" className="p-6 h-full flex flex-col">
       {/* Back button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleBack}
-        className="mb-4 w-fit"
-        data-testid="back-button"
-      >
+      <Button variant="ghost" size="sm" onClick={handleBack} className="mb-4 w-fit" data-testid="back-button">
         <ArrowLeft className="mr-2 size-4" />
         Back to Contacts
       </Button>
@@ -163,9 +120,7 @@ export function ContactDetailPage(): React.JSX.Element {
             {getInitials(contact.display_name)}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              {contact.display_name}
-            </h1>
+            <h1 className="text-2xl font-semibold text-foreground">{contact.display_name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {email && (
                 <span className="flex items-center gap-1">
@@ -189,12 +144,7 @@ export function ContactDetailPage(): React.JSX.Element {
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditOpen(true)}
-            data-testid="edit-contact-button"
-          >
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} data-testid="edit-contact-button">
             <Pencil className="mr-1 size-3" />
             Edit
           </Button>
@@ -240,9 +190,7 @@ export function ContactDetailPage(): React.JSX.Element {
                     <div className="flex size-10 items-center justify-center rounded-full bg-muted">
                       {ep.type === 'email' && <Mail className="size-5 text-muted-foreground" />}
                       {ep.type === 'phone' && <Phone className="size-5 text-muted-foreground" />}
-                      {ep.type !== 'email' && ep.type !== 'phone' && (
-                        <Link2 className="size-5 text-muted-foreground" />
-                      )}
+                      {ep.type !== 'email' && ep.type !== 'phone' && <Link2 className="size-5 text-muted-foreground" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <Badge variant="outline" className="text-xs mb-1">
@@ -255,11 +203,7 @@ export function ContactDetailPage(): React.JSX.Element {
               ))}
             </div>
           ) : (
-            <EmptyState
-              variant="contacts"
-              title="No endpoints"
-              description="This contact has no communication endpoints configured."
-            />
+            <EmptyState variant="contacts" title="No endpoints" description="This contact has no communication endpoints configured." />
           )}
         </TabsContent>
 
@@ -286,42 +230,25 @@ export function ContactDetailPage(): React.JSX.Element {
 
         {/* Activity Tab */}
         <TabsContent value="activity" className="mt-4">
-          <EmptyState
-            variant="calendar"
-            title="No activity yet"
-            description="Activity related to this contact will appear here."
-          />
+          <EmptyState variant="calendar" title="No activity yet" description="Activity related to this contact will appear here." />
         </TabsContent>
       </Tabs>
 
       {/* Edit Contact Dialog */}
-      <ContactEditDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        contact={contact}
-        isSubmitting={isSubmitting}
-        onSubmit={handleUpdate}
-      />
+      <ContactEditDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} isSubmitting={isSubmitting} onSubmit={handleUpdate} />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="sm:max-w-sm" data-testid="delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete Contact</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &quot;{contact.display_name}&quot;?
-              This action cannot be undone.
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to delete &quot;{contact.display_name}&quot;? This action cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              data-testid="confirm-delete-button"
-            >
+            <Button variant="destructive" onClick={handleDelete} data-testid="confirm-delete-button">
               Delete
             </Button>
           </DialogFooter>
@@ -343,13 +270,7 @@ interface ContactEditDialogProps {
   onSubmit: (body: ContactBody) => void;
 }
 
-function ContactEditDialog({
-  open,
-  onOpenChange,
-  contact,
-  isSubmitting,
-  onSubmit,
-}: ContactEditDialogProps) {
+function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: ContactEditDialogProps) {
   const [displayName, setDisplayName] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -375,9 +296,7 @@ function ContactEditDialog({
       <DialogContent className="sm:max-w-md" data-testid="contact-edit-dialog">
         <DialogHeader>
           <DialogTitle>Edit Contact</DialogTitle>
-          <DialogDescription>
-            Update the contact details below.
-          </DialogDescription>
+          <DialogDescription>Update the contact details below.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -385,24 +304,14 @@ function ContactEditDialog({
             <label htmlFor="edit-contact-name" className="text-sm font-medium">
               Name <span className="text-destructive">*</span>
             </label>
-            <Input
-              id="edit-contact-name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              required
-            />
+            <Input id="edit-contact-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
           </div>
 
           <div className="space-y-2">
             <label htmlFor="edit-contact-notes" className="text-sm font-medium">
               Notes
             </label>
-            <Textarea
-              id="edit-contact-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
+            <Textarea id="edit-contact-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
 
           <DialogFooter>

@@ -53,7 +53,7 @@ async function fetchUser(pool: Pool, userEmail: string): Promise<BootstrapUser |
             email_notifications, email_digest_frequency, timezone
      FROM user_setting
      WHERE email = $1`,
-    [userEmail]
+    [userEmail],
   );
 
   if (result.rows.length === 0) {
@@ -83,11 +83,7 @@ async function fetchUser(pool: Pool, userEmail: string): Promise<BootstrapUser |
 /**
  * Fetches user preferences (preference-type memories).
  */
-async function fetchPreferences(
-  pool: Pool,
-  userEmail: string,
-  limit: number
-): Promise<BootstrapPreference[]> {
+async function fetchPreferences(pool: Pool, userEmail: string, limit: number): Promise<BootstrapPreference[]> {
   const result = await pool.query(
     `SELECT id::text, memory_type as type, title, content, importance, created_at
      FROM memory
@@ -97,7 +93,7 @@ async function fetchPreferences(
        AND superseded_by IS NULL
      ORDER BY importance DESC, created_at DESC
      LIMIT $2`,
-    [userEmail, limit]
+    [userEmail, limit],
   );
 
   return result.rows.map((row) => {
@@ -123,10 +119,7 @@ async function fetchPreferences(
 /**
  * Fetches active projects.
  */
-async function fetchActiveProjects(
-  pool: Pool,
-  limit: number
-): Promise<BootstrapProject[]> {
+async function fetchActiveProjects(pool: Pool, limit: number): Promise<BootstrapProject[]> {
   const result = await pool.query(
     `SELECT id::text, title, status, work_item_kind::text as kind, updated_at
      FROM work_item
@@ -134,7 +127,7 @@ async function fetchActiveProjects(
        AND status NOT IN ('completed', 'cancelled', 'archived')
      ORDER BY updated_at DESC
      LIMIT $1`,
-    [limit]
+    [limit],
   );
 
   return result.rows.map((row) => {
@@ -158,10 +151,7 @@ async function fetchActiveProjects(
 /**
  * Fetches pending reminders (work items with not_before in the future).
  */
-async function fetchPendingReminders(
-  pool: Pool,
-  limit: number
-): Promise<BootstrapReminder[]> {
+async function fetchPendingReminders(pool: Pool, limit: number): Promise<BootstrapReminder[]> {
   const result = await pool.query(
     `SELECT id::text, title, description, not_before, work_item_kind::text as kind
      FROM work_item
@@ -170,7 +160,7 @@ async function fetchPendingReminders(
        AND status NOT IN ('completed', 'cancelled', 'archived')
      ORDER BY not_before ASC
      LIMIT $1`,
-    [limit]
+    [limit],
   );
 
   return result.rows.map((row) => {
@@ -194,10 +184,7 @@ async function fetchPendingReminders(
 /**
  * Fetches recent activity.
  */
-async function fetchRecentActivity(
-  pool: Pool,
-  limit: number
-): Promise<BootstrapActivity[]> {
+async function fetchRecentActivity(pool: Pool, limit: number): Promise<BootstrapActivity[]> {
   // Activity is tracked in the activity table if it exists
   // For now, we'll use work_item changes as a proxy
   const result = await pool.query(
@@ -210,7 +197,7 @@ async function fetchRecentActivity(
      WHERE updated_at > NOW() - INTERVAL '7 days'
      ORDER BY updated_at DESC
      LIMIT $1`,
-    [limit]
+    [limit],
   );
 
   return result.rows.map((row) => {
@@ -246,7 +233,7 @@ async function fetchUnreadMessages(pool: Pool): Promise<number> {
        AND NOT EXISTS (
          SELECT 1 FROM work_item_communication wic
          WHERE wic.message_id = em.id
-       )`
+       )`,
   );
 
   return parseInt((result.rows[0] as { count: string }).count, 10);
@@ -255,10 +242,7 @@ async function fetchUnreadMessages(pool: Pool): Promise<number> {
 /**
  * Fetches key contacts.
  */
-async function fetchKeyContacts(
-  pool: Pool,
-  limit: number
-): Promise<BootstrapContact[]> {
+async function fetchKeyContacts(pool: Pool, limit: number): Promise<BootstrapContact[]> {
   const result = await pool.query(
     `SELECT
        c.id::text,
@@ -273,7 +257,7 @@ async function fetchKeyContacts(
      FROM contact c
      ORDER BY last_contact DESC NULLS LAST
      LIMIT $1`,
-    [limit]
+    [limit],
   );
 
   return result.rows.map((row) => {
@@ -334,10 +318,7 @@ async function fetchStats(pool: Pool): Promise<BootstrapStats> {
 /**
  * Fetches the bootstrap context for an agent session.
  */
-export async function getBootstrapContext(
-  pool: Pool,
-  options: BootstrapOptions = {}
-): Promise<BootstrapResponse> {
+export async function getBootstrapContext(pool: Pool, options: BootstrapOptions = {}): Promise<BootstrapResponse> {
   const sections = getSectionsToFetch(options);
   const limits = {
     preferences: options.limit?.preferences ?? 10,
@@ -350,33 +331,24 @@ export async function getBootstrapContext(
   const userEmail = options.userEmail ?? '';
 
   // Execute queries in parallel for performance
-  const [
-    user,
-    preferences,
-    activeProjects,
-    pendingReminders,
-    recentActivity,
-    unreadMessages,
-    keyContacts,
-    stats,
-  ] = await Promise.all([
+  const [user, preferences, activeProjects, pendingReminders, recentActivity, unreadMessages, keyContacts, stats] = await Promise.all([
     sections.has('user') && userEmail ? fetchUser(pool, userEmail) : Promise.resolve(null),
-    sections.has('preferences') && userEmail
-      ? fetchPreferences(pool, userEmail, limits.preferences)
-      : Promise.resolve([]),
+    sections.has('preferences') && userEmail ? fetchPreferences(pool, userEmail, limits.preferences) : Promise.resolve([]),
     sections.has('projects') ? fetchActiveProjects(pool, limits.projects) : Promise.resolve([]),
     sections.has('reminders') ? fetchPendingReminders(pool, limits.reminders) : Promise.resolve([]),
     sections.has('activity') ? fetchRecentActivity(pool, limits.activity) : Promise.resolve([]),
     sections.has('messages') ? fetchUnreadMessages(pool) : Promise.resolve(0),
     sections.has('contacts') ? fetchKeyContacts(pool, limits.contacts) : Promise.resolve([]),
-    sections.has('stats') ? fetchStats(pool) : Promise.resolve({
-      openItems: 0,
-      dueToday: 0,
-      overdue: 0,
-      totalProjects: 0,
-      totalMemories: 0,
-      totalContacts: 0,
-    }),
+    sections.has('stats')
+      ? fetchStats(pool)
+      : Promise.resolve({
+          openItems: 0,
+          dueToday: 0,
+          overdue: 0,
+          totalProjects: 0,
+          totalMemories: 0,
+          totalContacts: 0,
+        }),
   ]);
 
   const generatedAt = new Date();

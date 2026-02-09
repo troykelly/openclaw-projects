@@ -3,14 +3,7 @@
  * Issue #406: Implement saved views with sharing
  */
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
@@ -29,12 +22,7 @@ function getFilterCount(filters?: Record<string, unknown>): number {
   return Object.keys(filters).length;
 }
 
-export function SaveViewDialog({
-  open,
-  onOpenChange,
-  config,
-  onSave,
-}: SaveViewDialogProps) {
+export function SaveViewDialog({ open, onOpenChange, config, onSave }: SaveViewDialogProps) {
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
 
@@ -72,30 +60,18 @@ export function SaveViewDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="view-name">Name</Label>
-            <Input
-              id="view-name"
-              placeholder="View name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <Input id="view-name" placeholder="View name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="view-description">Description</Label>
-            <Input
-              id="view-description"
-              placeholder="Description (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <Input id="view-description" placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
           <div className="space-y-2">
             <Label>View Configuration</Label>
             <div className="flex flex-wrap gap-2">
-              {config.viewType && (
-                <Badge variant="secondary">{config.viewType}</Badge>
-              )}
+              {config.viewType && <Badge variant="secondary">{config.viewType}</Badge>}
               {filterCount > 0 && (
                 <Badge variant="outline">
                   {filterCount} filter{filterCount !== 1 ? 's' : ''}

@@ -31,17 +31,7 @@ export interface TimelineBarProps {
   className?: string;
 }
 
-export function TimelineBar({
-  item,
-  left,
-  width,
-  isOverdue,
-  isCriticalPath,
-  showProgress = true,
-  onClick,
-  onDragStart,
-  className,
-}: TimelineBarProps) {
+export function TimelineBar({ item, left, width, isOverdue, isCriticalPath, showProgress = true, onClick, onDragStart, className }: TimelineBarProps) {
   const progress = item.progress ?? 0;
   const baseColor = isOverdue ? getOverdueColor() : getStatusColor(item.status);
 
@@ -63,7 +53,7 @@ export function TimelineBar({
         'absolute top-1 h-6 cursor-pointer rounded-sm transition-all',
         'hover:ring-2 hover:ring-ring hover:ring-offset-1',
         isCriticalPath && 'ring-2 ring-amber-500',
-        className
+        className,
       )}
       style={{ left: `${left}px`, width: `${Math.max(width, 4)}px` }}
       onClick={handleClick}
@@ -75,12 +65,7 @@ export function TimelineBar({
       <div className={cn('absolute inset-0 rounded-sm opacity-30', baseColor)} />
 
       {/* Progress fill */}
-      {showProgress && progress > 0 && (
-        <div
-          className={cn('absolute inset-y-0 left-0 rounded-l-sm', baseColor)}
-          style={{ width: `${progress}%` }}
-        />
-      )}
+      {showProgress && progress > 0 && <div className={cn('absolute inset-y-0 left-0 rounded-l-sm', baseColor)} style={{ width: `${progress}%` }} />}
 
       {/* Title (only show if bar is wide enough) */}
       {width > 60 && (
@@ -92,14 +77,8 @@ export function TimelineBar({
       {/* Drag handles */}
       {onDragStart && (
         <>
-          <div
-            className="absolute inset-y-0 left-0 w-2 cursor-ew-resize"
-            onMouseDown={handleDragStart('start')}
-          />
-          <div
-            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
-            onMouseDown={handleDragStart('end')}
-          />
+          <div className="absolute inset-y-0 left-0 w-2 cursor-ew-resize" onMouseDown={handleDragStart('start')} />
+          <div className="absolute inset-y-0 right-0 w-2 cursor-ew-resize" onMouseDown={handleDragStart('end')} />
         </>
       )}
     </div>

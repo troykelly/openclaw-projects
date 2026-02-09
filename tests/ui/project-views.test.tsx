@@ -9,12 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type {
-  WorkItemsResponse,
-  WorkItemTreeResponse,
-  WorkItemDetail,
-  BacklogResponse,
-} from '@/ui/lib/api-types';
+import type { WorkItemsResponse, WorkItemTreeResponse, WorkItemDetail, BacklogResponse } from '@/ui/lib/api-types';
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -131,7 +126,17 @@ const mockBacklog: BacklogResponse = {
 
 const mockApiClient = {
   get: vi.fn(),
-  post: vi.fn().mockResolvedValue({ id: 'new-proj', title: 'New Project', status: 'open', priority: 'P2', kind: 'project', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+  post: vi
+    .fn()
+    .mockResolvedValue({
+      id: 'new-proj',
+      title: 'New Project',
+      status: 'open',
+      priority: 'P2',
+      kind: 'project',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }),
   put: vi.fn().mockResolvedValue(mockProjectDetail),
   patch: vi.fn().mockResolvedValue(mockProjectDetail),
   delete: vi.fn().mockResolvedValue(undefined),
@@ -193,12 +198,8 @@ function renderPage(initialPath: string, routeDefinitions?: Array<{ path: string
     },
   });
 
-  const ProjectListPage = React.lazy(() =>
-    import('@/ui/pages/ProjectListPage.js').then((m) => ({ default: m.ProjectListPage }))
-  );
-  const ProjectDetailPage = React.lazy(() =>
-    import('@/ui/pages/ProjectDetailPage.js').then((m) => ({ default: m.ProjectDetailPage }))
-  );
+  const ProjectListPage = React.lazy(() => import('@/ui/pages/ProjectListPage.js').then((m) => ({ default: m.ProjectListPage })));
+  const ProjectDetailPage = React.lazy(() => import('@/ui/pages/ProjectDetailPage.js').then((m) => ({ default: m.ProjectDetailPage })));
 
   const defaultRoutes = routeDefinitions ?? [
     {

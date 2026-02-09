@@ -46,13 +46,8 @@ export function ImportSummary({ result, onClose, className }: ImportSummaryProps
           <ScrollArea className="h-32 border rounded-md">
             <div className="p-3 space-y-2">
               {result.errorDetails.map((error, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-2 text-sm"
-                >
-                  <span className="text-muted-foreground shrink-0">
-                    Row {error.row}:
-                  </span>
+                <div key={index} className="flex items-start gap-2 text-sm">
+                  <span className="text-muted-foreground shrink-0">Row {error.row}:</span>
                   <span className="text-destructive">{error.message}</span>
                 </div>
               ))}

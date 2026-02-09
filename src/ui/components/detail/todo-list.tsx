@@ -16,13 +16,7 @@ export interface TodoListProps {
   className?: string;
 }
 
-export function TodoList({
-  todos,
-  onAdd,
-  onToggle,
-  onDelete,
-  className,
-}: TodoListProps) {
+export function TodoList({ todos, onAdd, onToggle, onDelete, className }: TodoListProps) {
   const [newTodoText, setNewTodoText] = useState('');
 
   const handleAdd = () => {
@@ -55,45 +49,23 @@ export function TodoList({
       {/* Progress bar */}
       {todos.length > 0 && (
         <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${(completedCount / todos.length) * 100}%` }}
-          />
+          <div className="h-full bg-primary transition-all" style={{ width: `${(completedCount / todos.length) * 100}%` }} />
         </div>
       )}
 
       {/* Todo items */}
       <div className="space-y-1">
         {todos.map((todo) => (
-          <div
-            key={todo.id}
-            data-testid="todo-item"
-            className={cn(
-              'group flex items-center gap-2 rounded-md px-2 py-1.5',
-              'hover:bg-muted/50'
-            )}
-          >
+          <div key={todo.id} data-testid="todo-item" className={cn('group flex items-center gap-2 rounded-md px-2 py-1.5', 'hover:bg-muted/50')}>
             <GripVertical className="size-4 cursor-grab text-muted-foreground opacity-0 group-hover:opacity-100" />
             <Checkbox
               checked={todo.completed}
               onCheckedChange={(checked) => onToggle?.(todo.id, checked === true)}
               aria-label={`Mark "${todo.text}" as ${todo.completed ? 'incomplete' : 'complete'}`}
             />
-            <span
-              className={cn(
-                'flex-1 text-sm',
-                todo.completed && 'text-muted-foreground line-through'
-              )}
-            >
-              {todo.text}
-            </span>
+            <span className={cn('flex-1 text-sm', todo.completed && 'text-muted-foreground line-through')}>{todo.text}</span>
             {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6 opacity-0 group-hover:opacity-100"
-                onClick={() => onDelete(todo.id)}
-              >
+              <Button variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100" onClick={() => onDelete(todo.id)}>
                 <Trash2 className="size-3" />
                 <span className="sr-only">Delete</span>
               </Button>
@@ -113,23 +85,14 @@ export function TodoList({
             placeholder="Add a task..."
             className="h-8 flex-1"
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleAdd}
-            disabled={!newTodoText.trim()}
-          >
+          <Button variant="ghost" size="sm" onClick={handleAdd} disabled={!newTodoText.trim()}>
             Add
           </Button>
         </div>
       )}
 
       {/* Empty state */}
-      {todos.length === 0 && !onAdd && (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          No tasks yet
-        </p>
-      )}
+      {todos.length === 0 && !onAdd && <p className="py-4 text-center text-sm text-muted-foreground">No tasks yet</p>}
     </div>
   );
 }

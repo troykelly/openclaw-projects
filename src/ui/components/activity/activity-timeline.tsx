@@ -19,14 +19,7 @@ export interface ActivityTimelineProps {
   className?: string;
 }
 
-export function ActivityTimeline({
-  activities,
-  onActivityClick,
-  hasMore,
-  onLoadMore,
-  loading,
-  className,
-}: ActivityTimelineProps) {
+export function ActivityTimeline({ activities, onActivityClick, hasMore, onLoadMore, loading, className }: ActivityTimelineProps) {
   const groups = React.useMemo(() => groupActivitiesByDate(activities), [activities]);
 
   if (activities.length === 0 && !loading) {
@@ -54,16 +47,10 @@ export function ActivityTimeline({
               <div key={activity.id} className="relative">
                 {/* Timeline connector */}
                 {(activityIndex < group.activities.length - 1 || groupIndex < groups.length - 1) && (
-                  <div
-                    data-testid="timeline-connector"
-                    className="absolute left-4 top-10 bottom-0 w-px bg-border"
-                  />
+                  <div data-testid="timeline-connector" className="absolute left-4 top-10 bottom-0 w-px bg-border" />
                 )}
 
-                <ActivityCard
-                  activity={activity}
-                  onClick={onActivityClick}
-                />
+                <ActivityCard activity={activity} onClick={onActivityClick} />
               </div>
             ))}
           </div>
@@ -73,12 +60,7 @@ export function ActivityTimeline({
       {/* Load more */}
       {hasMore && (
         <div className="text-center pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onLoadMore}
-            disabled={loading}
-          >
+          <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loading}>
             {loading ? 'Loading...' : 'Load More'}
           </Button>
         </div>

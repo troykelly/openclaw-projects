@@ -55,11 +55,7 @@ export function ContactActivitySection({
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (a) =>
-          a.title.toLowerCase().includes(query) ||
-          a.description?.toLowerCase().includes(query)
-      );
+      result = result.filter((a) => a.title.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     }
 
     return result;
@@ -72,16 +68,9 @@ export function ContactActivitySection({
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium">Activity</h3>
-          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            {activities.length}
-          </span>
+          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{activities.length}</span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7"
-          onClick={() => setShowFilters(!showFilters)}
-        >
+        <Button variant="outline" size="sm" className="h-7" onClick={() => setShowFilters(!showFilters)}>
           <Filter className="h-3.5 w-3.5 mr-1" />
           Filter
         </Button>
@@ -112,13 +101,7 @@ export function ContactActivitySection({
 
       {/* Timeline */}
       {!loading || activities.length > 0 ? (
-        <ActivityTimeline
-          activities={filteredActivities}
-          onActivityClick={onActivityClick}
-          hasMore={hasMore}
-          onLoadMore={onLoadMore}
-          loading={loading}
-        />
+        <ActivityTimeline activities={filteredActivities} onActivityClick={onActivityClick} hasMore={hasMore} onLoadMore={onLoadMore} loading={loading} />
       ) : null}
     </div>
   );

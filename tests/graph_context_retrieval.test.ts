@@ -14,10 +14,7 @@ import type { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool } from './helpers/db.ts';
-import {
-  retrieveGraphAwareContext,
-  collectGraphScopes,
-} from '../src/api/context/graph-aware-service.ts';
+import { retrieveGraphAwareContext, collectGraphScopes } from '../src/api/context/graph-aware-service.ts';
 
 describe('Graph-Aware Context Retrieval', () => {
   let pool: Pool;
@@ -42,11 +39,9 @@ describe('Graph-Aware Context Retrieval', () => {
       `DELETE FROM relationship
        WHERE relationship_type_id IN (
          SELECT id FROM relationship_type WHERE name NOT IN (${PRE_SEEDED_NAMES})
-       )`
+       )`,
     );
-    await pool.query(
-      `DELETE FROM relationship_type WHERE name NOT IN (${PRE_SEEDED_NAMES})`
-    );
+    await pool.query(`DELETE FROM relationship_type WHERE name NOT IN (${PRE_SEEDED_NAMES})`);
     await pool.end();
   });
 
@@ -63,36 +58,25 @@ describe('Graph-Aware Context Retrieval', () => {
       `INSERT INTO contact (display_name)
        VALUES ($1)
        RETURNING id::text as id`,
-      [displayName]
+      [displayName],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   /** Creates a contact endpoint (e.g., email). */
-  async function createEndpoint(
-    contactId: string,
-    endpointType: string,
-    endpointValue: string
-  ): Promise<string> {
+  async function createEndpoint(contactId: string, endpointType: string, endpointValue: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, $2::contact_endpoint_type, $3, lower($3))
        RETURNING id::text as id`,
-      [contactId, endpointType, endpointValue]
+      [contactId, endpointType, endpointValue],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   /** Gets or creates a relationship type. */
-  async function getOrCreateRelationshipType(
-    name: string,
-    label: string,
-    isDirectional: boolean = false
-  ): Promise<string> {
-    const existing = await pool.query(
-      `SELECT id::text as id FROM relationship_type WHERE name = $1`,
-      [name]
-    );
+  async function getOrCreateRelationshipType(name: string, label: string, isDirectional: boolean = false): Promise<string> {
+    const existing = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = $1`, [name]);
     if (existing.rows.length > 0) {
       return (existing.rows[0] as { id: string }).id;
     }
@@ -101,22 +85,18 @@ describe('Graph-Aware Context Retrieval', () => {
       `INSERT INTO relationship_type (name, label, is_directional)
        VALUES ($1, $2, $3)
        RETURNING id::text as id`,
-      [name, label, isDirectional]
+      [name, label, isDirectional],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   /** Creates a relationship between two contacts. */
-  async function createRelationship(
-    contactAId: string,
-    contactBId: string,
-    relationshipTypeId: string
-  ): Promise<string> {
+  async function createRelationship(contactAId: string, contactBId: string, relationshipTypeId: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO relationship (contact_a_id, contact_b_id, relationship_type_id)
        VALUES ($1, $2, $3)
        RETURNING id::text as id`,
-      [contactAId, contactBId, relationshipTypeId]
+      [contactAId, contactBId, relationshipTypeId],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -152,7 +132,7 @@ describe('Graph-Aware Context Retrieval', () => {
         opts.confidence ?? 1.0,
         opts.expiresAt ?? null,
         opts.supersededBy ?? null,
-      ]
+      ],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -168,9 +148,7 @@ describe('Graph-Aware Context Retrieval', () => {
       expect(scopes.userEmail).toBe(email);
       expect(scopes.contactIds).toEqual([]);
       expect(scopes.relationshipIds).toEqual([]);
-      expect(scopes.scopeDetails).toEqual([
-        { scopeType: 'personal', scopeId: email, label: 'Personal' },
-      ]);
+      expect(scopes.scopeDetails).toEqual([{ scopeType: 'personal', scopeId: email, label: 'Personal' }]);
     });
 
     it('should collect related contact IDs for direct relationships', async () => {
@@ -256,23 +234,17 @@ describe('Graph-Aware Context Retrieval', () => {
       expect(personalScope).toBeDefined();
 
       // Contact scope for partner
-      const contactScope = scopes.scopeDetails.find(
-        (s) => s.scopeType === 'contact' && s.scopeId === partnerContactId
-      );
+      const contactScope = scopes.scopeDetails.find((s) => s.scopeType === 'contact' && s.scopeId === partnerContactId);
       expect(contactScope).toBeDefined();
       expect(contactScope?.label).toContain('Partner');
 
       // Group scope
-      const groupScope = scopes.scopeDetails.find(
-        (s) => s.scopeType === 'group' && s.scopeId === groupContactId
-      );
+      const groupScope = scopes.scopeDetails.find((s) => s.scopeType === 'group' && s.scopeId === groupContactId);
       expect(groupScope).toBeDefined();
       expect(groupScope?.label).toContain(`Household-${tid}`);
 
       // Relationship scope
-      const relScope = scopes.scopeDetails.find(
-        (s) => s.scopeType === 'relationship' && s.scopeId === relId
-      );
+      const relScope = scopes.scopeDetails.find((s) => s.scopeType === 'relationship' && s.scopeId === relId);
       expect(relScope).toBeDefined();
     });
   });
@@ -510,9 +482,7 @@ describe('Graph-Aware Context Retrieval', () => {
       });
 
       if (result.memories.length >= 2) {
-        expect(result.memories[0].combinedRelevance).toBeGreaterThanOrEqual(
-          result.memories[1].combinedRelevance
-        );
+        expect(result.memories[0].combinedRelevance).toBeGreaterThanOrEqual(result.memories[1].combinedRelevance);
       }
     });
 

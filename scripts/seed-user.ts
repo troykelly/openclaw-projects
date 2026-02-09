@@ -28,7 +28,7 @@ async function main() {
   await pool.query(
     `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
      VALUES ($1, $2, now() + interval '24 hours')`,
-    [email, tokenSha]
+    [email, tokenSha],
   );
 
   const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';

@@ -9,11 +9,7 @@ describe('Memory Search API', () => {
   const app = buildServer();
   let pool: Pool;
 
-  const hasApiKey = !!(
-    process.env.VOYAGERAI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.GEMINI_API_KEY
-  );
+  const hasApiKey = !!(process.env.VOYAGERAI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -47,7 +43,7 @@ describe('Memory Search API', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -55,7 +51,7 @@ describe('Memory Search API', () => {
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Test Memory', 'Some content', 'note')`,
-        [workItemId]
+        [workItemId],
       );
 
       const res = await app.inject({
@@ -74,7 +70,7 @@ describe('Memory Search API', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -111,7 +107,7 @@ describe('Memory Search API', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -138,7 +134,7 @@ describe('Memory Search API', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -147,7 +143,7 @@ describe('Memory Search API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Original Title', 'Original content', 'note', 'complete')
          RETURNING id::text as id`,
-        [workItemId]
+        [workItemId],
       );
       const memoryId = (memory.rows[0] as { id: string }).id;
 
@@ -175,7 +171,7 @@ describe('Memory Search API', () => {
       const workItem = await pool.query(
         `INSERT INTO work_item (title, description, kind)
          VALUES ('Test Project', 'Test description', 'project')
-         RETURNING id::text as id`
+         RETURNING id::text as id`,
       );
       const workItemId = (workItem.rows[0] as { id: string }).id;
 
@@ -184,7 +180,7 @@ describe('Memory Search API', () => {
         `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Memory 1', 'Content 1', 'note', 'pending'),
                 ($1, 'Memory 2', 'Content 2', 'note', 'pending')`,
-        [workItemId]
+        [workItemId],
       );
 
       const res = await app.inject({

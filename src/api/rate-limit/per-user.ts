@@ -58,10 +58,7 @@ export type GetSessionEmailFn = (req: FastifyRequest) => Promise<string | null>;
  * @param getSessionEmail - Function to extract session email from request
  * @returns Rate limit key
  */
-export async function extractUserIdForRateLimit(
-  req: FastifyRequest,
-  getSessionEmail: GetSessionEmailFn
-): Promise<string> {
+export async function extractUserIdForRateLimit(req: FastifyRequest, getSessionEmail: GetSessionEmailFn): Promise<string> {
   try {
     const email = await getSessionEmail(req);
     if (email) {
@@ -96,20 +93,12 @@ export function getEndpointRateLimitCategory(method: string, url: string): RateL
   }
 
   // Webhook endpoints (external services calling our API)
-  if (
-    path.startsWith('/api/twilio/sms') &&
-    !path.includes('/send') ||
-    path.startsWith('/api/postmark/') ||
-    path.startsWith('/api/cloudflare/email')
-  ) {
+  if ((path.startsWith('/api/twilio/sms') && !path.includes('/send')) || path.startsWith('/api/postmark/') || path.startsWith('/api/cloudflare/email')) {
     return 'webhook';
   }
 
   // Message sending endpoints
-  if (
-    path.includes('/send') ||
-    path.includes('/email/send')
-  ) {
+  if (path.includes('/send') || path.includes('/email/send')) {
     return 'send';
   }
 
@@ -157,9 +146,7 @@ export function getRateLimitConfig(category: RateLimitCategory): RateLimitConfig
  * @param getSessionEmail - Function to extract session email from request
  * @returns Key generator function for rate limiting
  */
-export function createRateLimitKeyGenerator(
-  getSessionEmail: GetSessionEmailFn
-): (req: FastifyRequest) => Promise<string> {
+export function createRateLimitKeyGenerator(getSessionEmail: GetSessionEmailFn): (req: FastifyRequest) => Promise<string> {
   return async (req: FastifyRequest): Promise<string> => {
     return extractUserIdForRateLimit(req, getSessionEmail);
   };
@@ -176,7 +163,7 @@ export function createRateLimitKeyGenerator(
  */
 export function getRouteRateLimitConfig(
   category: RateLimitCategory,
-  getSessionEmail: GetSessionEmailFn
+  getSessionEmail: GetSessionEmailFn,
 ): {
   max: number;
   timeWindow: number;

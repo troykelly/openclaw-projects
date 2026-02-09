@@ -25,9 +25,7 @@ describe('Postmark Inbound Webhook', () => {
     return { Email: email, Name: name };
   }
 
-  function createPostmarkPayload(
-    overrides: Partial<PostmarkInboundPayload> = {}
-  ): PostmarkInboundPayload {
+  function createPostmarkPayload(overrides: Partial<PostmarkInboundPayload> = {}): PostmarkInboundPayload {
     const messageId = `${Date.now()}.${Math.random().toString(36).slice(2)}@postmark.test`;
     return {
       MessageID: messageId,
@@ -38,9 +36,7 @@ describe('Postmark Inbound Webhook', () => {
       Subject: 'Test Email Subject',
       TextBody: 'This is the plain text body.',
       HtmlBody: '<p>This is the <strong>HTML</strong> body.</p>',
-      Headers: [
-        { Name: 'Message-ID', Value: `<${messageId}>` },
-      ],
+      Headers: [{ Name: 'Message-ID', Value: `<${messageId}>` }],
       Date: new Date().toISOString(),
       ...overrides,
     };
@@ -95,7 +91,7 @@ describe('Postmark Inbound Webhook', () => {
            FROM contact c
            JOIN contact_endpoint ce ON ce.contact_id = c.id
           WHERE ce.endpoint_type = 'email'
-            AND ce.normalized_value LIKE '%sender@example.com%'`
+            AND ce.normalized_value LIKE '%sender@example.com%'`,
       );
       expect(contactResult.rows.length).toBe(1);
       expect(contactResult.rows[0].display_name).toBe('Test Sender');
@@ -106,9 +102,7 @@ describe('Postmark Inbound Webhook', () => {
       const payload1 = createPostmarkPayload({
         MessageID: 'msg1@test.com',
         Subject: 'First Email',
-        Headers: [
-          { Name: 'Message-ID', Value: '<msg1@test.com>' },
-        ],
+        Headers: [{ Name: 'Message-ID', Value: '<msg1@test.com>' }],
       });
 
       const response1 = await app.inject({
@@ -125,9 +119,7 @@ describe('Postmark Inbound Webhook', () => {
       const payload2 = createPostmarkPayload({
         MessageID: 'msg2@test.com',
         Subject: 'Second Email',
-        Headers: [
-          { Name: 'Message-ID', Value: '<msg2@test.com>' },
-        ],
+        Headers: [{ Name: 'Message-ID', Value: '<msg2@test.com>' }],
       });
 
       const response2 = await app.inject({
@@ -157,16 +149,14 @@ describe('Postmark Inbound Webhook', () => {
         payload,
       });
 
-      const threadResult = await pool.query(
-        `SELECT * FROM external_thread WHERE channel = 'email'`
-      );
+      const threadResult = await pool.query(`SELECT * FROM external_thread WHERE channel = 'email'`);
       expect(threadResult.rows.length).toBe(1);
       expect(threadResult.rows[0].external_thread_key).toContain('email:');
       expect(threadResult.rows[0].metadata).toEqual(
         expect.objectContaining({
           source: 'postmark',
           subject: payload.Subject,
-        })
+        }),
       );
     });
 
@@ -175,9 +165,7 @@ describe('Postmark Inbound Webhook', () => {
       const originalPayload = createPostmarkPayload({
         MessageID: 'original@test.com',
         Subject: 'Original Email',
-        Headers: [
-          { Name: 'Message-ID', Value: '<original@test.com>' },
-        ],
+        Headers: [{ Name: 'Message-ID', Value: '<original@test.com>' }],
       });
 
       const response1 = await app.inject({
@@ -208,10 +196,7 @@ describe('Postmark Inbound Webhook', () => {
       expect(replyThreadId).toBe(originalThreadId);
 
       // Verify two messages in same thread
-      const messages = await pool.query(
-        `SELECT COUNT(*) FROM external_message WHERE thread_id = $1`,
-        [originalThreadId]
-      );
+      const messages = await pool.query(`SELECT COUNT(*) FROM external_message WHERE thread_id = $1`, [originalThreadId]);
       expect(parseInt(messages.rows[0].count, 10)).toBe(2);
     });
 
@@ -219,13 +204,8 @@ describe('Postmark Inbound Webhook', () => {
       const payload = createPostmarkPayload({
         Subject: 'Important Subject',
         FromFull: createPostmarkAddress('sender@test.com', 'The Sender'),
-        ToFull: [
-          createPostmarkAddress('to1@test.com', 'To 1'),
-          createPostmarkAddress('to2@test.com', 'To 2'),
-        ],
-        CcFull: [
-          createPostmarkAddress('cc@test.com', 'CC Person'),
-        ],
+        ToFull: [createPostmarkAddress('to1@test.com', 'To 1'), createPostmarkAddress('to2@test.com', 'To 2')],
+        CcFull: [createPostmarkAddress('cc@test.com', 'CC Person')],
         TextBody: 'Plain text content',
         HtmlBody: '<p>HTML content</p>',
       });
@@ -239,7 +219,7 @@ describe('Postmark Inbound Webhook', () => {
       const messageResult = await pool.query(
         `SELECT subject, from_address, to_addresses, cc_addresses, body
            FROM external_message
-          LIMIT 1`
+          LIMIT 1`,
       );
       expect(messageResult.rows.length).toBe(1);
       expect(messageResult.rows[0].subject).toBe('Important Subject');
@@ -275,9 +255,7 @@ describe('Postmark Inbound Webhook', () => {
         payload,
       });
 
-      const messageResult = await pool.query(
-        `SELECT attachments FROM external_message LIMIT 1`
-      );
+      const messageResult = await pool.query(`SELECT attachments FROM external_message LIMIT 1`);
       expect(messageResult.rows.length).toBe(1);
       const attachments = messageResult.rows[0].attachments;
       expect(attachments).toHaveLength(2);
@@ -306,9 +284,7 @@ describe('Postmark Inbound Webhook', () => {
         payload,
       });
 
-      const messageResult = await pool.query(
-        `SELECT raw FROM external_message LIMIT 1`
-      );
+      const messageResult = await pool.query(`SELECT raw FROM external_message LIMIT 1`);
       expect(messageResult.rows.length).toBe(1);
       expect(messageResult.rows[0].raw.MessageID).toBe(payload.MessageID);
       expect(messageResult.rows[0].raw.MailboxHash).toBe('test-hash');
@@ -327,9 +303,7 @@ describe('Postmark Inbound Webhook', () => {
         payload,
       });
 
-      const messageResult = await pool.query(
-        `SELECT body FROM external_message LIMIT 1`
-      );
+      const messageResult = await pool.query(`SELECT body FROM external_message LIMIT 1`);
       expect(messageResult.rows[0].body).toContain('HTML only content');
     });
 

@@ -47,7 +47,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       // Create a preference memory
       await pool.query(
         `INSERT INTO memory (user_email, title, content, memory_type, importance)
-         VALUES ('test@example.com', 'Dark Mode', 'User prefers dark mode', 'preference', 8)`
+         VALUES ('test@example.com', 'Dark Mode', 'User prefers dark mode', 'preference', 8)`,
       );
 
       const res = await app.inject({
@@ -68,7 +68,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Active Project', 'project', 'in_progress'),
-                ('Completed Project', 'project', 'completed')`
+                ('Completed Project', 'project', 'completed')`,
       );
 
       const res = await app.inject({
@@ -90,7 +90,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status, not_before)
          VALUES ('Future Reminder', 'issue', 'open', $1)`,
-        [futureDate]
+        [futureDate],
       );
 
       const res = await app.inject({
@@ -108,7 +108,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('returns key contacts', async () => {
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('John Doe'), ('Jane Smith')`
+         VALUES ('John Doe'), ('Jane Smith')`,
       );
 
       const res = await app.inject({
@@ -127,19 +127,19 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Open Issue', 'issue', 'open'),
-                ('Completed Issue', 'issue', 'completed')`
+                ('Completed Issue', 'issue', 'completed')`,
       );
 
       // Create a contact
       await pool.query(
         `INSERT INTO contact (display_name)
-         VALUES ('Test Contact')`
+         VALUES ('Test Contact')`,
       );
 
       // Create a memory
       await pool.query(
         `INSERT INTO memory (title, content, memory_type)
-         VALUES ('Test Memory', 'Content', 'note')`
+         VALUES ('Test Memory', 'Content', 'note')`,
       );
 
       const res = await app.inject({
@@ -197,7 +197,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       const contactResult = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Sender')
-         RETURNING id`
+         RETURNING id`,
       );
       const contactId = contactResult.rows[0].id;
 
@@ -205,7 +205,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'phone', '+15551234567', '+15551234567')
          RETURNING id`,
-        [contactId]
+        [contactId],
       );
       const endpointId = endpointResult.rows[0].id;
 
@@ -214,7 +214,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
         `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
          VALUES ($1, 'phone', 'thread-123')
          RETURNING id`,
-        [endpointId]
+        [endpointId],
       );
       const threadId = threadResult.rows[0].id;
 
@@ -223,26 +223,24 @@ describe('Agent Bootstrap API (Issue #219)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'msg1', 'inbound', 'Hello', NOW()),
                 ($1, 'msg2', 'inbound', 'World', NOW())`,
-        [threadId]
+        [threadId],
       );
 
       // Create a work item and link one message to it (making it "read"/actioned)
       const workItemResult = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status)
          VALUES ('Reply to message', 'issue', 'open')
-         RETURNING id`
+         RETURNING id`,
       );
       const workItemId = workItemResult.rows[0].id;
 
-      const messageResult = await pool.query(
-        `SELECT id FROM external_message WHERE external_message_key = 'msg1'`
-      );
+      const messageResult = await pool.query(`SELECT id FROM external_message WHERE external_message_key = 'msg1'`);
       const messageId = messageResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [workItemId, threadId, messageId]
+        [workItemId, threadId, messageId],
       );
 
       const res = await app.inject({
@@ -261,7 +259,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
       // Create a work item that was updated recently
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, status, updated_at)
-         VALUES ('Recent Work', 'issue', 'open', NOW())`
+         VALUES ('Recent Work', 'issue', 'open', NOW())`,
       );
 
       const res = await app.inject({
@@ -279,7 +277,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('returns user settings when available', async () => {
       await pool.query(
         `INSERT INTO user_setting (email, theme, timezone)
-         VALUES ('test@example.com', 'dark', 'Australia/Sydney')`
+         VALUES ('test@example.com', 'dark', 'Australia/Sydney')`,
       );
 
       const res = await app.inject({

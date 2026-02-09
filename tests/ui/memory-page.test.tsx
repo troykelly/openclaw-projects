@@ -174,9 +174,7 @@ describe('MemoryPage', () => {
     render(<MemoryPage />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/The user has stated they prefer dark mode/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/The user has stated they prefer dark mode/)).toBeInTheDocument();
     });
   });
 
@@ -210,9 +208,7 @@ describe('MemoryPage', () => {
   });
 
   it('shows error state when API fails', async () => {
-    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('Network error'),
-    );
+    (apiClient.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
 
     render(<MemoryPage />, { wrapper: createWrapper() });
 

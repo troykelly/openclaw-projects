@@ -26,7 +26,7 @@ describe('Reminder firing hook (Issue #222)', () => {
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, now() - interval '1 hour', 'open')
          RETURNING id::text as id`,
-        ['Call mom']
+        ['Call mom'],
       );
       const workItemId = wi.rows[0].id as string;
 
@@ -37,7 +37,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT kind, payload->>'work_item_id' as work_item_id
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(jobs.rows).toEqual([
@@ -53,7 +53,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       await pool.query(
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, now() - interval '1 hour', 'open')`,
-        ['Call mom']
+        ['Call mom'],
       );
 
       // Run the enqueue function twice
@@ -64,7 +64,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT COUNT(*) as count
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(parseInt(jobs.rows[0].count as string, 10)).toBe(1);
@@ -75,7 +75,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       await pool.query(
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, now() + interval '1 hour', 'open')`,
-        ['Future reminder']
+        ['Future reminder'],
       );
 
       // Run the enqueue function
@@ -85,7 +85,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT COUNT(*) as count
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(parseInt(jobs.rows[0].count as string, 10)).toBe(0);
@@ -96,7 +96,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       await pool.query(
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, now() - interval '1 hour', 'completed')`,
-        ['Done task']
+        ['Done task'],
       );
 
       // Run the enqueue function
@@ -106,7 +106,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT COUNT(*) as count
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(parseInt(jobs.rows[0].count as string, 10)).toBe(0);
@@ -116,7 +116,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       await pool.query(
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, now() - interval '1 hour', 'cancelled')`,
-        ['Cancelled task']
+        ['Cancelled task'],
       );
 
       await pool.query(`SELECT enqueue_due_reminders()`);
@@ -124,7 +124,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT COUNT(*) as count
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(parseInt(jobs.rows[0].count as string, 10)).toBe(0);
@@ -134,7 +134,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       await pool.query(
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, now() - interval '1 hour', 'archived')`,
-        ['Archived task']
+        ['Archived task'],
       );
 
       await pool.query(`SELECT enqueue_due_reminders()`);
@@ -142,7 +142,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT COUNT(*) as count
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(parseInt(jobs.rows[0].count as string, 10)).toBe(0);
@@ -155,7 +155,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       await pool.query(
         `INSERT INTO work_item (title, not_before, status)
          VALUES ($1, $2, 'open')`,
-        ['Call mom', notBefore]
+        ['Call mom', notBefore],
       );
 
       await pool.query(`SELECT enqueue_due_reminders()`);
@@ -163,7 +163,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       const jobs = await pool.query(
         `SELECT payload->>'not_before' as not_before
            FROM internal_job
-          WHERE kind = 'reminder.work_item.not_before'`
+          WHERE kind = 'reminder.work_item.not_before'`,
       );
 
       expect(jobs.rows.length).toBe(1);
@@ -177,7 +177,7 @@ describe('Reminder firing hook (Issue #222)', () => {
         `SELECT jobname, schedule, command
            FROM cron.job
           WHERE jobname = 'internal_reminder_enqueue'
-          LIMIT 1`
+          LIMIT 1`,
       );
 
       expect(job.rows.length).toBe(1);

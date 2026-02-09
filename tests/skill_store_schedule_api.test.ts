@@ -520,7 +520,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
       // Verify job was enqueued
       const jobs = await pool.query(
         `SELECT kind, payload FROM internal_job
-         WHERE kind = 'skill_store.scheduled_process'`
+         WHERE kind = 'skill_store.scheduled_process'`,
       );
       expect(jobs.rows).toHaveLength(1);
       expect(jobs.rows[0].payload.schedule_id).toBe(id);
@@ -644,7 +644,7 @@ describe('Skill Store Schedule API (Issue #802)', () => {
       // Verify job was created
       const jobs = await pool.query(
         `SELECT id, kind, payload FROM internal_job
-         WHERE kind = 'skill_store.scheduled_process' AND completed_at IS NULL`
+         WHERE kind = 'skill_store.scheduled_process' AND completed_at IS NULL`,
       );
       expect(jobs.rows).toHaveLength(1);
       expect(jobs.rows[0].payload.schedule_id).toBe(scheduleId);

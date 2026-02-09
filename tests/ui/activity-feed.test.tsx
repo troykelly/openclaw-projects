@@ -7,14 +7,7 @@ import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import {
-  ActivityCard,
-  ActivityTimeline,
-  ActivityFilter,
-  ActivityStats,
-  type Activity,
-  type ActivityType,
-} from '@/ui/components/activity';
+import { ActivityCard, ActivityTimeline, ActivityFilter, ActivityStats, type Activity, type ActivityType } from '@/ui/components/activity';
 
 const mockActivity: Activity = {
   id: '1',
@@ -45,7 +38,6 @@ const mockActivities: Activity[] = [
     sourceId: 'note-1',
   },
 ];
-
 
 describe('ActivityCard', () => {
   it('renders activity title', () => {

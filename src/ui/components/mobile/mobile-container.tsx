@@ -12,22 +12,9 @@ export interface MobileContainerProps {
   className?: string;
 }
 
-export function MobileContainer({
-  children,
-  safeArea = false,
-  fullHeight = false,
-  className,
-}: MobileContainerProps) {
+export function MobileContainer({ children, safeArea = false, fullHeight = false, className }: MobileContainerProps) {
   return (
-    <div
-      data-testid="mobile-container"
-      className={cn(
-        'px-4 py-2 w-full',
-        fullHeight && 'min-h-screen',
-        safeArea && 'pb-safe pt-safe',
-        className
-      )}
-    >
+    <div data-testid="mobile-container" className={cn('px-4 py-2 w-full', fullHeight && 'min-h-screen', safeArea && 'pb-safe pt-safe', className)}>
       {children}
     </div>
   );

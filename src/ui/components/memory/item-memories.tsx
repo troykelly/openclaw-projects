@@ -16,15 +16,7 @@ export interface ItemMemoriesProps {
   className?: string;
 }
 
-export function ItemMemories({
-  memories,
-  onMemoryClick,
-  onAddMemory,
-  onLinkMemory,
-  onEditMemory,
-  onDeleteMemory,
-  className,
-}: ItemMemoriesProps) {
+export function ItemMemories({ memories, onMemoryClick, onAddMemory, onLinkMemory, onEditMemory, onDeleteMemory, className }: ItemMemoriesProps) {
   return (
     <div className={cn('space-y-4', className)}>
       {/* Header */}
@@ -56,13 +48,7 @@ export function ItemMemories({
       {memories.length > 0 ? (
         <div className="grid gap-2 sm:grid-cols-2">
           {memories.map((memory) => (
-            <MemoryCard
-              key={memory.id}
-              memory={memory}
-              onClick={onMemoryClick}
-              onEdit={onEditMemory}
-              onDelete={onDeleteMemory}
-            />
+            <MemoryCard key={memory.id} memory={memory} onClick={onMemoryClick} onEdit={onEditMemory} onDelete={onDeleteMemory} />
           ))}
         </div>
       ) : (

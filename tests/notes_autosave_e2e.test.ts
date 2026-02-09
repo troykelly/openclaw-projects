@@ -359,7 +359,7 @@ describe('Notes Autosave E2E (Issue #780)', () => {
               user_email: testUser,
               content: `Content version ${i + 1}`,
             },
-          })
+          }),
         );
 
       const results = await Promise.all(rapidUpdates);

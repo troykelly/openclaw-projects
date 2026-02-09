@@ -36,23 +36,16 @@ export function ContactBulkActionBar({
         'fixed bottom-4 left-1/2 -translate-x-1/2 z-50',
         'flex items-center gap-2 px-4 py-2 rounded-lg',
         'bg-primary text-primary-foreground shadow-lg',
-        className
+        className,
       )}
     >
       {/* Selection count */}
-      <span className="text-sm font-medium mr-2">
-        {selectedCount} selected
-      </span>
+      <span className="text-sm font-medium mr-2">{selectedCount} selected</span>
 
       <div className="h-4 w-px bg-primary-foreground/30" />
 
       {/* Actions */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
-        onClick={onAddToGroup}
-      >
+      <Button variant="ghost" size="sm" className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={onAddToGroup}>
         <UserPlus className="h-4 w-4 mr-1" />
         Add to Group
       </Button>
@@ -77,12 +70,7 @@ export function ContactBulkActionBar({
         Update
       </Button>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10"
-        onClick={onExport}
-      >
+      <Button variant="ghost" size="sm" className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={onExport}>
         <Download className="h-4 w-4 mr-1" />
         Export
       </Button>

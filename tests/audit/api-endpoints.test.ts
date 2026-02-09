@@ -135,16 +135,11 @@ describe('Audit Log API Endpoints', () => {
   describe('GET /api/audit-log/entity/:type/:id', () => {
     it('returns audit log for a specific entity', async () => {
       // Create a work item to generate audit entries
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Audit Test Task') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Audit Test Task') RETURNING id::text`);
       const workItemId = result.rows[0].id;
 
       // Update the work item to create another audit entry
-      await pool.query(
-        `UPDATE work_item SET title = 'Updated Task' WHERE id = $1`,
-        [workItemId]
-      );
+      await pool.query(`UPDATE work_item SET title = 'Updated Task' WHERE id = $1`, [workItemId]);
 
       const response = await app.inject({
         method: 'GET',
@@ -171,17 +166,12 @@ describe('Audit Log API Endpoints', () => {
     });
 
     it('supports pagination', async () => {
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Pagination Test') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Pagination Test') RETURNING id::text`);
       const workItemId = result.rows[0].id;
 
       // Create multiple updates
       for (let i = 0; i < 3; i++) {
-        await pool.query(
-          `UPDATE work_item SET title = $1 WHERE id = $2`,
-          [`Title ${i}`, workItemId]
-        );
+        await pool.query(`UPDATE work_item SET title = $1 WHERE id = $2`, [`Title ${i}`, workItemId]);
       }
 
       const response = await app.inject({
@@ -201,9 +191,7 @@ describe('Audit Log API Endpoints', () => {
       await pool.query(`INSERT INTO work_item (title) VALUES ('Old Task')`);
 
       // Make it old
-      await pool.query(
-        `UPDATE audit_log SET timestamp = now() - INTERVAL '100 days'`
-      );
+      await pool.query(`UPDATE audit_log SET timestamp = now() - INTERVAL '100 days'`);
 
       const response = await app.inject({
         method: 'POST',
@@ -320,7 +308,7 @@ describe('Audit Log Trigger Verification via API', () => {
     const result = await pool.query(
       `INSERT INTO memory (title, content, memory_type)
        VALUES ('Test Memory', 'Test content', 'note')
-       RETURNING id::text`
+       RETURNING id::text`,
     );
     const memoryId = result.rows[0].id;
 

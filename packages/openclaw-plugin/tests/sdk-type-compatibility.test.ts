@@ -32,8 +32,8 @@
  * Part of #885.
  */
 
-import { describe, expect, it } from 'vitest'
-import type { OpenClawPluginApi as SdkOpenClawPluginApi } from 'openclaw/plugin-sdk'
+import { describe, expect, it } from 'vitest';
+import type { OpenClawPluginApi as SdkOpenClawPluginApi } from 'openclaw/plugin-sdk';
 import type {
   PluginHookName,
   PluginHookAgentContext,
@@ -41,7 +41,7 @@ import type {
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
   OpenClawPluginApi,
-} from '../src/types/openclaw-api.js'
+} from '../src/types/openclaw-api.js';
 
 // ── Compile-time type compatibility checks ────────────────────────────────────
 // These assignments verify structural compatibility at the TypeScript level.
@@ -55,12 +55,12 @@ import type {
 // The SDK's OpenClawPluginApi.on method accepts PluginHookName as its first
 // parameter, and our type uses the same string union. This compile-time check
 // verifies that our hook names are valid for the SDK's on() method.
-type SdkOnMethod = NonNullable<SdkOpenClawPluginApi['on']>
-type SdkHookNameParam = Parameters<SdkOnMethod>[0]
+type SdkOnMethod = NonNullable<SdkOpenClawPluginApi['on']>;
+type SdkHookNameParam = Parameters<SdkOnMethod>[0];
 
 // Every local PluginHookName value should be assignable to the SDK's parameter type
-const _localToSdk: SdkHookNameParam = '' as PluginHookName
-void _localToSdk
+const _localToSdk: SdkHookNameParam = '' as PluginHookName;
+void _localToSdk;
 
 describe('SDK Type Compatibility', () => {
   describe('PluginHookName', () => {
@@ -80,19 +80,19 @@ describe('SDK Type Compatibility', () => {
         'session_end',
         'gateway_start',
         'gateway_stop',
-      ]
+      ];
       // This ensures our type covers all 14 hooks
-      expect(expectedHooks).toHaveLength(14)
-    })
+      expect(expectedHooks).toHaveLength(14);
+    });
 
     it('should match the SDK hook names at runtime', () => {
       // If the SDK's on() method accepts our hook names, they're compatible.
       // This is verified at compile time by the _localToSdk check above,
       // and at runtime here with a basic sanity check.
-      const hookName: PluginHookName = 'before_agent_start'
-      expect(hookName).toBe('before_agent_start')
-    })
-  })
+      const hookName: PluginHookName = 'before_agent_start';
+      expect(hookName).toBe('before_agent_start');
+    });
+  });
 
   describe('PluginHookAgentContext', () => {
     it('should have the expected shape', () => {
@@ -101,50 +101,50 @@ describe('SDK Type Compatibility', () => {
         sessionKey: 'test-session',
         workspaceDir: '/tmp/workspace',
         messageProvider: 'test-provider',
-      }
-      expect(ctx.agentId).toBe('test-agent')
-      expect(ctx.sessionKey).toBe('test-session')
-      expect(ctx.workspaceDir).toBe('/tmp/workspace')
-      expect(ctx.messageProvider).toBe('test-provider')
-    })
+      };
+      expect(ctx.agentId).toBe('test-agent');
+      expect(ctx.sessionKey).toBe('test-session');
+      expect(ctx.workspaceDir).toBe('/tmp/workspace');
+      expect(ctx.messageProvider).toBe('test-provider');
+    });
 
     it('should allow all optional fields', () => {
-      const ctx: PluginHookAgentContext = {}
-      expect(ctx.agentId).toBeUndefined()
-    })
-  })
+      const ctx: PluginHookAgentContext = {};
+      expect(ctx.agentId).toBeUndefined();
+    });
+  });
 
   describe('PluginHookBeforeAgentStartEvent', () => {
     it('should have prompt and optional messages', () => {
       const event: PluginHookBeforeAgentStartEvent = {
         prompt: 'Hello',
         messages: [{ role: 'user', content: 'test' }],
-      }
-      expect(event.prompt).toBe('Hello')
-      expect(event.messages).toHaveLength(1)
-    })
-  })
+      };
+      expect(event.prompt).toBe('Hello');
+      expect(event.messages).toHaveLength(1);
+    });
+  });
 
   describe('PluginHookBeforeAgentStartResult', () => {
     it('should have optional systemPrompt and prependContext', () => {
       const result: PluginHookBeforeAgentStartResult = {
         systemPrompt: 'You are a helpful assistant',
         prependContext: 'User preferences loaded',
-      }
-      expect(result.systemPrompt).toBe('You are a helpful assistant')
-      expect(result.prependContext).toBe('User preferences loaded')
-    })
-  })
+      };
+      expect(result.systemPrompt).toBe('You are a helpful assistant');
+      expect(result.prependContext).toBe('User preferences loaded');
+    });
+  });
 
   describe('PluginHookAgentEndEvent', () => {
     it('should have required messages and success fields', () => {
       const event: PluginHookAgentEndEvent = {
         messages: [],
         success: true,
-      }
-      expect(event.success).toBe(true)
-      expect(event.messages).toEqual([])
-    })
+      };
+      expect(event.success).toBe(true);
+      expect(event.messages).toEqual([]);
+    });
 
     it('should have optional error and durationMs', () => {
       const event: PluginHookAgentEndEvent = {
@@ -152,19 +152,19 @@ describe('SDK Type Compatibility', () => {
         success: false,
         error: 'Something went wrong',
         durationMs: 1500,
-      }
-      expect(event.error).toBe('Something went wrong')
-      expect(event.durationMs).toBe(1500)
-    })
-  })
+      };
+      expect(event.error).toBe('Something went wrong');
+      expect(event.durationMs).toBe(1500);
+    });
+  });
 
   describe('OpenClawPluginApi', () => {
     it('should define the same method names as the SDK', () => {
       // Verify that both our API and the SDK share key method names.
       // This is a runtime check that would fail if we accidentally removed
       // a method the SDK defines.
-      type LocalMethods = keyof OpenClawPluginApi
-      type SdkMethods = keyof SdkOpenClawPluginApi
+      type LocalMethods = keyof OpenClawPluginApi;
+      type SdkMethods = keyof SdkOpenClawPluginApi;
 
       // Methods that both our type and the SDK should have
       const sharedMethods: Array<LocalMethods & SdkMethods> = [
@@ -176,11 +176,11 @@ describe('SDK Type Compatibility', () => {
         'on',
         'config',
         'logger',
-      ]
+      ];
 
-      expect(sharedMethods.length).toBeGreaterThanOrEqual(8)
-    })
-  })
+      expect(sharedMethods.length).toBeGreaterThanOrEqual(8);
+    });
+  });
 
   describe('Local types documentation', () => {
     it('should document why types are kept local', () => {
@@ -208,10 +208,10 @@ describe('SDK Type Compatibility', () => {
         'PluginInitializer',
         'PluginDefinition',
         'OpenClawPluginAPI',
-      ]
+      ];
 
       // All 21 types should be documented as local
-      expect(localTypes).toHaveLength(21)
-    })
-  })
-})
+      expect(localTypes).toHaveLength(21);
+    });
+  });
+});

@@ -12,11 +12,7 @@ import type { WorkItemKind, WorkItemStatus } from '@/ui/components/detail/types'
  * - finish_to_finish: B can't finish until A finishes
  * - start_to_finish: B can't finish until A starts
  */
-export type DependencyType =
-  | 'finish_to_start'
-  | 'start_to_start'
-  | 'finish_to_finish'
-  | 'start_to_finish';
+export type DependencyType = 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish';
 
 /**
  * Direction of the dependency relationship

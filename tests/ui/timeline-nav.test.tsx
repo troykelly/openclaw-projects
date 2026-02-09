@@ -9,29 +9,11 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  TodayIndicator,
-  type TodayIndicatorProps,
-} from '@/ui/components/timeline-nav/today-indicator';
-import {
-  ZoomControls,
-  type ZoomControlsProps,
-} from '@/ui/components/timeline-nav/zoom-controls';
-import {
-  DateNavigation,
-  type DateNavigationProps,
-} from '@/ui/components/timeline-nav/date-navigation';
-import {
-  useTimelineNavigation,
-  type TimelineNavigationOptions,
-} from '@/ui/components/timeline-nav/use-timeline-navigation';
-import {
-  getZoomLevelDays,
-  formatZoomLevel,
-  calculateDatePosition,
-  isToday,
-  type ZoomLevel,
-} from '@/ui/components/timeline-nav/timeline-utils';
+import { TodayIndicator, type TodayIndicatorProps } from '@/ui/components/timeline-nav/today-indicator';
+import { ZoomControls, type ZoomControlsProps } from '@/ui/components/timeline-nav/zoom-controls';
+import { DateNavigation, type DateNavigationProps } from '@/ui/components/timeline-nav/date-navigation';
+import { useTimelineNavigation, type TimelineNavigationOptions } from '@/ui/components/timeline-nav/use-timeline-navigation';
+import { getZoomLevelDays, formatZoomLevel, calculateDatePosition, isToday, type ZoomLevel } from '@/ui/components/timeline-nav/timeline-utils';
 
 describe('Timeline Utils', () => {
   describe('getZoomLevelDays', () => {

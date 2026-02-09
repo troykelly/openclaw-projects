@@ -3,24 +3,11 @@
  * Issue #391: Implement baseline snapshots for progress tracking
  */
 import * as React from 'react';
-import {
-  Plus,
-  Minus,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowRight,
-} from 'lucide-react';
+import { Plus, Minus, RefreshCw, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Badge } from '@/ui/components/ui/badge';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { cn } from '@/ui/lib/utils';
-import {
-  compareBaselines,
-  formatSlippage,
-  getSlippageClass,
-  type BaselineSnapshot,
-  type BaselineItem,
-} from './baseline-utils';
+import { compareBaselines, formatSlippage, getSlippageClass, type BaselineSnapshot, type BaselineItem } from './baseline-utils';
 
 export interface BaselineComparisonProps {
   baseline: BaselineSnapshot;
@@ -28,15 +15,8 @@ export interface BaselineComparisonProps {
   className?: string;
 }
 
-export function BaselineComparison({
-  baseline,
-  currentItems,
-  className,
-}: BaselineComparisonProps) {
-  const comparison = React.useMemo(
-    () => compareBaselines(baseline.items, currentItems),
-    [baseline.items, currentItems]
-  );
+export function BaselineComparison({ baseline, currentItems, className }: BaselineComparisonProps) {
+  const comparison = React.useMemo(() => compareBaselines(baseline.items, currentItems), [baseline.items, currentItems]);
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -44,9 +24,7 @@ export function BaselineComparison({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Baseline Comparison</h3>
-          <p className="text-sm text-muted-foreground">
-            Comparing "{baseline.name}" to current state
-          </p>
+          <p className="text-sm text-muted-foreground">Comparing "{baseline.name}" to current state</p>
         </div>
       </div>
 
@@ -90,14 +68,7 @@ export function BaselineComparison({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="text-sm text-muted-foreground">Total Slippage</div>
-            <div
-              className={cn(
-                'text-xl font-semibold mt-1',
-                comparison.totalSlippage > 0
-                  ? 'text-destructive'
-                  : 'text-green-600 dark:text-green-400'
-              )}
-            >
+            <div className={cn('text-xl font-semibold mt-1', comparison.totalSlippage > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400')}>
               {comparison.totalSlippage > 0 ? '+' : ''}
               {comparison.totalSlippage} days
             </div>
@@ -105,12 +76,7 @@ export function BaselineComparison({
           <div>
             <div className="text-sm text-muted-foreground">Scope Change</div>
             <div
-              className={cn(
-                'text-xl font-semibold mt-1',
-                comparison.scopeChangePercent > 25
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-muted-foreground'
-              )}
+              className={cn('text-xl font-semibold mt-1', comparison.scopeChangePercent > 25 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}
             >
               {comparison.scopeChangePercent.toFixed(0)}%
             </div>
@@ -143,9 +109,7 @@ export function BaselineComparison({
                         <span>{current.endDate || 'No date'}</span>
                       </div>
                     </div>
-                    <div className={cn('text-sm font-medium shrink-0 ml-4', getSlippageClass(slippage))}>
-                      {formatSlippage(slippage)}
-                    </div>
+                    <div className={cn('text-sm font-medium shrink-0 ml-4', getSlippageClass(slippage))}>{formatSlippage(slippage)}</div>
                   </div>
                 ))}
               </div>
@@ -161,18 +125,14 @@ export function BaselineComparison({
               </h4>
               <div className="space-y-2">
                 {comparison.added.map((item) => (
-                  <div
-                    key={item.id}
-                    data-status="added"
-                    className="flex items-center justify-between p-3 rounded-md border bg-blue-50/50 dark:bg-blue-950/20"
-                  >
+                  <div key={item.id} data-status="added" className="flex items-center justify-between p-3 rounded-md border bg-blue-50/50 dark:bg-blue-950/20">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.title}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {item.endDate ? `Due: ${item.endDate}` : 'No due date'}
-                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{item.endDate ? `Due: ${item.endDate}` : 'No due date'}</div>
                     </div>
-                    <Badge variant="secondary" className="ml-4">New</Badge>
+                    <Badge variant="secondary" className="ml-4">
+                      New
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -195,11 +155,11 @@ export function BaselineComparison({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate line-through">{item.title}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {item.endDate ? `Was due: ${item.endDate}` : 'Had no due date'}
-                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{item.endDate ? `Was due: ${item.endDate}` : 'Had no due date'}</div>
                     </div>
-                    <Badge variant="destructive" className="ml-4">Removed</Badge>
+                    <Badge variant="destructive" className="ml-4">
+                      Removed
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -215,16 +175,10 @@ export function BaselineComparison({
               </h4>
               <div className="space-y-2">
                 {comparison.unchanged.map((item) => (
-                  <div
-                    key={item.id}
-                    data-status="unchanged"
-                    className="flex items-center justify-between p-3 rounded-md border"
-                  >
+                  <div key={item.id} data-status="unchanged" className="flex items-center justify-between p-3 rounded-md border">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.title}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {item.endDate ? `Due: ${item.endDate}` : 'No due date'}
-                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{item.endDate ? `Due: ${item.endDate}` : 'No due date'}</div>
                     </div>
                     <span className="text-sm text-muted-foreground ml-4">On track</span>
                   </div>

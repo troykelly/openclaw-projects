@@ -45,7 +45,7 @@ export function AppShell({
     (item: NavItem) => {
       onSectionChange?.(item.id);
     },
-    [onSectionChange]
+    [onSectionChange],
   );
 
   // Handle keyboard shortcut for search (⌘K)
@@ -62,10 +62,7 @@ export function AppShell({
   }, [onSectionChange]);
 
   return (
-    <div
-      data-testid="app-shell"
-      className={cn('flex h-screen bg-background', className)}
-    >
+    <div data-testid="app-shell" className={cn('flex h-screen bg-background', className)}>
       {/* Desktop Sidebar */}
       <div className="hidden md:block">
         <Sidebar
@@ -81,26 +78,16 @@ export function AppShell({
       <main className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
-          {breadcrumbs.length > 0 && (
-            <Breadcrumb
-              items={breadcrumbs}
-              onHomeClick={onHomeClick}
-            />
-          )}
+          {breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} onHomeClick={onHomeClick} />}
           {header && <div className="ml-auto flex items-center gap-2">{header}</div>}
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-0">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-0">{children}</div>
       </main>
 
       {/* Mobile Navigation */}
-      <MobileNav
-        activeItem={activeSection}
-        onItemClick={handleNavItemClick}
-      />
+      <MobileNav activeItem={activeSection} onItemClick={handleNavItemClick} />
 
       {/* Keyboard Shortcuts Help Modal (⌘/) */}
       <KeyboardShortcutsModal />

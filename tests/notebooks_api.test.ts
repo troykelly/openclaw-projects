@@ -129,12 +129,9 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.json().error).toBe('Parent notebook not found');
     });
 
-    it('returns 403 when adding notebook under another user\'s notebook', async () => {
+    it("returns 403 when adding notebook under another user's notebook", async () => {
       // Create notebook owned by another user
-      const otherResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+      const otherResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const otherId = (otherResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -160,7 +157,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
            ($1, 'Notebook 1', false),
            ($1, 'Notebook 2', false),
            ($1, 'Archived', true)`,
-        [testUserEmail]
+        [testUserEmail],
       );
     });
 
@@ -199,15 +196,10 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
     it('filters by parent_id=null for root notebooks', async () => {
       // Create a child notebook
-      const parentResult = await pool.query(
-        `SELECT id::text FROM notebook WHERE name = 'Notebook 1'`
-      );
+      const parentResult = await pool.query(`SELECT id::text FROM notebook WHERE name = 'Notebook 1'`);
       const parentId = (parentResult.rows[0] as { id: string }).id;
 
-      await pool.query(
-        `INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`,
-        [testUserEmail, parentId]
-      );
+      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`, [testUserEmail, parentId]);
 
       const res = await app.inject({
         method: 'GET',
@@ -222,16 +214,11 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
     it('includes note counts', async () => {
       // Get first notebook ID
-      const nbResult = await pool.query(
-        `SELECT id::text FROM notebook WHERE name = 'Notebook 1'`
-      );
+      const nbResult = await pool.query(`SELECT id::text FROM notebook WHERE name = 'Notebook 1'`);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       // Add notes to it
-      await pool.query(
-        `INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note 1'), ($1, $2, 'Note 2')`,
-        [testUserEmail, nbId]
-      );
+      await pool.query(`INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note 1'), ($1, $2, 'Note 2')`, [testUserEmail, nbId]);
 
       const res = await app.inject({
         method: 'GET',
@@ -249,16 +236,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
   describe('GET /api/notebooks/tree', () => {
     beforeEach(async () => {
       // Create hierarchical notebooks
-      const rootResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Root') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const rootResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Root') RETURNING id::text as id`, [testUserEmail]);
       const rootId = (rootResult.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO notebook (user_email, name, parent_notebook_id)
          VALUES ($1, 'Child 1', $2), ($1, 'Child 2', $2)`,
-        [testUserEmail, rootId]
+        [testUserEmail, rootId],
       );
     });
 
@@ -288,10 +272,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
   describe('GET /api/notebooks/:id', () => {
     it('returns a notebook by ID', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`, [testUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -323,11 +304,8 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(404);
     });
 
-    it('returns 404 for another user\'s notebook', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+    it("returns 404 for another user's notebook", async () => {
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -340,16 +318,10 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
 
     it('includes notes when requested', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`, [testUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
-      await pool.query(
-        `INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note 1')`,
-        [testUserEmail, nbId]
-      );
+      await pool.query(`INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note 1')`, [testUserEmail, nbId]);
 
       const res = await app.inject({
         method: 'GET',
@@ -362,16 +334,10 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
 
     it('includes children when requested', async () => {
-      const parentResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Parent') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const parentResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Parent') RETURNING id::text as id`, [testUserEmail]);
       const parentId = (parentResult.rows[0] as { id: string }).id;
 
-      await pool.query(
-        `INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`,
-        [testUserEmail, parentId]
-      );
+      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`, [testUserEmail, parentId]);
 
       const res = await app.inject({
         method: 'GET',
@@ -388,10 +354,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     let notebookId: string;
 
     beforeEach(async () => {
-      const result = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Original') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const result = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Original') RETURNING id::text as id`, [testUserEmail]);
       notebookId = (result.rows[0] as { id: string }).id;
     });
 
@@ -436,11 +399,8 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(404);
     });
 
-    it('returns 403 for another user\'s notebook', async () => {
-      const otherResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+    it("returns 403 for another user's notebook", async () => {
+      const otherResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const otherId = (otherResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -454,10 +414,10 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
     it('prevents circular parent reference', async () => {
       // Create child notebook
-      const childResult = await pool.query(
-        `INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2) RETURNING id::text as id`,
-        [testUserEmail, notebookId]
-      );
+      const childResult = await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2) RETURNING id::text as id`, [
+        testUserEmail,
+        notebookId,
+      ]);
       const childId = (childResult.rows[0] as { id: string }).id;
 
       // Try to set parent's parent to child
@@ -475,10 +435,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
 
     it('allows moving notebook to another parent', async () => {
-      const newParentResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'New Parent') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const newParentResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'New Parent') RETURNING id::text as id`, [testUserEmail]);
       const newParentId = (newParentResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -497,10 +454,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
   describe('POST /api/notebooks/:id/archive', () => {
     it('archives a notebook', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`, [testUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -523,11 +477,8 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('returns 403 for another user\'s notebook', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+    it("returns 403 for another user's notebook", async () => {
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -542,10 +493,9 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
   describe('POST /api/notebooks/:id/unarchive', () => {
     it('unarchives a notebook', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name, is_archived) VALUES ($1, 'Test', true) RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name, is_archived) VALUES ($1, 'Test', true) RETURNING id::text as id`, [
+        testUserEmail,
+      ]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -561,17 +511,11 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
   describe('DELETE /api/notebooks/:id', () => {
     it('soft deletes a notebook and moves notes to root', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`, [testUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       // Add a note to the notebook
-      await pool.query(
-        `INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note')`,
-        [testUserEmail, nbId]
-      );
+      await pool.query(`INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note')`, [testUserEmail, nbId]);
 
       const res = await app.inject({
         method: 'DELETE',
@@ -582,31 +526,19 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify notebook is deleted
-      const nbCheck = await pool.query(
-        'SELECT deleted_at FROM notebook WHERE id = $1',
-        [nbId]
-      );
+      const nbCheck = await pool.query('SELECT deleted_at FROM notebook WHERE id = $1', [nbId]);
       expect(nbCheck.rows[0].deleted_at).not.toBeNull();
 
       // Verify note is moved to root
-      const noteCheck = await pool.query(
-        'SELECT notebook_id FROM note WHERE user_email = $1',
-        [testUserEmail]
-      );
+      const noteCheck = await pool.query('SELECT notebook_id FROM note WHERE user_email = $1', [testUserEmail]);
       expect(noteCheck.rows[0].notebook_id).toBeNull();
     });
 
     it('deletes notes when delete_notes=true', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test') RETURNING id::text as id`, [testUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
-      await pool.query(
-        `INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note')`,
-        [testUserEmail, nbId]
-      );
+      await pool.query(`INSERT INTO note (user_email, notebook_id, title) VALUES ($1, $2, 'Note')`, [testUserEmail, nbId]);
 
       const res = await app.inject({
         method: 'DELETE',
@@ -617,10 +549,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify note is deleted
-      const noteCheck = await pool.query(
-        'SELECT deleted_at FROM note WHERE user_email = $1',
-        [testUserEmail]
-      );
+      const noteCheck = await pool.query('SELECT deleted_at FROM note WHERE user_email = $1', [testUserEmail]);
       expect(noteCheck.rows[0].deleted_at).not.toBeNull();
     });
 
@@ -643,11 +572,8 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(404);
     });
 
-    it('returns 403 for another user\'s notebook', async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+    it("returns 403 for another user's notebook", async () => {
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const nbId = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -661,22 +587,16 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
     it('moves child notebooks to parent when deleted', async () => {
       // Create parent -> child structure
-      const parentResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Parent') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const parentResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Parent') RETURNING id::text as id`, [testUserEmail]);
       const parentId = (parentResult.rows[0] as { id: string }).id;
 
-      const childResult = await pool.query(
-        `INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2) RETURNING id::text as id`,
-        [testUserEmail, parentId]
-      );
+      const childResult = await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2) RETURNING id::text as id`, [
+        testUserEmail,
+        parentId,
+      ]);
       const childId = (childResult.rows[0] as { id: string }).id;
 
-      await pool.query(
-        `INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Grandchild', $2)`,
-        [testUserEmail, childId]
-      );
+      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Grandchild', $2)`, [testUserEmail, childId]);
 
       // Delete the child
       await app.inject({
@@ -686,9 +606,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       });
 
       // Verify grandchild is now under parent
-      const gcCheck = await pool.query(
-        `SELECT parent_notebook_id FROM notebook WHERE name = 'Grandchild'`
-      );
+      const gcCheck = await pool.query(`SELECT parent_notebook_id FROM notebook WHERE name = 'Grandchild'`);
       expect(gcCheck.rows[0].parent_notebook_id).toBe(parentId);
     });
   });
@@ -698,16 +616,12 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     let noteId: string;
 
     beforeEach(async () => {
-      const nbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Target') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Target') RETURNING id::text as id`, [testUserEmail]);
       notebookId = (nbResult.rows[0] as { id: string }).id;
 
-      const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, content) VALUES ($1, 'Note', 'Content') RETURNING id::text as id`,
-        [testUserEmail]
-      );
+      const noteResult = await pool.query(`INSERT INTO note (user_email, title, content) VALUES ($1, 'Note', 'Content') RETURNING id::text as id`, [
+        testUserEmail,
+      ]);
       noteId = (noteResult.rows[0] as { id: string }).id;
     });
 
@@ -727,10 +641,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.json().failed).toHaveLength(0);
 
       // Verify note is in notebook
-      const check = await pool.query(
-        'SELECT notebook_id FROM note WHERE id = $1',
-        [noteId]
-      );
+      const check = await pool.query('SELECT notebook_id FROM note WHERE id = $1', [noteId]);
       expect(check.rows[0].notebook_id).toBe(notebookId);
     });
 
@@ -750,10 +661,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.json().moved[0]).not.toBe(noteId); // New ID
 
       // Verify original note unchanged
-      const check = await pool.query(
-        'SELECT notebook_id FROM note WHERE id = $1',
-        [noteId]
-      );
+      const check = await pool.query('SELECT notebook_id FROM note WHERE id = $1', [noteId]);
       expect(check.rows[0].notebook_id).toBeNull();
     });
 
@@ -791,11 +699,8 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('returns 403 for another user\'s notebook', async () => {
-      const otherNbResult = await pool.query(
-        `INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+    it("returns 403 for another user's notebook", async () => {
+      const otherNbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const otherNbId = (otherNbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -812,10 +717,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     });
 
     it('fails for notes user does not own', async () => {
-      const otherNoteResult = await pool.query(
-        `INSERT INTO note (user_email, title) VALUES ($1, 'Other') RETURNING id::text as id`,
-        [otherUserEmail]
-      );
+      const otherNoteResult = await pool.query(`INSERT INTO note (user_email, title) VALUES ($1, 'Other') RETURNING id::text as id`, [otherUserEmail]);
       const otherNoteId = (otherNoteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({

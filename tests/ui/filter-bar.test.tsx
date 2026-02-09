@@ -5,13 +5,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FilterBar, DateRangePopover, BooleanPopover } from '@/ui/components/filter-bar';
-import type {
-  FilterState,
-  SavedFilter,
-  DateRange,
-  FilterField,
-  FilterFieldConfig,
-} from '@/ui/components/filter-bar/types';
+import type { FilterState, SavedFilter, DateRange, FilterField, FilterFieldConfig } from '@/ui/components/filter-bar/types';
 
 describe('FilterBar', () => {
   const defaultProps = {
@@ -88,9 +82,7 @@ describe('FilterBar', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /my items/i }));
 
-      expect(onFiltersChange).toHaveBeenCalledWith(
-        expect.objectContaining({ assignee: ['me'] })
-      );
+      expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ assignee: ['me'] }));
     });
 
     it('applies "Overdue" quick filter', () => {
@@ -99,9 +91,7 @@ describe('FilterBar', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /overdue/i }));
 
-      expect(onFiltersChange).toHaveBeenCalledWith(
-        expect.objectContaining({ dueDate: 'overdue' })
-      );
+      expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ dueDate: 'overdue' }));
     });
 
     it('applies "High priority" quick filter', () => {
@@ -110,9 +100,7 @@ describe('FilterBar', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /high priority/i }));
 
-      expect(onFiltersChange).toHaveBeenCalledWith(
-        expect.objectContaining({ priority: ['high', 'urgent'] })
-      );
+      expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ priority: ['high', 'urgent'] }));
     });
 
     it('highlights active quick filter', () => {
@@ -156,9 +144,7 @@ describe('FilterBar', () => {
 
   describe('saved filters', () => {
     it('shows saved filters dropdown when prop provided', () => {
-      const savedFilters: SavedFilter[] = [
-        { id: '1', name: 'My Active Tasks', filters: { status: ['in_progress'], assignee: ['me'] } },
-      ];
+      const savedFilters: SavedFilter[] = [{ id: '1', name: 'My Active Tasks', filters: { status: ['in_progress'], assignee: ['me'] } }];
       render(<FilterBar {...defaultProps} savedFilters={savedFilters} />);
 
       expect(screen.getByRole('button', { name: /saved filters/i })).toBeInTheDocument();
@@ -343,12 +329,7 @@ describe('DateRangePopover', () => {
   });
 
   it('initialises from existing DateRange value', () => {
-    render(
-      <DateRangePopover
-        {...defaultProps}
-        value={{ preset: 'this_week' }}
-      />
-    );
+    render(<DateRangePopover {...defaultProps} value={{ preset: 'this_week' }} />);
 
     // The "This Week" preset button should have the active styling (font-medium)
     const thisWeekButton = screen.getByText('This Week').closest('button');
@@ -356,12 +337,7 @@ describe('DateRangePopover', () => {
   });
 
   it('initialises from existing string preset value', () => {
-    render(
-      <DateRangePopover
-        {...defaultProps}
-        value="overdue"
-      />
-    );
+    render(<DateRangePopover {...defaultProps} value="overdue" />);
 
     // The "Overdue" preset button should have the active styling (font-medium)
     const overdueButton = screen.getByText('Overdue').closest('button');
@@ -369,12 +345,7 @@ describe('DateRangePopover', () => {
   });
 
   it('initialises from existing custom date range', () => {
-    render(
-      <DateRangePopover
-        {...defaultProps}
-        value={{ preset: 'custom', from: '2026-02-01', to: '2026-02-28' }}
-      />
-    );
+    render(<DateRangePopover {...defaultProps} value={{ preset: 'custom', from: '2026-02-01', to: '2026-02-28' }} />);
 
     const fromInput = screen.getByLabelText('From date') as HTMLInputElement;
     const toInput = screen.getByLabelText('To date') as HTMLInputElement;
@@ -385,13 +356,7 @@ describe('DateRangePopover', () => {
 
   it('clears custom dates when a preset is selected', () => {
     const onChange = vi.fn();
-    render(
-      <DateRangePopover
-        {...defaultProps}
-        onChange={onChange}
-        value={{ preset: 'custom', from: '2026-02-01', to: '2026-02-28' }}
-      />
-    );
+    render(<DateRangePopover {...defaultProps} onChange={onChange} value={{ preset: 'custom', from: '2026-02-01', to: '2026-02-28' }} />);
 
     // Click a preset to override the custom range
     fireEvent.click(screen.getByText('Today'));
@@ -404,13 +369,7 @@ describe('DateRangePopover', () => {
 
   it('switches to custom preset when date input is changed', () => {
     const onChange = vi.fn();
-    render(
-      <DateRangePopover
-        {...defaultProps}
-        onChange={onChange}
-        value={{ preset: 'today' }}
-      />
-    );
+    render(<DateRangePopover {...defaultProps} onChange={onChange} value={{ preset: 'today' }} />);
 
     // The "Today" preset should initially be active
     const todayButton = screen.getByText('Today').closest('button');

@@ -3,14 +3,7 @@
  * Issue #406: Implement saved views with sharing
  */
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
 import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
@@ -23,12 +16,7 @@ export interface EditViewDialogProps {
   onSave: (view: UpdateViewInput) => void;
 }
 
-export function EditViewDialog({
-  open,
-  onOpenChange,
-  view,
-  onSave,
-}: EditViewDialogProps) {
+export function EditViewDialog({ open, onOpenChange, view, onSave }: EditViewDialogProps) {
   const [name, setName] = React.useState(view.name);
   const [description, setDescription] = React.useState(view.description || '');
 
@@ -69,22 +57,12 @@ export function EditViewDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="edit-view-name">Name</Label>
-            <Input
-              id="edit-view-name"
-              placeholder="View name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <Input id="edit-view-name" placeholder="View name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="edit-view-description">Description</Label>
-            <Input
-              id="edit-view-description"
-              placeholder="Description (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <Input id="edit-view-description" placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
         </div>
 

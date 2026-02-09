@@ -1,12 +1,7 @@
 import * as React from 'react';
-import type {
-  UseWorkItemMoveOptions,
-  UseWorkItemMoveReturn,
-} from './types';
+import type { UseWorkItemMoveOptions, UseWorkItemMoveReturn } from './types';
 
-export function useWorkItemMove(
-  options: UseWorkItemMoveOptions = {}
-): UseWorkItemMoveReturn {
+export function useWorkItemMove(options: UseWorkItemMoveOptions = {}): UseWorkItemMoveReturn {
   const { onMoved, onError } = options;
 
   const [isMoving, setIsMoving] = React.useState(false);
@@ -36,7 +31,7 @@ export function useWorkItemMove(
         setIsMoving(false);
       }
     },
-    [onMoved, onError]
+    [onMoved, onError],
   );
 
   const moveItems = React.useCallback(
@@ -54,8 +49,8 @@ export function useWorkItemMove(
               body: JSON.stringify({
                 parent_id: newParentId,
               }),
-            })
-          )
+            }),
+          ),
         );
 
         onMoved?.();
@@ -65,7 +60,7 @@ export function useWorkItemMove(
         setIsMoving(false);
       }
     },
-    [onMoved, onError]
+    [onMoved, onError],
   );
 
   return {

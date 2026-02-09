@@ -6,14 +6,7 @@
 
 import type { Pool } from 'pg';
 import { embeddingService } from '../embeddings/service.ts';
-import type {
-  SearchOptions,
-  SearchResponse,
-  SearchResult,
-  SearchEntityType,
-  SearchType,
-  EntitySearchResult,
-} from './types.ts';
+import type { SearchOptions, SearchResponse, SearchResult, SearchEntityType, SearchType, EntitySearchResult } from './types.ts';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -35,9 +28,9 @@ function generateSnippet(text: string, maxLength: number = SNIPPET_LENGTH): stri
 async function searchWorkItemsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
 ): Promise<EntitySearchResult[]> {
-  const conditions: string[] = ['search_vector @@ plainto_tsquery(\'english\', $1)'];
+  const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
@@ -67,7 +60,7 @@ async function searchWorkItemsText(
      WHERE ${conditions.join(' AND ')}
      ORDER BY rank DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -85,9 +78,9 @@ async function searchWorkItemsText(
 async function searchContactsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
 ): Promise<EntitySearchResult[]> {
-  const conditions: string[] = ['search_vector @@ plainto_tsquery(\'english\', $1)'];
+  const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
@@ -115,7 +108,7 @@ async function searchContactsText(
      WHERE ${conditions.join(' AND ')}
      ORDER BY rank DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -132,9 +125,9 @@ async function searchContactsText(
 async function searchMemoriesText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
 ): Promise<EntitySearchResult[]> {
-  const conditions: string[] = ['search_vector @@ plainto_tsquery(\'english\', $1)'];
+  const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
@@ -164,7 +157,7 @@ async function searchMemoriesText(
      WHERE ${conditions.join(' AND ')}
      ORDER BY rank DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -182,9 +175,9 @@ async function searchMemoriesText(
 async function searchMessagesText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
 ): Promise<EntitySearchResult[]> {
-  const conditions: string[] = ['m.search_vector @@ plainto_tsquery(\'english\', $1)'];
+  const conditions: string[] = ["m.search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
@@ -215,7 +208,7 @@ async function searchMessagesText(
      WHERE ${conditions.join(' AND ')}
      ORDER BY rank DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -233,13 +226,10 @@ async function searchMessagesText(
 async function searchMessagesSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
-  const conditions: string[] = [
-    'm.embedding IS NOT NULL',
-    "m.embedding_status = 'complete'",
-  ];
+  const conditions: string[] = ['m.embedding IS NOT NULL', "m.embedding_status = 'complete'"];
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
 
@@ -271,7 +261,7 @@ async function searchMessagesSemantic(
      WHERE ${conditions.join(' AND ')}
      ORDER BY m.embedding <=> $1::vector
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -290,13 +280,10 @@ async function searchMessagesSemantic(
 async function searchMemoriesSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date }
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
-  const conditions: string[] = [
-    'embedding IS NOT NULL',
-    "embedding_status = 'complete'",
-  ];
+  const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'"];
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
 
@@ -326,7 +313,7 @@ async function searchMemoriesSemantic(
      WHERE ${conditions.join(' AND ')}
      ORDER BY embedding <=> $1::vector
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return result.rows.map((row) => ({
@@ -342,11 +329,7 @@ async function searchMemoriesSemantic(
 /**
  * Combine and rank text and semantic results.
  */
-function combineResults(
-  textResults: EntitySearchResult[],
-  semanticResults: EntitySearchResult[],
-  semanticWeight: number
-): EntitySearchResult[] {
+function combineResults(textResults: EntitySearchResult[], semanticResults: EntitySearchResult[], semanticWeight: number): EntitySearchResult[] {
   const combined = new Map<string, EntitySearchResult>();
   const textWeight = 1 - semanticWeight;
 
@@ -383,10 +366,7 @@ function combineResults(
 /**
  * Perform unified search across all entity types.
  */
-export async function unifiedSearch(
-  pool: Pool,
-  options: SearchOptions
-): Promise<SearchResponse> {
+export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise<SearchResponse> {
   const {
     query,
     types = ['work_item', 'contact', 'memory', 'message'],
@@ -541,7 +521,7 @@ export async function unifiedSearch(
 export async function countSearchResults(
   pool: Pool,
   query: string,
-  options: { dateFrom?: Date; dateTo?: Date } = {}
+  options: { dateFrom?: Date; dateTo?: Date } = {},
 ): Promise<Record<SearchEntityType, number>> {
   const counts: Record<SearchEntityType, number> = {
     work_item: 0,
@@ -569,18 +549,14 @@ export async function countSearchResults(
     paramIndex++;
   }
 
-  const workItemWhere = workItemDateConditions.length > 0
-    ? `AND ${workItemDateConditions.join(' AND ')}`
-    : '';
-  const messageWhere = dateConditions.length > 0
-    ? `AND ${dateConditions.join(' AND ')}`
-    : '';
+  const workItemWhere = workItemDateConditions.length > 0 ? `AND ${workItemDateConditions.join(' AND ')}` : '';
+  const messageWhere = dateConditions.length > 0 ? `AND ${dateConditions.join(' AND ')}` : '';
 
   // Count work items
   const workItemCount = await pool.query(
     `SELECT COUNT(*) FROM work_item
      WHERE search_vector @@ plainto_tsquery('english', $1) ${workItemWhere}`,
-    params
+    params,
   );
   counts.work_item = parseInt((workItemCount.rows[0] as { count: string }).count, 10);
 
@@ -588,7 +564,7 @@ export async function countSearchResults(
   const contactCount = await pool.query(
     `SELECT COUNT(*) FROM contact
      WHERE search_vector @@ plainto_tsquery('english', $1) ${workItemWhere}`,
-    params
+    params,
   );
   counts.contact = parseInt((contactCount.rows[0] as { count: string }).count, 10);
 
@@ -596,7 +572,7 @@ export async function countSearchResults(
   const memoryCount = await pool.query(
     `SELECT COUNT(*) FROM memory
      WHERE search_vector @@ plainto_tsquery('english', $1) ${workItemWhere}`,
-    params
+    params,
   );
   counts.memory = parseInt((memoryCount.rows[0] as { count: string }).count, 10);
 
@@ -604,7 +580,7 @@ export async function countSearchResults(
   const messageCount = await pool.query(
     `SELECT COUNT(*) FROM external_message
      WHERE search_vector @@ plainto_tsquery('english', $1) ${messageWhere}`,
-    params
+    params,
   );
   counts.message = parseInt((messageCount.rows[0] as { count: string }).count, 10);
 

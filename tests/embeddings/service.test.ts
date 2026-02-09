@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  createEmbeddingService,
-  embeddingService,
-} from '../../src/api/embeddings/service.ts';
+import { createEmbeddingService, embeddingService } from '../../src/api/embeddings/service.ts';
 import { clearCachedProvider } from '../../src/api/embeddings/config.ts';
 
 describe('Embedding Service', () => {
@@ -85,11 +82,7 @@ describe('Embedding Service', () => {
   });
 
   describe('embed - integration', () => {
-    const hasApiKey = !!(
-      process.env.VOYAGERAI_API_KEY ||
-      process.env.OPENAI_API_KEY ||
-      process.env.GEMINI_API_KEY
-    );
+    const hasApiKey = !!(process.env.VOYAGERAI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
 
     it.skipIf(!hasApiKey)('returns null when no provider configured', async () => {
       delete process.env.VOYAGERAI_API_KEY;
@@ -115,11 +108,7 @@ describe('Embedding Service', () => {
   });
 
   describe('embedBatch - integration', () => {
-    const hasApiKey = !!(
-      process.env.VOYAGERAI_API_KEY ||
-      process.env.OPENAI_API_KEY ||
-      process.env.GEMINI_API_KEY
-    );
+    const hasApiKey = !!(process.env.VOYAGERAI_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
 
     it.skipIf(!hasApiKey)('returns null array when no provider configured', async () => {
       delete process.env.VOYAGERAI_API_KEY;

@@ -51,7 +51,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
         defaults.max_retries,
         JSON.stringify(defaults.payload_template ?? {}),
         JSON.stringify(defaults.webhook_headers ?? {}),
-      ]
+      ],
     );
     return result.rows[0] as {
       id: string;
@@ -65,15 +65,18 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
   }
 
   /** Helper to enqueue a scheduled_process job */
-  async function enqueueScheduledJob(schedule: {
-    id: string;
-    skill_id: string;
-    collection: string | null;
-    webhook_url: string;
-    max_retries: number;
-    payload_template: Record<string, unknown>;
-    webhook_headers: Record<string, string>;
-  }, extraPayload: Record<string, unknown> = {}) {
+  async function enqueueScheduledJob(
+    schedule: {
+      id: string;
+      skill_id: string;
+      collection: string | null;
+      webhook_url: string;
+      max_retries: number;
+      payload_template: Record<string, unknown>;
+      webhook_headers: Record<string, string>;
+    },
+    extraPayload: Record<string, unknown> = {},
+  ) {
     const result = await pool.query(
       `INSERT INTO internal_job (kind, payload, run_at)
        VALUES ('skill_store.scheduled_process', $1::jsonb, NOW())
@@ -89,7 +92,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
           max_retries: schedule.max_retries,
           ...extraPayload,
         }),
-      ]
+      ],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -122,7 +125,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       const outbox = await pool.query(
         `SELECT kind, destination, body
          FROM webhook_outbox
-         WHERE kind = 'skill_store.scheduled_process'`
+         WHERE kind = 'skill_store.scheduled_process'`,
       );
       expect(outbox.rows).toHaveLength(1);
 
@@ -143,7 +146,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       const updated = await pool.query(
         `SELECT last_run_at, last_run_status
          FROM skill_store_schedule WHERE id = $1`,
-        [schedule.id]
+        [schedule.id],
       );
       expect(updated.rows[0].last_run_at).toBeDefined();
       expect(updated.rows[0].last_run_at).not.toBeNull();
@@ -160,9 +163,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
 
       await processJobs(pool, 10);
 
-      const outbox = await pool.query(
-        `SELECT body FROM webhook_outbox WHERE kind = 'skill_store.scheduled_process'`
-      );
+      const outbox = await pool.query(`SELECT body FROM webhook_outbox WHERE kind = 'skill_store.scheduled_process'`);
       const body = outbox.rows[0].body as Record<string, unknown>;
       // Runtime data
       expect(body.skill_id).toBe('my-skill');
@@ -188,7 +189,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
             webhook_headers: {},
             payload_template: {},
           }),
-        ]
+        ],
       );
 
       const stats = await processJobs(pool, 10);
@@ -199,7 +200,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
     it('handles missing schedule_id in payload', async () => {
       await pool.query(
         `INSERT INTO internal_job (kind, payload, run_at)
-         VALUES ('skill_store.scheduled_process', '{"skill_id": "test"}'::jsonb, NOW())`
+         VALUES ('skill_store.scheduled_process', '{"skill_id": "test"}'::jsonb, NOW())`,
       );
 
       const stats = await processJobs(pool, 10);
@@ -215,9 +216,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
 
       await processJobs(pool, 10);
 
-      const outbox = await pool.query(
-        `SELECT destination FROM webhook_outbox WHERE kind = 'skill_store.scheduled_process'`
-      );
+      const outbox = await pool.query(`SELECT destination FROM webhook_outbox WHERE kind = 'skill_store.scheduled_process'`);
       // The webhook_url from the schedule should be used as the destination
       expect(outbox.rows).toHaveLength(1);
     });
@@ -228,10 +227,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
 
       await processJobs(pool, 10);
 
-      const job = await pool.query(
-        `SELECT completed_at FROM internal_job WHERE id = $1`,
-        [jobId]
-      );
+      const job = await pool.query(`SELECT completed_at FROM internal_job WHERE id = $1`, [jobId]);
       expect(job.rows[0].completed_at).not.toBeNull();
     });
 
@@ -245,7 +241,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
         `UPDATE skill_store_schedule
          SET consecutive_failures = 2, last_run_status = 'failed'
          WHERE id = $1`,
-        [schedule.id]
+        [schedule.id],
       );
 
       // Enqueue a job — processor should read consecutive_failures from the schedule row
@@ -254,10 +250,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       await processJobs(pool, 10);
 
       // Schedule should be auto-disabled
-      const updated = await pool.query(
-        `SELECT enabled, last_run_status FROM skill_store_schedule WHERE id = $1`,
-        [schedule.id]
-      );
+      const updated = await pool.query(`SELECT enabled, last_run_status FROM skill_store_schedule WHERE id = $1`, [schedule.id]);
       expect(updated.rows[0].enabled).toBe(false);
       expect(updated.rows[0].last_run_status).toBe('failed');
     });
@@ -272,7 +265,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
         `UPDATE skill_store_schedule
          SET consecutive_failures = 2
          WHERE id = $1`,
-        [schedule.id]
+        [schedule.id],
       );
 
       await enqueueScheduledJob(schedule);
@@ -280,10 +273,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       await processJobs(pool, 10);
 
       // Schedule should still be enabled
-      const updated = await pool.query(
-        `SELECT enabled FROM skill_store_schedule WHERE id = $1`,
-        [schedule.id]
-      );
+      const updated = await pool.query(`SELECT enabled FROM skill_store_schedule WHERE id = $1`, [schedule.id]);
       expect(updated.rows[0].enabled).toBe(true);
     });
 
@@ -297,7 +287,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
         `UPDATE skill_store_schedule
          SET consecutive_failures = 3, last_run_status = 'failed'
          WHERE id = $1`,
-        [schedule.id]
+        [schedule.id],
       );
 
       await enqueueScheduledJob(schedule);
@@ -307,7 +297,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       const updated = await pool.query(
         `SELECT consecutive_failures, last_run_status
          FROM skill_store_schedule WHERE id = $1`,
-        [schedule.id]
+        [schedule.id],
       );
       expect(updated.rows[0].consecutive_failures).toBe(0);
       expect(updated.rows[0].last_run_status).toBe('success');
@@ -316,10 +306,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
     it('consecutive_failures column exists and defaults to 0 (Issue #825)', async () => {
       const schedule = await createSchedule();
 
-      const result = await pool.query(
-        `SELECT consecutive_failures FROM skill_store_schedule WHERE id = $1`,
-        [schedule.id]
-      );
+      const result = await pool.query(`SELECT consecutive_failures FROM skill_store_schedule WHERE id = $1`, [schedule.id]);
       expect(result.rows[0].consecutive_failures).toBe(0);
     });
   });
@@ -329,19 +316,17 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       // Create a skill store item for the embed job
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, title, content)
-         VALUES ('test-skill', 'articles', 'Test Item', 'Some content to embed')`
+         VALUES ('test-skill', 'articles', 'Test Item', 'Some content to embed')`,
       );
 
-      const itemResult = await pool.query(
-        `SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' LIMIT 1`
-      );
+      const itemResult = await pool.query(`SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' LIMIT 1`);
       const itemId = (itemResult.rows[0] as { id: string }).id;
 
       // Enqueue an embed job
       await pool.query(
         `INSERT INTO internal_job (kind, payload, run_at)
          VALUES ('skill_store.embed', $1::jsonb, NOW())`,
-        [JSON.stringify({ item_id: itemId })]
+        [JSON.stringify({ item_id: itemId })],
       );
 
       const stats = await processJobs(pool, 10);
@@ -355,28 +340,23 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       // Create an item with NO title, summary, or content
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, title, content)
-         VALUES ('test-skill', 'empty-col', NULL, NULL)`
+         VALUES ('test-skill', 'empty-col', NULL, NULL)`,
       );
 
-      const itemResult = await pool.query(
-        `SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'empty-col' LIMIT 1`
-      );
+      const itemResult = await pool.query(`SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'empty-col' LIMIT 1`);
       const itemId = (itemResult.rows[0] as { id: string }).id;
 
       // Enqueue an embed job for this empty item
       await pool.query(
         `INSERT INTO internal_job (kind, payload, run_at)
          VALUES ('skill_store.embed', $1::jsonb, NOW())`,
-        [JSON.stringify({ item_id: itemId })]
+        [JSON.stringify({ item_id: itemId })],
       );
 
       await processJobs(pool, 10);
 
       // Item should have a terminal embedding_status (not 'pending')
-      const updated = await pool.query(
-        `SELECT embedding_status FROM skill_store_item WHERE id = $1`,
-        [itemId]
-      );
+      const updated = await pool.query(`SELECT embedding_status FROM skill_store_item WHERE id = $1`, [itemId]);
       const status = updated.rows[0].embedding_status;
       // Must NOT be 'pending' or NULL — those would cause infinite backfill
       expect(status).not.toBe('pending');
@@ -388,18 +368,14 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       // Create an item with no content and mark it as skipped
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, title, content, embedding_status)
-         VALUES ('test-skill', 'skip-col', NULL, NULL, 'skipped')`
+         VALUES ('test-skill', 'skip-col', NULL, NULL, 'skipped')`,
       );
 
-      const itemResult = await pool.query(
-        `SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'skip-col' LIMIT 1`
-      );
+      const itemResult = await pool.query(`SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'skip-col' LIMIT 1`);
       const itemId = (itemResult.rows[0] as { id: string }).id;
 
       // Import and run backfill
-      const { backfillSkillStoreEmbeddings } = await import(
-        '../src/api/embeddings/skill-store-integration.ts'
-      );
+      const { backfillSkillStoreEmbeddings } = await import('../src/api/embeddings/skill-store-integration.ts');
       const result = await backfillSkillStoreEmbeddings(pool);
 
       // The skipped item should not be re-enqueued
@@ -411,7 +387,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
          WHERE kind = 'skill_store.embed'
            AND payload->>'item_id' = $1
            AND completed_at IS NULL`,
-        [itemId]
+        [itemId],
       );
       expect(jobs.rows).toHaveLength(0);
     });

@@ -48,10 +48,7 @@ describe('Audit Service', () => {
       expect(id).toBeDefined();
 
       // Verify the entry
-      const result = await pool.query(
-        `SELECT * FROM audit_log WHERE id = $1`,
-        [id]
-      );
+      const result = await pool.query(`SELECT * FROM audit_log WHERE id = $1`, [id]);
       expect(result.rows.length).toBe(1);
       expect(result.rows[0].actor_type).toBe('human');
       expect(result.rows[0].actor_id).toBe('user@example.com');
@@ -68,10 +65,7 @@ describe('Audit Service', () => {
 
       expect(id).toBeDefined();
 
-      const result = await pool.query(
-        `SELECT actor_id FROM audit_log WHERE id = $1`,
-        [id]
-      );
+      const result = await pool.query(`SELECT actor_id FROM audit_log WHERE id = $1`, [id]);
       expect(result.rows[0].actor_id).toBeNull();
     });
   });
@@ -189,11 +183,7 @@ describe('Audit Service', () => {
         entityId: '00000000-0000-0000-0000-000000000001',
       });
 
-      const entries = await getEntityAuditLog(
-        pool,
-        'work_item',
-        '00000000-0000-0000-0000-000000000001'
-      );
+      const entries = await getEntityAuditLog(pool, 'work_item', '00000000-0000-0000-0000-000000000001');
       expect(entries.length).toBe(2);
     });
   });
@@ -229,10 +219,7 @@ describe('Audit Service', () => {
 
       expect(id).toBeDefined();
 
-      const result = await pool.query(
-        `SELECT * FROM audit_log WHERE id = $1`,
-        [id]
-      );
+      const result = await pool.query(`SELECT * FROM audit_log WHERE id = $1`, [id]);
       expect(result.rows[0].action).toBe('auth');
       expect(result.rows[0].entity_type).toBe('session');
       expect(result.rows[0].changes.success).toBe(true);
@@ -246,10 +233,7 @@ describe('Audit Service', () => {
         metadata: { reason: 'invalid_token' },
       });
 
-      const result = await pool.query(
-        `SELECT * FROM audit_log WHERE id = $1`,
-        [id]
-      );
+      const result = await pool.query(`SELECT * FROM audit_log WHERE id = $1`, [id]);
       expect(result.rows[0].changes.success).toBe(false);
     });
   });
@@ -265,10 +249,7 @@ describe('Audit Service', () => {
 
       expect(id).toBeDefined();
 
-      const result = await pool.query(
-        `SELECT * FROM audit_log WHERE id = $1`,
-        [id]
-      );
+      const result = await pool.query(`SELECT * FROM audit_log WHERE id = $1`, [id]);
       expect(result.rows[0].action).toBe('webhook');
       expect(result.rows[0].actor_id).toBe('webhook:twilio');
       expect(result.rows[0].metadata.source).toBe('twilio');
@@ -285,9 +266,7 @@ describe('Audit Service', () => {
       });
 
       // Update timestamp to be old
-      await pool.query(
-        `UPDATE audit_log SET timestamp = now() - INTERVAL '100 days'`
-      );
+      await pool.query(`UPDATE audit_log SET timestamp = now() - INTERVAL '100 days'`);
 
       const purged = await purgeOldEntries(pool, 90);
       expect(purged).toBe(1);
@@ -314,19 +293,11 @@ describe('Audit Service', () => {
   describe('updateLatestAuditEntry', () => {
     it('updates the most recent audit entry for an entity', async () => {
       // The trigger will create an entry when we insert a work_item
-      const workItemResult = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`
-      );
+      const workItemResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
       const workItemId = workItemResult.rows[0].id;
 
       // Update the audit entry with actor info
-      const updated = await updateLatestAuditEntry(
-        pool,
-        'work_item',
-        workItemId,
-        { type: 'human', id: 'user@example.com' },
-        { ip: '192.168.1.1' }
-      );
+      const updated = await updateLatestAuditEntry(pool, 'work_item', workItemId, { type: 'human', id: 'user@example.com' }, { ip: '192.168.1.1' });
 
       expect(updated).toBe(true);
 
@@ -409,9 +380,7 @@ describe('Automatic Audit Triggers', () => {
 
   describe('work_item triggers', () => {
     it('logs work_item creation', async () => {
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
       const workItemId = result.rows[0].id;
 
       const entries = await getEntityAuditLog(pool, 'work_item', workItemId);
@@ -421,15 +390,10 @@ describe('Automatic Audit Triggers', () => {
     });
 
     it('logs work_item update', async () => {
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
       const workItemId = result.rows[0].id;
 
-      await pool.query(
-        `UPDATE work_item SET title = 'Updated Task' WHERE id = $1`,
-        [workItemId]
-      );
+      await pool.query(`UPDATE work_item SET title = 'Updated Task' WHERE id = $1`, [workItemId]);
 
       const entries = await getEntityAuditLog(pool, 'work_item', workItemId);
       expect(entries.length).toBe(2);
@@ -439,18 +403,13 @@ describe('Automatic Audit Triggers', () => {
     });
 
     it('logs work_item deletion', async () => {
-      const result = await pool.query(
-        `INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
       const workItemId = result.rows[0].id;
 
       await pool.query(`DELETE FROM work_item WHERE id = $1`, [workItemId]);
 
       // The audit entry should still exist even though the work item is deleted
-      const auditResult = await pool.query(
-        `SELECT * FROM audit_log WHERE entity_type = 'work_item' AND entity_id = $1 AND action = 'delete'`,
-        [workItemId]
-      );
+      const auditResult = await pool.query(`SELECT * FROM audit_log WHERE entity_type = 'work_item' AND entity_id = $1 AND action = 'delete'`, [workItemId]);
       expect(auditResult.rows.length).toBe(1);
       expect(auditResult.rows[0].changes.old).toBeDefined();
     });
@@ -458,9 +417,7 @@ describe('Automatic Audit Triggers', () => {
 
   describe('contact triggers', () => {
     it('logs contact creation', async () => {
-      const result = await pool.query(
-        `INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text`);
       const contactId = result.rows[0].id;
 
       const entries = await getEntityAuditLog(pool, 'contact', contactId);
@@ -469,15 +426,10 @@ describe('Automatic Audit Triggers', () => {
     });
 
     it('logs contact update', async () => {
-      const result = await pool.query(
-        `INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text`);
       const contactId = result.rows[0].id;
 
-      await pool.query(
-        `UPDATE contact SET display_name = 'Updated Contact' WHERE id = $1`,
-        [contactId]
-      );
+      await pool.query(`UPDATE contact SET display_name = 'Updated Contact' WHERE id = $1`, [contactId]);
 
       const entries = await getEntityAuditLog(pool, 'contact', contactId);
       expect(entries.length).toBe(2);
@@ -487,9 +439,7 @@ describe('Automatic Audit Triggers', () => {
 
   describe('memory triggers', () => {
     it('logs memory creation', async () => {
-      const result = await pool.query(
-        `INSERT INTO memory (title, content, memory_type) VALUES ('Test Memory', 'Content', 'note') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO memory (title, content, memory_type) VALUES ('Test Memory', 'Content', 'note') RETURNING id::text`);
       const memoryId = result.rows[0].id;
 
       const entries = await getEntityAuditLog(pool, 'memory', memoryId);
@@ -498,15 +448,10 @@ describe('Automatic Audit Triggers', () => {
     });
 
     it('logs memory update', async () => {
-      const result = await pool.query(
-        `INSERT INTO memory (title, content, memory_type) VALUES ('Test Memory', 'Content', 'note') RETURNING id::text`
-      );
+      const result = await pool.query(`INSERT INTO memory (title, content, memory_type) VALUES ('Test Memory', 'Content', 'note') RETURNING id::text`);
       const memoryId = result.rows[0].id;
 
-      await pool.query(
-        `UPDATE memory SET title = 'Updated Memory' WHERE id = $1`,
-        [memoryId]
-      );
+      await pool.query(`UPDATE memory SET title = 'Updated Memory' WHERE id = $1`, [memoryId]);
 
       const entries = await getEntityAuditLog(pool, 'memory', memoryId);
       expect(entries.length).toBe(2);

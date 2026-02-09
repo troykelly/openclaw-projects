@@ -93,11 +93,7 @@ export function ItemTimelinePage(): React.JSX.Element {
         </CardHeader>
         <CardContent>
           <ScrollArea className="w-full">
-            <svg
-              width={chartWidth}
-              height={chartHeight}
-              className="font-sans text-xs"
-            >
+            <svg width={chartWidth} height={chartHeight} className="font-sans text-xs">
               {/* Background */}
               <rect x={labelWidth} y={0} width={chartWidth - labelWidth} height={chartHeight} className="fill-muted/30" />
 
@@ -144,14 +140,7 @@ export function ItemTimelinePage(): React.JSX.Element {
                     <text x={8 + indent} y={y + 5} className="fill-foreground text-xs font-medium">
                       {item.title.length > 24 ? item.title.slice(0, 22) + '...' : item.title}
                     </text>
-                    <rect
-                      x={barX}
-                      y={y - 10}
-                      width={barWidth}
-                      height={24}
-                      rx={4}
-                      className={`${colorClass} ${isDone ? 'opacity-40' : 'opacity-80'}`}
-                    />
+                    <rect x={barX} y={y - 10} width={barWidth} height={24} rx={4} className={`${colorClass} ${isDone ? 'opacity-40' : 'opacity-80'}`} />
                     <text x={barX + 6} y={y + 5} className="fill-white text-[10px] font-medium">
                       {item.kind.charAt(0).toUpperCase()}
                     </text>

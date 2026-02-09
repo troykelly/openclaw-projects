@@ -55,9 +55,7 @@ function envInt(name: string, fallback: number): number {
  * Get the quota configuration from environment variables.
  * Accepts optional overrides (useful for testing).
  */
-export function getSkillStoreQuotaConfig(
-  overrides?: Partial<SkillStoreQuotaConfig>
-): SkillStoreQuotaConfig {
+export function getSkillStoreQuotaConfig(overrides?: Partial<SkillStoreQuotaConfig>): SkillStoreQuotaConfig {
   return {
     maxItemsPerSkill: overrides?.maxItemsPerSkill ?? envInt('SKILL_STORE_MAX_ITEMS_PER_SKILL', DEFAULTS.maxItemsPerSkill),
     maxCollectionsPerSkill: overrides?.maxCollectionsPerSkill ?? envInt('SKILL_STORE_MAX_COLLECTIONS_PER_SKILL', DEFAULTS.maxCollectionsPerSkill),
@@ -72,18 +70,14 @@ export function getSkillStoreQuotaConfig(
  * Uses exact COUNT for correctness (the skill_id filter means the query
  * won't scan the whole table, just rows matching the index on skill_id).
  */
-export async function checkItemQuota(
-  pool: Pool,
-  skillId: string,
-  config?: Pick<SkillStoreQuotaConfig, 'maxItemsPerSkill'>
-): Promise<QuotaCheckResult> {
+export async function checkItemQuota(pool: Pool, skillId: string, config?: Pick<SkillStoreQuotaConfig, 'maxItemsPerSkill'>): Promise<QuotaCheckResult> {
   const limit = config?.maxItemsPerSkill ?? getSkillStoreQuotaConfig().maxItemsPerSkill;
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count
      FROM skill_store_item
      WHERE skill_id = $1 AND deleted_at IS NULL`,
-    [skillId]
+    [skillId],
   );
 
   const current = result.rows[0].count;
@@ -104,7 +98,7 @@ export async function checkCollectionQuota(
   pool: Pool,
   skillId: string,
   collection: string,
-  config?: Pick<SkillStoreQuotaConfig, 'maxCollectionsPerSkill'>
+  config?: Pick<SkillStoreQuotaConfig, 'maxCollectionsPerSkill'>,
 ): Promise<QuotaCheckResult> {
   const limit = config?.maxCollectionsPerSkill ?? getSkillStoreQuotaConfig().maxCollectionsPerSkill;
 
@@ -113,7 +107,7 @@ export async function checkCollectionQuota(
     `SELECT 1 FROM skill_store_item
      WHERE skill_id = $1 AND collection = $2 AND deleted_at IS NULL
      LIMIT 1`,
-    [skillId, collection]
+    [skillId, collection],
   );
 
   if (existsResult.rows.length > 0) {
@@ -126,7 +120,7 @@ export async function checkCollectionQuota(
     `SELECT COUNT(DISTINCT collection)::int AS count
      FROM skill_store_item
      WHERE skill_id = $1 AND deleted_at IS NULL`,
-    [skillId]
+    [skillId],
   );
 
   const current = countResult.rows[0].count;
@@ -140,18 +134,14 @@ export async function checkCollectionQuota(
 /**
  * Check if a skill has room for more schedules.
  */
-export async function checkScheduleQuota(
-  pool: Pool,
-  skillId: string,
-  config?: Pick<SkillStoreQuotaConfig, 'maxSchedulesPerSkill'>
-): Promise<QuotaCheckResult> {
+export async function checkScheduleQuota(pool: Pool, skillId: string, config?: Pick<SkillStoreQuotaConfig, 'maxSchedulesPerSkill'>): Promise<QuotaCheckResult> {
   const limit = config?.maxSchedulesPerSkill ?? getSkillStoreQuotaConfig().maxSchedulesPerSkill;
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count
      FROM skill_store_schedule
      WHERE skill_id = $1`,
-    [skillId]
+    [skillId],
   );
 
   const current = result.rows[0].count;
@@ -165,11 +155,7 @@ export async function checkScheduleQuota(
 /**
  * Get full quota usage for a skill.
  */
-export async function getSkillStoreQuotaUsage(
-  pool: Pool,
-  skillId: string,
-  config?: SkillStoreQuotaConfig
-): Promise<SkillStoreQuotaUsage> {
+export async function getSkillStoreQuotaUsage(pool: Pool, skillId: string, config?: SkillStoreQuotaConfig): Promise<SkillStoreQuotaUsage> {
   const quotaConfig = config ?? getSkillStoreQuotaConfig();
 
   // Run all counts in parallel for performance
@@ -178,19 +164,19 @@ export async function getSkillStoreQuotaUsage(
       `SELECT COUNT(*)::int AS count
        FROM skill_store_item
        WHERE skill_id = $1 AND deleted_at IS NULL`,
-      [skillId]
+      [skillId],
     ),
     pool.query(
       `SELECT COUNT(DISTINCT collection)::int AS count
        FROM skill_store_item
        WHERE skill_id = $1 AND deleted_at IS NULL`,
-      [skillId]
+      [skillId],
     ),
     pool.query(
       `SELECT COUNT(*)::int AS count
        FROM skill_store_schedule
        WHERE skill_id = $1`,
-      [skillId]
+      [skillId],
     ),
   ]);
 

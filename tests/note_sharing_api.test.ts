@@ -34,12 +34,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   /**
    * Helper to create a note via API
    */
-  async function createNote(
-    userEmail: string,
-    title: string,
-    content: string,
-    visibility: 'private' | 'shared' | 'public' = 'private'
-  ): Promise<string> {
+  async function createNote(userEmail: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notes',
@@ -52,10 +47,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   /**
    * Helper to create a notebook via API
    */
-  async function createNotebook(
-    userEmail: string,
-    name: string
-  ): Promise<string> {
+  async function createNotebook(userEmail: string, name: string): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notebooks',
@@ -474,10 +466,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({ method: 'GET', url: `/api/shared/notes/${token}` });
 
       // Check view count
-      const result = await pool.query(
-        'SELECT view_count FROM note_share WHERE share_link_token = $1',
-        [token]
-      );
+      const result = await pool.query('SELECT view_count FROM note_share WHERE share_link_token = $1', [token]);
       expect(result.rows[0].view_count).toBe(2);
     });
   });

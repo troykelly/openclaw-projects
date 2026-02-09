@@ -19,11 +19,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import * as React from 'react';
 
-import {
-  ThemeProvider,
-  useThemeContext,
-  type Theme,
-} from '@/ui/providers/ThemeProvider';
+import { ThemeProvider, useThemeContext, type Theme } from '@/ui/providers/ThemeProvider';
 import { useTheme } from '@/ui/hooks/use-theme';
 
 // ---------------------------------------------------------------------------
@@ -87,9 +83,7 @@ function setupMatchMedia(matches: boolean) {
 /** Simulate a system theme change (prefers-color-scheme). */
 function triggerSystemThemeChange(dark: boolean) {
   currentMediaMatches = dark;
-  mediaListeners.forEach((fn) =>
-    fn({ matches: dark } as MediaQueryListEvent)
-  );
+  mediaListeners.forEach((fn) => fn({ matches: dark } as MediaQueryListEvent));
 }
 
 /** Simple consumer component that exposes all context values for assertions. */
@@ -123,11 +117,21 @@ function ThemeActions() {
   const { setTheme, toggleTheme } = useThemeContext();
   return (
     <div>
-      <button data-testid="set-light" onClick={() => setTheme('light')}>Light</button>
-      <button data-testid="set-dark" onClick={() => setTheme('dark')}>Dark</button>
-      <button data-testid="set-oled" onClick={() => setTheme('oled')}>OLED</button>
-      <button data-testid="set-system" onClick={() => setTheme('system')}>System</button>
-      <button data-testid="toggle" onClick={toggleTheme}>Toggle</button>
+      <button data-testid="set-light" onClick={() => setTheme('light')}>
+        Light
+      </button>
+      <button data-testid="set-dark" onClick={() => setTheme('dark')}>
+        Dark
+      </button>
+      <button data-testid="set-oled" onClick={() => setTheme('oled')}>
+        OLED
+      </button>
+      <button data-testid="set-system" onClick={() => setTheme('system')}>
+        System
+      </button>
+      <button data-testid="toggle" onClick={toggleTheme}>
+        Toggle
+      </button>
     </div>
   );
 }
@@ -157,7 +161,7 @@ describe('ThemeProvider — default theme selection', () => {
     render(
       <ThemeProvider>
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('system');
@@ -169,7 +173,7 @@ describe('ThemeProvider — default theme selection', () => {
     render(
       <ThemeProvider>
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('resolved')).toHaveTextContent('light');
@@ -182,7 +186,7 @@ describe('ThemeProvider — default theme selection', () => {
     render(
       <ThemeProvider>
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
@@ -193,7 +197,7 @@ describe('ThemeProvider — default theme selection', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
@@ -206,7 +210,7 @@ describe('ThemeProvider — default theme selection', () => {
     render(
       <ThemeProvider defaultTheme="system">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('resolved')).toHaveTextContent('light');
@@ -218,7 +222,7 @@ describe('ThemeProvider — default theme selection', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
@@ -231,7 +235,7 @@ describe('ThemeProvider — theme switching', () => {
       <ThemeProvider defaultTheme="light">
         <ThemeConsumer />
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('resolved')).toHaveTextContent('light');
@@ -248,7 +252,7 @@ describe('ThemeProvider — theme switching', () => {
       <ThemeProvider defaultTheme="dark">
         <ThemeConsumer />
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('set-oled'));
@@ -263,7 +267,7 @@ describe('ThemeProvider — theme switching', () => {
       <ThemeProvider defaultTheme="oled">
         <ThemeConsumer />
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('set-light'));
@@ -278,7 +282,7 @@ describe('ThemeProvider — theme switching', () => {
       <ThemeProvider defaultTheme="light">
         <ThemeConsumer />
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('toggle'));
@@ -292,7 +296,7 @@ describe('ThemeProvider — theme switching', () => {
       <ThemeProvider defaultTheme="dark">
         <ThemeConsumer />
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('toggle'));
@@ -309,7 +313,7 @@ describe('ThemeProvider — system theme detection', () => {
     render(
       <ThemeProvider defaultTheme="system">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('resolved')).toHaveTextContent('dark');
@@ -322,7 +326,7 @@ describe('ThemeProvider — system theme detection', () => {
     render(
       <ThemeProvider defaultTheme="system">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('resolved')).toHaveTextContent('light');
@@ -342,7 +346,7 @@ describe('ThemeProvider — system theme detection', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     // Simulate system switching to dark
@@ -361,7 +365,7 @@ describe('ThemeProvider — system theme detection', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     // Simulate system switching to light
@@ -380,7 +384,7 @@ describe('ThemeProvider — localStorage persistence', () => {
     render(
       <ThemeProvider>
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('set-dark'));
@@ -392,7 +396,7 @@ describe('ThemeProvider — localStorage persistence', () => {
     render(
       <ThemeProvider storageKey="custom-theme-key">
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('set-oled'));
@@ -406,7 +410,7 @@ describe('ThemeProvider — localStorage persistence', () => {
     render(
       <ThemeProvider storageKey="my-app-theme">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('theme')).toHaveTextContent('oled');
@@ -417,7 +421,7 @@ describe('ThemeProvider — localStorage persistence', () => {
     render(
       <ThemeProvider>
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByTestId('set-dark'));
@@ -436,7 +440,7 @@ describe('ThemeProvider — CSS class application', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
@@ -447,7 +451,7 @@ describe('ThemeProvider — CSS class application', () => {
     render(
       <ThemeProvider defaultTheme="oled">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
@@ -461,7 +465,7 @@ describe('ThemeProvider — CSS class application', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
@@ -474,7 +478,7 @@ describe('ThemeProvider — CSS class application', () => {
     render(
       <ThemeProvider defaultTheme="system">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
@@ -487,7 +491,7 @@ describe('ThemeProvider — CSS class application', () => {
     render(
       <ThemeProvider defaultTheme="system">
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
@@ -498,7 +502,7 @@ describe('ThemeProvider — CSS class application', () => {
       <ThemeProvider defaultTheme="light">
         <ThemeConsumer />
         <ThemeActions />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
@@ -521,7 +525,7 @@ describe('ThemeProvider — transitions', () => {
     render(
       <ThemeProvider>
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('theme-transition')).toBe(true);
@@ -531,7 +535,7 @@ describe('ThemeProvider — transitions', () => {
     render(
       <ThemeProvider enableTransitions={false}>
         <ThemeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(document.documentElement.classList.contains('theme-transition')).toBe(false);
@@ -543,7 +547,7 @@ describe('useTheme hook', () => {
     render(
       <ThemeProvider defaultTheme="dark">
         <HookConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('hook-theme')).toHaveTextContent('dark');
@@ -572,9 +576,7 @@ describe('useTheme hook', () => {
 describe('ThemeProvider — backward compatibility', () => {
   it('re-exported useTheme from dark-mode module works', async () => {
     // Dynamic import to verify the re-export path works
-    const { useTheme: useThemeFromDarkMode } = await import(
-      '@/ui/components/dark-mode/theme-provider'
-    );
+    const { useTheme: useThemeFromDarkMode } = await import('@/ui/components/dark-mode/theme-provider');
 
     function DarkModeConsumer() {
       const { theme, resolvedTheme } = useThemeFromDarkMode();
@@ -589,7 +591,7 @@ describe('ThemeProvider — backward compatibility', () => {
     render(
       <ThemeProvider defaultTheme="oled">
         <DarkModeConsumer />
-      </ThemeProvider>
+      </ThemeProvider>,
     );
 
     expect(screen.getByTestId('dm-theme')).toHaveTextContent('oled');

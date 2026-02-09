@@ -5,24 +5,9 @@
 
 export type ActorType = 'human' | 'agent' | 'all';
 
-export type ActionType =
-  | 'created'
-  | 'updated'
-  | 'status_changed'
-  | 'commented'
-  | 'assigned'
-  | 'completed'
-  | 'deleted'
-  | 'moved';
+export type ActionType = 'created' | 'updated' | 'status_changed' | 'commented' | 'assigned' | 'completed' | 'deleted' | 'moved';
 
-export type EntityType =
-  | 'project'
-  | 'initiative'
-  | 'epic'
-  | 'issue'
-  | 'task'
-  | 'contact'
-  | 'memory';
+export type EntityType = 'project' | 'initiative' | 'epic' | 'issue' | 'task' | 'contact' | 'memory';
 
 export type TimeRange = 'today' | 'this_week' | 'this_month' | 'custom';
 

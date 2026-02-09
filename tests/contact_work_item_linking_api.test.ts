@@ -180,10 +180,7 @@ describe('Contact-WorkItem Linking API (issue #118)', () => {
       expect(res.statusCode).toBe(204);
 
       // Verify the link is removed
-      const check = await pool.query(
-        'SELECT 1 FROM work_item_contact WHERE work_item_id = $1 AND contact_id = $2',
-        [workItemId, contactId]
-      );
+      const check = await pool.query('SELECT 1 FROM work_item_contact WHERE work_item_id = $1 AND contact_id = $2', [workItemId, contactId]);
       expect(check.rows.length).toBe(0);
     });
 
@@ -257,8 +254,8 @@ describe('Contact-WorkItem Linking API (issue #118)', () => {
       };
       expect(body.contacts.length).toBe(2);
 
-      const alice = body.contacts.find(c => c.displayName === 'Alice');
-      const bob = body.contacts.find(c => c.displayName === 'Bob');
+      const alice = body.contacts.find((c) => c.displayName === 'Alice');
+      const bob = body.contacts.find((c) => c.displayName === 'Bob');
       expect(alice?.relationship).toBe('owner');
       expect(bob?.relationship).toBe('assignee');
     });

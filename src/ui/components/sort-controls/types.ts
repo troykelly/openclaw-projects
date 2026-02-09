@@ -2,16 +2,7 @@
  * Types for sort controls
  */
 
-export type SortField =
-  | 'title'
-  | 'created'
-  | 'updated'
-  | 'dueDate'
-  | 'startDate'
-  | 'priority'
-  | 'status'
-  | 'estimate'
-  | 'kind';
+export type SortField = 'title' | 'created' | 'updated' | 'dueDate' | 'startDate' | 'priority' | 'status' | 'estimate' | 'kind';
 
 export type SortDirection = 'asc' | 'desc';
 

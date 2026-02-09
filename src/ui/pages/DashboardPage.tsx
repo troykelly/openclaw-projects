@@ -21,26 +21,8 @@ import { priorityColors } from '@/ui/lib/work-item-utils';
 import { Skeleton, SkeletonCard } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/ui/components/ui/card';
-import {
-  Plus,
-  Search,
-  FolderOpen,
-  Calendar,
-  Clock,
-  Activity,
-  ArrowRight,
-  CheckCircle2,
-  Circle,
-  AlertTriangle,
-  Loader2,
-} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/ui/components/ui/card';
+import { Plus, Search, FolderOpen, Calendar, Clock, Activity, ArrowRight, CheckCircle2, Circle, AlertTriangle, Loader2 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -135,9 +117,7 @@ function getActivityLabel(type: string): string {
 /** Filter active (non-completed) tasks and group by status. */
 function groupTasksByStatus(items: WorkItemSummary[]): StatusGroup[] {
   const activeStatuses = ['in_progress', 'not_started', 'blocked'];
-  const activeItems = items.filter(
-    (item) => item.status !== null && activeStatuses.includes(item.status),
-  );
+  const activeItems = items.filter((item) => item.status !== null && activeStatuses.includes(item.status));
 
   const groups: StatusGroup[] = [
     {
@@ -227,26 +207,13 @@ function WorkItemCard({ item }: { item: WorkItemSummary }): React.JSX.Element {
       data-testid="work-item-card"
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
-          {item.title}
-        </p>
+        <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
         <div className="flex items-center gap-2 mt-1">
-          <Badge
-            variant="secondary"
-            className={`text-xs ${statusInfo.colorClass}`}
-          >
+          <Badge variant="secondary" className={`text-xs ${statusInfo.colorClass}`}>
             {statusInfo.label}
           </Badge>
-          {priorityClass && (
-            <Badge className={`text-xs ${priorityClass}`}>
-              {item.priority}
-            </Badge>
-          )}
-          {item.task_type && (
-            <span className="text-xs text-muted-foreground capitalize">
-              {item.task_type}
-            </span>
-          )}
+          {priorityClass && <Badge className={`text-xs ${priorityClass}`}>{item.priority}</Badge>}
+          {item.task_type && <span className="text-xs text-muted-foreground capitalize">{item.task_type}</span>}
         </div>
       </div>
       <ArrowRight className="size-4 text-muted-foreground shrink-0" />
@@ -261,28 +228,15 @@ function ActivityRow({ item }: { item: ActivityItem }): React.JSX.Element {
       <div className="size-2 rounded-full bg-primary mt-2 shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-foreground">
-          <span className="text-muted-foreground">
-            {item.actor_email ?? 'System'}{' '}
-          </span>
-          <span className="text-muted-foreground">
-            {getActivityLabel(item.type)}{' '}
-          </span>
-          <Link
-            to={`/work-items/${item.work_item_id}`}
-            className="font-medium text-primary hover:underline"
-          >
+          <span className="text-muted-foreground">{item.actor_email ?? 'System'} </span>
+          <span className="text-muted-foreground">{getActivityLabel(item.type)} </span>
+          <Link to={`/work-items/${item.work_item_id}`} className="font-medium text-primary hover:underline">
             {item.work_item_title}
           </Link>
         </p>
-        {item.description && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-            {item.description}
-          </p>
-        )}
+        {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>}
       </div>
-      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-        {formatRelativeTime(item.created_at)}
-      </span>
+      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{formatRelativeTime(item.created_at)}</span>
     </div>
   );
 }
@@ -305,30 +259,19 @@ export function DashboardPage(): React.JSX.Element {
   const activityQuery = useActivity(10);
 
   // Derive task groups from work items
-  const taskGroups = useMemo(
-    () => groupTasksByStatus(workItemsQuery.data?.items ?? []),
-    [workItemsQuery.data],
-  );
+  const taskGroups = useMemo(() => groupTasksByStatus(workItemsQuery.data?.items ?? []), [workItemsQuery.data]);
 
   // Count of total active tasks (max 10 shown)
-  const totalActiveTasks = useMemo(
-    () => taskGroups.reduce((sum, g) => sum + g.items.length, 0),
-    [taskGroups],
-  );
+  const totalActiveTasks = useMemo(() => taskGroups.reduce((sum, g) => sum + g.items.length, 0), [taskGroups]);
 
   // Upcoming due items (all non-completed, limited to 5)
   const upcomingItems = useMemo(() => {
     const items = workItemsQuery.data?.items ?? [];
-    return items
-      .filter((i) => isDueWithinDays(i, 7))
-      .slice(0, 5);
+    return items.filter((i) => isDueWithinDays(i, 7)).slice(0, 5);
   }, [workItemsQuery.data]);
 
   // Activity items (limited to 10)
-  const activityItems = useMemo(
-    () => (activityQuery.data?.items ?? []).slice(0, 10),
-    [activityQuery.data],
-  );
+  const activityItems = useMemo(() => (activityQuery.data?.items ?? []).slice(0, 10), [activityQuery.data]);
 
   // Show loading skeleton if both queries are loading
   const isInitialLoad = workItemsQuery.isLoading && activityQuery.isLoading;
@@ -341,12 +284,8 @@ export function DashboardPage(): React.JSX.Element {
     <div data-testid="page-dashboard" className="p-6 space-y-8">
       {/* Welcome Header */}
       <div data-testid="welcome-header" className="space-y-1">
-        <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">
-          {getGreeting()}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {formatCurrentDate()}
-        </p>
+        <h1 className="text-2xl font-semibold text-foreground sm:text-3xl">{getGreeting()}</h1>
+        <p className="text-sm text-muted-foreground">{formatCurrentDate()}</p>
       </div>
 
       {/* Main grid: My Tasks + Upcoming Due */}
@@ -359,9 +298,7 @@ export function DashboardPage(): React.JSX.Element {
               My Tasks
             </CardTitle>
             <CardDescription>
-              {totalActiveTasks > 0
-                ? `${totalActiveTasks} active task${totalActiveTasks !== 1 ? 's' : ''}`
-                : 'Your assigned tasks'}
+              {totalActiveTasks > 0 ? `${totalActiveTasks} active task${totalActiveTasks !== 1 ? 's' : ''}` : 'Your assigned tasks'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -373,12 +310,8 @@ export function DashboardPage(): React.JSX.Element {
             ) : taskGroups.length === 0 ? (
               <div className="py-8 text-center">
                 <CheckCircle2 className="mx-auto size-10 text-muted-foreground/30" />
-                <p className="mt-3 text-sm font-medium text-muted-foreground">
-                  No tasks assigned
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Tasks assigned to you will appear here.
-                </p>
+                <p className="mt-3 text-sm font-medium text-muted-foreground">No tasks assigned</p>
+                <p className="mt-1 text-xs text-muted-foreground">Tasks assigned to you will appear here.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -386,9 +319,7 @@ export function DashboardPage(): React.JSX.Element {
                   <div key={group.key}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className={group.colorClass}>{group.icon}</span>
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {group.label}
-                      </span>
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{group.label}</span>
                       <Badge variant="outline" className="text-xs">
                         {group.items.length}
                       </Badge>
@@ -401,10 +332,7 @@ export function DashboardPage(): React.JSX.Element {
                   </div>
                 ))}
                 {totalActiveTasks > 0 && (
-                  <Link
-                    to="/work-items"
-                    className="flex items-center justify-center gap-1 text-sm text-primary hover:underline py-2"
-                  >
+                  <Link to="/work-items" className="flex items-center justify-center gap-1 text-sm text-primary hover:underline py-2">
                     View all tasks
                     <ArrowRight className="size-3.5" />
                   </Link>
@@ -432,12 +360,8 @@ export function DashboardPage(): React.JSX.Element {
             ) : upcomingItems.length === 0 ? (
               <div className="py-8 text-center">
                 <Calendar className="mx-auto size-10 text-muted-foreground/30" />
-                <p className="mt-3 text-sm font-medium text-muted-foreground">
-                  No upcoming deadlines
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Items with upcoming due dates will appear here.
-                </p>
+                <p className="mt-3 text-sm font-medium text-muted-foreground">No upcoming deadlines</p>
+                <p className="mt-1 text-xs text-muted-foreground">Items with upcoming due dates will appear here.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -469,12 +393,8 @@ export function DashboardPage(): React.JSX.Element {
           ) : activityItems.length === 0 ? (
             <div className="py-8 text-center">
               <Activity className="mx-auto size-10 text-muted-foreground/30" />
-              <p className="mt-3 text-sm font-medium text-muted-foreground">
-                No recent activity
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Activity will appear here when work items are created or updated.
-              </p>
+              <p className="mt-3 text-sm font-medium text-muted-foreground">No recent activity</p>
+              <p className="mt-1 text-xs text-muted-foreground">Activity will appear here when work items are created or updated.</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -482,10 +402,7 @@ export function DashboardPage(): React.JSX.Element {
                 <ActivityRow key={item.id} item={item} />
               ))}
               <div className="pt-3">
-                <Link
-                  to="/activity"
-                  className="flex items-center justify-center gap-1 text-sm text-primary hover:underline py-2"
-                >
+                <Link to="/activity" className="flex items-center justify-center gap-1 text-sm text-primary hover:underline py-2">
                   View all activity
                   <ArrowRight className="size-3.5" />
                 </Link>
@@ -498,36 +415,19 @@ export function DashboardPage(): React.JSX.Element {
       {/* Quick Actions Section */}
       <Card data-testid="section-quick-actions">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            Quick Actions
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-2 py-4"
-              onClick={() => navigate('/work-items')}
-              data-testid="quick-action-create"
-            >
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4" onClick={() => navigate('/work-items')} data-testid="quick-action-create">
               <Plus className="size-5 text-primary" />
               <span className="text-sm font-medium">Create Task</span>
             </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-2 py-4"
-              onClick={() => navigate('/work-items')}
-              data-testid="quick-action-search"
-            >
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4" onClick={() => navigate('/work-items')} data-testid="quick-action-search">
               <Search className="size-5 text-primary" />
               <span className="text-sm font-medium">Search</span>
             </Button>
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-2 py-4"
-              onClick={() => navigate('/work-items')}
-              data-testid="quick-action-projects"
-            >
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4" onClick={() => navigate('/work-items')} data-testid="quick-action-projects">
               <FolderOpen className="size-5 text-primary" />
               <span className="text-sm font-medium">Open Projects</span>
             </Button>

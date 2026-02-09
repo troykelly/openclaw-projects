@@ -6,24 +6,13 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { Input } from '@/ui/components/ui/input';
 import { Label } from '@/ui/components/ui/label';
 import { Button } from '@/ui/components/ui/button';
 import type { TableDialogProps } from '../types';
 
-export function TableDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-}: TableDialogProps): React.JSX.Element {
+export function TableDialog({ open, onOpenChange, onSubmit }: TableDialogProps): React.JSX.Element {
   const [rows, setRows] = useState('3');
   const [columns, setColumns] = useState('3');
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +53,7 @@ export function TableDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Insert Table</DialogTitle>
-          <DialogDescription>
-            Choose the number of rows and columns for your table.
-          </DialogDescription>
+          <DialogDescription>Choose the number of rows and columns for your table.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
@@ -103,23 +90,18 @@ export function TableDialog({
                 />
               </div>
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             {/* Visual preview */}
             <div className="mt-2">
               <p className="text-sm text-muted-foreground mb-2">Preview:</p>
               <div
                 className="grid gap-0.5 max-w-[200px]"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.min(parseInt(columns) || 3, 10)}, 1fr)`
+                  gridTemplateColumns: `repeat(${Math.min(parseInt(columns) || 3, 10)}, 1fr)`,
                 }}
               >
                 {Array.from({ length: Math.min((parseInt(rows) || 3) * (parseInt(columns) || 3), 100) }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-4 border border-border ${i < (parseInt(columns) || 3) ? 'bg-muted' : ''}`}
-                  />
+                  <div key={i} className={`h-4 border border-border ${i < (parseInt(columns) || 3) ? 'bg-muted' : ''}`} />
                 ))}
               </div>
             </div>

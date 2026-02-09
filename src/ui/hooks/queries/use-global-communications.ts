@@ -5,17 +5,13 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type {
-  EmailsResponse,
-  CalendarEventsResponse,
-} from '@/ui/lib/api-types.ts';
+import type { EmailsResponse, CalendarEventsResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for global communications. */
 export const globalCommunicationsKeys = {
   all: ['global-communications'] as const,
   emails: () => [...globalCommunicationsKeys.all, 'emails'] as const,
-  calendarEvents: () =>
-    [...globalCommunicationsKeys.all, 'calendar-events'] as const,
+  calendarEvents: () => [...globalCommunicationsKeys.all, 'calendar-events'] as const,
 };
 
 /**
@@ -26,8 +22,7 @@ export const globalCommunicationsKeys = {
 export function useEmails() {
   return useQuery({
     queryKey: globalCommunicationsKeys.emails(),
-    queryFn: ({ signal }) =>
-      apiClient.get<EmailsResponse>('/api/emails', { signal }),
+    queryFn: ({ signal }) => apiClient.get<EmailsResponse>('/api/emails', { signal }),
   });
 }
 
@@ -39,7 +34,6 @@ export function useEmails() {
 export function useCalendarEvents() {
   return useQuery({
     queryKey: globalCommunicationsKeys.calendarEvents(),
-    queryFn: ({ signal }) =>
-      apiClient.get<CalendarEventsResponse>('/api/calendar/events', { signal }),
+    queryFn: ({ signal }) => apiClient.get<CalendarEventsResponse>('/api/calendar/events', { signal }),
   });
 }

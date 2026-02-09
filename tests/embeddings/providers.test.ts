@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import {
-  createProvider,
-  VoyageAIProvider,
-  OpenAIProvider,
-  GeminiProvider,
-} from '../../src/api/embeddings/providers/index.ts';
+import { createProvider, VoyageAIProvider, OpenAIProvider, GeminiProvider } from '../../src/api/embeddings/providers/index.ts';
 import { EmbeddingError } from '../../src/api/embeddings/errors.ts';
 
 describe('Embedding Providers - Integration', () => {
@@ -47,11 +42,7 @@ describe('Embedding Providers - Integration', () => {
 
     it.skipIf(!hasVoyageKey)('produces similar embeddings for similar texts', async () => {
       const provider = new VoyageAIProvider();
-      const embeddings = await provider.embed([
-        'The weather is sunny today',
-        'Today has sunny weather',
-        'Programming in TypeScript',
-      ]);
+      const embeddings = await provider.embed(['The weather is sunny today', 'Today has sunny weather', 'Programming in TypeScript']);
 
       // Calculate cosine similarity
       const cosineSimilarity = (a: number[], b: number[]): number => {

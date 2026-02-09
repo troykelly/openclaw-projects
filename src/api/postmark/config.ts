@@ -20,11 +20,7 @@ export function isPostmarkConfigured(): boolean {
   }
 
   // Token can come from env var or file
-  return !!(
-    process.env.POSTMARK_TRANSACTIONAL_TOKEN ||
-    process.env.POSTMARK_SERVER_TOKEN ||
-    process.env.POSTMARK_TRANSACTIONAL_TOKEN_FILE
-  );
+  return !!(process.env.POSTMARK_TRANSACTIONAL_TOKEN || process.env.POSTMARK_SERVER_TOKEN || process.env.POSTMARK_TRANSACTIONAL_TOKEN_FILE);
 }
 
 /**
@@ -39,14 +35,10 @@ export async function getPostmarkConfig(): Promise<PostmarkConfig> {
   }
 
   // Try to get token from env or file
-  const serverToken =
-    process.env.POSTMARK_SERVER_TOKEN ||
-    (await getPostmarkTransactionalToken());
+  const serverToken = process.env.POSTMARK_SERVER_TOKEN || (await getPostmarkTransactionalToken());
 
   if (!serverToken) {
-    throw new Error(
-      'Postmark not configured. Required env var: POSTMARK_SERVER_TOKEN or POSTMARK_TRANSACTIONAL_TOKEN'
-    );
+    throw new Error('Postmark not configured. Required env var: POSTMARK_SERVER_TOKEN or POSTMARK_TRANSACTIONAL_TOKEN');
   }
 
   return { serverToken, fromEmail };

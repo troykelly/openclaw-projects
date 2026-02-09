@@ -72,7 +72,7 @@ export function InlineEdit({
         handleCancel();
       }
     },
-    [handleSave, handleCancel]
+    [handleSave, handleCancel],
   );
 
   const handleBlur = useCallback(() => {
@@ -114,7 +114,7 @@ export function InlineEdit({
         'cursor-text rounded px-1 -mx-1 hover:bg-muted/50 transition-colors',
         disabled && 'cursor-default hover:bg-transparent',
         !value && 'text-muted-foreground',
-        className
+        className,
       )}
       data-testid="inline-edit-display"
     >

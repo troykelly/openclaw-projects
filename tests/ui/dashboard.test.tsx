@@ -9,40 +9,14 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  DashboardGrid,
-  type DashboardGridProps,
-} from '@/ui/components/dashboard/dashboard-grid';
-import {
-  DashboardWidget,
-  type DashboardWidgetProps,
-} from '@/ui/components/dashboard/dashboard-widget';
-import {
-  WidgetPicker,
-  type WidgetPickerProps,
-} from '@/ui/components/dashboard/widget-picker';
-import {
-  MyTasksWidget,
-  type MyTasksWidgetProps,
-} from '@/ui/components/dashboard/widgets/my-tasks-widget';
-import {
-  UpcomingDueWidget,
-  type UpcomingDueWidgetProps,
-} from '@/ui/components/dashboard/widgets/upcoming-due-widget';
-import {
-  ActivityWidget,
-  type ActivityWidgetProps,
-} from '@/ui/components/dashboard/widgets/activity-widget';
-import {
-  StatsWidget,
-  type StatsWidgetProps,
-} from '@/ui/components/dashboard/widgets/stats-widget';
-import type {
-  Widget,
-  WidgetType,
-  DashboardLayout,
-  WidgetConfig,
-} from '@/ui/components/dashboard/types';
+import { DashboardGrid, type DashboardGridProps } from '@/ui/components/dashboard/dashboard-grid';
+import { DashboardWidget, type DashboardWidgetProps } from '@/ui/components/dashboard/dashboard-widget';
+import { WidgetPicker, type WidgetPickerProps } from '@/ui/components/dashboard/widget-picker';
+import { MyTasksWidget, type MyTasksWidgetProps } from '@/ui/components/dashboard/widgets/my-tasks-widget';
+import { UpcomingDueWidget, type UpcomingDueWidgetProps } from '@/ui/components/dashboard/widgets/upcoming-due-widget';
+import { ActivityWidget, type ActivityWidgetProps } from '@/ui/components/dashboard/widgets/activity-widget';
+import { StatsWidget, type StatsWidgetProps } from '@/ui/components/dashboard/widgets/stats-widget';
+import type { Widget, WidgetType, DashboardLayout, WidgetConfig } from '@/ui/components/dashboard/types';
 
 describe('DashboardGrid', () => {
   const mockWidgets: Widget[] = [

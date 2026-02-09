@@ -4,12 +4,7 @@ import { Mail, Calendar, Plus, Link2 } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/ui/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
 import { EmailCard } from './email-card';
 import { CalendarEventCard } from './calendar-event-card';
 import type { LinkedEmail, LinkedCalendarEvent } from './types';
@@ -94,12 +89,7 @@ export function ItemCommunications({
           {emails.length > 0 ? (
             <div className="space-y-2">
               {emails.map((email) => (
-                <EmailCard
-                  key={email.id}
-                  email={email}
-                  onClick={onEmailClick}
-                  onUnlink={onUnlinkEmail}
-                />
+                <EmailCard key={email.id} email={email} onClick={onEmailClick} onUnlink={onUnlinkEmail} />
               ))}
             </div>
           ) : (
@@ -122,12 +112,7 @@ export function ItemCommunications({
           {calendarEvents.length > 0 ? (
             <div className="space-y-2">
               {calendarEvents.map((event) => (
-                <CalendarEventCard
-                  key={event.id}
-                  event={event}
-                  onClick={onEventClick}
-                  onUnlink={onUnlinkEvent}
-                />
+                <CalendarEventCard key={event.id} event={event} onClick={onEventClick} onUnlink={onUnlinkEvent} />
               ))}
             </div>
           ) : (
@@ -150,15 +135,7 @@ export function ItemCommunications({
   );
 }
 
-function EmptyState({
-  icon,
-  message,
-  action,
-}: {
-  icon: React.ReactNode;
-  message: string;
-  action?: React.ReactNode;
-}) {
+function EmptyState({ icon, message, action }: { icon: React.ReactNode; message: string; action?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-dashed p-6 text-center">
       <div className="mx-auto text-muted-foreground/50">{icon}</div>

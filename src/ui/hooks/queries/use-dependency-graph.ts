@@ -22,11 +22,7 @@ export const dependencyGraphKeys = {
 export function useDependencyGraph(id: string) {
   return useQuery({
     queryKey: dependencyGraphKeys.item(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<DependencyGraphResponse>(
-        `/api/work-items/${id}/dependency-graph`,
-        { signal },
-      ),
+    queryFn: ({ signal }) => apiClient.get<DependencyGraphResponse>(`/api/work-items/${id}/dependency-graph`, { signal }),
     enabled: !!id,
   });
 }

@@ -32,14 +32,7 @@ function formatCellValue(value: unknown): string {
   return String(value);
 }
 
-export function ListRow({
-  item,
-  columns,
-  onClick,
-  selected = false,
-  selectable = false,
-  onSelect,
-}: ListRowProps) {
+export function ListRow({ item, columns, onClick, selected = false, selectable = false, onSelect }: ListRowProps) {
   const handleRowClick = (e: React.MouseEvent) => {
     // Don't trigger row click if clicking on checkbox
     if ((e.target as HTMLElement).closest('[role="checkbox"]')) {
@@ -56,19 +49,12 @@ export function ListRow({
     <tr
       data-testid={`list-row-${item.id}`}
       data-selected={selected}
-      className={cn(
-        'border-b transition-colors hover:bg-muted/50 cursor-pointer',
-        selected && 'bg-accent'
-      )}
+      className={cn('border-b transition-colors hover:bg-muted/50 cursor-pointer', selected && 'bg-accent')}
       onClick={handleRowClick}
     >
       {selectable && (
         <td className="w-10 px-2 py-3">
-          <Checkbox
-            checked={selected}
-            onCheckedChange={handleCheckboxChange}
-            aria-label={`Select ${item.title}`}
-          />
+          <Checkbox checked={selected} onCheckedChange={handleCheckboxChange} aria-label={`Select ${item.title}`} />
         </td>
       )}
       {columns.map((column) => {
@@ -77,11 +63,7 @@ export function ListRow({
         return (
           <td
             key={column.id}
-            className={cn(
-              'px-4 py-3 text-sm',
-              column.align === 'center' && 'text-center',
-              column.align === 'right' && 'text-right'
-            )}
+            className={cn('px-4 py-3 text-sm', column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
             style={{ width: column.width }}
           >
             {formatCellValue(value)}

@@ -77,12 +77,7 @@ interface UseNotePresenceReturn {
  * );
  * ```
  */
-export function useNotePresence({
-  noteId,
-  userEmail,
-  autoJoin = true,
-  apiUrl = '/api',
-}: UseNotePresenceOptions): UseNotePresenceReturn {
+export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '/api' }: UseNotePresenceOptions): UseNotePresenceReturn {
   const [viewers, setViewers] = useState<NotePresenceUser[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -100,14 +95,11 @@ export function useNotePresence({
     if (hasJoinedRef.current) return;
 
     try {
-      const response = await fetch(
-        `${apiUrl}/notes/${noteId}/presence`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userEmail }),
-        }
-      );
+      const response = await fetch(`${apiUrl}/notes/${noteId}/presence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail }),
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to join presence: ${response.status}`);
@@ -132,13 +124,10 @@ export function useNotePresence({
     if (!hasJoinedRef.current) return;
 
     try {
-      await fetch(
-        `${apiUrl}/notes/${noteId}/presence`,
-        {
-          method: 'DELETE',
-          headers: { 'X-User-Email': userEmail },
-        }
-      );
+      await fetch(`${apiUrl}/notes/${noteId}/presence`, {
+        method: 'DELETE',
+        headers: { 'X-User-Email': userEmail },
+      });
       hasJoinedRef.current = false;
       setIsConnected(false);
     } catch (err) {
@@ -155,25 +144,25 @@ export function useNotePresence({
    * Update cursor position via API
    * Security: userEmail sent in body instead of query params (#689)
    */
-  const updateCursor = useCallback(async (position: { line: number; column: number }) => {
-    try {
-      await fetch(
-        `${apiUrl}/notes/${noteId}/presence/cursor`,
-        {
+  const updateCursor = useCallback(
+    async (position: { line: number; column: number }) => {
+      try {
+        await fetch(`${apiUrl}/notes/${noteId}/presence/cursor`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userEmail, cursorPosition: position }),
+        });
+      } catch (err) {
+        // Don't throw on cursor update errors - cursor updates are non-critical
+        // Log in development only to avoid information leakage in production (#693)
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('[NotePresence] Error updating cursor:', err);
         }
-      );
-    } catch (err) {
-      // Don't throw on cursor update errors - cursor updates are non-critical
-      // Log in development only to avoid information leakage in production (#693)
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.error('[NotePresence] Error updating cursor:', err);
       }
-    }
-  }, [noteId, userEmail, apiUrl]);
+    },
+    [noteId, userEmail, apiUrl],
+  );
 
   /**
    * Handle presence events from WebSocket
@@ -215,20 +204,14 @@ export function useNotePresence({
         case 'note:presence_cursor': {
           const cursorData = presenceEvent.data as {
             userEmail: string;
-            cursorPosition: { line: number; column: number }
+            cursorPosition: { line: number; column: number };
           };
-          setViewers((prev) =>
-            prev.map((v) =>
-              v.email === cursorData.userEmail
-                ? { ...v, cursorPosition: cursorData.cursorPosition }
-                : v
-            )
-          );
+          setViewers((prev) => prev.map((v) => (v.email === cursorData.userEmail ? { ...v, cursorPosition: cursorData.cursorPosition } : v)));
           break;
         }
       }
     },
-    [noteId]
+    [noteId],
   );
 
   /**
@@ -237,17 +220,10 @@ export function useNotePresence({
   useEffect(() => {
     if (!realtimeContext) return;
 
-    const eventTypes = [
-      'note:presence_joined',
-      'note:presence_left',
-      'note:presence_list',
-      'note:presence_cursor',
-    ] as const;
+    const eventTypes = ['note:presence_joined', 'note:presence_left', 'note:presence_list', 'note:presence_cursor'] as const;
 
     // Subscribe to each event type
-    const unsubscribes = eventTypes.map((type) =>
-      realtimeContext.subscribe(type, handlePresenceEvent)
-    );
+    const unsubscribes = eventTypes.map((type) => realtimeContext.subscribe(type, handlePresenceEvent));
 
     return () => {
       unsubscribes.forEach((unsub) => unsub());
@@ -266,12 +242,7 @@ export function useNotePresence({
     const previousStatus = previousStatusRef.current;
 
     // If we transitioned from a non-connected state to connected, re-join
-    if (
-      previousStatus !== null &&
-      previousStatus !== 'connected' &&
-      currentStatus === 'connected' &&
-      hasJoinedRef.current
-    ) {
+    if (previousStatus !== null && previousStatus !== 'connected' && currentStatus === 'connected' && hasJoinedRef.current) {
       // Reset the joined flag to allow re-joining
       hasJoinedRef.current = false;
       void join();
@@ -295,7 +266,7 @@ export function useNotePresence({
         prev.filter((viewer) => {
           const lastSeenTime = new Date(viewer.lastSeenAt).getTime();
           return now - lastSeenTime < STALE_THRESHOLD_MS;
-        })
+        }),
       );
     }, CLEANUP_INTERVAL_MS);
 

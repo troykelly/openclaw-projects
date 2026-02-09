@@ -9,32 +9,15 @@ import '@testing-library/jest-dom';
 import * as React from 'react';
 
 // Components to be implemented
-import {
-  KeyboardNavigationProvider,
-  useKeyboardNavigation,
-} from '@/ui/components/keyboard-navigation/keyboard-navigation-context';
-import {
-  KeyboardNavigableList,
-  type KeyboardNavigableListProps,
-} from '@/ui/components/keyboard-navigation/keyboard-navigable-list';
-import {
-  FocusRing,
-  type FocusRingProps,
-} from '@/ui/components/keyboard-navigation/focus-ring';
-import {
-  ShortcutHint,
-  type ShortcutHintProps,
-} from '@/ui/components/keyboard-navigation/shortcut-hint';
+import { KeyboardNavigationProvider, useKeyboardNavigation } from '@/ui/components/keyboard-navigation/keyboard-navigation-context';
+import { KeyboardNavigableList, type KeyboardNavigableListProps } from '@/ui/components/keyboard-navigation/keyboard-navigable-list';
+import { FocusRing, type FocusRingProps } from '@/ui/components/keyboard-navigation/focus-ring';
+import { ShortcutHint, type ShortcutHintProps } from '@/ui/components/keyboard-navigation/shortcut-hint';
 import type { NavigableItem } from '@/ui/components/keyboard-navigation/types';
 
 // Test component that uses the hook
-function TestKeyboardConsumer({
-  onAction,
-}: {
-  onAction?: (action: string) => void;
-}) {
-  const { focusedIndex, setFocusedIndex, registerShortcut } =
-    useKeyboardNavigation();
+function TestKeyboardConsumer({ onAction }: { onAction?: (action: string) => void }) {
+  const { focusedIndex, setFocusedIndex, registerShortcut } = useKeyboardNavigation();
 
   React.useEffect(() => {
     const unregister = registerShortcut({
@@ -62,7 +45,7 @@ describe('KeyboardNavigationProvider', () => {
     render(
       <KeyboardNavigationProvider>
         <TestKeyboardConsumer />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     expect(screen.getByTestId('consumer')).toBeInTheDocument();
@@ -72,7 +55,7 @@ describe('KeyboardNavigationProvider', () => {
     render(
       <KeyboardNavigationProvider>
         <TestKeyboardConsumer />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     expect(screen.getByTestId('focused-index')).toHaveTextContent('-1');
@@ -87,7 +70,7 @@ describe('KeyboardNavigationProvider', () => {
     render(
       <KeyboardNavigationProvider>
         <TestKeyboardConsumer onAction={onAction} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'n' });
@@ -101,7 +84,7 @@ describe('KeyboardNavigationProvider', () => {
       <KeyboardNavigationProvider>
         <TestKeyboardConsumer onAction={onAction} />
         <input data-testid="input" />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     const input = screen.getByTestId('input');
@@ -137,7 +120,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     expect(screen.getByText('Item 1')).toBeInTheDocument();
@@ -149,7 +132,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'j' });
@@ -162,7 +145,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider initialFocusIndex={1}>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'k' });
@@ -175,7 +158,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'ArrowDown' });
@@ -189,7 +172,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider initialFocusIndex={0}>
         <KeyboardNavigableList {...defaultProps} onSelect={onSelect} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'Enter' });
@@ -201,7 +184,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider initialFocusIndex={2}>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'j' });
@@ -215,7 +198,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider initialFocusIndex={0}>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'k' });
@@ -228,7 +211,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider initialFocusIndex={2}>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'Home' });
@@ -241,7 +224,7 @@ describe('KeyboardNavigableList', () => {
     render(
       <KeyboardNavigationProvider initialFocusIndex={0}>
         <KeyboardNavigableList {...defaultProps} />
-      </KeyboardNavigationProvider>
+      </KeyboardNavigationProvider>,
     );
 
     fireEvent.keyDown(document, { key: 'End' });

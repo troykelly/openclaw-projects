@@ -10,7 +10,7 @@
  */
 
 // Re-export the OpenClaw 2026 API default export
-export { default, registerOpenClaw, schemas } from './register-openclaw.js'
+export { default, registerOpenClaw, schemas } from './register-openclaw.js';
 
 // Export OpenClaw API types
 export type {
@@ -32,17 +32,13 @@ export type {
   CliRegistrationCallback,
   CliRegistrationContext,
   ServiceDefinition,
-} from './types/openclaw-api.js'
+} from './types/openclaw-api.js';
 
-import type { PluginConfig, } from './config.js'
-import {
-  validateConfig,
-  validateRawConfig,
-  redactConfig,
-} from './config.js'
-import { createLogger, type Logger } from './logger.js'
-import { createApiClient, type ApiClient } from './api-client.js'
-import { extractContext, getUserScopeKey, type PluginContext } from './context.js'
+import type { PluginConfig } from './config.js';
+import { validateConfig, validateRawConfig, redactConfig } from './config.js';
+import { createLogger, type Logger } from './logger.js';
+import { createApiClient, type ApiClient } from './api-client.js';
+import { extractContext, getUserScopeKey, type PluginContext } from './context.js';
 import {
   createAutoRecallHook,
   createAutoCaptureHook,
@@ -51,11 +47,8 @@ import {
   type AutoRecallResult,
   type AutoCaptureEvent,
   type HealthCheckResult,
-} from './hooks.js'
-import {
-  createCliCommands,
-  type CliCommands,
-} from './cli.js'
+} from './hooks.js';
+import { createCliCommands, type CliCommands } from './cli.js';
 import {
   createMemoryRecallTool,
   createMemoryStoreTool,
@@ -81,65 +74,61 @@ import {
   type ContactSearchTool,
   type ContactGetTool,
   type ContactCreateTool,
-} from './tools/index.js'
+} from './tools/index.js';
 
 /** Plugin registration context from OpenClaw runtime */
 export interface RegistrationContext {
-  config: Record<string, unknown>
-  logger?: Logger
-  runtime?: unknown
+  config: Record<string, unknown>;
+  logger?: Logger;
+  runtime?: unknown;
 }
 
 /** Tool instances created for the plugin */
 export interface PluginTools {
-  memoryRecall: MemoryRecallTool
-  memoryStore: MemoryStoreTool
-  memoryForget: MemoryForgetTool
-  projectList: ProjectListTool
-  projectGet: ProjectGetTool
-  projectCreate: ProjectCreateTool
-  todoList: TodoListTool
-  todoCreate: TodoCreateTool
-  todoComplete: TodoCompleteTool
-  contactSearch: ContactSearchTool
-  contactGet: ContactGetTool
-  contactCreate: ContactCreateTool
+  memoryRecall: MemoryRecallTool;
+  memoryStore: MemoryStoreTool;
+  memoryForget: MemoryForgetTool;
+  projectList: ProjectListTool;
+  projectGet: ProjectGetTool;
+  projectCreate: ProjectCreateTool;
+  todoList: TodoListTool;
+  todoCreate: TodoCreateTool;
+  todoComplete: TodoCompleteTool;
+  contactSearch: ContactSearchTool;
+  contactGet: ContactGetTool;
+  contactCreate: ContactCreateTool;
 }
 
 /** Lifecycle hooks for the plugin */
 export interface PluginHooks {
-  beforeAgentStart: (event: AutoRecallEvent) => Promise<AutoRecallResult | null>
-  agentEnd: (event: AutoCaptureEvent) => Promise<void>
+  beforeAgentStart: (event: AutoRecallEvent) => Promise<AutoRecallResult | null>;
+  agentEnd: (event: AutoCaptureEvent) => Promise<void>;
 }
 
 /** Plugin instance after registration */
 export interface PluginInstance {
-  id: string
-  name: string
-  kind: string
-  config: PluginConfig
-  apiClient: ApiClient
-  context: PluginContext
-  tools: PluginTools
-  hooks: PluginHooks
-  cli: CliCommands
-  healthCheck: () => Promise<HealthCheckResult>
+  id: string;
+  name: string;
+  kind: string;
+  config: PluginConfig;
+  apiClient: ApiClient;
+  context: PluginContext;
+  tools: PluginTools;
+  hooks: PluginHooks;
+  cli: CliCommands;
+  healthCheck: () => Promise<HealthCheckResult>;
 }
 
 /**
  * Creates a plugin instance from resolved configuration.
  * Internal helper used by both sync and async registration.
  */
-function createPluginInstance(
-  config: PluginConfig,
-  logger: Logger,
-  runtime: unknown
-): PluginInstance {
+function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unknown): PluginInstance {
   // Create API client
-  const apiClient = createApiClient({ config, logger })
+  const apiClient = createApiClient({ config, logger });
 
   // Extract context
-  const context = extractContext(runtime)
+  const context = extractContext(runtime);
 
   // Determine user scope key based on config
   const userId = getUserScopeKey(
@@ -147,8 +136,8 @@ function createPluginInstance(
       agentId: context.agent.agentId,
       sessionKey: context.session.sessionId,
     },
-    config.userScoping
-  )
+    config.userScoping,
+  );
 
   // Create tools
   const tools: PluginTools = {
@@ -224,7 +213,7 @@ function createPluginInstance(
       config,
       userId,
     }),
-  }
+  };
 
   // Create lifecycle hooks
   const hooks: PluginHooks = {
@@ -240,10 +229,10 @@ function createPluginInstance(
       config,
       userId,
     }),
-  }
+  };
 
   // Create health check
-  const healthCheck = createHealthCheck({ client: apiClient, logger })
+  const healthCheck = createHealthCheck({ client: apiClient, logger });
 
   // Create CLI commands
   const cli = createCliCommands({
@@ -251,14 +240,14 @@ function createPluginInstance(
     logger,
     config,
     userId,
-  })
+  });
 
   logger.info('Plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
     userId,
     config: redactConfig(config),
-  })
+  });
 
   return {
     id: 'openclaw-projects',
@@ -271,7 +260,7 @@ function createPluginInstance(
     hooks,
     cli,
     healthCheck,
-  }
+  };
 }
 
 /**
@@ -281,10 +270,10 @@ function createPluginInstance(
  * to produce a fully initialized plugin instance.
  */
 export function register(ctx: RegistrationContext): PluginInstance {
-  const logger = ctx.logger ?? createLogger('openclaw-projects')
+  const logger = ctx.logger ?? createLogger('openclaw-projects');
 
   // Validate as raw config first to check structure
-  const rawConfig = validateRawConfig(ctx.config)
+  const rawConfig = validateRawConfig(ctx.config);
 
   // For sync registration, we require direct values - file/command refs won't work
   // Build a resolved config from direct values only
@@ -305,9 +294,9 @@ export function register(ctx: RegistrationContext): PluginInstance {
     timeout: rawConfig.timeout,
     maxRetries: rawConfig.maxRetries,
     debug: rawConfig.debug,
-  })
+  });
 
-  return createPluginInstance(config, logger, ctx.runtime)
+  return createPluginInstance(config, logger, ctx.runtime);
 }
 
 /** Plugin definition object for OpenClaw */
@@ -316,10 +305,10 @@ export const plugin = {
   name: 'OpenClaw Projects Plugin',
   kind: 'memory',
   register,
-}
+};
 
 // Re-export types and utilities
-export type { PluginConfig, RawPluginConfig } from './config.js'
+export type { PluginConfig, RawPluginConfig } from './config.js';
 export {
   validateConfig,
   safeValidateConfig,
@@ -328,20 +317,20 @@ export {
   resolveConfigSecrets,
   resolveConfigSecretsSync,
   redactConfig,
-} from './config.js'
-export type { SecretConfig } from './secrets.js'
-export { resolveSecret, resolveSecretSync, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js'
-export type { Logger } from './logger.js'
-export { createLogger, redactSensitive } from './logger.js'
-export type { ApiClient, ApiResponse, ApiError } from './api-client.js'
-export { createApiClient } from './api-client.js'
+} from './config.js';
+export type { SecretConfig } from './secrets.js';
+export { resolveSecret, resolveSecretSync, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js';
+export type { Logger } from './logger.js';
+export { createLogger, redactSensitive } from './logger.js';
+export type { ApiClient, ApiResponse, ApiError } from './api-client.js';
+export { createApiClient } from './api-client.js';
 export type {
   PluginContext,
   UserContext,
   AgentContext,
   SessionContext,
-} from './context.js'
-export { extractContext, getUserScopeKey } from './context.js'
+} from './context.js';
+export { extractContext, getUserScopeKey } from './context.js';
 
 // Re-export tool types and factories
 export type {
@@ -389,7 +378,7 @@ export type {
   ContactCreateResult,
   Contact,
   ContactToolOptions,
-} from './tools/index.js'
+} from './tools/index.js';
 export {
   createMemoryRecallTool,
   createMemoryStoreTool,
@@ -417,7 +406,7 @@ export {
   ContactSearchParamsSchema,
   ContactGetParamsSchema,
   ContactCreateParamsSchema,
-} from './tools/index.js'
+} from './tools/index.js';
 
 // Re-export hooks
 export type {
@@ -428,12 +417,12 @@ export type {
   AutoRecallHookOptions,
   AutoCaptureHookOptions,
   HealthCheckOptions,
-} from './hooks.js'
+} from './hooks.js';
 export {
   createAutoRecallHook,
   createAutoCaptureHook,
   createHealthCheck,
-} from './hooks.js'
+} from './hooks.js';
 
 // Re-export CLI
 export type {
@@ -448,7 +437,7 @@ export type {
   StatsData,
   ExportData,
   MemoryItem,
-} from './cli.js'
+} from './cli.js';
 export {
   createCliCommands,
   createStatusCommand,
@@ -456,7 +445,7 @@ export {
   createRecallCommand,
   createStatsCommand,
   createExportCommand,
-} from './cli.js'
+} from './cli.js';
 
 // Re-export Gateway RPC methods
 export type {
@@ -470,11 +459,11 @@ export type {
   Notification,
   GatewayMethods,
   GatewayMethodsOptions,
-} from './gateway/rpc-methods.js'
+} from './gateway/rpc-methods.js';
 export {
   createGatewayMethods,
   registerGatewayRpcMethods,
-} from './gateway/rpc-methods.js'
+} from './gateway/rpc-methods.js';
 
 // Re-export notification service
 export type {
@@ -482,7 +471,5 @@ export type {
   NotificationServiceEvents,
   NotificationServiceOptions,
   NotificationService,
-} from './services/notification-service.js'
-export {
-  createNotificationService,
-} from './services/notification-service.js'
+} from './services/notification-service.js';
+export { createNotificationService } from './services/notification-service.js';

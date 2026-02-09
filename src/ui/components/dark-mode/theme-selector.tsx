@@ -36,11 +36,7 @@ export function ThemeSelector({ showOled = false, className }: ThemeSelectorProp
   }
 
   return (
-    <div
-      className={cn('flex flex-col gap-2', className)}
-      role="radiogroup"
-      aria-label="Theme selection"
-    >
+    <div className={cn('flex flex-col gap-2', className)} role="radiogroup" aria-label="Theme selection">
       {options.map((option) => {
         const isSelected = theme === option.value;
         const inputId = `theme-${option.value}`;
@@ -51,9 +47,7 @@ export function ThemeSelector({ showOled = false, className }: ThemeSelectorProp
             htmlFor={inputId}
             className={cn(
               'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
-              isSelected
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:bg-muted'
+              isSelected ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted',
             )}
           >
             <input
@@ -70,11 +64,7 @@ export function ThemeSelector({ showOled = false, className }: ThemeSelectorProp
             <span className="font-medium">{option.label}</span>
             {isSelected && (
               <span className="ml-auto text-primary">
-                <svg
-                  className="h-5 w-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"

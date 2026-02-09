@@ -61,7 +61,7 @@ describe('OpenClaw Hook Contract Validation', () => {
     it('should use api.on for modern hook registration with legacy fallback', () => {
       const content = readFileSync(registerPath, 'utf-8');
       // Uses api.on('before_agent_start', ...) with legacy registerHook fallback
-      expect(content).toContain("api.on(");
+      expect(content).toContain('api.on(');
       expect(content).toContain("'before_agent_start'");
       // Legacy fallback still present for compatibility
       expect(content).toContain("api.registerHook('beforeAgentStart'");

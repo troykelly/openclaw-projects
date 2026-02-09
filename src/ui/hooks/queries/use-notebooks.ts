@@ -20,14 +20,7 @@ const NOTEBOOK_TREE_STALE_TIME = 60 * 1000;
 
 /** Stale time for notebook shares (1 minute) */
 const NOTEBOOK_SHARES_STALE_TIME = 60 * 1000;
-import type {
-  NotebooksResponse,
-  Notebook,
-  ListNotebooksParams,
-  NotebookTreeNode,
-  SharedWithMeResponse,
-  NotebookSharesResponse,
-} from '@/ui/lib/api-types.ts';
+import type { NotebooksResponse, Notebook, ListNotebooksParams, NotebookTreeNode, SharedWithMeResponse, NotebookSharesResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for notebooks. */
 export const notebookKeys = {
@@ -44,10 +37,7 @@ export const notebookKeys = {
 /**
  * Build query string from ListNotebooksParams and user email.
  */
-function buildNotebooksQueryString(
-  userEmail: string | null,
-  params?: ListNotebooksParams
-): string {
+function buildNotebooksQueryString(userEmail: string | null, params?: ListNotebooksParams): string {
   const searchParams = new URLSearchParams();
 
   // user_email is required by the API
@@ -85,10 +75,7 @@ function buildNotebooksQueryString(
  * @param options - Optional query options (e.g., enabled, staleTime)
  * @returns TanStack Query result with `NotebooksResponse`
  */
-export function useNotebooks(
-  params?: ListNotebooksParams,
-  options?: { enabled?: boolean; staleTime?: number }
-) {
+export function useNotebooks(params?: ListNotebooksParams, options?: { enabled?: boolean; staleTime?: number }) {
   const userEmail = useUserEmail();
   const queryString = buildNotebooksQueryString(userEmail, params);
 
@@ -117,7 +104,7 @@ export function useNotebook(
     includeChildren?: boolean;
     staleTime?: number;
     enabled?: boolean;
-  }
+  },
 ) {
   const userEmail = useUserEmail();
   const searchParams = new URLSearchParams();
@@ -134,11 +121,7 @@ export function useNotebook(
 
   return useQuery({
     queryKey: notebookKeys.detail(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<Notebook>(
-        `/api/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`,
-        { signal }
-      ),
+    queryFn: ({ signal }) => apiClient.get<Notebook>(`/api/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: (options?.enabled ?? true) && !!id && !!userEmail,
     staleTime: options?.staleTime ?? NOTEBOOK_STALE_TIME,
   });
@@ -151,10 +134,7 @@ export function useNotebook(
  * @param options - Optional query options
  * @returns TanStack Query result with array of `NotebookTreeNode`
  */
-export function useNotebooksTree(
-  includeNoteCounts = false,
-  options?: { staleTime?: number }
-) {
+export function useNotebooksTree(includeNoteCounts = false, options?: { staleTime?: number }) {
   const userEmail = useUserEmail();
   const searchParams = new URLSearchParams();
   if (userEmail) {
@@ -167,11 +147,7 @@ export function useNotebooksTree(
 
   return useQuery({
     queryKey: notebookKeys.tree(),
-    queryFn: ({ signal }) =>
-      apiClient.get<NotebookTreeNode[]>(
-        `/api/notebooks/tree${queryString ? `?${queryString}` : ''}`,
-        { signal }
-      ),
+    queryFn: ({ signal }) => apiClient.get<NotebookTreeNode[]>(`/api/notebooks/tree${queryString ? `?${queryString}` : ''}`, { signal }),
     enabled: !!userEmail,
     staleTime: options?.staleTime ?? NOTEBOOK_TREE_STALE_TIME,
   });
@@ -184,17 +160,10 @@ export function useNotebooksTree(
  * @param options - Optional query options
  * @returns TanStack Query result with shares
  */
-export function useNotebookShares(
-  id: string,
-  options?: { staleTime?: number }
-) {
+export function useNotebookShares(id: string, options?: { staleTime?: number }) {
   return useQuery({
     queryKey: notebookKeys.shares(id),
-    queryFn: ({ signal }) =>
-      apiClient.get<NotebookSharesResponse>(
-        `/api/notebooks/${encodeURIComponent(id)}/shares`,
-        { signal }
-      ),
+    queryFn: ({ signal }) => apiClient.get<NotebookSharesResponse>(`/api/notebooks/${encodeURIComponent(id)}/shares`, { signal }),
     enabled: !!id,
     staleTime: options?.staleTime ?? NOTEBOOK_SHARES_STALE_TIME,
   });

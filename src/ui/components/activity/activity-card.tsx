@@ -3,18 +3,7 @@
  * Issue #396: Implement contact activity timeline
  */
 import * as React from 'react';
-import {
-  Mail,
-  MailOpen,
-  CheckSquare,
-  AtSign,
-  Calendar,
-  Users,
-  UserMinus,
-  UserCog,
-  FileText,
-  Activity as ActivityIcon,
-} from 'lucide-react';
+import { Mail, MailOpen, CheckSquare, AtSign, Calendar, Users, UserMinus, UserCog, FileText, Activity as ActivityIcon } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import type { Activity, ActivityType, ActivitySourceType } from './types';
 import { formatTimestamp } from './activity-utils';
@@ -60,10 +49,7 @@ export function ActivityCard({ activity, onClick, className }: ActivityCardProps
 
   return (
     <div
-      className={cn(
-        'flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer',
-        className
-      )}
+      className={cn('flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer', className)}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -75,10 +61,7 @@ export function ActivityCard({ activity, onClick, className }: ActivityCardProps
       }}
     >
       {/* Icon */}
-      <div
-        data-testid="activity-icon"
-        className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center"
-      >
+      <div data-testid="activity-icon" className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
 
@@ -86,24 +69,15 @@ export function ActivityCard({ activity, onClick, className }: ActivityCardProps
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium text-sm truncate">{activity.title}</span>
-          <span className="text-xs text-muted-foreground shrink-0">
-            {formatTimestamp(activity.timestamp)}
-          </span>
+          <span className="text-xs text-muted-foreground shrink-0">{formatTimestamp(activity.timestamp)}</span>
         </div>
 
-        {activity.description && (
-          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-            {activity.description}
-          </p>
-        )}
+        {activity.description && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{activity.description}</p>}
 
         {activity.metadata && Object.keys(activity.metadata).length > 0 && (
           <div className="flex gap-2 mt-1">
             {Object.entries(activity.metadata).map(([key, value]) => (
-              <span
-                key={key}
-                className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-              >
+              <span key={key} className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                 {value}
               </span>
             ))}

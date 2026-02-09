@@ -38,21 +38,16 @@ describe('Contact Kind (Issue #489)', () => {
         `SELECT enumlabel FROM pg_enum
          JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
          WHERE pg_type.typname = 'contact_kind'
-         ORDER BY enumsortorder`
+         ORDER BY enumsortorder`,
       );
 
-      expect(result.rows.map((r) => r.enumlabel)).toEqual([
-        'person',
-        'organisation',
-        'group',
-        'agent',
-      ]);
+      expect(result.rows.map((r) => r.enumlabel)).toEqual(['person', 'organisation', 'group', 'agent']);
     });
 
     it('defaults contact_kind to person', async () => {
       const result = await pool.query(
         `INSERT INTO contact (display_name) VALUES ('Default Kind')
-         RETURNING contact_kind::text`
+         RETURNING contact_kind::text`,
       );
 
       expect(result.rows[0].contact_kind).toBe('person');
@@ -65,7 +60,7 @@ describe('Contact Kind (Issue #489)', () => {
         const result = await pool.query(
           `INSERT INTO contact (display_name, contact_kind) VALUES ($1, $2)
            RETURNING contact_kind::text`,
-          [`Test ${kind}`, kind]
+          [`Test ${kind}`, kind],
         );
 
         expect(result.rows[0].contact_kind).toBe(kind);
@@ -73,17 +68,15 @@ describe('Contact Kind (Issue #489)', () => {
     });
 
     it('rejects invalid contact_kind values', async () => {
-      await expect(
-        pool.query(
-          `INSERT INTO contact (display_name, contact_kind) VALUES ('Bad', 'robot')`
-        )
-      ).rejects.toThrow(/invalid input value for enum contact_kind/);
+      await expect(pool.query(`INSERT INTO contact (display_name, contact_kind) VALUES ('Bad', 'robot')`)).rejects.toThrow(
+        /invalid input value for enum contact_kind/,
+      );
     });
 
     it('has an index on contact_kind', async () => {
       const result = await pool.query(
         `SELECT indexname FROM pg_indexes
-         WHERE tablename = 'contact' AND indexname = 'idx_contact_kind'`
+         WHERE tablename = 'contact' AND indexname = 'idx_contact_kind'`,
       );
 
       expect(result.rows.length).toBe(1);
@@ -92,7 +85,7 @@ describe('Contact Kind (Issue #489)', () => {
     it('includes contact_kind in search_vector', async () => {
       const result = await pool.query(
         `INSERT INTO contact (display_name, contact_kind) VALUES ('Search Org', 'organisation')
-         RETURNING search_vector::text`
+         RETURNING search_vector::text`,
       );
 
       // search_vector should contain 'organisation' as a lexeme
@@ -169,7 +162,7 @@ describe('Contact Kind (Issue #489)', () => {
         `INSERT INTO contact (display_name, contact_kind) VALUES
          ('Person One', 'person'),
          ('Org One', 'organisation'),
-         ('Group One', 'group')`
+         ('Group One', 'group')`,
       );
 
       const res = await app.inject({
@@ -193,7 +186,7 @@ describe('Contact Kind (Issue #489)', () => {
         `INSERT INTO contact (display_name, contact_kind) VALUES
          ('Person One', 'person'),
          ('Org One', 'organisation'),
-         ('Group One', 'group')`
+         ('Group One', 'group')`,
       );
 
       const res = await app.inject({
@@ -289,9 +282,7 @@ describe('Contact Kind (Issue #489)', () => {
       expect(body.created).toBe(3);
 
       // Verify in DB directly
-      const dbRes = await pool.query(
-        `SELECT display_name, contact_kind::text FROM contact ORDER BY display_name`
-      );
+      const dbRes = await pool.query(`SELECT display_name, contact_kind::text FROM contact ORDER BY display_name`);
       expect(dbRes.rows.length).toBe(3);
       expect(dbRes.rows.find((r) => r.display_name === 'Org Bulk')?.contact_kind).toBe('organisation');
       expect(dbRes.rows.find((r) => r.display_name === 'Person Bulk')?.contact_kind).toBe('person');
@@ -303,10 +294,7 @@ describe('Contact Kind (Issue #489)', () => {
     it('down migration removes contact_kind column and enum', async () => {
       const fs = await import('fs');
       const path = await import('path');
-      const downPath = path.resolve(
-        __dirname,
-        '../migrations/044_contact_kind.down.sql'
-      );
+      const downPath = path.resolve(__dirname, '../migrations/044_contact_kind.down.sql');
 
       expect(fs.existsSync(downPath)).toBe(true);
       const content = fs.readFileSync(downPath, 'utf-8');

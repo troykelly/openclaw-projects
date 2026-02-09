@@ -36,12 +36,10 @@ export function useGrouping(viewId: string): UseGroupingReturn {
     return stored?.groupBy || 'none';
   });
 
-  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(
-    () => {
-      const stored = loadState(viewId);
-      return new Set(stored?.collapsedGroups || []);
-    }
-  );
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(() => {
+    const stored = loadState(viewId);
+    return new Set(stored?.collapsedGroups || []);
+  });
 
   // Persist changes
   React.useEffect(() => {

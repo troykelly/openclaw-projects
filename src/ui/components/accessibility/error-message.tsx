@@ -13,12 +13,7 @@ export interface ErrorMessageProps {
 
 export function ErrorMessage({ id, children, className }: ErrorMessageProps) {
   return (
-    <div
-      id={id}
-      role="alert"
-      aria-live="assertive"
-      className={cn('text-sm text-destructive mt-1', className)}
-    >
+    <div id={id} role="alert" aria-live="assertive" className={cn('text-sm text-destructive mt-1', className)}>
       {children}
     </div>
   );

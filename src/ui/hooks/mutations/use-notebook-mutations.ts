@@ -129,16 +129,11 @@ export interface MoveNotesVariables {
  * }
  * ```
  */
-export function useCreateNotebook(): UseMutationResult<
-  Notebook,
-  ApiRequestError,
-  CreateNotebookBody
-> {
+export function useCreateNotebook(): UseMutationResult<Notebook, ApiRequestError, CreateNotebookBody> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: CreateNotebookBody) =>
-      apiClient.post<Notebook>('/api/notebooks', body),
+    mutationFn: (body: CreateNotebookBody) => apiClient.post<Notebook>('/api/notebooks', body),
 
     onSuccess: () => {
       // Invalidate all notebook queries (tree includes lists and details)
@@ -146,10 +141,7 @@ export function useCreateNotebook(): UseMutationResult<
     },
 
     onError: (error) => {
-      console.error(
-        '[useCreateNotebook] Failed to create notebook:',
-        error.message
-      );
+      console.error('[useCreateNotebook] Failed to create notebook:', error.message);
     },
   });
 }
@@ -197,11 +189,7 @@ export function useCreateNotebook(): UseMutationResult<
 /**
  * Helper to recursively update a notebook in the tree structure.
  */
-function updateNotebookInTree(
-  nodes: NotebookTreeNode[],
-  id: string,
-  updates: Partial<NotebookTreeNode>
-): NotebookTreeNode[] {
+function updateNotebookInTree(nodes: NotebookTreeNode[], id: string, updates: Partial<NotebookTreeNode>): NotebookTreeNode[] {
   return nodes.map((node) => {
     if (node.id === id) {
       return { ...node, ...updates };
@@ -216,16 +204,11 @@ function updateNotebookInTree(
   });
 }
 
-export function useUpdateNotebook(): UseMutationResult<
-  Notebook,
-  ApiRequestError,
-  UpdateNotebookVariables
-> {
+export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError, UpdateNotebookVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, body }: UpdateNotebookVariables) =>
-      apiClient.put<Notebook>(`/api/notebooks/${encodeURIComponent(id)}`, body),
+    mutationFn: ({ id, body }: UpdateNotebookVariables) => apiClient.put<Notebook>(`/api/notebooks/${encodeURIComponent(id)}`, body),
 
     onMutate: async ({ id, body }) => {
       // Cancel outgoing refetches
@@ -234,15 +217,11 @@ export function useUpdateNotebook(): UseMutationResult<
       await queryClient.cancelQueries({ queryKey: notebookKeys.tree() });
 
       // Snapshot previous values for rollback
-      const previousNotebook = queryClient.getQueryData<Notebook>(
-        notebookKeys.detail(id)
-      );
+      const previousNotebook = queryClient.getQueryData<Notebook>(notebookKeys.detail(id));
       const previousLists = queryClient.getQueriesData<NotebooksResponse>({
         queryKey: notebookKeys.lists(),
       });
-      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(
-        notebookKeys.tree()
-      );
+      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(notebookKeys.tree());
 
       // Optimistically update the notebook detail
       if (previousNotebook) {
@@ -258,11 +237,7 @@ export function useUpdateNotebook(): UseMutationResult<
         if (data) {
           queryClient.setQueryData<NotebooksResponse>(queryKey, {
             ...data,
-            notebooks: data.notebooks.map((nb) =>
-              nb.id === id
-                ? { ...nb, ...body, updatedAt: new Date().toISOString() }
-                : nb
-            ),
+            notebooks: data.notebooks.map((nb) => (nb.id === id ? { ...nb, ...body, updatedAt: new Date().toISOString() } : nb)),
           });
         }
       });
@@ -275,10 +250,7 @@ export function useUpdateNotebook(): UseMutationResult<
         if (body.color !== undefined) treeUpdates.color = body.color;
 
         if (Object.keys(treeUpdates).length > 0) {
-          queryClient.setQueryData<NotebookTreeNode[]>(
-            notebookKeys.tree(),
-            updateNotebookInTree(previousTree, id, treeUpdates)
-          );
+          queryClient.setQueryData<NotebookTreeNode[]>(notebookKeys.tree(), updateNotebookInTree(previousTree, id, treeUpdates));
         }
       }
 
@@ -288,10 +260,7 @@ export function useUpdateNotebook(): UseMutationResult<
     onError: (error, { id }, context) => {
       // Roll back on error
       if (context?.previousNotebook) {
-        queryClient.setQueryData(
-          notebookKeys.detail(id),
-          context.previousNotebook
-        );
+        queryClient.setQueryData(notebookKeys.detail(id), context.previousNotebook);
       }
       if (context?.previousLists) {
         context.previousLists.forEach(([queryKey, data]) => {
@@ -301,10 +270,7 @@ export function useUpdateNotebook(): UseMutationResult<
       if (context?.previousTree) {
         queryClient.setQueryData(notebookKeys.tree(), context.previousTree);
       }
-      console.error(
-        '[useUpdateNotebook] Failed to update notebook:',
-        error.message
-      );
+      console.error('[useUpdateNotebook] Failed to update notebook:', error.message);
     },
 
     onSettled: () => {
@@ -352,34 +318,22 @@ export function useUpdateNotebook(): UseMutationResult<
  * };
  * ```
  */
-export function useArchiveNotebook(): UseMutationResult<
-  Notebook,
-  ApiRequestError,
-  string
-> {
+export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestError, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiClient.post<Notebook>(
-        `/api/notebooks/${encodeURIComponent(id)}/archive`,
-        {}
-      ),
+    mutationFn: (id: string) => apiClient.post<Notebook>(`/api/notebooks/${encodeURIComponent(id)}/archive`, {}),
 
     onMutate: async (id) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: notebookKeys.all });
 
       // Snapshot previous values
-      const previousNotebook = queryClient.getQueryData<Notebook>(
-        notebookKeys.detail(id)
-      );
+      const previousNotebook = queryClient.getQueryData<Notebook>(notebookKeys.detail(id));
       const previousLists = queryClient.getQueriesData<NotebooksResponse>({
         queryKey: notebookKeys.lists(),
       });
-      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(
-        notebookKeys.tree()
-      );
+      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(notebookKeys.tree());
 
       // Optimistically update the notebook to archived state
       if (previousNotebook) {
@@ -407,10 +361,7 @@ export function useArchiveNotebook(): UseMutationResult<
     onError: (error, id, context) => {
       // Roll back on error
       if (context?.previousNotebook) {
-        queryClient.setQueryData(
-          notebookKeys.detail(id),
-          context.previousNotebook
-        );
+        queryClient.setQueryData(notebookKeys.detail(id), context.previousNotebook);
       }
       if (context?.previousLists) {
         context.previousLists.forEach(([queryKey, data]) => {
@@ -420,10 +371,7 @@ export function useArchiveNotebook(): UseMutationResult<
       if (context?.previousTree) {
         queryClient.setQueryData(notebookKeys.tree(), context.previousTree);
       }
-      console.error(
-        '[useArchiveNotebook] Failed to archive notebook:',
-        error.message
-      );
+      console.error('[useArchiveNotebook] Failed to archive notebook:', error.message);
     },
 
     onSettled: () => {
@@ -471,19 +419,11 @@ export function useArchiveNotebook(): UseMutationResult<
  * </button>
  * ```
  */
-export function useUnarchiveNotebook(): UseMutationResult<
-  Notebook,
-  ApiRequestError,
-  string
-> {
+export function useUnarchiveNotebook(): UseMutationResult<Notebook, ApiRequestError, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiClient.post<Notebook>(
-        `/api/notebooks/${encodeURIComponent(id)}/unarchive`,
-        {}
-      ),
+    mutationFn: (id: string) => apiClient.post<Notebook>(`/api/notebooks/${encodeURIComponent(id)}/unarchive`, {}),
 
     onSuccess: () => {
       // Invalidate all notebook queries
@@ -491,10 +431,7 @@ export function useUnarchiveNotebook(): UseMutationResult<
     },
 
     onError: (error) => {
-      console.error(
-        '[useUnarchiveNotebook] Failed to unarchive notebook:',
-        error.message
-      );
+      console.error('[useUnarchiveNotebook] Failed to unarchive notebook:', error.message);
     },
   });
 }
@@ -553,10 +490,7 @@ export function useUnarchiveNotebook(): UseMutationResult<
 /**
  * Helper to recursively remove a notebook from the tree structure.
  */
-function removeNotebookFromTree(
-  nodes: NotebookTreeNode[],
-  id: string
-): NotebookTreeNode[] {
+function removeNotebookFromTree(nodes: NotebookTreeNode[], id: string): NotebookTreeNode[] {
   return nodes
     .filter((node) => node.id !== id)
     .map((node) => ({
@@ -565,18 +499,12 @@ function removeNotebookFromTree(
     }));
 }
 
-export function useDeleteNotebook(): UseMutationResult<
-  void,
-  ApiRequestError,
-  DeleteNotebookVariables
-> {
+export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, DeleteNotebookVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: DeleteNotebookVariables) =>
-      apiClient.delete(
-        `/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`
-      ),
+      apiClient.delete(`/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`),
 
     onMutate: async ({ id }) => {
       // Cancel outgoing refetches
@@ -584,15 +512,11 @@ export function useDeleteNotebook(): UseMutationResult<
       await queryClient.cancelQueries({ queryKey: noteKeys.lists() });
 
       // Snapshot previous values
-      const previousNotebook = queryClient.getQueryData<Notebook>(
-        notebookKeys.detail(id)
-      );
+      const previousNotebook = queryClient.getQueryData<Notebook>(notebookKeys.detail(id));
       const previousLists = queryClient.getQueriesData<NotebooksResponse>({
         queryKey: notebookKeys.lists(),
       });
-      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(
-        notebookKeys.tree()
-      );
+      const previousTree = queryClient.getQueryData<NotebookTreeNode[]>(notebookKeys.tree());
 
       // Optimistically remove from list queries
       previousLists.forEach(([queryKey, data]) => {
@@ -607,10 +531,7 @@ export function useDeleteNotebook(): UseMutationResult<
 
       // Optimistically remove from tree
       if (previousTree) {
-        queryClient.setQueryData<NotebookTreeNode[]>(
-          notebookKeys.tree(),
-          removeNotebookFromTree(previousTree, id)
-        );
+        queryClient.setQueryData<NotebookTreeNode[]>(notebookKeys.tree(), removeNotebookFromTree(previousTree, id));
       }
 
       return { previousNotebook, previousLists, previousTree };
@@ -619,10 +540,7 @@ export function useDeleteNotebook(): UseMutationResult<
     onError: (error, { id }, context) => {
       // Roll back on error
       if (context?.previousNotebook) {
-        queryClient.setQueryData(
-          notebookKeys.detail(id),
-          context.previousNotebook
-        );
+        queryClient.setQueryData(notebookKeys.detail(id), context.previousNotebook);
       }
       if (context?.previousLists) {
         context.previousLists.forEach(([queryKey, data]) => {
@@ -632,10 +550,7 @@ export function useDeleteNotebook(): UseMutationResult<
       if (context?.previousTree) {
         queryClient.setQueryData(notebookKeys.tree(), context.previousTree);
       }
-      console.error(
-        '[useDeleteNotebook] Failed to delete notebook:',
-        error.message
-      );
+      console.error('[useDeleteNotebook] Failed to delete notebook:', error.message);
     },
 
     onSettled: () => {
@@ -708,19 +623,11 @@ export function useDeleteNotebook(): UseMutationResult<
  * };
  * ```
  */
-export function useMoveNotesToNotebook(): UseMutationResult<
-  MoveNotesResponse,
-  ApiRequestError,
-  MoveNotesVariables
-> {
+export function useMoveNotesToNotebook(): UseMutationResult<MoveNotesResponse, ApiRequestError, MoveNotesVariables> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ notebookId, body }: MoveNotesVariables) =>
-      apiClient.post<MoveNotesResponse>(
-        `/api/notebooks/${encodeURIComponent(notebookId)}/notes`,
-        body
-      ),
+    mutationFn: ({ notebookId, body }: MoveNotesVariables) => apiClient.post<MoveNotesResponse>(`/api/notebooks/${encodeURIComponent(notebookId)}/notes`, body),
 
     onSuccess: () => {
       // Invalidate all notebook and note queries using prefix invalidation
@@ -729,10 +636,7 @@ export function useMoveNotesToNotebook(): UseMutationResult<
     },
 
     onError: (error) => {
-      console.error(
-        '[useMoveNotesToNotebook] Failed to move notes:',
-        error.message
-      );
+      console.error('[useMoveNotesToNotebook] Failed to move notes:', error.message);
     },
   });
 }

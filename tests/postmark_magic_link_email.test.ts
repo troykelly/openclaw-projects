@@ -31,7 +31,7 @@ describe('Postmark delivery for magic-link auth', () => {
           ErrorCode: 0,
           Message: 'OK',
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } }
+        { status: 200, headers: { 'content-type': 'application/json' } },
       );
     }) as any;
   });

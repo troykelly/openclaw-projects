@@ -12,23 +12,13 @@ export interface SaveViewButtonProps {
   disabled?: boolean;
 }
 
-export function SaveViewButton({
-  hasActiveFilters,
-  onSave,
-  disabled = false,
-}: SaveViewButtonProps) {
+export function SaveViewButton({ hasActiveFilters, onSave, disabled = false }: SaveViewButtonProps) {
   if (!hasActiveFilters) {
     return null;
   }
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={onSave}
-      disabled={disabled}
-      aria-label="Save view"
-    >
+    <Button variant="outline" size="sm" onClick={onSave} disabled={disabled} aria-label="Save view">
       <Bookmark className="h-4 w-4 mr-2" data-testid="save-view-icon" />
       Save View
     </Button>

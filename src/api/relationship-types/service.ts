@@ -92,10 +92,7 @@ const SELECT_BASIC = `
 /**
  * Lists relationship types with optional filtering and pagination.
  */
-export async function listRelationshipTypes(
-  pool: Pool,
-  options: ListRelationshipTypesOptions = {}
-): Promise<ListRelationshipTypesResult> {
+export async function listRelationshipTypes(pool: Pool, options: ListRelationshipTypesOptions = {}): Promise<ListRelationshipTypesResult> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -119,10 +116,7 @@ export async function listRelationshipTypes(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) as total FROM relationship_type rt ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) as total FROM relationship_type rt ${whereClause}`, params);
   const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get paginated results
@@ -136,7 +130,7 @@ export async function listRelationshipTypes(
     ${whereClause}
     ORDER BY rt.name ASC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return {
@@ -148,14 +142,8 @@ export async function listRelationshipTypes(
 /**
  * Gets a relationship type by ID.
  */
-export async function getRelationshipType(
-  pool: Pool,
-  id: string
-): Promise<RelationshipTypeEntry | null> {
-  const result = await pool.query(
-    `${SELECT_BASIC} WHERE id = $1`,
-    [id]
-  );
+export async function getRelationshipType(pool: Pool, id: string): Promise<RelationshipTypeEntry | null> {
+  const result = await pool.query(`${SELECT_BASIC} WHERE id = $1`, [id]);
 
   if (result.rows.length === 0) {
     return null;
@@ -167,14 +155,8 @@ export async function getRelationshipType(
 /**
  * Gets a relationship type by its canonical name.
  */
-export async function getRelationshipTypeByName(
-  pool: Pool,
-  name: string
-): Promise<RelationshipTypeEntry | null> {
-  const result = await pool.query(
-    `${SELECT_BASIC} WHERE name = $1`,
-    [name]
-  );
+export async function getRelationshipTypeByName(pool: Pool, name: string): Promise<RelationshipTypeEntry | null> {
+  const result = await pool.query(`${SELECT_BASIC} WHERE name = $1`, [name]);
 
   if (result.rows.length === 0) {
     return null;
@@ -194,10 +176,7 @@ export async function getRelationshipTypeByName(
  * @throws Error if name or label is empty
  * @throws Error if inverse type name doesn't exist
  */
-export async function createRelationshipType(
-  pool: Pool,
-  input: CreateRelationshipTypeInput
-): Promise<RelationshipTypeEntry> {
+export async function createRelationshipType(pool: Pool, input: CreateRelationshipTypeInput): Promise<RelationshipTypeEntry> {
   if (!input.name || input.name.trim().length === 0) {
     throw new Error('Name is required');
   }
@@ -226,24 +205,14 @@ export async function createRelationshipType(
       id::text as id, name, label, is_directional,
       inverse_type_id::text as inverse_type_id, description,
       created_by_agent, embedding_status, created_at, updated_at`,
-    [
-      input.name.trim(),
-      input.label.trim(),
-      input.isDirectional ?? false,
-      inverseTypeId,
-      input.description ?? null,
-      input.createdByAgent ?? null,
-    ]
+    [input.name.trim(), input.label.trim(), input.isDirectional ?? false, inverseTypeId, input.description ?? null, input.createdByAgent ?? null],
   );
 
   const newType = mapRowToRelationshipType(result.rows[0] as Record<string, unknown>);
 
   // If we have an inverse type, update it to point back to us
   if (inverseTypeId) {
-    await pool.query(
-      'UPDATE relationship_type SET inverse_type_id = $1 WHERE id = $2',
-      [newType.id, inverseTypeId]
-    );
+    await pool.query('UPDATE relationship_type SET inverse_type_id = $1 WHERE id = $2', [newType.id, inverseTypeId]);
   }
 
   // Trigger embedding asynchronously
@@ -255,11 +224,7 @@ export async function createRelationshipType(
 /**
  * Updates a relationship type's label and/or description.
  */
-export async function updateRelationshipType(
-  pool: Pool,
-  id: string,
-  input: UpdateRelationshipTypeInput
-): Promise<RelationshipTypeEntry | null> {
+export async function updateRelationshipType(pool: Pool, id: string, input: UpdateRelationshipTypeInput): Promise<RelationshipTypeEntry | null> {
   const updates: string[] = [];
   const params: unknown[] = [];
   let paramIndex = 1;
@@ -289,7 +254,7 @@ export async function updateRelationshipType(
       id::text as id, name, label, is_directional,
       inverse_type_id::text as inverse_type_id, description,
       created_by_agent, embedding_status, created_at, updated_at`,
-    params
+    params,
   );
 
   if (result.rows.length === 0) {
@@ -304,20 +269,11 @@ export async function updateRelationshipType(
  *
  * If the type has an inverse, clears the inverse's inverse_type_id reference.
  */
-export async function deleteRelationshipType(
-  pool: Pool,
-  id: string
-): Promise<boolean> {
+export async function deleteRelationshipType(pool: Pool, id: string): Promise<boolean> {
   // First, clear any inverse references to this type
-  await pool.query(
-    'UPDATE relationship_type SET inverse_type_id = NULL WHERE inverse_type_id = $1',
-    [id]
-  );
+  await pool.query('UPDATE relationship_type SET inverse_type_id = NULL WHERE inverse_type_id = $1', [id]);
 
-  const result = await pool.query(
-    'DELETE FROM relationship_type WHERE id = $1 RETURNING id',
-    [id]
-  );
+  const result = await pool.query('DELETE FROM relationship_type WHERE id = $1 RETURNING id', [id]);
 
   return result.rows.length > 0;
 }
@@ -326,11 +282,7 @@ export async function deleteRelationshipType(
  * Performs a text-based search against the search_vector tsvector column.
  * Used as fallback when semantic search is unavailable or yields no results.
  */
-async function textSearch(
-  pool: Pool,
-  query: string,
-  limit: number
-): Promise<SemanticMatchResult[]> {
+async function textSearch(pool: Pool, query: string, limit: number): Promise<SemanticMatchResult[]> {
   const result = await pool.query(
     `SELECT
       id::text as id, name, label, is_directional,
@@ -341,7 +293,7 @@ async function textSearch(
     WHERE search_vector @@ websearch_to_tsquery('english', $1)
     ORDER BY similarity DESC
     LIMIT $2`,
-    [query, limit]
+    [query, limit],
   );
 
   return result.rows.map((row) => ({
@@ -359,11 +311,7 @@ async function textSearch(
  *
  * This is used to prevent duplicate types (e.g., "spouse_of" when "partner_of" exists).
  */
-export async function findSemanticMatch(
-  pool: Pool,
-  query: string,
-  options: { limit?: number; minSimilarity?: number } = {}
-): Promise<SemanticMatchResult[]> {
+export async function findSemanticMatch(pool: Pool, query: string, options: { limit?: number; minSimilarity?: number } = {}): Promise<SemanticMatchResult[]> {
   const limit = Math.min(options.limit ?? 10, 50);
   const minSimilarity = options.minSimilarity ?? 0.1;
 
@@ -388,7 +336,7 @@ export async function findSemanticMatch(
             AND 1 - (embedding <=> $1::vector) >= $2
           ORDER BY similarity DESC
           LIMIT $3`,
-          [embeddingStr, minSimilarity, limit]
+          [embeddingStr, minSimilarity, limit],
         );
 
         // If semantic search found results, return them
@@ -428,15 +376,12 @@ function triggerRelationshipTypeEmbedding(pool: Pool, typeId: string): void {
  * The embedding text includes the name, label, and description to enable
  * semantic matching (e.g., searching for "spouse" finds "partner_of").
  */
-export async function embedRelationshipType(
-  pool: Pool,
-  typeId: string
-): Promise<RelationshipTypeEmbeddingStatus> {
+export async function embedRelationshipType(pool: Pool, typeId: string): Promise<RelationshipTypeEmbeddingStatus> {
   // Fetch the type
   const result = await pool.query(
     `SELECT id::text as id, name, label, description
      FROM relationship_type WHERE id = $1`,
-    [typeId]
+    [typeId],
   );
 
   if (result.rows.length === 0) {
@@ -453,14 +398,7 @@ export async function embedRelationshipType(
     }
 
     // Build embedding text: name + label + description
-    const text = [
-      row.name.replace(/_/g, ' '),
-      row.label,
-      row.description ?? '',
-    ]
-      .filter(Boolean)
-      .join('\n\n')
-      .slice(0, 8000);
+    const text = [row.name.replace(/_/g, ' '), row.label, row.description ?? ''].filter(Boolean).join('\n\n').slice(0, 8000);
 
     const embeddingResult = await embeddingService.embed(text);
 
@@ -473,7 +411,7 @@ export async function embedRelationshipType(
        SET embedding = $1::vector,
            embedding_status = 'complete'
        WHERE id = $2`,
-      [`[${embeddingResult.embedding.join(',')}]`, typeId]
+      [`[${embeddingResult.embedding.join(',')}]`, typeId],
     );
 
     return 'complete';
@@ -483,10 +421,7 @@ export async function embedRelationshipType(
 
     console.error(`[Embeddings] Failed to embed relationship type ${typeId}:`, msg);
 
-    await pool.query(
-      `UPDATE relationship_type SET embedding_status = 'failed' WHERE id = $1`,
-      [typeId]
-    ).catch(() => {});
+    await pool.query(`UPDATE relationship_type SET embedding_status = 'failed' WHERE id = $1`, [typeId]).catch(() => {});
 
     return 'failed';
   }

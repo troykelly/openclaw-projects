@@ -12,29 +12,15 @@ export interface LoadingButtonProps extends ButtonProps {
   spinnerPosition?: 'left' | 'right';
 }
 
-export function LoadingButton({
-  loading = false,
-  loadingText,
-  spinnerPosition = 'left',
-  children,
-  disabled,
-  className,
-  ...props
-}: LoadingButtonProps) {
+export function LoadingButton({ loading = false, loadingText, spinnerPosition = 'left', children, disabled, className, ...props }: LoadingButtonProps) {
   const spinner = <Loader2 className="size-4 animate-spin" />;
 
   return (
-    <Button
-      disabled={disabled || loading}
-      className={cn(loading && 'cursor-wait', className)}
-      {...props}
-    >
+    <Button disabled={disabled || loading} className={cn(loading && 'cursor-wait', className)} {...props}>
       {loading ? (
         <>
           {spinnerPosition === 'left' && spinner}
-          <span className={cn(spinnerPosition === 'left' ? 'ml-2' : 'mr-2')}>
-            {loadingText ?? children}
-          </span>
+          <span className={cn(spinnerPosition === 'left' ? 'ml-2' : 'mr-2')}>{loadingText ?? children}</span>
           {spinnerPosition === 'right' && spinner}
         </>
       ) : (

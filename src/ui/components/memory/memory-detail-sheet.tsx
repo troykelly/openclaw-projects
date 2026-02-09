@@ -1,26 +1,11 @@
 import * as React from 'react';
-import {
-  Folder,
-  Target,
-  Layers,
-  FileText,
-  Pencil,
-  Trash2,
-  Calendar,
-  Tag,
-} from 'lucide-react';
+import { Folder, Target, Layers, FileText, Pencil, Trash2, Calendar, Tag } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
 import { Badge } from '@/ui/components/ui/badge';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { Separator } from '@/ui/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/ui/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { MemoryItem } from './types';
 
 function getLinkedItemIcon(kind: MemoryItem['linkedItemKind']) {
@@ -47,14 +32,7 @@ export interface MemoryDetailSheetProps {
   onLinkedItemClick?: (memory: MemoryItem) => void;
 }
 
-export function MemoryDetailSheet({
-  memory,
-  open,
-  onOpenChange,
-  onEdit,
-  onDelete,
-  onLinkedItemClick,
-}: MemoryDetailSheetProps) {
+export function MemoryDetailSheet({ memory, open, onOpenChange, onEdit, onDelete, onLinkedItemClick }: MemoryDetailSheetProps) {
   if (!memory) return null;
 
   // Simple markdown rendering for display
@@ -62,23 +40,43 @@ export function MemoryDetailSheet({
     return text.split('\n').map((line, i) => {
       // Headers
       if (line.startsWith('### ')) {
-        return <h3 key={i} className="text-lg font-semibold mt-4 mb-2">{line.slice(4)}</h3>;
+        return (
+          <h3 key={i} className="text-lg font-semibold mt-4 mb-2">
+            {line.slice(4)}
+          </h3>
+        );
       }
       if (line.startsWith('## ')) {
-        return <h2 key={i} className="text-xl font-semibold mt-4 mb-2">{line.slice(3)}</h2>;
+        return (
+          <h2 key={i} className="text-xl font-semibold mt-4 mb-2">
+            {line.slice(3)}
+          </h2>
+        );
       }
       if (line.startsWith('# ')) {
-        return <h1 key={i} className="text-2xl font-bold mt-4 mb-2">{line.slice(2)}</h1>;
+        return (
+          <h1 key={i} className="text-2xl font-bold mt-4 mb-2">
+            {line.slice(2)}
+          </h1>
+        );
       }
 
       // List items
       if (line.startsWith('- ') || line.startsWith('* ')) {
-        return <li key={i} className="ml-4">{line.slice(2)}</li>;
+        return (
+          <li key={i} className="ml-4">
+            {line.slice(2)}
+          </li>
+        );
       }
 
       // Numbered list
       if (/^\d+\. /.test(line)) {
-        return <li key={i} className="ml-4 list-decimal">{line.replace(/^\d+\. /, '')}</li>;
+        return (
+          <li key={i} className="ml-4 list-decimal">
+            {line.replace(/^\d+\. /, '')}
+          </li>
+        );
       }
 
       // Empty line
@@ -87,7 +85,11 @@ export function MemoryDetailSheet({
       }
 
       // Regular paragraph
-      return <p key={i} className="my-1">{line}</p>;
+      return (
+        <p key={i} className="my-1">
+          {line}
+        </p>
+      );
     });
   };
 
@@ -115,12 +117,7 @@ export function MemoryDetailSheet({
                 </Button>
               )}
               {onDelete && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => onDelete(memory)}
-                >
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(memory)}>
                   <Trash2 className="mr-1 size-3" />
                   Delete
                 </Button>
@@ -132,13 +129,8 @@ export function MemoryDetailSheet({
             {/* Meta info */}
             <div className="space-y-3 text-sm">
               {memory.linkedItemKind && memory.linkedItemTitle && (
-                <button
-                  className="flex items-center gap-2 text-left hover:text-primary"
-                  onClick={() => onLinkedItemClick?.(memory)}
-                >
-                  <span className="text-muted-foreground">
-                    {getLinkedItemIcon(memory.linkedItemKind)}
-                  </span>
+                <button className="flex items-center gap-2 text-left hover:text-primary" onClick={() => onLinkedItemClick?.(memory)}>
+                  <span className="text-muted-foreground">{getLinkedItemIcon(memory.linkedItemKind)}</span>
                   <span>Linked to: {memory.linkedItemTitle}</span>
                 </button>
               )}
@@ -179,9 +171,7 @@ export function MemoryDetailSheet({
             {/* Content */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Content</h3>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                {renderContent(memory.content)}
-              </div>
+              <div className="prose prose-sm dark:prose-invert max-w-none">{renderContent(memory.content)}</div>
             </div>
           </div>
         </ScrollArea>

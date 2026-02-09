@@ -4,11 +4,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import {
-  DeleteConfirmDialog,
-  UndoToast,
-  useWorkItemDelete,
-} from '@/ui/components/work-item-delete';
+import { DeleteConfirmDialog, UndoToast, useWorkItemDelete } from '@/ui/components/work-item-delete';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -40,12 +36,7 @@ describe('DeleteConfirmDialog', () => {
   });
 
   it('shows warning about child items when present', () => {
-    render(
-      <DeleteConfirmDialog
-        {...defaultProps}
-        item={{ ...defaultProps.item, childCount: 5 }}
-      />
-    );
+    render(<DeleteConfirmDialog {...defaultProps} item={{ ...defaultProps.item, childCount: 5 }} />);
 
     expect(screen.getByText(/5 child items/i)).toBeInTheDocument();
   });
@@ -87,7 +78,7 @@ describe('DeleteConfirmDialog', () => {
           { id: '3', title: 'Item 3', kind: 'issue', childCount: 0 },
         ]}
         item={undefined}
-      />
+      />,
     );
 
     expect(screen.getByText(/Delete 3 items\?/)).toBeInTheDocument();
@@ -156,26 +147,15 @@ describe('useWorkItemDelete hook', () => {
   });
 
   // Test component to use the hook
-  function TestComponent({
-    onDeleted,
-    onRestored,
-  }: {
-    onDeleted?: () => void;
-    onRestored?: () => void;
-  }) {
-    const { deleteItem, restoreItem, isDeleting, undoState, dismissUndo } =
-      useWorkItemDelete({
-        onDeleted,
-        onRestored,
-      });
+  function TestComponent({ onDeleted, onRestored }: { onDeleted?: () => void; onRestored?: () => void }) {
+    const { deleteItem, restoreItem, isDeleting, undoState, dismissUndo } = useWorkItemDelete({
+      onDeleted,
+      onRestored,
+    });
 
     return (
       <div>
-        <button
-          onClick={() => deleteItem({ id: 'test-1', title: 'Test Item' })}
-          disabled={isDeleting}
-          data-testid="delete-btn"
-        >
+        <button onClick={() => deleteItem({ id: 'test-1', title: 'Test Item' })} disabled={isDeleting} data-testid="delete-btn">
           Delete
         </button>
         <button onClick={() => restoreItem('test-1')} data-testid="restore-btn">
@@ -201,10 +181,7 @@ describe('useWorkItemDelete hook', () => {
     fireEvent.click(screen.getByTestId('delete-btn'));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/work-items/test-1',
-        expect.objectContaining({ method: 'DELETE' })
-      );
+      expect(mockFetch).toHaveBeenCalledWith('/api/work-items/test-1', expect.objectContaining({ method: 'DELETE' }));
     });
 
     await waitFor(() => {
@@ -231,20 +208,12 @@ describe('useWorkItemDelete hook', () => {
     fireEvent.click(screen.getByText('Undo'));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/work-items/test-1/restore',
-        expect.objectContaining({ method: 'POST' })
-      );
+      expect(mockFetch).toHaveBeenCalledWith('/api/work-items/test-1/restore', expect.objectContaining({ method: 'POST' }));
     });
   });
 
   it('sets isDeleting while API call is in progress', async () => {
-    mockFetch.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(() => resolve({ ok: true }), 100)
-        )
-    );
+    mockFetch.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 100)));
 
     render(<TestComponent />);
 

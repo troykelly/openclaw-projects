@@ -62,16 +62,12 @@ describe('Twilio Phone Number Management API (#300)', () => {
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
-        await expect(
-          getPhoneNumberDetails('+15551234567')
-        ).rejects.toThrow(/twilio.*not.*configured/i);
+        await expect(getPhoneNumberDetails('+15551234567')).rejects.toThrow(/twilio.*not.*configured/i);
       }
     });
 
     it('returns phone number details with webhook configuration', async () => {
-      const { getPhoneNumberDetails, listPhoneNumbers } = await import(
-        '../../src/api/twilio/number-management.js'
-      );
+      const { getPhoneNumberDetails, listPhoneNumbers } = await import('../../src/api/twilio/number-management.js');
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
@@ -108,31 +104,27 @@ describe('Twilio Phone Number Management API (#300)', () => {
 
       // Non-existent number should throw
       await expect(
-        getPhoneNumberDetails('+15005550000') // Invalid test number
+        getPhoneNumberDetails('+15005550000'), // Invalid test number
       ).rejects.toThrow();
     });
   });
 
   describe('updatePhoneNumberWebhooks', () => {
     it('throws when Twilio not configured', async () => {
-      const { updatePhoneNumberWebhooks } = await import(
-        '../../src/api/twilio/number-management.js'
-      );
+      const { updatePhoneNumberWebhooks } = await import('../../src/api/twilio/number-management.js');
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
         await expect(
           updatePhoneNumberWebhooks('+15551234567', {
             smsUrl: 'https://example.com/sms',
-          })
+          }),
         ).rejects.toThrow(/twilio.*not.*configured/i);
       }
     });
 
     it('validates webhook URLs are HTTPS in production', async () => {
-      const { updatePhoneNumberWebhooks } = await import(
-        '../../src/api/twilio/number-management.js'
-      );
+      const { updatePhoneNumberWebhooks } = await import('../../src/api/twilio/number-management.js');
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
@@ -144,14 +136,12 @@ describe('Twilio Phone Number Management API (#300)', () => {
       await expect(
         updatePhoneNumberWebhooks('+15551234567', {
           smsUrl: 'http://insecure.example.com/sms',
-        })
+        }),
       ).rejects.toThrow(/https/i);
     });
 
     it('validates webhook URL format', async () => {
-      const { updatePhoneNumberWebhooks } = await import(
-        '../../src/api/twilio/number-management.js'
-      );
+      const { updatePhoneNumberWebhooks } = await import('../../src/api/twilio/number-management.js');
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
@@ -163,14 +153,12 @@ describe('Twilio Phone Number Management API (#300)', () => {
       await expect(
         updatePhoneNumberWebhooks('+15551234567', {
           smsUrl: 'not-a-url',
-        })
+        }),
       ).rejects.toThrow(/invalid.*url/i);
     });
 
     it('allows empty string to clear webhook URL', async () => {
-      const { updatePhoneNumberWebhooks, listPhoneNumbers } = await import(
-        '../../src/api/twilio/number-management.js'
-      );
+      const { updatePhoneNumberWebhooks, listPhoneNumbers } = await import('../../src/api/twilio/number-management.js');
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
@@ -206,9 +194,7 @@ describe('Twilio Phone Number Management API (#300)', () => {
 
   describe('Audit logging', () => {
     it('logs webhook configuration changes', async () => {
-      const { updatePhoneNumberWebhooks, listPhoneNumbers } = await import(
-        '../../src/api/twilio/number-management.js'
-      );
+      const { updatePhoneNumberWebhooks, listPhoneNumbers } = await import('../../src/api/twilio/number-management.js');
       const { isTwilioConfigured } = await import('../../src/api/twilio/config.js');
 
       if (!isTwilioConfigured()) {
@@ -237,7 +223,7 @@ describe('Twilio Phone Number Management API (#300)', () => {
         `SELECT * FROM audit_log
          WHERE entity_type = 'twilio_phone_number'
          ORDER BY created_at DESC
-         LIMIT 1`
+         LIMIT 1`,
       );
 
       // Note: audit_log table may not exist yet - this test documents the requirement

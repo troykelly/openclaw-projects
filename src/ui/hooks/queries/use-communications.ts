@@ -10,8 +10,7 @@ import type { CommunicationsResponse } from '@/ui/lib/api-types.ts';
 /** Query key factory for communications. */
 export const communicationsKeys = {
   all: ['communications'] as const,
-  forWorkItem: (workItemId: string) =>
-    [...communicationsKeys.all, 'work-item', workItemId] as const,
+  forWorkItem: (workItemId: string) => [...communicationsKeys.all, 'work-item', workItemId] as const,
 };
 
 /**
@@ -23,11 +22,7 @@ export const communicationsKeys = {
 export function useWorkItemCommunications(workItemId: string) {
   return useQuery({
     queryKey: communicationsKeys.forWorkItem(workItemId),
-    queryFn: ({ signal }) =>
-      apiClient.get<CommunicationsResponse>(
-        `/api/work-items/${workItemId}/communications`,
-        { signal },
-      ),
+    queryFn: ({ signal }) => apiClient.get<CommunicationsResponse>(`/api/work-items/${workItemId}/communications`, { signal }),
     enabled: !!workItemId,
   });
 }

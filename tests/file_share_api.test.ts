@@ -16,11 +16,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
   let pool: Pool;
 
   // Track whether S3 storage is configured
-  const storageConfigured =
-    !!process.env.S3_BUCKET &&
-    !!process.env.S3_REGION &&
-    !!process.env.S3_ACCESS_KEY &&
-    !!process.env.S3_SECRET_KEY;
+  const storageConfigured = !!process.env.S3_BUCKET && !!process.env.S3_REGION && !!process.env.S3_ACCESS_KEY && !!process.env.S3_SECRET_KEY;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -41,11 +37,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
    * Helper to create a file attachment directly in the database.
    * This bypasses the file upload which requires S3 storage.
    */
-  async function createFileAttachment(
-    filename: string = 'test-file.txt',
-    contentType: string = 'text/plain',
-    sizeBytes: number = 1024
-  ): Promise<string> {
+  async function createFileAttachment(filename: string = 'test-file.txt', contentType: string = 'text/plain', sizeBytes: number = 1024): Promise<string> {
     const result = await pool.query(
       `INSERT INTO file_attachment (
         storage_key,
@@ -56,14 +48,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         uploaded_by
       ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id::text`,
-      [
-        `test/${Date.now()}/${filename}`,
-        filename,
-        contentType,
-        sizeBytes,
-        'abc123',
-        'test@example.com',
-      ]
+      [`test/${Date.now()}/${filename}`, filename, contentType, sizeBytes, 'abc123', 'test@example.com'],
     );
     return result.rows[0].id;
   }
@@ -77,7 +62,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       expiresIn?: number;
       maxDownloads?: number;
       downloadCount?: number;
-    } = {}
+    } = {},
   ): Promise<string> {
     const expiresIn = options.expiresIn ?? 3600;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
@@ -94,14 +79,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         download_count,
         created_by
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        fileId,
-        shareToken,
-        expiresAt,
-        options.maxDownloads ?? null,
-        options.downloadCount ?? 0,
-        'test@example.com',
-      ]
+      [fileId, shareToken, expiresAt, options.maxDownloads ?? null, options.downloadCount ?? 0, 'test@example.com'],
     );
 
     return shareToken;
@@ -123,7 +101,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         expires_at,
         created_by
       ) VALUES ($1, $2, $3, $4)`,
-      [fileId, shareToken, expiresAt, 'test@example.com']
+      [fileId, shareToken, expiresAt, 'test@example.com'],
     );
 
     return shareToken;
@@ -499,10 +477,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       // The request may fail (404/500) because the file doesn't exist in S3,
       // but the download count should have been incremented
       // Check the database directly
-      const result = await pool.query(
-        'SELECT download_count FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      const result = await pool.query('SELECT download_count FROM file_share WHERE share_token = $1', [token]);
 
       // Download count is incremented before download attempt
       expect(result.rows[0]?.download_count).toBeGreaterThanOrEqual(0);
@@ -515,10 +490,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
   describe('validate_file_share_token function', () => {
     it('returns invalid for non-existent token', async () => {
-      const result = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, false)',
-        ['nonexistent-token']
-      );
+      const result = await pool.query('SELECT * FROM validate_file_share_token($1, false)', ['nonexistent-token']);
 
       expect(result.rows[0].is_valid).toBe(false);
       expect(result.rows[0].error_message).toContain('Invalid');
@@ -528,10 +500,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const fileId = await createFileAttachment();
       const token = await createExpiredFileShare(fileId);
 
-      const result = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, false)',
-        [token]
-      );
+      const result = await pool.query('SELECT * FROM validate_file_share_token($1, false)', [token]);
 
       expect(result.rows[0].is_valid).toBe(false);
       expect(result.rows[0].error_message).toContain('expired');
@@ -544,10 +513,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         downloadCount: 1,
       });
 
-      const result = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, false)',
-        [token]
-      );
+      const result = await pool.query('SELECT * FROM validate_file_share_token($1, false)', [token]);
 
       expect(result.rows[0].is_valid).toBe(false);
       expect(result.rows[0].error_message).toContain('Maximum downloads');
@@ -557,10 +523,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const fileId = await createFileAttachment();
       const token = await createFileShare(fileId);
 
-      const result = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, false)',
-        [token]
-      );
+      const result = await pool.query('SELECT * FROM validate_file_share_token($1, false)', [token]);
 
       expect(result.rows[0].is_valid).toBe(true);
       expect(result.rows[0].file_attachment_id).toBe(fileId);
@@ -575,10 +538,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       await pool.query('SELECT * FROM validate_file_share_token($1, true)', [token]);
 
       // Check count increased
-      const result = await pool.query(
-        'SELECT download_count FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      const result = await pool.query('SELECT download_count FROM file_share WHERE share_token = $1', [token]);
 
       expect(result.rows[0].download_count).toBe(1);
     });
@@ -591,10 +551,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       await pool.query('SELECT * FROM validate_file_share_token($1, false)', [token]);
 
       // Check count unchanged
-      const result = await pool.query(
-        'SELECT download_count FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      const result = await pool.query('SELECT download_count FROM file_share WHERE share_token = $1', [token]);
 
       expect(result.rows[0].download_count).toBe(0);
     });
@@ -607,10 +564,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       await pool.query('SELECT * FROM validate_file_share_token($1, true)', [token]);
 
       // Check last_accessed_at is set
-      const result = await pool.query(
-        'SELECT last_accessed_at FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      const result = await pool.query('SELECT last_accessed_at FROM file_share WHERE share_token = $1', [token]);
 
       expect(result.rows[0].last_accessed_at).not.toBeNull();
     });
@@ -656,33 +610,21 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       });
 
       // First validation (simulates first download)
-      const firstResult = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, true)',
-        [token]
-      );
+      const firstResult = await pool.query('SELECT * FROM validate_file_share_token($1, true)', [token]);
       expect(firstResult.rows[0].is_valid).toBe(true);
       expect(firstResult.rows[0].file_attachment_id).toBe(fileId);
 
       // Second validation (simulates second download)
-      const secondResult = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, true)',
-        [token]
-      );
+      const secondResult = await pool.query('SELECT * FROM validate_file_share_token($1, true)', [token]);
       expect(secondResult.rows[0].is_valid).toBe(true);
 
       // Third validation (should fail - max downloads reached)
-      const thirdResult = await pool.query(
-        'SELECT * FROM validate_file_share_token($1, true)',
-        [token]
-      );
+      const thirdResult = await pool.query('SELECT * FROM validate_file_share_token($1, true)', [token]);
       expect(thirdResult.rows[0].is_valid).toBe(false);
       expect(thirdResult.rows[0].error_message).toContain('Maximum downloads');
 
       // Verify download count in database
-      const countResult = await pool.query(
-        'SELECT download_count FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      const countResult = await pool.query('SELECT download_count FROM file_share WHERE share_token = $1', [token]);
       expect(countResult.rows[0].download_count).toBe(2);
     });
 
@@ -691,20 +633,14 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const token = await createFileShare(fileId);
 
       // Verify share exists
-      let shareResult = await pool.query(
-        'SELECT id FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      let shareResult = await pool.query('SELECT id FROM file_share WHERE share_token = $1', [token]);
       expect(shareResult.rowCount).toBe(1);
 
       // Delete the file
       await pool.query('DELETE FROM file_attachment WHERE id = $1', [fileId]);
 
       // Verify share is also deleted (CASCADE)
-      shareResult = await pool.query(
-        'SELECT id FROM file_share WHERE share_token = $1',
-        [token]
-      );
+      shareResult = await pool.query('SELECT id FROM file_share WHERE share_token = $1', [token]);
       expect(shareResult.rowCount).toBe(0);
     });
   });

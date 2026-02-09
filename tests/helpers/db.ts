@@ -111,7 +111,7 @@ export async function truncateAllTables(pool: Pool): Promise<void> {
     `SELECT tablename FROM pg_tables
      WHERE schemaname = 'public'
      AND tablename = ANY($1::text[])`,
-    [APPLICATION_TABLES]
+    [APPLICATION_TABLES],
   );
 
   const tablesToTruncate = existingTables.rows.map((r) => r.tablename);

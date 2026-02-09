@@ -58,10 +58,7 @@ export interface RouteAnnouncerProps {
  * Invisible live region that announces page changes to screen readers
  * and moves focus to the main content area.
  */
-export function RouteAnnouncer({
-  appName = 'OpenClaw Projects',
-  mainContentId = 'main-content',
-}: RouteAnnouncerProps): React.JSX.Element {
+export function RouteAnnouncer({ appName = 'OpenClaw Projects', mainContentId = 'main-content' }: RouteAnnouncerProps): React.JSX.Element {
   const location = useLocation();
   const [announcement, setAnnouncement] = React.useState('');
   const isFirstRender = React.useRef(true);
@@ -96,13 +93,7 @@ export function RouteAnnouncer({
   }, [location.pathname, appName, mainContentId]);
 
   return (
-    <div
-      role="status"
-      aria-live="assertive"
-      aria-atomic="true"
-      className="sr-only"
-      data-testid="route-announcer"
-    >
+    <div role="status" aria-live="assertive" aria-atomic="true" className="sr-only" data-testid="route-announcer">
       {announcement}
     </div>
   );

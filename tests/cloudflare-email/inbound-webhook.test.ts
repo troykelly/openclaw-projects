@@ -16,9 +16,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
   const webhookSecret = 'cloudflare-email-secret-for-tests';
 
-  function createCloudflarePayload(
-    overrides: Partial<CloudflareEmailPayload> = {}
-  ): CloudflareEmailPayload {
+  function createCloudflarePayload(overrides: Partial<CloudflareEmailPayload> = {}): CloudflareEmailPayload {
     const messageId = `${Date.now()}.${Math.random().toString(36).slice(2)}@cloudflare.test`;
     return {
       from: 'sender@example.com',
@@ -110,7 +108,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
            FROM contact c
            JOIN contact_endpoint ce ON ce.contact_id = c.id
           WHERE ce.endpoint_type = 'email'
-            AND ce.normalized_value LIKE '%sender@example.com%'`
+            AND ce.normalized_value LIKE '%sender@example.com%'`,
       );
       expect(contactResult.rows.length).toBe(1);
       expect(contactResult.rows[0].display_name).toBe('sender@example.com');
@@ -165,16 +163,14 @@ describe('Cloudflare Email Inbound Webhook', () => {
         payload,
       });
 
-      const threadResult = await pool.query(
-        `SELECT * FROM external_thread WHERE channel = 'email'`
-      );
+      const threadResult = await pool.query(`SELECT * FROM external_thread WHERE channel = 'email'`);
       expect(threadResult.rows.length).toBe(1);
       expect(threadResult.rows[0].external_thread_key).toContain('email:');
       expect(threadResult.rows[0].metadata).toEqual(
         expect.objectContaining({
           source: 'cloudflare-email',
           subject: payload.subject,
-        })
+        }),
       );
     });
 
@@ -216,10 +212,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
       expect(replyThreadId).toBe(originalThreadId);
 
       // Verify two messages in same thread
-      const messages = await pool.query(
-        `SELECT COUNT(*) FROM external_message WHERE thread_id = $1`,
-        [originalThreadId]
-      );
+      const messages = await pool.query(`SELECT COUNT(*) FROM external_message WHERE thread_id = $1`, [originalThreadId]);
       expect(parseInt(messages.rows[0].count, 10)).toBe(2);
     });
 
@@ -241,7 +234,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
       const messageResult = await pool.query(
         `SELECT subject, from_address, to_addresses, body
            FROM external_message
-          LIMIT 1`
+          LIMIT 1`,
       );
       expect(messageResult.rows.length).toBe(1);
       expect(messageResult.rows[0].subject).toBe('Important Subject');
@@ -262,9 +255,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
         payload,
       });
 
-      const messageResult = await pool.query(
-        `SELECT body FROM external_message LIMIT 1`
-      );
+      const messageResult = await pool.query(`SELECT body FROM external_message LIMIT 1`);
       expect(messageResult.rows[0].body).toContain('HTML only content');
     });
 
@@ -279,9 +270,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
         payload,
       });
 
-      const messageResult = await pool.query(
-        `SELECT raw FROM external_message LIMIT 1`
-      );
+      const messageResult = await pool.query(`SELECT raw FROM external_message LIMIT 1`);
       expect(messageResult.rows.length).toBe(1);
       expect(messageResult.rows[0].raw.from).toBe(payload.from);
       expect(messageResult.rows[0].raw.raw).toBe('Full MIME message here');

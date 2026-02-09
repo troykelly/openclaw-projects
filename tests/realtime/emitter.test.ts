@@ -61,10 +61,7 @@ describe('Event Emitter Helpers', () => {
     });
 
     it('emitWorkItemUpdated sends work_item:updated event', async () => {
-      await emitWorkItemUpdated(
-        { id: '123', changes: ['status', 'title'] },
-        'test-user'
-      );
+      await emitWorkItemUpdated({ id: '123', changes: ['status', 'title'] }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -84,10 +81,7 @@ describe('Event Emitter Helpers', () => {
 
   describe('Memory Events', () => {
     it('emitMemoryCreated sends memory:created event', async () => {
-      await emitMemoryCreated(
-        { id: '456', title: 'Test Memory', memoryType: 'preference' },
-        'test-user'
-      );
+      await emitMemoryCreated({ id: '456', title: 'Test Memory', memoryType: 'preference' }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -100,10 +94,7 @@ describe('Event Emitter Helpers', () => {
     });
 
     it('emitMemoryUpdated sends memory:updated event', async () => {
-      await emitMemoryUpdated(
-        { id: '456', changes: ['content'] },
-        'test-user'
-      );
+      await emitMemoryUpdated({ id: '456', changes: ['content'] }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -121,10 +112,7 @@ describe('Event Emitter Helpers', () => {
 
   describe('Contact Events', () => {
     it('emitContactCreated sends contact:created event', async () => {
-      await emitContactCreated(
-        { id: '789', displayName: 'John Doe' },
-        'test-user'
-      );
+      await emitContactCreated({ id: '789', displayName: 'John Doe' }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -133,10 +121,7 @@ describe('Event Emitter Helpers', () => {
     });
 
     it('emitContactUpdated sends contact:updated event', async () => {
-      await emitContactUpdated(
-        { id: '789', changes: ['displayName'] },
-        'test-user'
-      );
+      await emitContactUpdated({ id: '789', changes: ['displayName'] }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -154,10 +139,7 @@ describe('Event Emitter Helpers', () => {
 
   describe('Message Events', () => {
     it('emitMessageReceived sends message:received event', async () => {
-      await emitMessageReceived(
-        { id: 'msg-1', threadId: 'thread-1', source: 'sms', preview: 'Hello' },
-        'test-user'
-      );
+      await emitMessageReceived({ id: 'msg-1', threadId: 'thread-1', source: 'sms', preview: 'Hello' }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -181,7 +163,7 @@ describe('Event Emitter Helpers', () => {
           entityType: 'work_item',
           entityId: '123',
         },
-        'test-user'
+        'test-user',
       );
 
       expect(socket.messages.length).toBe(1);

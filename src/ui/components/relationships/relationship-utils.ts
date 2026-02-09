@@ -2,13 +2,7 @@
  * Utility functions for contact relationships
  * Issue #395: Implement contact relationship types
  */
-import type {
-  RelationshipType,
-  RelationshipCategory,
-  ProfessionalRelationType,
-  BusinessRelationType,
-  PersonalRelationType,
-} from './types';
+import type { RelationshipType, RelationshipCategory, ProfessionalRelationType, BusinessRelationType, PersonalRelationType } from './types';
 
 /** Relationship types grouped by category */
 export const RELATIONSHIP_TYPES: Record<RelationshipCategory, RelationshipType[]> = {
@@ -18,11 +12,7 @@ export const RELATIONSHIP_TYPES: Record<RelationshipCategory, RelationshipType[]
 };
 
 /** All relationship types flat */
-export const ALL_RELATIONSHIP_TYPES: RelationshipType[] = [
-  ...RELATIONSHIP_TYPES.professional,
-  ...RELATIONSHIP_TYPES.business,
-  ...RELATIONSHIP_TYPES.personal,
-];
+export const ALL_RELATIONSHIP_TYPES: RelationshipType[] = [...RELATIONSHIP_TYPES.professional, ...RELATIONSHIP_TYPES.business, ...RELATIONSHIP_TYPES.personal];
 
 /** Human-readable labels for relationship types */
 const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {

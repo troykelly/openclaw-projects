@@ -91,15 +91,8 @@ export interface SharedWithMeEntry {
 /**
  * Check if user owns notebook
  */
-async function userOwnsNotebook(
-  pool: Pool,
-  notebookId: string,
-  userEmail: string
-): Promise<boolean> {
-  const result = await pool.query(
-    'SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-    [notebookId]
-  );
+async function userOwnsNotebook(pool: Pool, notebookId: string, userEmail: string): Promise<boolean> {
+  const result = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
   return result.rows[0]?.user_email === userEmail;
 }
 
@@ -150,19 +143,11 @@ function mapRowToShare(row: Record<string, unknown>): NotebookShare {
 /**
  * Creates a share with a specific user
  */
-export async function createUserShare(
-  pool: Pool,
-  notebookId: string,
-  input: CreateUserShareInput,
-  userEmail: string
-): Promise<NotebookUserShare | null> {
+export async function createUserShare(pool: Pool, notebookId: string, input: CreateUserShareInput, userEmail: string): Promise<NotebookUserShare | null> {
   // Check ownership
   const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [notebookId]
-    );
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -170,18 +155,13 @@ export async function createUserShare(
   }
 
   // Check if already shared with this user
-  const existingShare = await pool.query(
-    'SELECT id FROM notebook_share WHERE notebook_id = $1 AND shared_with_email = $2',
-    [notebookId, input.email]
-  );
+  const existingShare = await pool.query('SELECT id FROM notebook_share WHERE notebook_id = $1 AND shared_with_email = $2', [notebookId, input.email]);
   if (existingShare.rows.length > 0) {
     throw new Error('ALREADY_SHARED');
   }
 
   // Parse expires_at
-  const expiresAt = input.expiresAt
-    ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt)
-    : null;
+  const expiresAt = input.expiresAt ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt) : null;
 
   const result = await pool.query(
     `INSERT INTO notebook_share (
@@ -190,13 +170,7 @@ export async function createUserShare(
     RETURNING
       id::text, notebook_id::text, shared_with_email, permission,
       expires_at, created_by_email, created_at, last_accessed_at`,
-    [
-      notebookId,
-      input.email,
-      input.permission ?? 'read',
-      expiresAt,
-      userEmail,
-    ]
+    [notebookId, input.email, input.permission ?? 'read', expiresAt, userEmail],
   );
 
   return mapRowToUserShare(result.rows[0]);
@@ -209,15 +183,12 @@ export async function createLinkShare(
   pool: Pool,
   notebookId: string,
   input: CreateLinkShareInput,
-  userEmail: string
-): Promise<NotebookLinkShare & { url: string } | null> {
+  userEmail: string,
+): Promise<(NotebookLinkShare & { url: string }) | null> {
   // Check ownership
   const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [notebookId]
-    );
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -225,9 +196,7 @@ export async function createLinkShare(
   }
 
   // Parse expires_at
-  const expiresAt = input.expiresAt
-    ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt)
-    : null;
+  const expiresAt = input.expiresAt ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt) : null;
 
   // Generate token
   const tokenResult = await pool.query('SELECT generate_share_token() as token');
@@ -240,13 +209,7 @@ export async function createLinkShare(
     RETURNING
       id::text, notebook_id::text, share_link_token, permission,
       expires_at, created_by_email, created_at, last_accessed_at`,
-    [
-      notebookId,
-      token,
-      input.permission ?? 'read',
-      expiresAt,
-      userEmail,
-    ]
+    [notebookId, token, input.permission ?? 'read', expiresAt, userEmail],
   );
 
   const share = mapRowToLinkShare(result.rows[0]);
@@ -261,18 +224,11 @@ export async function createLinkShare(
 /**
  * Lists all shares for a notebook
  */
-export async function listShares(
-  pool: Pool,
-  notebookId: string,
-  userEmail: string
-): Promise<ListSharesResult | null> {
+export async function listShares(pool: Pool, notebookId: string, userEmail: string): Promise<ListSharesResult | null> {
   // Check ownership
   const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [notebookId]
-    );
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -286,7 +242,7 @@ export async function listShares(
     FROM notebook_share
     WHERE notebook_id = $1
     ORDER BY created_at DESC`,
-    [notebookId]
+    [notebookId],
   );
 
   return {
@@ -298,20 +254,11 @@ export async function listShares(
 /**
  * Updates a share's permission or expiration
  */
-export async function updateShare(
-  pool: Pool,
-  notebookId: string,
-  shareId: string,
-  input: UpdateShareInput,
-  userEmail: string
-): Promise<NotebookShare | null> {
+export async function updateShare(pool: Pool, notebookId: string, shareId: string, input: UpdateShareInput, userEmail: string): Promise<NotebookShare | null> {
   // Check ownership
   const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [notebookId]
-    );
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -319,10 +266,7 @@ export async function updateShare(
   }
 
   // Check share exists for this notebook
-  const existingShare = await pool.query(
-    'SELECT id FROM notebook_share WHERE id = $1 AND notebook_id = $2',
-    [shareId, notebookId]
-  );
+  const existingShare = await pool.query('SELECT id FROM notebook_share WHERE id = $1 AND notebook_id = $2', [shareId, notebookId]);
   if (existingShare.rows.length === 0) {
     throw new Error('SHARE_NOT_FOUND');
   }
@@ -340,9 +284,7 @@ export async function updateShare(
 
   if (input.expiresAt !== undefined) {
     updates.push(`expires_at = $${paramIndex}`);
-    const expiresAt = input.expiresAt
-      ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt)
-      : null;
+    const expiresAt = input.expiresAt ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt) : null;
     params.push(expiresAt);
     paramIndex++;
   }
@@ -354,7 +296,7 @@ export async function updateShare(
         id::text, notebook_id::text, shared_with_email, share_link_token, permission,
         expires_at, created_by_email, created_at, last_accessed_at
       FROM notebook_share WHERE id = $1`,
-      [shareId]
+      [shareId],
     );
     return mapRowToShare(result.rows[0]);
   }
@@ -368,7 +310,7 @@ export async function updateShare(
      RETURNING
        id::text, notebook_id::text, shared_with_email, share_link_token, permission,
        expires_at, created_by_email, created_at, last_accessed_at`,
-    params
+    params,
   );
 
   return mapRowToShare(result.rows[0]);
@@ -377,29 +319,18 @@ export async function updateShare(
 /**
  * Revokes a share
  */
-export async function revokeShare(
-  pool: Pool,
-  notebookId: string,
-  shareId: string,
-  userEmail: string
-): Promise<boolean> {
+export async function revokeShare(pool: Pool, notebookId: string, shareId: string, userEmail: string): Promise<boolean> {
   // Check ownership
   const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL',
-      [notebookId]
-    );
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
     if (exists.rows.length === 0) {
       throw new Error('NOTEBOOK_NOT_FOUND');
     }
     throw new Error('FORBIDDEN');
   }
 
-  const result = await pool.query(
-    'DELETE FROM notebook_share WHERE id = $1 AND notebook_id = $2 RETURNING id',
-    [shareId, notebookId]
-  );
+  const result = await pool.query('DELETE FROM notebook_share WHERE id = $1 AND notebook_id = $2 RETURNING id', [shareId, notebookId]);
 
   if (result.rows.length === 0) {
     throw new Error('SHARE_NOT_FOUND');
@@ -411,16 +342,13 @@ export async function revokeShare(
 /**
  * Accesses a notebook via share link token
  */
-export async function accessSharedNotebook(
-  pool: Pool,
-  token: string
-): Promise<SharedNotebookAccess | null> {
+export async function accessSharedNotebook(pool: Pool, token: string): Promise<SharedNotebookAccess | null> {
   // Find the share
   const shareResult = await pool.query(
     `SELECT nbs.notebook_id, nbs.permission, nbs.expires_at
      FROM notebook_share nbs
      WHERE nbs.share_link_token = $1`,
-    [token]
+    [token],
   );
 
   if (shareResult.rows.length === 0) {
@@ -435,17 +363,14 @@ export async function accessSharedNotebook(
   }
 
   // Update last accessed
-  await pool.query(
-    'UPDATE notebook_share SET last_accessed_at = NOW() WHERE share_link_token = $1',
-    [token]
-  );
+  await pool.query('UPDATE notebook_share SET last_accessed_at = NOW() WHERE share_link_token = $1', [token]);
 
   // Get the notebook
   const notebookResult = await pool.query(
     `SELECT nb.id::text, nb.name, nb.description, nb.updated_at, nb.user_email
      FROM notebook nb
      WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-    [share.notebook_id]
+    [share.notebook_id],
   );
 
   if (notebookResult.rows.length === 0) {
@@ -460,7 +385,7 @@ export async function accessSharedNotebook(
      FROM note n
      WHERE n.notebook_id = $1 AND n.deleted_at IS NULL
      ORDER BY n.updated_at DESC`,
-    [share.notebook_id]
+    [share.notebook_id],
   );
 
   return {
@@ -483,10 +408,7 @@ export async function accessSharedNotebook(
 /**
  * Lists notebooks shared with the current user
  */
-export async function listSharedWithMe(
-  pool: Pool,
-  userEmail: string
-): Promise<SharedWithMeEntry[]> {
+export async function listSharedWithMe(pool: Pool, userEmail: string): Promise<SharedWithMeEntry[]> {
   const result = await pool.query(
     `SELECT
       nb.id::text, nb.name, nbs.created_by_email as shared_by_email,
@@ -496,7 +418,7 @@ export async function listSharedWithMe(
     WHERE nbs.shared_with_email = $1
       AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
     ORDER BY nbs.created_at DESC`,
-    [userEmail]
+    [userEmail],
   );
 
   return result.rows.map((row) => ({

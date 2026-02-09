@@ -6,12 +6,7 @@ import * as React from 'react';
 import { cn } from '@/ui/lib/utils';
 import { Textarea } from '@/ui/components/ui/textarea';
 import { MentionAutocomplete } from './mention-autocomplete';
-import {
-  createMentionToken,
-  findMentionTrigger,
-  filterUsers,
-  type MentionUser,
-} from './mention-utils';
+import { createMentionToken, findMentionTrigger, filterUsers, type MentionUser } from './mention-utils';
 
 export interface MentionInputProps {
   users: MentionUser[];
@@ -23,15 +18,7 @@ export interface MentionInputProps {
   rows?: number;
 }
 
-export function MentionInput({
-  users,
-  value,
-  onChange,
-  placeholder,
-  className,
-  disabled = false,
-  rows = 3,
-}: MentionInputProps) {
+export function MentionInput({ users, value, onChange, placeholder, className, disabled = false, rows = 3 }: MentionInputProps) {
   const [showAutocomplete, setShowAutocomplete] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [triggerStart, setTriggerStart] = React.useState<number | null>(null);
@@ -98,9 +85,7 @@ export function MentionInput({
 
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < filteredUsers.length - 1 ? prev + 1 : prev
-        );
+        setHighlightedIndex((prev) => (prev < filteredUsers.length - 1 ? prev + 1 : prev));
         break;
 
       case 'ArrowUp':

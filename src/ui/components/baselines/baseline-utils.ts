@@ -56,10 +56,7 @@ export interface ComparisonResult {
 /**
  * Compare baseline items to current items
  */
-export function compareBaselines(
-  baseline: BaselineItem[],
-  current: BaselineItem[]
-): ComparisonResult {
+export function compareBaselines(baseline: BaselineItem[], current: BaselineItem[]): ComparisonResult {
   const baselineMap = new Map(baseline.map((item) => [item.id, item]));
   const currentMap = new Map(current.map((item) => [item.id, item]));
 
@@ -78,10 +75,7 @@ export function compareBaselines(
     } else {
       // Check if modified
       const slippage = calculateSlippage(baselineItem, currentItem);
-      const isModified =
-        slippage !== 0 ||
-        baselineItem.startDate !== currentItem.startDate ||
-        baselineItem.estimate !== currentItem.estimate;
+      const isModified = slippage !== 0 || baselineItem.startDate !== currentItem.startDate || baselineItem.estimate !== currentItem.estimate;
 
       if (isModified) {
         modified.push({ baseline: baselineItem, current: currentItem, slippage });
@@ -100,10 +94,7 @@ export function compareBaselines(
 
   // Calculate totals
   const totalSlippage = modified.reduce((sum, m) => sum + Math.max(0, m.slippage), 0);
-  const scopeChangePercent =
-    baseline.length > 0
-      ? ((added.length + removed.length) / baseline.length) * 100
-      : 0;
+  const scopeChangePercent = baseline.length > 0 ? ((added.length + removed.length) / baseline.length) * 100 : 0;
 
   return {
     unchanged,
@@ -119,10 +110,7 @@ export function compareBaselines(
  * Calculate slippage in days between baseline and current item
  * Positive = delayed, Negative = ahead of schedule
  */
-export function calculateSlippage(
-  baseline: BaselineItem,
-  current: BaselineItem
-): number {
+export function calculateSlippage(baseline: BaselineItem, current: BaselineItem): number {
   if (!baseline.endDate || !current.endDate) {
     return 0;
   }

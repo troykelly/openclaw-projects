@@ -31,10 +31,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.waitForAutosave();
 
     // Verify the note was persisted to the database
-    const result = await pool.query(
-      `SELECT title, content FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`,
-      [TEST_USER_EMAIL],
-    );
+    const result = await pool.query(`SELECT title, content FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`, [TEST_USER_EMAIL]);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].content).toContain('Hello, this is an autosave test');
   });
@@ -52,13 +49,9 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
 
     // Now the note exists. Subsequent saves are UPDATEs that keep the note
     // prop stable, so "Saved" stays visible for the full 3 seconds.
-    const updateResponse = page.waitForResponse(
-      (resp) =>
-        resp.url().includes('/api/notes') &&
-        resp.request().method() === 'PUT' &&
-        resp.ok(),
-      { timeout: 10_000 },
-    );
+    const updateResponse = page.waitForResponse((resp) => resp.url().includes('/api/notes') && resp.request().method() === 'PUT' && resp.ok(), {
+      timeout: 10_000,
+    });
 
     await notes.typeInEditor(' - updated');
     await updateResponse;
@@ -90,10 +83,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.waitForAutosave();
 
     // Verify the auto-generated title was persisted
-    const result = await pool.query(
-      `SELECT title FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`,
-      [TEST_USER_EMAIL],
-    );
+    const result = await pool.query(`SELECT title FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`, [TEST_USER_EMAIL]);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].title).toBe(placeholder);
   });
@@ -165,10 +155,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.waitForAutosave();
 
     // Verify the note was eventually saved
-    const result = await pool.query(
-      `SELECT content FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`,
-      [TEST_USER_EMAIL],
-    );
+    const result = await pool.query(`SELECT content FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`, [TEST_USER_EMAIL]);
     expect(result.rows).toHaveLength(1);
   });
 });

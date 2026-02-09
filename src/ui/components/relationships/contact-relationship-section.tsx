@@ -8,16 +8,8 @@ import { Button } from '@/ui/components/ui/button';
 import { cn } from '@/ui/lib/utils';
 import { RelationshipCard } from './relationship-card';
 import { AddRelationshipDialog } from './add-relationship-dialog';
-import type {
-  ContactRelationship,
-  Contact,
-  NewRelationshipData,
-  RelationshipCategory,
-} from './types';
-import {
-  getRelationshipCategory,
-  CATEGORY_LABELS,
-} from './relationship-utils';
+import type { ContactRelationship, Contact, NewRelationshipData, RelationshipCategory } from './types';
+import { getRelationshipCategory, CATEGORY_LABELS } from './relationship-utils';
 
 export interface ContactRelationshipSectionProps {
   contactId: string;
@@ -76,16 +68,9 @@ export function ContactRelationshipSection({
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium">Relationships</h3>
-          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            {relationships.length}
-          </span>
+          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{relationships.length}</span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7"
-          onClick={() => setDialogOpen(true)}
-        >
+        <Button variant="outline" size="sm" className="h-7" onClick={() => setDialogOpen(true)}>
           <Plus className="h-3.5 w-3.5 mr-1" />
           Add Relationship
         </Button>
@@ -94,35 +79,23 @@ export function ContactRelationshipSection({
       {/* Content */}
       {hasRelationships ? (
         <div className="space-y-4">
-          {(Object.entries(groupedRelationships) as [RelationshipCategory, ContactRelationship[]][]).map(
-            ([category, rels]) => {
-              if (rels.length === 0) return null;
+          {(Object.entries(groupedRelationships) as [RelationshipCategory, ContactRelationship[]][]).map(([category, rels]) => {
+            if (rels.length === 0) return null;
 
-              return (
-                <div key={category}>
-                  <div className="text-xs font-medium text-muted-foreground mb-2">
-                    {CATEGORY_LABELS[category]}
-                  </div>
-                  <div className="space-y-2">
-                    {rels.map((rel) => {
-                      const contact = contactMap.get(rel.relatedContactId);
-                      if (!contact) return null;
+            return (
+              <div key={category}>
+                <div className="text-xs font-medium text-muted-foreground mb-2">{CATEGORY_LABELS[category]}</div>
+                <div className="space-y-2">
+                  {rels.map((rel) => {
+                    const contact = contactMap.get(rel.relatedContactId);
+                    if (!contact) return null;
 
-                      return (
-                        <RelationshipCard
-                          key={rel.id}
-                          relationship={rel}
-                          contact={contact}
-                          onEdit={onEditRelationship}
-                          onRemove={onRemoveRelationship}
-                        />
-                      );
-                    })}
-                  </div>
+                    return <RelationshipCard key={rel.id} relationship={rel} contact={contact} onEdit={onEditRelationship} onRemove={onRemoveRelationship} />;
+                  })}
                 </div>
-              );
-            }
-          )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="py-8 text-center text-muted-foreground">

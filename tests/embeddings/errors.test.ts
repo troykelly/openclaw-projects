@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  EmbeddingError,
-  calculateRetryDelay,
-  DEFAULT_RETRY_CONFIG,
-} from '../../src/api/embeddings/errors.ts';
+import { EmbeddingError, calculateRetryDelay, DEFAULT_RETRY_CONFIG } from '../../src/api/embeddings/errors.ts';
 
 describe('EmbeddingError', () => {
   describe('constructor', () => {

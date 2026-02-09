@@ -17,13 +17,7 @@ export interface TodayIndicatorProps {
   className?: string;
 }
 
-export function TodayIndicator({
-  position,
-  visible = true,
-  showLabel = false,
-  height = '100%',
-  className,
-}: TodayIndicatorProps) {
+export function TodayIndicator({ position, visible = true, showLabel = false, height = '100%', className }: TodayIndicatorProps) {
   if (!visible) {
     return null;
   }
@@ -31,10 +25,7 @@ export function TodayIndicator({
   return (
     <div
       data-testid="today-indicator"
-      className={cn(
-        'absolute top-0 z-10 pointer-events-none',
-        className
-      )}
+      className={cn('absolute top-0 z-10 pointer-events-none', className)}
       style={{
         left: `${position}%`,
         height,
@@ -46,9 +37,7 @@ export function TodayIndicator({
       {/* Label */}
       {showLabel && (
         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full pb-1">
-          <span className="px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded">
-            Today
-          </span>
+          <span className="px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded">Today</span>
         </div>
       )}
 

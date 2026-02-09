@@ -13,16 +13,7 @@ import { Card, CardContent } from '@/ui/components/ui/card';
 import { Badge } from '@/ui/components/ui/badge';
 import { EmptyState, SkeletonTable } from '@/ui/components/feedback';
 import { priorityColors } from '@/ui/lib/work-item-utils';
-import {
-  Circle,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
-  ArrowUp,
-  ArrowDown,
-  ChevronsUpDown,
-} from 'lucide-react';
+import { Circle, Clock, AlertCircle, CheckCircle2, XCircle, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 
 /** Props for the ListViewItem shape (subset of tree node data). */
 export interface ListViewItem {
@@ -130,11 +121,7 @@ export function ListView({ items, isLoading, projectId }: ListViewProps): React.
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return <ChevronsUpDown className="size-3 text-muted-foreground/50" />;
-    return sortDir === 'asc' ? (
-      <ArrowUp className="size-3 text-foreground" />
-    ) : (
-      <ArrowDown className="size-3 text-foreground" />
-    );
+    return sortDir === 'asc' ? <ArrowUp className="size-3 text-foreground" /> : <ArrowDown className="size-3 text-foreground" />;
   }
 
   if (isLoading) {
@@ -148,11 +135,7 @@ export function ListView({ items, isLoading, projectId }: ListViewProps): React.
   if (items.length === 0) {
     return (
       <div>
-        <EmptyState
-          variant="folder"
-          title="No items in this project"
-          description="Add work items to this project to see them here."
-        />
+        <EmptyState variant="folder" title="No items in this project" description="Add work items to this project to see them here." />
       </div>
     );
   }
@@ -201,47 +184,28 @@ export function ListView({ items, isLoading, projectId }: ListViewProps): React.
                       <SortIcon field="kind" />
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                    Due Date
-                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Due Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {sortedItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-muted/50 transition-colors cursor-pointer"
-                  >
+                  <tr key={item.id} className="hover:bg-muted/50 transition-colors cursor-pointer">
                     <td className="px-4 py-3">
-                      <Link
-                        to={`/work-items/${encodeURIComponent(item.id)}`}
-                        className="font-medium text-foreground hover:text-primary transition-colors"
-                      >
+                      <Link to={`/work-items/${encodeURIComponent(item.id)}`} className="font-medium text-foreground hover:text-primary transition-colors">
                         {item.title}
                       </Link>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {statusIcons[item.status] ?? statusIcons.open}
-                        <span className="text-sm">
-                          {statusLabels[item.status] ?? item.status}
-                        </span>
+                        <span className="text-sm">{statusLabels[item.status] ?? item.status}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {item.priority && (
-                        <Badge
-                          className={`text-xs ${priorityColors[item.priority] ?? 'bg-gray-500'}`}
-                        >
-                          {item.priority}
-                        </Badge>
-                      )}
+                      {item.priority && <Badge className={`text-xs ${priorityColors[item.priority] ?? 'bg-gray-500'}`}>{item.priority}</Badge>}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge
-                        variant="outline"
-                        className={`text-xs border ${kindBadgeColors[item.kind] ?? ''}`}
-                      >
+                      <Badge variant="outline" className={`text-xs border ${kindBadgeColors[item.kind] ?? ''}`}>
                         {kindLabels[item.kind] ?? item.kind}
                       </Badge>
                     </td>

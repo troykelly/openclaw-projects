@@ -131,11 +131,16 @@ describe('File Storage Service', () => {
     it('throws FileTooLargeError for oversized files', async () => {
       const data = Buffer.alloc(100); // 100 bytes
       await expect(
-        uploadFile(pool, mockStorage, {
-          filename: 'large.txt',
-          contentType: 'text/plain',
-          data,
-        }, 50) // max 50 bytes
+        uploadFile(
+          pool,
+          mockStorage,
+          {
+            filename: 'large.txt',
+            contentType: 'text/plain',
+            data,
+          },
+          50,
+        ), // max 50 bytes
       ).rejects.toThrow(FileTooLargeError);
     });
 
@@ -191,9 +196,7 @@ describe('File Storage Service', () => {
     });
 
     it('throws FileNotFoundError for non-existent file', async () => {
-      await expect(
-        downloadFile(pool, mockStorage, '00000000-0000-0000-0000-000000000000')
-      ).rejects.toThrow(FileNotFoundError);
+      await expect(downloadFile(pool, mockStorage, '00000000-0000-0000-0000-000000000000')).rejects.toThrow(FileNotFoundError);
     });
   });
 
@@ -213,9 +216,7 @@ describe('File Storage Service', () => {
     });
 
     it('throws FileNotFoundError for non-existent file', async () => {
-      await expect(
-        getFileUrl(pool, mockStorage, '00000000-0000-0000-0000-000000000000')
-      ).rejects.toThrow(FileNotFoundError);
+      await expect(getFileUrl(pool, mockStorage, '00000000-0000-0000-0000-000000000000')).rejects.toThrow(FileNotFoundError);
     });
   });
 

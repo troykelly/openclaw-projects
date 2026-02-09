@@ -69,11 +69,14 @@ describe('Note Work Item References Schema (Migration 043)', () => {
     it('enforces reference_type CHECK constraint', async () => {
       // Valid types should work
       for (const type of ['related', 'documented_by', 'spawned_from', 'meeting_notes']) {
-        const result = await pool.query(`
+        const result = await pool.query(
+          `
           INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
           VALUES ($1, $2, $3, 'test@example.com')
           RETURNING id
-        `, [testNoteId, testWorkItemId, type]);
+        `,
+          [testNoteId, testWorkItemId, type],
+        );
         expect(result.rows[0].id).toBeDefined();
 
         // Clean up for next iteration
@@ -82,25 +85,34 @@ describe('Note Work Item References Schema (Migration 043)', () => {
 
       // Invalid type should fail
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
           VALUES ($1, $2, 'invalid_type', 'test@example.com')
-        `, [testNoteId, testWorkItemId])
+        `,
+          [testNoteId, testWorkItemId],
+        ),
       ).rejects.toThrow();
     });
 
     it('enforces unique constraint on (note_id, work_item_id)', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'related', 'test@example.com')
-      `, [testNoteId, testWorkItemId]);
+      `,
+        [testNoteId, testWorkItemId],
+      );
 
       // Duplicate should fail
       await expect(
-        pool.query(`
+        pool.query(
+          `
           INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
           VALUES ($1, $2, 'meeting_notes', 'test@example.com')
-        `, [testNoteId, testWorkItemId])
+        `,
+          [testNoteId, testWorkItemId],
+        ),
       ).rejects.toThrow();
     });
 
@@ -114,10 +126,13 @@ describe('Note Work Item References Schema (Migration 043)', () => {
       const tempNoteId = tempNote.rows[0].id;
 
       // Create reference
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'related', 'test@example.com')
-      `, [tempNoteId, testWorkItemId]);
+      `,
+        [tempNoteId, testWorkItemId],
+      );
 
       // Delete note
       await pool.query('DELETE FROM note WHERE id = $1', [tempNoteId]);
@@ -137,10 +152,13 @@ describe('Note Work Item References Schema (Migration 043)', () => {
       const tempWorkItemId = tempWorkItem.rows[0].id;
 
       // Create reference
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'related', 'test@example.com')
-      `, [testNoteId, tempWorkItemId]);
+      `,
+        [testNoteId, tempWorkItemId],
+      );
 
       // Delete work item
       await pool.query('DELETE FROM work_item WHERE id = $1', [tempWorkItemId]);
@@ -151,20 +169,26 @@ describe('Note Work Item References Schema (Migration 043)', () => {
     });
 
     it('allows optional description', async () => {
-      const withDesc = await pool.query(`
+      const withDesc = await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email, description)
         VALUES ($1, $2, 'documented_by', 'test@example.com', 'Technical design document')
         RETURNING description
-      `, [testNoteId, testWorkItemId]);
+      `,
+        [testNoteId, testWorkItemId],
+      );
       expect(withDesc.rows[0].description).toBe('Technical design document');
 
       await pool.query('DELETE FROM note_work_item_reference WHERE note_id = $1', [testNoteId]);
 
-      const withoutDesc = await pool.query(`
+      const withoutDesc = await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'related', 'test@example.com')
         RETURNING description
-      `, [testNoteId, testWorkItemId]);
+      `,
+        [testNoteId, testWorkItemId],
+      );
       expect(withoutDesc.rows[0].description).toBeNull();
     });
   });
@@ -175,27 +199,36 @@ describe('Note Work Item References Schema (Migration 043)', () => {
     });
 
     it('exists and returns note with empty references array when no refs', async () => {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT id, title, referenced_work_items
         FROM note_with_references
         WHERE id = $1
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       expect(result.rows.length).toBe(1);
       expect(result.rows[0].referenced_work_items).toEqual([]);
     });
 
     it('includes referenced work items as JSONB array', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'documented_by', 'test@example.com')
-      `, [testNoteId, testWorkItemId]);
+      `,
+        [testNoteId, testWorkItemId],
+      );
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT referenced_work_items
         FROM note_with_references
         WHERE id = $1
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       const refs = result.rows[0].referenced_work_items;
       expect(refs.length).toBe(1);
@@ -209,9 +242,12 @@ describe('Note Work Item References Schema (Migration 043)', () => {
       // Soft delete the note
       await pool.query('UPDATE note SET deleted_at = NOW() WHERE id = $1', [testNoteId]);
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT id FROM note_with_references WHERE id = $1
-      `, [testNoteId]);
+      `,
+        [testNoteId],
+      );
 
       expect(result.rows.length).toBe(0);
 
@@ -226,11 +262,14 @@ describe('Note Work Item References Schema (Migration 043)', () => {
     });
 
     it('exists and returns work item with empty notes array when no refs', async () => {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT work_item_id, work_item_title, referencing_notes, note_count
         FROM work_item_note_backlinks
         WHERE work_item_id = $1
-      `, [testWorkItemId]);
+      `,
+        [testWorkItemId],
+      );
 
       expect(result.rows.length).toBe(1);
       expect(result.rows[0].referencing_notes).toEqual([]);
@@ -238,16 +277,22 @@ describe('Note Work Item References Schema (Migration 043)', () => {
     });
 
     it('includes backlinks as JSONB array', async () => {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'meeting_notes', 'test@example.com')
-      `, [testNoteId, testWorkItemId]);
+      `,
+        [testNoteId, testWorkItemId],
+      );
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT referencing_notes, note_count
         FROM work_item_note_backlinks
         WHERE work_item_id = $1
-      `, [testWorkItemId]);
+      `,
+        [testWorkItemId],
+      );
 
       const notes = result.rows[0].referencing_notes;
       expect(notes.length).toBe(1);
@@ -261,9 +306,12 @@ describe('Note Work Item References Schema (Migration 043)', () => {
       // Soft delete work item
       await pool.query('UPDATE work_item SET deleted_at = NOW() WHERE id = $1', [testWorkItemId]);
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT work_item_id FROM work_item_note_backlinks WHERE work_item_id = $1
-      `, [testWorkItemId]);
+      `,
+        [testWorkItemId],
+      );
 
       expect(result.rows.length).toBe(0);
 
@@ -273,17 +321,23 @@ describe('Note Work Item References Schema (Migration 043)', () => {
 
     it('excludes backlinks from soft-deleted notes', async () => {
       // Create reference
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO note_work_item_reference (note_id, work_item_id, reference_type, created_by_email)
         VALUES ($1, $2, 'related', 'test@example.com')
-      `, [testNoteId, testWorkItemId]);
+      `,
+        [testNoteId, testWorkItemId],
+      );
 
       // Soft delete note
       await pool.query('UPDATE note SET deleted_at = NOW() WHERE id = $1', [testNoteId]);
 
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT note_count FROM work_item_note_backlinks WHERE work_item_id = $1
-      `, [testWorkItemId]);
+      `,
+        [testWorkItemId],
+      );
 
       expect(result.rows[0].note_count).toBe(0);
 

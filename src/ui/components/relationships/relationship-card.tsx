@@ -26,13 +26,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-export function RelationshipCard({
-  relationship,
-  contact,
-  onEdit,
-  onRemove,
-  className,
-}: RelationshipCardProps) {
+export function RelationshipCard({ relationship, contact, onEdit, onRemove, className }: RelationshipCardProps) {
   const initials = contact.name
     .split(' ')
     .map((n) => n[0])
@@ -41,24 +35,13 @@ export function RelationshipCard({
     .slice(0, 2);
 
   return (
-    <div
-      className={cn(
-        'flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors',
-        className
-      )}
-    >
+    <div className={cn('flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors', className)}>
       {/* Avatar */}
       <div className="shrink-0">
         {contact.avatar ? (
-          <img
-            src={contact.avatar}
-            alt={contact.name}
-            className="w-10 h-10 rounded-full object-cover"
-          />
+          <img src={contact.avatar} alt={contact.name} className="w-10 h-10 rounded-full object-cover" />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-            {initials}
-          </div>
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">{initials}</div>
         )}
       </div>
 
@@ -73,36 +56,20 @@ export function RelationshipCard({
               className="text-muted-foreground"
               title={relationship.direction === 'outgoing' ? 'You → Them' : 'Them → You'}
             >
-              {relationship.direction === 'outgoing' ? (
-                <ArrowRight className="h-3.5 w-3.5" />
-              ) : (
-                <ArrowLeftRight className="h-3.5 w-3.5" />
-              )}
+              {relationship.direction === 'outgoing' ? <ArrowRight className="h-3.5 w-3.5" /> : <ArrowLeftRight className="h-3.5 w-3.5" />}
             </span>
           )}
         </div>
 
-        {relationship.notes && (
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{relationship.notes}</p>
-        )}
+        {relationship.notes && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{relationship.notes}</p>}
 
-        {relationship.lastInteraction && (
-          <p className="text-xs text-muted-foreground mt-1">
-            Last interaction: {formatDate(relationship.lastInteraction)}
-          </p>
-        )}
+        {relationship.lastInteraction && <p className="text-xs text-muted-foreground mt-1">Last interaction: {formatDate(relationship.lastInteraction)}</p>}
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-1 shrink-0">
         {onEdit && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onEdit(relationship.id)}
-            aria-label="Edit relationship"
-          >
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(relationship.id)} aria-label="Edit relationship">
             <Pencil className="h-4 w-4" />
           </Button>
         )}

@@ -56,7 +56,7 @@ export function CommentsSection({
 
     // Sort by createdAt
     topLevel.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    
+
     for (const [, replies] of repliesByParent) {
       replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }
@@ -97,17 +97,11 @@ export function CommentsSection({
       <div className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-medium">Comments</h3>
-        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-          {comments.length}
-        </span>
+        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{comments.length}</span>
       </div>
 
       {/* Comment input */}
-      <CommentInput
-        onSubmit={handleSubmitComment}
-        placeholder="Add a comment..."
-        loading={submitting}
-      />
+      <CommentInput onSubmit={handleSubmitComment} placeholder="Add a comment..." loading={submitting} />
 
       {/* Loading state */}
       {loading && (

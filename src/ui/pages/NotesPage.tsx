@@ -20,73 +20,30 @@ import { useParams, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { cn, validateUrlParam } from '@/ui/lib/utils';
 import { Button } from '@/ui/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/components/ui/dialog';
-import {
-  Skeleton,
-  SkeletonList,
-  ErrorState,
-  EmptyState,
-  useAnnounce,
-} from '@/ui/components/feedback';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
+import { Skeleton, SkeletonList, ErrorState, EmptyState, useAnnounce } from '@/ui/components/feedback';
 import { Card, CardContent } from '@/ui/components/ui/card';
 import { ErrorBoundary } from '@/ui/components/error-boundary';
 
 // Notes components
-import {
-  NotesList,
-  NoteDetail,
-} from '@/ui/components/notes';
+import { NotesList, NoteDetail } from '@/ui/components/notes';
 import { NotebooksSidebar } from '@/ui/components/notebooks/notebooks-sidebar';
 
 // Query hooks
 import { useNotes } from '@/ui/hooks/queries/use-notes';
 import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
-import {
-  useCreateNote,
-  useUpdateNote,
-  useDeleteNote,
-} from '@/ui/hooks/mutations/use-note-mutations';
-import {
-  useCreateNotebook,
-  useUpdateNotebook,
-  useDeleteNotebook,
-} from '@/ui/hooks/mutations/use-notebook-mutations';
-import {
-  useShareNoteWithUser,
-  useRevokeNoteShare,
-} from '@/ui/hooks/mutations/use-note-sharing-mutations';
+import { useCreateNote, useUpdateNote, useDeleteNote } from '@/ui/hooks/mutations/use-note-mutations';
+import { useCreateNotebook, useUpdateNotebook, useDeleteNotebook } from '@/ui/hooks/mutations/use-notebook-mutations';
+import { useShareNoteWithUser, useRevokeNoteShare } from '@/ui/hooks/mutations/use-note-sharing-mutations';
 
 // Extracted components (#659)
-import {
-  NotebookFormDialog,
-  ShareDialogWrapper,
-  NoteHistoryPanel,
-  toUINote,
-  toUINotebook,
-} from './notes';
+import { NotebookFormDialog, ShareDialogWrapper, NoteHistoryPanel, toUINote, toUINotebook } from './notes';
 import type { ViewState, DialogState } from './notes';
 
 // Types
-import type {
-  NoteVisibility,
-  CreateNoteBody,
-  UpdateNoteBody,
-} from '@/ui/lib/api-types';
-import type {
-  Note as UINote,
-  Notebook as UINotebook,
-} from '@/ui/components/notes/types';
-import {
-  validateNote,
-  getValidationErrorMessage,
-} from '@/ui/lib/validation';
+import type { NoteVisibility, CreateNoteBody, UpdateNoteBody } from '@/ui/lib/api-types';
+import type { Note as UINote, Notebook as UINotebook } from '@/ui/components/notes/types';
+import { validateNote, getValidationErrorMessage } from '@/ui/lib/validation';
 
 /**
  * Error handler for the Notes page error boundary.
@@ -107,11 +64,7 @@ function handleNotesPageError(error: Error, errorInfo: ErrorInfo): void {
  */
 export function NotesPage(): React.JSX.Element {
   return (
-    <ErrorBoundary
-      title="Notes Error"
-      description="Something went wrong loading your notes. Please try again."
-      onError={handleNotesPageError}
-    >
+    <ErrorBoundary title="Notes Error" description="Something went wrong loading your notes. Please try again." onError={handleNotesPageError}>
       <NotesPageContent />
     </ErrorBoundary>
   );
@@ -155,7 +108,7 @@ function NotesPageContent(): React.JSX.Element {
       isInternalNavigation.current = true;
       navigate(path);
     },
-    [navigate]
+    [navigate],
   );
 
   // Sync notebook ID from URL - separated from view sync to avoid race conditions (#668)
@@ -222,15 +175,9 @@ function NotesPageContent(): React.JSX.Element {
   const { announce, LiveRegion } = useAnnounce();
 
   // Transform data for UI components
-  const notes: UINote[] = useMemo(
-    () => (notesData?.notes ?? []).map(toUINote),
-    [notesData?.notes]
-  );
+  const notes: UINote[] = useMemo(() => (notesData?.notes ?? []).map(toUINote), [notesData?.notes]);
 
-  const notebooks: UINotebook[] = useMemo(
-    () => (notebooksData?.notebooks ?? []).map(toUINotebook),
-    [notebooksData?.notebooks]
-  );
+  const notebooks: UINotebook[] = useMemo(() => (notebooksData?.notebooks ?? []).map(toUINotebook), [notebooksData?.notebooks]);
 
   // Get current note for detail view
   const currentNote = useMemo(() => {
@@ -243,12 +190,7 @@ function NotesPageContent(): React.JSX.Element {
   // Check if requested note exists after data loads (#667)
   const noteNotFound = useMemo(() => {
     // Only check when we're in detail/history view and notes have loaded
-    if (
-      (view.type === 'detail' || view.type === 'history') &&
-      !notesLoading &&
-      !notesError &&
-      notesData
-    ) {
+    if ((view.type === 'detail' || view.type === 'history') && !notesLoading && !notesError && notesData) {
       // Note requested but not found in the data
       return !notes.find((n) => n.id === view.noteId);
     }
@@ -276,7 +218,7 @@ function NotesPageContent(): React.JSX.Element {
       }
       return '/notes';
     },
-    [selectedNotebookId]
+    [selectedNotebookId],
   );
 
   // Handlers
@@ -291,7 +233,7 @@ function NotesPageContent(): React.JSX.Element {
         navigateInternal('/notes');
       }
     },
-    [navigateInternal]
+    [navigateInternal],
   );
 
   const handleNoteClick = useCallback(
@@ -300,7 +242,7 @@ function NotesPageContent(): React.JSX.Element {
       // Update URL
       navigateInternal(buildNotePath(note.id, note.notebookId));
     },
-    [navigateInternal, buildNotePath]
+    [navigateInternal, buildNotePath],
   );
 
   const handleAddNote = useCallback(() => {
@@ -314,13 +256,7 @@ function NotesPageContent(): React.JSX.Element {
   }, [navigateInternal, buildNotePath]);
 
   const handleSaveNote = useCallback(
-    async (data: {
-      title: string;
-      content: string;
-      notebookId?: string;
-      visibility: NoteVisibility;
-      hideFromAgents: boolean;
-    }) => {
+    async (data: { title: string; content: string; notebookId?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => {
       // Client-side validation before API call (#656)
       const validation = validateNote({
         title: data.title,
@@ -356,15 +292,12 @@ function NotesPageContent(): React.JSX.Element {
         await updateNoteMutation.mutateAsync({ id: currentApiNote.id, body });
       }
     },
-    [view, currentApiNote, selectedNotebookId, createNoteMutation, updateNoteMutation, navigateInternal, buildNotePath]
+    [view, currentApiNote, selectedNotebookId, createNoteMutation, updateNoteMutation, navigateInternal, buildNotePath],
   );
 
-  const handleDeleteNote = useCallback(
-    (note: UINote) => {
-      setDialog({ type: 'deleteNote', note });
-    },
-    []
-  );
+  const handleDeleteNote = useCallback((note: UINote) => {
+    setDialog({ type: 'deleteNote', note });
+  }, []);
 
   const handleConfirmDeleteNote = useCallback(async () => {
     if (dialog.type === 'deleteNote') {
@@ -387,7 +320,7 @@ function NotesPageContent(): React.JSX.Element {
         body: { isPinned: !note.isPinned },
       });
     },
-    [updateNoteMutation]
+    [updateNoteMutation],
   );
 
   const handleViewHistory = useCallback(() => {
@@ -443,7 +376,7 @@ function NotesPageContent(): React.JSX.Element {
         throw error; // Re-throw to let ShareDialogWrapper handle UI state
       }
     },
-    [dialog, shareNoteMutation, announce]
+    [dialog, shareNoteMutation, announce],
   );
 
   // Revoke share handler with error handling (#660)
@@ -462,7 +395,7 @@ function NotesPageContent(): React.JSX.Element {
         throw error; // Re-throw to let ShareDialogWrapper handle UI state
       }
     },
-    [dialog, revokeShareMutation, announce]
+    [dialog, revokeShareMutation, announce],
   );
 
   // Close share dialog handler (#665)
@@ -486,7 +419,7 @@ function NotesPageContent(): React.JSX.Element {
       await createNotebookMutation.mutateAsync(data);
       setDialog({ type: 'none' });
     },
-    [createNotebookMutation]
+    [createNotebookMutation],
   );
 
   // Edit notebook submit handler (#665)
@@ -500,7 +433,7 @@ function NotesPageContent(): React.JSX.Element {
         setDialog({ type: 'none' });
       }
     },
-    [dialog, updateNotebookMutation]
+    [dialog, updateNotebookMutation],
   );
 
   // Cancel dialog handler (#665)
@@ -509,24 +442,15 @@ function NotesPageContent(): React.JSX.Element {
   }, []);
 
   // Memoized handlers for NoteDetail to prevent re-renders (#665)
-  const handleShareCurrentNote = useMemo(
-    () => (currentNote ? () => handleShareNote(currentNote) : undefined),
-    [currentNote, handleShareNote]
-  );
+  const handleShareCurrentNote = useMemo(() => (currentNote ? () => handleShareNote(currentNote) : undefined), [currentNote, handleShareNote]);
 
-  const handleDeleteCurrentNote = useMemo(
-    () => (currentNote ? () => handleDeleteNote(currentNote) : undefined),
-    [currentNote, handleDeleteNote]
-  );
+  const handleDeleteCurrentNote = useMemo(() => (currentNote ? () => handleDeleteNote(currentNote) : undefined), [currentNote, handleDeleteNote]);
 
-  const handleTogglePinCurrentNote = useMemo(
-    () => (currentNote ? () => handleTogglePin(currentNote) : undefined),
-    [currentNote, handleTogglePin]
-  );
+  const handleTogglePinCurrentNote = useMemo(() => (currentNote ? () => handleTogglePin(currentNote) : undefined), [currentNote, handleTogglePin]);
 
   const handleViewHistoryIfDetail = useMemo(
     () => (currentNote && view.type === 'detail' ? handleViewHistory : undefined),
-    [currentNote, view.type, handleViewHistory]
+    [currentNote, view.type, handleViewHistory],
   );
 
   // Loading state
@@ -557,11 +481,7 @@ function NotesPageContent(): React.JSX.Element {
   // Error state
   if (notesError || notebooksError) {
     const errorMessage =
-      notesErrorObj instanceof Error
-        ? notesErrorObj.message
-        : notebooksErrorObj instanceof Error
-          ? notebooksErrorObj.message
-          : 'Unknown error';
+      notesErrorObj instanceof Error ? notesErrorObj.message : notebooksErrorObj instanceof Error ? notebooksErrorObj.message : 'Unknown error';
 
     return (
       <div data-testid="page-notes" className="p-6">
@@ -597,12 +517,7 @@ function NotesPageContent(): React.JSX.Element {
       />
 
       {/* Notes List Panel - hidden on mobile when viewing detail */}
-      <div
-        className={cn(
-          'flex-1 border-r',
-          showDetailPanel && 'hidden lg:block lg:w-[400px] lg:flex-none'
-        )}
-      >
+      <div className={cn('flex-1 border-r', showDetailPanel && 'hidden lg:block lg:w-[400px] lg:flex-none')}>
         <NotesList
           notes={notes}
           notebooks={notebooks}
@@ -622,12 +537,7 @@ function NotesPageContent(): React.JSX.Element {
         <div className="flex-1 flex flex-col">
           {/* Mobile back button (#661) */}
           <div className="lg:hidden border-b p-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBack}
-              aria-label="Go back to notes list"
-            >
+            <Button variant="ghost" size="sm" onClick={handleBack} aria-label="Go back to notes list">
               <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
               Back to list
             </Button>
@@ -645,10 +555,7 @@ function NotesPageContent(): React.JSX.Element {
               />
             </div>
           ) : view.type === 'history' && currentNote ? (
-            <NoteHistoryPanel
-              noteId={currentNote.id}
-              onClose={handleCloseHistory}
-            />
+            <NoteHistoryPanel noteId={currentNote.id} onClose={handleCloseHistory} />
           ) : (
             <NoteDetail
               note={currentNote}
@@ -697,10 +604,7 @@ function NotesPageContent(): React.JSX.Element {
       )}
 
       {/* Delete Note Confirmation (#665) */}
-      <Dialog
-        open={dialog.type === 'deleteNote'}
-        onOpenChange={handleCloseDeleteNoteDialog}
-      >
+      <Dialog open={dialog.type === 'deleteNote'} onOpenChange={handleCloseDeleteNoteDialog}>
         <DialogContent className="sm:max-w-sm" data-testid="delete-note-dialog">
           <DialogHeader>
             <DialogTitle>Delete Note</DialogTitle>
@@ -714,12 +618,7 @@ function NotesPageContent(): React.JSX.Element {
             <Button variant="outline" onClick={handleCancelDialog}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDeleteNote}
-              disabled={deleteNoteMutation.isPending}
-              data-testid="confirm-delete-note"
-            >
+            <Button variant="destructive" onClick={handleConfirmDeleteNote} disabled={deleteNoteMutation.isPending} data-testid="confirm-delete-note">
               {deleteNoteMutation.isPending ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
@@ -744,10 +643,7 @@ function NotesPageContent(): React.JSX.Element {
       />
 
       {/* Delete Notebook Confirmation (#665) */}
-      <Dialog
-        open={dialog.type === 'deleteNotebook'}
-        onOpenChange={handleCloseNotebookDialog}
-      >
+      <Dialog open={dialog.type === 'deleteNotebook'} onOpenChange={handleCloseNotebookDialog}>
         <DialogContent className="sm:max-w-sm" data-testid="delete-notebook-dialog">
           <DialogHeader>
             <DialogTitle>Delete Notebook</DialogTitle>
@@ -778,4 +674,3 @@ function NotesPageContent(): React.JSX.Element {
     </div>
   );
 }
-

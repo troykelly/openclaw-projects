@@ -4,20 +4,8 @@
  */
 
 import type { Pool } from 'pg';
-import type {
-  OAuthProvider,
-  OAuthTokens,
-  OAuthConnection,
-  OAuthAuthorizationUrl,
-  OAuthStateData,
-  ProviderContact,
-} from './types.ts';
-import {
-  OAuthError,
-  NoConnectionError,
-  TokenExpiredError,
-  InvalidStateError,
-} from './types.ts';
+import type { OAuthProvider, OAuthTokens, OAuthConnection, OAuthAuthorizationUrl, OAuthStateData, ProviderContact } from './types.ts';
+import { OAuthError, NoConnectionError, TokenExpiredError, InvalidStateError } from './types.ts';
 import { requireProviderConfig, isProviderConfigured } from './config.ts';
 import * as microsoft from './microsoft.ts';
 import * as google from './google.ts';
@@ -38,11 +26,7 @@ setInterval(() => {
   }
 }, 60 * 1000); // Check every minute
 
-export function getAuthorizationUrl(
-  provider: OAuthProvider,
-  state: string,
-  scopes?: string[]
-): OAuthAuthorizationUrl {
+export function getAuthorizationUrl(provider: OAuthProvider, state: string, scopes?: string[]): OAuthAuthorizationUrl {
   const config = requireProviderConfig(provider);
 
   let result: OAuthAuthorizationUrl;
@@ -85,11 +69,7 @@ export function validateState(state: string): OAuthStateData {
   return data;
 }
 
-export async function exchangeCodeForTokens(
-  provider: OAuthProvider,
-  code: string,
-  codeVerifier?: string
-): Promise<OAuthTokens> {
+export async function exchangeCodeForTokens(provider: OAuthProvider, code: string, codeVerifier?: string): Promise<OAuthTokens> {
   const config = requireProviderConfig(provider);
 
   switch (provider) {
@@ -102,10 +82,7 @@ export async function exchangeCodeForTokens(
   }
 }
 
-export async function getUserEmail(
-  provider: OAuthProvider,
-  accessToken: string
-): Promise<string> {
+export async function getUserEmail(provider: OAuthProvider, accessToken: string): Promise<string> {
   switch (provider) {
     case 'microsoft':
       return microsoft.getUserEmail(accessToken);
@@ -116,10 +93,7 @@ export async function getUserEmail(
   }
 }
 
-export async function refreshTokens(
-  provider: OAuthProvider,
-  refreshToken: string
-): Promise<OAuthTokens> {
+export async function refreshTokens(provider: OAuthProvider, refreshToken: string): Promise<OAuthTokens> {
   const config = requireProviderConfig(provider);
 
   switch (provider) {
@@ -135,7 +109,7 @@ export async function refreshTokens(
 export async function fetchProviderContacts(
   provider: OAuthProvider,
   accessToken: string,
-  syncCursor?: string
+  syncCursor?: string,
 ): Promise<{ contacts: ProviderContact[]; syncCursor?: string }> {
   switch (provider) {
     case 'microsoft':
@@ -152,12 +126,7 @@ function isTokenExpired(expiresAt?: Date): boolean {
   return expiresAt.getTime() - TOKEN_EXPIRY_BUFFER_MS <= Date.now();
 }
 
-export async function saveConnection(
-  pool: Pool,
-  userEmail: string,
-  provider: OAuthProvider,
-  tokens: OAuthTokens
-): Promise<OAuthConnection> {
+export async function saveConnection(pool: Pool, userEmail: string, provider: OAuthProvider, tokens: OAuthTokens): Promise<OAuthConnection> {
   const result = await pool.query(
     `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, token_metadata)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -178,7 +147,7 @@ export async function saveConnection(
       tokens.scopes,
       tokens.expiresAt || null,
       JSON.stringify({ tokenType: tokens.tokenType }),
-    ]
+    ],
   );
 
   const row = result.rows[0];
@@ -196,16 +165,12 @@ export async function saveConnection(
   };
 }
 
-export async function getConnection(
-  pool: Pool,
-  userEmail: string,
-  provider: OAuthProvider
-): Promise<OAuthConnection | null> {
+export async function getConnection(pool: Pool, userEmail: string, provider: OAuthProvider): Promise<OAuthConnection | null> {
   const result = await pool.query(
     `SELECT id::text, user_email, provider, access_token, refresh_token, scopes, expires_at, token_metadata, created_at, updated_at
      FROM oauth_connection
      WHERE user_email = $1 AND provider = $2`,
-    [userEmail, provider]
+    [userEmail, provider],
   );
 
   if (result.rows.length === 0) {
@@ -227,11 +192,7 @@ export async function getConnection(
   };
 }
 
-export async function getValidAccessToken(
-  pool: Pool,
-  userEmail: string,
-  provider: OAuthProvider
-): Promise<string> {
+export async function getValidAccessToken(pool: Pool, userEmail: string, provider: OAuthProvider): Promise<string> {
   const connection = await getConnection(pool, userEmail, provider);
 
   if (!connection) {
@@ -256,21 +217,12 @@ export async function getValidAccessToken(
   return connection.accessToken;
 }
 
-export async function deleteConnection(
-  pool: Pool,
-  connectionId: string
-): Promise<boolean> {
-  const result = await pool.query(
-    'DELETE FROM oauth_connection WHERE id = $1',
-    [connectionId]
-  );
+export async function deleteConnection(pool: Pool, connectionId: string): Promise<boolean> {
+  const result = await pool.query('DELETE FROM oauth_connection WHERE id = $1', [connectionId]);
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function listConnections(
-  pool: Pool,
-  userEmail?: string
-): Promise<OAuthConnection[]> {
+export async function listConnections(pool: Pool, userEmail?: string): Promise<OAuthConnection[]> {
   let sql = `
     SELECT id::text, user_email, provider, access_token, refresh_token, scopes, expires_at, token_metadata, created_at, updated_at
     FROM oauth_connection

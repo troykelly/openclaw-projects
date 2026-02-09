@@ -3,12 +3,7 @@
  * Part of Issue #201.
  */
 
-export type WebhookEventType =
-  | 'sms_received'
-  | 'email_received'
-  | 'reminder_due'
-  | 'deadline_approaching'
-  | 'spawn_agent';
+export type WebhookEventType = 'sms_received' | 'email_received' | 'reminder_due' | 'deadline_approaching' | 'spawn_agent';
 
 export interface OpenClawConfig {
   gatewayUrl: string;

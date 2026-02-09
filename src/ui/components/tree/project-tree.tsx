@@ -1,33 +1,14 @@
 import * as React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { cn } from '@/ui/lib/utils';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { TreeItemRow } from './tree-item';
 import { canMoveToParent } from '@/ui/components/work-item-move';
 import type { TreeItem, TreeItemKind, TreeDragData } from './types';
 
-function flattenTree(
-  items: TreeItem[],
-  expandedIds: Set<string>,
-  depth = 0
-): Array<{ item: TreeItem; depth: number }> {
+function flattenTree(items: TreeItem[], expandedIds: Set<string>, depth = 0): Array<{ item: TreeItem; depth: number }> {
   const result: Array<{ item: TreeItem; depth: number }> = [];
 
   for (const item of items) {
@@ -51,10 +32,7 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
   return null;
 }
 
-function findParentAndIndex(
-  items: TreeItem[],
-  id: string
-): { parent: TreeItem | null; index: number } | null {
+function findParentAndIndex(items: TreeItem[], id: string): { parent: TreeItem | null; index: number } | null {
   for (let i = 0; i < items.length; i++) {
     if (items[i].id === id) {
       return { parent: null, index: i };
@@ -62,9 +40,7 @@ function findParentAndIndex(
     if (items[i].children) {
       const found = findParentAndIndex(items[i].children!, id);
       if (found) {
-        return found.parent === null
-          ? { parent: items[i], index: found.index }
-          : found;
+        return found.parent === null ? { parent: items[i], index: found.index } : found;
       }
     }
   }
@@ -80,12 +56,7 @@ function removeItemFromTree(items: TreeItem[], id: string): TreeItem[] {
     }));
 }
 
-function insertItemIntoTree(
-  items: TreeItem[],
-  targetId: string,
-  itemToInsert: TreeItem,
-  position: 'before' | 'after' | 'inside'
-): TreeItem[] {
+function insertItemIntoTree(items: TreeItem[], targetId: string, itemToInsert: TreeItem, position: 'before' | 'after' | 'inside'): TreeItem[] {
   return items.flatMap((item) => {
     if (item.id === targetId) {
       if (position === 'inside') {
@@ -149,13 +120,10 @@ export function ProjectTree({
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
-  const flatItems = useMemo(
-    () => flattenTree(items, expandedIds),
-    [items, expandedIds]
-  );
+  const flatItems = useMemo(() => flattenTree(items, expandedIds), [items, expandedIds]);
 
   const itemIds = useMemo(() => flatItems.map((f) => f.item.id), [flatItems]);
 
@@ -176,7 +144,7 @@ export function ProjectTree({
       setSelectedId(id);
       onSelect?.(id);
     },
-    [onSelect]
+    [onSelect],
   );
 
   const handleDragStart = useCallback(
@@ -184,7 +152,7 @@ export function ProjectTree({
       const item = findItemById(items, event.active.id as string);
       setActiveItem(item);
     },
-    [items]
+    [items],
   );
 
   const handleDragEnd = useCallback(
@@ -232,10 +200,7 @@ export function ProjectTree({
       } else {
         // Different parent - reparent if valid hierarchy
         // Check if the dragged item can be moved under the target item
-        const canMove = canMoveToParent(
-          { id: activeItem.id, kind: activeItem.kind },
-          { id: overItem.id, kind: overItem.kind }
-        );
+        const canMove = canMoveToParent({ id: activeItem.id, kind: activeItem.kind }, { id: overItem.id, kind: overItem.kind });
 
         if (canMove && onMove) {
           // Call the onMove handler to persist the change via API
@@ -243,7 +208,7 @@ export function ProjectTree({
         }
       }
     },
-    [items, onItemsChange, onMove]
+    [items, onItemsChange, onMove],
   );
 
   const handleDragCancel = useCallback(() => {

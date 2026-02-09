@@ -53,21 +53,12 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
         `DELETE FROM relationship
          WHERE relationship_type_id IN (
            SELECT id FROM relationship_type WHERE name NOT IN (${PRE_SEEDED_NAMES})
-         )`
+         )`,
       );
-      await pool.query(
-        `DELETE FROM relationship_type WHERE name NOT IN (${PRE_SEEDED_NAMES})`
-      );
+      await pool.query(`DELETE FROM relationship_type WHERE name NOT IN (${PRE_SEEDED_NAMES})`);
     });
     it('has symmetric relationship types', async () => {
-      const symmetricNames = [
-        'partner_of',
-        'sibling_of',
-        'friend_of',
-        'colleague_of',
-        'housemate_of',
-        'co_parent_of',
-      ];
+      const symmetricNames = ['partner_of', 'sibling_of', 'friend_of', 'colleague_of', 'housemate_of', 'co_parent_of'];
 
       for (const name of symmetricNames) {
         const type = await getRelationshipTypeByName(pool, name);
@@ -270,7 +261,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
         createRelationshipType(pool, {
           name: 'partner_of', // Already exists
           label: 'Duplicate',
-        })
+        }),
       ).rejects.toThrow();
     });
 
@@ -279,7 +270,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
         createRelationshipType(pool, {
           name: '',
           label: 'Empty name',
-        })
+        }),
       ).rejects.toThrow('Name is required');
     });
 
@@ -288,7 +279,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
         createRelationshipType(pool, {
           name: 'test_empty_label',
           label: '',
-        })
+        }),
       ).rejects.toThrow('Label is required');
     });
   });
@@ -317,11 +308,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
     });
 
     it('returns null for non-existent ID', async () => {
-      const result = await updateRelationshipType(
-        pool,
-        '00000000-0000-0000-0000-000000000000',
-        { label: 'Nope' }
-      );
+      const result = await updateRelationshipType(pool, '00000000-0000-0000-0000-000000000000', { label: 'Nope' });
       expect(result).toBeNull();
     });
 

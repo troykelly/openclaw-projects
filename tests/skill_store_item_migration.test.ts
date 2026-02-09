@@ -36,7 +36,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('creates skill_store_item table', async () => {
       const result = await pool.query(
         `SELECT tablename FROM pg_tables
-         WHERE schemaname = 'public' AND tablename = 'skill_store_item'`
+         WHERE schemaname = 'public' AND tablename = 'skill_store_item'`,
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -46,12 +46,10 @@ describe('Skill Store Item Migration (Issue #795)', () => {
         `SELECT column_name, data_type, is_nullable, column_default
          FROM information_schema.columns
          WHERE table_name = 'skill_store_item'
-         ORDER BY ordinal_position`
+         ORDER BY ordinal_position`,
       );
 
-      const columns = new Map(
-        result.rows.map((r) => [r.column_name, r])
-      );
+      const columns = new Map(result.rows.map((r) => [r.column_name, r]));
 
       // Core namespacing
       expect(columns.get('id')?.data_type).toBe('uuid');
@@ -107,30 +105,24 @@ describe('Skill Store Item Migration (Issue #795)', () => {
         `SELECT enumlabel FROM pg_enum
          JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
          WHERE pg_type.typname = 'skill_store_item_status'
-         ORDER BY enumsortorder`
+         ORDER BY enumsortorder`,
       );
 
-      expect(result.rows.map((r) => r.enumlabel)).toEqual([
-        'active',
-        'archived',
-        'processing',
-      ]);
+      expect(result.rows.map((r) => r.enumlabel)).toEqual(['active', 'archived', 'processing']);
     });
 
     it('defaults status to active', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING status::text`
+         RETURNING status::text`,
       );
       expect(result.rows[0].status).toBe('active');
     });
 
     it('rejects invalid status values', async () => {
-      await expect(
-        pool.query(
-          `INSERT INTO skill_store_item (skill_id, status) VALUES ('test', 'invalid')`
-        )
-      ).rejects.toThrow(/invalid input value for enum skill_store_item_status/);
+      await expect(pool.query(`INSERT INTO skill_store_item (skill_id, status) VALUES ('test', 'invalid')`)).rejects.toThrow(
+        /invalid input value for enum skill_store_item_status/,
+      );
     });
   });
 
@@ -138,17 +130,15 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('generates uuid for id', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING id`
+         RETURNING id`,
       );
-      expect(result.rows[0].id).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-      );
+      expect(result.rows[0].id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('defaults collection to _default', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING collection`
+         RETURNING collection`,
       );
       expect(result.rows[0].collection).toBe('_default');
     });
@@ -156,7 +146,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('defaults data to empty JSONB object', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING data`
+         RETURNING data`,
       );
       expect(result.rows[0].data).toEqual({});
     });
@@ -164,7 +154,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('defaults tags to empty array', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING tags`
+         RETURNING tags`,
       );
       expect(result.rows[0].tags).toEqual([]);
     });
@@ -172,7 +162,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('defaults pinned to false', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING pinned`
+         RETURNING pinned`,
       );
       expect(result.rows[0].pinned).toBe(false);
     });
@@ -180,64 +170,50 @@ describe('Skill Store Item Migration (Issue #795)', () => {
 
   describe('Unique constraint (skill_id, collection, key)', () => {
     it('allows duplicate keys when key is NULL', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection) VALUES ('s1', 'c1')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection) VALUES ('s1', 'c1')`);
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection) VALUES ('s1', 'c1')
-         RETURNING id`
+         RETURNING id`,
       );
       expect(result.rows).toHaveLength(1);
     });
 
     it('enforces uniqueness when key is set', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`
-      );
-      await expect(
-        pool.query(
-          `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`
-        )
-      ).rejects.toThrow(/duplicate key value/);
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`);
+      await expect(pool.query(`INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`)).rejects.toThrow(/duplicate key value/);
     });
 
     it('allows same key in different collections', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`);
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c2', 'k1')
-         RETURNING id`
+         RETURNING id`,
       );
       expect(result.rows).toHaveLength(1);
     });
 
     it('allows same key in different skills', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`);
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s2', 'c1', 'k1')
-         RETURNING id`
+         RETURNING id`,
       );
       expect(result.rows).toHaveLength(1);
     });
 
     it('allows reusing key after soft delete', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')`);
 
       // Soft delete the item
       await pool.query(
         `UPDATE skill_store_item SET deleted_at = now()
-         WHERE skill_id = 's1' AND collection = 'c1' AND key = 'k1'`
+         WHERE skill_id = 's1' AND collection = 'c1' AND key = 'k1'`,
       );
 
       // Should be able to insert the same key again
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, key) VALUES ('s1', 'c1', 'k1')
-         RETURNING id`
+         RETURNING id`,
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -249,7 +225,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id, data) VALUES ('test-skill', $1)
          RETURNING id`,
-        [JSON.stringify(smallData)]
+        [JSON.stringify(smallData)],
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -257,12 +233,9 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('rejects data exceeding 1MB limit', async () => {
       // Create a JSON string > 1MB
       const largeData = { payload: 'x'.repeat(1048577) };
-      await expect(
-        pool.query(
-          `INSERT INTO skill_store_item (skill_id, data) VALUES ('test-skill', $1)`,
-          [JSON.stringify(largeData)]
-        )
-      ).rejects.toThrow(/skill_store_item_data_size/);
+      await expect(pool.query(`INSERT INTO skill_store_item (skill_id, data) VALUES ('test-skill', $1)`, [JSON.stringify(largeData)])).rejects.toThrow(
+        /skill_store_item_data_size/,
+      );
     });
   });
 
@@ -271,7 +244,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id, title, summary, content)
          VALUES ('test-skill', 'Breaking News', 'Summary of events', 'Full article content here')
-         RETURNING search_vector IS NOT NULL as has_vector`
+         RETURNING search_vector IS NOT NULL as has_vector`,
       );
       expect(result.rows[0].has_vector).toBe(true);
     });
@@ -279,7 +252,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('weights title as A, summary as B, content as C', async () => {
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, title, summary, content)
-         VALUES ('test-skill', 'unique_title_word', 'unique_summary_word', 'unique_content_word')`
+         VALUES ('test-skill', 'unique_title_word', 'unique_summary_word', 'unique_content_word')`,
       );
 
       // Title (A weight) should rank higher than summary (B) and content (C)
@@ -288,7 +261,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
                 ts_rank(search_vector, to_tsquery('unique_summary_word')) as summary_rank,
                 ts_rank(search_vector, to_tsquery('unique_content_word')) as content_rank
          FROM skill_store_item
-         WHERE skill_id = 'test-skill'`
+         WHERE skill_id = 'test-skill'`,
       );
 
       const { title_rank, summary_rank, content_rank } = result.rows[0];
@@ -299,17 +272,17 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('updates search_vector on update', async () => {
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, title)
-         VALUES ('test-skill', 'original_title')`
+         VALUES ('test-skill', 'original_title')`,
       );
 
       await pool.query(
         `UPDATE skill_store_item SET title = 'updated_title'
-         WHERE skill_id = 'test-skill'`
+         WHERE skill_id = 'test-skill'`,
       );
 
       const result = await pool.query(
         `SELECT search_vector @@ to_tsquery('updated_title') as matches
-         FROM skill_store_item WHERE skill_id = 'test-skill'`
+         FROM skill_store_item WHERE skill_id = 'test-skill'`,
       );
       expect(result.rows[0].matches).toBe(true);
     });
@@ -317,12 +290,12 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('supports full-text search queries', async () => {
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, title, summary)
-         VALUES ('test-skill', 'PostgreSQL Database Guide', 'How to optimize queries')`
+         VALUES ('test-skill', 'PostgreSQL Database Guide', 'How to optimize queries')`,
       );
 
       const result = await pool.query(
         `SELECT id FROM skill_store_item
-         WHERE search_vector @@ plainto_tsquery('english', 'database optimize')`
+         WHERE search_vector @@ plainto_tsquery('english', 'database optimize')`,
       );
       expect(result.rows).toHaveLength(1);
     });
@@ -333,7 +306,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       const insert = await pool.query(
         `INSERT INTO skill_store_item (skill_id, title)
          VALUES ('test-skill', 'Original')
-         RETURNING updated_at`
+         RETURNING updated_at`,
       );
       const originalUpdatedAt = insert.rows[0].updated_at;
 
@@ -343,37 +316,31 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       const update = await pool.query(
         `UPDATE skill_store_item SET title = 'Modified'
          WHERE skill_id = 'test-skill'
-         RETURNING updated_at`
+         RETURNING updated_at`,
       );
       const newUpdatedAt = update.rows[0].updated_at;
 
-      expect(new Date(newUpdatedAt).getTime()).toBeGreaterThan(
-        new Date(originalUpdatedAt).getTime()
-      );
+      expect(new Date(newUpdatedAt).getTime()).toBeGreaterThan(new Date(originalUpdatedAt).getTime());
     });
   });
 
   describe('Soft delete', () => {
     it('supports soft delete by setting deleted_at', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, key) VALUES ('s1', 'k1')`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, key) VALUES ('s1', 'k1')`);
 
       await pool.query(
         `UPDATE skill_store_item SET deleted_at = now()
-         WHERE skill_id = 's1' AND key = 'k1'`
+         WHERE skill_id = 's1' AND key = 'k1'`,
       );
 
       // Soft-deleted items still exist in the table
-      const all = await pool.query(
-        `SELECT count(*) FROM skill_store_item WHERE skill_id = 's1'`
-      );
+      const all = await pool.query(`SELECT count(*) FROM skill_store_item WHERE skill_id = 's1'`);
       expect(parseInt(all.rows[0].count)).toBe(1);
 
       // But can be filtered out
       const active = await pool.query(
         `SELECT count(*) FROM skill_store_item
-         WHERE skill_id = 's1' AND deleted_at IS NULL`
+         WHERE skill_id = 's1' AND deleted_at IS NULL`,
       );
       expect(parseInt(active.rows[0].count)).toBe(0);
     });
@@ -386,24 +353,20 @@ describe('Skill Store Item Migration (Issue #795)', () => {
           `INSERT INTO skill_store_item (skill_id, embedding_status)
            VALUES ('test-' || $1, $1)
            RETURNING embedding_status`,
-          [status]
+          [status],
         );
         expect(result.rows[0].embedding_status).toBe(status);
       }
     });
 
     it('rejects invalid embedding_status', async () => {
-      await expect(
-        pool.query(
-          `INSERT INTO skill_store_item (skill_id, embedding_status) VALUES ('test', 'invalid')`
-        )
-      ).rejects.toThrow(/embedding_status/);
+      await expect(pool.query(`INSERT INTO skill_store_item (skill_id, embedding_status) VALUES ('test', 'invalid')`)).rejects.toThrow(/embedding_status/);
     });
 
     it('defaults embedding_status to pending', async () => {
       const result = await pool.query(
         `INSERT INTO skill_store_item (skill_id) VALUES ('test-skill')
-         RETURNING embedding_status`
+         RETURNING embedding_status`,
       );
       expect(result.rows[0].embedding_status).toBe('pending');
     });
@@ -413,7 +376,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('registers skill_store_cleanup_expired cron job', async () => {
       const result = await pool.query(
         `SELECT jobname, schedule FROM cron.job
-         WHERE jobname = 'skill_store_cleanup_expired'`
+         WHERE jobname = 'skill_store_cleanup_expired'`,
       );
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].schedule).toBe('*/15 * * * *');
@@ -422,7 +385,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
     it('registers skill_store_purge_soft_deleted cron job', async () => {
       const result = await pool.query(
         `SELECT jobname, schedule FROM cron.job
-         WHERE jobname = 'skill_store_purge_soft_deleted'`
+         WHERE jobname = 'skill_store_purge_soft_deleted'`,
       );
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].schedule).toBe('0 3 * * *');
@@ -432,36 +395,30 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Insert expired item
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, expires_at)
-         VALUES ('s1', 'expired', now() - interval '1 hour')`
+         VALUES ('s1', 'expired', now() - interval '1 hour')`,
       );
 
       // Insert non-expired item
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, expires_at)
-         VALUES ('s1', 'valid', now() + interval '1 hour')`
+         VALUES ('s1', 'valid', now() + interval '1 hour')`,
       );
 
       // Insert pinned expired item (should survive)
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, expires_at, pinned)
-         VALUES ('s1', 'pinned', now() - interval '1 hour', true)`
+         VALUES ('s1', 'pinned', now() - interval '1 hour', true)`,
       );
 
-      const updated = await pool.query(
-        `SELECT skill_store_cleanup_expired() as count`
-      );
+      const updated = await pool.query(`SELECT skill_store_cleanup_expired() as count`);
       expect(parseInt(updated.rows[0].count)).toBe(1);
 
       // Verify: expired item is soft-deleted (deleted_at set), not hard-deleted
-      const remaining = await pool.query(
-        `SELECT key FROM skill_store_item WHERE skill_id = 's1' AND deleted_at IS NULL ORDER BY key`
-      );
+      const remaining = await pool.query(`SELECT key FROM skill_store_item WHERE skill_id = 's1' AND deleted_at IS NULL ORDER BY key`);
       expect(remaining.rows.map((r) => r.key)).toEqual(['pinned', 'valid']);
 
       // Verify the expired item still exists with deleted_at set
-      const softDeleted = await pool.query(
-        `SELECT key FROM skill_store_item WHERE skill_id = 's1' AND deleted_at IS NOT NULL`
-      );
+      const softDeleted = await pool.query(`SELECT key FROM skill_store_item WHERE skill_id = 's1' AND deleted_at IS NOT NULL`);
       expect(softDeleted.rows).toHaveLength(1);
       expect(softDeleted.rows[0].key).toBe('expired');
     });
@@ -470,30 +427,26 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Insert item soft-deleted more than 30 days ago
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, deleted_at)
-         VALUES ('s1', 'old-deleted', now() - interval '31 days')`
+         VALUES ('s1', 'old-deleted', now() - interval '31 days')`,
       );
 
       // Insert item soft-deleted recently (should survive)
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, deleted_at)
-         VALUES ('s1', 'recent-deleted', now() - interval '1 day')`
+         VALUES ('s1', 'recent-deleted', now() - interval '1 day')`,
       );
 
       // Insert active item
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key)
-         VALUES ('s1', 'active')`
+         VALUES ('s1', 'active')`,
       );
 
-      const purged = await pool.query(
-        `SELECT skill_store_purge_soft_deleted() as count`
-      );
+      const purged = await pool.query(`SELECT skill_store_purge_soft_deleted() as count`);
       expect(parseInt(purged.rows[0].count)).toBe(1);
 
       // Verify: active + recent-deleted remain, old-deleted is gone
-      const remaining = await pool.query(
-        `SELECT key FROM skill_store_item WHERE skill_id = 's1' ORDER BY key`
-      );
+      const remaining = await pool.query(`SELECT key FROM skill_store_item WHERE skill_id = 's1' ORDER BY key`);
       expect(remaining.rows.map((r) => r.key)).toEqual(['active', 'recent-deleted']);
     });
   });
@@ -503,7 +456,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       const result = await pool.query(
         `SELECT indexname FROM pg_indexes
          WHERE tablename = 'skill_store_item'
-         ORDER BY indexname`
+         ORDER BY indexname`,
       );
 
       const indexNames = result.rows.map((r) => r.indexname);
@@ -530,24 +483,24 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Shared item (no user)
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, title)
-         VALUES ('news-skill', 'shared-config', 'Shared Config')`
+         VALUES ('news-skill', 'shared-config', 'Shared Config')`,
       );
 
       // User-scoped item
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, title, user_email)
-         VALUES ('news-skill', 'user-pref', 'User Preferences', 'alice@example.com')`
+         VALUES ('news-skill', 'user-pref', 'User Preferences', 'alice@example.com')`,
       );
 
       const shared = await pool.query(
         `SELECT count(*) FROM skill_store_item
-         WHERE skill_id = 'news-skill' AND user_email IS NULL`
+         WHERE skill_id = 'news-skill' AND user_email IS NULL`,
       );
       expect(parseInt(shared.rows[0].count)).toBe(1);
 
       const userScoped = await pool.query(
         `SELECT count(*) FROM skill_store_item
-         WHERE skill_id = 'news-skill' AND user_email = 'alice@example.com'`
+         WHERE skill_id = 'news-skill' AND user_email = 'alice@example.com'`,
       );
       expect(parseInt(userScoped.rows[0].count)).toBe(1);
     });
@@ -560,7 +513,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
         `INSERT INTO skill_store_item (skill_id, collection, key, title, data)
          VALUES ('s1', 'config', 'settings', 'v1', '{"version": 1}'::jsonb)
          ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
-         DO UPDATE SET title = EXCLUDED.title, data = EXCLUDED.data`
+         DO UPDATE SET title = EXCLUDED.title, data = EXCLUDED.data`,
       );
 
       // Upsert
@@ -568,12 +521,12 @@ describe('Skill Store Item Migration (Issue #795)', () => {
         `INSERT INTO skill_store_item (skill_id, collection, key, title, data)
          VALUES ('s1', 'config', 'settings', 'v2', '{"version": 2}'::jsonb)
          ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
-         DO UPDATE SET title = EXCLUDED.title, data = EXCLUDED.data`
+         DO UPDATE SET title = EXCLUDED.title, data = EXCLUDED.data`,
       );
 
       const result = await pool.query(
         `SELECT title, data FROM skill_store_item
-         WHERE skill_id = 's1' AND collection = 'config' AND key = 'settings'`
+         WHERE skill_id = 's1' AND collection = 'config' AND key = 'settings'`,
       );
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].title).toBe('v2');
@@ -588,7 +541,7 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Insert an expired item
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, title, expires_at)
-         VALUES ('test-sk', 'ttl-test', 'Expired Item', now() - interval '1 hour')`
+         VALUES ('test-sk', 'ttl-test', 'Expired Item', now() - interval '1 hour')`,
       );
 
       // Run the cleanup function
@@ -598,46 +551,32 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Item should still exist but be soft-deleted
       const itemResult = await pool.query(
         `SELECT deleted_at FROM skill_store_item
-         WHERE skill_id = 'test-sk' AND collection = 'ttl-test' AND title = 'Expired Item'`
+         WHERE skill_id = 'test-sk' AND collection = 'ttl-test' AND title = 'Expired Item'`,
       );
       expect(itemResult.rows).toHaveLength(1);
       expect(itemResult.rows[0].deleted_at).not.toBeNull();
     });
 
     it('skill_id CHECK constraint rejects empty strings', async () => {
-      await expect(
-        pool.query(
-          `INSERT INTO skill_store_item (skill_id, collection) VALUES ('', 'test')`
-        )
-      ).rejects.toThrow();
+      await expect(pool.query(`INSERT INTO skill_store_item (skill_id, collection) VALUES ('', 'test')`)).rejects.toThrow();
     });
 
     it('skill_id CHECK constraint rejects invalid characters', async () => {
-      await expect(
-        pool.query(
-          `INSERT INTO skill_store_item (skill_id, collection) VALUES ('bad skill!', 'test')`
-        )
-      ).rejects.toThrow();
+      await expect(pool.query(`INSERT INTO skill_store_item (skill_id, collection) VALUES ('bad skill!', 'test')`)).rejects.toThrow();
     });
 
     it('skill_id CHECK constraint accepts valid formats', async () => {
-      await pool.query(
-        `INSERT INTO skill_store_item (skill_id, collection) VALUES ('valid-skill_v2', 'test')`
-      );
-      const result = await pool.query(
-        `SELECT id FROM skill_store_item WHERE skill_id = 'valid-skill_v2'`
-      );
+      await pool.query(`INSERT INTO skill_store_item (skill_id, collection) VALUES ('valid-skill_v2', 'test')`);
+      const result = await pool.query(`SELECT id FROM skill_store_item WHERE skill_id = 'valid-skill_v2'`);
       expect(result.rows).toHaveLength(1);
     });
 
     it('skill_store_activity uses new_uuid() (UUIDv7) for new rows', async () => {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, description)
-         VALUES ('item_created', 'test-sk', 'Test activity')`
+         VALUES ('item_created', 'test-sk', 'Test activity')`,
       );
-      const result = await pool.query(
-        `SELECT id::text FROM skill_store_activity WHERE skill_id = 'test-sk' LIMIT 1`
-      );
+      const result = await pool.query(`SELECT id::text FROM skill_store_activity WHERE skill_id = 'test-sk' LIMIT 1`);
       expect(result.rows).toHaveLength(1);
       // UUIDv7 starts with a timestamp-derived prefix (version nibble = 7)
       const uuid = result.rows[0].id;
@@ -649,13 +588,13 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Insert an item with a title
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, collection, title)
-         VALUES ('test-sk', 'trigger-test', 'Original Title')`
+         VALUES ('test-sk', 'trigger-test', 'Original Title')`,
       );
 
       // Get the initial search_vector
       const initial = await pool.query(
         `SELECT search_vector::text FROM skill_store_item
-         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`
+         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`,
       );
       const initialVector = initial.rows[0].search_vector;
       expect(initialVector).toBeTruthy();
@@ -663,24 +602,24 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Update a non-content column (tags) — search_vector should NOT change
       await pool.query(
         `UPDATE skill_store_item SET tags = ARRAY['tag1']
-         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`
+         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`,
       );
 
       const afterTagUpdate = await pool.query(
         `SELECT search_vector::text FROM skill_store_item
-         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`
+         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`,
       );
       expect(afterTagUpdate.rows[0].search_vector).toBe(initialVector);
 
       // Update title (content column) — search_vector SHOULD change
       await pool.query(
         `UPDATE skill_store_item SET title = 'Completely Different Topic'
-         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`
+         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`,
       );
 
       const afterTitleUpdate = await pool.query(
         `SELECT search_vector::text FROM skill_store_item
-         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`
+         WHERE skill_id = 'test-sk' AND collection = 'trigger-test'`,
       );
       expect(afterTitleUpdate.rows[0].search_vector).not.toBe(initialVector);
     });
@@ -689,8 +628,8 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       await expect(
         pool.query(
           `INSERT INTO skill_store_schedule (skill_id, cron_expression, webhook_url)
-           VALUES ('bad skill!', '0 9 * * 1', 'https://example.com/hook')`
-        )
+           VALUES ('bad skill!', '0 9 * * 1', 'https://example.com/hook')`,
+        ),
       ).rejects.toThrow();
     });
   });

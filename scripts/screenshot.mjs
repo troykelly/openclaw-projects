@@ -3,7 +3,7 @@ import puppeteer from 'puppeteer-core';
 const browser = await puppeteer.launch({
   executablePath: '/home/vscode/.cache/ms-playwright/chromium-1208/chrome-linux/chrome',
   headless: true,
-  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
 });
 
 try {
@@ -12,16 +12,16 @@ try {
 
   // Collect console errors
   const errors = [];
-  page.on('console', msg => {
+  page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
-  page.on('pageerror', err => errors.push('PAGE ERROR: ' + err.message));
+  page.on('pageerror', (err) => errors.push('PAGE ERROR: ' + err.message));
 
   // Get a fresh token
   const resp = await fetch('http://localhost:3000/api/auth/request-link', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'demo@openclaw.dev' })
+    body: JSON.stringify({ email: 'demo@openclaw.dev' }),
   });
   const { loginUrl } = await resp.json();
   console.log('Login URL:', loginUrl);
@@ -31,7 +31,7 @@ try {
   console.log('After login, URL:', page.url());
 
   // Wait for React to render
-  await new Promise(r => setTimeout(r, 3000));
+  await new Promise((r) => setTimeout(r, 3000));
 
   // Take screenshot
   await page.screenshot({ path: '/tmp/frontend-screenshot.png', fullPage: true });
@@ -40,7 +40,7 @@ try {
   // Navigate to dashboard
   await page.goto('http://localhost:3000/app/dashboard', { waitUntil: 'networkidle0', timeout: 30000 });
   console.log('Dashboard URL:', page.url());
-  await new Promise(r => setTimeout(r, 3000));
+  await new Promise((r) => setTimeout(r, 3000));
   await page.screenshot({ path: '/tmp/dashboard-screenshot.png', fullPage: true });
   console.log('Dashboard screenshot saved to /tmp/dashboard-screenshot.png');
 
@@ -53,7 +53,7 @@ try {
     return {
       hasContent: root ? root.innerHTML.length : 0,
       childCount: root ? root.children.length : 0,
-      firstChildTag: root?.firstElementChild?.tagName || 'none'
+      firstChildTag: root?.firstElementChild?.tagName || 'none',
     };
   });
   console.log('Root element:', rootContent);
@@ -61,11 +61,10 @@ try {
   // Print errors
   if (errors.length > 0) {
     console.log('Console errors:');
-    errors.forEach(e => console.log('  -', e));
+    errors.forEach((e) => console.log('  -', e));
   } else {
     console.log('No console errors detected');
   }
-
 } catch (err) {
   console.error('Error:', err);
 } finally {

@@ -5,11 +5,7 @@
  */
 
 import type { Pool } from 'pg';
-import type {
-  WebhookOutboxEntry,
-  WebhookDispatchResult,
-  DispatchStats,
-} from './types.ts';
+import type { WebhookOutboxEntry, WebhookDispatchResult, DispatchStats } from './types.ts';
 import { getOpenClawConfig } from './config.ts';
 import { isAbsoluteUrl } from './ssrf.ts';
 
@@ -34,9 +30,7 @@ function getWorkerId(): string {
 /**
  * Dispatch a single webhook to OpenClaw.
  */
-export async function dispatchWebhook(
-  entry: WebhookOutboxEntry
-): Promise<WebhookDispatchResult> {
+export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<WebhookDispatchResult> {
   const config = getOpenClawConfig();
 
   if (!config) {
@@ -67,10 +61,7 @@ export async function dispatchWebhook(
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      (config.timeoutSeconds || 120) * 1000
-    );
+    const timeout = setTimeout(() => controller.abort(), (config.timeoutSeconds || 120) * 1000);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -130,11 +121,7 @@ export async function dispatchWebhook(
  * Lock a webhook entry for processing.
  * Uses advisory locking to prevent concurrent processing.
  */
-async function lockWebhookEntry(
-  pool: Pool,
-  entryId: string,
-  workerId: string
-): Promise<boolean> {
+async function lockWebhookEntry(pool: Pool, entryId: string, workerId: string): Promise<boolean> {
   const result = await pool.query(
     `UPDATE webhook_outbox
      SET locked_at = NOW(), locked_by = $2, updated_at = NOW()
@@ -142,7 +129,7 @@ async function lockWebhookEntry(
        AND dispatched_at IS NULL
        AND (locked_at IS NULL OR locked_at < NOW() - INTERVAL '${LOCK_TIMEOUT_MS} milliseconds')
      RETURNING id`,
-    [entryId, workerId]
+    [entryId, workerId],
   );
 
   return result.rowCount === 1;
@@ -159,18 +146,14 @@ async function markDispatched(pool: Pool, entryId: string): Promise<void> {
          locked_by = NULL,
          updated_at = NOW()
      WHERE id = $1`,
-    [entryId]
+    [entryId],
   );
 }
 
 /**
  * Record a dispatch failure.
  */
-async function recordFailure(
-  pool: Pool,
-  entryId: string,
-  error: string
-): Promise<void> {
+async function recordFailure(pool: Pool, entryId: string, error: string): Promise<void> {
   await pool.query(
     `UPDATE webhook_outbox
      SET attempts = attempts + 1,
@@ -180,17 +163,14 @@ async function recordFailure(
          run_at = NOW() + (POWER(2, LEAST(attempts, 5)) * INTERVAL '1 second'),
          updated_at = NOW()
      WHERE id = $1`,
-    [entryId, error]
+    [entryId, error],
   );
 }
 
 /**
  * Get pending webhook entries to process.
  */
-export async function getPendingWebhooks(
-  pool: Pool,
-  limit: number = 100
-): Promise<WebhookOutboxEntry[]> {
+export async function getPendingWebhooks(pool: Pool, limit: number = 100): Promise<WebhookOutboxEntry[]> {
   const result = await pool.query(
     `SELECT
        id::text as id,
@@ -214,7 +194,7 @@ export async function getPendingWebhooks(
        AND (locked_at IS NULL OR locked_at < NOW() - INTERVAL '${LOCK_TIMEOUT_MS} milliseconds')
      ORDER BY run_at ASC
      LIMIT $2`,
-    [MAX_RETRIES, limit]
+    [MAX_RETRIES, limit],
   );
 
   return result.rows as WebhookOutboxEntry[];
@@ -223,10 +203,7 @@ export async function getPendingWebhooks(
 /**
  * Process all pending webhooks.
  */
-export async function processPendingWebhooks(
-  pool: Pool,
-  limit: number = 100
-): Promise<DispatchStats> {
+export async function processPendingWebhooks(pool: Pool, limit: number = 100): Promise<DispatchStats> {
   const config = getOpenClawConfig();
 
   if (!config) {
@@ -264,9 +241,7 @@ export async function processPendingWebhooks(
     } else {
       await recordFailure(pool, entry.id, result.error || 'Unknown error');
       stats.failed++;
-      console.warn(
-        `[Webhooks] Failed to dispatch ${entry.kind}: ${result.error}`
-      );
+      console.warn(`[Webhooks] Failed to dispatch ${entry.kind}: ${result.error}`);
     }
   }
 
@@ -285,7 +260,7 @@ export async function enqueueWebhook(
     headers?: Record<string, string>;
     runAt?: Date;
     idempotencyKey?: string;
-  } = {}
+  } = {},
 ): Promise<string> {
   const result = await pool.query(
     `INSERT INTO webhook_outbox (kind, destination, body, headers, run_at, idempotency_key)
@@ -293,22 +268,12 @@ export async function enqueueWebhook(
      ON CONFLICT (kind, idempotency_key) WHERE idempotency_key IS NOT NULL
      DO NOTHING
      RETURNING id::text as id`,
-    [
-      kind,
-      destination,
-      JSON.stringify(body),
-      JSON.stringify(options.headers || {}),
-      options.runAt || null,
-      options.idempotencyKey || null,
-    ]
+    [kind, destination, JSON.stringify(body), JSON.stringify(options.headers || {}), options.runAt || null, options.idempotencyKey || null],
   );
 
   if (result.rows.length === 0) {
     // Idempotency key collision - return existing entry ID
-    const existing = await pool.query(
-      `SELECT id::text as id FROM webhook_outbox WHERE kind = $1 AND idempotency_key = $2`,
-      [kind, options.idempotencyKey]
-    );
+    const existing = await pool.query(`SELECT id::text as id FROM webhook_outbox WHERE kind = $1 AND idempotency_key = $2`, [kind, options.idempotencyKey]);
     return (existing.rows[0] as { id: string }).id;
   }
 
@@ -318,10 +283,7 @@ export async function enqueueWebhook(
 /**
  * Retry a specific webhook entry.
  */
-export async function retryWebhook(
-  pool: Pool,
-  entryId: string
-): Promise<boolean> {
+export async function retryWebhook(pool: Pool, entryId: string): Promise<boolean> {
   const result = await pool.query(
     `UPDATE webhook_outbox
      SET run_at = NOW(),
@@ -333,7 +295,7 @@ export async function retryWebhook(
      WHERE id = $1
        AND dispatched_at IS NULL
      RETURNING id`,
-    [entryId]
+    [entryId],
   );
 
   return result.rowCount === 1;
@@ -349,7 +311,7 @@ export async function getWebhookOutbox(
     kind?: string;
     limit?: number;
     offset?: number;
-  } = {}
+  } = {},
 ): Promise<{ entries: WebhookOutboxEntry[]; total: number }> {
   const { status, kind, limit = 50, offset = 0 } = options;
 
@@ -374,10 +336,7 @@ export async function getWebhookOutbox(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countResult = await pool.query(
-    `SELECT COUNT(*) as count FROM webhook_outbox ${whereClause}`,
-    params
-  );
+  const countResult = await pool.query(`SELECT COUNT(*) as count FROM webhook_outbox ${whereClause}`, params);
   const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
 
   // Get entries
@@ -402,7 +361,7 @@ export async function getWebhookOutbox(
      ${whereClause}
      ORDER BY created_at DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-    params
+    params,
   );
 
   return {

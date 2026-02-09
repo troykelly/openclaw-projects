@@ -139,20 +139,12 @@ function mapRowToShare(row: Record<string, unknown>): NoteShare {
 /**
  * Creates a share with a specific user
  */
-export async function createUserShare(
-  pool: Pool,
-  noteId: string,
-  input: CreateUserShareInput,
-  userEmail: string
-): Promise<NoteUserShare | null> {
+export async function createUserShare(pool: Pool, noteId: string, input: CreateUserShareInput, userEmail: string): Promise<NoteUserShare | null> {
   // Check ownership
   const isOwner = await userOwnsNote(pool, noteId, userEmail);
   if (!isOwner) {
     // Check if note exists
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -160,25 +152,17 @@ export async function createUserShare(
   }
 
   // Check if already shared with this user
-  const existingShare = await pool.query(
-    `SELECT id FROM note_share WHERE note_id = $1 AND shared_with_email = $2`,
-    [noteId, input.email]
-  );
+  const existingShare = await pool.query(`SELECT id FROM note_share WHERE note_id = $1 AND shared_with_email = $2`, [noteId, input.email]);
   if (existingShare.rows.length > 0) {
     throw new Error('ALREADY_SHARED');
   }
 
   // Get note title for snapshot
-  const noteResult = await pool.query(
-    'SELECT title FROM note WHERE id = $1',
-    [noteId]
-  );
+  const noteResult = await pool.query('SELECT title FROM note WHERE id = $1', [noteId]);
   const noteTitle = noteResult.rows[0]?.title ?? '';
 
   // Parse expires_at
-  const expiresAt = input.expiresAt
-    ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt)
-    : null;
+  const expiresAt = input.expiresAt ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt) : null;
 
   const result = await pool.query(
     `INSERT INTO note_share (
@@ -188,14 +172,7 @@ export async function createUserShare(
     RETURNING
       id::text, note_id::text, shared_with_email, permission,
       expires_at, created_by_email, created_at, last_accessed_at`,
-    [
-      noteId,
-      input.email,
-      input.permission ?? 'read',
-      expiresAt,
-      userEmail,
-      noteTitle,
-    ]
+    [noteId, input.email, input.permission ?? 'read', expiresAt, userEmail, noteTitle],
   );
 
   return mapRowToUserShare(result.rows[0]);
@@ -208,15 +185,12 @@ export async function createLinkShare(
   pool: Pool,
   noteId: string,
   input: CreateLinkShareInput,
-  userEmail: string
-): Promise<NoteLinkShare & { url: string } | null> {
+  userEmail: string,
+): Promise<(NoteLinkShare & { url: string }) | null> {
   // Check ownership
   const isOwner = await userOwnsNote(pool, noteId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -224,16 +198,11 @@ export async function createLinkShare(
   }
 
   // Get note title for snapshot
-  const noteResult = await pool.query(
-    'SELECT title FROM note WHERE id = $1',
-    [noteId]
-  );
+  const noteResult = await pool.query('SELECT title FROM note WHERE id = $1', [noteId]);
   const noteTitle = noteResult.rows[0]?.title ?? '';
 
   // Parse expires_at
-  const expiresAt = input.expiresAt
-    ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt)
-    : null;
+  const expiresAt = input.expiresAt ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt) : null;
 
   // Generate token
   const tokenResult = await pool.query('SELECT generate_share_token() as token');
@@ -247,16 +216,7 @@ export async function createLinkShare(
     RETURNING
       id::text, note_id::text, share_link_token, permission, is_single_view,
       view_count, max_views, expires_at, created_by_email, created_at, last_accessed_at`,
-    [
-      noteId,
-      token,
-      input.permission ?? 'read',
-      input.isSingleView ?? false,
-      input.maxViews ?? null,
-      expiresAt,
-      userEmail,
-      noteTitle,
-    ]
+    [noteId, token, input.permission ?? 'read', input.isSingleView ?? false, input.maxViews ?? null, expiresAt, userEmail, noteTitle],
   );
 
   const share = mapRowToLinkShare(result.rows[0]);
@@ -271,18 +231,11 @@ export async function createLinkShare(
 /**
  * Lists all shares for a note
  */
-export async function listShares(
-  pool: Pool,
-  noteId: string,
-  userEmail: string
-): Promise<ListSharesResult | null> {
+export async function listShares(pool: Pool, noteId: string, userEmail: string): Promise<ListSharesResult | null> {
   // Check ownership
   const isOwner = await userOwnsNote(pool, noteId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -297,7 +250,7 @@ export async function listShares(
     FROM note_share
     WHERE note_id = $1
     ORDER BY created_at DESC`,
-    [noteId]
+    [noteId],
   );
 
   return {
@@ -309,20 +262,11 @@ export async function listShares(
 /**
  * Updates a share's permission or expiration
  */
-export async function updateShare(
-  pool: Pool,
-  noteId: string,
-  shareId: string,
-  input: UpdateShareInput,
-  userEmail: string
-): Promise<NoteShare | null> {
+export async function updateShare(pool: Pool, noteId: string, shareId: string, input: UpdateShareInput, userEmail: string): Promise<NoteShare | null> {
   // Check ownership
   const isOwner = await userOwnsNote(pool, noteId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -330,10 +274,7 @@ export async function updateShare(
   }
 
   // Check share exists for this note
-  const existingShare = await pool.query(
-    'SELECT id FROM note_share WHERE id = $1 AND note_id = $2',
-    [shareId, noteId]
-  );
+  const existingShare = await pool.query('SELECT id FROM note_share WHERE id = $1 AND note_id = $2', [shareId, noteId]);
   if (existingShare.rows.length === 0) {
     throw new Error('SHARE_NOT_FOUND');
   }
@@ -351,9 +292,7 @@ export async function updateShare(
 
   if (input.expiresAt !== undefined) {
     updates.push(`expires_at = $${paramIndex}`);
-    const expiresAt = input.expiresAt
-      ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt)
-      : null;
+    const expiresAt = input.expiresAt ? (typeof input.expiresAt === 'string' ? new Date(input.expiresAt) : input.expiresAt) : null;
     params.push(expiresAt);
     paramIndex++;
   }
@@ -366,7 +305,7 @@ export async function updateShare(
         is_single_view, view_count, max_views, expires_at,
         created_by_email, created_at, last_accessed_at
       FROM note_share WHERE id = $1`,
-      [shareId]
+      [shareId],
     );
     return mapRowToShare(result.rows[0]);
   }
@@ -381,7 +320,7 @@ export async function updateShare(
        id::text, note_id::text, shared_with_email, share_link_token, permission,
        is_single_view, view_count, max_views, expires_at,
        created_by_email, created_at, last_accessed_at`,
-    params
+    params,
   );
 
   return mapRowToShare(result.rows[0]);
@@ -390,29 +329,18 @@ export async function updateShare(
 /**
  * Revokes a share
  */
-export async function revokeShare(
-  pool: Pool,
-  noteId: string,
-  shareId: string,
-  userEmail: string
-): Promise<boolean> {
+export async function revokeShare(pool: Pool, noteId: string, shareId: string, userEmail: string): Promise<boolean> {
   // Check ownership
   const isOwner = await userOwnsNote(pool, noteId, userEmail);
   if (!isOwner) {
-    const exists = await pool.query(
-      'SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL',
-      [noteId]
-    );
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
     if (exists.rows.length === 0) {
       throw new Error('NOTE_NOT_FOUND');
     }
     throw new Error('FORBIDDEN');
   }
 
-  const result = await pool.query(
-    'DELETE FROM note_share WHERE id = $1 AND note_id = $2 RETURNING id',
-    [shareId, noteId]
-  );
+  const result = await pool.query('DELETE FROM note_share WHERE id = $1 AND note_id = $2 RETURNING id', [shareId, noteId]);
 
   if (result.rows.length === 0) {
     throw new Error('SHARE_NOT_FOUND');
@@ -424,15 +352,9 @@ export async function revokeShare(
 /**
  * Accesses a note via share link token
  */
-export async function accessSharedNote(
-  pool: Pool,
-  token: string
-): Promise<SharedNoteAccess | null> {
+export async function accessSharedNote(pool: Pool, token: string): Promise<SharedNoteAccess | null> {
   // Use the database function to validate and consume
-  const validationResult = await pool.query(
-    'SELECT * FROM validate_share_link($1, true)',
-    [token]
-  );
+  const validationResult = await pool.query('SELECT * FROM validate_share_link($1, true)', [token]);
 
   const validation = validationResult.rows[0];
   if (!validation.is_valid) {
@@ -447,7 +369,7 @@ export async function accessSharedNote(
     `SELECT n.id::text, n.title, n.content, n.updated_at, n.user_email
      FROM note n
      WHERE n.id = $1 AND n.deleted_at IS NULL`,
-    [validation.note_id]
+    [validation.note_id],
   );
 
   if (noteResult.rows.length === 0) {
@@ -471,10 +393,7 @@ export async function accessSharedNote(
 /**
  * Lists notes shared with the current user
  */
-export async function listSharedWithMe(
-  pool: Pool,
-  userEmail: string
-): Promise<SharedWithMeEntry[]> {
+export async function listSharedWithMe(pool: Pool, userEmail: string): Promise<SharedWithMeEntry[]> {
   const result = await pool.query(
     `SELECT
       n.id::text, n.title, ns.created_by_email as shared_by_email,
@@ -484,7 +403,7 @@ export async function listSharedWithMe(
     WHERE ns.shared_with_email = $1
       AND (ns.expires_at IS NULL OR ns.expires_at > NOW())
     ORDER BY ns.created_at DESC`,
-    [userEmail]
+    [userEmail],
   );
 
   return result.rows.map((row) => ({
