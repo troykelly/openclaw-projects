@@ -51,6 +51,147 @@ describe('notebook tools', () => {
     vi.clearAllMocks()
   })
 
+  describe('undefined baseUrl handling', () => {
+    const noBaseUrlConfig: PluginConfig = {
+      ...mockConfig,
+      baseUrl: undefined,
+    }
+
+    it('notebook_list should omit url when baseUrl is undefined', async () => {
+      ;(mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          notebooks: [
+            {
+              id: '123e4567-e89b-12d3-a456-426614174000',
+              name: 'Work Notes',
+              description: 'Notes for work',
+              isArchived: false,
+              noteCount: 5,
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        },
+      })
+
+      const tool = createNotebookListTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({})
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.notebooks[0].url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+
+    it('notebook_create should omit url when baseUrl is undefined', async () => {
+      ;(mockApiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          name: 'New Notebook',
+          description: null,
+          createdAt: '2024-01-01T00:00:00Z',
+        },
+      })
+
+      const tool = createNotebookCreateTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({ name: 'New Notebook' })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+
+    it('notebook_get should omit url when baseUrl is undefined', async () => {
+      ;(mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          name: 'Work Notes',
+          description: null,
+          isArchived: false,
+          noteCount: 2,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      })
+
+      const tool = createNotebookGetTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({
+        notebookId: '123e4567-e89b-12d3-a456-426614174000',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+
+    it('notebook_get should omit url from notes when baseUrl is undefined', async () => {
+      ;(mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          name: 'Work Notes',
+          description: null,
+          isArchived: false,
+          noteCount: 1,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+          notes: [
+            { id: 'note-1', title: 'Note 1', visibility: 'private', updatedAt: '2024-01-01' },
+          ],
+        },
+      })
+
+      const tool = createNotebookGetTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({
+        notebookId: '123e4567-e89b-12d3-a456-426614174000',
+        includeNotes: true,
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.url).toBeUndefined()
+        expect(result.data.notes).toBeDefined()
+        expect(result.data.notes?.[0].url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+  })
+
   describe('notebook_list tool', () => {
     describe('tool metadata', () => {
       it('should have correct name', () => {

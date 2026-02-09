@@ -84,7 +84,7 @@ export interface NotebookListSuccess {
       description: string | null
       isArchived: boolean
       noteCount: number
-      url: string
+      url?: string
     }>
     total: number
     limit: number
@@ -178,7 +178,7 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
               description: nb.description,
               isArchived: nb.isArchived,
               noteCount: nb.noteCount ?? 0,
-              url: `${config.baseUrl}/notebooks/${nb.id}`,
+              ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${nb.id}` } : {}),
             })),
             total: result.total,
             limit: result.limit,
@@ -219,7 +219,7 @@ export interface NotebookCreateSuccess {
     name: string
     description: string | null
     createdAt: string
-    url: string
+    url?: string
   }
 }
 
@@ -304,7 +304,7 @@ export function createNotebookCreateTool(options: NotebookToolOptions): Notebook
             name: notebook.name,
             description: notebook.description,
             createdAt: notebook.createdAt,
-            url: `${config.baseUrl}/notebooks/${notebook.id}`,
+            ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${notebook.id}` } : {}),
           },
         }
       } catch (error) {
@@ -348,12 +348,12 @@ export interface NotebookGetSuccess {
     noteCount: number
     createdAt: string
     updatedAt: string
-    url: string
+    url?: string
     notes?: Array<{
       id: string
       title: string
       visibility: string
-      url: string
+      url?: string
     }>
   }
 }
@@ -441,7 +441,7 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
             noteCount: notebook.noteCount ?? 0,
             createdAt: notebook.createdAt,
             updatedAt: notebook.updatedAt,
-            url: `${config.baseUrl}/notebooks/${notebook.id}`,
+            ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${notebook.id}` } : {}),
           },
         }
 
@@ -450,7 +450,7 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
             id: n.id,
             title: n.title,
             visibility: n.visibility,
-            url: `${config.baseUrl}/notes/${n.id}`,
+            ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${n.id}` } : {}),
           }))
         }
 
