@@ -58,6 +58,10 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.vendor="Troy Kelly" \
       org.opencontainers.image.licenses="MIT"
 
+# Install curl for healthcheck (Issue #958)
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy production dependencies from deps stage
