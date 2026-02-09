@@ -264,16 +264,23 @@ install_openclaw_gateway() {
 
   local auth_url="https://x-access-token:${GITHUB_TOKEN}@github.com/openclaw/openclaw.git"
 
+  # Check if gateway already cloned - handle TOCTOU defensively
   if [[ -f "$gateway_dir/package.json" ]]; then
     log "OpenClaw gateway source already present at $gateway_dir"
     if [[ ! -d "$gateway_dir/node_modules" ]]; then
       log "Installing OpenClaw gateway dependencies..."
-      (cd "$gateway_dir" && pnpm install --frozen-lockfile 2>/dev/null || pnpm install) || {
-        log "WARN: Failed to install OpenClaw gateway dependencies"
-        return 1
-      }
+      # TOCTOU mitigation: cd might fail if directory disappears, so check exit code
+      if (cd "$gateway_dir" 2>/dev/null && pnpm install --frozen-lockfile 2>/dev/null || pnpm install); then
+        return 0
+      else
+        log "WARN: Failed to install OpenClaw gateway dependencies (directory may have been modified)"
+        log "WARN: Will attempt fresh clone"
+        rm -rf "$gateway_dir"
+        # Fall through to clone below
+      fi
+    else
+      return 0
     fi
-    return 0
   fi
 
   mkdir -p "$(dirname "$gateway_dir")"
