@@ -112,7 +112,7 @@ export interface NoteCreateSuccess {
     notebookId: string | null
     visibility: string
     createdAt: string
-    url: string
+    url?: string
   }
 }
 
@@ -210,7 +210,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
             notebookId: note.notebookId,
             visibility: note.visibility,
             createdAt: note.createdAt,
-            url: `${config.baseUrl}/notes/${note.id}`,
+            ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
           },
         }
       } catch (error) {
@@ -250,7 +250,7 @@ export interface NoteGetSuccess {
     isPinned: boolean
     createdAt: string
     updatedAt: string
-    url: string
+    url?: string
     versionCount?: number
   }
 }
@@ -342,7 +342,7 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
             isPinned: note.isPinned,
             createdAt: note.createdAt,
             updatedAt: note.updatedAt,
-            url: `${config.baseUrl}/notes/${note.id}`,
+            ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
             versionCount: (note as Note & { versionCount?: number }).versionCount,
           },
         }
@@ -384,7 +384,7 @@ export interface NoteUpdateSuccess {
     title: string
     visibility: string
     updatedAt: string
-    url: string
+    url?: string
     changes: string[]
   }
 }
@@ -518,7 +518,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
             title: note.title,
             visibility: note.visibility,
             updatedAt: note.updatedAt,
-            url: `${config.baseUrl}/notes/${note.id}`,
+            ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
             changes,
           },
         }
@@ -682,7 +682,7 @@ export interface NoteSearchSuccess {
       score: number
       tags: string[]
       visibility: string
-      url: string
+      url?: string
     }>
     total: number
     limit: number
@@ -786,7 +786,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
               score: r.score,
               tags: r.tags,
               visibility: r.visibility,
-              url: `${config.baseUrl}/notes/${r.id}`,
+              ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${r.id}` } : {}),
             })),
             total: searchResult.total,
             limit: searchResult.limit,

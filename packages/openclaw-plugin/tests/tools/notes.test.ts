@@ -489,6 +489,149 @@ describe('note tools', () => {
     })
   })
 
+  describe('undefined baseUrl handling', () => {
+    const noBaseUrlConfig: PluginConfig = {
+      ...mockConfig,
+      baseUrl: undefined,
+    }
+
+    it('note_create should omit url when baseUrl is undefined', async () => {
+      ;(mockApiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          title: 'Test Note',
+          content: 'Test content',
+          notebookId: null,
+          visibility: 'private',
+          createdAt: '2024-01-01T00:00:00Z',
+        },
+      })
+
+      const tool = createNoteCreateTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({
+        title: 'Test Note',
+        content: 'Test content',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+
+    it('note_get should omit url when baseUrl is undefined', async () => {
+      ;(mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          title: 'Test Note',
+          content: 'Test content',
+          notebookId: null,
+          tags: [],
+          visibility: 'private',
+          summary: null,
+          isPinned: false,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      })
+
+      const tool = createNoteGetTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({
+        noteId: '123e4567-e89b-12d3-a456-426614174000',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+
+    it('note_update should omit url when baseUrl is undefined', async () => {
+      ;(mockApiClient.put as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          title: 'Updated Title',
+          visibility: 'private',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      })
+
+      const tool = createNoteUpdateTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({
+        noteId: '123e4567-e89b-12d3-a456-426614174000',
+        title: 'Updated Title',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+
+    it('note_search should omit url from results when baseUrl is undefined', async () => {
+      ;(mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: true,
+        data: {
+          query: 'test',
+          searchType: 'hybrid',
+          results: [
+            {
+              id: '123e4567-e89b-12d3-a456-426614174000',
+              title: 'Test Note',
+              snippet: 'Test content...',
+              score: 0.95,
+              tags: ['test'],
+              visibility: 'private',
+              updatedAt: '2024-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        },
+      })
+
+      const tool = createNoteSearchTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: noBaseUrlConfig,
+        userId: 'user@example.com',
+      })
+
+      const result = await tool.execute({ query: 'test' })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.results[0].url).toBeUndefined()
+        expect(JSON.stringify(result.data)).not.toContain('undefined')
+      }
+    })
+  })
+
   describe('note_search tool', () => {
     describe('tool metadata', () => {
       it('should have correct name', () => {
