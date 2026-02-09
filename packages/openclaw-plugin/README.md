@@ -4,6 +4,103 @@ An [OpenClaw](https://docs.openclaw.ai/) plugin that connects agents to the open
 
 > **Note:** This is a third-party plugin — not part of OpenClaw itself. It provides OpenClaw agents with tools to interact with the [openclaw-projects](https://github.com/troykelly/openclaw-projects) backend service.
 
+## Quickstart
+
+Get from zero to a working plugin in under 5 minutes.
+
+### 1. Deploy the backend
+
+Clone the repository and run the setup wizard:
+
+```bash
+git clone https://github.com/troykelly/openclaw-projects.git
+cd openclaw-projects
+./scripts/setup.sh
+```
+
+The setup script generates a `.env` file with random secrets and sensible defaults. For CI or unattended setup, use `./scripts/setup.sh --non-interactive`.
+
+### 2. Start services
+
+```bash
+docker compose -f docker-compose.quickstart.yml up -d
+```
+
+Wait for all services to become healthy (this may take 30-60 seconds on first run):
+
+```bash
+docker compose -f docker-compose.quickstart.yml ps
+```
+
+Expected output:
+
+```
+NAME                  STATUS
+openclaw-qs-db        running (healthy)
+openclaw-qs-seaweedfs running (healthy)
+openclaw-qs-migrate   exited (0)
+openclaw-qs-api       running (healthy)
+```
+
+### 3. Verify the API is running
+
+```bash
+curl http://localhost:3000/health
+```
+
+Expected output:
+
+```json
+{"status":"ok"}
+```
+
+### 4. Install the plugin
+
+```bash
+openclaw plugins install @troykelly/openclaw-projects
+```
+
+### 5. Configure the plugin
+
+Add to your OpenClaw config (`~/.openclaw/config.yaml`):
+
+```yaml
+plugins:
+  entries:
+    openclaw-projects:
+      enabled: true
+      config:
+        apiUrl: http://localhost:3000
+        apiKey: <AUTH_SECRET from your .env file>
+```
+
+Copy the `OPENCLAW_PROJECTS_AUTH_SECRET` value from the `.env` file generated in step 1.
+
+### 6. Verify the connection
+
+```bash
+openclaw openclaw-projects status
+```
+
+Expected output when healthy:
+
+```
+openclaw-projects status:
+  API URL:    http://localhost:3000
+  Status:     healthy
+  Auth:       valid
+  Latency:    12ms
+```
+
+If the status shows unhealthy, see [Troubleshooting](#troubleshooting) below.
+
+### Next steps
+
+- See [Configuration](#configuration) for optional settings (embedding providers, SMS, email)
+- See [Tools](#tools) for the 27 available agent tools
+- For production deployment, use `docker-compose.yml` (basic) or `docker-compose.traefik.yml` (with TLS)
+- For the full deployment guide, see [docs/installation.md](docs/installation.md)
+
 ## Features
 
 - **Memory Management**: Store, recall, and forget memories with semantic search (pgvector)
