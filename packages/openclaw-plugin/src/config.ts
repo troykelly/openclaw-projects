@@ -144,6 +144,7 @@ export const RawPluginConfigSchema = z
     /** Base URL for web app (used for generating note/notebook URLs) */
     baseUrl: z.string().url().optional().describe('Web app base URL'),
   })
+  .strict()
   .refine(
     (data) => data.apiKey || data.apiKeyFile || data.apiKeyCommand,
     {
