@@ -40,13 +40,10 @@ describe('Config Schema', () => {
       }
     })
 
-    it('should require apiKey', () => {
+    it('should accept config without apiKey (for auth-disabled backends)', () => {
       const config = { apiUrl: 'https://example.com' }
       const result = safeValidateConfig(config)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.errors.some((e) => e.path.includes('apiKey'))).toBe(true)
-      }
+      expect(result.success).toBe(true)
     })
 
     it('should accept valid minimal config', () => {
@@ -423,16 +420,11 @@ describe('Config Schema', () => {
         expect(result.success).toBe(true)
       })
 
-      it('should require at least one apiKey variant', () => {
+      it('should accept config without any apiKey variant (for auth-disabled backends)', () => {
         const result = safeValidateConfig({
           apiUrl: 'https://example.com',
         })
-        expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(
-            result.errors.some((e) => e.message.includes('apiKey'))
-          ).toBe(true)
-        }
+        expect(result.success).toBe(true)
       })
     })
 
@@ -717,7 +709,7 @@ describe('Config Schema', () => {
       expect(resolved.postmarkFromEmail).toBe('noreply@example.com')
     })
 
-    it('should throw when apiKey cannot be resolved', async () => {
+    it('should resolve to undefined apiKey when none provided', async () => {
       const rawConfig: RawPluginConfig = {
         apiUrl: 'https://example.com',
         apiKey: '   ', // empty after trim
@@ -732,9 +724,8 @@ describe('Config Schema', () => {
         debug: false,
       }
 
-      await expect(resolveConfigSecrets(rawConfig)).rejects.toThrow(
-        /Failed to resolve API key/
-      )
+      const resolved = await resolveConfigSecrets(rawConfig)
+      expect(resolved.apiKey).toBeUndefined()
     })
 
     it('should use configured command timeout', async () => {
@@ -925,7 +916,7 @@ describe('Config Schema', () => {
       expect(resolved.postmarkFromEmail).toBe('noreply@example.com')
     })
 
-    it('should throw when apiKey resolves to empty string', () => {
+    it('should resolve to undefined apiKey when value is empty string', () => {
       const rawConfig: RawPluginConfig = {
         apiUrl: 'https://example.com',
         apiKey: '   ', // empty after trim
@@ -940,12 +931,11 @@ describe('Config Schema', () => {
         debug: false,
       }
 
-      expect(() => resolveConfigSecretsSync(rawConfig)).toThrow(
-        /Failed to resolve API key/
-      )
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiKey).toBeUndefined()
     })
 
-    it('should throw when apiKey resolves to whitespace only', () => {
+    it('should resolve to undefined apiKey when file contains only whitespace', () => {
 
       vi.mocked(fs.readFileSync).mockReturnValue('   \n')
       vi.mocked(fs.statSync).mockReturnValue({ mode: 0o600 } as fs.Stats)
@@ -964,9 +954,8 @@ describe('Config Schema', () => {
         debug: false,
       }
 
-      expect(() => resolveConfigSecretsSync(rawConfig)).toThrow(
-        /Failed to resolve API key/
-      )
+      const resolved = resolveConfigSecretsSync(rawConfig)
+      expect(resolved.apiKey).toBeUndefined()
     })
 
     it('should propagate execSync timeout errors', () => {

@@ -148,12 +148,7 @@
       }
     },
     "additionalProperties": false,
-    "required": ["apiUrl"],
-    "anyOf": [
-      { "required": ["apiKey"] },
-      { "required": ["apiKeyFile"] },
-      { "required": ["apiKeyCommand"] }
-    ]
+    "required": ["apiUrl"]
   },
   "uiHints": {
     "apiUrl": {

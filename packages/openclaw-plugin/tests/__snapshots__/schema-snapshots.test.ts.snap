@@ -45,23 +45,6 @@ exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`
 exports[`Schema Snapshots > Manifest configSchema > configSchema should match snapshot 1`] = `
 {
   "additionalProperties": false,
-  "anyOf": [
-    {
-      "required": [
-        "apiKey",
-      ],
-    },
-    {
-      "required": [
-        "apiKeyFile",
-      ],
-    },
-    {
-      "required": [
-        "apiKeyCommand",
-      ],
-    },
-  ],
   "properties": {
     "apiKey": {
       "description": "API authentication key (direct value, least secure)",

@@ -145,13 +145,6 @@ export const RawPluginConfigSchema = z
     baseUrl: z.string().url().optional().describe('Web app base URL'),
   })
   .strict()
-  .refine(
-    (data) => data.apiKey || data.apiKeyFile || data.apiKeyCommand,
-    {
-      message: 'At least one of apiKey, apiKeyFile, or apiKeyCommand is required',
-      path: ['apiKey'],
-    }
-  )
 
 export type RawPluginConfig = z.infer<typeof RawPluginConfigSchema>
 
@@ -163,8 +156,8 @@ export const PluginConfigSchema = z.object({
   /** Backend API URL */
   apiUrl: z.string().url(),
 
-  /** Resolved API authentication key */
-  apiKey: z.string().min(1),
+  /** Resolved API authentication key (optional for auth-disabled backends) */
+  apiKey: z.string().min(1).optional(),
 
   /** Resolved Twilio Account SID */
   twilioAccountSid: z.string().optional(),
@@ -311,14 +304,9 @@ function buildSecretConfig(
 export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<PluginConfig> {
   const timeout = rawConfig.secretCommandTimeout
 
-  // Resolve API key (required)
-  const apiKey = await resolveSecret(
-    buildSecretConfig(rawConfig, 'apiKey', timeout),
-    'apiKey'
-  )
-  if (!apiKey) {
-    throw new Error('Failed to resolve API key from config')
-  }
+  // Resolve API key (optional — omitted for auth-disabled backends)
+  const apiKey =
+    (await resolveSecret(buildSecretConfig(rawConfig, 'apiKey', timeout), 'apiKey')) || undefined
 
   // Resolve optional secrets in parallel
   const [twilioAccountSid, twilioAuthToken, twilioPhoneNumber, postmarkToken, postmarkFromEmail] =
@@ -369,14 +357,9 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
 export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConfig {
   const timeout = rawConfig.secretCommandTimeout
 
-  // Resolve API key (required)
-  const apiKey = resolveSecretSync(
-    buildSecretConfig(rawConfig, 'apiKey', timeout),
-    'apiKey'
-  )
-  if (!apiKey) {
-    throw new Error('Failed to resolve API key from config')
-  }
+  // Resolve API key (optional — omitted for auth-disabled backends)
+  const apiKey =
+    resolveSecretSync(buildSecretConfig(rawConfig, 'apiKey', timeout), 'apiKey') || undefined
 
   // Resolve optional secrets
   const twilioAccountSid = resolveSecretSync(
