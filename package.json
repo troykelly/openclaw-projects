@@ -11,6 +11,7 @@
     "test:e2e": "RUN_E2E=true vitest run packages/openclaw-plugin/tests/e2e",
     "test:gateway": "vitest run packages/openclaw-plugin/tests/gateway",
     "test:playwright": "pnpm run css:build && pnpm run app:build && playwright test",
+    "test:full": "bash scripts/test-full.sh",
     "test:e2e:setup": "./scripts/check-e2e-ports.sh && docker compose -f docker-compose.test.yml up -d && ./scripts/wait-for-services.sh",
     "test:e2e:teardown": "docker compose -f docker-compose.test.yml down -v",
     "db:up": "docker compose -f .devcontainer/docker-compose.devcontainer.yml up -d postgres seaweedfs",
