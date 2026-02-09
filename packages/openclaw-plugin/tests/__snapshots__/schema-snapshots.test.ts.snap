@@ -212,60 +212,60 @@ exports[`Schema Snapshots > Manifest configSchema > full manifest structure (exc
 exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should match snapshot 1`] = `
 {
   "apiKey": {
-    "helpText": "Direct API key value (least secure, for development)",
+    "help": "Direct API key value (least secure, for development)",
     "label": "API Key",
     "placeholder": "sk-...",
     "sensitive": true,
   },
   "apiKeyCommand": {
-    "helpText": "Command to retrieve API key (e.g., 1Password CLI)",
+    "help": "Command to retrieve API key (e.g., 1Password CLI)",
     "label": "API Key Command",
     "placeholder": "op read op://Personal/openclaw/api_key",
   },
   "apiKeyFile": {
-    "helpText": "Path to a file containing your API key",
+    "help": "Path to a file containing your API key",
     "label": "API Key File",
     "placeholder": "~/.secrets/openclaw-api-key",
   },
   "apiUrl": {
-    "helpText": "The URL of your OpenClaw Projects backend API",
+    "help": "The URL of your OpenClaw Projects backend API",
     "label": "Backend URL",
     "placeholder": "https://api.openclaw-projects.example.com",
   },
   "autoCapture": {
     "group": "Memory",
-    "helpText": "Automatically store important information as memories",
+    "help": "Automatically store important information as memories",
     "label": "Auto-Capture",
   },
   "autoRecall": {
     "group": "Memory",
-    "helpText": "Automatically inject relevant memories at conversation start",
+    "help": "Automatically inject relevant memories at conversation start",
     "label": "Auto-Recall",
   },
   "baseUrl": {
     "group": "Advanced",
-    "helpText": "Base URL for the web app (used for generating links)",
+    "help": "Base URL for the web app (used for generating links)",
     "label": "Web App URL",
     "placeholder": "https://app.example.com",
   },
   "debug": {
     "group": "Advanced",
-    "helpText": "Enable debug logging (never logs secrets)",
+    "help": "Enable debug logging (never logs secrets)",
     "label": "Debug Mode",
   },
   "maxRecallMemories": {
     "group": "Memory",
-    "helpText": "Maximum number of memories to inject during auto-recall",
+    "help": "Maximum number of memories to inject during auto-recall",
     "label": "Max Recall Memories",
   },
   "maxRetries": {
     "group": "Advanced",
-    "helpText": "Maximum number of retries for failed requests",
+    "help": "Maximum number of retries for failed requests",
     "label": "Max Retries",
   },
   "minRecallScore": {
     "group": "Memory",
-    "helpText": "Minimum relevance score (0-1) for auto-recall",
+    "help": "Minimum relevance score (0-1) for auto-recall",
     "label": "Min Recall Score",
   },
   "postmarkFromEmail": {
@@ -296,12 +296,12 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
   },
   "secretCommandTimeout": {
     "group": "Advanced",
-    "helpText": "Timeout in milliseconds for secret retrieval commands",
+    "help": "Timeout in milliseconds for secret retrieval commands",
     "label": "Secret Command Timeout",
   },
   "timeout": {
     "group": "Advanced",
-    "helpText": "Timeout in milliseconds for API requests",
+    "help": "Timeout in milliseconds for API requests",
     "label": "Request Timeout",
   },
   "twilioAccountSid": {
@@ -346,7 +346,7 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
   },
   "userScoping": {
     "group": "Memory",
-    "helpText": "How to isolate memories between users",
+    "help": "How to isolate memories between users",
     "label": "User Scoping",
   },
 }
