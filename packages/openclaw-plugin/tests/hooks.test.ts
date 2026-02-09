@@ -8,8 +8,6 @@ import {
   createAutoRecallHook,
   createAutoCaptureHook,
   createHealthCheck,
-  AutoRecallHookOptions,
-  AutoCaptureHookOptions,
 } from '../src/hooks.js'
 import type { ApiClient } from '../src/api-client.js'
 import type { Logger } from '../src/logger.js'

@@ -63,7 +63,7 @@ function generateRequestId(): string {
  */
 function calculateRetryDelay(attempt: number, baseDelay = 1000, maxDelay = 10000): number {
   // Exponential backoff: 1s, 2s, 4s, 8s...
-  const exponentialDelay = baseDelay * Math.pow(2, attempt)
+  const exponentialDelay = baseDelay * 2 ** attempt
   // Add jitter (±25%) to prevent thundering herd
   const jitter = exponentialDelay * (0.75 + Math.random() * 0.5)
   return Math.min(jitter, maxDelay)
@@ -163,7 +163,6 @@ export class ApiClient {
 
         // Network errors are retryable
         if (attempt < this.maxRetries) {
-          continue
         }
       }
     }

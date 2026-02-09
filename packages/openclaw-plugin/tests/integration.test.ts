@@ -3,7 +3,7 @@
  * Tests full plugin lifecycle and multi-user scenarios.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, } from 'vitest'
 import { register, type RegistrationContext } from '../src/index.js'
 import type { Logger } from '../src/logger.js'
 
@@ -222,7 +222,7 @@ describe('Integration Tests', () => {
           logger: mockLogger,
         }
 
-        const instance = register(ctx)
+        const _instance = register(ctx)
 
         // The plugin should register and log with some userId
         expect(mockLogger.info).toHaveBeenCalledWith(
@@ -246,7 +246,7 @@ describe('Integration Tests', () => {
           logger: mockLogger,
         }
 
-        const instance = register(ctx)
+        const _instance = register(ctx)
 
         // With session scoping, userId should include session info
         expect(mockLogger.info).toHaveBeenCalledWith(
@@ -270,7 +270,7 @@ describe('Integration Tests', () => {
           logger: mockLogger,
         }
 
-        const instance = register(ctx)
+        const _instance = register(ctx)
 
         expect(mockLogger.info).toHaveBeenCalledWith(
           'Plugin registered',

@@ -152,12 +152,12 @@ export async function resolveSecret(
   let resolved: string | undefined
 
   // Priority 1: Command
-  if (config.command && config.command.trim()) {
+  if (config.command?.trim()) {
     const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT
     resolved = resolveFromCommand(config.command, timeout)
   }
   // Priority 2: File
-  else if (config.file && config.file.trim()) {
+  else if (config.file?.trim()) {
     resolved = resolveFromFile(config.file)
   }
   // Priority 3: Direct
@@ -197,12 +197,12 @@ export function resolveSecretSync(
   let resolved: string | undefined
 
   // Priority 1: Command
-  if (config.command && config.command.trim()) {
+  if (config.command?.trim()) {
     const timeout = config.commandTimeout ?? DEFAULT_COMMAND_TIMEOUT
     resolved = resolveFromCommand(config.command, timeout)
   }
   // Priority 2: File
-  else if (config.file && config.file.trim()) {
+  else if (config.file?.trim()) {
     resolved = resolveFromFile(config.file)
   }
   // Priority 3: Direct

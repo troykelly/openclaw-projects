@@ -12,7 +12,6 @@ import {
   createExportCommand,
   createCliCommands,
   type CliContext,
-  type CommandResult,
 } from '../src/cli.js'
 import type { ApiClient } from '../src/api-client.js'
 import type { Logger } from '../src/logger.js'

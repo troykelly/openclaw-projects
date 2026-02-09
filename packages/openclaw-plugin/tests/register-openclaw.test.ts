@@ -9,7 +9,6 @@ import type {
   PluginHookAgentContext,
   PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
-  AgentToolResult,
 } from '../src/types/openclaw-api.js'
 
 // Mock fs and child_process for secret resolution
@@ -190,7 +189,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         expect(hook).toBeDefined()
 
@@ -234,7 +233,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         const result = await hook(
           { prompt: 'Tell me about my preferences' },
@@ -270,7 +269,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         await hook(
           { prompt: 'What are my food preferences?' },
@@ -302,7 +301,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         // The hook has a 5s internal timeout. The slow fetch will trigger it.
         const result = await hook(
@@ -327,7 +326,7 @@ describe('OpenClaw 2026 API Registration', () => {
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         // Should not throw even when network fails
         const result = await hook(

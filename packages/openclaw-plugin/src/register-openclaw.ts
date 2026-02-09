@@ -25,34 +25,7 @@ import { validateRawConfig, resolveConfigSecretsSync, redactConfig, type PluginC
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
 import { extractContext, getUserScopeKey } from './context.js'
-import { zodToJsonSchema } from './utils/zod-to-json-schema.js'
 import {
-  MemoryRecallParamsSchema,
-  MemoryStoreParamsSchema,
-  MemoryForgetParamsSchema,
-  ProjectListParamsSchema,
-  ProjectGetParamsSchema,
-  ProjectCreateParamsSchema,
-  TodoListParamsSchema,
-  TodoCreateParamsSchema,
-  TodoCompleteParamsSchema,
-  ContactSearchParamsSchema,
-  ContactGetParamsSchema,
-  ContactCreateParamsSchema,
-  SmsSendParamsSchema,
-  EmailSendParamsSchema,
-  MessageSearchParamsSchema,
-  ThreadListParamsSchema,
-  ThreadGetParamsSchema,
-  RelationshipSetParamsSchema,
-  RelationshipQueryParamsSchema,
-  SkillStorePutParamsSchema,
-  SkillStoreGetParamsSchema,
-  SkillStoreListParamsSchema,
-  SkillStoreDeleteParamsSchema,
-  SkillStoreSearchParamsSchema,
-  SkillStoreCollectionsParamsSchema,
-  SkillStoreAggregateParamsSchema,
   createSkillStorePutTool,
   createSkillStoreGetTool,
   createSkillStoreListTool,
@@ -60,18 +33,12 @@ import {
   createSkillStoreSearchTool,
   createSkillStoreCollectionsTool,
   createSkillStoreAggregateTool,
-  MemoryCategory,
-  ProjectStatus,
 } from './tools/index.js'
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js'
 import { createNotificationService } from './services/notification-service.js'
 import {
-  createAutoRecallHook,
   createAutoCaptureHook,
   createGraphAwareRecallHook,
-  type AutoRecallHookOptions,
-  type AutoCaptureHookOptions,
-  type GraphAwareRecallHookOptions,
 } from './hooks.js'
 
 /** Plugin state stored during registration */
@@ -2526,7 +2493,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     const beforeAgentStartHandler = async (
       event: PluginHookBeforeAgentStartEvent,
       _ctx: PluginHookAgentContext
-    ): Promise<PluginHookBeforeAgentStartResult | void> => {
+    ): Promise<PluginHookBeforeAgentStartResult | undefined> => {
       logger.debug('Auto-recall hook triggered', {
         promptLength: event.prompt?.length ?? 0,
       })
@@ -2536,7 +2503,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         // uses the user's actual prompt for semantic search
         const result = await autoRecallHook({ prompt: event.prompt })
 
-        if (result && result.prependContext) {
+        if (result?.prependContext) {
           return { prependContext: result.prependContext }
         }
       } catch (error) {

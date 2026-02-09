@@ -251,6 +251,4 @@ export {
 } from './skill-store.js'
 
 /** Tool factory types */
-export interface ToolFactoryOptions {
-  // Common options for tool factories
-}
+export type ToolFactoryOptions = Record<string, never>

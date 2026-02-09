@@ -8,7 +8,6 @@ import {
   createNotebookListTool,
   createNotebookCreateTool,
   createNotebookGetTool,
-  type NotebookListParams,
   type NotebookCreateParams,
   type NotebookGetParams,
 } from '../../src/tools/notebooks.js'

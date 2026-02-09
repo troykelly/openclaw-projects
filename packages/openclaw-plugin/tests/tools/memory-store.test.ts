@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createMemoryStoreTool, MemoryStoreParams } from '../../src/tools/memory-store.js'
+import { createMemoryStoreTool, type MemoryStoreParams } from '../../src/tools/memory-store.js'
 import type { ApiClient } from '../../src/api-client.js'
 import type { Logger } from '../../src/logger.js'
 import type { PluginConfig } from '../../src/config.js'

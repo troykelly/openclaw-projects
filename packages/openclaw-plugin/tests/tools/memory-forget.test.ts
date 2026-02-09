@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createMemoryForgetTool, MemoryForgetParams } from '../../src/tools/memory-forget.js'
+import { createMemoryForgetTool, type MemoryForgetParams } from '../../src/tools/memory-forget.js'
 import type { ApiClient } from '../../src/api-client.js'
 import type { Logger } from '../../src/logger.js'
 import type { PluginConfig } from '../../src/config.js'

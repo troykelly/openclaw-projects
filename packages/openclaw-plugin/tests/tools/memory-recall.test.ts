@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createMemoryRecallTool, MemoryRecallParams } from '../../src/tools/memory-recall.js'
-import type { ApiClient, ApiResponse } from '../../src/api-client.js'
+import { createMemoryRecallTool, type MemoryRecallParams } from '../../src/tools/memory-recall.js'
+import type { ApiClient, } from '../../src/api-client.js'
 import type { Logger } from '../../src/logger.js'
 import type { PluginConfig } from '../../src/config.js'
 
