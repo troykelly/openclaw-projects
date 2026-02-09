@@ -7,11 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   createGatewayMethods,
   type SubscribeParams,
-  type SubscribeResult,
-  type UnsubscribeParams,
-  type UnsubscribeResult,
   type GetNotificationsParams,
-  type GetNotificationsResult,
   type NotificationEvent,
 } from '../src/gateway/rpc-methods.js'
 import type { ApiClient } from '../src/api-client.js'

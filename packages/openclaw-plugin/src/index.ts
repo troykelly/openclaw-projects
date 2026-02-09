@@ -34,14 +34,13 @@ export type {
   ServiceDefinition,
 } from './types/openclaw-api.js'
 
-import type { PluginConfig, RawPluginConfig } from './config.js'
+import type { PluginConfig, } from './config.js'
 import {
   validateConfig,
   validateRawConfig,
   resolveConfigSecrets,
   redactConfig,
 } from './config.js'
-import { clearSecretCache } from './secrets.js'
 import { createLogger, type Logger } from './logger.js'
 import { createApiClient, type ApiClient } from './api-client.js'
 import { extractContext, getUserScopeKey, type PluginContext } from './context.js'
@@ -57,8 +56,6 @@ import {
 import {
   createCliCommands,
   type CliCommands,
-  type CliContext,
-  type CommandResult,
 } from './cli.js'
 import {
   createMemoryRecallTool,

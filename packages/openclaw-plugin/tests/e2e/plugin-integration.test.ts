@@ -8,12 +8,10 @@
  * Run with: npm run test:e2e
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, } from 'vitest'
 import {
-  defaultConfig,
   createE2EContext,
   areE2EServicesAvailable,
-  waitForService,
   testData,
   type E2ETestContext,
 } from './setup.js'

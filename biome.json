@@ -30,7 +30,7 @@
       "suspicious": {
         "noExplicitAny": "warn",
         "noArrayIndexKey": "warn",
-        "noControlCharactersInRegex": "warn",
+        "noControlCharactersInRegex": "off",
         "noGlobalIsNan": "warn",
         "noImplicitAnyLet": "warn",
         "noConfusingVoidType": "warn",
@@ -100,5 +100,26 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/tests/**", "**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "complexity": {
+            "noBannedTypes": "off"
+          },
+          "correctness": {
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ]
 }

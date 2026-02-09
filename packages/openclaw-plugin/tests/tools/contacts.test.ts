@@ -8,9 +8,9 @@ import {
   createContactSearchTool,
   createContactGetTool,
   createContactCreateTool,
-  ContactSearchParams,
-  ContactGetParams,
-  ContactCreateParams,
+  type ContactSearchParams,
+  type ContactGetParams,
+  type ContactCreateParams,
 } from '../../src/tools/contacts.js'
 import type { ApiClient } from '../../src/api-client.js'
 import type { Logger } from '../../src/logger.js'

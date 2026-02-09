@@ -8,9 +8,9 @@ import {
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
-  ProjectListParams,
-  ProjectGetParams,
-  ProjectCreateParams,
+  type ProjectListParams,
+  type ProjectGetParams,
+  type ProjectCreateParams,
 } from '../../src/tools/projects.js'
 import type { ApiClient } from '../../src/api-client.js'
 import type { Logger } from '../../src/logger.js'

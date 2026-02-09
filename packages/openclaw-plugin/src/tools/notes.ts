@@ -81,7 +81,7 @@ function truncateForPreview(text: string, maxLength = 100): string {
   if (text.length <= maxLength) {
     return text
   }
-  return text.substring(0, maxLength) + '...'
+  return `${text.substring(0, maxLength)}...`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

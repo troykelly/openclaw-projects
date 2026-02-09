@@ -8,9 +8,8 @@ import {
   createTodoListTool,
   createTodoCreateTool,
   createTodoCompleteTool,
-  TodoListParams,
-  TodoCreateParams,
-  TodoCompleteParams,
+  type TodoCreateParams,
+  type TodoCompleteParams,
 } from '../../src/tools/todos.js'
 import type { ApiClient } from '../../src/api-client.js'
 import type { Logger } from '../../src/logger.js'

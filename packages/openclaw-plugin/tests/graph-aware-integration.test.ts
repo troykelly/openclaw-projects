@@ -6,18 +6,16 @@
  * Part of Epic #486, Issue #497.
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, } from 'vitest'
 import { registerOpenClaw, schemas } from '../src/register-openclaw.js'
 import type {
   OpenClawPluginAPI,
-  ToolDefinition,
   PluginHookBeforeAgentStartEvent,
   PluginHookAgentContext,
   PluginHookBeforeAgentStartResult,
 } from '../src/types/openclaw-api.js'
 import {
   createGraphAwareRecallHook,
-  type GraphAwareRecallHookOptions,
 } from '../src/hooks.js'
 import type { ApiClient } from '../src/api-client.js'
 import type { Logger } from '../src/logger.js'
@@ -259,7 +257,7 @@ describe('Graph-Aware Integration', () => {
       }) as unknown as typeof fetch
 
       try {
-        let registeredOnHooks = new Map<string, Function>()
+        const registeredOnHooks = new Map<string, Function>()
 
         const mockApi: OpenClawPluginAPI = {
           config: {
@@ -292,7 +290,7 @@ describe('Graph-Aware Integration', () => {
         const beforeAgentStartHook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         expect(beforeAgentStartHook).toBeDefined()
 
@@ -383,7 +381,7 @@ describe('Graph-Aware Integration', () => {
       }) as unknown as typeof fetch
 
       try {
-        let registeredOnHooks = new Map<string, Function>()
+        const registeredOnHooks = new Map<string, Function>()
 
         const mockApi: OpenClawPluginAPI = {
           config: {
@@ -416,7 +414,7 @@ describe('Graph-Aware Integration', () => {
         const hook = registeredOnHooks.get('before_agent_start') as (
           event: PluginHookBeforeAgentStartEvent,
           ctx: PluginHookAgentContext
-        ) => Promise<PluginHookBeforeAgentStartResult | void>
+        ) => Promise<PluginHookBeforeAgentStartResult | undefined>
 
         const result = await hook(
           { prompt: 'When is my anniversary and what food should I get?' },

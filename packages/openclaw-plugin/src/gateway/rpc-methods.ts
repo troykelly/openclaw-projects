@@ -40,10 +40,8 @@ export interface SubscribeResult {
   subscribed: NotificationEvent[]
 }
 
-/** Unsubscribe method parameters */
-export interface UnsubscribeParams {
-  /** Empty - unsubscribes from all events */
-}
+/** Unsubscribe method parameters — empty: unsubscribes from all events */
+export type UnsubscribeParams = Record<string, never>
 
 /** Unsubscribe method result */
 export interface UnsubscribeResult {

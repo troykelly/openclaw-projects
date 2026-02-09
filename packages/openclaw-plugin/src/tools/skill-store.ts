@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod'
-import type { ApiClient } from '../api-client.js'
+import type { ApiClient, ApiResponse } from '../api-client.js'
 import type { Logger } from '../logger.js'
 import type { PluginConfig } from '../config.js'
 
@@ -197,7 +197,7 @@ function sanitizeErrorMessage(error: unknown): string {
  */
 function truncateForPreview(text: string, maxLength = 100): string {
   if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
+  return `${text.substring(0, maxLength)}...`
 }
 
 /**
@@ -365,7 +365,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
       })
 
       try {
-        let response
+        let response: ApiResponse<SkillStoreItem>
 
         if (validated.id) {
           response = await client.get<SkillStoreItem>(

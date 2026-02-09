@@ -162,7 +162,7 @@ export type HookEvent =
   | 'messageSent'
 
 /** Legacy hook handler function */
-export type HookHandler<T = unknown> = (event: T) => Promise<T | null | void>
+export type HookHandler<T = unknown> = (event: T) => Promise<T | null | undefined>
 
 /** CLI registration callback */
 export interface CliRegistrationContext {

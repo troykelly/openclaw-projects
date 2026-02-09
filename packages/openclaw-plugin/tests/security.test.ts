@@ -12,7 +12,6 @@ import {
   createProjectListTool,
   createProjectGetTool,
   createProjectCreateTool,
-  createTodoListTool,
   createTodoCreateTool,
   createTodoCompleteTool,
   createContactSearchTool,

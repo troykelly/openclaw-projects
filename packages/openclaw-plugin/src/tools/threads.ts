@@ -10,7 +10,6 @@ import type { PluginConfig } from '../config.js'
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email'])
-type ChannelType = z.infer<typeof ChannelType>
 
 /** Default and max limits */
 const DEFAULT_LIST_LIMIT = 20

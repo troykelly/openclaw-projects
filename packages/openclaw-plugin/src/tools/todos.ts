@@ -120,7 +120,7 @@ function isValidIsoDate(date: string): boolean {
   }
   // Also validate it's a real date
   const parsed = new Date(date)
-  return !isNaN(parsed.getTime())
+  return !Number.isNaN(parsed.getTime())
 }
 
 /**

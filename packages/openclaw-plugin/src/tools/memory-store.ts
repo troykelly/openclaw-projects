@@ -113,7 +113,7 @@ function truncateForPreview(text: string, maxLength = 100): string {
   if (text.length <= maxLength) {
     return text
   }
-  return text.substring(0, maxLength) + '...'
+  return `${text.substring(0, maxLength)}...`
 }
 
 /**
@@ -139,7 +139,7 @@ function sanitizeErrorMessage(error: unknown): string {
  * Creates the memory_store tool.
  */
 export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemoryStoreTool {
-  const { client, logger, config, userId } = options
+  const { client, logger, userId } = options
 
   return {
     name: 'memory_store',

@@ -13,7 +13,6 @@ import {
   type NoteCreateParams,
   type NoteGetParams,
   type NoteUpdateParams,
-  type NoteDeleteParams,
   type NoteSearchParams,
 } from '../../src/tools/notes.js'
 import type { ApiClient } from '../../src/api-client.js'
