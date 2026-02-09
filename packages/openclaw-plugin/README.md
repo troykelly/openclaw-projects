@@ -304,9 +304,9 @@ To enable email sending, add Postmark credentials:
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `agent` | Scope by agent ID | Single user per agent (default) |
-| `session` | Scope by session key | Maximum isolation between sessions |
-| `identity` | Scope by canonical identity | Shared identity across agents |
+| `agent` | Scope by agent ID; single user per agent | Personal assistant (default) |
+| `session` | Scope by session key; maximum isolation | Sensitive operations |
+| `identity` | Scope by canonical user identity across agents and sessions | Multi-agent setups, shared identity |
 
 ## Tools
 

@@ -209,9 +209,9 @@ export interface ServiceDefinition {
   /** Unique service ID */
   id: string
   /** Called when plugin starts */
-  start: () => Promise<void>
+  start: (ctx?: Record<string, unknown>) => Promise<void>
   /** Called when plugin stops */
-  stop: () => Promise<void>
+  stop: (ctx?: Record<string, unknown>) => Promise<void>
 }
 
 /** OpenClaw Plugin API provided to plugins */

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import type { ApiClient } from '../api-client.js'
 import type { Logger } from '../logger.js'
 import type { PluginConfig } from '../config.js'
+import { sanitizeErrorMessage } from '../utils/sanitize.js'
 
 /** UUID validation regex */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -71,25 +72,6 @@ export interface TodoListTool {
   description: string
   parameters: typeof TodoListParamsSchema
   execute: (params: TodoListParams) => Promise<TodoListResult>
-}
-
-/**
- * Create a sanitized error message.
- */
-function sanitizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message
-      .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[host]')
-      .replace(/:\d{2,5}\b/g, '')
-      .replace(/\b(?:localhost|internal[-\w]*)\b/gi, '[internal]')
-
-    if (message.includes('[internal]') || message.includes('[host]')) {
-      return 'Operation failed. Please try again.'
-    }
-
-    return message
-  }
-  return 'An unexpected error occurred.'
 }
 
 /**

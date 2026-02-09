@@ -11,6 +11,7 @@ import { z } from 'zod'
 import type { ApiClient } from '../api-client.js'
 import type { Logger } from '../logger.js'
 import type { PluginConfig } from '../config.js'
+import { sanitizeText, sanitizeErrorMessage } from '../utils/sanitize.js'
 
 // ==================== Shared utilities ====================
 
@@ -24,33 +25,6 @@ function stripHtml(text: string): string {
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
     .replace(/<[^>]*>/g, '')
     .trim()
-}
-
-/**
- * Sanitize text input to remove control characters.
- */
-function sanitizeText(text: string): string {
-  const sanitized = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-  return sanitized.trim()
-}
-
-/**
- * Create a sanitized error message that doesn't expose internal details.
- */
-function sanitizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message
-      .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[host]')
-      .replace(/:\d{2,5}\b/g, '')
-      .replace(/\b(?:localhost|internal[-\w]*)\b/gi, '[internal]')
-
-    if (message.includes('[internal]') || message.includes('[host]')) {
-      return 'Operation failed. Please try again.'
-    }
-
-    return message
-  }
-  return 'An unexpected error occurred.'
 }
 
 // ==================== relationship_set ====================

@@ -182,9 +182,9 @@ Options:
 
 | Scope | Description | Use Case |
 |-------|-------------|----------|
-| `agent` | Shared across all sessions | Personal assistant |
-| `identity` | Scoped to specific identity | Multi-account users |
-| `session` | Isolated to single session | Sensitive operations |
+| `agent` | Scope by agent ID; single user per agent | Personal assistant (default) |
+| `identity` | Scope by canonical user identity across agents and sessions | Multi-agent setups, shared identity |
+| `session` | Scope by session key; maximum isolation | Sensitive operations |
 
 ### API Key Permissions
 
