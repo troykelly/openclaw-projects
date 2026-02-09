@@ -3,8 +3,11 @@ import * as fs from 'node:fs'
 import * as childProcess from 'node:child_process'
 import {
   PluginConfigSchema,
+  RawPluginConfigSchema,
   validateConfig,
+  validateRawConfig,
   safeValidateConfig,
+  safeValidateRawConfig,
   redactConfig,
   resolveConfigSecrets,
   resolveConfigSecretsSync,
@@ -1098,6 +1101,75 @@ describe('Config Schema', () => {
       expect(resolved.maxRetries).toBe(1)
       expect(resolved.debug).toBe(true)
       expect(resolved.baseUrl).toBe('https://app.custom.com')
+    })
+  })
+
+  describe('strict schema (additionalProperties rejected)', () => {
+    it('should reject config with unexpected keys via RawPluginConfigSchema', () => {
+      const result = RawPluginConfigSchema.safeParse({
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        unexpectedField: 'should-fail',
+      })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(
+          result.error.issues.some((e) => e.message.includes('Unrecognized key'))
+        ).toBe(true)
+      }
+    })
+
+    it('should reject config with typo keys (e.g., apikey instead of apiKey)', () => {
+      const result = safeValidateRawConfig({
+        apiUrl: 'https://example.com',
+        apikey: 'test-key', // lowercase typo
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('should accept config with all valid keys', () => {
+      const result = safeValidateRawConfig({
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        apiKeyFile: '~/.secrets/key',
+        apiKeyCommand: 'op read op://test/key',
+        twilioAccountSid: 'AC123',
+        twilioAccountSidFile: '/path/to/sid',
+        twilioAccountSidCommand: 'op read sid',
+        twilioAuthToken: 'token',
+        twilioAuthTokenFile: '/path/to/token',
+        twilioAuthTokenCommand: 'op read token',
+        twilioPhoneNumber: '+15551234567',
+        twilioPhoneNumberFile: '/path/to/phone',
+        twilioPhoneNumberCommand: 'op read phone',
+        postmarkToken: 'pm-token',
+        postmarkTokenFile: '/path/to/pm',
+        postmarkTokenCommand: 'op read pm',
+        postmarkFromEmail: 'noreply@example.com',
+        postmarkFromEmailFile: '/path/to/email',
+        postmarkFromEmailCommand: 'op read email',
+        secretCommandTimeout: 10000,
+        autoRecall: false,
+        autoCapture: false,
+        userScoping: 'identity',
+        maxRecallMemories: 10,
+        minRecallScore: 0.5,
+        timeout: 5000,
+        maxRetries: 2,
+        debug: true,
+        baseUrl: 'https://app.example.com',
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('should reject unknown keys even when valid keys are present', () => {
+      const result = safeValidateRawConfig({
+        apiUrl: 'https://example.com',
+        apiKey: 'test-key',
+        autoRecall: true,
+        extraField: 'nope',
+      })
+      expect(result.success).toBe(false)
     })
   })
 })

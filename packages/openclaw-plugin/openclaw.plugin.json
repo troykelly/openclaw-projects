@@ -106,8 +106,47 @@
         "enum": ["agent", "identity", "session"],
         "default": "agent",
         "description": "How to scope user memories"
+      },
+      "maxRecallMemories": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 5,
+        "description": "Maximum memories to inject in auto-recall"
+      },
+      "minRecallScore": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.7,
+        "description": "Minimum relevance score for auto-recall (0-1)"
+      },
+      "timeout": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 60000,
+        "default": 30000,
+        "description": "Request timeout in milliseconds"
+      },
+      "maxRetries": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 5,
+        "default": 3,
+        "description": "Maximum retries for failed requests"
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable debug logging (never logs secrets)"
+      },
+      "baseUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Base URL for web app (used for generating note/notebook URLs)"
       }
     },
+    "additionalProperties": false,
     "required": ["apiUrl"],
     "anyOf": [
       { "required": ["apiKey"] },
@@ -222,6 +261,37 @@
       "label": "User Scoping",
       "helpText": "How to isolate memories between users",
       "group": "Memory"
+    },
+    "maxRecallMemories": {
+      "label": "Max Recall Memories",
+      "helpText": "Maximum number of memories to inject during auto-recall",
+      "group": "Memory"
+    },
+    "minRecallScore": {
+      "label": "Min Recall Score",
+      "helpText": "Minimum relevance score (0-1) for auto-recall",
+      "group": "Memory"
+    },
+    "timeout": {
+      "label": "Request Timeout",
+      "helpText": "Timeout in milliseconds for API requests",
+      "group": "Advanced"
+    },
+    "maxRetries": {
+      "label": "Max Retries",
+      "helpText": "Maximum number of retries for failed requests",
+      "group": "Advanced"
+    },
+    "debug": {
+      "label": "Debug Mode",
+      "helpText": "Enable debug logging (never logs secrets)",
+      "group": "Advanced"
+    },
+    "baseUrl": {
+      "label": "Web App URL",
+      "placeholder": "https://app.example.com",
+      "helpText": "Base URL for the web app (used for generating links)",
+      "group": "Advanced"
     }
   }
 }
