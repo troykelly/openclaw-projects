@@ -33,13 +33,21 @@ The openclaw-projects system provides:
 
 ## Prerequisites
 
-Before starting, ensure you have:
+**Quickstart (local / development):**
 
 - [ ] A server with Docker and Docker Compose v2
+
+The quickstart works without a domain name, DNS, or embedding provider. Semantic search will be unavailable until an embedding provider is configured, but all other features work out of the box.
+
+**Production only (add these when you are ready to deploy publicly):**
+
 - [ ] A domain name with DNS pointing to your server
 - [ ] DNS API credentials for ACME certificate automation (e.g., Cloudflare API token)
 - [ ] An embedding provider API key (OpenAI, VoyageAI, or Gemini) for semantic search
-- [ ] (Optional) Messaging platform credentials (Telegram bot token, Discord app, etc.)
+
+**Optional:**
+
+- [ ] Messaging platform credentials (Telegram bot token, Discord app, etc.)
 
 ## Step 1: Deploy the Backend
 
@@ -52,17 +60,11 @@ Deploy everything together using `docker-compose.full.yml`:
 git clone https://github.com/troykelly/openclaw-projects.git
 cd openclaw-projects
 
-# Create environment file
-cp .env.example .env
-```
-
-Generate required secrets using the setup wizard:
-
-```bash
+# Run the setup wizard (creates .env and generates secrets)
 ./scripts/setup.sh
 ```
 
-The script generates unique random secrets for each variable and writes them to `.env`. For CI or unattended environments, use `./scripts/setup.sh --non-interactive`.
+The script creates your `.env` file and generates unique random secrets for each variable. For CI or unattended environments, use `./scripts/setup.sh --non-interactive`.
 
 Configure your domain and DNS provider:
 
@@ -112,11 +114,7 @@ docker compose up -d
 On your OpenClaw gateway (skip if using full stack - it's pre-configured):
 
 ```bash
-# Install from npm
 openclaw plugins install @troykelly/openclaw-projects
-
-# Or specify a specific version
-openclaw plugins install @troykelly/openclaw-projects@0.0.3
 ```
 
 ## Step 3: Configure the Plugin
@@ -133,8 +131,11 @@ Add the plugin configuration to your OpenClaw config file (`~/.openclaw/config.y
 
 ```yaml
 plugins:
+  # slots assigns plugins to named capability slots that the gateway
+  # routes tool calls to (e.g. "memory", "tasks").  Setting the
+  # "memory" slot here tells OpenClaw to use openclaw-projects for
+  # all memory-related operations (store, recall, search).
   slots:
-    # Set openclaw-projects as the memory provider
     memory: openclaw-projects
   entries:
     openclaw-projects:
