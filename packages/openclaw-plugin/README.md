@@ -112,6 +112,24 @@ If the status shows unhealthy, see [Troubleshooting](#troubleshooting) below.
 
 Start with `docker-compose.quickstart.yml`. When you are ready for production, switch to `docker-compose.yml` or `docker-compose.traefik.yml` and configure your `apiKey` in the plugin config.
 
+### Moving to Production
+
+When you're ready to move from the quickstart to a production setup:
+
+1. Stop the quickstart services: `docker compose -f docker-compose.quickstart.yml down`
+2. Open your `.env` file and find the `OPENCLAW_PROJECTS_AUTH_SECRET` value
+3. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=false` in your `.env`
+4. Add the API key to your OpenClaw plugin config:
+   ```yaml
+   plugins:
+     entries:
+       openclaw-projects:
+         config:
+           apiUrl: https://your-domain.example.com
+           apiKey: your-OPENCLAW_PROJECTS_AUTH_SECRET-value
+   ```
+5. Switch to a production compose file: `docker compose -f docker-compose.yml up -d`
+
 ## Features
 
 - **Memory Management**: Store, recall, and forget memories with semantic search (pgvector)
