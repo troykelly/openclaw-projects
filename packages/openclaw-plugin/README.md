@@ -98,7 +98,7 @@ If the status shows unhealthy, see [Troubleshooting](#troubleshooting) below.
 - See [Configuration](#configuration) for optional settings (embedding providers, SMS, email)
 - See [Tools](#tools) for the 27 available agent tools
 - See [Which compose file?](#which-compose-file) to choose the right deployment for your needs
-- For the full deployment guide, see [docs/installation.md](docs/installation.md)
+- For the detailed installation guide, see [docs/installation.md](docs/installation.md)
 
 ### Which compose file?
 
