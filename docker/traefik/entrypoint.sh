@@ -95,6 +95,16 @@ generate_config() {
     # Set defaults for optional variables
     export TRUSTED_IPS="${TRUSTED_IPS:-}"
     export DISABLE_HTTP="${DISABLE_HTTP:-false}"
+
+    # Host networking defaults for service routing
+    # Traefik runs with network_mode: host and reaches services via localhost
+    # SERVICE_HOST: address Traefik uses to reach backend services (default: 127.0.0.1)
+    # Set to [::1] for IPv6-only or a specific interface address if needed
+    export SERVICE_HOST="${SERVICE_HOST:-127.0.0.1}"
+    export MODSEC_HOST_PORT="${MODSEC_HOST_PORT:-8080}"
+    export API_HOST_PORT="${API_HOST_PORT:-3001}"
+    export APP_HOST_PORT="${APP_HOST_PORT:-8081}"
+    export GATEWAY_HOST_PORT="${GATEWAY_HOST_PORT:-18789}"
     
     # Generate TRUSTED_IPS_YAML for template
     export TRUSTED_IPS_YAML
@@ -108,7 +118,7 @@ generate_config() {
     
     # Generate config using envsubst
     # Only substitute explicitly defined variables for safety
-    envsubst '${DOMAIN} ${ACME_EMAIL} ${TRUSTED_IPS} ${TRUSTED_IPS_YAML} ${DISABLE_HTTP}' \
+    envsubst '${DOMAIN} ${ACME_EMAIL} ${TRUSTED_IPS} ${TRUSTED_IPS_YAML} ${DISABLE_HTTP} ${SERVICE_HOST} ${MODSEC_HOST_PORT} ${API_HOST_PORT} ${APP_HOST_PORT} ${GATEWAY_HOST_PORT}' \
         < "${TEMPLATE_FILE}" \
         > "${OUTPUT_FILE}"
     
