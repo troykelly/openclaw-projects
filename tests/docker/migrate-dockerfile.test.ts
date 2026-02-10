@@ -7,6 +7,15 @@ const DOCKERFILE_PATH = join(__dirname, '../../docker/migrate/Dockerfile');
 const BUILD_CONTEXT = join(__dirname, '../..');
 const IMAGE_NAME = 'openclaw-migrate-test';
 
+const canRunDocker = (() => {
+  try {
+    execSync('docker info', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 /**
  * Check if buildx supports a given platform
  */
@@ -85,6 +94,11 @@ describe('Migrate Dockerfile hardening', () => {
 
   describe('Image build validation', () => {
     beforeAll(() => {
+      if (!canRunDocker) {
+        console.log('Skipping Docker build tests - Docker not available');
+        return;
+      }
+
       // Build the image with test labels
       const buildCommand = [
         'docker',
@@ -106,6 +120,7 @@ describe('Migrate Dockerfile hardening', () => {
     }, 120000);
 
     afterAll(() => {
+      if (!canRunDocker) return;
       // Clean up test image
       try {
         execSync(`docker rmi ${IMAGE_NAME}`, { stdio: 'pipe' });
@@ -114,7 +129,7 @@ describe('Migrate Dockerfile hardening', () => {
       }
     });
 
-    it('image has OCI labels set correctly', () => {
+    it.skipIf(!canRunDocker)('image has OCI labels set correctly', () => {
       const inspectResult = execSync(`docker inspect ${IMAGE_NAME} --format '{{json .Config.Labels}}'`, { encoding: 'utf-8' });
 
       const labels = JSON.parse(inspectResult);
@@ -127,7 +142,7 @@ describe('Migrate Dockerfile hardening', () => {
       expect(labels['org.opencontainers.image.licenses']).toBeDefined();
     });
 
-    it('image runs as non-root user', () => {
+    it.skipIf(!canRunDocker)('image runs as non-root user', () => {
       // Run a test container and check the user
       const result = spawnSync('docker', ['run', '--rm', '--entrypoint', 'id', IMAGE_NAME], { encoding: 'utf-8' });
 
@@ -138,14 +153,14 @@ describe('Migrate Dockerfile hardening', () => {
       expect(output).not.toMatch(/uid=0\(root\)/);
     });
 
-    it('migrations directory is present', () => {
+    it.skipIf(!canRunDocker)('migrations directory is present', () => {
       const result = spawnSync('docker', ['run', '--rm', '--entrypoint', 'ls', IMAGE_NAME, '-la', '/migrations'], { encoding: 'utf-8' });
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('001_init.up.sql');
     });
 
-    it('migrate binary is executable', () => {
+    it.skipIf(!canRunDocker)('migrate binary is executable', () => {
       const result = spawnSync('docker', ['run', '--rm', IMAGE_NAME, '--version'], { encoding: 'utf-8' });
 
       // migrate tool should output version info
@@ -154,7 +169,7 @@ describe('Migrate Dockerfile hardening', () => {
   });
 
   describe('Multi-architecture build validation', () => {
-    it('builds for linux/amd64', () => {
+    it.skipIf(!canRunDocker)('builds for linux/amd64', () => {
       const result = spawnSync(
         'docker',
         [
@@ -178,7 +193,7 @@ describe('Migrate Dockerfile hardening', () => {
       expect(result.status).toBe(0);
     }, 180000);
 
-    it('builds for linux/arm64', () => {
+    it.skipIf(!canRunDocker)('builds for linux/arm64', () => {
       // Skip if buildx doesn't support arm64 emulation
       // This commonly happens in CI environments without QEMU setup
       const canBuildArm64 = canBuildPlatform('linux/arm64');
@@ -221,6 +236,8 @@ describe('Migrate Dockerfile hardening', () => {
       // The migrate/migrate image provides multi-arch manifests
       // This test validates our Dockerfile uses a proper versioned tag that supports both archs
       expect(fromLine).toMatch(/^migrate\/migrate:v\d+\.\d+\.\d+$/);
+
+      if (!canRunDocker) return;
 
       // Verify the manifest includes both architectures by checking Docker Hub
       // (The image we use - migrate/migrate:v4.19.1 - is published for amd64 and arm64)
