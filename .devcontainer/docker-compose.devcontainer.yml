@@ -78,7 +78,7 @@ services:
       retries: 10
 
   seaweedfs:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.09
     command: "server -s3 -s3.port=8333 -master.volumeSizeLimitMB=100 -volume.max=10"
     environment:
       # SeaweedFS S3 credentials (used by the filer/s3 gateway)
