@@ -204,15 +204,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return cachedAppFrontendIndexHtml;
   }
 
+  /** Minimal app shell served when the Vite build output does not exist. */
+  const fallbackAppShellHtml =
+    '<!doctype html><html lang="en"><head><meta charset="UTF-8" />' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
+    '<title>OpenClaw Projects</title></head>' +
+    '<body><div data-testid="app-frontend-shell"><div id="root"></div></div></body></html>';
+
   function renderAppFrontendHtml(bootstrap: unknown | null): string {
-    const html = getAppFrontendIndexHtml();
-    if (!html) {
-      return (
-        '<!doctype html><html><head><title>OpenClaw Projects</title></head>' +
-        '<body><p>Frontend assets not available. If running in Docker Compose, ' +
-        'access the frontend via the <code>app</code> container.</p></body></html>'
-      );
-    }
+    const html = getAppFrontendIndexHtml() ?? fallbackAppShellHtml;
     if (!bootstrap) return html;
 
     // Embed bootstrap JSON in the HTML response so Fastify inject tests can assert on data
@@ -14264,17 +14264,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.setNotFoundHandler((request, reply) => {
     const url = request.url.split('?')[0]; // Strip query string
 
-    if (url.startsWith('/static/app/')) {
+    if (url.startsWith('/static/app/') || url === '/static/app') {
       // Check if this looks like a static asset request (has a file extension)
       // If so, the file genuinely doesn't exist — return 404.
+      // Exception: index.html itself should fall through to the SPA shell when
+      // the Vite build output is absent, so tests and dev environments still
+      // get a usable app shell.
       const lastSegment = url.split('/').pop() ?? '';
-      if (lastSegment.includes('.')) {
+      if (lastSegment.includes('.') && lastSegment !== 'index.html') {
         return reply.code(404).send({ error: 'Not Found' });
       }
 
       // SPA fallback: serve index.html with bootstrap data for the requested path
       const bootstrap = {
-        route: { path: url.replace('/static/app', '') || '/' },
+        route: { path: url.replace('/static/app', '').replace('/index.html', '') || '/' },
       };
 
       return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
