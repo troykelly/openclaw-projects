@@ -1059,7 +1059,23 @@ cp /backups/traefik-acme-YYYYMMDD.json /etc/traefik/acme/acme.json
 chmod 600 /etc/traefik/acme/acme.json
 ```
 
-> **Note:** The `acme.json` file contains private keys and must have mode `600`. The Traefik entrypoint script enforces this automatically on startup.
+> **Note:** The `acme.json` file contains private keys and must have mode `600`. The Traefik entrypoint script enforces this automatically on startup. The host directory should be owned by root with restricted permissions:
+>
+> ```bash
+> sudo mkdir -p /etc/traefik/acme
+> sudo chmod 700 /etc/traefik/acme
+> ```
+>
+> **SELinux hosts (RHEL/Fedora/CentOS):** If Traefik cannot write to the bind mount, add the `:z` label to the volume in a `docker-compose.override.yml`:
+>
+> ```yaml
+> services:
+>   traefik:
+>     volumes:
+>       - /etc/traefik/acme:/etc/traefik/acme:z
+> ```
+>
+> **Scaling note:** Do not share a single `acme.json` across multiple Traefik instances. Traefik does not use file locking and concurrent writes will corrupt the certificate store. For HA deployments, use a distributed ACME storage backend (e.g., Consul, etcd).
 
 ---
 
