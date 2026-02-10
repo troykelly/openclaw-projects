@@ -62,7 +62,7 @@ services:
   # SeaweedFS (S3-compatible object storage)
   # =============================================================================
   seaweedfs:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.09
     container_name: openclaw-seaweedfs
     restart: unless-stopped
     entrypoint: ["/docker-entrypoint-s3.sh"]
