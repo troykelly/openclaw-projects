@@ -41,16 +41,18 @@ setup_test_env() {
     TEST_DIR=$(mktemp -d)
     TEST_SYSTEM_DIR="${TEST_DIR}/etc/traefik/dynamic/system"
     TEST_TEMPLATE_DIR="${TEST_DIR}/etc/traefik/templates"
+    TEST_ACME_DIR="${TEST_DIR}/etc/traefik/acme"
     mkdir -p "${TEST_SYSTEM_DIR}"
     mkdir -p "${TEST_TEMPLATE_DIR}"
+    mkdir -p "${TEST_ACME_DIR}"
     cp "${TEMPLATE}" "${TEST_TEMPLATE_DIR}/dynamic-config.yml.template"
-    
+
     # Create a modified entrypoint for testing (doesn't exec traefik)
     TEST_ENTRYPOINT="${TEST_DIR}/entrypoint-test.sh"
     sed 's/exec traefik/echo "Would exec traefik"/' "${ENTRYPOINT}" > "${TEST_ENTRYPOINT}"
     sed -i "s|/etc/traefik|${TEST_DIR}/etc/traefik|g" "${TEST_ENTRYPOINT}"
     chmod +x "${TEST_ENTRYPOINT}"
-    
+
     echo "${TEST_DIR}"
 }
 
@@ -447,6 +449,111 @@ test_system_custom_separation() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 19: ACME JSON file should be created if missing
+test_acme_json_created() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    # Ensure acme.json does NOT exist before running
+    rm -f "${test_dir}/etc/traefik/acme/acme.json"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local acme_file="${test_dir}/etc/traefik/acme/acme.json"
+
+    if [ -f "${acme_file}" ]; then
+        pass "ACME JSON file is created when missing"
+    else
+        fail "ACME JSON file should be created at ${acme_file}"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 20: ACME JSON file should have mode 600
+test_acme_json_permissions() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local acme_file="${test_dir}/etc/traefik/acme/acme.json"
+    local perms
+    perms=$(stat -c "%a" "${acme_file}" 2>/dev/null || stat -f "%Lp" "${acme_file}" 2>/dev/null)
+
+    if [ "${perms}" = "600" ]; then
+        pass "ACME JSON file has mode 600"
+    else
+        fail "ACME JSON file should have mode 600, got ${perms}"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 21: Existing ACME JSON file should not be overwritten
+test_acme_json_preserved() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    # Create an existing acme.json with content
+    local acme_file="${test_dir}/etc/traefik/acme/acme.json"
+    echo '{"existing":"data"}' > "${acme_file}"
+    chmod 600 "${acme_file}"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local content
+    content=$(cat "${acme_file}")
+
+    if [ "${content}" = '{"existing":"data"}' ]; then
+        pass "Existing ACME JSON file is preserved"
+    else
+        fail "Existing ACME JSON file should be preserved, got: ${content}"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 22: ACME JSON with wrong permissions should be corrected
+test_acme_json_permissions_corrected() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    # Create acme.json with wrong permissions
+    local acme_file="${test_dir}/etc/traefik/acme/acme.json"
+    echo '{}' > "${acme_file}"
+    chmod 644 "${acme_file}"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local perms
+    perms=$(stat -c "%a" "${acme_file}" 2>/dev/null || stat -f "%Lp" "${acme_file}" 2>/dev/null)
+
+    if [ "${perms}" = "600" ]; then
+        pass "ACME JSON permissions corrected from 644 to 600"
+    else
+        fail "ACME JSON permissions should be corrected to 600, got ${perms}"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -471,6 +578,10 @@ test_error_message_helpful
 test_custom_config_dir_created
 test_custom_config_dir_empty
 test_system_custom_separation
+test_acme_json_created
+test_acme_json_permissions
+test_acme_json_preserved
+test_acme_json_permissions_corrected
 
 echo ""
 echo "======================================"

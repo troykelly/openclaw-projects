@@ -95,7 +95,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./docker/traefik/dynamic-config.yml.template:/etc/traefik/templates/dynamic-config.yml.template:ro
       - traefik_dynamic:/etc/traefik/dynamic
-      - traefik_acme:/etc/traefik/acme
+      # ACME certificate storage (host path for persistence across volume prunes)
+      - /etc/traefik/acme:/etc/traefik/acme
     entrypoint: ["/entrypoint.sh"]
     healthcheck:
       test: ["CMD", "traefik", "healthcheck"]
@@ -520,7 +521,6 @@ services:
 volumes:
   db_data:
   seaweedfs_data:
-  traefik_acme:
   traefik_dynamic:
   openclaw_data:
 

@@ -1048,17 +1048,18 @@ docker compose start seaweedfs
 
 ### Traefik Certificates Backup
 
-ACME certificates are stored in the `traefik_acme` volume:
+ACME certificates are stored on the host filesystem at `/etc/traefik/acme/`:
 
 ```bash
 # Backup
-docker run --rm -v openclaw-projects_traefik_acme:/data -v $(pwd):/backup alpine \
-  tar czf /backup/traefik-acme-$(date +%Y%m%d).tar.gz -C /data .
+cp /etc/traefik/acme/acme.json /backups/traefik-acme-$(date +%Y%m%d).json
 
 # Restore
-docker run --rm -v openclaw-projects_traefik_acme:/data -v $(pwd):/backup alpine \
-  sh -c "rm -rf /data/* && tar xzf /backup/traefik-acme-YYYYMMDD.tar.gz -C /data"
+cp /backups/traefik-acme-YYYYMMDD.json /etc/traefik/acme/acme.json
+chmod 600 /etc/traefik/acme/acme.json
 ```
+
+> **Note:** The `acme.json` file contains private keys and must have mode `600`. The Traefik entrypoint script enforces this automatically on startup.
 
 ---
 

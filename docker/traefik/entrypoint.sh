@@ -10,6 +10,8 @@ set -eu
 # Directory paths
 SYSTEM_CONFIG_DIR="/etc/traefik/dynamic/system"
 CUSTOM_CONFIG_DIR="/etc/traefik/dynamic/custom"
+ACME_DIR="/etc/traefik/acme"
+ACME_FILE="${ACME_DIR}/acme.json"
 TEMPLATE_FILE="/etc/traefik/templates/dynamic-config.yml.template"
 OUTPUT_FILE="${SYSTEM_CONFIG_DIR}/config.yml"
 
@@ -72,6 +74,19 @@ create_directories() {
     echo "  Custom: ${CUSTOM_CONFIG_DIR} (for user extensions)"
 }
 
+# Ensure ACME certificate storage is ready
+# Traefik requires acme.json to exist with mode 600 (owner read/write only)
+# to prevent accidental exposure of private keys
+init_acme_storage() {
+    if [ ! -f "${ACME_FILE}" ]; then
+        touch "${ACME_FILE}"
+        echo "Created ACME storage file at ${ACME_FILE}"
+    fi
+
+    chmod 600 "${ACME_FILE}"
+    echo "ACME storage ready: ${ACME_FILE} (mode 600)"
+}
+
 # Generate the dynamic configuration from template
 generate_config() {
     # Ensure output directories exist
@@ -105,9 +120,12 @@ main() {
     echo "Traefik entrypoint: Validating environment..."
     validate_env
     
+    echo "Traefik entrypoint: Initializing ACME certificate storage..."
+    init_acme_storage
+
     echo "Traefik entrypoint: Generating dynamic configuration..."
     generate_config
-    
+
     echo "Traefik entrypoint: Starting Traefik..."
     exec traefik "$@"
 }
