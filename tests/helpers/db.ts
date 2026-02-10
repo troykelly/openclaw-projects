@@ -104,6 +104,12 @@ const APPLICATION_TABLES = [
  * });
  * ```
  */
+/**
+ * PostgreSQL SQLSTATE code for deadlock_detected.
+ * @see https://www.postgresql.org/docs/current/errcodes-appendix.html
+ */
+const PG_DEADLOCK_DETECTED = '40P01';
+
 export async function truncateAllTables(pool: Pool): Promise<void> {
   // Build a single TRUNCATE statement for efficiency
   // Filter to tables that actually exist to avoid errors on partial migrations
@@ -122,6 +128,30 @@ export async function truncateAllTables(pool: Pool): Promise<void> {
 
   // TRUNCATE with CASCADE handles FK constraints
   // RESTART IDENTITY resets sequences (auto-increment counters)
+  //
+  // Retry with exponential backoff on deadlock: when running the full test
+  // suite, server-side pools from app.inject() may still hold ACCESS SHARE
+  // locks while TRUNCATE needs ACCESS EXCLUSIVE, causing transient deadlocks.
   const tableList = tablesToTruncate.map((t) => `"${t}"`).join(', ');
-  await pool.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+  const maxRetries = 3;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await pool.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+      return;
+    } catch (err: unknown) {
+      const pgCode =
+        err instanceof Error && 'code' in err
+          ? (err as { code: string }).code
+          : undefined;
+      if (pgCode === PG_DEADLOCK_DETECTED && attempt < maxRetries - 1) {
+        // Exponential backoff with jitter to avoid thundering herd
+        const baseDelay = 100 * 2 ** attempt;
+        const jitter = baseDelay * (0.75 + Math.random() * 0.5);
+        await new Promise((r) => setTimeout(r, jitter));
+        continue;
+      }
+      const context = `truncateAllTables failed after ${attempt + 1}/${maxRetries} attempt(s)`;
+      throw new Error(context, { cause: err });
+    }
+  }
 }
