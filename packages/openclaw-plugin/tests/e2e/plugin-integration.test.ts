@@ -499,12 +499,12 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       context.createdIds.contacts.push(contact1Response.id, contact2Response.id);
 
       // Set relationship via POST /api/relationships/set (uses display names)
-      const setResponse = await context.apiClient.post<{ id: string }>('/api/relationships/set', {
+      const setResponse = await context.apiClient.post<{ relationship: { id: string }; created: boolean }>('/api/relationships/set', {
         contact_a: `Contact1 ${uniqueId}`,
         contact_b: `Contact2 ${uniqueId}`,
         relationship_type: 'colleague',
       });
-      expect(setResponse.id).toBeDefined();
+      expect(setResponse.relationship.id).toBeDefined();
 
       // Query relationships via GET /api/relationships?contact_id=...
       const queryResponse = await context.apiClient.get<{
