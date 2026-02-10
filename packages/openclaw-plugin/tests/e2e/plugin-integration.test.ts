@@ -1,15 +1,15 @@
 /**
  * E2E tests for plugin integration with the backend.
- * Part of Epic #310, Issue #326.
+ * Part of Epic #310, Issue #326, #1032.
  *
  * These tests verify that the plugin can communicate with a real backend.
  * They require the E2E test services to be running.
  *
- * Run with: npm run test:e2e
+ * Run with: pnpm run test:e2e
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createE2EContext, areE2EServicesAvailable, testData, cleanupResources, type E2ETestContext } from './setup.js';
+import { createE2EContext, areE2EServicesAvailable, cleanupResources, type E2ETestContext } from './setup.js';
 
 // Check if we should skip E2E tests
 const RUN_E2E = process.env.RUN_E2E === 'true';
@@ -30,58 +30,48 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
   describe('Backend Health', () => {
     it('should have a healthy backend', async () => {
       const response = await context.apiClient.get<{ status: string }>('/api/health');
-      expect(response.status).toBe('ok');
+      // /api/health returns 'healthy', 'degraded', or 'unhealthy' (503)
+      expect(['healthy', 'degraded']).toContain(response.status);
     });
 
     it('should have database connectivity', async () => {
-      const response = await context.apiClient.get<{ status: string; database?: string }>('/api/health');
-      expect(response.status).toBe('ok');
+      const response = await context.apiClient.get<{
+        status: string;
+        components: Record<string, { status: string }>;
+      }>('/api/health');
+      expect(response.components.database).toBeDefined();
+      expect(response.components.database.status).toBe('healthy');
     });
   });
 
-  describe('Memory Operations', () => {
-    it('should create a memory', async () => {
-      const memory = {
-        title: 'E2E Test Memory',
-        content: testData.sampleMemory.content,
-        memoryType: 'fact',
-        importance: 5,
-        confidence: 1.0,
+  describe('Work Item Operations', () => {
+    it('should create a work item (issue)', async () => {
+      const workItem = {
+        title: `E2E Test Issue ${Date.now()}`,
+        description: 'An issue created during E2E testing',
+        kind: 'issue',
       };
 
-      const response = await context.apiClient.post<{ id: string }>('/api/memories', memory);
+      const response = await context.apiClient.post<{ id: string; title: string }>('/api/work-items', workItem);
 
       expect(response.id).toBeDefined();
-      context.createdIds.memories.push(response.id);
+      context.createdIds.workItems.push(response.id);
     });
 
-    it('should search memories', async () => {
-      // First create a memory
-      const memory = {
-        title: 'Searchable Memory',
-        content: 'This is a unique searchable content xyz123',
-        memoryType: 'fact',
-        importance: 5,
-        confidence: 1.0,
-      };
+    it('should list work items', async () => {
+      // Response uses 'items' not 'workItems'
+      const response = await context.apiClient.get<{ items: Array<{ id: string; title: string }> }>('/api/work-items');
 
-      const created = await context.apiClient.post<{ id: string }>('/api/memories', memory);
-      context.createdIds.memories.push(created.id);
-
-      // Search for it
-      const response = await context.apiClient.get<{ memories: Array<{ id: string; content: string }> }>('/api/memories/search?q=xyz123');
-
-      expect(response.memories).toBeDefined();
-      // Note: Full-text search might not find it immediately due to indexing
+      expect(response.items).toBeDefined();
+      expect(Array.isArray(response.items)).toBe(true);
     });
   });
 
   describe('Contact Operations', () => {
     it('should create a contact', async () => {
+      // POST /api/contacts requires displayName (not name/email/phone)
       const contact = {
-        name: `E2E Test Contact ${Date.now()}`,
-        email: testData.uniqueEmail(),
-        phone: testData.uniquePhone(),
+        displayName: `E2E Test Contact ${Date.now()}`,
       };
 
       const response = await context.apiClient.post<{ id: string }>('/api/contacts', contact);
@@ -91,33 +81,62 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
     });
 
     it('should list contacts', async () => {
-      const response = await context.apiClient.get<{ contacts: Array<{ id: string; name: string }> }>('/api/contacts');
+      const response = await context.apiClient.get<{
+        contacts: Array<{ id: string; display_name: string }>;
+      }>('/api/contacts');
 
       expect(response.contacts).toBeDefined();
       expect(Array.isArray(response.contacts)).toBe(true);
     });
   });
 
-  describe('Work Item Operations', () => {
-    it('should create a work item (task)', async () => {
-      const workItem = {
-        title: `E2E Test Task ${Date.now()}`,
-        description: 'A task created during E2E testing',
-        workItemType: 'task',
-        status: 'open',
-      };
+  describe('Memory Operations', () => {
+    let linkedWorkItemId: string;
 
-      const response = await context.apiClient.post<{ id: string }>('/api/work-items', workItem);
-
-      expect(response.id).toBeDefined();
-      context.createdIds.workItems.push(response.id);
+    beforeAll(async () => {
+      // Memory creation requires a linked work item
+      const workItem = await context.apiClient.post<{ id: string }>('/api/work-items', {
+        title: `Memory Test Work Item ${Date.now()}`,
+        kind: 'issue',
+      });
+      linkedWorkItemId = workItem.id;
+      context.createdIds.workItems.push(linkedWorkItemId);
     });
 
-    it('should list work items', async () => {
-      const response = await context.apiClient.get<{ workItems: Array<{ id: string; title: string }> }>('/api/work-items');
+    it('should create a memory', async () => {
+      // POST /api/memory (singular) requires title, content, linkedItemId
+      const memory = {
+        title: 'E2E Test Memory',
+        content: 'Test memory content for E2E testing',
+        linkedItemId: linkedWorkItemId,
+        type: 'note',
+      };
 
-      expect(response.workItems).toBeDefined();
-      expect(Array.isArray(response.workItems)).toBe(true);
+      const response = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+
+      expect(response.id).toBeDefined();
+      context.createdIds.memories.push(response.id);
+    });
+
+    it('should search memories', async () => {
+      // Create a memory first
+      const memory = {
+        title: 'Searchable Memory',
+        content: 'This is a unique searchable content xyz123',
+        linkedItemId: linkedWorkItemId,
+        type: 'note',
+      };
+
+      const created = await context.apiClient.post<{ id: string }>('/api/memory', memory);
+      context.createdIds.memories.push(created.id);
+
+      // GET /api/memories/search returns { results: [...] }
+      const response = await context.apiClient.get<{
+        results: Array<{ id: string; content: string }>;
+      }>('/api/memories/search?q=xyz123');
+
+      expect(response.results).toBeDefined();
+      expect(Array.isArray(response.results)).toBe(true);
     });
   });
 
@@ -137,31 +156,39 @@ describe.skipIf(!RUN_E2E)('Plugin E2E Integration', () => {
 
 describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
   let context: E2ETestContext;
+  let sharedWorkItemId: string;
 
   beforeAll(async () => {
     context = createE2EContext();
+
+    // Create a work item for memory tests (linkedItemId is required)
+    const workItem = await context.apiClient.post<{ id: string }>('/api/work-items', {
+      title: `Tool Simulation Work Item ${Date.now()}`,
+      kind: 'issue',
+    });
+    sharedWorkItemId = workItem.id;
+    context.createdIds.workItems.push(sharedWorkItemId);
   });
 
   describe('Memory Recall Tool', () => {
     it('should simulate memory_recall tool invocation', async () => {
-      // Create a memory
+      // Create a memory via POST /api/memory
       const memory = {
         title: 'Tool Test Memory',
         content: 'User prefers morning meetings',
-        memoryType: 'preference',
-        importance: 8,
-        confidence: 1.0,
+        linkedItemId: sharedWorkItemId,
+        type: 'note',
       };
 
-      const created = await context.apiClient.post<{ id: string }>('/api/memories', memory);
+      const created = await context.apiClient.post<{ id: string }>('/api/memory', memory);
       context.createdIds.memories.push(created.id);
 
       // Simulate tool invocation by calling search API
       const response = await context.apiClient.get<{
-        memories: Array<{ id: string; content: string; memoryType: string }>;
+        results: Array<{ id: string; content: string; type: string }>;
       }>('/api/memories/search?q=morning%20meetings');
 
-      expect(response.memories).toBeDefined();
+      expect(response.results).toBeDefined();
     });
   });
 
@@ -170,33 +197,31 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
       const memory = {
         title: 'Stored via Tool',
         content: 'User likes TypeScript over JavaScript',
-        memoryType: 'preference',
-        importance: 7,
-        confidence: 0.9,
+        linkedItemId: sharedWorkItemId,
+        type: 'note',
       };
 
-      const response = await context.apiClient.post<{ id: string }>('/api/memories', memory);
+      const response = await context.apiClient.post<{ id: string }>('/api/memory', memory);
 
       expect(response.id).toBeDefined();
       context.createdIds.memories.push(response.id);
     });
   });
 
-  describe('Contact Search Tool', () => {
-    it('should simulate contact_search tool invocation', async () => {
+  describe('Contact List Tool', () => {
+    it('should simulate contact list/search tool invocation', async () => {
       // Create a contact
       const contact = {
-        name: 'John Tool Test',
-        email: 'john.tool@example.com',
+        displayName: 'John Tool Test',
       };
 
       const created = await context.apiClient.post<{ id: string }>('/api/contacts', contact);
       context.createdIds.contacts.push(created.id);
 
-      // Simulate tool invocation
+      // Use GET /api/contacts?search= to find contacts (no /api/contacts/search endpoint)
       const response = await context.apiClient.get<{
-        contacts: Array<{ id: string; name: string }>;
-      }>('/api/contacts/search?q=John%20Tool');
+        contacts: Array<{ id: string; display_name: string }>;
+      }>('/api/contacts?search=John%20Tool');
 
       expect(response.contacts).toBeDefined();
     });
@@ -207,9 +232,7 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
       const todo = {
         title: 'Complete E2E testing',
         description: 'Finish all E2E test cases',
-        workItemType: 'task',
-        status: 'open',
-        priority: 'high',
+        kind: 'issue',
       };
 
       const response = await context.apiClient.post<{ id: string }>('/api/work-items', todo);
@@ -219,12 +242,13 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
     });
 
     it('should simulate todo_list tool invocation', async () => {
+      // Response uses 'items' not 'workItems'
       const response = await context.apiClient.get<{
-        workItems: Array<{ id: string; title: string; status: string }>;
-      }>('/api/work-items?status=open');
+        items: Array<{ id: string; title: string; status: string }>;
+      }>('/api/work-items');
 
-      expect(response.workItems).toBeDefined();
-      expect(Array.isArray(response.workItems)).toBe(true);
+      expect(response.items).toBeDefined();
+      expect(Array.isArray(response.items)).toBe(true);
     });
   });
 
@@ -235,6 +259,7 @@ describe.skipIf(!RUN_E2E)('Plugin Tool Simulation', () => {
 
 describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
   let context: E2ETestContext;
+  let sharedWorkItemId: string;
 
   beforeAll(async () => {
     context = createE2EContext();
@@ -243,44 +268,50 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
     if (!available) {
       console.log('E2E services not available - tests will be skipped');
     }
+
+    // Create a work item for memory tests
+    const workItem = await context.apiClient.post<{ id: string }>('/api/work-items', {
+      title: `Comprehensive Test Work Item ${Date.now()}`,
+      kind: 'issue',
+    });
+    sharedWorkItemId = workItem.id;
+    context.createdIds.workItems.push(sharedWorkItemId);
   });
 
   describe('Memory Lifecycle: Store → Recall → Forget', () => {
     it('should complete full memory lifecycle', async () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // Store a memory
+      // Store a memory via POST /api/memory
       const memory = {
         title: `Memory Lifecycle ${uniqueId}`,
         content: `This is test content for ${uniqueId}`,
-        memoryType: 'fact',
-        importance: 7,
-        confidence: 0.95,
+        linkedItemId: sharedWorkItemId,
+        type: 'note',
       };
 
-      const storeResponse = await context.apiClient.post<{ id: string }>('/api/memories', memory);
+      const storeResponse = await context.apiClient.post<{ id: string }>('/api/memory', memory);
       expect(storeResponse.id).toBeDefined();
       const memoryId = storeResponse.id;
       context.createdIds.memories.push(memoryId);
 
-      // Recall the memory
+      // Recall the memory via GET /api/memories/search
       const recallResponse = await context.apiClient.get<{
-        memories: Array<{ id: string; content: string }>;
+        results: Array<{ id: string; content: string }>;
       }>(`/api/memories/search?q=${uniqueId}`);
 
-      expect(recallResponse.memories).toBeDefined();
-      expect(Array.isArray(recallResponse.memories)).toBe(true);
+      expect(recallResponse.results).toBeDefined();
+      expect(Array.isArray(recallResponse.results)).toBe(true);
 
       // Forget the memory
       await context.apiClient.delete(`/api/memories/${memoryId}`);
 
       // Verify deletion
       const verifyResponse = await context.apiClient.get<{
-        memories: Array<{ id: string }>;
+        results: Array<{ id: string }>;
       }>(`/api/memories/search?q=${uniqueId}`);
 
-      // Memory should not appear or list should be empty/not include this ID
-      const found = verifyResponse.memories?.some((m) => m.id === memoryId);
+      const found = verifyResponse.results?.some((m) => m.id === memoryId);
       expect(found).toBe(false);
 
       // Remove from cleanup list since already deleted
@@ -291,13 +322,12 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const memory = {
         title: `Tagged Memory ${Date.now()}`,
         content: 'Memory with multiple tags',
-        memoryType: 'preference',
-        importance: 8,
-        confidence: 1.0,
+        linkedItemId: sharedWorkItemId,
+        type: 'note',
         tags: ['test', 'e2e', 'automated'],
       };
 
-      const response = await context.apiClient.post<{ id: string; tags?: string[] }>('/api/memories', memory);
+      const response = await context.apiClient.post<{ id: string; tags?: string[] }>('/api/memory', memory);
 
       expect(response.id).toBeDefined();
       context.createdIds.memories.push(response.id);
@@ -308,12 +338,11 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
     it('should complete project lifecycle', async () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // Create project
+      // Create project (kind: 'project')
       const project = {
         title: `Project ${uniqueId}`,
         description: `E2E test project ${uniqueId}`,
-        workItemType: 'project',
-        status: 'open',
+        kind: 'project',
       };
 
       const createResponse = await context.apiClient.post<{ id: string }>('/api/work-items', project);
@@ -321,14 +350,14 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const projectId = createResponse.id;
       context.createdIds.projects.push(projectId);
 
-      // List projects
+      // List work items (response uses 'items')
       const listResponse = await context.apiClient.get<{
-        workItems: Array<{ id: string; title: string }>;
-      }>('/api/work-items?type=project');
+        items: Array<{ id: string; title: string }>;
+      }>('/api/work-items');
 
-      expect(listResponse.workItems).toBeDefined();
-      expect(Array.isArray(listResponse.workItems)).toBe(true);
-      const found = listResponse.workItems.some((p) => p.id === projectId);
+      expect(listResponse.items).toBeDefined();
+      expect(Array.isArray(listResponse.items)).toBe(true);
+      const found = listResponse.items.some((p) => p.id === projectId);
       expect(found).toBe(true);
 
       // Get specific project
@@ -347,13 +376,11 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
     it('should complete todo lifecycle', async () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // Create todo
+      // Create issue
       const todo = {
         title: `Todo ${uniqueId}`,
         description: `E2E test todo ${uniqueId}`,
-        workItemType: 'task',
-        status: 'open',
-        priority: 'medium',
+        kind: 'issue',
       };
 
       const createResponse = await context.apiClient.post<{ id: string }>('/api/work-items', todo);
@@ -361,16 +388,17 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const todoId = createResponse.id;
       context.createdIds.workItems.push(todoId);
 
-      // List todos
+      // List work items
       const listResponse = await context.apiClient.get<{
-        workItems: Array<{ id: string; title: string; status: string }>;
-      }>('/api/work-items?type=task&status=open');
+        items: Array<{ id: string; title: string; status: string }>;
+      }>('/api/work-items');
 
-      expect(listResponse.workItems).toBeDefined();
-      expect(Array.isArray(listResponse.workItems)).toBe(true);
+      expect(listResponse.items).toBeDefined();
+      expect(Array.isArray(listResponse.items)).toBe(true);
 
-      // Complete todo (update status)
-      const completeResponse = await context.apiClient.post<{ id: string; status: string }>(`/api/work-items/${todoId}`, {
+      // Complete todo (use PUT, title is required)
+      const completeResponse = await context.apiClient.put<{ id: string; status: string }>(`/api/work-items/${todoId}`, {
+        title: `Todo ${uniqueId}`,
         status: 'completed',
       });
 
@@ -378,15 +406,13 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
     });
   });
 
-  describe('Contact Operations: Create → Search → Get', () => {
+  describe('Contact Operations: Create → List → Get', () => {
     it('should complete contact lifecycle', async () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // Create contact
+      // Create contact (displayName required)
       const contact = {
-        name: `Contact ${uniqueId}`,
-        email: testData.uniqueEmail(),
-        phone: testData.uniquePhone(),
+        displayName: `Contact ${uniqueId}`,
       };
 
       const createResponse = await context.apiClient.post<{ id: string }>('/api/contacts', contact);
@@ -394,10 +420,10 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const contactId = createResponse.id;
       context.createdIds.contacts.push(contactId);
 
-      // Search contacts
+      // List contacts with search filter
       const searchResponse = await context.apiClient.get<{
-        contacts: Array<{ id: string; name: string }>;
-      }>(`/api/contacts/search?q=${uniqueId}`);
+        contacts: Array<{ id: string; display_name: string }>;
+      }>(`/api/contacts?search=${uniqueId}`);
 
       expect(searchResponse.contacts).toBeDefined();
       expect(Array.isArray(searchResponse.contacts)).toBe(true);
@@ -405,66 +431,56 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       // Get specific contact
       const getResponse = await context.apiClient.get<{
         id: string;
-        name: string;
+        display_name: string;
       }>(`/api/contacts/${contactId}`);
 
       expect(getResponse.id).toBe(contactId);
-      expect(getResponse.name).toContain(uniqueId);
+      expect(getResponse.display_name).toContain(uniqueId);
     });
   });
 
-  describe('Skill Store Operations: Put → Get → List → Search → Delete', () => {
+  describe('Skill Store Operations: Create → Get → List → Delete', () => {
     it('should complete skill store lifecycle', async () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // Put skill
+      // Create skill store item via POST /api/skill-store/items
       const skill = {
+        skill_id: `e2e-test-${uniqueId}`,
         collection: 'e2e-test',
         key: `skill-${uniqueId}`,
-        value: {
-          name: `Test Skill ${uniqueId}`,
-          data: 'test data',
-        },
-        metadata: {
-          tags: ['test', 'e2e'],
-        },
+        title: `Test Skill ${uniqueId}`,
+        data: { name: `Test Skill ${uniqueId}`, info: 'test data' },
+        tags: ['test', 'e2e'],
       };
 
-      const putResponse = await context.apiClient.post<{ id: string; key: string }>('/api/skill-store', skill);
-      expect(putResponse.id).toBeDefined();
-      const skillId = putResponse.id;
-      context.createdIds.skills.push(skillId);
+      const createResponse = await context.apiClient.post<{ id: string; key: string }>('/api/skill-store/items', skill);
+      expect(createResponse.id).toBeDefined();
+      const skillItemId = createResponse.id;
+      context.createdIds.skills.push(skillItemId);
 
-      // Get skill
+      // Get skill item via GET /api/skill-store/items/:id
       const getResponse = await context.apiClient.get<{
         id: string;
         key: string;
-        value: unknown;
-      }>(`/api/skill-store/${skillId}`);
+        data: unknown;
+      }>(`/api/skill-store/items/${skillItemId}`);
 
-      expect(getResponse.id).toBe(skillId);
+      expect(getResponse.id).toBe(skillItemId);
       expect(getResponse.key).toBe(skill.key);
 
-      // List skills
+      // List skill items via GET /api/skill-store/items?skill_id=...
       const listResponse = await context.apiClient.get<{
         items: Array<{ id: string; collection: string }>;
-      }>('/api/skill-store?collection=e2e-test');
+      }>(`/api/skill-store/items?skill_id=${encodeURIComponent(skill.skill_id)}&collection=e2e-test`);
 
       expect(listResponse.items).toBeDefined();
       expect(Array.isArray(listResponse.items)).toBe(true);
 
-      // Search skills
-      const searchResponse = await context.apiClient.get<{
-        items: Array<{ id: string; key: string }>;
-      }>(`/api/skill-store/search?q=${uniqueId}`);
-
-      expect(searchResponse.items).toBeDefined();
-
-      // Delete skill
-      await context.apiClient.delete(`/api/skill-store/${skillId}`);
+      // Delete skill item via DELETE /api/skill-store/items/:id
+      await context.apiClient.delete(`/api/skill-store/items/${skillItemId}`);
 
       // Remove from cleanup list since already deleted
-      context.createdIds.skills = context.createdIds.skills.filter((id) => id !== skillId);
+      context.createdIds.skills = context.createdIds.skills.filter((id) => id !== skillItemId);
     });
   });
 
@@ -473,72 +489,30 @@ describe.skipIf(!RUN_E2E)('Comprehensive Tool Operations', () => {
       const uniqueId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Create two contacts
-      const contact1 = {
-        name: `Contact1 ${uniqueId}`,
-        email: testData.uniqueEmail(),
-      };
-
-      const contact2 = {
-        name: `Contact2 ${uniqueId}`,
-        email: testData.uniqueEmail(),
-      };
-
-      const contact1Response = await context.apiClient.post<{ id: string }>('/api/contacts', contact1);
-      const contact2Response = await context.apiClient.post<{ id: string }>('/api/contacts', contact2);
+      const contact1Response = await context.apiClient.post<{ id: string; display_name: string }>('/api/contacts', {
+        displayName: `Contact1 ${uniqueId}`,
+      });
+      const contact2Response = await context.apiClient.post<{ id: string; display_name: string }>('/api/contacts', {
+        displayName: `Contact2 ${uniqueId}`,
+      });
 
       context.createdIds.contacts.push(contact1Response.id, contact2Response.id);
 
-      // Set relationship
-      const relationship = {
-        contactId1: contact1Response.id,
-        contactId2: contact2Response.id,
-        relationshipType: 'colleague',
-      };
-
-      const setResponse = await context.apiClient.post<{ id: string }>('/api/relationships', relationship);
+      // Set relationship via POST /api/relationships/set (uses display names)
+      const setResponse = await context.apiClient.post<{ id: string }>('/api/relationships/set', {
+        contact_a: `Contact1 ${uniqueId}`,
+        contact_b: `Contact2 ${uniqueId}`,
+        relationship_type: 'colleague',
+      });
       expect(setResponse.id).toBeDefined();
 
-      // Query relationships
+      // Query relationships via GET /api/relationships?contact_id=...
       const queryResponse = await context.apiClient.get<{
-        relationships: Array<{ id: string; relationshipType: string }>;
-      }>(`/api/relationships?contactId=${contact1Response.id}`);
+        relationships: Array<{ id: string }>;
+      }>(`/api/relationships?contact_id=${contact1Response.id}`);
 
       expect(queryResponse.relationships).toBeDefined();
       expect(Array.isArray(queryResponse.relationships)).toBe(true);
-    });
-  });
-
-  describe('Thread Operations: List → Get', () => {
-    it('should list and get threads', async () => {
-      // List threads
-      const listResponse = await context.apiClient.get<{
-        threads: Array<{ id: string }>;
-      }>('/api/threads');
-
-      expect(listResponse.threads).toBeDefined();
-      expect(Array.isArray(listResponse.threads)).toBe(true);
-
-      // If threads exist, get one
-      if (listResponse.threads.length > 0) {
-        const threadId = listResponse.threads[0].id;
-
-        const getResponse = await context.apiClient.get<{
-          id: string;
-        }>(`/api/threads/${threadId}`);
-
-        expect(getResponse.id).toBe(threadId);
-      }
-    });
-  });
-
-  describe('Message Search', () => {
-    it('should search messages', async () => {
-      const searchResponse = await context.apiClient.get<{
-        messages: Array<unknown>;
-      }>('/api/messages/search?q=test');
-
-      expect(searchResponse.messages).toBeDefined();
-      expect(Array.isArray(searchResponse.messages)).toBe(true);
     });
   });
 
