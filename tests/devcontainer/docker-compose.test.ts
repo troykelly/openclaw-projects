@@ -1,6 +1,6 @@
 /**
  * Tests for devcontainer docker-compose configuration.
- * Part of Issue #533 - MinIO to SeaweedFS migration.
+ * Covers SeaweedFS migration (#533) and workspace entrypoint (#1010).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -69,6 +69,25 @@ describe('Devcontainer Docker Compose Configuration', () => {
     it('should depend on seaweedfs service', () => {
       const depends = compose.services.workspace.depends_on;
       expect(depends).toHaveProperty('seaweedfs');
+    });
+
+    it('should use exec-form entrypoint array with conditional docker-init.sh check', () => {
+      const entrypoint = compose.services.workspace.entrypoint;
+      expect(Array.isArray(entrypoint)).toBe(true);
+      expect(entrypoint[0]).toBe('/bin/sh');
+      expect(entrypoint[1]).toBe('-c');
+      // The script must test for docker-init.sh and fall back to exec'ing args directly
+      const script: string = entrypoint[2];
+      expect(script).toContain('docker-init.sh');
+      expect(script).toMatch(/if\s+\[.*-x.*docker-init\.sh/);
+      expect(script).toContain('exec');
+      expect(script).toMatch(/else\s+exec/);
+    });
+
+    it('should use exec-form command array with sleep infinity', () => {
+      const command = compose.services.workspace.command;
+      expect(Array.isArray(command)).toBe(true);
+      expect(command).toEqual(['sleep', 'infinity']);
     });
   });
 });
