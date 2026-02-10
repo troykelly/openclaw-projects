@@ -45,10 +45,13 @@ services:
       # │ For details: docs/development/devcontainer-security.md          │
       # └─────────────────────────────────────────────────────────────────┘
       - /var/run/docker.sock:/var/run/docker-host.sock
-    # Required: DooD feature entrypoint is NOT auto-merged with Docker Compose.
-    # This starts the socat proxy before exec'ing into `command`.
-    entrypoint: /usr/local/share/docker-init.sh
-    command: sleep infinity
+    # DooD feature entrypoint is NOT auto-merged with Docker Compose.
+    # When the docker-outside-of-docker feature is installed (local dev via
+    # VS Code / devcontainer CLI), docker-init.sh starts the socat proxy
+    # before exec'ing into `command`. In CI, features aren't applied, so
+    # the script won't exist — fall back to exec'ing the command directly.
+    entrypoint: ["/bin/sh", "-c", "if [ -x /usr/local/share/docker-init.sh ]; then exec /usr/local/share/docker-init.sh \"$$@\"; else exec \"$$@\"; fi", "--"]
+    command: ["sleep", "infinity"]
     depends_on:
       postgres:
         condition: service_healthy
