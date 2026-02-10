@@ -1,9 +1,10 @@
 ## Non‑negotiables
 
 1. **Follow**: `CODING.md` (mandatory).
-2. **Issue-driven**: every change maps to a GitHub issue with acceptance criteria.
-3. **Branch-only work**: never commit directly to `main`.
-4. **Local validation first**: CI is **not** the first line of defense.
+2. **Follow**: `TROUBLESHOOTING.md` for ALL issue handling (mandatory).
+3. **Issue-driven**: every change maps to a GitHub issue with acceptance criteria.
+4. **Branch-only work**: never commit directly to `main`.
+5. **Local validation first**: CI is **not** the first line of defense.
 
 ---
 

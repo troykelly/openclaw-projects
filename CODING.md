@@ -58,6 +58,7 @@ These principles are **non-negotiable**. They apply to all contributors — huma
 - Catch errors explicitly and either handle them or propagate with added context
 - Log meaningful information — include what operation failed and relevant identifiers — **without logging secrets/PII**
 - Fail fast and visibly
+- When you encounter ANY issue (build error, test failure, unexpected behavior), follow `TROUBLESHOOTING.md` immediately — no deferring, no "I'll come back to this"
 
 ## Configuration
 

@@ -107,12 +107,17 @@ Memory types:
 
 ## Mandatory Source Docs (read first)
 
-1. **Development / Coding Runbook:** `CODING-RUNBOOK.md`
-2. **Agentic Coding Rules:** `CODING.md`
-3. **Repo-local guidelines:** `AGENTS.md` (this repo)
-4. **Frontend work:** `docs/knowledge/frontend-2026.md` (MUST read for any frontend/UI changes)
+1. **Agentic Coding Rules:** `CODING.md`
+2. **Development / Coding Runbook:** `CODING-RUNBOOK.md`
+3. **Issue Handling Protocol:** `TROUBLESHOOTING.md`
+4. **Repo-local guidelines:** `AGENTS.md` (this repo)
+5. **Frontend work:** `docs/knowledge/frontend-2026.md` (MUST read for any frontend/UI changes)
 
 If you have not read them in this environment, stop and read them.
+
+> **Why `TROUBLESHOOTING.md`?** Agents have a tendency to skip over issues or forget them after context compaction. This document provides the mandatory 8-step protocol for handling ANY issue immediately and completely.
+
+> **Why `frontend-2026.md`?** Your training data may be stale on React 19, Tailwind v4, and shadcn/ui. This doc has current versions, breaking changes, correct patterns, and migration notes. Read it before touching any frontend code.
 
 ---
 

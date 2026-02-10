@@ -57,9 +57,10 @@ OpenClaw agents have workspace files (`MEMORY.md`, `memory/YYYY-MM-DD.md`). This
 
 ## Source of Truth (mandatory)
 
-1. **Development / Coding Runbook:** `CODING-RUNBOOK.md`
-2. **Agentic Coding Rules:** `CODING.md`
-3. **Frontend Knowledge (mandatory for UI work):** `docs/knowledge/frontend-2026.md`
+1. **Agentic Coding Rules:** `CODING.md`
+2. **Development / Coding Runbook:** `CODING-RUNBOOK.md`
+3. **Issue Handling Protocol:** `TROUBLESHOOTING.md`
+4. **Frontend Knowledge (mandatory for UI work):** `docs/knowledge/frontend-2026.md`
 
 If these conflict, **ask Troy** before proceeding.
 
