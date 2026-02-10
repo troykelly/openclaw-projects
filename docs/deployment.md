@@ -1048,17 +1048,34 @@ docker compose start seaweedfs
 
 ### Traefik Certificates Backup
 
-ACME certificates are stored in the `traefik_acme` volume:
+ACME certificates are stored on the host filesystem at `/etc/traefik/acme/`:
 
 ```bash
 # Backup
-docker run --rm -v openclaw-projects_traefik_acme:/data -v $(pwd):/backup alpine \
-  tar czf /backup/traefik-acme-$(date +%Y%m%d).tar.gz -C /data .
+cp /etc/traefik/acme/acme.json /backups/traefik-acme-$(date +%Y%m%d).json
 
 # Restore
-docker run --rm -v openclaw-projects_traefik_acme:/data -v $(pwd):/backup alpine \
-  sh -c "rm -rf /data/* && tar xzf /backup/traefik-acme-YYYYMMDD.tar.gz -C /data"
+cp /backups/traefik-acme-YYYYMMDD.json /etc/traefik/acme/acme.json
+chmod 600 /etc/traefik/acme/acme.json
 ```
+
+> **Note:** The `acme.json` file contains private keys and must have mode `600`. The Traefik entrypoint script enforces this automatically on startup. The host directory should be owned by root with restricted permissions:
+>
+> ```bash
+> sudo mkdir -p /etc/traefik/acme
+> sudo chmod 700 /etc/traefik/acme
+> ```
+>
+> **SELinux hosts (RHEL/Fedora/CentOS):** If Traefik cannot write to the bind mount, add the `:z` label to the volume in a `docker-compose.override.yml`:
+>
+> ```yaml
+> services:
+>   traefik:
+>     volumes:
+>       - /etc/traefik/acme:/etc/traefik/acme:z
+> ```
+>
+> **Scaling note:** Do not share a single `acme.json` across multiple Traefik instances. Traefik does not use file locking and concurrent writes will corrupt the certificate store. For HA deployments, use a distributed ACME storage backend (e.g., Consul, etcd).
 
 ---
 
