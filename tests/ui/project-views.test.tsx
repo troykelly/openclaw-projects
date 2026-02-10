@@ -255,9 +255,11 @@ describe('ProjectListPage', () => {
 
       renderPage('/work-items');
 
+      // Increased timeout: React.lazy module loading can exceed the default
+      // 1000ms waitFor timeout when running under full test-suite load.
       await waitFor(() => {
         expect(screen.getByTestId('page-project-list')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
   });
 
@@ -354,9 +356,11 @@ describe('ProjectDetailPage', () => {
 
       renderPage('/projects/proj-1');
 
+      // Increased timeout: React.lazy module loading can exceed the default
+      // 1000ms waitFor timeout when running under full test-suite load.
       await waitFor(() => {
         expect(screen.getByTestId('page-project-detail')).toBeInTheDocument();
-      });
+      }, { timeout: 5000 });
     });
   });
 
