@@ -28,6 +28,10 @@ echo "=== Building plugin ==="
 pnpm --filter @troykelly/openclaw-projects run build
 
 echo ""
+echo "=== Building frontend assets ==="
+pnpm run app:build
+
+echo ""
 echo "=== Level 1 + 3: Unit + Gateway Tests ==="
 pnpm test
 
