@@ -68,6 +68,10 @@ jobs:
         run: |
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm app:build && pnpm css:build"
 
+      - name: Build plugin package
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm --filter @troykelly/openclaw-projects run build"
+
       - name: Run tests
         env:
           VOYAGERAI_API_KEY: ${{ secrets.VOYAGERAI_API_KEY }}
