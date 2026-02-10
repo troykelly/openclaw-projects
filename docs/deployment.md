@@ -35,37 +35,35 @@ openclaw-projects consists of the following components:
                                        ▼
                          ┌─────────────────────────┐
                          │      Traefik 3.6        │
+                         │  network_mode: host     │
                          │  ┌─────────────────┐    │
                          │  │ TLS 1.3 + HTTP/3│    │
                          │  │ ACME DNS-01     │    │
                          │  │ Rate Limiting   │    │
+                         │  │ Real Client IPs │    │
                          │  └─────────────────┘    │
                          └───────────┬─────────────┘
-                                     │
-                    ┌────────────────┴────────────────┐
-                    │                                 │
-                    ▼                                 ▼
-         ┌──────────────────┐              ┌──────────────────┐
-         │  api.domain.com  │              │   domain.com     │
-         └────────┬─────────┘              └────────┬─────────┘
-                  │                                 │
-                  ▼                                 │
-         ┌──────────────────┐                       │
-         │   ModSecurity    │                       │
-         │   WAF (CRS 4)    │                       │
-         │  ┌────────────┐  │                       │
-         │  │ OWASP CRS  │  │                       │
-         │  │ Paranoia 1 │  │                       │
-         │  └────────────┘  │                       │
-         └────────┬─────────┘                       │
-                  │                                 │
-                  ▼                                 ▼
-         ┌──────────────────┐              ┌──────────────────┐
-         │   API Server     │              │   Frontend App   │
-         │   (Fastify)      │              │   (React + Nginx)│
-         │   Port: 3001     │              │   Port: 3000     │
-         └────────┬─────────┘              └──────────────────┘
-                  │
+                                     │ localhost (127.0.0.1 / [::1])
+                    ┌────────────────┼────────────────┐
+                    │                │                 │
+                    ▼                ▼                 ▼
+         ┌──────────────────┐ ┌───────────┐ ┌──────────────────┐
+         │  api.domain.com  │ │ domain.com│ │ ws/hooks.domain  │
+         └────────┬─────────┘ └─────┬─────┘ └────────┬─────────┘
+                  │                 │                 │
+                  ▼                 │                 │
+         ┌──────────────────┐       │                 │
+         │   ModSecurity    │       │                 │
+         │   WAF (CRS 4)    │       │                 │
+         │  :8080 -> API    │       │                 │
+         └────────┬─────────┘       │                 │
+                  │                 │                 │
+                  ▼                 ▼                 ▼
+         ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+         │   API Server     │ │ Frontend App │ │ OpenClaw Gateway │
+         │   (Fastify)      │ │ (React+Nginx)│ │   (full.yml)     │
+         │   :3001          │ │   :8081      │ │   :18789         │
+         └────────┬─────────┘ └──────────────┘ └──────────────────┘
                   │
     ┌─────────────┴─────────────┐
     │                           │
@@ -121,16 +119,29 @@ The containers use different internal ports depending on the deployment type:
 
 | Container | Basic Compose | Traefik Compose | Notes |
 |-----------|---------------|-----------------|-------|
-| **API** | 3000 | 3001 | Traefik uses 3001 to avoid port conflicts with app labels |
+| **API** | 3000 | 3001 | Traefik uses 3001 to avoid port conflicts |
 | **Frontend (nginx)** | 8080 | 8080 | Consistent across both deployments |
 | **PostgreSQL** | 5432 | 5432 | Standard PostgreSQL port |
 | **SeaweedFS S3** | 8333 | 8333 | Internal S3-compatible storage |
 
-In the Traefik deployment, the API runs on port 3001 because:
-- ModSecurity WAF proxies to `http://api:3001`
-- This avoids potential conflicts with Traefik's service discovery
-
 The frontend's nginx automatically proxies `/api/*` requests to the correct API port based on the `API_PORT` environment variable passed by each compose file.
+
+### Host Networking Port Mapping (Traefik Deployments)
+
+Traefik runs with `network_mode: host` so it sees real client IP addresses (not Docker bridge gateway IPs). Because Traefik shares the host network namespace, it cannot use Docker DNS to reach backend services. Instead, each service publishes its port to dual-stack localhost (`127.0.0.1` + `[::1]`), and Traefik routes to those localhost ports.
+
+| Service | Container Port | Host Port (default) | Env Var | Compose Files |
+|---------|---------------|---------------------|---------|---------------|
+| **ModSecurity** | 8080 | 8080 | `MODSEC_HOST_PORT` | traefik, full |
+| **API** | 3001 | 3001 | `API_HOST_PORT` | traefik, full |
+| **Frontend** | 8080 | 8081 | `APP_HOST_PORT` | traefik, full |
+| **OpenClaw Gateway** | 18789 | 18789 | `GATEWAY_HOST_PORT` | full only |
+
+The `SERVICE_HOST` env var controls which address Traefik uses to reach these services (default: `127.0.0.1`). Set to `[::1]` for IPv6-only hosts.
+
+**Note:** The frontend's host port defaults to 8081 (not 8080) to avoid a conflict with ModSecurity, which also listens on container port 8080.
+
+Inter-service communication (e.g., ModSecurity → API, App → API) is unaffected — those containers remain on the Docker bridge network and use Docker hostnames normally.
 
 ---
 
@@ -475,6 +486,11 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 |----------|---------|-------------|
 | `HTTP_PORT` | `80` | HTTP port (redirects to HTTPS) |
 | `HTTPS_PORT` | `443` | HTTPS port (TCP+UDP for HTTP/3) |
+| `SERVICE_HOST` | `127.0.0.1` | Address Traefik uses to reach backends (set to `[::1]` for IPv6) |
+| `MODSEC_HOST_PORT` | `8080` | ModSecurity WAF localhost port |
+| `API_HOST_PORT` | `3001` | API server localhost port |
+| `APP_HOST_PORT` | `8081` | Frontend app localhost port |
+| `GATEWAY_HOST_PORT` | `18789` | OpenClaw Gateway localhost port (full.yml only) |
 
 ### S3 Storage
 
@@ -686,24 +702,29 @@ TRUSTED_IPS=173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.10
 
 ## Extending Traefik
 
-Traefik can be extended with additional services and routes using two methods:
+Traefik can be extended with additional services and routes. Because Traefik uses `network_mode: host`, custom services must publish their ports to localhost for Traefik to reach them.
 
-### Method 1: Docker Labels (Recommended)
+### Method 1: Docker Labels with Localhost Ports
 
-Add services with Traefik labels in a `docker-compose.override.yml`:
+Add services with Traefik labels in a `docker-compose.override.yml`. Each service must publish its port to dual-stack localhost and use `server.url` (not `server.port`) in its label:
 
 ```yaml
 # docker-compose.override.yml
 services:
   whoami:
     image: traefik/whoami:latest
+    ports:
+      # Publish to dual-stack localhost for Traefik (host network) to reach
+      - "127.0.0.1:8888:80"
+      - "[::1]:8888:80"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
       - "traefik.http.routers.whoami.entrypoints=websecure"
       - "traefik.http.routers.whoami.tls.certResolver=letsencrypt"
       - "traefik.http.routers.whoami.middlewares=security-headers@file"
-      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+      # Use server.url pointing to localhost (NOT server.port)
+      - "traefik.http.services.whoami.loadbalancer.server.url=http://${SERVICE_HOST:-127.0.0.1}:8888"
 ```
 
 Start with override:
@@ -712,7 +733,7 @@ Start with override:
 docker compose -f docker-compose.traefik.yml -f docker-compose.override.yml up -d
 ```
 
-### Method 2: File Provider (Advanced)
+### Method 2: File Provider (Recommended for Complex Routes)
 
 For complex routing or external services, use the file provider:
 
@@ -742,7 +763,7 @@ For complex routing or external services, use the file provider:
        monitoring-service:
          loadBalancer:
            servers:
-             - url: "http://192.168.1.100:9090"
+             - url: "http://127.0.0.1:9090"
    ```
 
 3. **Mount in docker-compose.override.yml:**
@@ -1222,6 +1243,27 @@ sudo ufw allow 443/udp
 
 # Test with curl (requires HTTP/3 support)
 curl --http3 https://example.com
+```
+
+#### Traefik Cannot Reach Backend Services (502 Errors)
+
+Traefik uses host networking and reaches services via localhost ports. If you see 502 errors:
+
+```bash
+# Check that services are publishing ports to localhost
+ss -tlnp | grep -E '(8080|3001|8081|18789)'
+
+# Verify from the host (same network namespace as Traefik)
+curl -s http://127.0.0.1:8080/healthz   # ModSecurity
+curl -s http://127.0.0.1:3001/health     # API
+curl -s http://127.0.0.1:8081/           # Frontend
+curl -s http://127.0.0.1:18789/health    # Gateway (full.yml only)
+
+# Check container port mappings
+docker compose -f docker-compose.traefik.yml ps --format 'table {{.Name}}\t{{.Ports}}'
+
+# If using IPv6 SERVICE_HOST=[::1], test IPv6 instead
+curl -s http://[::1]:3001/health
 ```
 
 ### Getting Help

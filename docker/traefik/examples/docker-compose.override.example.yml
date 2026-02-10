@@ -4,8 +4,18 @@
 # Copy this file to docker-compose.override.yml in your project root and modify as needed.
 #
 # This file demonstrates two extension patterns:
-#   1. Docker Labels: Services register routes directly via Traefik labels
-#   2. File Provider: Mount custom YAML configs for additional routes
+#   1. File Provider: Mount custom YAML configs for additional routes (recommended)
+#   2. Docker Labels: Services register routes via Traefik labels
+#
+# HOST NETWORKING NOTE:
+#   Traefik runs with network_mode: host so it can see real client IPs.
+#   This means Traefik is NOT on the Docker bridge network, so it cannot reach
+#   services by their Docker hostname. Instead:
+#
+#   - Custom services must publish ports to localhost (dual-stack recommended)
+#   - Route configs use http://SERVICE_HOST:PORT (not http://container-name:PORT)
+#   - Inter-service communication (between non-Traefik containers) still uses
+#     Docker hostnames normally since those containers are on the bridge network
 #
 # Usage:
 #   cp docker/traefik/examples/docker-compose.override.example.yml docker-compose.override.yml
@@ -21,14 +31,24 @@
 
 services:
   # =============================================================================
-  # Example 1: Adding a service with Docker labels (whoami test service)
+  # Example 1: Adding a service with localhost port publishing (whoami test)
   # =============================================================================
   #
-  # This demonstrates the primary extension method: Docker labels.
-  # Traefik's Docker provider automatically discovers labeled services.
+  # Because Traefik uses host networking, it reaches services via localhost ports.
+  # The service must publish its port to localhost, and the Traefik route must
+  # point to http://${SERVICE_HOST}:<port>.
+  #
+  # Option A: Use Docker labels (Traefik Docker provider - simpler but limited)
+  # Option B: Use file provider route in traefik-custom/ (more flexible)
+  #
+  # This example uses Docker labels. For file provider, see Example 3 below.
   #
   whoami:
     image: traefik/whoami:latest
+    ports:
+      # Publish to dual-stack localhost for Traefik to reach
+      - "127.0.0.1:8888:80"
+      - "[::1]:8888:80"
     labels:
       # Enable Traefik for this container
       - "traefik.enable=true"
@@ -41,13 +61,12 @@ services:
       # Apply security middlewares (reuse system middlewares)
       - "traefik.http.routers.whoami.middlewares=security-headers@file"
 
-      # Define the service (port the container listens on)
-      - "traefik.http.services.whoami.loadbalancer.server.port=80"
-    networks:
-      - traefik
+      # Point to the localhost port (NOT the container port)
+      # SERVICE_HOST defaults to 127.0.0.1 (see .env.example)
+      - "traefik.http.services.whoami.loadbalancer.server.url=http://${SERVICE_HOST:-127.0.0.1}:8888"
 
   # =============================================================================
-  # Example 2: Adding Grafana with Docker labels
+  # Example 2: Adding Grafana with localhost port publishing
   # =============================================================================
   #
   # Real-world example: Adding a monitoring dashboard
@@ -59,36 +78,47 @@ services:
   #   environment:
   #     - GF_SERVER_ROOT_URL=https://grafana.${DOMAIN}
   #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+  #   ports:
+  #     - "127.0.0.1:3002:3000"
+  #     - "[::1]:3002:3000"
   #   labels:
   #     - "traefik.enable=true"
   #     - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
   #     - "traefik.http.routers.grafana.entrypoints=websecure"
   #     - "traefik.http.routers.grafana.tls.certResolver=letsencrypt"
   #     - "traefik.http.routers.grafana.middlewares=security-headers@file"
-  #     - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-  #   networks:
-  #     - traefik
+  #     - "traefik.http.services.grafana.loadbalancer.server.url=http://${SERVICE_HOST:-127.0.0.1}:3002"
 
   # =============================================================================
-  # Example 3: Adding Portainer with Docker labels
+  # Example 3: File provider route (for external or complex services)
   # =============================================================================
   #
-  # Real-world example: Adding a Docker management UI
+  # For services not managed by Docker Compose, or when you want full control
+  # over routing config, use the file provider instead of Docker labels.
   #
-  # portainer:
-  #   image: portainer/portainer-ce:latest
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #     - portainer-data:/data
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
-  #     - "traefik.http.routers.portainer.entrypoints=websecure"
-  #     - "traefik.http.routers.portainer.tls.certResolver=letsencrypt"
-  #     - "traefik.http.routers.portainer.middlewares=security-headers@file"
-  #     - "traefik.http.services.portainer.loadbalancer.server.port=9000"
-  #   networks:
-  #     - traefik
+  # 1. Create traefik-custom/ directory in your project root
+  # 2. Add YAML route files (see docker/traefik/examples/custom-route.example.yml)
+  # 3. Mount it via the traefik volume override below
+  #
+  # Example: Route to an external Portainer instance at 192.168.1.50:9000
+  #
+  # Create traefik-custom/portainer.yml:
+  #   http:
+  #     routers:
+  #       portainer:
+  #         rule: "Host(`portainer.example.com`)"
+  #         service: portainer-service
+  #         entryPoints:
+  #           - websecure
+  #         middlewares:
+  #           - security-headers
+  #         tls:
+  #           certResolver: letsencrypt
+  #     services:
+  #       portainer-service:
+  #         loadBalancer:
+  #           servers:
+  #             - url: "http://192.168.1.50:9000"
 
   # =============================================================================
   # Traefik: Mount custom config directory (File Provider extension)
@@ -103,11 +133,6 @@ services:
       # Place your *.yml files in traefik-custom/ and they'll be auto-loaded
       - ./traefik-custom:/etc/traefik/dynamic/custom:ro
 
-networks:
-  traefik:
-    external: true
-
-# Uncomment if using Grafana/Portainer examples:
+# Uncomment if using Grafana example:
 # volumes:
 #   grafana-data:
-#   portainer-data:

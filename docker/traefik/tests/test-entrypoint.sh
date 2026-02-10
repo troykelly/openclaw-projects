@@ -216,26 +216,26 @@ test_security_headers() {
     cleanup_test_env "${test_dir}"
 }
 
-# Test 8: ModSecurity middleware should be present
-test_modsecurity_middleware() {
+# Test 8: ModSecurity service should be present with localhost URL
+test_modsecurity_service() {
     run_test
     local test_dir
     test_dir=$(setup_test_env)
-    
+
     export DOMAIN="example.com"
     export ACME_EMAIL="test@example.com"
-    
+
     "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
-    
+
     local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
-    
-    if grep -q "modsecurity:" "${config_file}" && \
-       grep -q "forwardAuth:" "${config_file}"; then
-        pass "ModSecurity forwardAuth middleware is present"
+
+    if grep -q "modsecurity-service:" "${config_file}" && \
+       grep -q "http://127.0.0.1:" "${config_file}"; then
+        pass "ModSecurity service is present with localhost URL"
     else
-        fail "ModSecurity forwardAuth middleware should be present"
+        fail "ModSecurity service should be present with localhost URL"
     fi
-    
+
     cleanup_test_env "${test_dir}"
 }
 
@@ -554,6 +554,88 @@ test_acme_json_permissions_corrected() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 23: Host port and SERVICE_HOST variables should be substituted in generated config
+test_host_port_substitution() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+    export SERVICE_HOST="[::1]"
+    export MODSEC_HOST_PORT="9080"
+    export API_HOST_PORT="9001"
+    export APP_HOST_PORT="9081"
+    export GATEWAY_HOST_PORT="19789"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    if grep -q '\[::1\]:9080' "${config_file}" && \
+       grep -q '\[::1\]:9001' "${config_file}" && \
+       grep -q '\[::1\]:9081' "${config_file}" && \
+       grep -q '\[::1\]:19789' "${config_file}"; then
+        pass "SERVICE_HOST and port variables are substituted correctly"
+    else
+        fail "SERVICE_HOST and port variables should be substituted in generated config"
+    fi
+
+    unset SERVICE_HOST MODSEC_HOST_PORT API_HOST_PORT APP_HOST_PORT GATEWAY_HOST_PORT
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 24: OpenClaw gateway routes should be present
+test_gateway_routes() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    if grep -q "openclaw-ui-router:" "${config_file}" && \
+       grep -q "openclaw-ws-router:" "${config_file}" && \
+       grep -q "openclaw-hooks-router:" "${config_file}" && \
+       grep -q "openclaw-gateway-service:" "${config_file}"; then
+        pass "OpenClaw gateway routes and service are present"
+    else
+        fail "OpenClaw gateway routes should be present in config"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 25: Generated config should use SERVICE_HOST, not Docker hostnames
+test_no_docker_hostnames() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+
+    "${test_dir}/entrypoint-test.sh" >/dev/null 2>&1
+
+    local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
+
+    # Ensure no Docker service hostnames appear in service URLs
+    # Service URLs should use SERVICE_HOST (defaults to 127.0.0.1), not Docker DNS names
+    if grep -q "http://modsecurity:" "${config_file}" || \
+       grep -q "http://api:" "${config_file}" || \
+       grep -q "http://app:" "${config_file}"; then
+        fail "Generated config should not contain Docker hostnames in service URLs"
+    else
+        pass "Generated config uses SERVICE_HOST, not Docker hostnames"
+    fi
+
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -569,7 +651,7 @@ test_config_contains_domain
 test_config_is_valid_yaml
 test_tls_version
 test_security_headers
-test_modsecurity_middleware
+test_modsecurity_service
 test_api_router
 test_app_router
 test_trusted_ips_yaml
@@ -582,6 +664,9 @@ test_acme_json_created
 test_acme_json_permissions
 test_acme_json_preserved
 test_acme_json_permissions_corrected
+test_host_port_substitution
+test_gateway_routes
+test_no_docker_hostnames
 
 echo ""
 echo "======================================"

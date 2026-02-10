@@ -33,6 +33,10 @@ services:
     image: traefik:3.6
     container_name: openclaw-traefik
     restart: unless-stopped
+    # Host networking: Traefik binds directly to host ports and sees real client IPs.
+    # Without this, Traefik would only see Docker bridge gateway IPs, breaking
+    # rate limiting, access logs, and IP-based security rules.
+    network_mode: host
     # Note: No depends_on - Traefik starts immediately and handles unhealthy backends
     # gracefully by returning 502/503 until services are ready. This is standard
     # reverse proxy behavior and allows faster startup. See docs/deployment.md
@@ -43,6 +47,13 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
       TRUSTED_IPS: ${TRUSTED_IPS:-}
       DISABLE_HTTP: ${DISABLE_HTTP:-false}
+      # Host networking: address and ports Traefik uses to reach backend services
+      # Services publish their ports to localhost; Traefik connects via these settings.
+      # Set SERVICE_HOST to [::1] for IPv6-only environments.
+      SERVICE_HOST: ${SERVICE_HOST:-127.0.0.1}
+      MODSEC_HOST_PORT: ${MODSEC_HOST_PORT:-8080}
+      API_HOST_PORT: ${API_HOST_PORT:-3001}
+      APP_HOST_PORT: ${APP_HOST_PORT:-8081}
       # DNS provider credentials (passed through to ACME)
       # Cloudflare
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:-}
@@ -60,10 +71,11 @@ services:
       # Providers
       - --providers.docker=true
       - --providers.docker.exposedByDefault=false
-      - --providers.docker.network=openclaw-projects_default
+      # Note: --providers.docker.network is omitted because Traefik uses host networking
+      # and cannot resolve Docker container IPs. All routing is via file provider.
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true
-      # Entrypoints
+      # Entrypoints (Traefik binds directly to host ports via network_mode: host)
       - --entrypoints.web.address=:${HTTP_PORT:-80}
       - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
@@ -84,12 +96,7 @@ services:
       - --log.level=${TRAEFIK_LOG_LEVEL:-INFO}
       - --accesslog=true
       - --accesslog.format=json
-    ports:
-      # HTTP
-      - "${HTTP_PORT:-80}:${HTTP_PORT:-80}"
-      # HTTPS (TCP + UDP for HTTP/3)
-      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}/tcp"
-      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}/udp"
+    # Note: No ports section - network_mode: host binds directly to host ports
     volumes:
       # Docker socket for provider (read-only)
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -176,8 +183,10 @@ services:
       PORT: 8080
       # Server name
       SERVER_NAME: modsecurity
-    expose:
-      - "8080"
+    # Publish to localhost for Traefik (host networking mode)
+    ports:
+      - "127.0.0.1:${MODSEC_HOST_PORT:-8080}:8080"
+      - "[::1]:${MODSEC_HOST_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
       interval: 10s
@@ -203,13 +212,8 @@ services:
         reservations:
           cpus: "0.1"
           memory: 128M
-    labels:
-      # Enable Traefik for ModSecurity service
-      - "traefik.enable=true"
-      # Service configuration (used by dynamic config)
-      - "traefik.http.services.modsecurity.loadbalancer.server.port=8080"
-      - "traefik.http.services.modsecurity.loadbalancer.healthcheck.path=/healthz"
-      - "traefik.http.services.modsecurity.loadbalancer.healthcheck.interval=10s"
+    # Note: No Traefik labels - routing is handled by the file provider
+    # (dynamic-config.yml.template) which routes api.DOMAIN -> modsecurity -> api
 
   # =============================================================================
   # Database (PostgreSQL with TimescaleDB, pgvector, pg_cron)
@@ -394,8 +398,10 @@ services:
       OPENCLAW_HOOK_TOKEN: ${OPENCLAW_HOOK_TOKEN:-}
       # File upload
       MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-10485760}
-    expose:
-      - "3001"
+    # Publish to localhost for Traefik (host networking mode)
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-3001}:3001"
+      - "[::1]:${API_HOST_PORT:-3001}:3001"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
@@ -439,8 +445,11 @@ services:
       # Note: In Traefik mode, API runs on port 3001
       API_HOST: api
       API_PORT: "3001"
-    expose:
-      - "8080"
+    # Publish to localhost for Traefik (host networking mode)
+    # Default host port 8081 avoids conflict with ModSecurity on 8080
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-8081}:8080"
+      - "[::1]:${APP_HOST_PORT:-8081}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 10s
@@ -467,20 +476,8 @@ services:
         reservations:
           cpus: "0.1"
           memory: 64M
-    labels:
-      # Enable Traefik for this service
-      - "traefik.enable=true"
-      # Router for App (main domain and www)
-      - "traefik.http.routers.app.rule=Host(`${DOMAIN:?DOMAIN is required}`) || Host(`www.${DOMAIN:?DOMAIN is required}`)"
-      - "traefik.http.routers.app.entrypoints=websecure"
-      - "traefik.http.routers.app.tls=true"
-      - "traefik.http.routers.app.tls.certResolver=letsencrypt"
-      - "traefik.http.routers.app.tls.options=default@file"
-      - "traefik.http.routers.app.middlewares=security-headers@file,compress@file"
-      # Service configuration (nginx listens on 8080)
-      - "traefik.http.services.app.loadbalancer.server.port=8080"
-      - "traefik.http.services.app.loadbalancer.healthcheck.path=/"
-      - "traefik.http.services.app.loadbalancer.healthcheck.interval=10s"
+    # Note: No Traefik labels - routing is handled by the file provider
+    # (dynamic-config.yml.template) which routes DOMAIN/www.DOMAIN -> app
 
 volumes:
   db_data:
