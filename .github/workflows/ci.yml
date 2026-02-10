@@ -90,13 +90,20 @@ jobs:
 
       - name: Wait for E2E services
         run: |
-          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
-            workspace bash -lc "cd /workspaces/openclaw-projects && bash scripts/wait-for-services.sh"
+          # Run on host (not inside workspace) because wait script uses docker compose
+          bash scripts/wait-for-services.sh
+
+      - name: Connect workspace to E2E network
+        run: |
+          # The workspace container needs to reach the E2E backend on the test network.
+          # Connect it so tests can reach openclaw-backend-test:3001 by container name.
+          docker network connect openclaw-test-network "$(docker compose -f .devcontainer/docker-compose.devcontainer.yml ps -q workspace)"
 
       - name: Run E2E tests
         run: |
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
             -e RUN_E2E=true \
+            -e E2E_API_URL=http://openclaw-backend-test:3001 \
             workspace bash -lc "cd /workspaces/openclaw-projects && pnpm run test:e2e"
 
       - name: Teardown E2E services
