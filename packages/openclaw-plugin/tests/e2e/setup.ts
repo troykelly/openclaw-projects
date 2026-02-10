@@ -100,7 +100,6 @@ export function createTestApiClient(baseUrl: string) {
     async delete(path: string): Promise<void> {
       const response = await fetch(`${baseUrl}${path}`, {
         method: 'DELETE',
-        headers: defaultHeaders,
       });
       if (!response.ok) {
         throw new Error(`DELETE ${path} failed: ${response.status}`);
