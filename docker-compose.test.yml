@@ -41,13 +41,32 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate-test:
+    build:
+      context: .
+      dockerfile: docker/migrate/Dockerfile
+    container_name: openclaw-migrate-test
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://openclaw:openclaw_test@postgres-test:5432/openclaw_test?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+
   backend-test:
     build:
       context: .
       dockerfile: docker/api/Dockerfile
     container_name: openclaw-backend-test
     environment:
-      DATABASE_URL: postgres://openclaw:openclaw_test@postgres-test:5432/openclaw_test
+      # Individual PG vars are required — createPool() in src/db.ts reads these
+      # (DATABASE_URL is NOT parsed by the backend code)
+      PGHOST: postgres-test
+      PGPORT: "5432"
+      PGUSER: openclaw
+      PGPASSWORD: openclaw_test
+      PGDATABASE: openclaw_test
       OPENCLAW_PROJECTS_AUTH_DISABLED: "true"
       NODE_ENV: test
       PORT: 3001
@@ -56,8 +75,10 @@ services:
     depends_on:
       postgres-test:
         condition: service_healthy
+      migrate-test:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10

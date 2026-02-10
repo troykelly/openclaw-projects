@@ -85,6 +85,18 @@ export function createTestApiClient(baseUrl: string) {
       return response.json() as Promise<T>;
     },
 
+    async put<T>(path: string, body: unknown): Promise<T> {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: 'PUT',
+        headers: defaultHeaders,
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        throw new Error(`PUT ${path} failed: ${response.status}`);
+      }
+      return response.json() as Promise<T>;
+    },
+
     async delete(path: string): Promise<void> {
       const response = await fetch(`${baseUrl}${path}`, {
         method: 'DELETE',
@@ -249,7 +261,7 @@ export async function cleanupResources(context: E2ETestContext): Promise<void> {
   // Cleanup skills
   for (const id of context.createdIds.skills) {
     try {
-      await context.apiClient.delete(`/api/skill-store/${id}`);
+      await context.apiClient.delete(`/api/skill-store/items/${id}`);
     } catch {
       // Ignore cleanup errors
     }
