@@ -14,9 +14,11 @@ import type {
   OAuthFeature,
   ProviderContact,
 } from './types.ts';
+import type { OAuthPermissionLevel } from './types.ts';
 import { OAuthError, NoConnectionError, TokenExpiredError, InvalidStateError, ALLOWED_FEATURES } from './types.ts';
 import { requireProviderConfig, isProviderConfigured } from './config.ts';
 import { encryptToken, decryptToken } from './crypto.ts';
+import { getRequiredScopes, getMissingScopes } from './scopes.ts';
 import * as microsoft from './microsoft.ts';
 import * as google from './google.ts';
 
@@ -59,23 +61,44 @@ function rowToConnection(row: Record<string, unknown>): OAuthConnection {
  * Build the provider authorization URL and persist the PKCE state in the database.
  *
  * The state row expires after 10 minutes (set by the DB default).
+ *
+ * When `features` and `permissionLevel` are provided, scopes are computed
+ * from the feature-to-scope map instead of using the raw `scopes` parameter.
+ * For Google, incremental auth (`include_granted_scopes=true`) is enabled
+ * so existing grants are preserved and only new scopes trigger consent.
+ * Microsoft inherently supports additive scope requests on re-auth.
  */
 export async function getAuthorizationUrl(
   pool: Pool,
   provider: OAuthProvider,
   state: string,
   scopes?: string[],
-  opts?: { userEmail?: string; redirectPath?: string },
+  opts?: {
+    userEmail?: string;
+    redirectPath?: string;
+    features?: OAuthFeature[];
+    permissionLevel?: OAuthPermissionLevel;
+  },
 ): Promise<OAuthAuthorizationUrl> {
   const config = requireProviderConfig(provider);
+
+  // If features are provided, compute scopes from the feature map
+  const effectiveScopes = opts?.features && opts.features.length > 0
+    ? getRequiredScopes(provider, opts.features, opts.permissionLevel ?? 'read')
+    : scopes;
+
+  // Incremental auth: when features are specified, we're adding scopes to an existing connection
+  const isIncremental = !!(opts?.features && opts.features.length > 0);
 
   let result: OAuthAuthorizationUrl;
   switch (provider) {
     case 'microsoft':
-      result = microsoft.buildAuthorizationUrl(config, state, scopes);
+      result = microsoft.buildAuthorizationUrl(config, state, effectiveScopes);
       break;
     case 'google':
-      result = google.buildAuthorizationUrl(config, state, scopes);
+      result = google.buildAuthorizationUrl(config, state, effectiveScopes, {
+        includeGrantedScopes: isIncremental,
+      });
       break;
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
