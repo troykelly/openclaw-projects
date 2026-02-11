@@ -16,6 +16,7 @@ import type {
 } from './types.ts';
 import { OAuthError, NoConnectionError, TokenExpiredError, InvalidStateError, ALLOWED_FEATURES } from './types.ts';
 import { requireProviderConfig, isProviderConfigured } from './config.ts';
+import { encryptToken, decryptToken } from './crypto.ts';
 import * as microsoft from './microsoft.ts';
 import * as google from './google.ts';
 
@@ -29,14 +30,15 @@ const CONNECTION_COLUMNS = `
   created_at, updated_at
 `;
 
-/** Map a database row to an OAuthConnection object. */
+/** Map a database row to an OAuthConnection object, decrypting tokens. */
 function rowToConnection(row: Record<string, unknown>): OAuthConnection {
+  const rowId = row.id as string;
   return {
-    id: row.id as string,
+    id: rowId,
     userEmail: row.user_email as string,
     provider: row.provider as OAuthProvider,
-    accessToken: row.access_token as string,
-    refreshToken: (row.refresh_token as string) || undefined,
+    accessToken: decryptToken(row.access_token as string, rowId),
+    refreshToken: row.refresh_token ? decryptToken(row.refresh_token as string, rowId) : undefined,
     scopes: row.scopes as string[],
     expiresAt: row.expires_at ? new Date(row.expires_at as string) : undefined,
     tokenMetadata: (row.token_metadata as Record<string, unknown>) || {},
@@ -205,6 +207,7 @@ export function validateFeatures(features: string[]): OAuthFeature[] {
 /**
  * Save or upsert an OAuth connection with multi-account support.
  * The upsert key is (user_email, provider, COALESCE(provider_account_email, '')).
+ * Tokens are encrypted at rest using per-row HKDF-derived keys (when enabled).
  */
 export async function saveConnection(
   pool: Pool,
@@ -223,6 +226,7 @@ export async function saveConnection(
   const enabledFeatures = options?.enabledFeatures || [];
   const providerAccountEmail = options?.providerAccountEmail ?? null;
 
+  // Insert first to get the row ID, then encrypt tokens using that ID as HKDF salt.
   const result = await pool.query(
     `INSERT INTO oauth_connection (
        user_email, provider, access_token, refresh_token, scopes, expires_at,
@@ -254,7 +258,24 @@ export async function saveConnection(
     ],
   );
 
-  return rowToConnection(result.rows[0]);
+  const row = result.rows[0];
+  const rowId = row.id as string;
+
+  // Encrypt tokens using the row ID for per-row key derivation, then persist
+  const encryptedAccess = encryptToken(tokens.accessToken, rowId);
+  const encryptedRefresh = tokens.refreshToken ? encryptToken(tokens.refreshToken, rowId) : null;
+
+  await pool.query(
+    `UPDATE oauth_connection SET access_token = $1, refresh_token = COALESCE($2, refresh_token) WHERE id = $3`,
+    [encryptedAccess, encryptedRefresh, rowId],
+  );
+
+  // Return connection with plaintext tokens (rowToConnection would try to decrypt the
+  // not-yet-encrypted values from the RETURNING clause, so build manually)
+  const connection = rowToConnection(row);
+  connection.accessToken = tokens.accessToken;
+  connection.refreshToken = tokens.refreshToken;
+  return connection;
 }
 
 /** Look up a single connection by its UUID. */
