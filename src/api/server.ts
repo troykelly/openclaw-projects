@@ -10080,8 +10080,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // ==================== File/Drive API (Issue #1049) ====================
 
-  // GET /api/files - List files from a connected drive
-  app.get('/api/files', async (req, reply) => {
+  // GET /api/drive/files - List files from a connected drive
+  app.get('/api/drive/files', async (req, reply) => {
     const query = req.query as { connectionId?: string; folderId?: string; pageToken?: string };
 
     if (!query.connectionId) {
@@ -10109,8 +10109,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/files/search - Search files across a connected drive
-  app.get('/api/files/search', async (req, reply) => {
+  // GET /api/drive/files/search - Search files across a connected drive
+  app.get('/api/drive/files/search', async (req, reply) => {
     const query = req.query as { connectionId?: string; q?: string; pageToken?: string };
 
     if (!query.connectionId) {
@@ -10142,8 +10142,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/files/:id - Get single file metadata with download URL
-  app.get('/api/files/:id', async (req, reply) => {
+  // GET /api/drive/files/:id - Get single file metadata with download URL
+  app.get('/api/drive/files/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { connectionId?: string };
 
