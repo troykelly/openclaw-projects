@@ -377,7 +377,9 @@ export async function listDriveFiles(
   pageToken?: string,
 ): Promise<DriveListResult> {
   const parentId = folderId || 'root';
-  const q = `'${parentId}' in parents and trashed=false`;
+  // Escape single quotes in folder ID to prevent query injection
+  const safeParentId = parentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const q = `'${safeParentId}' in parents and trashed=false`;
 
   const params = new URLSearchParams({
     q,
@@ -420,7 +422,9 @@ export async function searchDriveFiles(
   query: string,
   pageToken?: string,
 ): Promise<DriveListResult> {
-  const q = `fullText contains '${query}' and trashed=false`;
+  // Escape single quotes in the query to prevent query injection
+  const safeQuery = query.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const q = `fullText contains '${safeQuery}' and trashed=false`;
 
   const params = new URLSearchParams({
     q,
