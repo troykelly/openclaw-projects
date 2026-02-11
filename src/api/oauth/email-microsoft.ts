@@ -349,8 +349,8 @@ export const microsoftEmailProvider: EmailProvider = {
     let url: string | undefined = `${GRAPH_BASE}/me/mailFolders?$top=100`;
 
     while (url) {
-      const data = await graphFetch<GraphMailFolderListResponse>(accessToken, url);
-      folders.push(...data.value.filter((f) => !f.isHidden).map(mapFolder));
+      const data: GraphMailFolderListResponse = await graphFetch<GraphMailFolderListResponse>(accessToken, url);
+      folders.push(...data.value.filter((f: GraphMailFolder) => !f.isHidden).map(mapFolder));
       url = data['@odata.nextLink'];
     }
 
