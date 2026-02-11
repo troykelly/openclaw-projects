@@ -391,7 +391,9 @@ export async function searchDriveItems(
   if (pageToken) {
     url = pageToken;
   } else {
-    url = `${GRAPH_BASE_URL}/me/drive/root/search(q='${query}')?$select=${DRIVE_ITEM_SELECT}&$top=50`;
+    // Escape single quotes in the query to prevent query injection
+    const safeQuery = query.replace(/'/g, "''");
+    url = `${GRAPH_BASE_URL}/me/drive/root/search(q='${safeQuery}')?$select=${DRIVE_ITEM_SELECT}&$top=50`;
   }
 
   const response = await fetch(url, {
