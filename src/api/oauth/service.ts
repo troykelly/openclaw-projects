@@ -126,11 +126,11 @@ function isTokenExpired(expiresAt?: Date): boolean {
   return expiresAt.getTime() - TOKEN_EXPIRY_BUFFER_MS <= Date.now();
 }
 
-export async function saveConnection(pool: Pool, userEmail: string, provider: OAuthProvider, tokens: OAuthTokens): Promise<OAuthConnection> {
+export async function saveConnection(pool: Pool, userEmail: string, provider: OAuthProvider, tokens: OAuthTokens, providerAccountEmail?: string): Promise<OAuthConnection> {
   const result = await pool.query(
-    `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, token_metadata)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT (user_email, provider)
+    `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, token_metadata, provider_account_email)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (user_email, provider, COALESCE(provider_account_email, ''))
      DO UPDATE SET
        access_token = EXCLUDED.access_token,
        refresh_token = COALESCE(EXCLUDED.refresh_token, oauth_connection.refresh_token),
@@ -147,6 +147,7 @@ export async function saveConnection(pool: Pool, userEmail: string, provider: OA
       tokens.scopes,
       tokens.expiresAt || null,
       JSON.stringify({ tokenType: tokens.tokenType }),
+      providerAccountEmail ?? null,
     ],
   );
 
