@@ -180,8 +180,14 @@ describe('oauth_state database storage', () => {
   // ---------- down migration ----------
 
   it('down migration removes the table and index', async () => {
-    // Apply down then up to verify reversibility
-    await runMigrate('down', 1);
+    // Apply down migrations until oauth_state (057) is rolled back.
+    // Migrations after 057 must also be rolled back first.
+    // Count how many need rolling back by checking what's applied after 057.
+    const applied = await pool.query(
+      `SELECT COUNT(*) as cnt FROM schema_migrations WHERE version >= 57`,
+    );
+    const stepsToRollBack = parseInt((applied.rows[0] as { cnt: string }).cnt, 10);
+    await runMigrate('down', stepsToRollBack);
 
     const result = await pool.query(
       `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'oauth_state'`,
