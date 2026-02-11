@@ -137,7 +137,7 @@ describe('Email & Calendar Sync API', () => {
 
   describe('Email Sync', () => {
     describe('POST /api/sync/emails', () => {
-      it('triggers email sync for a user', async () => {
+      it('returns live_api status for valid connection (no sync needed)', async () => {
         // Create OAuth connection first
         const connResult = await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
@@ -154,9 +154,11 @@ describe('Email & Calendar Sync API', () => {
           },
         });
 
-        expect(response.statusCode).toBe(202);
+        expect(response.statusCode).toBe(200);
         const body = response.json();
-        expect(body.status).toBe('sync_initiated');
+        expect(body.status).toBe('live_api');
+        expect(body.connectionId).toBe(connectionId);
+        expect(body.provider).toBe('google');
       });
 
       it('returns 400 when no OAuth connection exists', async () => {
