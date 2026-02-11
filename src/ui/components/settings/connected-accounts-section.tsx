@@ -5,6 +5,7 @@ import {
   Plus,
   Trash2,
   Pencil,
+  Settings,
   Check,
   X,
   AlertTriangle,
@@ -32,6 +33,7 @@ import {
 import { Checkbox } from '@/ui/components/ui/checkbox';
 import { cn } from '@/ui/lib/utils';
 import { useConnectedAccounts } from './use-connected-accounts';
+import { ConnectionManagePanel } from './connection-manage-panel';
 import type {
   OAuthConnectionSummary,
   OAuthFeature,
@@ -204,6 +206,14 @@ interface ConnectionCardProps {
 
 function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: ConnectionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isManaging, setIsManaging] = useState(false);
+
+  const handleConnectionUpdated = useCallback(
+    (updated: OAuthConnectionSummary) => {
+      onUpdate(updated.id, updated);
+    },
+    [onUpdate],
+  );
 
   const handleSave = useCallback(
     async (form: EditFormState) => {
@@ -278,6 +288,15 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
           <Button
             variant="ghost"
             size="icon"
+            onClick={() => setIsManaging(true)}
+            disabled={isUpdating}
+            data-testid={`manage-connection-${connection.id}`}
+          >
+            <Settings className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setIsEditing(!isEditing)}
             disabled={isUpdating}
             data-testid={`edit-connection-${connection.id}`}
@@ -332,6 +351,14 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
           />
         </>
       )}
+
+      {/* Manage panel (slide-over) */}
+      <ConnectionManagePanel
+        connection={connection}
+        open={isManaging}
+        onOpenChange={setIsManaging}
+        onConnectionUpdated={handleConnectionUpdated}
+      />
     </div>
   );
 }
