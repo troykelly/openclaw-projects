@@ -249,24 +249,37 @@ function mapGmailMessage(msg: GmailMessage): EmailMessage {
   };
 }
 
+/** Strip CR/LF to prevent header injection in RFC 2822 fields. */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
 /** Build a raw RFC 2822 email for Gmail API send/draft. */
 function buildRawEmail(params: EmailSendParams | EmailDraftParams): string {
   const headers: string[] = [];
 
-  const to = (params.to || []).map((a) => a.name ? `"${a.name}" <${a.email}>` : a.email).join(', ');
+  const formatAddr = (a: EmailAddress): string => {
+    if (a.name) {
+      const safeName = sanitizeHeaderValue(a.name).replace(/"/g, '\\"');
+      return `"${safeName}" <${sanitizeHeaderValue(a.email)}>`;
+    }
+    return sanitizeHeaderValue(a.email);
+  };
+
+  const to = (params.to || []).map(formatAddr).join(', ');
   if (to) headers.push(`To: ${to}`);
 
-  const cc = (params.cc || []).map((a) => a.name ? `"${a.name}" <${a.email}>` : a.email).join(', ');
+  const cc = (params.cc || []).map(formatAddr).join(', ');
   if (cc) headers.push(`Cc: ${cc}`);
 
-  const bcc = (params.bcc || []).map((a) => a.name ? `"${a.name}" <${a.email}>` : a.email).join(', ');
+  const bcc = (params.bcc || []).map(formatAddr).join(', ');
   if (bcc) headers.push(`Bcc: ${bcc}`);
 
-  headers.push(`Subject: ${params.subject || ''}`);
+  headers.push(`Subject: ${sanitizeHeaderValue(params.subject || '')}`);
 
   if ('replyToMessageId' in params && params.replyToMessageId) {
-    headers.push(`In-Reply-To: ${params.replyToMessageId}`);
-    headers.push(`References: ${params.replyToMessageId}`);
+    headers.push(`In-Reply-To: ${sanitizeHeaderValue(params.replyToMessageId)}`);
+    headers.push(`References: ${sanitizeHeaderValue(params.replyToMessageId)}`);
   }
 
   if (params.bodyHtml) {

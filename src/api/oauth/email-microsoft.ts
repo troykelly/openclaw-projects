@@ -218,7 +218,9 @@ export const microsoftEmailProvider: EmailProvider = {
     });
 
     if (params.query) {
-      queryParams.set('$search', `"${params.query}"`);
+      // Escape double quotes in search query to prevent KQL injection
+      const sanitizedQuery = params.query.replace(/"/g, '\\"');
+      queryParams.set('$search', `"${sanitizedQuery}"`);
       // $search and $orderby cannot coexist in Graph API
       queryParams.delete('$orderby');
     }
@@ -301,7 +303,9 @@ export const microsoftEmailProvider: EmailProvider = {
 
   async getThread(accessToken: string, threadId: string): Promise<EmailThread & { messages: EmailMessage[] }> {
     // Fetch all messages in this conversation
-    const url = `${GRAPH_BASE}/me/messages?$filter=conversationId eq '${threadId}'&$select=${MESSAGE_SELECT}&$orderby=receivedDateTime asc&$top=100&$expand=attachments($select=id,name,contentType,size,isInline)`;
+    // Sanitize threadId for OData $filter to prevent injection
+    const sanitizedThreadId = threadId.replace(/'/g, "''");
+    const url = `${GRAPH_BASE}/me/messages?$filter=conversationId eq '${sanitizedThreadId}'&$select=${MESSAGE_SELECT}&$orderby=receivedDateTime asc&$top=100&$expand=attachments($select=id,name,contentType,size,isInline)`;
     const data = await graphFetch<GraphMessageListResponse>(accessToken, url);
     const messages = data.value.map(mapMessage);
 
