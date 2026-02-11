@@ -79,9 +79,9 @@ import {
   syncContacts,
   getContactSyncCursor,
   validateState,
-  listFiles,
-  searchFiles,
-  getFile,
+  listFiles as listDriveFiles,
+  searchFiles as searchDriveFiles,
+  getFile as getDriveFile,
   OAuthError,
   ProviderNotConfiguredError,
   NoConnectionError,
@@ -10094,7 +10094,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await listFiles(pool, query.connectionId, query.folderId, query.pageToken);
+      const result = await listDriveFiles(pool, query.connectionId, query.folderId, query.pageToken);
       return reply.send(result);
     } catch (error) {
       if (error instanceof NoConnectionError) {
@@ -10127,7 +10127,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await searchFiles(pool, query.connectionId, query.q, query.pageToken);
+      const result = await searchDriveFiles(pool, query.connectionId, query.q, query.pageToken);
       return reply.send(result);
     } catch (error) {
       if (error instanceof NoConnectionError) {
@@ -10157,7 +10157,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const file = await getFile(pool, query.connectionId, params.id);
+      const file = await getDriveFile(pool, query.connectionId, params.id);
       return reply.send({ file });
     } catch (error) {
       if (error instanceof NoConnectionError) {
