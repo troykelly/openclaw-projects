@@ -51,10 +51,12 @@ describe('Contact Sync Service', () => {
   describe('syncContacts', () => {
     it('creates new contacts from provider data', async () => {
       // Set up OAuth connection
-      await pool.query(
+      const connResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
+         RETURNING id::text`,
       );
+      const connectionId = connResult.rows[0].id;
 
       // Mock provider response
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -76,7 +78,7 @@ describe('Contact Sync Service', () => {
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      const result = await syncContacts(pool, 'test@example.com', 'google');
+      const result = await syncContacts(pool, connectionId);
 
       expect(result.syncedCount).toBe(1);
       expect(result.createdCount).toBe(1);
@@ -113,10 +115,12 @@ describe('Contact Sync Service', () => {
       );
 
       // Set up OAuth connection
-      await pool.query(
+      const connResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
+         RETURNING id::text`,
       );
+      const connectionId = connResult.rows[0].id;
 
       // Mock provider response with same email
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -135,7 +139,7 @@ describe('Contact Sync Service', () => {
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      const result = await syncContacts(pool, 'test@example.com', 'google');
+      const result = await syncContacts(pool, connectionId);
 
       expect(result.createdCount).toBe(0);
       expect(result.updatedCount).toBe(1);
@@ -161,10 +165,12 @@ describe('Contact Sync Service', () => {
       );
 
       // Set up OAuth connection
-      await pool.query(
+      const connResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
+         RETURNING id::text`,
       );
+      const connectionId = connResult.rows[0].id;
 
       // Mock provider with additional phone number
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -181,7 +187,7 @@ describe('Contact Sync Service', () => {
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      await syncContacts(pool, 'test@example.com', 'google');
+      await syncContacts(pool, connectionId);
 
       // Verify new endpoint was added
       const endpoints = await pool.query('SELECT * FROM contact_endpoint WHERE contact_id = $1 ORDER BY endpoint_type', [contactId]);
@@ -190,10 +196,12 @@ describe('Contact Sync Service', () => {
     });
 
     it('skips contacts without email or phone', async () => {
-      await pool.query(
+      const connResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
+         RETURNING id::text`,
       );
+      const connectionId = connResult.rows[0].id;
 
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
       (fetchAllContacts as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -209,7 +217,7 @@ describe('Contact Sync Service', () => {
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      const result = await syncContacts(pool, 'test@example.com', 'google');
+      const result = await syncContacts(pool, connectionId);
 
       expect(result.syncedCount).toBe(1);
       expect(result.createdCount).toBe(0);
@@ -219,10 +227,12 @@ describe('Contact Sync Service', () => {
     });
 
     it('stores sync cursor for incremental sync', async () => {
-      await pool.query(
+      const connResult = await pool.query(
         `INSERT INTO oauth_connection (user_email, provider, access_token, scopes, expires_at)
-         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')`,
+         VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
+         RETURNING id::text`,
       );
+      const connectionId = connResult.rows[0].id;
 
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
       (fetchAllContacts as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -231,9 +241,9 @@ describe('Contact Sync Service', () => {
       });
 
       const { syncContacts, getContactSyncCursor } = await import('../../src/api/oauth/contacts.ts');
-      await syncContacts(pool, 'test@example.com', 'google');
+      await syncContacts(pool, connectionId);
 
-      const cursor = await getContactSyncCursor(pool, 'test@example.com', 'google');
+      const cursor = await getContactSyncCursor(pool, connectionId);
       expect(cursor).toBe('new-sync-cursor-123');
     });
   });

@@ -170,7 +170,7 @@ describe('OAuth Service', () => {
         scopes: ['contacts'],
       };
 
-      await saveConnection(pool, 'test@example.com', 'google', tokens1);
+      const saved = await saveConnection(pool, 'test@example.com', 'google', tokens1);
 
       const tokens2 = {
         accessToken: 'new-token',
@@ -181,13 +181,13 @@ describe('OAuth Service', () => {
 
       await saveConnection(pool, 'test@example.com', 'google', tokens2);
 
-      const connection = await getConnection(pool, 'test@example.com', 'google');
+      const connection = await getConnection(pool, saved.id);
       expect(connection?.accessToken).toBe('new-token');
       expect(connection?.refreshToken).toBe('new-refresh');
       expect(connection?.scopes).toEqual(['contacts', 'email']);
     });
 
-    it('gets connection by user and provider', async () => {
+    it('gets connection by id', async () => {
       const { saveConnection, getConnection } = await import('../../src/api/oauth/service.ts');
 
       const tokens = {
@@ -196,13 +196,13 @@ describe('OAuth Service', () => {
         scopes: ['contacts'],
       };
 
-      await saveConnection(pool, 'test@example.com', 'google', tokens);
+      const saved = await saveConnection(pool, 'test@example.com', 'google', tokens);
 
-      const connection = await getConnection(pool, 'test@example.com', 'google');
+      const connection = await getConnection(pool, saved.id);
       expect(connection).not.toBeNull();
       expect(connection?.accessToken).toBe('test-token');
 
-      const noConnection = await getConnection(pool, 'test@example.com', 'microsoft');
+      const noConnection = await getConnection(pool, '00000000-0000-0000-0000-000000000000');
       expect(noConnection).toBeNull();
     });
   });
