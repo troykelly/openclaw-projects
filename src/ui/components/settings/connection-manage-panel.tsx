@@ -265,7 +265,7 @@ export function ConnectionManagePanel({
           {reAuthUrl && (
             <div data-testid="reauth-button">
               <Button asChild className="w-full">
-                <a href={reAuthUrl}>
+                <a href={reAuthUrl} rel="noopener noreferrer">
                   <ExternalLink className="size-4" />
                   Save &amp; Authorize
                 </a>
