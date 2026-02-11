@@ -35,6 +35,7 @@ import {
   createSkillStoreAggregateTool,
 } from './tools/index.js';
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
+import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gateway/oauth-rpc-methods.js';
 import { createNotificationService } from './services/notification-service.js';
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 
@@ -2565,6 +2566,14 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     userId,
   });
   registerGatewayRpcMethods(api, gatewayMethods);
+
+  // Register OAuth Gateway RPC methods (Issue #1054)
+  const oauthGatewayMethods = createOAuthGatewayMethods({
+    logger,
+    apiClient,
+    userId,
+  });
+  registerOAuthGatewayRpcMethods(api, oauthGatewayMethods);
 
   // Register background notification service (Issue #325)
   // Create a simple event emitter for notifications
