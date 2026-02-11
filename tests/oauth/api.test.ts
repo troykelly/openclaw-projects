@@ -36,8 +36,12 @@ describe('OAuth API Endpoints', () => {
     it('lists no providers when none configured', async () => {
       delete process.env.MS365_CLIENT_ID;
       delete process.env.MS365_CLIENT_SECRET;
+      delete process.env.AZURE_CLIENT_ID;
+      delete process.env.AZURE_CLIENT_SECRET;
       delete process.env.GOOGLE_CLIENT_ID;
       delete process.env.GOOGLE_CLIENT_SECRET;
+      delete process.env.GOOGLE_CLOUD_CLIENT_ID;
+      delete process.env.GOOGLE_CLOUD_CLIENT_SECRET;
 
       const response = await app.inject({
         method: 'GET',
@@ -73,6 +77,8 @@ describe('OAuth API Endpoints', () => {
     it('returns error when provider not configured', async () => {
       delete process.env.MS365_CLIENT_ID;
       delete process.env.MS365_CLIENT_SECRET;
+      delete process.env.AZURE_CLIENT_ID;
+      delete process.env.AZURE_CLIENT_SECRET;
 
       const response = await app.inject({
         method: 'GET',
