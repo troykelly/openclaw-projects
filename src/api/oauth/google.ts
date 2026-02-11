@@ -74,7 +74,12 @@ interface GoogleConnectionsResponse {
   totalPeople?: number;
 }
 
-export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes?: string[]): OAuthAuthorizationUrl {
+export function buildAuthorizationUrl(
+  config: OAuthConfig,
+  state: string,
+  scopes?: string[],
+  opts?: { includeGrantedScopes?: boolean },
+): OAuthAuthorizationUrl {
   const effectiveScopes = scopes || config.scopes;
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
@@ -90,6 +95,12 @@ export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
   });
+
+  // Google supports incremental authorization — existing grants are preserved
+  // when include_granted_scopes=true, so only new scopes trigger consent.
+  if (opts?.includeGrantedScopes) {
+    params.set('include_granted_scopes', 'true');
+  }
 
   return {
     url: `${AUTHORIZE_URL}?${params.toString()}`,

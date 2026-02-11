@@ -74,6 +74,8 @@ import {
   getValidAccessToken,
   isProviderConfigured,
   getConfiguredProviders,
+  getRequiredScopes,
+  getMissingScopes,
   syncContacts,
   getContactSyncCursor,
   validateState,
@@ -84,6 +86,7 @@ import {
   ALLOWED_FEATURES,
   type OAuthProvider,
   type OAuthPermissionLevel,
+  type OAuthFeature,
 } from './oauth/index.ts';
 import { isValidUUID } from './utils/validation.ts';
 
@@ -9763,9 +9766,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/oauth/authorize/:provider - Get OAuth authorization URL
+  // Accepts optional query params:
+  //   scopes: comma-separated raw scope strings (legacy)
+  //   features: comma-separated feature names (contacts,email,files,calendar)
+  //   permissionLevel: 'read' or 'read_write' (default: 'read')
+  // When features are provided, scopes are computed from the feature-to-scope map.
   app.get('/api/oauth/authorize/:provider', async (req, reply) => {
     const params = req.params as { provider: string };
-    const query = req.query as { scopes?: string };
+    const query = req.query as { scopes?: string; features?: string; permissionLevel?: string };
 
     const validProviders = ['google', 'microsoft'];
     if (!validProviders.includes(params.provider)) {
@@ -9782,12 +9790,34 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
     }
 
+    // Validate permissionLevel if provided
+    if (query.permissionLevel !== undefined && !['read', 'read_write'].includes(query.permissionLevel)) {
+      return reply.code(400).send({ error: 'Invalid permission level. Must be "read" or "read_write"' });
+    }
+
+    // Parse and validate features if provided
+    let features: OAuthFeature[] | undefined;
+    if (query.features) {
+      try {
+        features = validateFeatures(query.features.split(','));
+      } catch (error) {
+        if (error instanceof OAuthError) {
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+
     const scopes = query.scopes?.split(',');
+    const permissionLevel = (query.permissionLevel as OAuthPermissionLevel) || 'read';
     const state = randomBytes(32).toString('hex');
 
     const pool = createPool();
     try {
-      const authResult = await getAuthorizationUrl(pool, provider, state, scopes);
+      const authResult = await getAuthorizationUrl(pool, provider, state, scopes, {
+        features,
+        permissionLevel,
+      });
 
       return reply.send({
         authUrl: authResult.url,
@@ -9918,6 +9948,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/oauth/connections/:id - Update connection settings
+  // When features or permissionLevel change, computes required scopes and
+  // returns a reAuthUrl if the connection needs additional OAuth grants.
   app.patch('/api/oauth/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
@@ -9938,9 +9970,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Validate enabledFeatures if provided
+    let validatedFeatures: OAuthFeature[] | undefined;
     if (body.enabledFeatures !== undefined) {
       try {
-        validateFeatures(body.enabledFeatures);
+        validatedFeatures = validateFeatures(body.enabledFeatures);
       } catch (error) {
         if (error instanceof OAuthError) {
           return reply.code(400).send({ error: error.message });
@@ -9951,37 +9984,71 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    const updated = await updateConnection(pool, params.id, {
-      label: body.label?.trim(),
-      permissionLevel: body.permissionLevel as OAuthPermissionLevel | undefined,
-      enabledFeatures: body.enabledFeatures ? validateFeatures(body.enabledFeatures) : undefined,
-      isActive: body.isActive,
-    });
+    try {
+      // Fetch existing connection to compare scopes
+      const existing = await getConnection(pool, params.id);
+      if (!existing) {
+        return reply.code(404).send({ error: 'OAuth connection not found' });
+      }
 
-    await pool.end();
+      const updated = await updateConnection(pool, params.id, {
+        label: body.label?.trim(),
+        permissionLevel: body.permissionLevel as OAuthPermissionLevel | undefined,
+        enabledFeatures: validatedFeatures,
+        isActive: body.isActive,
+      });
 
-    if (!updated) {
-      return reply.code(404).send({ error: 'OAuth connection not found' });
+      if (!updated) {
+        return reply.code(404).send({ error: 'OAuth connection not found' });
+      }
+
+      // Check if the updated features/permissions require new scopes
+      const effectiveFeatures = updated.enabledFeatures;
+      const effectivePermission = updated.permissionLevel;
+      const requiredScopes = getRequiredScopes(updated.provider, effectiveFeatures, effectivePermission);
+      const missing = getMissingScopes(updated.scopes, requiredScopes);
+
+      let reAuthUrl: string | undefined;
+      if (missing.length > 0) {
+        // Generate a re-authorization URL with the new required scopes
+        const state = randomBytes(32).toString('hex');
+        const authResult = await getAuthorizationUrl(pool, updated.provider, state, undefined, {
+          userEmail: updated.userEmail,
+          features: effectiveFeatures,
+          permissionLevel: effectivePermission,
+        });
+        reAuthUrl = authResult.url;
+      }
+
+      const response: Record<string, unknown> = {
+        connection: {
+          id: updated.id,
+          userEmail: updated.userEmail,
+          provider: updated.provider,
+          scopes: updated.scopes,
+          label: updated.label,
+          providerAccountId: updated.providerAccountId,
+          providerAccountEmail: updated.providerAccountEmail,
+          permissionLevel: updated.permissionLevel,
+          enabledFeatures: updated.enabledFeatures,
+          isActive: updated.isActive,
+          lastSyncAt: updated.lastSyncAt,
+          syncStatus: updated.syncStatus,
+          createdAt: updated.createdAt,
+          updatedAt: updated.updatedAt,
+        },
+      };
+
+      if (reAuthUrl) {
+        response.reAuthRequired = true;
+        response.reAuthUrl = reAuthUrl;
+        response.missingScopes = missing;
+      }
+
+      return reply.send(response);
+    } finally {
+      await pool.end();
     }
-
-    return reply.send({
-      connection: {
-        id: updated.id,
-        userEmail: updated.userEmail,
-        provider: updated.provider,
-        scopes: updated.scopes,
-        label: updated.label,
-        providerAccountId: updated.providerAccountId,
-        providerAccountEmail: updated.providerAccountEmail,
-        permissionLevel: updated.permissionLevel,
-        enabledFeatures: updated.enabledFeatures,
-        isActive: updated.isActive,
-        lastSyncAt: updated.lastSyncAt,
-        syncStatus: updated.syncStatus,
-        createdAt: updated.createdAt,
-        updatedAt: updated.updatedAt,
-      },
-    });
   });
 
   // POST /api/sync/contacts - Trigger contact sync from OAuth provider
