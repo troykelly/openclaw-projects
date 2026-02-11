@@ -270,12 +270,28 @@ export async function saveConnection(
     [encryptedAccess, encryptedRefresh, rowId],
   );
 
-  // Return connection with plaintext tokens (rowToConnection would try to decrypt the
-  // not-yet-encrypted values from the RETURNING clause, so build manually)
-  const connection = rowToConnection(row);
-  connection.accessToken = tokens.accessToken;
-  connection.refreshToken = tokens.refreshToken;
-  return connection;
+  // Build return object manually — rowToConnection would try to decrypt the
+  // plaintext tokens from the RETURNING clause, causing "Invalid ciphertext" errors.
+  return {
+    id: rowId,
+    userEmail: row.user_email as string,
+    provider: row.provider as OAuthProvider,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    scopes: row.scopes as string[],
+    expiresAt: row.expires_at ? new Date(row.expires_at as string) : undefined,
+    tokenMetadata: (row.token_metadata as Record<string, unknown>) || {},
+    label: row.label as string,
+    providerAccountId: (row.provider_account_id as string) || undefined,
+    providerAccountEmail: (row.provider_account_email as string) || undefined,
+    permissionLevel: (row.permission_level as 'read' | 'read_write') || 'read',
+    enabledFeatures: (row.enabled_features as OAuthFeature[]) || [],
+    isActive: row.is_active as boolean,
+    lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at as string) : undefined,
+    syncStatus: (row.sync_status as Record<string, unknown>) || {},
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+  };
 }
 
 /** Look up a single connection by its UUID. */
