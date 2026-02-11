@@ -47,7 +47,10 @@ export interface OAuthStateData {
   provider: OAuthProvider;
   codeVerifier: string;
   scopes: string[];
+  userEmail?: string;
+  redirectPath?: string;
   createdAt: Date;
+  expiresAt: Date;
 }
 
 export interface OAuthCallbackResult {

@@ -9783,8 +9783,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const scopes = query.scopes?.split(',');
     const state = randomBytes(32).toString('hex');
 
+    const pool = createPool();
     try {
-      const authResult = getAuthorizationUrl(provider, state, scopes);
+      const authResult = await getAuthorizationUrl(pool, provider, state, scopes);
 
       return reply.send({
         authUrl: authResult.url,
@@ -9800,6 +9801,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
       throw error;
+    } finally {
+      await pool.end();
     }
   });
 
@@ -9822,31 +9825,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'Missing OAuth state parameter' });
     }
 
-    // Validate state and get stored data (provider, codeVerifier)
-    let stateData;
-    try {
-      stateData = validateState(query.state);
-    } catch (error) {
-      if (error instanceof InvalidStateError) {
-        return reply.code(400).send({
-          error: 'Invalid or expired OAuth state',
-          code: 'INVALID_STATE',
-        });
-      }
-      throw error;
-    }
-
-    const provider = stateData.provider;
-
-    if (!isProviderConfigured(provider)) {
-      return reply.code(503).send({
-        error: `OAuth provider ${provider} is not configured`,
-      });
-    }
-
     const pool = createPool();
 
     try {
+      // Validate state and get stored data (provider, codeVerifier)
+      let stateData;
+      try {
+        stateData = await validateState(pool, query.state);
+      } catch (error) {
+        if (error instanceof InvalidStateError) {
+          return reply.code(400).send({
+            error: 'Invalid or expired OAuth state',
+            code: 'INVALID_STATE',
+          });
+        }
+        throw error;
+      }
+
+      const provider = stateData.provider;
+
+      if (!isProviderConfigured(provider)) {
+        return reply.code(503).send({
+          error: `OAuth provider ${provider} is not configured`,
+        });
+      }
+
       // Exchange code for tokens (with PKCE code_verifier)
       const tokens = await exchangeCodeForTokens(provider, query.code, stateData.codeVerifier);
 
@@ -9855,8 +9858,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Save connection
       const connection = await saveConnection(pool, userEmail, provider, tokens);
-
-      await pool.end();
 
       // In a real app, you might redirect to a success page
       return reply.send({
@@ -9867,8 +9868,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         scopes: tokens.scopes,
       });
     } catch (error) {
-      await pool.end();
-
       if (error instanceof OAuthError) {
         return reply.code(error.statusCode).send({
           error: error.message,
@@ -9876,6 +9875,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
       throw error;
+    } finally {
+      await pool.end();
     }
   });
 

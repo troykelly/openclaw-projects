@@ -18,6 +18,7 @@ export {
   listConnections,
   isProviderConfigured,
   validateState,
+  cleanExpiredStates,
 } from './service.ts';
 export { syncContacts, getContactSyncCursor } from './contacts.ts';
 export * as microsoft from './microsoft.ts';
