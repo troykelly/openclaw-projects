@@ -88,6 +88,10 @@ import {
   type OAuthPermissionLevel,
   type OAuthFeature,
   emailService,
+  enqueueSyncJob,
+  removePendingSyncJobs,
+  getSyncStatus,
+  executeContactSync,
   type EmailListParams,
   type EmailSendParams,
   type EmailDraftParams,
@@ -9942,14 +9946,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const pool = createPool();
 
-    const result = await pool.query('DELETE FROM oauth_connection WHERE id = $1 RETURNING id', [params.id]);
-    await pool.end();
+    try {
+      // Remove pending sync jobs before deleting the connection
+      await removePendingSyncJobs(pool, params.id);
 
-    if (result.rowCount === 0) {
-      return reply.code(404).send({ error: 'OAuth connection not found' });
+      const result = await pool.query('DELETE FROM oauth_connection WHERE id = $1 RETURNING id', [params.id]);
+
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'OAuth connection not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
     }
-
-    return reply.code(204).send();
   });
 
   // PATCH /api/oauth/connections/:id - Update connection settings
@@ -10005,6 +10015,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (!updated) {
         return reply.code(404).send({ error: 'OAuth connection not found' });
+      }
+
+      // Manage sync jobs based on feature/active changes
+      if (!updated.isActive || !updated.enabledFeatures.includes('contacts')) {
+        // Connection deactivated or contacts disabled — remove pending sync jobs
+        await removePendingSyncJobs(pool, updated.id);
+      } else if (updated.isActive && updated.enabledFeatures.includes('contacts')) {
+        // Contacts enabled and active — enqueue a sync job if not already pending
+        await enqueueSyncJob(pool, updated.id, 'contacts');
       }
 
       // Check if the updated features/permissions require new scopes
@@ -10105,6 +10124,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       throw error;
+    }
+  });
+
+  // GET /api/sync/status/:connectionId - Get sync status for a connection
+  app.get('/api/sync/status/:connectionId', async (req, reply) => {
+    const params = req.params as { connectionId: string };
+    const pool = createPool();
+
+    try {
+      const status = await getSyncStatus(pool, params.connectionId);
+
+      if (!status) {
+        return reply.code(404).send({ error: 'Connection not found' });
+      }
+
+      return reply.send({
+        connectionId: params.connectionId,
+        syncStatus: status,
+      });
+    } finally {
+      await pool.end();
     }
   });
 
