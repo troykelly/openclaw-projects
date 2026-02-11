@@ -40,11 +40,27 @@ jobs:
 
       - name: Start E2E test services
         run: |
-          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && docker compose -f docker-compose.test.yml up -d"
+          docker compose -f docker-compose.test.yml up -d
 
       - name: Wait for services
         run: |
-          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && ./scripts/wait-for-services.sh"
+          echo "Waiting for backend-test to be healthy..."
+          timeout 180 bash -c '
+            while true; do
+              status=$(docker compose -f docker-compose.test.yml ps backend-test --format json 2>/dev/null | grep -o "\"Health\":\"[^\"]*\"" | cut -d\" -f4 || echo "")
+              if [ "$status" = "healthy" ]; then
+                echo "Backend is healthy!"
+                break
+              fi
+              echo "Waiting... (status: ${status:-starting})"
+              sleep 2
+            done
+          '
+
+      - name: Connect workspace to test network
+        run: |
+          WORKSPACE_ID=$(docker compose -f .devcontainer/docker-compose.devcontainer.yml ps workspace -q)
+          docker network connect openclaw-test-network "$WORKSPACE_ID"
 
       - name: Run E2E tests
         env:
@@ -57,14 +73,19 @@ jobs:
             -e OPENAI_API_KEY \
             -e GEMINI_API_KEY \
             -e RUN_E2E=true \
+            -e E2E_API_URL=http://openclaw-backend-test:3001 \
             workspace bash -lc "cd /workspaces/openclaw-projects && pnpm test:e2e"
 
       - name: Stop E2E test services
         if: always()
         run: |
-          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && docker compose -f docker-compose.test.yml down -v || true"
+          docker compose -f docker-compose.test.yml down -v || true
 
       - name: Shutdown
         if: always()
         run: |
+          WORKSPACE_ID=$(docker compose -f .devcontainer/docker-compose.devcontainer.yml ps workspace -q 2>/dev/null || echo "")
+          if [ -n "$WORKSPACE_ID" ]; then
+            docker network disconnect openclaw-test-network "$WORKSPACE_ID" 2>/dev/null || true
+          fi
           docker compose -f .devcontainer/docker-compose.devcontainer.yml down -v
