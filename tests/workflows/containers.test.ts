@@ -85,7 +85,7 @@ describe('containers.yml workflow', () => {
     it('should have packages: write permission for pushing to ghcr.io', () => {
       // Check top-level or job-level permissions
       const topLevelPerms = workflow.permissions?.packages;
-      const buildJob = workflow.jobs['build'];
+      const buildJob = workflow.jobs.build;
       const jobPerms = buildJob?.permissions?.packages;
 
       expect(topLevelPerms === 'write' || jobPerms === 'write').toBe(true);
@@ -93,7 +93,7 @@ describe('containers.yml workflow', () => {
 
     it('should have contents: read permission', () => {
       const topLevelPerms = workflow.permissions?.contents;
-      const buildJob = workflow.jobs['build'];
+      const buildJob = workflow.jobs.build;
       const jobPerms = buildJob?.permissions?.contents;
 
       expect(topLevelPerms === 'read' || jobPerms === 'read').toBe(true);
@@ -102,50 +102,50 @@ describe('containers.yml workflow', () => {
 
   describe('build job', () => {
     it('should have a build job', () => {
-      expect(workflow.jobs['build']).toBeDefined();
+      expect(workflow.jobs.build).toBeDefined();
     });
 
     it('should use ubuntu-latest runner', () => {
-      expect(workflow.jobs['build']['runs-on']).toBe('ubuntu-latest');
+      expect(workflow.jobs.build['runs-on']).toBe('ubuntu-latest');
     });
 
     describe('matrix strategy', () => {
       it('should define matrix strategy for all 4 images', () => {
-        const matrix = workflow.jobs['build'].strategy?.matrix;
+        const matrix = workflow.jobs.build.strategy?.matrix;
         expect(matrix).toBeDefined();
         expect(matrix?.image).toHaveLength(4);
       });
 
       it('should include db image with correct dockerfile path', () => {
-        const matrix = workflow.jobs['build'].strategy?.matrix;
+        const matrix = workflow.jobs.build.strategy?.matrix;
         const db = matrix?.image.find((i) => i.name === 'db');
         expect(db).toBeDefined();
         expect(db?.dockerfile).toBe('docker/postgres/Dockerfile');
       });
 
       it('should include api image with correct dockerfile path', () => {
-        const matrix = workflow.jobs['build'].strategy?.matrix;
+        const matrix = workflow.jobs.build.strategy?.matrix;
         const api = matrix?.image.find((i) => i.name === 'api');
         expect(api).toBeDefined();
         expect(api?.dockerfile).toBe('docker/api/Dockerfile');
       });
 
       it('should include app image with correct dockerfile path', () => {
-        const matrix = workflow.jobs['build'].strategy?.matrix;
+        const matrix = workflow.jobs.build.strategy?.matrix;
         const app = matrix?.image.find((i) => i.name === 'app');
         expect(app).toBeDefined();
         expect(app?.dockerfile).toBe('docker/app/Dockerfile');
       });
 
       it('should include migrate image with correct dockerfile path', () => {
-        const matrix = workflow.jobs['build'].strategy?.matrix;
+        const matrix = workflow.jobs.build.strategy?.matrix;
         const migrate = matrix?.image.find((i) => i.name === 'migrate');
         expect(migrate).toBeDefined();
         expect(migrate?.dockerfile).toBe('docker/migrate/Dockerfile');
       });
 
       it('should not use fail-fast (allow other images to build if one fails)', () => {
-        const failFast = workflow.jobs['build'].strategy?.['fail-fast'];
+        const failFast = workflow.jobs.build.strategy?.['fail-fast'];
         expect(failFast).toBe(false);
       });
     });
@@ -154,7 +154,7 @@ describe('containers.yml workflow', () => {
       let steps: WorkflowJob['steps'];
 
       beforeAll(() => {
-        steps = workflow.jobs['build'].steps;
+        steps = workflow.jobs.build.steps;
       });
 
       it('should checkout code', () => {
@@ -206,7 +206,7 @@ describe('containers.yml workflow', () => {
 
     describe('multi-arch configuration', () => {
       it('should build for linux/amd64 and linux/arm64', () => {
-        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
+        const build = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/build-push-action'));
         const platforms = String(build?.with?.platforms ?? '');
         expect(platforms).toContain('linux/amd64');
         expect(platforms).toContain('linux/arm64');
@@ -215,7 +215,7 @@ describe('containers.yml workflow', () => {
 
     describe('caching configuration', () => {
       it('should use GitHub Actions cache for BuildKit', () => {
-        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
+        const build = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/build-push-action'));
         const cacheFrom = String(build?.with?.['cache-from'] ?? '');
         const cacheTo = String(build?.with?.['cache-to'] ?? '');
         expect(cacheFrom).toContain('type=gha');
@@ -225,7 +225,7 @@ describe('containers.yml workflow', () => {
 
     describe('tag strategy', () => {
       it('should configure metadata-action with correct tag types', () => {
-        const metadata = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/metadata-action'));
+        const metadata = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const tags = String(metadata?.with?.tags ?? '');
 
         // Edge tag for main branch
@@ -236,7 +236,7 @@ describe('containers.yml workflow', () => {
       });
 
       it('should include SHA tag for traceability', () => {
-        const metadata = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/metadata-action'));
+        const metadata = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const tags = String(metadata?.with?.tags ?? '');
         expect(tags).toContain('type=sha');
       });
@@ -244,7 +244,7 @@ describe('containers.yml workflow', () => {
 
     describe('push conditions', () => {
       it('should only push on non-PR events', () => {
-        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
+        const build = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/build-push-action'));
         const push = String(build?.with?.push ?? '');
         // Should be a conditional that prevents push on PRs
         expect(push).toContain('pull_request');
@@ -253,7 +253,7 @@ describe('containers.yml workflow', () => {
 
     describe('SBOM generation', () => {
       it('should generate SBOM attestation', () => {
-        const build = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/build-push-action'));
+        const build = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/build-push-action'));
         // SBOM can be enabled via sbom: true or via provenance/attestations
         const sbom = build?.with?.sbom;
         const attestations = build?.with?.attestations;
@@ -263,7 +263,7 @@ describe('containers.yml workflow', () => {
 
     describe('registry configuration', () => {
       it('should push to ghcr.io/troykelly/openclaw-projects-{name}', () => {
-        const metadata = workflow.jobs['build'].steps.find((s) => s.uses?.includes('docker/metadata-action'));
+        const metadata = workflow.jobs.build.steps.find((s) => s.uses?.includes('docker/metadata-action'));
         const images = String(metadata?.with?.images ?? '');
         expect(images).toContain('ghcr.io/troykelly/openclaw-projects-');
       });
