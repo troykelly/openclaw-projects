@@ -24,5 +24,7 @@ export {
 } from './service.ts';
 export { getRequiredScopes, getMissingScopes } from './scopes.ts';
 export { syncContacts, getContactSyncCursor } from './contacts.ts';
+export * as emailService from './email.ts';
+export * from './email-types.ts';
 export * as microsoft from './microsoft.ts';
 export * as google from './google.ts';

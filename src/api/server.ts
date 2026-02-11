@@ -87,6 +87,11 @@ import {
   type OAuthProvider,
   type OAuthPermissionLevel,
   type OAuthFeature,
+  emailService,
+  type EmailListParams,
+  type EmailSendParams,
+  type EmailDraftParams,
+  type EmailUpdateParams,
 } from './oauth/index.ts';
 import { isValidUUID } from './utils/validation.ts';
 
@@ -10103,7 +10108,375 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // POST /api/sync/emails - Trigger email sync
+  // ---- Email API (live provider access) — Issue #1048 ----
+
+  // GET /api/email/messages - List or search emails via provider API
+  app.get('/api/email/messages', async (req, reply) => {
+    const query = req.query as {
+      connectionId?: string;
+      folderId?: string;
+      q?: string;
+      maxResults?: string;
+      pageToken?: string;
+      includeSpamTrash?: string;
+      labelIds?: string;
+    };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const params: EmailListParams = {
+        folderId: query.folderId,
+        query: query.q,
+        maxResults: query.maxResults ? parseInt(query.maxResults, 10) : undefined,
+        pageToken: query.pageToken,
+        includeSpamTrash: query.includeSpamTrash === 'true',
+        labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
+      };
+
+      const result = await emailService.listMessages(pool, query.connectionId, params);
+      return reply.send(result);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/email/messages/:messageId - Get a single email message
+  app.get('/api/email/messages/:messageId', async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const query = req.query as { connectionId?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const message = await emailService.getMessage(pool, query.connectionId, messageId);
+      return reply.send(message);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/email/threads - List email threads
+  app.get('/api/email/threads', async (req, reply) => {
+    const query = req.query as {
+      connectionId?: string;
+      folderId?: string;
+      q?: string;
+      maxResults?: string;
+      pageToken?: string;
+      includeSpamTrash?: string;
+      labelIds?: string;
+    };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const params: EmailListParams = {
+        folderId: query.folderId,
+        query: query.q,
+        maxResults: query.maxResults ? parseInt(query.maxResults, 10) : undefined,
+        pageToken: query.pageToken,
+        includeSpamTrash: query.includeSpamTrash === 'true',
+        labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
+      };
+
+      const result = await emailService.listThreads(pool, query.connectionId, params);
+      return reply.send(result);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/email/threads/:threadId - Get a full email thread
+  app.get('/api/email/threads/:threadId', async (req, reply) => {
+    const { threadId } = req.params as { threadId: string };
+    const query = req.query as { connectionId?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const thread = await emailService.getThread(pool, query.connectionId, threadId);
+      return reply.send(thread);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/email/folders - List email folders/labels
+  app.get('/api/email/folders', async (req, reply) => {
+    const query = req.query as { connectionId?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const folders = await emailService.listFolders(pool, query.connectionId);
+      return reply.send({ folders });
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/email/messages/send - Send an email via provider API
+  app.post('/api/email/messages/send', async (req, reply) => {
+    const body = req.body as {
+      connectionId: string;
+      to: Array<{ email: string; name?: string }>;
+      cc?: Array<{ email: string; name?: string }>;
+      bcc?: Array<{ email: string; name?: string }>;
+      subject: string;
+      bodyText?: string;
+      bodyHtml?: string;
+      replyToMessageId?: string;
+      threadId?: string;
+    };
+
+    if (!body.connectionId) {
+      return reply.code(400).send({ error: 'connectionId is required' });
+    }
+    if (!body.to || body.to.length === 0) {
+      return reply.code(400).send({ error: 'At least one recipient (to) is required' });
+    }
+    if (!body.subject) {
+      return reply.code(400).send({ error: 'subject is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const params: EmailSendParams = {
+        to: body.to,
+        cc: body.cc,
+        bcc: body.bcc,
+        subject: body.subject,
+        bodyText: body.bodyText,
+        bodyHtml: body.bodyHtml,
+        replyToMessageId: body.replyToMessageId,
+        threadId: body.threadId,
+      };
+
+      const result = await emailService.sendMessage(pool, body.connectionId, params);
+      return reply.send(result);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/email/drafts - Create a draft email
+  app.post('/api/email/drafts', async (req, reply) => {
+    const body = req.body as {
+      connectionId: string;
+      to?: Array<{ email: string; name?: string }>;
+      cc?: Array<{ email: string; name?: string }>;
+      bcc?: Array<{ email: string; name?: string }>;
+      subject?: string;
+      bodyText?: string;
+      bodyHtml?: string;
+      replyToMessageId?: string;
+      threadId?: string;
+    };
+
+    if (!body.connectionId) {
+      return reply.code(400).send({ error: 'connectionId is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const params: EmailDraftParams = {
+        to: body.to,
+        cc: body.cc,
+        bcc: body.bcc,
+        subject: body.subject,
+        bodyText: body.bodyText,
+        bodyHtml: body.bodyHtml,
+        replyToMessageId: body.replyToMessageId,
+        threadId: body.threadId,
+      };
+
+      const draft = await emailService.createDraft(pool, body.connectionId, params);
+      return reply.code(201).send(draft);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/email/drafts/:draftId - Update a draft email
+  app.patch('/api/email/drafts/:draftId', async (req, reply) => {
+    const { draftId } = req.params as { draftId: string };
+    const body = req.body as {
+      connectionId: string;
+      to?: Array<{ email: string; name?: string }>;
+      cc?: Array<{ email: string; name?: string }>;
+      bcc?: Array<{ email: string; name?: string }>;
+      subject?: string;
+      bodyText?: string;
+      bodyHtml?: string;
+      threadId?: string;
+    };
+
+    if (!body.connectionId) {
+      return reply.code(400).send({ error: 'connectionId is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const params: EmailDraftParams = {
+        to: body.to,
+        cc: body.cc,
+        bcc: body.bcc,
+        subject: body.subject,
+        bodyText: body.bodyText,
+        bodyHtml: body.bodyHtml,
+        threadId: body.threadId,
+      };
+
+      const draft = await emailService.updateDraft(pool, body.connectionId, draftId, params);
+      return reply.send(draft);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/email/messages/:messageId - Update message state (read, star, labels, move)
+  app.patch('/api/email/messages/:messageId', async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const body = req.body as {
+      connectionId: string;
+      isRead?: boolean;
+      isStarred?: boolean;
+      addLabels?: string[];
+      removeLabels?: string[];
+      moveTo?: string;
+    };
+
+    if (!body.connectionId) {
+      return reply.code(400).send({ error: 'connectionId is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const params: EmailUpdateParams = {
+        isRead: body.isRead,
+        isStarred: body.isStarred,
+        addLabels: body.addLabels,
+        removeLabels: body.removeLabels,
+        moveTo: body.moveTo,
+      };
+
+      await emailService.updateMessage(pool, body.connectionId, messageId, params);
+      return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/email/messages/:messageId - Delete an email message
+  app.delete('/api/email/messages/:messageId', async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const query = req.query as { connectionId?: string; permanent?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      await emailService.deleteMessage(pool, query.connectionId, messageId, query.permanent === 'true');
+      return reply.code(204).send();
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/email/messages/:messageId/attachments/:attachmentId - Download attachment
+  app.get('/api/email/messages/:messageId/attachments/:attachmentId', async (req, reply) => {
+    const { messageId, attachmentId } = req.params as { messageId: string; attachmentId: string };
+    const query = req.query as { connectionId?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const attachment = await emailService.getAttachment(pool, query.connectionId, messageId, attachmentId);
+      return reply.send(attachment);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ---- Legacy email routes (kept for backward compatibility) ----
+
+  // POST /api/sync/emails - Trigger email sync (legacy stub, redirects to new API)
   app.post('/api/sync/emails', async (req, reply) => {
     const body = req.body as { connectionId: string };
     const pool = createPool();
@@ -10121,20 +10494,40 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'No OAuth connection found' });
     }
 
-    // In production, this would queue a background job to sync emails
     await pool.end();
 
-    return reply.code(202).send({
-      status: 'sync_initiated',
+    return reply.code(200).send({
+      status: 'live_api',
+      message: 'Email is now accessed live via /api/email/messages. No sync needed.',
       connectionId: connection.id,
-      userEmail: connection.userEmail,
       provider: connection.provider,
     });
   });
 
-  // GET /api/emails - Get synced emails
+  // GET /api/emails - List emails (legacy, proxies to new API)
   app.get('/api/emails', async (req, reply) => {
-    const query = req.query as { provider?: string; limit?: string };
+    const query = req.query as { connectionId?: string; provider?: string; limit?: string };
+
+    if (query.connectionId) {
+      // Proxy to new API
+      const pool = createPool();
+      try {
+        const params: EmailListParams = {
+          maxResults: query.limit ? parseInt(query.limit, 10) : 50,
+        };
+        const result = await emailService.listMessages(pool, query.connectionId, params);
+        return reply.send({ emails: result.messages });
+      } catch (error) {
+        if (error instanceof OAuthError) {
+          return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        }
+        throw error;
+      } finally {
+        await pool.end();
+      }
+    }
+
+    // Fallback to database query for locally stored emails
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
@@ -10178,16 +10571,48 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // POST /api/emails/send - Send email reply
+  // POST /api/emails/send - Send email (legacy, proxies to new API)
   app.post('/api/emails/send', async (req, reply) => {
-    const body = req.body as { userEmail: string; threadId: string; body: string };
-    const pool = createPool();
+    const body = req.body as {
+      connectionId?: string;
+      userEmail?: string;
+      threadId?: string;
+      body: string;
+      to?: Array<{ email: string; name?: string }>;
+      subject?: string;
+    };
 
-    // Verify OAuth connection exists
+    if (body.connectionId && body.to) {
+      // Use new API
+      const pool = createPool();
+      try {
+        const params: EmailSendParams = {
+          to: body.to,
+          subject: body.subject || '',
+          bodyText: body.body,
+          threadId: body.threadId,
+        };
+        const result = await emailService.sendMessage(pool, body.connectionId, params);
+        return reply.send(result);
+      } catch (error) {
+        if (error instanceof OAuthError) {
+          return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        }
+        throw error;
+      } finally {
+        await pool.end();
+      }
+    }
+
+    // Legacy fallback
+    const pool = createPool();
+    if (!body.threadId || !body.userEmail) {
+      await pool.end();
+      return reply.code(400).send({ error: 'threadId and userEmail are required (or use connectionId + to for the new API)' });
+    }
+
     const thread = await pool.query(
-      `SELECT t.id, t.sync_provider
-       FROM external_thread t
-       WHERE t.id = $1`,
+      `SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1`,
       [body.threadId],
     );
 
@@ -10196,22 +10621,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'Thread not found' });
     }
 
-    const provider = thread.rows[0].sync_provider || 'google';
-
-    // Check OAuth connection
-    const conn = await pool.query(
-      `SELECT id FROM oauth_connection
-       WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, provider],
-    );
-
-    if (conn.rows.length === 0) {
-      await pool.end();
-      return reply.code(400).send({ error: 'No OAuth connection found' });
-    }
-
-    // In production, this would queue the email to be sent via the provider's API
-    // For now, create an outbound message record
     await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body)
        VALUES ($1, $2, 'outbound', $3)`,
