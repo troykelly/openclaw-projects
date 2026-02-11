@@ -31,6 +31,7 @@ const SearchPage = React.lazy(() => import('@/ui/pages/SearchPage.js').then((m) 
 const NotFoundPage = React.lazy(() => import('@/ui/pages/NotFoundPage.js').then((m) => ({ default: m.NotFoundPage })));
 const NotesPage = React.lazy(() => import('@/ui/pages/NotesPage.js').then((m) => ({ default: m.NotesPage })));
 const SkillStorePage = React.lazy(() => import('@/ui/pages/SkillStorePage.js').then((m) => ({ default: m.SkillStorePage })));
+const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
 
 /** Loading fallback shown while lazy-loaded pages are being fetched. */
 function PageLoader(): React.JSX.Element {
@@ -67,6 +68,7 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /contacts -> ContactsPage
  *   /memory -> MemoryPage
  *   /settings -> SettingsPage
+ *   /settings/oauth/callback -> OAuthCallbackPage
  *   /search -> SearchPage
  *   * -> NotFoundPage
  */
@@ -149,6 +151,10 @@ export const routes: RouteObject[] = [
       {
         path: 'settings',
         element: lazy(SettingsPage),
+      },
+      {
+        path: 'settings/oauth/callback',
+        element: lazy(OAuthCallbackPage),
       },
       {
         path: 'search',
