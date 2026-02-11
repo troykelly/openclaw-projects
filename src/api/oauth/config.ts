@@ -16,6 +16,7 @@ export const MICROSOFT_SCOPES = {
   contacts: 'https://graph.microsoft.com/Contacts.Read',
   email: 'https://graph.microsoft.com/Mail.Read',
   emailSend: 'https://graph.microsoft.com/Mail.Send',
+  files: 'https://graph.microsoft.com/Files.Read',
   calendar: 'https://graph.microsoft.com/Calendars.Read',
   profile: 'https://graph.microsoft.com/User.Read',
   offline: 'offline_access',
@@ -26,6 +27,7 @@ export const GOOGLE_SCOPES = {
   contacts: 'https://www.googleapis.com/auth/contacts.readonly',
   email: 'https://www.googleapis.com/auth/gmail.readonly',
   emailSend: 'https://www.googleapis.com/auth/gmail.send',
+  files: 'https://www.googleapis.com/auth/drive.readonly',
   calendar: 'https://www.googleapis.com/auth/calendar.readonly',
   profile: 'https://www.googleapis.com/auth/userinfo.email',
 } as const;
