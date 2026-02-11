@@ -1,6 +1,6 @@
 /**
  * OAuth service exports.
- * Part of Issue #206.
+ * Part of Issue #206, updated in Issue #1045 for multi-account support.
  */
 
 export * from './types.ts';
@@ -16,6 +16,8 @@ export {
   getValidAccessToken,
   deleteConnection,
   listConnections,
+  updateConnection,
+  validateFeatures,
   isProviderConfigured,
   validateState,
   cleanExpiredStates,

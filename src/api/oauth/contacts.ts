@@ -1,11 +1,12 @@
 /**
  * Contact sync service.
- * Part of Issue #206.
+ * Part of Issue #206, refactored in Issue #1045 for connectionId-based lookups.
  */
 
 import type { Pool } from 'pg';
-import type { OAuthProvider, ProviderContact, ContactSyncResult } from './types.ts';
-import { getValidAccessToken, fetchProviderContacts } from './service.ts';
+import type { ProviderContact, ContactSyncResult } from './types.ts';
+import { NoConnectionError } from './types.ts';
+import { getConnection, getValidAccessToken, fetchProviderContacts } from './service.ts';
 
 // PostgreSQL error codes
 const PG_UNIQUE_VIOLATION = '23505';
@@ -15,12 +16,6 @@ interface LocalContact {
   displayName: string;
   organization: string | null;
   jobTitle: string | null;
-}
-
-interface ContactEndpoint {
-  contactId: string;
-  endpointType: string;
-  endpointValue: string;
 }
 
 async function findContactByEmail(pool: Pool, email: string): Promise<LocalContact | null> {
@@ -104,24 +99,7 @@ async function updateContact(pool: Pool, contactId: string, contact: ProviderCon
   );
 }
 
-async function getContactEndpoints(pool: Pool, contactId: string): Promise<ContactEndpoint[]> {
-  const result = await pool.query(
-    `SELECT contact_id::text, endpoint_type::text, endpoint_value, normalized_value
-     FROM contact_endpoint
-     WHERE contact_id = $1`,
-    [contactId],
-  );
-
-  return result.rows.map((row) => ({
-    contactId: row.contact_id,
-    endpointType: row.endpoint_type,
-    endpointValue: row.endpoint_value,
-  }));
-}
-
 async function addEndpoint(pool: Pool, contactId: string, endpointType: string, endpointValue: string): Promise<void> {
-  // The normalized_value is set by a trigger, so we just need to provide the raw value
-  // The ON CONFLICT handles the unique constraint on (endpoint_type, normalized_value)
   try {
     await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
@@ -130,12 +108,10 @@ async function addEndpoint(pool: Pool, contactId: string, endpointType: string, 
       [contactId, endpointType, endpointValue],
     );
   } catch (error) {
-    // Only ignore unique constraint violations (expected duplicates)
     const pgError = error as { code?: string };
     if (pgError.code === PG_UNIQUE_VIOLATION) {
       return; // Expected duplicate, ignore
     }
-    // Log and rethrow unexpected errors
     console.error('[ContactSync] Endpoint insert failed:', {
       contactId,
       endpointType,
@@ -151,10 +127,8 @@ async function syncSingleContact(pool: Pool, contact: ProviderContact): Promise<
   for (const email of contact.emailAddresses) {
     const existing = await findContactByEmail(pool, email);
     if (existing) {
-      // Update existing contact
       await updateContact(pool, existing.id, contact);
 
-      // Add any new endpoints (the addEndpoint function handles duplicates)
       for (const newEmail of contact.emailAddresses) {
         await addEndpoint(pool, existing.id, 'email', newEmail);
       }
@@ -173,7 +147,6 @@ async function syncSingleContact(pool: Pool, contact: ProviderContact): Promise<
     if (existing) {
       await updateContact(pool, existing.id, contact);
 
-      // Add any new endpoints
       for (const email of contact.emailAddresses) {
         await addEndpoint(pool, existing.id, 'email', email);
       }
@@ -189,7 +162,6 @@ async function syncSingleContact(pool: Pool, contact: ProviderContact): Promise<
   // Create new contact
   const contactId = await createContact(pool, contact);
 
-  // Add all endpoints
   for (const email of contact.emailAddresses) {
     await addEndpoint(pool, contactId, 'email', email);
   }
@@ -201,19 +173,28 @@ async function syncSingleContact(pool: Pool, contact: ProviderContact): Promise<
   return { created: true, updated: false, contactId };
 }
 
-export async function syncContacts(pool: Pool, userEmail: string, provider: OAuthProvider, options?: { syncCursor?: string }): Promise<ContactSyncResult> {
+/**
+ * Sync contacts for a specific OAuth connection, identified by connectionId.
+ * Looks up the connection to get provider and access token.
+ */
+export async function syncContacts(pool: Pool, connectionId: string, options?: { syncCursor?: string }): Promise<ContactSyncResult> {
+  // Look up the connection
+  const connection = await getConnection(pool, connectionId);
+  if (!connection) {
+    throw new NoConnectionError(connectionId);
+  }
+
   // Get valid access token (will refresh if needed)
-  const accessToken = await getValidAccessToken(pool, userEmail, provider);
+  const accessToken = await getValidAccessToken(pool, connectionId);
 
   // Fetch contacts from provider
-  const { contacts, syncCursor } = await fetchProviderContacts(provider, accessToken, options?.syncCursor);
+  const { contacts, syncCursor } = await fetchProviderContacts(connection.provider, accessToken, options?.syncCursor);
 
   let createdCount = 0;
   let updatedCount = 0;
 
   // Sync each contact
   for (const contact of contacts) {
-    // Skip contacts without email or phone
     if (contact.emailAddresses.length === 0 && contact.phoneNumbers.length === 0) {
       continue;
     }
@@ -226,19 +207,26 @@ export async function syncContacts(pool: Pool, userEmail: string, provider: OAut
     }
   }
 
-  // Store sync cursor in oauth_connection metadata
+  // Store sync cursor and update last_sync_at using connectionId
   if (syncCursor) {
     await pool.query(
       `UPDATE oauth_connection
-       SET token_metadata = token_metadata || $3::jsonb
-       WHERE user_email = $1 AND provider = $2`,
-      [userEmail, provider, JSON.stringify({ contactSyncCursor: syncCursor })],
+       SET token_metadata = token_metadata || $2::jsonb,
+           last_sync_at = now(),
+           sync_status = sync_status || $3::jsonb
+       WHERE id = $1`,
+      [connectionId, JSON.stringify({ contactSyncCursor: syncCursor }), JSON.stringify({ contacts: { lastSync: new Date().toISOString(), cursor: syncCursor } })],
+    );
+  } else {
+    await pool.query(
+      `UPDATE oauth_connection SET last_sync_at = now() WHERE id = $1`,
+      [connectionId],
     );
   }
 
   return {
-    provider,
-    userEmail,
+    provider: connection.provider,
+    userEmail: connection.userEmail,
     syncedCount: contacts.length,
     createdCount,
     updatedCount,
@@ -246,12 +234,15 @@ export async function syncContacts(pool: Pool, userEmail: string, provider: OAut
   };
 }
 
-export async function getContactSyncCursor(pool: Pool, userEmail: string, provider: OAuthProvider): Promise<string | undefined> {
+/**
+ * Get the contact sync cursor for a specific connection.
+ */
+export async function getContactSyncCursor(pool: Pool, connectionId: string): Promise<string | undefined> {
   const result = await pool.query(
     `SELECT token_metadata->>'contactSyncCursor' as cursor
      FROM oauth_connection
-     WHERE user_email = $1 AND provider = $2`,
-    [userEmail, provider],
+     WHERE id = $1`,
+    [connectionId],
   );
 
   if (result.rows.length === 0) {
