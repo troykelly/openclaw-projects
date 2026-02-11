@@ -24,5 +24,12 @@ export {
 } from './service.ts';
 export { getRequiredScopes, getMissingScopes } from './scopes.ts';
 export { syncContacts, getContactSyncCursor } from './contacts.ts';
+export {
+  listFiles,
+  searchFiles,
+  getFile,
+  type DriveFile,
+  type DriveListResult,
+} from './files.ts';
 export * as microsoft from './microsoft.ts';
 export * as google from './google.ts';
