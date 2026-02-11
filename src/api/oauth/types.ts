@@ -10,6 +10,8 @@ export interface OAuthConfig {
   clientSecret: string;
   redirectUri: string;
   scopes: string[];
+  /** Microsoft Azure AD tenant ID. When set, tenant-specific endpoints are used instead of /common/. */
+  tenantId?: string;
 }
 
 export interface OAuthTokens {
