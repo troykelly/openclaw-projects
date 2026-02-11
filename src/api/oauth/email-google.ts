@@ -129,6 +129,14 @@ async function gmailFetch<T>(accessToken: string, url: string, options?: Request
     );
   }
 
+  if (response.status === 401) {
+    throw new OAuthError('Access token expired or invalid', 'TOKEN_EXPIRED', 'google', 401);
+  }
+
+  if (response.status === 403) {
+    throw new OAuthError('Insufficient permissions for this operation', 'FORBIDDEN', 'google', 403);
+  }
+
   if (response.status === 404) {
     throw new OAuthError('Resource not found', 'NOT_FOUND', 'google', 404);
   }
@@ -335,15 +343,20 @@ export const googleEmailProvider: EmailProvider = {
       return { messages: [], nextPageToken: listData.nextPageToken, resultSizeEstimate: listData.resultSizeEstimate };
     }
 
-    // Then fetch each message's full content in parallel (batch)
-    const messagePromises = listData.messages.map((m) =>
-      gmailFetch<GmailMessage>(
-        accessToken,
-        `${GMAIL_BASE}/users/me/messages/${m.id}?format=full`,
+    // Fetch each message's full content in parallel. Use allSettled so one
+    // failed message doesn't fail the entire listing.
+    const messageResults = await Promise.allSettled(
+      listData.messages.map((m) =>
+        gmailFetch<GmailMessage>(
+          accessToken,
+          `${GMAIL_BASE}/users/me/messages/${m.id}?format=full`,
+        ),
       ),
     );
 
-    const fullMessages = await Promise.all(messagePromises);
+    const fullMessages = messageResults
+      .filter((r): r is PromiseFulfilledResult<GmailMessage> => r.status === 'fulfilled')
+      .map((r) => r.value);
 
     return {
       messages: fullMessages.map(mapGmailMessage),

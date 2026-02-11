@@ -182,6 +182,14 @@ async function graphFetch<T>(accessToken: string, url: string, options?: Request
     );
   }
 
+  if (response.status === 401) {
+    throw new OAuthError('Access token expired or invalid', 'TOKEN_EXPIRED', 'microsoft', 401);
+  }
+
+  if (response.status === 403) {
+    throw new OAuthError('Insufficient permissions for this operation', 'FORBIDDEN', 'microsoft', 403);
+  }
+
   if (response.status === 404) {
     throw new OAuthError('Resource not found', 'NOT_FOUND', 'microsoft', 404);
   }
