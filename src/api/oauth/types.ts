@@ -1,9 +1,16 @@
 /**
  * OAuth types and interfaces.
- * Part of Issue #206.
+ * Part of Issue #206, updated in Issue #1045 for multi-account support.
  */
 
 export type OAuthProvider = 'google' | 'microsoft';
+
+/** Permission levels for OAuth connections. */
+export type OAuthPermissionLevel = 'read' | 'read_write';
+
+/** Valid features that can be enabled on an OAuth connection. */
+export const ALLOWED_FEATURES = ['contacts', 'email', 'files', 'calendar'] as const;
+export type OAuthFeature = (typeof ALLOWED_FEATURES)[number];
 
 export interface OAuthConfig {
   clientId: string;
@@ -31,8 +38,32 @@ export interface OAuthConnection {
   scopes: string[];
   expiresAt?: Date;
   tokenMetadata: Record<string, unknown>;
+  /** User-defined label for this connection (e.g. "Work Gmail"). */
+  label: string;
+  /** Provider-side unique account identifier. */
+  providerAccountId?: string;
+  /** Email address of the connected provider account. */
+  providerAccountEmail?: string;
+  /** User-chosen access level: read-only or read-write. */
+  permissionLevel: OAuthPermissionLevel;
+  /** Active feature flags: contacts, email, files, calendar. */
+  enabledFeatures: OAuthFeature[];
+  /** Soft disable toggle — false disables sync without disconnecting. */
+  isActive: boolean;
+  /** Timestamp of last completed sync of any type. */
+  lastSyncAt?: Date;
+  /** Per-feature sync tracking. */
+  syncStatus: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Fields that can be updated on an existing connection. */
+export interface OAuthConnectionUpdate {
+  label?: string;
+  permissionLevel?: OAuthPermissionLevel;
+  enabledFeatures?: OAuthFeature[];
+  isActive?: boolean;
 }
 
 export interface OAuthAuthorizationUrl {
@@ -126,8 +157,14 @@ export class ProviderNotConfiguredError extends OAuthError {
 }
 
 export class NoConnectionError extends OAuthError {
-  constructor(provider: OAuthProvider, userEmail: string) {
-    super(`No OAuth connection found for ${userEmail} with provider ${provider}`, 'NO_CONNECTION', provider, 404);
+  constructor(provider: OAuthProvider, userEmail: string);
+  constructor(connectionId: string);
+  constructor(providerOrId: OAuthProvider | string, userEmail?: string) {
+    if (userEmail !== undefined) {
+      super(`No OAuth connection found for ${userEmail} with provider ${providerOrId}`, 'NO_CONNECTION', providerOrId as OAuthProvider, 404);
+    } else {
+      super(`No OAuth connection found with id ${providerOrId}`, 'NO_CONNECTION', undefined, 404);
+    }
     this.name = 'NoConnectionError';
   }
 }

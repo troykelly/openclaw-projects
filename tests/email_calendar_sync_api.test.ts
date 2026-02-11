@@ -139,17 +139,18 @@ describe('Email & Calendar Sync API', () => {
     describe('POST /api/sync/emails', () => {
       it('triggers email sync for a user', async () => {
         // Create OAuth connection first
-        await pool.query(
+        const connResult = await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')`,
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')
+           RETURNING id::text`,
         );
+        const connectionId = connResult.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/sync/emails',
           payload: {
-            userEmail: 'user@example.com',
-            provider: 'google',
+            connectionId,
           },
         });
 
@@ -163,8 +164,7 @@ describe('Email & Calendar Sync API', () => {
           method: 'POST',
           url: '/api/sync/emails',
           payload: {
-            userEmail: 'noconnection@example.com',
-            provider: 'google',
+            connectionId: '00000000-0000-0000-0000-000000000000',
           },
         });
 
@@ -310,17 +310,18 @@ describe('Email & Calendar Sync API', () => {
   describe('Calendar Sync', () => {
     describe('POST /api/sync/calendar', () => {
       it('triggers calendar sync for a user', async () => {
-        await pool.query(
+        const connResult = await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')
+           RETURNING id::text`,
         );
+        const connectionId = connResult.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/sync/calendar',
           payload: {
-            userEmail: 'user@example.com',
-            provider: 'google',
+            connectionId,
           },
         });
 

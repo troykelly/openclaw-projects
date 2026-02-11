@@ -67,6 +67,10 @@ import {
   exchangeCodeForTokens,
   getUserEmail as getOAuthUserEmail,
   saveConnection,
+  getConnection,
+  listConnections,
+  updateConnection,
+  validateFeatures,
   getValidAccessToken,
   isProviderConfigured,
   getConfiguredProviders,
@@ -77,7 +81,9 @@ import {
   ProviderNotConfiguredError,
   NoConnectionError,
   InvalidStateError,
+  ALLOWED_FEATURES,
   type OAuthProvider,
+  type OAuthPermissionLevel,
 } from './oauth/index.ts';
 import { isValidUUID } from './utils/validation.ts';
 
@@ -9728,34 +9734,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/oauth/connections - List OAuth connections
   app.get('/api/oauth/connections', async (req, reply) => {
-    const query = req.query as { userEmail?: string };
+    const query = req.query as { userEmail?: string; provider?: string };
     const pool = createPool();
 
-    let sql = `
-      SELECT id::text as id, user_email, provider, scopes, expires_at, created_at, updated_at
-      FROM oauth_connection
-    `;
-    const params: string[] = [];
-
-    if (query.userEmail) {
-      sql += ' WHERE user_email = $1';
-      params.push(query.userEmail);
-    }
-
-    sql += ' ORDER BY created_at DESC';
-
-    const result = await pool.query(sql, params);
+    const provider = query.provider as OAuthProvider | undefined;
+    const connections = await listConnections(pool, query.userEmail, provider);
     await pool.end();
 
     return reply.send({
-      connections: result.rows.map((row: Record<string, unknown>) => ({
-        id: row.id,
-        userEmail: row.user_email,
-        provider: row.provider,
-        scopes: row.scopes,
-        expiresAt: row.expires_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+      connections: connections.map((conn) => ({
+        id: conn.id,
+        userEmail: conn.userEmail,
+        provider: conn.provider,
+        scopes: conn.scopes,
+        expiresAt: conn.expiresAt,
+        label: conn.label,
+        providerAccountId: conn.providerAccountId,
+        providerAccountEmail: conn.providerAccountEmail,
+        permissionLevel: conn.permissionLevel,
+        enabledFeatures: conn.enabledFeatures,
+        isActive: conn.isActive,
+        lastSyncAt: conn.lastSyncAt,
+        syncStatus: conn.syncStatus,
+        createdAt: conn.createdAt,
+        updatedAt: conn.updatedAt,
       })),
     });
   });
@@ -9856,8 +9858,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get user email from provider
       const userEmail = await getOAuthUserEmail(provider, tokens.accessToken);
 
-      // Save connection
-      const connection = await saveConnection(pool, userEmail, provider, tokens);
+      // Save connection with provider account email for multi-account support
+      const connection = await saveConnection(pool, userEmail, provider, tokens, {
+        providerAccountEmail: userEmail,
+      });
 
       // In a real app, you might redirect to a success page
       return reply.send({
@@ -9913,28 +9917,92 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
-  // POST /api/sync/contacts - Trigger contact sync from OAuth provider
-  app.post('/api/sync/contacts', async (req, reply) => {
-    const body = req.body as { userEmail: string; provider: string; incremental?: boolean };
+  // PATCH /api/oauth/connections/:id - Update connection settings
+  app.patch('/api/oauth/connections/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as {
+      label?: string;
+      permissionLevel?: string;
+      enabledFeatures?: string[];
+      isActive?: boolean;
+    };
+
+    // Validate label is non-empty if provided
+    if (body.label !== undefined && body.label.trim() === '') {
+      return reply.code(400).send({ error: 'Label must not be empty' });
+    }
+
+    // Validate permissionLevel if provided
+    if (body.permissionLevel !== undefined && !['read', 'read_write'].includes(body.permissionLevel)) {
+      return reply.code(400).send({ error: 'Invalid permission level. Must be "read" or "read_write"' });
+    }
+
+    // Validate enabledFeatures if provided
+    if (body.enabledFeatures !== undefined) {
+      try {
+        validateFeatures(body.enabledFeatures);
+      } catch (error) {
+        if (error instanceof OAuthError) {
+          return reply.code(400).send({ error: error.message });
+        }
+        throw error;
+      }
+    }
+
     const pool = createPool();
 
-    const provider = body.provider as OAuthProvider;
+    const updated = await updateConnection(pool, params.id, {
+      label: body.label?.trim(),
+      permissionLevel: body.permissionLevel as OAuthPermissionLevel | undefined,
+      enabledFeatures: body.enabledFeatures ? validateFeatures(body.enabledFeatures) : undefined,
+      isActive: body.isActive,
+    });
 
-    // Validate provider
-    if (!['google', 'microsoft'].includes(provider)) {
+    await pool.end();
+
+    if (!updated) {
+      return reply.code(404).send({ error: 'OAuth connection not found' });
+    }
+
+    return reply.send({
+      connection: {
+        id: updated.id,
+        userEmail: updated.userEmail,
+        provider: updated.provider,
+        scopes: updated.scopes,
+        label: updated.label,
+        providerAccountId: updated.providerAccountId,
+        providerAccountEmail: updated.providerAccountEmail,
+        permissionLevel: updated.permissionLevel,
+        enabledFeatures: updated.enabledFeatures,
+        isActive: updated.isActive,
+        lastSyncAt: updated.lastSyncAt,
+        syncStatus: updated.syncStatus,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+      },
+    });
+  });
+
+  // POST /api/sync/contacts - Trigger contact sync from OAuth provider
+  app.post('/api/sync/contacts', async (req, reply) => {
+    const body = req.body as { connectionId: string; incremental?: boolean };
+    const pool = createPool();
+
+    if (!body.connectionId) {
       await pool.end();
-      return reply.code(400).send({ error: 'Invalid provider' });
+      return reply.code(400).send({ error: 'connectionId is required' });
     }
 
     try {
       // Get sync cursor for incremental sync
       let syncCursor: string | undefined;
       if (body.incremental !== false) {
-        syncCursor = await getContactSyncCursor(pool, body.userEmail, provider);
+        syncCursor = await getContactSyncCursor(pool, body.connectionId);
       }
 
-      // Perform sync
-      const result = await syncContacts(pool, body.userEmail, provider, { syncCursor });
+      // Perform sync using connectionId
+      const result = await syncContacts(pool, body.connectionId, { syncCursor });
 
       await pool.end();
 
@@ -9952,7 +10020,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (error instanceof NoConnectionError) {
         return reply.code(400).send({
-          error: 'No OAuth connection found for this provider',
+          error: 'No OAuth connection found',
           code: error.code,
         });
       }
@@ -9970,29 +10038,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/sync/emails - Trigger email sync
   app.post('/api/sync/emails', async (req, reply) => {
-    const body = req.body as { userEmail: string; provider: string };
+    const body = req.body as { connectionId: string };
     const pool = createPool();
 
-    // Check for OAuth connection
-    const connResult = await pool.query(
-      `SELECT id FROM oauth_connection
-       WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, body.provider],
-    );
-
-    if (connResult.rows.length === 0) {
+    if (!body.connectionId) {
       await pool.end();
-      return reply.code(400).send({ error: 'No OAuth connection found for this provider' });
+      return reply.code(400).send({ error: 'connectionId is required' });
+    }
+
+    // Look up connection by ID
+    const connection = await getConnection(pool, body.connectionId);
+
+    if (!connection) {
+      await pool.end();
+      return reply.code(400).send({ error: 'No OAuth connection found' });
     }
 
     // In production, this would queue a background job to sync emails
-    // For now, return success to indicate sync was initiated
     await pool.end();
 
     return reply.code(202).send({
       status: 'sync_initiated',
-      userEmail: body.userEmail,
-      provider: body.provider,
+      connectionId: connection.id,
+      userEmail: connection.userEmail,
+      provider: connection.provider,
     });
   });
 
@@ -10136,17 +10205,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/sync/calendar - Trigger calendar sync
   app.post('/api/sync/calendar', async (req, reply) => {
-    const body = req.body as { userEmail: string; provider: string };
+    const body = req.body as { connectionId: string };
     const pool = createPool();
 
-    // Check for OAuth connection with calendar scope
-    const connResult = await pool.query(
-      `SELECT id FROM oauth_connection
-       WHERE user_email = $1 AND provider = $2 AND 'calendar' = ANY(scopes)`,
-      [body.userEmail, body.provider],
-    );
+    if (!body.connectionId) {
+      await pool.end();
+      return reply.code(400).send({ error: 'connectionId is required' });
+    }
 
-    if (connResult.rows.length === 0) {
+    // Look up connection by ID and verify calendar scope
+    const connection = await getConnection(pool, body.connectionId);
+
+    if (!connection) {
+      await pool.end();
+      return reply.code(400).send({ error: 'No OAuth connection found' });
+    }
+
+    if (!connection.scopes.includes('calendar') && !connection.scopes.some((s) => s.includes('calendar') || s.includes('Calendar'))) {
       await pool.end();
       return reply.code(400).send({ error: 'No OAuth connection found with calendar scope' });
     }
@@ -10155,8 +10230,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.code(202).send({
       status: 'sync_initiated',
-      userEmail: body.userEmail,
-      provider: body.provider,
+      connectionId: connection.id,
+      userEmail: connection.userEmail,
+      provider: connection.provider,
     });
   });
 

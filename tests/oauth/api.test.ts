@@ -227,8 +227,7 @@ describe('OAuth API Endpoints', () => {
         method: 'POST',
         url: '/api/sync/contacts',
         payload: {
-          userEmail: 'test@example.com',
-          provider: 'google',
+          connectionId: '00000000-0000-0000-0000-000000000000',
         },
       });
 
@@ -237,19 +236,16 @@ describe('OAuth API Endpoints', () => {
       expect(body.error).toContain('No OAuth connection');
     });
 
-    it('returns error for invalid provider', async () => {
+    it('returns error when connectionId is missing', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/sync/contacts',
-        payload: {
-          userEmail: 'test@example.com',
-          provider: 'invalid',
-        },
+        payload: {},
       });
 
       expect(response.statusCode).toBe(400);
       const body = response.json();
-      expect(body.error).toContain('Invalid provider');
+      expect(body.error).toContain('connectionId is required');
     });
   });
 });
