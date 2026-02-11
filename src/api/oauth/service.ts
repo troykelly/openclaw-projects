@@ -11,22 +11,19 @@ import * as microsoft from './microsoft.ts';
 import * as google from './google.ts';
 
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes buffer
-const STATE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes for state to be valid
 
-// In-memory state storage (in production, use Redis or database)
-const pendingStates = new Map<string, OAuthStateData>();
-
-// Clean up expired states periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [state, data] of pendingStates.entries()) {
-    if (now - data.createdAt.getTime() > STATE_EXPIRY_MS) {
-      pendingStates.delete(state);
-    }
-  }
-}, 60 * 1000); // Check every minute
-
-export function getAuthorizationUrl(provider: OAuthProvider, state: string, scopes?: string[]): OAuthAuthorizationUrl {
+/**
+ * Build the provider authorization URL and persist the PKCE state in the database.
+ *
+ * The state row expires after 10 minutes (set by the DB default).
+ */
+export async function getAuthorizationUrl(
+  pool: Pool,
+  provider: OAuthProvider,
+  state: string,
+  scopes?: string[],
+  opts?: { userEmail?: string; redirectPath?: string },
+): Promise<OAuthAuthorizationUrl> {
   const config = requireProviderConfig(provider);
 
   let result: OAuthAuthorizationUrl;
@@ -41,32 +38,58 @@ export function getAuthorizationUrl(provider: OAuthProvider, state: string, scop
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
 
-  // Store state with PKCE code verifier for validation during callback
-  pendingStates.set(state, {
-    provider,
-    codeVerifier: result.codeVerifier,
-    scopes: result.scopes,
-    createdAt: new Date(),
-  });
+  // Persist state with PKCE code verifier for validation during callback
+  await pool.query(
+    `INSERT INTO oauth_state (state, provider, code_verifier, scopes, user_email, redirect_path)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [state, provider, result.codeVerifier, result.scopes, opts?.userEmail ?? null, opts?.redirectPath ?? null],
+  );
 
   return result;
 }
 
-export function validateState(state: string): OAuthStateData {
-  const data = pendingStates.get(state);
-  if (!data) {
+/**
+ * Validate and consume an OAuth state token (single-use).
+ *
+ * Deletes the row atomically so a replayed state will fail.
+ * Also cleans up any expired states in the same call.
+ *
+ * @throws {InvalidStateError} when the state is unknown or expired.
+ */
+export async function validateState(pool: Pool, state: string): Promise<OAuthStateData> {
+  // Delete-and-return in one atomic statement; only match non-expired rows
+  const result = await pool.query(
+    `DELETE FROM oauth_state
+     WHERE state = $1 AND expires_at > now()
+     RETURNING provider, code_verifier, scopes, user_email, redirect_path, created_at, expires_at`,
+    [state],
+  );
+
+  if (result.rows.length === 0) {
     throw new InvalidStateError();
   }
 
-  // Check expiry
-  if (Date.now() - data.createdAt.getTime() > STATE_EXPIRY_MS) {
-    pendingStates.delete(state);
-    throw new InvalidStateError();
-  }
+  const row = result.rows[0];
+  return {
+    provider: row.provider,
+    codeVerifier: row.code_verifier,
+    scopes: row.scopes ?? [],
+    userEmail: row.user_email ?? undefined,
+    redirectPath: row.redirect_path ?? undefined,
+    createdAt: new Date(row.created_at),
+    expiresAt: new Date(row.expires_at),
+  };
+}
 
-  // Remove state (single use)
-  pendingStates.delete(state);
-  return data;
+/**
+ * Remove expired oauth_state rows.
+ *
+ * Can be invoked from a pgcron job or called opportunistically.
+ * Returns the number of rows deleted.
+ */
+export async function cleanExpiredStates(pool: Pool): Promise<number> {
+  const result = await pool.query('DELETE FROM oauth_state WHERE expires_at <= now()');
+  return result.rowCount ?? 0;
 }
 
 export async function exchangeCodeForTokens(provider: OAuthProvider, code: string, codeVerifier?: string): Promise<OAuthTokens> {

@@ -59,6 +59,7 @@ const APPLICATION_TABLES = [
   'work_item_comment',
   'user_presence',
   'calendar_event',
+  'oauth_state',
   'oauth_connection',
   // Note/notebook tables (Epic #337)
   'note_work_item_reference',
