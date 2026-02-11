@@ -3,7 +3,7 @@
  * Part of Issue #1055.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { parseIntervalToMs, getContactSyncInterval, SYNC_JOB_KIND, LOCAL_SYNC_FEATURES } from './sync.ts';
 
 describe('parseIntervalToMs', () => {
