@@ -1,11 +1,12 @@
 /**
  * Microsoft OAuth and Graph API implementation.
- * Part of Issue #206.
+ * Part of Issue #206. File/Drive operations added in Issue #1049.
  */
 
 import { createHash, randomBytes } from 'crypto';
 import type { OAuthConfig, OAuthTokens, ProviderContact, OAuthAuthorizationUrl } from './types.ts';
 import { OAuthError, TokenRefreshError } from './types.ts';
+import type { DriveFile, DriveListResult } from './files.ts';
 import { requireProviderConfig } from './config.ts';
 
 // PKCE utilities
@@ -285,4 +286,161 @@ export async function fetchAllContacts(accessToken: string, syncCursor?: string)
     contacts: allContacts,
     syncCursor: deltaLink,
   };
+}
+
+// ==================== OneDrive / Files (Issue #1049) ====================
+
+/** Shape of a Microsoft Graph DriveItem response. */
+interface MicrosoftDriveItem {
+  id: string;
+  name: string;
+  size?: number;
+  createdDateTime?: string;
+  lastModifiedDateTime?: string;
+  webUrl?: string;
+  file?: { mimeType: string };
+  folder?: { childCount: number };
+  parentReference?: { id?: string; path?: string };
+  '@microsoft.graph.downloadUrl'?: string;
+  thumbnails?: Array<{ large?: { url?: string } }>;
+}
+
+interface MicrosoftDriveListResponse {
+  value: MicrosoftDriveItem[];
+  '@odata.nextLink'?: string;
+  '@odata.count'?: number;
+}
+
+/** Map a Microsoft Graph DriveItem to the normalized DriveFile interface. */
+function mapDriveItem(item: MicrosoftDriveItem, connectionId: string): DriveFile {
+  return {
+    id: item.id,
+    name: item.name,
+    mimeType: item.file?.mimeType || (item.folder ? 'application/vnd.microsoft-folder' : 'application/octet-stream'),
+    size: item.size,
+    createdAt: item.createdDateTime ? new Date(item.createdDateTime) : undefined,
+    modifiedAt: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : undefined,
+    path: item.parentReference?.path,
+    parentId: item.parentReference?.id,
+    webUrl: item.webUrl,
+    downloadUrl: item['@microsoft.graph.downloadUrl'],
+    thumbnailUrl: item.thumbnails?.[0]?.large?.url,
+    isFolder: !!item.folder,
+    provider: 'microsoft',
+    connectionId,
+    metadata: {},
+  };
+}
+
+/** Selected fields for OneDrive listing requests. */
+const DRIVE_ITEM_SELECT = 'id,name,size,createdDateTime,lastModifiedDateTime,webUrl,file,folder,parentReference,@microsoft.graph.downloadUrl,thumbnails';
+
+/**
+ * List items in a OneDrive folder (or root).
+ * Uses `/me/drive/root/children` for root, `/me/drive/items/{id}/children` for subfolders.
+ * When a pageToken (nextLink URL) is provided, it is used directly.
+ */
+export async function listDriveItems(
+  accessToken: string,
+  connectionId: string,
+  folderId?: string,
+  pageToken?: string,
+): Promise<DriveListResult> {
+  let url: string;
+
+  if (pageToken) {
+    url = pageToken;
+  } else if (folderId) {
+    url = `${GRAPH_BASE_URL}/me/drive/items/${folderId}/children?$select=${DRIVE_ITEM_SELECT}&$top=100`;
+  } else {
+    url = `${GRAPH_BASE_URL}/me/drive/root/children?$select=${DRIVE_ITEM_SELECT}&$top=100`;
+  }
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] OneDrive list failed:', { status: response.status, error: errorText });
+    throw new OAuthError('Failed to list drive items', 'FILES_LIST_FAILED', 'microsoft', response.status);
+  }
+
+  const data = (await response.json()) as MicrosoftDriveListResponse;
+
+  return {
+    files: data.value.map((item) => mapDriveItem(item, connectionId)),
+    nextPageToken: data['@odata.nextLink'],
+    totalCount: data['@odata.count'],
+  };
+}
+
+/**
+ * Search items across a OneDrive.
+ * Uses `/me/drive/root/search(q='{query}')`.
+ * When a pageToken (nextLink URL) is provided, it is used directly.
+ */
+export async function searchDriveItems(
+  accessToken: string,
+  connectionId: string,
+  query: string,
+  pageToken?: string,
+): Promise<DriveListResult> {
+  let url: string;
+
+  if (pageToken) {
+    url = pageToken;
+  } else {
+    // Escape single quotes in the query to prevent query injection
+    const safeQuery = query.replace(/'/g, "''");
+    url = `${GRAPH_BASE_URL}/me/drive/root/search(q='${safeQuery}')?$select=${DRIVE_ITEM_SELECT}&$top=50`;
+  }
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] OneDrive search failed:', { status: response.status, error: errorText });
+    throw new OAuthError('Failed to search drive items', 'FILES_SEARCH_FAILED', 'microsoft', response.status);
+  }
+
+  const data = (await response.json()) as MicrosoftDriveListResponse;
+
+  return {
+    files: data.value.map((item) => mapDriveItem(item, connectionId)),
+    nextPageToken: data['@odata.nextLink'],
+    totalCount: data['@odata.count'],
+  };
+}
+
+/**
+ * Get metadata for a single OneDrive item, including download URL.
+ * Uses `/me/drive/items/{itemId}`.
+ */
+export async function getDriveItem(
+  accessToken: string,
+  connectionId: string,
+  itemId: string,
+): Promise<DriveFile> {
+  const url = `${GRAPH_BASE_URL}/me/drive/items/${itemId}?$select=${DRIVE_ITEM_SELECT}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] OneDrive get item failed:', { status: response.status, error: errorText });
+
+    if (response.status === 404) {
+      throw new OAuthError('Drive item not found', 'FILE_NOT_FOUND', 'microsoft', 404);
+    }
+
+    throw new OAuthError('Failed to get drive item', 'FILE_FETCH_FAILED', 'microsoft', response.status);
+  }
+
+  const data = (await response.json()) as MicrosoftDriveItem;
+  return mapDriveItem(data, connectionId);
 }

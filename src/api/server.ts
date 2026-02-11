@@ -79,6 +79,9 @@ import {
   syncContacts,
   getContactSyncCursor,
   validateState,
+  listFiles as listDriveFiles,
+  searchFiles as searchDriveFiles,
+  getFile as getDriveFile,
   OAuthError,
   ProviderNotConfiguredError,
   NoConnectionError,
@@ -10070,6 +10073,100 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       return reply.send(response);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ==================== File/Drive API (Issue #1049) ====================
+
+  // GET /api/drive/files - List files from a connected drive
+  app.get('/api/drive/files', async (req, reply) => {
+    const query = req.query as { connectionId?: string; folderId?: string; pageToken?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    if (!isValidUUID(query.connectionId)) {
+      return reply.code(400).send({ error: 'connectionId must be a valid UUID' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await listDriveFiles(pool, query.connectionId, query.folderId, query.pageToken);
+      return reply.send(result);
+    } catch (error) {
+      if (error instanceof NoConnectionError) {
+        return reply.code(404).send({ error: 'OAuth connection not found', code: error.code });
+      }
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/drive/files/search - Search files across a connected drive
+  app.get('/api/drive/files/search', async (req, reply) => {
+    const query = req.query as { connectionId?: string; q?: string; pageToken?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    if (!isValidUUID(query.connectionId)) {
+      return reply.code(400).send({ error: 'connectionId must be a valid UUID' });
+    }
+
+    if (!query.q || query.q.trim() === '') {
+      return reply.code(400).send({ error: 'q (search query) parameter is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await searchDriveFiles(pool, query.connectionId, query.q, query.pageToken);
+      return reply.send(result);
+    } catch (error) {
+      if (error instanceof NoConnectionError) {
+        return reply.code(404).send({ error: 'OAuth connection not found', code: error.code });
+      }
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/drive/files/:id - Get single file metadata with download URL
+  app.get('/api/drive/files/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { connectionId?: string };
+
+    if (!query.connectionId) {
+      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    }
+
+    if (!isValidUUID(query.connectionId)) {
+      return reply.code(400).send({ error: 'connectionId must be a valid UUID' });
+    }
+
+    const pool = createPool();
+    try {
+      const file = await getDriveFile(pool, query.connectionId, params.id);
+      return reply.send({ file });
+    } catch (error) {
+      if (error instanceof NoConnectionError) {
+        return reply.code(404).send({ error: 'OAuth connection not found', code: error.code });
+      }
+      if (error instanceof OAuthError) {
+        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+      }
+      throw error;
     } finally {
       await pool.end();
     }
