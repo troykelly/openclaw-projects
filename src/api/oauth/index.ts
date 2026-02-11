@@ -47,3 +47,5 @@ export {
   LOCAL_SYNC_FEATURES,
 } from './sync.ts';
 export type { SyncJobResult, FeatureSyncStatus, LocalSyncFeature } from './sync.ts';
+export { createOAuthGatewayPlugin } from './gateway-plugin.ts';
+export type { OAuthGatewayPluginConfig } from './gateway-plugin.ts';
