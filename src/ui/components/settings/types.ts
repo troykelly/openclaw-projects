@@ -89,3 +89,42 @@ export interface EmbeddingTestResult {
   error?: string;
   latencyMs?: number;
 }
+
+// ---------------------------------------------------------------------------
+// OAuth Connected Accounts
+// ---------------------------------------------------------------------------
+
+export type OAuthProvider = 'google' | 'microsoft';
+export type OAuthPermissionLevel = 'read' | 'read_write';
+export type OAuthFeature = 'contacts' | 'email' | 'files' | 'calendar';
+
+export interface OAuthConnectionSummary {
+  id: string;
+  userEmail: string;
+  provider: OAuthProvider;
+  scopes: string[];
+  expiresAt: string | null;
+  label: string;
+  providerAccountId: string | null;
+  providerAccountEmail: string | null;
+  permissionLevel: OAuthPermissionLevel;
+  enabledFeatures: OAuthFeature[];
+  isActive: boolean;
+  lastSyncAt: string | null;
+  syncStatus: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OAuthConnectionUpdate {
+  label?: string;
+  permissionLevel?: OAuthPermissionLevel;
+  enabledFeatures?: OAuthFeature[];
+  isActive?: boolean;
+}
+
+export interface OAuthProviderInfo {
+  name: string;
+  configured: boolean;
+  hint?: string;
+}

@@ -7,7 +7,7 @@
  */
 import * as React from 'react';
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Sun, Moon, Monitor, Bell, Layout, Clock, Eye, User, Keyboard, Info, CheckCircle, Smartphone } from 'lucide-react';
+import { Sun, Moon, Monitor, Bell, Layout, Clock, Eye, User, Keyboard, Info, CheckCircle, Smartphone, Link2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Switch } from '@/ui/components/ui/switch';
 import { Badge } from '@/ui/components/ui/badge';
@@ -18,6 +18,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import { cn } from '@/ui/lib/utils';
 import { useSettings } from './use-settings';
 import { EmbeddingSettingsSection } from './embedding-settings-section';
+import { ConnectedAccountsSection } from './connected-accounts-section';
 import type { Theme, DefaultView, EmailDigestFrequency } from './types';
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 75, 100];
 /** Navigation sections for the settings sidebar. */
 const SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'accounts', label: 'Connected Accounts', icon: Link2 },
   { id: 'appearance', label: 'Appearance', icon: Sun },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
@@ -488,6 +490,7 @@ export function SettingsPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
     profile: null,
+    accounts: null,
     appearance: null,
     notifications: null,
     shortcuts: null,
@@ -660,6 +663,15 @@ export function SettingsPage() {
               }}
             >
               <ProfileSection email={settings.email} id={settings.id} />
+            </div>
+
+            {/* Connected Accounts */}
+            <div
+              ref={(el) => {
+                sectionRefs.current.accounts = el;
+              }}
+            >
+              <ConnectedAccountsSection />
             </div>
 
             {/* Appearance */}
