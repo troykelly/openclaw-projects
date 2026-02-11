@@ -28,6 +28,8 @@ describe('OAuth Service', () => {
     it('returns null when Microsoft not configured', async () => {
       delete process.env.MS365_CLIENT_ID;
       delete process.env.MS365_CLIENT_SECRET;
+      delete process.env.AZURE_CLIENT_ID;
+      delete process.env.AZURE_CLIENT_SECRET;
 
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       expect(getMicrosoftConfig()).toBeNull();
@@ -50,6 +52,8 @@ describe('OAuth Service', () => {
     it('returns null when Google not configured', async () => {
       delete process.env.GOOGLE_CLIENT_ID;
       delete process.env.GOOGLE_CLIENT_SECRET;
+      delete process.env.GOOGLE_CLOUD_CLIENT_ID;
+      delete process.env.GOOGLE_CLOUD_CLIENT_SECRET;
 
       vi.resetModules();
       const { getGoogleConfig } = await import('../../src/api/oauth/config.ts');
@@ -74,6 +78,8 @@ describe('OAuth Service', () => {
       process.env.MS365_CLIENT_SECRET = 'test-secret';
       delete process.env.GOOGLE_CLIENT_ID;
       delete process.env.GOOGLE_CLIENT_SECRET;
+      delete process.env.GOOGLE_CLOUD_CLIENT_ID;
+      delete process.env.GOOGLE_CLOUD_CLIENT_SECRET;
 
       vi.resetModules();
       const { getConfiguredProviders } = await import('../../src/api/oauth/config.ts');

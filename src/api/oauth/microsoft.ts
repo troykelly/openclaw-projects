@@ -17,8 +17,24 @@ function generateCodeChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url');
 }
 
-const AUTHORIZE_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
-const TOKEN_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+/**
+ * Build the Azure AD authorize endpoint for a given tenant.
+ * Falls back to `/common/` (multi-tenant) when no tenant ID is provided.
+ */
+function getAuthorizeUrl(tenantId?: string): string {
+  const tenant = tenantId || 'common';
+  return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`;
+}
+
+/**
+ * Build the Azure AD token endpoint for a given tenant.
+ * Falls back to `/common/` (multi-tenant) when no tenant ID is provided.
+ */
+function getTokenUrl(tenantId?: string): string {
+  const tenant = tenantId || 'common';
+  return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
+}
+
 const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
 
 interface MicrosoftTokenResponse {
@@ -72,7 +88,7 @@ export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes
   });
 
   return {
-    url: `${AUTHORIZE_URL}?${params.toString()}`,
+    url: `${getAuthorizeUrl(config.tenantId)}?${params.toString()}`,
     state,
     provider: 'microsoft',
     scopes: effectiveScopes,
@@ -96,7 +112,7 @@ export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, 
     params.set('code_verifier', codeVerifier);
   }
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(getTokenUrl(effectiveConfig.tenantId), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -135,7 +151,7 @@ export async function refreshAccessToken(refreshToken: string, config?: OAuthCon
     grant_type: 'refresh_token',
   });
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(getTokenUrl(effectiveConfig.tenantId), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
