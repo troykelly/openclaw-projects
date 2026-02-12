@@ -100,6 +100,7 @@ import {
   type EmailDraftParams,
   type EmailUpdateParams,
 } from './oauth/index.ts';
+import { validateOAuthStartup } from './oauth/startup-validation.ts';
 import { isValidUUID } from './utils/validation.ts';
 
 export type ProjectsApiOptions = {
@@ -108,6 +109,22 @@ export type ProjectsApiOptions = {
 
 export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false });
+
+  // Validate OAuth startup configuration (Issue #1080)
+  const oauthValidation = validateOAuthStartup();
+  for (const warning of oauthValidation.warnings) {
+    console.warn(`[OAuth] WARNING: ${warning}`);
+  }
+  for (const error of oauthValidation.errors) {
+    console.error(`[OAuth] FATAL: ${error}`);
+  }
+  if (!oauthValidation.ok) {
+    throw new Error(
+      'OAuth startup validation failed. ' +
+      'Set OAUTH_TOKEN_ENCRYPTION_KEY or remove OAuth provider credentials. ' +
+      `Details: ${oauthValidation.errors.join('; ')}`,
+    );
+  }
 
   const sessionCookieName = 'projects_session';
 
