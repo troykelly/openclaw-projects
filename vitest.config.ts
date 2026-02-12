@@ -30,6 +30,9 @@ export default defineConfig({
     exclude: [
       'tests/e2e-playwright/**',
       'packages/openclaw-plugin/tests/e2e/**',
+      // Gateway loader integration tests require .local/openclaw-gateway source;
+      // skip them in environments (like CI) where the gateway is not available
+      ...(hasGateway ? [] : ['packages/openclaw-plugin/tests/gateway/**']),
       'node_modules/**',
       '**/node_modules/**',
       '.local/openclaw-gateway/**/*.e2e.test.ts',
@@ -66,7 +69,12 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       ...(hasGateway
-        ? { 'openclaw/plugin-sdk': path.join(gatewayRoot, 'src', 'plugin-sdk', 'index.ts') }
+        ? {
+            'openclaw/plugin-sdk': path.join(gatewayRoot, 'src', 'plugin-sdk', 'index.ts'),
+            'openclaw-gateway/plugins/loader': path.join(gatewayRoot, 'src', 'plugins', 'loader.ts'),
+            'openclaw-gateway/plugins/hooks': path.join(gatewayRoot, 'src', 'plugins', 'hooks.ts'),
+            'openclaw-gateway/plugins/registry': path.join(gatewayRoot, 'src', 'plugins', 'registry.ts'),
+          }
         : {}),
     },
   },
