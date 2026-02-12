@@ -209,6 +209,9 @@ services:
       # configure-rules.sh edits crs-setup.conf — both fail on an empty tmpfs.
       # See: https://github.com/coreruleset/modsecurity-crs-docker
       - modsec_conf:/etc/modsecurity.d
+      # CRS rules dir — /etc/modsecurity.d/owasp-crs symlinks here; configure-rules.sh
+      # uses ed to modify crs-setup.conf which fails on a read-only root filesystem
+      - modsec_crs:/opt/owasp-crs
       # Apache conf dir — entrypoint generates a self-signed TLS certificate here
       - modsec_apache_conf:/usr/local/apache2/conf
     tmpfs:
@@ -216,6 +219,8 @@ services:
       - /var/log/apache2:mode=1777,size=32M
       - /var/run/apache2:mode=1777,size=8M
       - /var/lock/apache2:mode=1777,size=8M
+      # Apache writes httpd.pid here at startup
+      - /usr/local/apache2/logs:mode=1777,size=1M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -515,8 +520,9 @@ volumes:
   # (setup.conf, crs-setup.conf, TLS certs). A tmpfs mount hides those files.
   # NOTE: On CRS image upgrades, remove these volumes to pick up new defaults:
   #   docker compose -f docker-compose.traefik.yml down
-  #   docker volume rm openclaw-projects_modsec_conf openclaw-projects_modsec_apache_conf
+  #   docker volume rm openclaw-projects_modsec_conf openclaw-projects_modsec_crs openclaw-projects_modsec_apache_conf
   modsec_conf:
+  modsec_crs:
   modsec_apache_conf:
 
 configs:
