@@ -39,6 +39,10 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    exclude: [
+      // Skip gateway integration tests when gateway source is not available
+      ...(hasGateway ? [] : ['tests/gateway/**/*.test.ts']),
+    ],
     globals: false,
     coverage: {
       provider: 'v8',
