@@ -484,7 +484,75 @@ else
 fi
 
 # ============================================================================
-# Section 7: OpenClaw Gateway (Optional)
+# Section 7: OAuth Integration (Optional)
+# ============================================================================
+section "OAuth Integration (optional — Microsoft 365 / Google)"
+
+CONFIGURE_OAUTH="n"
+if [ "$NON_INTERACTIVE" != true ]; then
+  printf "  OAuth enables contacts, email, drive/files, and calendar integration\n"
+  printf "  via Microsoft 365 and/or Google. See docs/guides/oauth-setup.md.\n\n"
+  CONFIGURE_OAUTH="$(prompt_yn "Configure OAuth integration?" "n")"
+fi
+
+OAUTH_HAS_CREDENTIALS=false
+
+if [ "$CONFIGURE_OAUTH" = "y" ]; then
+  # Microsoft 365
+  printf "\n  ${BOLD}Microsoft 365 / Azure AD:${RESET}\n"
+  MS365_CID="$(prompt_value MS365_CLIENT_ID "Application (client) ID" "" --secret)"
+  if [ -n "$MS365_CID" ]; then
+    set_env MS365_CLIENT_ID "$MS365_CID"
+    OAUTH_HAS_CREDENTIALS=true
+    MS365_CS="$(prompt_value MS365_CLIENT_SECRET "Client secret" "" --secret)"
+    set_env MS365_CLIENT_SECRET "$MS365_CS"
+    AZURE_TID="$(prompt_value AZURE_TENANT_ID "Tenant ID (optional, leave blank for multi-tenant)" "")"
+    if [ -n "$AZURE_TID" ]; then
+      set_env AZURE_TENANT_ID "$AZURE_TID"
+    fi
+  fi
+
+  # Google
+  printf "\n  ${BOLD}Google:${RESET}\n"
+  GOOGLE_CID="$(prompt_value GOOGLE_CLIENT_ID "OAuth client ID" "" --secret)"
+  if [ -n "$GOOGLE_CID" ]; then
+    set_env GOOGLE_CLIENT_ID "$GOOGLE_CID"
+    OAUTH_HAS_CREDENTIALS=true
+    GOOGLE_CS="$(prompt_value GOOGLE_CLIENT_SECRET "Client secret" "" --secret)"
+    set_env GOOGLE_CLIENT_SECRET "$GOOGLE_CS"
+  fi
+
+  # Shared settings
+  if [ "$OAUTH_HAS_CREDENTIALS" = true ]; then
+    printf "\n  ${BOLD}Shared OAuth settings:${RESET}\n"
+    OAUTH_REDIR="$(prompt_value OAUTH_REDIRECT_URI "Redirect URI" "http://localhost:3000/api/oauth/callback")"
+    set_env OAUTH_REDIRECT_URI "$OAUTH_REDIR"
+  fi
+else
+  # Preserve existing OAuth config if present
+  for key in MS365_CLIENT_ID MS365_CLIENT_SECRET AZURE_TENANT_ID \
+             GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET OAUTH_REDIRECT_URI; do
+    if [ -n "${EXISTING_ENV[$key]:-}" ]; then
+      set_env "$key" "${EXISTING_ENV[$key]}"
+      OAUTH_HAS_CREDENTIALS=true
+    fi
+  done
+fi
+
+# Auto-generate token encryption key if any OAuth credentials are present
+OAUTH_ENC_KEY="$(resolve OAUTH_TOKEN_ENCRYPTION_KEY "")"
+if [ -z "$OAUTH_ENC_KEY" ] && [ "$OAUTH_HAS_CREDENTIALS" = true ]; then
+  OAUTH_ENC_KEY="$(generate_secret 32)"
+  info "Generated OAUTH_TOKEN_ENCRYPTION_KEY"
+fi
+if [ -n "$OAUTH_ENC_KEY" ]; then
+  set_env OAUTH_TOKEN_ENCRYPTION_KEY "$OAUTH_ENC_KEY"
+elif [ -n "${EXISTING_ENV[OAUTH_TOKEN_ENCRYPTION_KEY]:-}" ]; then
+  set_env OAUTH_TOKEN_ENCRYPTION_KEY "${EXISTING_ENV[OAUTH_TOKEN_ENCRYPTION_KEY]}"
+fi
+
+# ============================================================================
+# Section 8: OpenClaw Gateway (Optional)
 # ============================================================================
 section "OpenClaw Gateway Integration (optional)"
 
@@ -583,6 +651,18 @@ HEADER
   done
 
   printf "\n# =============================================================================\n"
+  printf "# OAuth Integration (Microsoft 365 / Google)\n"
+  printf "# =============================================================================\n\n"
+
+  for key in MS365_CLIENT_ID MS365_CLIENT_SECRET AZURE_TENANT_ID \
+             GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET \
+             OAUTH_REDIRECT_URI OAUTH_TOKEN_ENCRYPTION_KEY; do
+    if [ -n "${ENV_VALUES[$key]:-}" ]; then
+      printf '%s=%s\n' "$key" "${ENV_VALUES[$key]}"
+    fi
+  done
+
+  printf "\n# =============================================================================\n"
   printf "# OpenClaw Gateway\n"
   printf "# =============================================================================\n\n"
 
@@ -603,7 +683,7 @@ section "Setup Complete"
 
 printf "  ${BOLD}Generated secrets:${RESET}\n"
 # Check which secrets were auto-generated (not from existing env)
-for key in COOKIE_SECRET OPENCLAW_PROJECTS_AUTH_SECRET POSTGRES_PASSWORD S3_SECRET_KEY; do
+for key in COOKIE_SECRET OPENCLAW_PROJECTS_AUTH_SECRET POSTGRES_PASSWORD S3_SECRET_KEY OAUTH_TOKEN_ENCRYPTION_KEY; do
   if [ -n "${ENV_VALUES[$key]:-}" ]; then
     printf "    - %s\n" "$key"
   fi
@@ -615,6 +695,17 @@ printf "    API port:          %s\n" "${ENV_VALUES[API_PORT]:-3000}"
 printf "    Frontend port:     %s\n" "${ENV_VALUES[FRONTEND_PORT]:-8080}"
 printf "    Database:          %s@%s\n" "${ENV_VALUES[POSTGRES_USER]:-openclaw}" "${ENV_VALUES[POSTGRES_DB]:-openclaw}"
 printf "    Embedding:         %s\n" "${ENV_VALUES[EMBEDDING_PROVIDER]:-not configured}"
+
+# Determine OAuth status
+OAUTH_STATUS="not configured"
+if [ -n "${ENV_VALUES[MS365_CLIENT_ID]:-}" ] && [ -n "${ENV_VALUES[GOOGLE_CLIENT_ID]:-}" ]; then
+  OAUTH_STATUS="Microsoft 365 + Google"
+elif [ -n "${ENV_VALUES[MS365_CLIENT_ID]:-}" ]; then
+  OAUTH_STATUS="Microsoft 365"
+elif [ -n "${ENV_VALUES[GOOGLE_CLIENT_ID]:-}" ]; then
+  OAUTH_STATUS="Google"
+fi
+printf "    OAuth:             %s\n" "$OAUTH_STATUS"
 
 printf "\n  ${BOLD}Next steps:${RESET}\n"
 printf "    1. Review the generated .env file\n"
