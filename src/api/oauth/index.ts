@@ -49,3 +49,5 @@ export {
 export type { SyncJobResult, FeatureSyncStatus, LocalSyncFeature } from './sync.ts';
 export { createOAuthGatewayPlugin } from './gateway-plugin.ts';
 export type { OAuthGatewayPluginConfig } from './gateway-plugin.ts';
+export { validateOAuthStartup } from './startup-validation.ts';
+export type { OAuthStartupValidationResult } from './startup-validation.ts';
