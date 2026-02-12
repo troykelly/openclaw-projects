@@ -124,6 +124,12 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+      # CHOWN + FOWNER: required for ACME storage initialisation.
+      # The host bind-mount (/etc/traefik/acme) is created as root, but Traefik
+      # 3.x runs as non-root (UID 65532). The entrypoint needs to chown/chmod
+      # acme.json so Traefik can read/write certificates.
+      - CHOWN
+      - FOWNER
     deploy:
       resources:
         limits:
@@ -179,6 +185,9 @@ services:
       - /var/log/apache2:mode=1777,size=32M
       - /var/run/apache2:mode=1777,size=8M
       - /var/lock/apache2:mode=1777,size=8M
+      # OWASP CRS startup writes: sed edits modsecurity configs, generates self-signed TLS cert
+      - /etc/modsecurity.d:mode=1777,size=8M
+      - /usr/local/apache2/conf:mode=1777,size=1M
     security_opt:
       - no-new-privileges:true
     cap_drop:
