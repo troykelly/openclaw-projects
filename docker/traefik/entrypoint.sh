@@ -162,7 +162,7 @@ generate_config() {
     # Generate config using sed substitution
     # traefik:3.x is Alpine-based and does not include envsubst (gettext)
     # Escape sed-special characters in values to prevent injection
-    escape_sed() { printf '%s\n' "$1" | sed 's/[&/\]/\\&/g'; }
+    escape_sed() { printf '%s\n' "$1" | sed 's/[&/\|]/\\&/g'; }
 
     sed \
         -e "s|\${DOMAIN}|$(escape_sed "${DOMAIN}")|g" \
@@ -184,7 +184,7 @@ generate_config() {
             "${OUTPUT_FILE}" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "${OUTPUT_FILE}"
     else
         # shellcheck disable=SC2016
-        sed -i 's|\${TRUSTED_IPS_YAML}||g' "${OUTPUT_FILE}"
+        sed 's|\${TRUSTED_IPS_YAML}||g' "${OUTPUT_FILE}" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "${OUTPUT_FILE}"
     fi
     
     echo "Generated dynamic config at ${OUTPUT_FILE}"
