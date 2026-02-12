@@ -1,10 +1,13 @@
 /**
  * Gateway Integration Tests: Hook Registration
  * Tests lifecycle hook registration based on config.
+ *
+ * The gateway stores typed hooks in registry.typedHooks[] as
+ * PluginHookRegistration objects with { pluginId, hookName, handler, priority }.
  */
 
 import { describe, it, expect } from 'vitest';
-import { loadOpenClawPlugins } from 'openclaw/dist/plugins/loader.js';
+import { loadOpenClawPlugins } from 'openclaw-gateway/plugins/loader';
 import { createTestLogger, createTestConfig } from './setup.js';
 
 describe('Gateway Hook Registration', () => {
@@ -13,14 +16,12 @@ describe('Gateway Hook Registration', () => {
     const config = createTestConfig({ autoRecall: true });
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
 
-    expect(plugin).toBeDefined();
-    expect(plugin?.hooks).toBeDefined();
-
-    const hooks = plugin?.hooks ?? {};
-    expect(hooks.before_agent_start).toBeDefined();
-    expect(typeof hooks.before_agent_start).toBe('function');
+    const beforeAgentHooks = registry.typedHooks.filter(
+      (h) => h.pluginId === 'openclaw-projects' && h.hookName === 'before_agent_start',
+    );
+    expect(beforeAgentHooks.length).toBeGreaterThan(0);
+    expect(typeof beforeAgentHooks[0].handler).toBe('function');
   });
 
   it('should register agent_end hook when autoCapture: true', () => {
@@ -28,14 +29,12 @@ describe('Gateway Hook Registration', () => {
     const config = createTestConfig({ autoCapture: true });
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
 
-    expect(plugin).toBeDefined();
-    expect(plugin?.hooks).toBeDefined();
-
-    const hooks = plugin?.hooks ?? {};
-    expect(hooks.agent_end).toBeDefined();
-    expect(typeof hooks.agent_end).toBe('function');
+    const agentEndHooks = registry.typedHooks.filter(
+      (h) => h.pluginId === 'openclaw-projects' && h.hookName === 'agent_end',
+    );
+    expect(agentEndHooks.length).toBeGreaterThan(0);
+    expect(typeof agentEndHooks[0].handler).toBe('function');
   });
 
   it('should not register hooks when both autoRecall and autoCapture are false', () => {
@@ -43,12 +42,10 @@ describe('Gateway Hook Registration', () => {
     const config = createTestConfig({ autoRecall: false, autoCapture: false });
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
 
-    expect(plugin).toBeDefined();
-
-    const hooks = plugin?.hooks ?? {};
-    expect(hooks.before_agent_start).toBeUndefined();
-    expect(hooks.agent_end).toBeUndefined();
+    const pluginHooks = registry.typedHooks.filter(
+      (h) => h.pluginId === 'openclaw-projects',
+    );
+    expect(pluginHooks.length).toBe(0);
   });
 });

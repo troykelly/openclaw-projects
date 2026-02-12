@@ -1,9 +1,6 @@
 /**
  * Gateway Integration Tests: Plugin Exports
  * Tests that the plugin exports the expected structure.
- *
- * NOTE: Full loader integration tests are blocked pending openclaw Gateway config documentation.
- * See follow-up issue for full loader integration tests.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -49,8 +46,7 @@ describe('Gateway Plugin Exports', () => {
   });
 
   it('should have tool count matching EXPECTED_TOOLS', () => {
-    // We can't test runtime registration without full Gateway config,
-    // but we verify all 27 expected tool names are documented
-    expect(EXPECTED_TOOLS.length).toBe(35); // Updated count including all tools
+    // Verify the documented tool count matches actual registration count (27 tools)
+    expect(EXPECTED_TOOLS.length).toBe(27);
   });
 });

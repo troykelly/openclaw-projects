@@ -1,10 +1,10 @@
 # Gateway Integration Tests (Level 3)
 
-## Current Scope
+## Overview
 
-These tests validate the openclaw-projects plugin at the Gateway integration level, focusing on what can be verified without a full Gateway runtime environment.
+These tests validate the openclaw-projects plugin at the Gateway integration level, using the **real** Gateway `loadOpenClawPlugins()` function to verify our plugin loads, registers, and integrates correctly.
 
-### What's Tested ✅
+### What's Tested
 
 1. **Manifest Validation** (`manifest-validation.test.ts`)
    - Plugin manifest structure and validity
@@ -14,67 +14,83 @@ These tests validate the openclaw-projects plugin at the Gateway integration lev
 2. **Plugin Exports** (`plugin-exports.test.ts`)
    - Default export function for OpenClaw 2026 API
    - Tool factory functions exported
-   - Expected tool names documented
+   - Expected tool count verification
 
-3. **Vitest Alias Setup** (`vitest.config.ts`)
-   - Dynamic resolution of openclaw internal modules
-   - Workaround for non-exported Gateway functions
+3. **Plugin Loading** (`plugin-loading.test.ts`)
+   - Plugin discovery via `loadOpenClawPlugins()` with `load.paths`
+   - Status, origin, kind verification
+   - Diagnostics with valid config
+   - Error status for missing required fields
+   - Disabled state when plugins disabled globally
+   - Disabled state when memory slot assigned elsewhere
 
-### What's NOT Tested (Blocked) 🚫
+4. **Config Validation** (`config-validation.test.ts`)
+   - Minimal valid config (apiUrl only)
+   - Missing required fields rejected
+   - Optional fields accepted
+   - Invalid types rejected
+   - Out-of-range values rejected
+   - Validate-only mode
 
-Full loader integration tests are **blocked** pending openclaw Gateway config documentation:
+5. **Tool Registration** (`tool-registration.test.ts`)
+   - All 27 tools registered on plugin record
+   - Tool names match expected list
+   - Tool factories produce callable results
 
-- Plugin loading via `loadOpenClawPlugins()`
-- Hook registration and invocation
-- Tool registration verification
-- Config validation through Gateway loader
-- Service and CLI registration
+6. **Tool Resolution** (`tool-resolution.test.ts`)
+   - Factories produce tools with name and execute
+   - Specific tool (memory_recall) has correct shape
 
-**Blocker**: The Gateway loader (`loadOpenClawPlugins`) requires a complete OpenClaw config structure including channel configuration. The config schema is not publicly documented, making it impractical to construct valid test configs.
+7. **Hook Registration** (`hook-registration.test.ts`)
+   - before_agent_start hook registered when autoRecall: true
+   - agent_end hook registered when autoCapture: true
+   - No hooks when both disabled
 
-**Workaround attempted**: Vitest aliases successfully resolve openclaw internal functions, but the loader's config validation fails with "extra is not iterable" errors deep in channel options formatting.
+8. **Hook Invocation** (`hook-invocation.test.ts`)
+   - before_agent_start hook invocable without throwing
+   - agent_end hook invocable without throwing
+   - Hook presence reported correctly
+   - No hooks reported when disabled
 
-## Follow-Up Work
+9. **Service Registration** (`service-registration.test.ts`)
+   - Notification service registered
+   - Service has start/stop methods
 
-See issue #[NEW_ISSUE] for full Gateway loader integration tests, pending:
-1. OpenClaw Gateway config schema documentation
-2. Minimal valid config examples from openclaw maintainers
-3. Or, alternative testing approach that doesn't require full config
+10. **CLI Registration** (`cli-registration.test.ts`)
+    - CLI commands registered
+    - CLI registrar function available
 
-## Test Strategy
+## Architecture
 
-Until Gateway config is documented, **Level 2 E2E tests** (issue #960) provide integration coverage by running the plugin in an actual Gateway with real config.
+Tests import the real Gateway loader directly from the gateway source at `.local/openclaw-gateway/`. The `vitest.config.ts` sets up path aliases:
+
+```
+openclaw-gateway/plugins/loader -> .local/openclaw-gateway/src/plugins/loader.ts
+openclaw-gateway/plugins/hooks  -> .local/openclaw-gateway/src/plugins/hooks.ts
+openclaw/plugin-sdk              -> .local/openclaw-gateway/src/plugin-sdk/index.ts
+```
 
 This approach:
-- ✅ Tests real integration behavior
-- ✅ Uses production-like configuration
-- ✅ Validates all 27 tools, hooks, and services
-- ✅ Unblocks epic #956 completion
+- Uses the **real** `loadOpenClawPlugins()` — no mocks
+- Gets full TypeScript support via vitest's built-in transpilation
+- Is resilient to bundle hash changes in the openclaw npm package
+- Requires the gateway source (available in dev via `.local/openclaw-gateway`)
 
 ## Running Tests
 
 ```bash
-# Run Gateway tests (current scope)
+# Run gateway tests
 pnpm test tests/gateway
 
-# Run full test suite (includes E2E when RUN_E2E=true)
+# Run full test suite
 pnpm test
 
-# Run E2E tests (provides Gateway integration coverage)
-RUN_E2E=true pnpm run test:e2e
+# Build first if dist/ doesn't exist (needed for plugin-exports tests)
+pnpm run build
 ```
 
-## Vitest Alias Workaround
+## Prerequisites
 
-The `vitest.config.ts` implements a workaround to access openclaw internal functions:
-
-```typescript
-// Dynamically finds hashed bundle files containing:
-'openclaw/dist/plugins/loader.js'  → loadOpenClawPlugins
-'openclaw/dist/plugins/hooks.js'   → createHookRunner
-'openclaw/dist/plugins/tools.js'   → resolvePluginTools
-```
-
-This works because openclaw uses hashed bundle names (e.g., `loader-CKycv-3K.js`). The config searches dist files for function names and creates aliases.
-
-**Limitation**: Functions are accessible but require valid Gateway config to use.
+- Gateway source symlinked at `.local/openclaw-gateway/`
+- Plugin built (`pnpm run build`) for export verification tests
+- `node_modules` installed via `pnpm install`
