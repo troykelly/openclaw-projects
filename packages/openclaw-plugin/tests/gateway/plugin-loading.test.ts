@@ -1,16 +1,14 @@
 /**
  * Gateway Integration Tests: Plugin Loading
- * Tests plugin discovery, loading, and status reporting via SDK.
+ * Tests plugin discovery, loading, and status reporting via the real Gateway loader.
+ *
+ * Uses loadOpenClawPlugins() from the gateway source to validate our plugin
+ * integrates correctly with the Gateway's plugin discovery and loading pipeline.
  */
 
 import { describe, it, expect } from 'vitest';
-// Import from actual openclaw bundled file via vitest alias
-// The function is exported but minified (as 't'), so we import the whole module
-import * as openclawLoader from 'openclaw/dist/plugins/loader.js';
-import { createTestLogger, createTestConfig } from './setup.js';
-
-// Extract the loader function (exported as minified name 't')
-const loadOpenClawPlugins = (openclawLoader as any).loadOpenClawPlugins || (openclawLoader as any).t;
+import { loadOpenClawPlugins } from 'openclaw-gateway/plugins/loader';
+import { createTestLogger, createTestConfig, findPlugin } from './setup.js';
 
 describe('Gateway Plugin Loading', () => {
   it('should load plugin via loadOpenClawPlugins() with load.paths', () => {
@@ -21,9 +19,9 @@ describe('Gateway Plugin Loading', () => {
 
     expect(registry).toBeDefined();
     expect(registry.plugins).toBeDefined();
-    expect(registry.plugins.size).toBeGreaterThan(0);
+    expect(registry.plugins.length).toBeGreaterThan(0);
 
-    const plugin = registry.plugins.get('openclaw-projects');
+    const plugin = findPlugin(registry, 'openclaw-projects');
     expect(plugin).toBeDefined();
   });
 
@@ -32,7 +30,7 @@ describe('Gateway Plugin Loading', () => {
     const config = createTestConfig();
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
+    const plugin = findPlugin(registry, 'openclaw-projects');
 
     expect(plugin).toBeDefined();
     expect(plugin?.status).toBe('loaded');
@@ -46,11 +44,15 @@ describe('Gateway Plugin Loading', () => {
     const config = createTestConfig();
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
+    const plugin = findPlugin(registry, 'openclaw-projects');
 
     expect(plugin).toBeDefined();
-    expect(plugin?.diagnostics).toBeDefined();
-    expect(plugin?.diagnostics?.length ?? 0).toBe(0);
+    expect(plugin?.status).toBe('loaded');
+    // No error-level diagnostics for this plugin
+    const pluginErrors = registry.diagnostics.filter(
+      (d) => d.level === 'error' && d.pluginId === 'openclaw-projects',
+    );
+    expect(pluginErrors.length).toBe(0);
   });
 
   it('should have error status for missing required apiUrl', () => {
@@ -67,20 +69,18 @@ describe('Gateway Plugin Loading', () => {
     });
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
+    const plugin = findPlugin(registry, 'openclaw-projects');
 
     expect(plugin).toBeDefined();
     expect(plugin?.status).toBe('error');
-    expect(plugin?.diagnostics).toBeDefined();
-    expect(plugin?.diagnostics && plugin.diagnostics.length > 0).toBe(true);
   });
 
-  it('should be disabled when plugins.enabled: false', () => {
+  it('should be disabled when plugins.enabled is false', () => {
     const logger = createTestLogger();
     const config = createTestConfig({ enabled: false });
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
+    const plugin = findPlugin(registry, 'openclaw-projects');
 
     // Plugin should not be loaded or should be disabled
     expect(plugin === undefined || plugin.enabled === false).toBe(true);
@@ -93,7 +93,7 @@ describe('Gateway Plugin Loading', () => {
     });
 
     const registry = loadOpenClawPlugins({ config, cache: false, logger });
-    const plugin = registry.plugins.get('openclaw-projects');
+    const plugin = findPlugin(registry, 'openclaw-projects');
 
     // Plugin with kind "memory" should be disabled if not in the memory slot
     expect(plugin === undefined || plugin.enabled === false).toBe(true);

@@ -1,54 +1,48 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { readFileSync, readdirSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Find the actual bundled files containing the openclaw plugin loader functions.
- * The openclaw package uses hashed bundle names, so we need to search for them.
+ * Resolve the gateway source root for gateway integration tests.
  *
- * WORKAROUND: openclaw doesn't export these as part of its public API (package.json exports).
- * These are internal Gateway implementation details, but Level 3 tests need them to validate
- * our plugin works with the ACTUAL Gateway loader (not mocks).
+ * Level 3 gateway tests import internal Gateway functions (loadOpenClawPlugins,
+ * createHookRunner) that are not part of openclaw's public npm API.
  *
- * If openclaw updates and bundle hashes change, this will automatically find the new files.
- * If the functions are removed/renamed, tests will fail and we'll know to update.
+ * When the gateway source is available at .local/openclaw-gateway, we alias
+ * test imports directly to the source TypeScript files. This gives us:
+ * - Correct function signatures (not minified bundle aliases)
+ * - Full TypeScript support via vitest's built-in transpilation
+ * - Resilience to bundle hash changes
+ *
+ * When the gateway source is NOT available, gateway tests are skipped.
  */
-function findOpenClawInternalModule(searchString: string): string {
-  const openclawDistPath = path.resolve(__dirname, '../../node_modules/.pnpm');
-  const openclawDirs = readdirSync(openclawDistPath).filter(d => d.startsWith('openclaw@'));
-
-  if (openclawDirs.length === 0) {
-    throw new Error('openclaw package not found in node_modules');
-  }
-
-  const distPath = path.join(openclawDistPath, openclawDirs[0], 'node_modules/openclaw/dist');
-  const files = readdirSync(distPath).filter(f => f.endsWith('.js'));
-
-  for (const file of files) {
-    const content = readFileSync(path.join(distPath, file), 'utf-8');
-    if (content.includes(searchString)) {
-      return path.join(distPath, file);
-    }
-  }
-
-  throw new Error(`Could not find openclaw module containing: ${searchString}`);
-}
+const gatewayRoot = path.resolve(__dirname, '../../.local/openclaw-gateway');
+const hasGateway = fs.existsSync(gatewayRoot);
 
 export default defineConfig({
   resolve: {
     alias: {
-      // Map expected import paths to actual hashed bundle files
-      'openclaw/dist/plugins/loader.js': findOpenClawInternalModule('loadOpenClawPlugins'),
-      'openclaw/dist/plugins/hooks.js': findOpenClawInternalModule('createHookRunner'),
-      'openclaw/dist/plugins/tools.js': findOpenClawInternalModule('resolvePluginTools'),
+      // Point gateway test imports to source TypeScript files
+      ...(hasGateway
+        ? {
+            'openclaw-gateway/plugins/loader': path.join(gatewayRoot, 'src/plugins/loader.ts'),
+            'openclaw-gateway/plugins/hooks': path.join(gatewayRoot, 'src/plugins/hooks.ts'),
+            'openclaw-gateway/plugins/registry': path.join(gatewayRoot, 'src/plugins/registry.ts'),
+            'openclaw/plugin-sdk': path.join(gatewayRoot, 'src/plugin-sdk/index.ts'),
+          }
+        : {}),
     },
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    exclude: [
+      // Skip gateway integration tests when gateway source is not available
+      ...(hasGateway ? [] : ['tests/gateway/**/*.test.ts']),
+    ],
     globals: false,
     coverage: {
       provider: 'v8',
