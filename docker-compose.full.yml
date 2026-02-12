@@ -180,14 +180,21 @@ services:
       retries: 5
       start_period: 15s
     read_only: true
+    volumes:
+      # Named volumes for directories the CRS entrypoint must read AND write.
+      # Unlike tmpfs, named volumes auto-populate from the image content on first
+      # creation, so files like setup.conf and the bundled CRS rules are preserved.
+      # The entrypoint's activate-plugins.sh runs sed against setup.conf and
+      # configure-rules.sh edits crs-setup.conf — both fail on an empty tmpfs.
+      # See: https://github.com/coreruleset/modsecurity-crs-docker
+      - modsec_conf:/etc/modsecurity.d
+      # Apache conf dir — entrypoint generates a self-signed TLS certificate here
+      - modsec_apache_conf:/usr/local/apache2/conf
     tmpfs:
       - /tmp:mode=1777,size=64M
       - /var/log/apache2:mode=1777,size=32M
       - /var/run/apache2:mode=1777,size=8M
       - /var/lock/apache2:mode=1777,size=8M
-      # OWASP CRS startup writes: sed edits modsecurity configs, generates self-signed TLS cert
-      - /etc/modsecurity.d:mode=1777,size=8M
-      - /usr/local/apache2/conf:mode=1777,size=1M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -531,6 +538,14 @@ volumes:
   db_data:
   seaweedfs_data:
   traefik_dynamic:
+  # ModSecurity named volumes — auto-populated from the CRS image on first run.
+  # Required because the CRS entrypoint modifies files that ship inside the image
+  # (setup.conf, crs-setup.conf, TLS certs). A tmpfs mount hides those files.
+  # NOTE: On CRS image upgrades, remove these volumes to pick up new defaults:
+  #   docker compose -f docker-compose.full.yml down
+  #   docker volume rm openclaw-projects_modsec_conf openclaw-projects_modsec_apache_conf
+  modsec_conf:
+  modsec_apache_conf:
   openclaw_data:
 
 configs:
