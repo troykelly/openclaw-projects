@@ -541,6 +541,9 @@ volumes:
   # ModSecurity named volumes — auto-populated from the CRS image on first run.
   # Required because the CRS entrypoint modifies files that ship inside the image
   # (setup.conf, crs-setup.conf, TLS certs). A tmpfs mount hides those files.
+  # NOTE: On CRS image upgrades, remove these volumes to pick up new defaults:
+  #   docker compose -f docker-compose.full.yml down
+  #   docker volume rm openclaw-projects_modsec_conf openclaw-projects_modsec_apache_conf
   modsec_conf:
   modsec_apache_conf:
   openclaw_data:
