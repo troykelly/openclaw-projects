@@ -185,6 +185,16 @@ services:
       VOYAGERAI_API_KEY_FILE: ${VOYAGERAI_API_KEY_FILE:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_API_KEY_FILE: ${GEMINI_API_KEY_FILE:-}
+      # OAuth integration (Microsoft 365 / Google)
+      # Required for contacts, email, drive/files, calendar features
+      # See docs/guides/oauth-setup.md for credential setup
+      MS365_CLIENT_ID: ${MS365_CLIENT_ID:-}
+      MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-}
+      OAUTH_TOKEN_ENCRYPTION_KEY: ${OAUTH_TOKEN_ENCRYPTION_KEY:-}
       # SMS (Twilio) - optional
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
