@@ -4,8 +4,11 @@ set -eu
 ( set -o pipefail 2>/dev/null ) && set -o pipefail || true
 
 # Traefik dynamic config entrypoint script
-# Generates dynamic configuration from environment variables using envsubst
+# Generates dynamic configuration from environment variables using sed
 # then executes traefik with the generated config
+#
+# Note: traefik:3.x is Alpine-based and does not include envsubst (gettext).
+# We use sed substitution instead, matching the pattern in seaweedfs/entrypoint.sh.
 
 # Directory paths
 SYSTEM_CONFIG_DIR="/etc/traefik/dynamic/system"
@@ -156,11 +159,33 @@ generate_config() {
         exit 1
     fi
     
-    # Generate config using envsubst
-    # Only substitute explicitly defined variables for safety
-    envsubst '${DOMAIN} ${ACME_EMAIL} ${TRUSTED_IPS} ${TRUSTED_IPS_YAML} ${DISABLE_HTTP} ${SERVICE_HOST} ${MODSEC_HOST_PORT} ${API_HOST_PORT} ${APP_HOST_PORT} ${GATEWAY_HOST_PORT}' \
+    # Generate config using sed substitution
+    # traefik:3.x is Alpine-based and does not include envsubst (gettext)
+    # Escape sed-special characters in values to prevent injection
+    escape_sed() { printf '%s\n' "$1" | sed 's/[&/\|]/\\&/g'; }
+
+    sed \
+        -e "s|\${DOMAIN}|$(escape_sed "${DOMAIN}")|g" \
+        -e "s|\${ACME_EMAIL}|$(escape_sed "${ACME_EMAIL}")|g" \
+        -e "s|\${TRUSTED_IPS}|$(escape_sed "${TRUSTED_IPS}")|g" \
+        -e "s|\${DISABLE_HTTP}|$(escape_sed "${DISABLE_HTTP}")|g" \
+        -e "s|\${SERVICE_HOST}|$(escape_sed "${SERVICE_HOST}")|g" \
+        -e "s|\${MODSEC_HOST_PORT}|$(escape_sed "${MODSEC_HOST_PORT}")|g" \
+        -e "s|\${API_HOST_PORT}|$(escape_sed "${API_HOST_PORT}")|g" \
+        -e "s|\${APP_HOST_PORT}|$(escape_sed "${APP_HOST_PORT}")|g" \
+        -e "s|\${GATEWAY_HOST_PORT}|$(escape_sed "${GATEWAY_HOST_PORT}")|g" \
         < "${TEMPLATE_FILE}" \
         > "${OUTPUT_FILE}"
+
+    # TRUSTED_IPS_YAML may be multiline; sed can't handle that inline.
+    # If set, replace the placeholder line using awk.
+    if [ -n "${TRUSTED_IPS_YAML}" ]; then
+        awk -v yaml="${TRUSTED_IPS_YAML}" '{gsub(/\$\{TRUSTED_IPS_YAML\}/, yaml); print}' \
+            "${OUTPUT_FILE}" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "${OUTPUT_FILE}"
+    else
+        # shellcheck disable=SC2016
+        sed 's|\${TRUSTED_IPS_YAML}||g' "${OUTPUT_FILE}" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "${OUTPUT_FILE}"
+    fi
     
     echo "Generated dynamic config at ${OUTPUT_FILE}"
 }
