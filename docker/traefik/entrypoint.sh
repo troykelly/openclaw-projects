@@ -76,15 +76,55 @@ create_directories() {
 
 # Ensure ACME certificate storage is ready
 # Traefik requires acme.json to exist with mode 600 (owner read/write only)
-# to prevent accidental exposure of private keys
+# to prevent accidental exposure of private keys.
+#
+# The container may run as non-root (Traefik 3.x uses UID 65532) while the
+# host bind-mount directory is owned by root. We chown the directory and file
+# to the running user so that chmod and Traefik's own writes succeed.
 init_acme_storage() {
+    # Determine running user/group
+    CURRENT_UID=$(id -u)
+    CURRENT_GID=$(id -g)
+
+    # Fix ownership of the ACME directory if we have CHOWN capability
+    if [ "$(stat -c '%u' "${ACME_DIR}" 2>/dev/null || echo unknown)" != "${CURRENT_UID}" ]; then
+        if chown "${CURRENT_UID}:${CURRENT_GID}" "${ACME_DIR}" 2>/dev/null; then
+            echo "Fixed ACME directory ownership to ${CURRENT_UID}:${CURRENT_GID}"
+        else
+            echo "WARNING: Could not chown ${ACME_DIR} — continuing anyway" >&2
+        fi
+    fi
+
+    # Create the file if it doesn't exist
     if [ ! -f "${ACME_FILE}" ]; then
         touch "${ACME_FILE}"
         echo "Created ACME storage file at ${ACME_FILE}"
     fi
 
-    chmod 600 "${ACME_FILE}"
-    echo "ACME storage ready: ${ACME_FILE} (mode 600)"
+    # Fix ownership of the file if needed
+    if [ "$(stat -c '%u' "${ACME_FILE}" 2>/dev/null || echo unknown)" != "${CURRENT_UID}" ]; then
+        if chown "${CURRENT_UID}:${CURRENT_GID}" "${ACME_FILE}" 2>/dev/null; then
+            echo "Fixed ACME file ownership to ${CURRENT_UID}:${CURRENT_GID}"
+        else
+            echo "WARNING: Could not chown ${ACME_FILE}" >&2
+        fi
+    fi
+
+    # Set restrictive permissions (Traefik refuses to start without mode 600)
+    if chmod 600 "${ACME_FILE}" 2>/dev/null; then
+        echo "ACME storage ready: ${ACME_FILE} (mode 600)"
+    else
+        # Check if permissions are already correct
+        CURRENT_PERMS=$(stat -c '%a' "${ACME_FILE}" 2>/dev/null || echo unknown)
+        if [ "${CURRENT_PERMS}" = "600" ]; then
+            echo "ACME storage ready: ${ACME_FILE} (already mode 600)"
+        else
+            echo "ERROR: Cannot set mode 600 on ${ACME_FILE} (current: ${CURRENT_PERMS})" >&2
+            echo "  The container needs CHOWN and FOWNER capabilities to manage ACME storage." >&2
+            echo "  Ensure cap_add includes CHOWN and FOWNER in docker-compose." >&2
+            exit 1
+        fi
+    fi
 }
 
 # Generate the dynamic configuration from template
