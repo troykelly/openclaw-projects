@@ -954,7 +954,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const queryParams = new URLSearchParams({ q: query, limit: String(limit) });
-        if (category) queryParams.set('category', category);
+        if (category) queryParams.set('memory_type', category);
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
 
