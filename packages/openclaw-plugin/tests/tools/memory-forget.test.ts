@@ -115,7 +115,7 @@ describe('memory_forget tool', () => {
       // First GET to find memories, then DELETE
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [{ id: 'mem-1' }] },
+        data: { results: [{ id: 'mem-1' }] },
       });
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
@@ -219,7 +219,7 @@ describe('memory_forget tool', () => {
     it('should search for memories first', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [{ id: 'mem-1' }] },
+        data: { results: [{ id: 'mem-1' }] },
       });
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
@@ -242,7 +242,7 @@ describe('memory_forget tool', () => {
     it('should delete matching memories', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [{ id: 'mem-1' }, { id: 'mem-2' }] },
+        data: { results: [{ id: 'mem-1' }, { id: 'mem-2' }] },
       });
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
@@ -269,7 +269,7 @@ describe('memory_forget tool', () => {
     it('should handle no matching memories', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [] },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -295,7 +295,7 @@ describe('memory_forget tool', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: Array(6)
+          results: Array(6)
             .fill(null)
             .map((_, i) => ({ id: `mem-${i}` })),
         },
@@ -322,7 +322,7 @@ describe('memory_forget tool', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: Array(6)
+          results: Array(6)
             .fill(null)
             .map((_, i) => ({ id: `mem-${i}` })),
         },
@@ -351,7 +351,7 @@ describe('memory_forget tool', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: Array(15)
+          results: Array(15)
             .fill(null)
             .map((_, i) => ({ id: `mem-${i}` })),
         },
@@ -383,7 +383,7 @@ describe('memory_forget tool', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: Array(5)
+          results: Array(5)
             .fill(null)
             .map((_, i) => ({ id: `mem-${i}` })),
         },
