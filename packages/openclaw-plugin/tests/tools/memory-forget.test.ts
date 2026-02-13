@@ -112,10 +112,10 @@ describe('memory_forget tool', () => {
     });
 
     it('should accept query alone', async () => {
-      // First GET to find memories, then DELETE
+      // Query-based forget searches first, may return candidates
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { results: [{ id: 'mem-1' }] },
+        data: { results: [{ id: 'mem-1', content: 'I like coffee', similarity: 0.95 }] },
       });
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
@@ -215,16 +215,13 @@ describe('memory_forget tool', () => {
     });
   });
 
-  describe('delete by query', () => {
-    it('should search for memories first', async () => {
+  describe('delete by query (OpenClaw two-phase)', () => {
+    it('should search /api/memories/search with limit=5', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { results: [{ id: 'mem-1' }] },
+        data: { results: [{ id: 'mem-1', content: 'I like coffee', similarity: 0.95 }] },
       });
-      const mockDelete = vi.fn().mockResolvedValue({
-        success: true,
-        data: { deleted: true },
-      });
+      const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
       const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
 
       const tool = createMemoryForgetTool({
@@ -236,18 +233,18 @@ describe('memory_forget tool', () => {
 
       await tool.execute({ query: 'coffee' });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.objectContaining({ userId: 'agent-1' }));
+      expect(mockGet).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/api\/memories\/search\?q=coffee&limit=5$/),
+        expect.objectContaining({ userId: 'agent-1' }),
+      );
     });
 
-    it('should delete matching memories', async () => {
+    it('should auto-delete single high-confidence match (>0.9)', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { results: [{ id: 'mem-1' }, { id: 'mem-2' }] },
+        data: { results: [{ id: 'mem-1', content: 'I like dark roast coffee', similarity: 0.95 }] },
       });
-      const mockDelete = vi.fn().mockResolvedValue({
-        success: true,
-        data: { deleted: true },
-      });
+      const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
       const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
 
       const tool = createMemoryForgetTool({
@@ -259,10 +256,70 @@ describe('memory_forget tool', () => {
 
       const result = await tool.execute({ query: 'coffee' });
 
-      expect(mockDelete).toHaveBeenCalledTimes(2);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-1', expect.objectContaining({ userId: 'agent-1' }));
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.details.deletedCount).toBe(2);
+        expect(result.data.content).toContain('Forgotten');
+        expect(result.data.content).toContain('dark roast coffee');
+        expect(result.data.details.deletedCount).toBe(1);
+      }
+    });
+
+    it('should return candidates when multiple matches found (no auto-delete)', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: 'mem-1', content: 'I like dark roast coffee', similarity: 0.85 },
+            { id: 'mem-2', content: 'Coffee shop on main street', similarity: 0.78 },
+          ],
+        },
+      });
+      const mockDelete = vi.fn();
+      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'coffee' });
+
+      // Should NOT delete anything — returns candidates for agent to pick
+      expect(mockDelete).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.content).toContain('candidates');
+        expect(result.data.content).toContain('memoryId');
+        expect(result.data.details.deletedCount).toBe(0);
+      }
+    });
+
+    it('should return candidates when single low-confidence match found', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [{ id: 'mem-1', content: 'I like coffee', similarity: 0.75 }] },
+      });
+      const mockDelete = vi.fn();
+      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'something vague' });
+
+      // Low confidence → return candidates, don't auto-delete
+      expect(mockDelete).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.content).toContain('candidates');
       }
     });
 
@@ -287,124 +344,6 @@ describe('memory_forget tool', () => {
         expect(result.data.content).toContain('No matching memories');
         expect(result.data.details.deletedCount).toBe(0);
       }
-    });
-  });
-
-  describe('bulk delete protection', () => {
-    it('should require confirmBulkDelete for >5 memories', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          results: Array(6)
-            .fill(null)
-            .map((_, i) => ({ id: `mem-${i}` })),
-        },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const tool = createMemoryForgetTool({
-        client: client as unknown as ApiClient,
-        logger: mockLogger,
-        config: mockConfig,
-        userId: 'agent-1',
-      });
-
-      const result = await tool.execute({ query: 'test' });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('confirmBulkDelete');
-        expect(result.error).toContain('6');
-      }
-    });
-
-    it('should allow bulk delete with confirmBulkDelete: true', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          results: Array(6)
-            .fill(null)
-            .map((_, i) => ({ id: `mem-${i}` })),
-        },
-      });
-      const mockDelete = vi.fn().mockResolvedValue({
-        success: true,
-        data: { deleted: true },
-      });
-      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
-
-      const tool = createMemoryForgetTool({
-        client: client as unknown as ApiClient,
-        logger: mockLogger,
-        config: mockConfig,
-        userId: 'agent-1',
-      });
-
-      const result = await tool.execute({ query: 'test', confirmBulkDelete: true });
-
-      expect(mockDelete).toHaveBeenCalledTimes(6);
-      expect(result.success).toBe(true);
-    });
-
-    it('should delete in parallel batches', async () => {
-      // Create 15 memories to verify batching (batch size = 10)
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          results: Array(15)
-            .fill(null)
-            .map((_, i) => ({ id: `mem-${i}` })),
-        },
-      });
-      const deleteCallOrder: string[] = [];
-      const mockDelete = vi.fn().mockImplementation((path: string) => {
-        deleteCallOrder.push(path);
-        return Promise.resolve({ success: true, data: { deleted: true } });
-      });
-      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
-
-      const tool = createMemoryForgetTool({
-        client: client as unknown as ApiClient,
-        logger: mockLogger,
-        config: mockConfig,
-        userId: 'agent-1',
-      });
-
-      const result = await tool.execute({ query: 'test', confirmBulkDelete: true });
-
-      expect(mockDelete).toHaveBeenCalledTimes(15);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.details.deletedCount).toBe(15);
-      }
-    });
-
-    it('should not require confirmBulkDelete for <=5 memories', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          results: Array(5)
-            .fill(null)
-            .map((_, i) => ({ id: `mem-${i}` })),
-        },
-      });
-      const mockDelete = vi.fn().mockResolvedValue({
-        success: true,
-        data: { deleted: true },
-      });
-      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
-
-      const tool = createMemoryForgetTool({
-        client: client as unknown as ApiClient,
-        logger: mockLogger,
-        config: mockConfig,
-        userId: 'agent-1',
-      });
-
-      const result = await tool.execute({ query: 'test' });
-
-      expect(mockDelete).toHaveBeenCalledTimes(5);
-      expect(result.success).toBe(true);
     });
   });
 

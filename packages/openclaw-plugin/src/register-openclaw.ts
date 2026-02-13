@@ -89,7 +89,7 @@ const memoryRecallSchema: JSONSchema = {
     category: {
       type: 'string',
       description: 'Filter by memory category',
-      enum: ['preference', 'fact', 'decision', 'context', 'other'],
+      enum: ['preference', 'fact', 'decision', 'context', 'entity', 'other'],
     },
     tags: {
       type: 'array',
@@ -115,24 +115,30 @@ const memoryRecallSchema: JSONSchema = {
 const memoryStoreSchema: JSONSchema = {
   type: 'object',
   properties: {
-    content: {
+    text: {
       type: 'string',
-      description: 'Memory content to store',
+      description: 'Information to remember',
       minLength: 1,
       maxLength: 10000,
+    },
+    content: {
+      type: 'string',
+      description: 'Alias for text (backwards compatibility)',
+      minLength: 1,
+      maxLength: 10000,
+    },
+    importance: {
+      type: 'number',
+      description: 'Importance 0-1 (default: 0.7)',
+      minimum: 0,
+      maximum: 1,
+      default: 0.7,
     },
     category: {
       type: 'string',
       description: 'Memory category',
-      enum: ['preference', 'fact', 'decision', 'context', 'other'],
-      default: 'fact',
-    },
-    importance: {
-      type: 'number',
-      description: 'Importance score (0-1)',
-      minimum: 0,
-      maximum: 1,
-      default: 0.5,
+      enum: ['preference', 'fact', 'decision', 'context', 'entity', 'other'],
+      default: 'other',
     },
     tags: {
       type: 'array',
@@ -149,7 +155,7 @@ const memoryStoreSchema: JSONSchema = {
       format: 'uuid',
     },
   },
-  required: ['content'],
+  required: ['text'],
 };
 
 /**
@@ -958,7 +964,7 @@ function createToolHandlers(state: PluginState) {
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
 
-        const response = await apiClient.get<{ memories: Array<{ id: string; content: string; category: string; score?: number }> }>(
+        const response = await apiClient.get<{ results: Array<{ id: string; content: string; type: string; similarity?: number }> }>(
           `/api/memories/search?${queryParams}`,
           { userId },
         );
@@ -967,8 +973,8 @@ function createToolHandlers(state: PluginState) {
           return { success: false, error: response.error.message };
         }
 
-        const memories = response.data.memories ?? [];
-        const content = memories.length > 0 ? memories.map((m) => `- [${m.category}] ${m.content}`).join('\n') : 'No relevant memories found.';
+        const memories = response.data.results ?? [];
+        const content = memories.length > 0 ? memories.map((m) => `- [${m.type}] ${m.content}`).join('\n') : 'No relevant memories found.';
 
         return {
           success: true,
@@ -984,24 +990,36 @@ function createToolHandlers(state: PluginState) {
     },
 
     async memory_store(params: Record<string, unknown>): Promise<ToolResult> {
+      // Accept 'text' (OpenClaw native) or 'content' (backwards compat)
       const {
-        content,
-        category = 'fact',
+        text,
+        content: contentAlias,
+        category = 'other',
         importance = 0.7,
         tags,
         relationship_id,
       } = params as {
-        content: string;
+        text?: string;
+        content?: string;
         category?: string;
         importance?: number;
         tags?: string[];
         relationship_id?: string;
       };
 
-      try {
-        const memoryType = category === 'other' ? 'note' : category;
+      const memoryText = text || contentAlias;
+      if (!memoryText) {
+        return { success: false, error: 'text is required' };
+      }
 
-        const payload: Record<string, unknown> = { content, memory_type: memoryType, importance };
+      try {
+        // Map to backend's /api/memories/unified which expects 'content'
+        // Map 'category' → 'memory_type' (backend term)
+        const payload: Record<string, unknown> = {
+          content: memoryText,
+          memory_type: category === 'entity' ? 'reference' : category === 'other' ? 'note' : category,
+          importance,
+        };
         if (tags && tags.length > 0) payload.tags = tags;
         if (relationship_id) payload.relationship_id = relationship_id;
 
@@ -1014,8 +1032,8 @@ function createToolHandlers(state: PluginState) {
         return {
           success: true,
           data: {
-            content: `Memory stored successfully (ID: ${response.data.id})`,
-            details: { id: response.data.id, userId },
+            content: `Stored: "${memoryText.slice(0, 100)}${memoryText.length > 100 ? '...' : ''}"`,
+            details: { action: 'created', id: response.data.id },
           },
         };
       } catch (error) {
@@ -1040,15 +1058,45 @@ function createToolHandlers(state: PluginState) {
         }
 
         if (query) {
-          const response = await apiClient.post<{ deleted: number }>('/api/memories/forget', { query }, { userId });
-          if (!response.success) {
-            return { success: false, error: response.error.message };
+          // Match OpenClaw gateway memory_forget behavior:
+          // Search → single high-confidence match auto-deletes, multiple returns candidates.
+          const searchResponse = await apiClient.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
+            `/api/memories/search?q=${encodeURIComponent(query)}&limit=5`,
+            { userId },
+          );
+          if (!searchResponse.success) {
+            return { success: false, error: searchResponse.error.message };
           }
+          const matches = searchResponse.data.results ?? [];
+          if (matches.length === 0) {
+            return {
+              success: true,
+              data: { content: 'No matching memories found.', details: { found: 0 } },
+            };
+          }
+
+          // Single high-confidence match → auto-delete
+          if (matches.length === 1 && (matches[0].similarity ?? 0) > 0.9) {
+            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, { userId });
+            if (!delResponse.success) {
+              return { success: false, error: delResponse.error.message };
+            }
+            return {
+              success: true,
+              data: {
+                content: `Forgotten: "${matches[0].content}"`,
+                details: { action: 'deleted', id: matches[0].id },
+              },
+            };
+          }
+
+          // Multiple matches or low confidence → return candidates, don't delete
+          const list = matches.map((m) => `- [${m.id.slice(0, 8)}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`).join('\n');
           return {
             success: true,
             data: {
-              content: `Forgotten ${response.data.deleted} matching memories`,
-              details: { deletedCount: response.data.deleted },
+              content: `Found ${matches.length} candidates. Specify memoryId:\n${list}`,
+              details: { action: 'candidates', candidates: matches.map((m) => ({ id: m.id, content: m.content, similarity: m.similarity })) },
             },
           };
         }
@@ -1064,17 +1112,17 @@ function createToolHandlers(state: PluginState) {
       const { status = 'active', limit = 10 } = params as { status?: string; limit?: number };
 
       try {
-        const queryParams = new URLSearchParams({ limit: String(limit) });
+        const queryParams = new URLSearchParams({ item_type: 'project', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
 
-        const response = await apiClient.get<{ projects: Array<{ id: string; name: string; status: string }> }>(`/api/projects?${queryParams}`, { userId });
+        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
         }
 
-        const projects = response.data.projects ?? [];
-        const content = projects.length > 0 ? projects.map((p) => `- ${p.name} (${p.status})`).join('\n') : 'No projects found.';
+        const projects = response.data.items ?? [];
+        const content = projects.length > 0 ? projects.map((p) => `- ${p.title} (${p.status})`).join('\n') : 'No projects found.';
 
         return {
           success: true,
@@ -1090,7 +1138,7 @@ function createToolHandlers(state: PluginState) {
       const { projectId } = params as { projectId: string };
 
       try {
-        const response = await apiClient.get<{ id: string; name: string; description?: string; status: string }>(`/api/projects/${projectId}`, { userId });
+        const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(`/api/work-items/${projectId}`, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1100,7 +1148,7 @@ function createToolHandlers(state: PluginState) {
         return {
           success: true,
           data: {
-            content: `Project: ${project.name}\nStatus: ${project.status}\n${project.description || ''}`,
+            content: `Project: ${project.title}\nStatus: ${project.status}\n${project.description || ''}`,
             details: { project },
           },
         };
@@ -1122,7 +1170,7 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const response = await apiClient.post<{ id: string }>('/api/projects', { name, description, status }, { userId });
+        const response = await apiClient.post<{ id: string }>('/api/work-items', { title: name, description, item_type: 'project', status }, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1153,17 +1201,17 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const queryParams = new URLSearchParams({ limit: String(limit) });
+        const queryParams = new URLSearchParams({ item_type: 'task', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
-        if (projectId) queryParams.set('projectId', projectId);
+        if (projectId) queryParams.set('parent_work_item_id', projectId);
 
-        const response = await apiClient.get<{ todos: Array<{ id: string; title: string; status: string }> }>(`/api/todos?${queryParams}`, { userId });
+        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
         }
 
-        const todos = response.data.todos ?? [];
+        const todos = response.data.items ?? [];
         const content = todos.length > 0 ? todos.map((t) => `- [${t.status}] ${t.title}`).join('\n') : 'No todos found.';
 
         return {
@@ -1192,7 +1240,11 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const response = await apiClient.post<{ id: string }>('/api/todos', { title, description, projectId, priority, dueDate }, { userId });
+        const body: Record<string, unknown> = { title, description, item_type: 'task', priority };
+        if (projectId) body.parent_work_item_id = projectId;
+        if (dueDate) body.not_after = dueDate;
+
+        const response = await apiClient.post<{ id: string }>('/api/work-items', body, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1215,7 +1267,7 @@ function createToolHandlers(state: PluginState) {
       const { todoId } = params as { todoId: string };
 
       try {
-        const response = await apiClient.patch<{ id: string }>(`/api/todos/${todoId}`, { status: 'completed' }, { userId });
+        const response = await apiClient.patch<{ id: string }>(`/api/work-items/${todoId}/status`, { status: 'completed' }, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1235,8 +1287,8 @@ function createToolHandlers(state: PluginState) {
       const { query, limit = 10 } = params as { query: string; limit?: number };
 
       try {
-        const queryParams = new URLSearchParams({ q: query, limit: String(limit) });
-        const response = await apiClient.get<{ contacts: Array<{ id: string; name: string; email?: string }> }>(`/api/contacts/search?${queryParams}`, {
+        const queryParams = new URLSearchParams({ search: query, limit: String(limit) });
+        const response = await apiClient.get<{ contacts: Array<{ id: string; displayName: string; email?: string }> }>(`/api/contacts?${queryParams}`, {
           userId,
         });
 
@@ -1245,7 +1297,7 @@ function createToolHandlers(state: PluginState) {
         }
 
         const contacts = response.data.contacts ?? [];
-        const content = contacts.length > 0 ? contacts.map((c) => `- ${c.name}${c.email ? ` (${c.email})` : ''}`).join('\n') : 'No contacts found.';
+        const content = contacts.length > 0 ? contacts.map((c) => `- ${c.displayName}${c.email ? ` (${c.email})` : ''}`).join('\n') : 'No contacts found.';
 
         return {
           success: true,
@@ -1286,15 +1338,14 @@ function createToolHandlers(state: PluginState) {
     },
 
     async contact_create(params: Record<string, unknown>): Promise<ToolResult> {
-      const { name, email, phone, notes } = params as {
+      const { name, notes } = params as {
         name: string;
-        email?: string;
-        phone?: string;
         notes?: string;
       };
 
       try {
-        const response = await apiClient.post<{ id: string }>('/api/contacts', { name, email, phone, notes }, { userId });
+        // API requires displayName, not name. Email/phone are stored as separate contact_endpoint records.
+        const response = await apiClient.post<{ id: string }>('/api/contacts', { displayName: name, notes }, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1473,7 +1524,7 @@ function createToolHandlers(state: PluginState) {
           messageId: string;
           threadId?: string;
           status: string;
-        }>('/api/postmark/email/send', { to, subject, body, htmlBody, threadId, idempotencyKey }, { userId });
+        }>('/api/email/messages/send', { to, subject, body, htmlBody, threadId, idempotencyKey }, { userId });
 
         if (!response.success) {
           logger.error('email_send API error', {
@@ -1570,15 +1621,20 @@ function createToolHandlers(state: PluginState) {
           queryParams.set('includeThread', 'true');
         }
 
+        // Unified search API: returns { results: [{ type, id, title, snippet, score, metadata }], total }
         const response = await apiClient.get<{
           results: Array<{
+            type: string;
             id: string;
-            body: string;
-            direction: 'inbound' | 'outbound';
-            channel: string;
-            contactName?: string;
-            timestamp: string;
+            title: string;
+            snippet: string;
             score: number;
+            metadata?: {
+              channel?: string;
+              direction?: string;
+              received_at?: string;
+              contactName?: string;
+            };
           }>;
           total: number;
         }>(`/api/search?${queryParams}`, { userId });
@@ -1597,14 +1653,14 @@ function createToolHandlers(state: PluginState) {
 
         const { results, total } = response.data;
 
-        // Transform results
+        // Transform unified search results to message format
         const messages = results.map((r) => ({
           id: r.id,
-          body: r.body,
-          direction: r.direction,
-          channel: r.channel,
-          contactName: r.contactName,
-          timestamp: r.timestamp,
+          body: r.snippet,
+          direction: (r.metadata?.direction as 'inbound' | 'outbound') || 'inbound',
+          channel: r.metadata?.channel || 'unknown',
+          contactName: r.metadata?.contactName,
+          timestamp: r.metadata?.received_at || '',
           similarity: r.score,
         }));
 
@@ -1622,7 +1678,8 @@ function createToolHandlers(state: PluginState) {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
                   const contact = m.contactName || 'Unknown';
                   const similarity = `(${Math.round(m.similarity * 100)}%)`;
-                  return `${prefix} [${m.channel}] ${contact} ${similarity}: ${m.body.substring(0, 100)}${m.body.length > 100 ? '...' : ''}`;
+                  const bodyText = m.body || '';
+                  return `${prefix} [${m.channel}] ${contact} ${similarity}: ${bodyText.substring(0, 100)}${bodyText.length > 100 ? '...' : ''}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';
@@ -1666,7 +1723,9 @@ function createToolHandlers(state: PluginState) {
       });
 
       try {
+        // No /api/threads listing exists. Use unified search with types=message.
         const queryParams = new URLSearchParams();
+        queryParams.set('types', 'message');
         queryParams.set('limit', String(limit));
 
         if (channel) {
@@ -1685,8 +1744,14 @@ function createToolHandlers(state: PluginState) {
             messageCount: number;
             lastMessageAt?: string;
           }>;
+          results: Array<{
+            id: string;
+            type: string;
+            title?: string;
+            snippet?: string;
+          }>;
           total: number;
-        }>(`/api/threads?${queryParams}`, { userId });
+        }>(`/api/search?${queryParams}`, { userId });
 
         if (!response.success) {
           logger.error('thread_list API error', {
@@ -1700,21 +1765,28 @@ function createToolHandlers(state: PluginState) {
           };
         }
 
-        const { threads, total } = response.data;
+        // Search API returns { results: [...], total }, not { threads: [...] }
+        const results = response.data.results ?? response.data.threads ?? [];
+        const total = response.data.total ?? results.length;
 
         logger.debug('thread_list completed', {
           userId,
-          threadCount: threads.length,
+          threadCount: results.length,
           total,
         });
 
         const content =
-          threads.length > 0
-            ? threads
-                .map((t) => {
-                  const contact = t.contactName || t.endpointValue;
-                  const msgCount = `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}`;
-                  return `[${t.channel}] ${contact} - ${msgCount}`;
+          results.length > 0
+            ? results
+                .map((r) => {
+                  // Handle both thread and search result formats
+                  if ('channel' in r) {
+                    const t = r as { channel: string; contactName?: string; endpointValue?: string; messageCount?: number };
+                    const contact = t.contactName || t.endpointValue || 'Unknown';
+                    const msgCount = t.messageCount ? `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}` : '';
+                    return `[${t.channel}] ${contact}${msgCount ? ` - ${msgCount}` : ''}`;
+                  }
+                  return `- ${r.title || r.snippet || r.id}`;
                 })
                 .join('\n')
             : 'No threads found.';
@@ -1723,7 +1795,7 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { threads, total, userId },
+            details: { threads: results, total, userId },
           },
         };
       } catch (error) {
@@ -1761,7 +1833,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const queryParams = new URLSearchParams();
-        queryParams.set('messageLimit', String(messageLimit));
+        queryParams.set('limit', String(messageLimit));
 
         const response = await apiClient.get<{
           thread: {
@@ -1778,7 +1850,7 @@ function createToolHandlers(state: PluginState) {
             deliveryStatus?: string;
             createdAt: string;
           }>;
-        }>(`/api/threads/${threadId}?${queryParams}`, { userId });
+        }>(`/api/threads/${threadId}/history?${queryParams}`, { userId });
 
         if (!response.success) {
           logger.error('thread_get API error', {
@@ -1863,9 +1935,9 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const body: Record<string, unknown> = {
-          contactA: contact_a,
-          contactB: contact_b,
-          relationshipType: relationship,
+          contact_a,
+          contact_b,
+          relationship_type: relationship,
         };
         if (notes) {
           body.notes = notes;
@@ -1928,9 +2000,9 @@ function createToolHandlers(state: PluginState) {
       });
 
       try {
-        const queryParams = new URLSearchParams({ contact });
+        const queryParams = new URLSearchParams({ contact_id: contact });
         if (type_filter) {
-          queryParams.set('type_filter', type_filter);
+          queryParams.set('relationship_type_id', type_filter);
         }
 
         const response = await apiClient.get<{
@@ -1946,7 +2018,7 @@ function createToolHandlers(state: PluginState) {
             isDirectional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/relationships/query?${queryParams}`, { userId });
+        }>(`/api/relationships?${queryParams}`, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };

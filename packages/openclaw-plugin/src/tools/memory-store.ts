@@ -12,13 +12,16 @@ import type { PluginConfig } from '../config.js';
 import { MemoryCategory } from './memory-recall.js';
 import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js';
 
-/** Parameters for memory_store tool */
+/** Parameters for memory_store tool — matches OpenClaw gateway: 'text' is primary, 'content' alias for compat */
 export const MemoryStoreParamsSchema = z.object({
-  content: z.string().min(1, 'Content cannot be empty').max(10000, 'Content must be 10000 characters or less'),
+  text: z.string().min(1, 'Text cannot be empty').max(10000, 'Text must be 10000 characters or less').optional(),
+  content: z.string().min(1, 'Content cannot be empty').max(10000, 'Content must be 10000 characters or less').optional(),
   category: MemoryCategory.optional(),
   importance: z.number().min(0).max(1).optional(),
   tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per memory').optional(),
   relationship_id: z.string().uuid('relationship_id must be a valid UUID').optional(),
+}).refine((data) => data.text || data.content, {
+  message: 'Either text or content is required',
 });
 export type MemoryStoreParams = z.infer<typeof MemoryStoreParamsSchema>;
 
@@ -108,10 +111,16 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         return { success: false, error: errorMessage };
       }
 
-      const { content, category = 'other', importance = 0.7, tags = [], relationship_id } = parseResult.data;
+      const { text, content: contentAlias, category = 'other', importance = 0.7, tags = [], relationship_id } = parseResult.data;
+
+      // Accept 'text' (OpenClaw native) or 'content' (backwards compat)
+      const rawText = text || contentAlias;
+      if (!rawText) {
+        return { success: false, error: 'text is required' };
+      }
 
       // Sanitize content
-      const sanitizedText = sanitizeText(content);
+      const sanitizedText = sanitizeText(rawText);
       if (sanitizedText.length === 0) {
         return { success: false, error: 'Content cannot be empty after sanitization' };
       }

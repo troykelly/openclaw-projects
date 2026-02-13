@@ -10,12 +10,11 @@ import type { PluginConfig } from '../config.js';
 import type { Memory } from './memory-recall.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
-/** Parameters for memory_forget tool */
+/** Parameters for memory_forget tool — matches OpenClaw gateway schema */
 export const MemoryForgetParamsSchema = z
   .object({
     memoryId: z.string().optional(),
     query: z.string().max(1000, 'Query must be 1000 characters or less').optional(),
-    confirmBulkDelete: z.boolean().optional(),
   })
   .refine((data) => data.memoryId || data.query, {
     message: 'Either memoryId or query is required',
@@ -60,8 +59,8 @@ export interface MemoryForgetTool {
   execute: (params: MemoryForgetParams) => Promise<MemoryForgetResult>;
 }
 
-/** Bulk delete threshold */
-const BULK_DELETE_THRESHOLD = 5;
+/** High-confidence auto-delete threshold (matches OpenClaw gateway 0.9) */
+const AUTO_DELETE_SCORE_THRESHOLD = 0.9;
 
 /**
  * Sanitize query input to remove control characters.
@@ -90,7 +89,7 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
         return { success: false, error: errorMessage };
       }
 
-      const { memoryId, query, confirmBulkDelete } = parseResult.data;
+      const { memoryId, query } = parseResult.data;
 
       // Log invocation
       logger.info('memory_forget invoked', {
@@ -105,9 +104,9 @@ export function createMemoryForgetTool(options: MemoryForgetToolOptions): Memory
           return await deleteById(client, logger, userId, memoryId);
         }
 
-        // Delete by query
+        // Delete by query (OpenClaw two-phase: search → candidates or auto-delete)
         if (query) {
-          return await deleteByQuery(client, logger, userId, query, confirmBulkDelete);
+          return await deleteByQuery(client, logger, userId, query);
         }
 
         // Should not reach here due to validation
@@ -187,20 +186,26 @@ async function deleteById(client: ApiClient, logger: Logger, userId: string, mem
 
 /**
  * Delete memories by search query.
+ * Matches OpenClaw gateway behavior:
+ * - Search with limit=5
+ * - Single high-confidence match (>0.9) → auto-delete
+ * - Multiple matches → return candidates for agent to specify memoryId
  */
-async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, query: string, confirmBulkDelete?: boolean): Promise<MemoryForgetResult> {
+async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, query: string): Promise<MemoryForgetResult> {
   const sanitizedQuery = sanitizeQuery(query);
   if (sanitizedQuery.length === 0) {
     return { success: false, error: 'Query cannot be empty' };
   }
 
-  // Search for matching memories
   const queryParams = new URLSearchParams({
     q: sanitizedQuery,
-    limit: '100', // Max to find for deletion
+    limit: '5',
   });
 
-  const searchResponse = await client.get<{ results: Array<{ id: string }> }>(`/api/memories/search?${queryParams.toString()}`, { userId });
+  const searchResponse = await client.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
+    `/api/memories/search?${queryParams.toString()}`,
+    { userId },
+  );
 
   if (!searchResponse.success) {
     logger.error('memory_forget search error', {
@@ -217,67 +222,45 @@ async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, 
   const memories = searchResponse.data.results ?? [];
 
   if (memories.length === 0) {
-    logger.debug('memory_forget completed', {
-      userId,
-      deletedCount: 0,
-      reason: 'no matches',
-    });
+    logger.debug('memory_forget completed', { userId, deletedCount: 0, reason: 'no matches' });
     return {
       success: true,
       data: {
-        content: 'No matching memories found to delete.',
-        details: {
-          deletedCount: 0,
-          deletedIds: [],
-          userId,
-        },
+        content: 'No matching memories found.',
+        details: { deletedCount: 0, deletedIds: [], userId },
       },
     };
   }
 
-  // Check bulk delete threshold
-  if (memories.length > BULK_DELETE_THRESHOLD && !confirmBulkDelete) {
-    logger.warn('memory_forget bulk delete blocked', {
-      userId,
-      matchCount: memories.length,
-    });
+  // Single high-confidence match → auto-delete
+  if (memories.length === 1 && (memories[0].similarity ?? 0) > AUTO_DELETE_SCORE_THRESHOLD) {
+    const deleteResponse = await client.delete(`/api/memories/${memories[0].id}`, { userId });
+    if (!deleteResponse.success) {
+      return { success: false, error: deleteResponse.error.message || 'Failed to delete memory' };
+    }
+    logger.debug('memory_forget auto-deleted', { userId, memoryId: memories[0].id });
     return {
-      success: false,
-      error: `Found ${memories.length} matching memories. Set confirmBulkDelete: true to delete more than ${BULK_DELETE_THRESHOLD} memories at once.`,
+      success: true,
+      data: {
+        content: `Forgotten: "${memories[0].content}"`,
+        details: { deletedCount: 1, deletedIds: [memories[0].id], userId },
+      },
     };
   }
 
-  // Delete memories in parallel batches of 10
-  const BATCH_SIZE = 10;
-  const deletedIds: string[] = [];
-  for (let i = 0; i < memories.length; i += BATCH_SIZE) {
-    const batch = memories.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map(async (memory) => {
-        const deleteResponse = await client.delete(`/api/memories/${memory.id}`, { userId });
-        return { id: memory.id, success: deleteResponse.success };
-      }),
-    );
-    for (const result of results) {
-      if (result.success) {
-        deletedIds.push(result.id);
-      }
-    }
-  }
+  // Multiple matches or low confidence → return candidates, don't delete
+  const list = memories
+    .map((m) => `- [${m.id.slice(0, 8)}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`)
+    .join('\n');
 
-  logger.debug('memory_forget completed', {
-    userId,
-    deletedCount: deletedIds.length,
-    requestedCount: memories.length,
-  });
-
+  logger.debug('memory_forget returning candidates', { userId, count: memories.length });
   return {
     success: true,
     data: {
-      content: `Deleted ${deletedIds.length} ${deletedIds.length === 1 ? 'memory' : 'memories'}.`,
+      content: `Found ${memories.length} candidates. Specify memoryId:\n${list}`,
       details: {
-        deletedCount: deletedIds.length,
-        deletedIds,
+        deletedCount: 0,
+        deletedIds: [],
         userId,
       },
     },
