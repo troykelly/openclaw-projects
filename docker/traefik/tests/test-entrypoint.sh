@@ -636,6 +636,66 @@ test_no_docker_hostnames() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 26: Empty CF_DNS_API_TOKEN should be unset before exec
+test_empty_cf_dns_api_token_unset() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+    export CF_DNS_API_TOKEN=""
+    export CF_API_KEY="global-key-value"
+    export CF_API_EMAIL="user@example.com"
+
+    # Modify the test entrypoint to print env instead of exec traefik
+    local env_entrypoint="${test_dir}/entrypoint-env.sh"
+    sed 's/echo "Would exec traefik".*/env/' "${test_dir}/entrypoint-test.sh" > "${env_entrypoint}"
+    chmod +x "${env_entrypoint}"
+
+    local output
+    output=$("${env_entrypoint}" 2>/dev/null)
+
+    # CF_DNS_API_TOKEN should NOT appear in the environment
+    if echo "${output}" | grep -q "^CF_DNS_API_TOKEN="; then
+        fail "Empty CF_DNS_API_TOKEN should be unset before exec"
+    else
+        pass "Empty CF_DNS_API_TOKEN is unset before exec"
+    fi
+
+    unset CF_DNS_API_TOKEN CF_API_KEY CF_API_EMAIL
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 27: Non-empty CF_DNS_API_TOKEN should be preserved
+test_nonempty_cf_dns_api_token_preserved() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+    export CF_DNS_API_TOKEN="real-token-value"
+
+    # Modify the test entrypoint to print env instead of exec traefik
+    local env_entrypoint="${test_dir}/entrypoint-env.sh"
+    sed 's/echo "Would exec traefik".*/env/' "${test_dir}/entrypoint-test.sh" > "${env_entrypoint}"
+    chmod +x "${env_entrypoint}"
+
+    local output
+    output=$("${env_entrypoint}" 2>/dev/null)
+
+    # CF_DNS_API_TOKEN should still be present with its value
+    if echo "${output}" | grep -q "^CF_DNS_API_TOKEN=real-token-value$"; then
+        pass "Non-empty CF_DNS_API_TOKEN is preserved"
+    else
+        fail "Non-empty CF_DNS_API_TOKEN should be preserved"
+    fi
+
+    unset CF_DNS_API_TOKEN
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -667,6 +727,8 @@ test_acme_json_permissions_corrected
 test_host_port_substitution
 test_gateway_routes
 test_no_docker_hostnames
+test_empty_cf_dns_api_token_unset
+test_nonempty_cf_dns_api_token_preserved
 
 echo ""
 echo "======================================"
