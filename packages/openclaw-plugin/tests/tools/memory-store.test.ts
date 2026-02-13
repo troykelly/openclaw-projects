@@ -267,7 +267,7 @@ describe('memory_store tool', () => {
   });
 
   describe('API interaction', () => {
-    it('should call POST /api/memories with correct body', async () => {
+    it('should call POST /api/memories/unified with correct body', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
         data: { id: 'mem-123', content: 'User likes coffee' },
@@ -288,17 +288,17 @@ describe('memory_store tool', () => {
       });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories',
+        '/api/memories/unified',
         expect.objectContaining({
           content: 'User likes coffee',
-          category: 'preference',
+          memory_type: 'preference',
           importance: 0.8,
         }),
         expect.objectContaining({ userId: 'agent-1' }),
       );
     });
 
-    it('should use default category "other" when not provided', async () => {
+    it('should map default category "other" to memory_type "note"', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
         data: { id: 'mem-123', content: 'Some info' },
@@ -315,9 +315,9 @@ describe('memory_store tool', () => {
       await tool.execute({ content: 'Some info' });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories',
+        '/api/memories/unified',
         expect.objectContaining({
-          category: 'other',
+          memory_type: 'note',
         }),
         expect.any(Object),
       );
@@ -340,10 +340,33 @@ describe('memory_store tool', () => {
       await tool.execute({ content: 'Some info' });
 
       expect(mockPost).toHaveBeenCalledWith(
-        '/api/memories',
+        '/api/memories/unified',
         expect.objectContaining({
           importance: 0.7,
         }),
+        expect.any(Object),
+      );
+    });
+
+    it('should map category to memory_type preserving known types', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-123', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ content: 'test', category: 'decision' });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        '/api/memories/unified',
+        expect.objectContaining({ memory_type: 'decision' }),
         expect.any(Object),
       );
     });

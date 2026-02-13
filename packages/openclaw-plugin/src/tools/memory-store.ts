@@ -135,9 +135,12 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
 
       try {
         // Store memory via API
+        // Map plugin category to API memory_type ('other' has no API equivalent, use 'note')
+        const memoryType = category === 'other' ? 'note' : category;
+
         const payload: Record<string, unknown> = {
           content: sanitizedText,
-          category,
+          memory_type: memoryType,
           importance,
           tags,
         };
@@ -145,7 +148,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
           payload.relationship_id = relationship_id;
         }
 
-        const response = await client.post<StoredMemory>('/api/memories', payload, { userId });
+        const response = await client.post<StoredMemory>('/api/memories/unified', payload, { userId });
 
         if (!response.success) {
           logger.error('memory_store API error', {
