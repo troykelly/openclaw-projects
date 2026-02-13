@@ -27,46 +27,33 @@ export const MessageSearchParamsSchema = z.object({
 });
 export type MessageSearchParams = z.infer<typeof MessageSearchParamsSchema>;
 
-/** Message search result from API */
-interface MessageSearchApiResult {
+/** Search result from unified search API */
+interface SearchResultItem {
+  type: string;
   id: string;
-  body: string;
-  direction: 'inbound' | 'outbound';
-  channel: string;
-  contactName?: string;
-  timestamp: string;
+  title: string;
+  snippet: string;
   score: number;
-  threadId?: string;
-  threadMessages?: Array<{
-    id: string;
-    body: string;
-    direction: 'inbound' | 'outbound';
-    timestamp: string;
-  }>;
+  url?: string;
+  metadata?: Record<string, unknown>;
 }
 
-/** API response for message search */
-interface MessageSearchApiResponse {
-  results: MessageSearchApiResult[];
+/** API response for unified search */
+interface SearchApiResponse {
+  query: string;
+  search_type: string;
+  results: SearchResultItem[];
+  facets: Record<string, number>;
   total: number;
 }
 
 /** Message result for tool output */
 interface MessageResult {
   id: string;
-  body: string;
-  direction: 'inbound' | 'outbound';
-  channel: string;
-  contactName?: string;
-  timestamp: string;
-  similarity: number;
-  threadId?: string;
-  threadContext?: Array<{
-    id: string;
-    body: string;
-    direction: string;
-    timestamp: string;
-  }>;
+  title: string;
+  snippet: string;
+  score: number;
+  metadata?: Record<string, unknown>;
 }
 
 /** Successful tool result */
@@ -159,7 +146,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         }
 
         // Call API
-        const response = await client.get<MessageSearchApiResponse>(`/api/search?${queryParams}`, { userId });
+        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { userId });
 
         if (!response.success) {
           logger.error('message_search API error', {
@@ -178,14 +165,10 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         // Transform results
         const messages: MessageResult[] = results.map((r) => ({
           id: r.id,
-          body: r.body,
-          direction: r.direction,
-          channel: r.channel,
-          contactName: r.contactName,
-          timestamp: r.timestamp,
-          similarity: r.score,
-          threadId: r.threadId,
-          threadContext: r.threadMessages,
+          title: r.title,
+          snippet: r.snippet,
+          score: r.score,
+          metadata: r.metadata,
         }));
 
         logger.debug('message_search completed', {
@@ -199,10 +182,8 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
           messages.length > 0
             ? messages
                 .map((m) => {
-                  const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const contact = m.contactName || 'Unknown';
-                  const similarity = `(${Math.round(m.similarity * 100)}%)`;
-                  return `${prefix} [${m.channel}] ${contact} ${similarity}: ${m.body.substring(0, 100)}${m.body.length > 100 ? '...' : ''}`;
+                  const score = `(${Math.round(m.score * 100)}%)`;
+                  return `${m.title} ${score}: ${m.snippet.substring(0, 100)}${m.snippet.length > 100 ? '...' : ''}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';

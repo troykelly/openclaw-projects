@@ -29,20 +29,33 @@ export const ThreadListParamsSchema = z.object({
 });
 export type ThreadListParams = z.infer<typeof ThreadListParamsSchema>;
 
-/** Thread in list response */
-interface ThreadListItem {
+/** Search result item from unified search API */
+interface SearchResultItem {
+  type: string;
   id: string;
-  channel: string;
-  contactName?: string;
-  endpointValue: string;
-  messageCount: number;
-  lastMessageAt?: string;
+  title: string;
+  snippet: string;
+  score: number;
+  url?: string;
+  metadata?: Record<string, unknown>;
 }
 
-/** API response for thread list */
-interface ThreadListApiResponse {
-  threads: ThreadListItem[];
+/** API response for unified search */
+interface SearchApiResponse {
+  query: string;
+  search_type: string;
+  results: SearchResultItem[];
+  facets: Record<string, number>;
   total: number;
+}
+
+/** Thread in list response (mapped from search results) */
+interface ThreadListItem {
+  id: string;
+  title: string;
+  snippet: string;
+  score: number;
+  metadata?: Record<string, unknown>;
 }
 
 /** Successful tool result */
@@ -51,7 +64,7 @@ export interface ThreadListSuccess {
   data: {
     content: string;
     details: {
-      threads: ThreadListItem[];
+      results: ThreadListItem[];
       total: number;
       userId: string;
     };
@@ -111,18 +124,21 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
       });
 
       try {
-        // Build query parameters
+        // Build query parameters — use unified search with types=message
         const queryParams = new URLSearchParams();
+        queryParams.set('types', 'message');
         queryParams.set('limit', String(limit));
 
         if (channel) {
-          queryParams.set('channel', channel);
+          queryParams.set('q', channel);
+        } else {
+          queryParams.set('q', '*');
         }
         if (contactId) {
           queryParams.set('contactId', contactId);
         }
 
-        const response = await client.get<ThreadListApiResponse>(`/api/threads?${queryParams}`, { userId });
+        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { userId });
 
         if (!response.success) {
           logger.error('thread_list API error', {
@@ -136,22 +152,29 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           };
         }
 
-        const { threads, total } = response.data;
+        const { results, total } = response.data;
+
+        // Map search results to thread list items
+        const threadItems: ThreadListItem[] = results.map((r) => ({
+          id: r.id,
+          title: r.title,
+          snippet: r.snippet,
+          score: r.score,
+          metadata: r.metadata,
+        }));
 
         logger.debug('thread_list completed', {
           userId,
-          threadCount: threads.length,
+          resultCount: threadItems.length,
           total,
         });
 
         // Format content for display
         const content =
-          threads.length > 0
-            ? threads
+          threadItems.length > 0
+            ? threadItems
                 .map((t) => {
-                  const contact = t.contactName || t.endpointValue;
-                  const msgCount = `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}`;
-                  return `[${t.channel}] ${contact} - ${msgCount}`;
+                  return `${t.title}: ${t.snippet}`;
                 })
                 .join('\n')
             : 'No threads found.';
@@ -160,7 +183,7 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           success: true,
           data: {
             content,
-            details: { threads, total, userId },
+            details: { results: threadItems, total, userId },
           },
         };
       } catch (error) {
@@ -194,28 +217,55 @@ export const ThreadGetParamsSchema = z.object({
 });
 export type ThreadGetParams = z.infer<typeof ThreadGetParamsSchema>;
 
-/** Thread detail */
-interface ThreadDetail {
+/** Thread contact info from API */
+interface ThreadContact {
+  id: string;
+  displayName: string;
+  notes?: string;
+}
+
+/** Thread info from API */
+interface ThreadInfo {
   id: string;
   channel: string;
-  contactName?: string;
-  endpointValue?: string;
+  externalThreadKey: string;
+  contact: ThreadContact;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Message in thread */
 interface ThreadMessage {
   id: string;
   direction: 'inbound' | 'outbound';
-  body: string;
+  body: string | null;
   subject?: string;
-  deliveryStatus?: string;
+  fromAddress?: string;
+  receivedAt: string;
   createdAt: string;
 }
 
-/** API response for thread get */
-interface ThreadGetApiResponse {
-  thread: ThreadDetail;
+/** API response for thread history */
+interface ThreadHistoryApiResponse {
+  thread: ThreadInfo;
   messages: ThreadMessage[];
+  relatedWorkItems: Array<{
+    id: string;
+    title: string;
+    status: string;
+    workItemKind: string;
+  }>;
+  contactMemories: Array<{
+    id: string;
+    memoryType: string;
+    title: string;
+    content: string;
+  }>;
+  pagination: {
+    hasMore: boolean;
+    oldestTimestamp?: string;
+    newestTimestamp?: string;
+  };
 }
 
 /** Successful tool result */
@@ -224,7 +274,7 @@ export interface ThreadGetSuccess {
   data: {
     content: string;
     details: {
-      thread: ThreadDetail;
+      thread: ThreadInfo;
       messages: ThreadMessage[];
       userId: string;
     };
@@ -276,9 +326,9 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
 
       try {
         const queryParams = new URLSearchParams();
-        queryParams.set('messageLimit', String(messageLimit));
+        queryParams.set('limit', String(messageLimit));
 
-        const response = await client.get<ThreadGetApiResponse>(`/api/threads/${threadId}?${queryParams}`, { userId });
+        const response = await client.get<ThreadHistoryApiResponse>(`/api/threads/${threadId}/history?${queryParams}`, { userId });
 
         if (!response.success) {
           logger.error('thread_get API error', {
@@ -302,7 +352,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         });
 
         // Format content for display
-        const contact = thread.contactName || thread.endpointValue || 'Unknown';
+        const contact = thread.contact?.displayName || 'Unknown';
         const header = `Thread with ${contact} [${thread.channel}]`;
 
         const messageContent =
@@ -311,7 +361,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
                   const timestamp = new Date(m.createdAt).toLocaleString();
-                  return `${prefix} [${timestamp}] ${m.body}`;
+                  return `${prefix} [${timestamp}] ${m.body || ''}`;
                 })
                 .join('\n')
             : 'No messages in this thread.';
