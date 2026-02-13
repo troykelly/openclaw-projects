@@ -696,6 +696,65 @@ test_nonempty_cf_dns_api_token_preserved() {
     cleanup_test_env "${test_dir}"
 }
 
+# Test 28: Whitespace-only CF_DNS_API_TOKEN should be unset before exec
+test_whitespace_cf_dns_api_token_unset() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+    export CF_DNS_API_TOKEN="   "
+    export CF_API_KEY="global-key-value"
+    export CF_API_EMAIL="user@example.com"
+
+    # Modify the test entrypoint to print env instead of exec traefik
+    local env_entrypoint="${test_dir}/entrypoint-env.sh"
+    sed 's/echo "Would exec traefik".*/env/' "${test_dir}/entrypoint-test.sh" > "${env_entrypoint}"
+    chmod +x "${env_entrypoint}"
+
+    local output
+    output=$("${env_entrypoint}" 2>/dev/null)
+
+    # CF_DNS_API_TOKEN should NOT appear in the environment
+    if echo "${output}" | grep -q "^CF_DNS_API_TOKEN="; then
+        fail "Whitespace-only CF_DNS_API_TOKEN should be unset before exec"
+    else
+        pass "Whitespace-only CF_DNS_API_TOKEN is unset before exec"
+    fi
+
+    unset CF_DNS_API_TOKEN CF_API_KEY CF_API_EMAIL
+    cleanup_test_env "${test_dir}"
+}
+
+# Test 29: Empty CF_API_KEY should be unset (covers non-token vars too)
+test_empty_cf_api_key_unset() {
+    run_test
+    local test_dir
+    test_dir=$(setup_test_env)
+
+    export DOMAIN="example.com"
+    export ACME_EMAIL="test@example.com"
+    export CF_API_KEY=""
+
+    # Modify the test entrypoint to print env instead of exec traefik
+    local env_entrypoint="${test_dir}/entrypoint-env.sh"
+    sed 's/echo "Would exec traefik".*/env/' "${test_dir}/entrypoint-test.sh" > "${env_entrypoint}"
+    chmod +x "${env_entrypoint}"
+
+    local output
+    output=$("${env_entrypoint}" 2>/dev/null)
+
+    if echo "${output}" | grep -q "^CF_API_KEY="; then
+        fail "Empty CF_API_KEY should be unset before exec"
+    else
+        pass "Empty CF_API_KEY is unset before exec"
+    fi
+
+    unset CF_API_KEY
+    cleanup_test_env "${test_dir}"
+}
+
 # Run all tests
 echo "======================================"
 echo "Traefik Entrypoint Script Test Suite"
@@ -729,6 +788,8 @@ test_gateway_routes
 test_no_docker_hostnames
 test_empty_cf_dns_api_token_unset
 test_nonempty_cf_dns_api_token_preserved
+test_whitespace_cf_dns_api_token_unset
+test_empty_cf_api_key_unset
 
 echo ""
 echo "======================================"
