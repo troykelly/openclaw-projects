@@ -21,8 +21,9 @@ COPY src/ ./src/
 COPY vite.config.ts tsconfig.json tsconfig.build.json ./
 COPY components.json ./
 
-# Build the frontend app
-RUN pnpm run app:build
+# Build the frontend app with base=/ for nginx root-relative asset paths.
+# Default Vite base is /static/app/ (for Fastify); Docker/nginx serves from root.
+RUN VITE_BASE=/ pnpm run app:build
 
 # Pre-compress assets with gzip and brotli for optimal delivery
 # Install brotli tool for compression

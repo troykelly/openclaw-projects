@@ -8,7 +8,7 @@ import path from 'node:path';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: path.join(__dirname, 'src', 'ui', 'app'),
-  base: '/static/app/',
+  base: process.env.VITE_BASE || '/static/app/',
   server: {
     host: '::',
   },
