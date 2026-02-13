@@ -130,6 +130,45 @@ init_acme_storage() {
     fi
 }
 
+# Sanitize DNS provider credentials
+# Lego (Traefik's ACME library) checks CF_DNS_API_TOKEN first — if the env
+# var exists, even as an empty string, lego uses scoped-token auth and
+# ignores CF_API_KEY + CF_API_EMAIL entirely.  Unset empty/whitespace-only
+# credential vars so the fallback auth path works correctly.
+# See: https://github.com/troykelly/openclaw-projects/issues/1095
+
+# Check if a variable is set but empty or whitespace-only
+is_blank() {
+    case "$(printf '%s' "$1" | tr -d '[:space:]')" in
+        "") return 0 ;;  # blank
+        *)  return 1 ;;  # has content
+    esac
+}
+
+sanitize_dns_credentials() {
+    if [ -n "${CF_DNS_API_TOKEN+set}" ] && is_blank "${CF_DNS_API_TOKEN}"; then
+        unset CF_DNS_API_TOKEN; echo "  Unset blank CF_DNS_API_TOKEN"
+    fi
+    if [ -n "${CF_API_KEY+set}" ] && is_blank "${CF_API_KEY}"; then
+        unset CF_API_KEY; echo "  Unset blank CF_API_KEY"
+    fi
+    if [ -n "${CF_API_EMAIL+set}" ] && is_blank "${CF_API_EMAIL}"; then
+        unset CF_API_EMAIL; echo "  Unset blank CF_API_EMAIL"
+    fi
+    if [ -n "${AWS_ACCESS_KEY_ID+set}" ] && is_blank "${AWS_ACCESS_KEY_ID}"; then
+        unset AWS_ACCESS_KEY_ID; echo "  Unset blank AWS_ACCESS_KEY_ID"
+    fi
+    if [ -n "${AWS_SECRET_ACCESS_KEY+set}" ] && is_blank "${AWS_SECRET_ACCESS_KEY}"; then
+        unset AWS_SECRET_ACCESS_KEY; echo "  Unset blank AWS_SECRET_ACCESS_KEY"
+    fi
+    if [ -n "${AWS_HOSTED_ZONE_ID+set}" ] && is_blank "${AWS_HOSTED_ZONE_ID}"; then
+        unset AWS_HOSTED_ZONE_ID; echo "  Unset blank AWS_HOSTED_ZONE_ID"
+    fi
+    if [ -n "${AWS_REGION+set}" ] && is_blank "${AWS_REGION}"; then
+        unset AWS_REGION; echo "  Unset blank AWS_REGION"
+    fi
+}
+
 # Generate the dynamic configuration from template
 generate_config() {
     # Ensure output directories exist
@@ -200,6 +239,9 @@ main() {
 
     echo "Traefik entrypoint: Generating dynamic configuration..."
     generate_config
+
+    echo "Traefik entrypoint: Sanitizing DNS credentials..."
+    sanitize_dns_credentials
 
     echo "Traefik entrypoint: Starting Traefik..."
     exec traefik "$@"
