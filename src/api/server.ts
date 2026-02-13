@@ -5823,7 +5823,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/memories/unified - Create memory with flexible scoping (issue #209)
   app.post('/api/memories/unified', async (req, reply) => {
-    const { createMemory, isValidMemoryType } = await import('./memory/index.ts');
+    const { createMemory, isValidMemoryType, generateTitleFromContent } = await import('./memory/index.ts');
 
     const body = req.body as {
       title?: string;
@@ -5842,13 +5842,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       tags?: string[];
     };
 
-    if (!body?.title?.trim()) {
-      return reply.code(400).send({ error: 'title is required' });
-    }
-
     if (!body?.content?.trim()) {
       return reply.code(400).send({ error: 'content is required' });
     }
+
+    const title = body?.title?.trim() || generateTitleFromContent(body.content.trim());
 
     const memoryType = body.memory_type ?? 'note';
     if (!isValidMemoryType(memoryType)) {
@@ -5861,7 +5859,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const memory = await createMemory(pool, {
-        title: body.title.trim(),
+        title: title,
         content: body.content.trim(),
         memoryType: memoryType as any,
         userEmail: body.user_email,

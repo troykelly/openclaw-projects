@@ -150,17 +150,18 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(res.json().error).toContain('Invalid memory_type');
     });
 
-    it('returns 400 when title is missing', async () => {
+    it('auto-generates title when title is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/memories/unified',
         payload: {
-          content: 'Test',
+          content: 'User prefers dark mode. Other details follow.',
         },
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('title');
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.title).toBe('User prefers dark mode');
     });
   });
 

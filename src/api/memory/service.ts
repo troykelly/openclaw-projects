@@ -55,6 +55,37 @@ export function isValidMemoryType(type: string): type is MemoryType {
 }
 
 /**
+ * Generate a title from memory content when none is provided.
+ * Extracts the first sentence, truncates at word boundary if needed.
+ */
+export function generateTitleFromContent(content: string): string {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) return 'Untitled memory';
+
+  // Try to extract first sentence (split on sentence-ending punctuation or newline)
+  const sentenceMatch = trimmed.match(/^(.+?)[.!?\n]/);
+  if (sentenceMatch) {
+    const sentence = sentenceMatch[1].trim();
+    if (sentence.length <= 120) return sentence;
+    // Truncate at word boundary
+    const truncated = sentence.slice(0, 120).replace(/\s+\S*$/, '');
+    return truncated.length > 0 ? `${truncated}...` : `${sentence.slice(0, 117)}...`;
+  }
+
+  // No sentence boundary — try first clause
+  const clauseMatch = trimmed.match(/^(.+?)[,;:\u2014]/);
+  if (clauseMatch) {
+    const clause = clauseMatch[1].trim();
+    if (clause.length <= 120) return clause;
+  }
+
+  // Fallback: truncate at word boundary
+  if (trimmed.length <= 120) return trimmed;
+  const truncated = trimmed.slice(0, 120).replace(/\s+\S*$/, '');
+  return truncated.length > 0 ? `${truncated}...` : `${trimmed.slice(0, 117)}...`;
+}
+
+/**
  * Creates a new memory.
  */
 export async function createMemory(pool: Pool, input: CreateMemoryInput): Promise<MemoryEntry> {
