@@ -138,9 +138,9 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
 
       try {
         const body: Record<string, unknown> = {
-          contactA: sanitizedContactA,
-          contactB: sanitizedContactB,
-          relationshipType: sanitizedRelationship,
+          contact_a: sanitizedContactA,
+          contact_b: sanitizedContactB,
+          relationship_type: sanitizedRelationship,
         };
         if (sanitizedNotes) {
           body.notes = sanitizedNotes;
@@ -290,13 +290,13 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
 
       try {
         const queryParams = new URLSearchParams({
-          contact: sanitizedContact,
+          contact_id: sanitizedContact,
         });
         if (type_filter) {
           queryParams.set('type_filter', type_filter);
         }
 
-        const response = await client.get<RelationshipQueryApiResponse>(`/api/relationships/query?${queryParams.toString()}`, { userId });
+        const response = await client.get<RelationshipQueryApiResponse>(`/api/relationships?${queryParams.toString()}`, { userId });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

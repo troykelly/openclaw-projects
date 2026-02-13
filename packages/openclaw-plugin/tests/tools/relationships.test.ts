@@ -246,7 +246,7 @@ describe('relationship tools', () => {
     });
 
     describe('API interaction', () => {
-      it('should call POST /api/relationships/set with correct body', async () => {
+      it('should call POST /api/relationships/set with snake_case body', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
           data: {
@@ -276,9 +276,9 @@ describe('relationship tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           '/api/relationships/set',
           expect.objectContaining({
-            contactA: 'Troy',
-            contactB: 'Alex',
-            relationshipType: 'partner',
+            contact_a: 'Troy',
+            contact_b: 'Alex',
+            relationship_type: 'partner',
             notes: 'Since 2020',
           }),
           expect.objectContaining({ userId: 'agent-1' }),
@@ -485,7 +485,7 @@ describe('relationship tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            contactA: 'Troy',
+            contact_a: 'Troy',
           }),
           expect.any(Object),
         );
@@ -736,7 +736,7 @@ describe('relationship tools', () => {
     });
 
     describe('API interaction', () => {
-      it('should call GET /api/relationships/query with contact parameter', async () => {
+      it('should call GET /api/relationships with contact_id parameter', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
@@ -756,8 +756,7 @@ describe('relationship tools', () => {
 
         await tool.execute({ contact: 'Troy' });
 
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/relationships/query'), expect.objectContaining({ userId: 'agent-1' }));
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('contact=Troy'), expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith('/api/relationships?contact_id=Troy', expect.objectContaining({ userId: 'agent-1' }));
       });
     });
 

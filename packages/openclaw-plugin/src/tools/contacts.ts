@@ -30,10 +30,11 @@ export type ContactSearchParams = z.infer<typeof ContactSearchParamsSchema>;
 /** Contact item from API */
 export interface Contact {
   id: string;
-  name: string;
+  displayName: string;
   email?: string;
   phone?: string;
   notes?: string;
+  contactKind?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -148,11 +149,11 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
 
       try {
         const queryParams = new URLSearchParams({
-          q: sanitizedQuery,
+          search: sanitizedQuery,
           limit: String(limit),
         });
 
-        const response = await client.get<{ contacts?: Contact[]; items?: Contact[]; total?: number }>(`/api/contacts/search?${queryParams.toString()}`, {
+        const response = await client.get<{ contacts?: Contact[]; items?: Contact[]; total?: number }>(`/api/contacts?${queryParams.toString()}`, {
           userId,
         });
 
@@ -183,7 +184,7 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
 
         const content = contacts
           .map((c) => {
-            const parts = [c.name];
+            const parts = [c.displayName];
             if (c.email) parts.push(`<${c.email}>`);
             if (c.phone) parts.push(c.phone);
             return `- ${parts.join(' ')}`;
@@ -286,7 +287,7 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
         }
 
         const contact = response.data;
-        const lines = [`**${contact.name}**`];
+        const lines = [`**${contact.displayName}**`];
         if (contact.email) lines.push(`Email: ${contact.email}`);
         if (contact.phone) lines.push(`Phone: ${contact.phone}`);
         if (contact.notes) lines.push(`\nNotes: ${contact.notes}`);
@@ -319,9 +320,8 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
 /** Parameters for contact_create tool */
 export const ContactCreateParamsSchema = z.object({
   name: z.string().min(1, 'Contact name is required').max(200, 'Contact name must be 200 characters or less'),
-  email: z.string().optional(),
-  phone: z.string().optional(),
   notes: z.string().max(2000, 'Notes must be 2000 characters or less').optional(),
+  contactKind: z.string().max(50, 'Contact kind must be 50 characters or less').optional(),
 });
 export type ContactCreateParams = z.infer<typeof ContactCreateParamsSchema>;
 
@@ -332,7 +332,7 @@ export interface ContactCreateSuccess {
     content: string;
     details: {
       id: string;
-      name: string;
+      displayName: string;
       userId: string;
     };
   };
@@ -355,7 +355,7 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
 
   return {
     name: 'contact_create',
-    description: 'Create a new contact with name and optional email, phone, and notes.',
+    description: 'Create a new contact with a display name and optional notes. Endpoints (email, phone) are managed separately.',
     parameters: ContactCreateParamsSchema,
 
     async execute(params: ContactCreateParams): Promise<ContactCreateResult> {
@@ -365,7 +365,7 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
         return { success: false, error: errorMessage };
       }
 
-      const { name, email, phone, notes } = parseResult.data;
+      const { name, notes, contactKind } = parseResult.data;
 
       // Sanitize input
       const sanitizedName = stripHtml(name);
@@ -375,40 +375,26 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
         return { success: false, error: 'Contact name cannot be empty after sanitization' };
       }
 
-      // Validate email if provided
-      if (email && !isValidEmail(email)) {
-        return { success: false, error: 'Invalid email format.' };
-      }
-
-      // Validate phone if provided
-      if (phone && !isValidPhone(phone)) {
-        return { success: false, error: 'Invalid phone format. Expected a valid phone number.' };
-      }
-
       // Log without PII
       logger.info('contact_create invoked', {
         userId,
         nameLength: sanitizedName.length,
-        hasEmail: !!email,
-        hasPhone: !!phone,
         hasNotes: !!notes,
+        contactKind: contactKind ?? 'person',
       });
 
       try {
         const body: Record<string, unknown> = {
-          name: sanitizedName,
+          displayName: sanitizedName,
         };
-        if (email) {
-          body.email = email;
-        }
-        if (phone) {
-          body.phone = phone;
-        }
         if (sanitizedNotes) {
           body.notes = sanitizedNotes;
         }
+        if (contactKind) {
+          body.contactKind = contactKind;
+        }
 
-        const response = await client.post<{ id: string; name?: string }>('/api/contacts', body, { userId });
+        const response = await client.post<{ id: string; displayName?: string }>('/api/contacts', body, { userId });
 
         if (!response.success) {
           logger.error('contact_create API error', {
@@ -435,7 +421,7 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
             content: `Created contact "${sanitizedName}" (ID: ${newContact.id})`,
             details: {
               id: newContact.id,
-              name: sanitizedName,
+              displayName: sanitizedName,
               userId,
             },
           },
