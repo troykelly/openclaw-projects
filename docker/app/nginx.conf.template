@@ -66,6 +66,17 @@ server {
         proxy_buffering off;
     }
 
+    # ==========================================================================
+    # Vite base path rewrite
+    # ==========================================================================
+    # Vite builds with base: '/static/app/' so index.html references assets at
+    # /static/app/assets/... but the Docker build copies files to the nginx root
+    # (/usr/share/nginx/html/), placing them at /assets/... on disk.
+    # Rewrite to strip the prefix so nginx can find the actual files.
+    location /static/app/ {
+        rewrite ^/static/app/(.*)$ /$1 last;
+    }
+
     # Hashed assets (immutable cache) - Vite generates files with content hashes
     # Match files in /assets/ directory with hash patterns like index-abc123.js
     location /assets/ {

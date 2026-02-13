@@ -190,6 +190,26 @@ describe('Nginx Configuration Template', () => {
     });
   });
 
+  describe('Vite base path rewrite', () => {
+    it('should have location block for /static/app/ to strip Vite base prefix', () => {
+      expect(nginxConfigContent).toContain('location /static/app/');
+    });
+
+    it('should rewrite /static/app/* to /* so nginx can find files at root', () => {
+      expect(nginxConfigContent).toMatch(/rewrite.*\/static\/app\/.*last/);
+    });
+  });
+
+  describe('Vite base path consistency', () => {
+    it('nginx rewrite should match the Vite base path in vite.config.ts', () => {
+      const viteConfigPath = resolve(import.meta.dirname, '../../vite.config.ts');
+      const viteConfig = readFileSync(viteConfigPath, 'utf-8');
+      // Vite base: '/static/app/' must match the nginx rewrite location
+      expect(viteConfig).toContain("base: '/static/app/'");
+      expect(nginxConfigContent).toContain('location /static/app/');
+    });
+  });
+
   describe('SPA fallback', () => {
     it('should have try_files directive for SPA routing', () => {
       expect(nginxConfigContent).toContain('try_files $uri $uri/ /index.html');
