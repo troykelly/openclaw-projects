@@ -121,7 +121,7 @@ describe('memory_recall tool', () => {
     it('should accept valid limit within range', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -163,7 +163,7 @@ describe('memory_recall tool', () => {
     it('should accept valid category filter', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -198,7 +198,7 @@ describe('memory_recall tool', () => {
     it('should call API with query and limit', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -214,10 +214,10 @@ describe('memory_recall tool', () => {
       expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.objectContaining({ userId: 'agent-1' }));
     });
 
-    it('should include category in API call when provided', async () => {
+    it('should include memory_type in API call when category provided', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -230,13 +230,13 @@ describe('memory_recall tool', () => {
 
       await tool.execute({ query: 'coffee', category: 'preference' });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('category=preference'), expect.any(Object));
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('memory_type=preference'), expect.any(Object));
     });
 
     it('should use default limit of 5 when not specified', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -258,10 +258,11 @@ describe('memory_recall tool', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: [
-            { id: '1', content: 'User prefers oat milk', category: 'preference', score: 0.95 },
-            { id: '2', content: 'User birthday is March 15', category: 'fact', score: 0.85 },
+          results: [
+            { id: '1', content: 'User prefers oat milk', type: 'preference', similarity: 0.95 },
+            { id: '2', content: 'User birthday is March 15', type: 'fact', similarity: 0.85 },
           ],
+          search_type: 'semantic',
         },
       });
       const client = { ...mockApiClient, get: mockGet };
@@ -288,7 +289,8 @@ describe('memory_recall tool', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          memories: [{ id: '1', content: 'Memory 1', category: 'fact', score: 0.9 }],
+          results: [{ id: '1', content: 'Memory 1', type: 'fact', similarity: 0.9 }],
+          search_type: 'semantic',
         },
       });
       const client = { ...mockApiClient, get: mockGet };
@@ -313,7 +315,7 @@ describe('memory_recall tool', () => {
     it('should handle empty results gracefully', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -399,7 +401,7 @@ describe('memory_recall tool', () => {
     it('should sanitize query with control characters', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -423,7 +425,7 @@ describe('memory_recall tool', () => {
     it('should trim whitespace from query', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -446,7 +448,7 @@ describe('memory_recall tool', () => {
     it('should log tool invocation at info level', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -465,7 +467,7 @@ describe('memory_recall tool', () => {
     it('should NOT log query content at info level', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -508,7 +510,7 @@ describe('memory_recall tool', () => {
     it('should use provided userId for API calls', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 
@@ -527,7 +529,7 @@ describe('memory_recall tool', () => {
     it('should include userId in response details', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { memories: [] },
+        data: { results: [], search_type: 'text' },
       });
       const client = { ...mockApiClient, get: mockGet };
 

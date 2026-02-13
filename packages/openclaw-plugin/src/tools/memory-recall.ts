@@ -144,7 +144,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
           limit: String(limit),
         });
         if (category) {
-          queryParams.set('category', category);
+          queryParams.set('memory_type', category);
         }
         if (tags && tags.length > 0) {
           queryParams.set('tags', tags.join(','));
@@ -156,7 +156,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         const path = `/api/memories/search?${queryParams.toString()}`;
 
         // Call API
-        const response = await client.get<{ memories: Memory[] }>(path, { userId });
+        const response = await client.get<{ results: Array<{ id: string; content: string; type: string; tags?: string[]; similarity?: number; createdAt?: string; updatedAt?: string }>; search_type: string }>(path, { userId });
 
         if (!response.success) {
           logger.error('memory_recall API error', {
@@ -170,7 +170,18 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
           };
         }
 
-        const memories = response.data.memories ?? [];
+        const rawResults = response.data.results ?? [];
+
+        // Map API field names to plugin Memory interface
+        const memories: Memory[] = rawResults.map((m) => ({
+          id: m.id,
+          content: m.content,
+          category: m.type,
+          tags: m.tags,
+          score: m.similarity,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+        }));
 
         // Format response
         const content = formatMemoriesAsText(memories);
