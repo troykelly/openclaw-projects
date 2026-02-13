@@ -14,6 +14,16 @@ describe('Rate Limiting', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    // Clear OAuth credentials to prevent startup validation failure
+    // when NODE_ENV=production (requires OAUTH_TOKEN_ENCRYPTION_KEY)
+    delete process.env.MS365_CLIENT_ID;
+    delete process.env.MS365_CLIENT_SECRET;
+    delete process.env.AZURE_CLIENT_ID;
+    delete process.env.AZURE_CLIENT_SECRET;
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    delete process.env.GOOGLE_CLOUD_CLIENT_ID;
+    delete process.env.GOOGLE_CLOUD_CLIENT_SECRET;
     process.env.OPENCLAW_PROJECTS_AUTH_DISABLED = 'true';
     // Enable rate limiting for tests
     process.env.NODE_ENV = 'production';
