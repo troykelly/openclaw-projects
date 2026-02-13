@@ -65,8 +65,13 @@ services:
       API_HOST_PORT: ${API_HOST_PORT:-3001}
       APP_HOST_PORT: ${APP_HOST_PORT:-8081}
       GATEWAY_HOST_PORT: ${GATEWAY_HOST_PORT:-18789}
-      # DNS provider credentials
+      # DNS provider credentials (passed through to ACME/lego)
+      # Note: lego checks CF_DNS_API_TOKEN first — if set (even empty),
+      # it ignores CF_API_KEY + CF_API_EMAIL.  The entrypoint unsets
+      # empty values to prevent this.  Only set the vars you use.
+      # Cloudflare — scoped API token (preferred)
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:-}
+      # Cloudflare — Global API Key (legacy fallback)
       CF_API_KEY: ${CF_API_KEY:-}
       CF_API_EMAIL: ${CF_API_EMAIL:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
