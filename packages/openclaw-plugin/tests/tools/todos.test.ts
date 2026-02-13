@@ -71,7 +71,7 @@ describe('todo tools', () => {
       it('should accept no parameters', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { todos: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -90,7 +90,7 @@ describe('todo tools', () => {
       it('should accept valid projectId filter', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { todos: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -102,7 +102,7 @@ describe('todo tools', () => {
         });
 
         await tool.execute({ projectId: '123e4567-e89b-12d3-a456-426614174000' });
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('projectId=123e4567-e89b-12d3-a456-426614174000'), expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('parent_work_item_id=123e4567-e89b-12d3-a456-426614174000'), expect.any(Object));
       });
 
       it('should reject invalid projectId format', async () => {
@@ -123,7 +123,7 @@ describe('todo tools', () => {
       it('should accept completed filter', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { todos: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -135,13 +135,13 @@ describe('todo tools', () => {
         });
 
         await tool.execute({ completed: true });
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('completed=true'), expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('status=completed'), expect.any(Object));
       });
 
       it('should accept limit within range', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { todos: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -174,7 +174,7 @@ describe('todo tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            todos: [
+            items: [
               { id: 't1', title: 'Buy groceries', completed: false },
               { id: 't2', title: 'Call mom', completed: true, dueDate: '2024-01-15' },
             ],
@@ -205,7 +205,7 @@ describe('todo tools', () => {
       it('should handle empty results', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { todos: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -228,7 +228,7 @@ describe('todo tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            todos: [{ id: 't1', title: 'Submit report', completed: false, dueDate: '2024-02-01' }],
+            items: [{ id: 't1', title: 'Submit report', completed: false, dueDate: '2024-02-01' }],
             total: 1,
           },
         });
@@ -323,7 +323,7 @@ describe('todo tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            projectId: '123e4567-e89b-12d3-a456-426614174000',
+            parent_work_item_id: '123e4567-e89b-12d3-a456-426614174000',
           }),
           expect.any(Object),
         );
@@ -369,7 +369,7 @@ describe('todo tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            dueDate: '2024-12-31',
+            not_after: '2024-12-31',
           }),
           expect.any(Object),
         );
@@ -395,7 +395,7 @@ describe('todo tools', () => {
     });
 
     describe('API interaction', () => {
-      it('should call POST /api/todos with correct body', async () => {
+      it('should call POST /api/work-items with correct body', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
           data: { id: 'new-123', title: 'Buy groceries' },
@@ -412,9 +412,10 @@ describe('todo tools', () => {
         await tool.execute({ title: 'Buy groceries' });
 
         expect(mockPost).toHaveBeenCalledWith(
-          '/api/todos',
+          '/api/work-items',
           expect.objectContaining({
             title: 'Buy groceries',
+            item_type: 'task',
           }),
           expect.objectContaining({ userId: 'agent-1' }),
         );
@@ -516,11 +517,11 @@ describe('todo tools', () => {
       });
 
       it('should accept valid UUID', async () => {
-        const mockPost = vi.fn().mockResolvedValue({
+        const mockPatch = vi.fn().mockResolvedValue({
           success: true,
-          data: { completed: true },
+          data: { status: 'completed' },
         });
-        const client = { ...mockApiClient, post: mockPost };
+        const client = { ...mockApiClient, patch: mockPatch };
 
         const tool = createTodoCompleteTool({
           client: client as unknown as ApiClient,
@@ -530,17 +531,17 @@ describe('todo tools', () => {
         });
 
         await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
-        expect(mockPost).toHaveBeenCalled();
+        expect(mockPatch).toHaveBeenCalled();
       });
     });
 
     describe('API interaction', () => {
-      it('should call POST /api/todos/:id/complete', async () => {
-        const mockPost = vi.fn().mockResolvedValue({
+      it('should call PATCH /api/work-items/:id/status', async () => {
+        const mockPatch = vi.fn().mockResolvedValue({
           success: true,
-          data: { completed: true },
+          data: { status: 'completed' },
         });
-        const client = { ...mockApiClient, post: mockPost };
+        const client = { ...mockApiClient, patch: mockPatch };
 
         const tool = createTodoCompleteTool({
           client: client as unknown as ApiClient,
@@ -551,17 +552,17 @@ describe('todo tools', () => {
 
         await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
 
-        expect(mockPost).toHaveBeenCalledWith('/api/todos/123e4567-e89b-12d3-a456-426614174000/complete', {}, expect.objectContaining({ userId: 'agent-1' }));
+        expect(mockPatch).toHaveBeenCalledWith('/api/work-items/123e4567-e89b-12d3-a456-426614174000/status', { status: 'completed' }, expect.objectContaining({ userId: 'agent-1' }));
       });
     });
 
     describe('response', () => {
       it('should return success confirmation', async () => {
-        const mockPost = vi.fn().mockResolvedValue({
+        const mockPatch = vi.fn().mockResolvedValue({
           success: true,
-          data: { completed: true, title: 'Buy groceries' },
+          data: { status: 'completed', title: 'Buy groceries' },
         });
-        const client = { ...mockApiClient, post: mockPost };
+        const client = { ...mockApiClient, patch: mockPatch };
 
         const tool = createTodoCompleteTool({
           client: client as unknown as ApiClient,
@@ -579,11 +580,11 @@ describe('todo tools', () => {
       });
 
       it('should handle not found', async () => {
-        const mockPost = vi.fn().mockResolvedValue({
+        const mockPatch = vi.fn().mockResolvedValue({
           success: false,
           error: { status: 404, message: 'Todo not found', code: 'NOT_FOUND' },
         });
-        const client = { ...mockApiClient, post: mockPost };
+        const client = { ...mockApiClient, patch: mockPatch };
 
         const tool = createTodoCompleteTool({
           client: client as unknown as ApiClient,
@@ -601,11 +602,11 @@ describe('todo tools', () => {
       });
 
       it('should be idempotent (completing twice returns success)', async () => {
-        const mockPost = vi.fn().mockResolvedValue({
+        const mockPatch = vi.fn().mockResolvedValue({
           success: true,
-          data: { completed: true, alreadyCompleted: true },
+          data: { status: 'completed', alreadyCompleted: true },
         });
-        const client = { ...mockApiClient, post: mockPost };
+        const client = { ...mockApiClient, patch: mockPatch };
 
         const tool = createTodoCompleteTool({
           client: client as unknown as ApiClient,
@@ -680,7 +681,7 @@ describe('todo tools', () => {
     it('should include userId in all API calls', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { todos: [], total: 0 },
+        data: { items: [], total: 0 },
       });
       const client = { ...mockApiClient, get: mockGet };
 

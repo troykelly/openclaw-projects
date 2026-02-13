@@ -126,7 +126,7 @@ describe('contact tools', () => {
         });
 
         await tool.execute({ query: 'john' });
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('q=john'), expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith('/api/contacts?search=john&limit=20', expect.any(Object));
       });
 
       it('should accept limit within range', async () => {
@@ -144,7 +144,7 @@ describe('contact tools', () => {
         });
 
         await tool.execute({ query: 'john', limit: 30 });
-        expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('limit=30'), expect.any(Object));
+        expect(mockGet).toHaveBeenCalledWith('/api/contacts?search=john&limit=30', expect.any(Object));
       });
 
       it('should reject limit above 50', async () => {
@@ -166,8 +166,8 @@ describe('contact tools', () => {
           success: true,
           data: {
             contacts: [
-              { id: 'c1', name: 'John Doe', email: 'john@example.com', phone: '+1234567890' },
-              { id: 'c2', name: 'Jane Smith', email: 'jane@example.com' },
+              { id: 'c1', displayName: 'John Doe', email: 'john@example.com', phone: '+1234567890' },
+              { id: 'c2', displayName: 'Jane Smith', email: 'jane@example.com' },
             ],
             total: 2,
           },
@@ -260,7 +260,7 @@ describe('contact tools', () => {
       it('should accept valid UUID', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: '123e4567-e89b-12d3-a456-426614174000', name: 'John Doe' },
+          data: { id: '123e4567-e89b-12d3-a456-426614174000', displayName: 'John Doe' },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -282,7 +282,7 @@ describe('contact tools', () => {
           success: true,
           data: {
             id: '123e4567-e89b-12d3-a456-426614174000',
-            name: 'John Doe',
+            displayName: 'John Doe',
             email: 'john@example.com',
             phone: '+1234567890',
             notes: 'Important client',
@@ -306,7 +306,7 @@ describe('contact tools', () => {
           expect(result.data.content).toContain('john@example.com');
           expect(result.data.content).toContain('+1234567890');
           expect(result.data.content).toContain('Important client');
-          expect(result.data.details.contact.name).toBe('John Doe');
+          expect(result.data.details.contact.displayName).toBe('John Doe');
         }
       });
 
@@ -384,10 +384,10 @@ describe('contact tools', () => {
         expect(result.success).toBe(false);
       });
 
-      it('should accept valid email format', async () => {
+      it('should accept optional contactKind', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', name: 'John Doe' },
+          data: { id: 'new-123', displayName: 'Acme Corp' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -398,70 +398,16 @@ describe('contact tools', () => {
           userId: 'agent-1',
         });
 
-        await tool.execute({ name: 'John Doe', email: 'john@example.com' });
+        await tool.execute({ name: 'Acme Corp', contactKind: 'organisation' });
 
         expect(mockPost).toHaveBeenCalledWith(
-          expect.any(String),
+          '/api/contacts',
           expect.objectContaining({
-            email: 'john@example.com',
+            displayName: 'Acme Corp',
+            contactKind: 'organisation',
           }),
           expect.any(Object),
         );
-      });
-
-      it('should reject invalid email format', async () => {
-        const tool = createContactCreateTool({
-          client: mockApiClient,
-          logger: mockLogger,
-          config: mockConfig,
-          userId: 'agent-1',
-        });
-
-        const result = await tool.execute({ name: 'John Doe', email: 'invalid-email' });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.toLowerCase()).toContain('email');
-        }
-      });
-
-      it('should accept valid phone in E.164 format', async () => {
-        const mockPost = vi.fn().mockResolvedValue({
-          success: true,
-          data: { id: 'new-123', name: 'John Doe' },
-        });
-        const client = { ...mockApiClient, post: mockPost };
-
-        const tool = createContactCreateTool({
-          client: client as unknown as ApiClient,
-          logger: mockLogger,
-          config: mockConfig,
-          userId: 'agent-1',
-        });
-
-        await tool.execute({ name: 'John Doe', phone: '+1234567890' });
-
-        expect(mockPost).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.objectContaining({
-            phone: '+1234567890',
-          }),
-          expect.any(Object),
-        );
-      });
-
-      it('should reject obviously invalid phone', async () => {
-        const tool = createContactCreateTool({
-          client: mockApiClient,
-          logger: mockLogger,
-          config: mockConfig,
-          userId: 'agent-1',
-        });
-
-        const result = await tool.execute({ name: 'John Doe', phone: 'abc' });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.toLowerCase()).toContain('phone');
-        }
       });
 
       it('should reject notes over 2000 characters', async () => {
@@ -481,10 +427,10 @@ describe('contact tools', () => {
     });
 
     describe('API interaction', () => {
-      it('should call POST /api/contacts with correct body', async () => {
+      it('should call POST /api/contacts with displayName (not email/phone)', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', name: 'John Doe' },
+          data: { id: 'new-123', displayName: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -497,21 +443,22 @@ describe('contact tools', () => {
 
         await tool.execute({
           name: 'John Doe',
-          email: 'john@example.com',
-          phone: '+1234567890',
           notes: 'Important client',
         });
 
         expect(mockPost).toHaveBeenCalledWith(
           '/api/contacts',
           expect.objectContaining({
-            name: 'John Doe',
-            email: 'john@example.com',
-            phone: '+1234567890',
+            displayName: 'John Doe',
             notes: 'Important client',
           }),
           expect.objectContaining({ userId: 'agent-1' }),
         );
+        // API does not accept email/phone directly
+        const body = mockPost.mock.calls[0][1];
+        expect(body).not.toHaveProperty('email');
+        expect(body).not.toHaveProperty('phone');
+        expect(body).not.toHaveProperty('name');
       });
     });
 
@@ -519,7 +466,7 @@ describe('contact tools', () => {
       it('should return new contact ID', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', name: 'John Doe' },
+          data: { id: 'new-123', displayName: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -544,7 +491,7 @@ describe('contact tools', () => {
       it('should strip HTML tags from name', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', name: 'John Doe' },
+          data: { id: 'new-123', displayName: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -560,7 +507,7 @@ describe('contact tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            name: 'John Doe',
+            displayName: 'John Doe',
           }),
           expect.any(Object),
         );
@@ -569,7 +516,7 @@ describe('contact tools', () => {
       it('should strip HTML tags from notes', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', name: 'John Doe' },
+          data: { id: 'new-123', displayName: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -653,7 +600,7 @@ describe('contact tools', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          contacts: [{ id: 'c1', name: 'John Doe', email: 'john@example.com' }],
+          contacts: [{ id: 'c1', displayName: 'John Doe', email: 'john@example.com' }],
           total: 1,
         },
       });

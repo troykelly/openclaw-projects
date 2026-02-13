@@ -78,7 +78,7 @@ describe('memory_store tool', () => {
   });
 
   describe('parameter validation', () => {
-    it('should require content parameter', async () => {
+    it('should require text or content parameter', async () => {
       const tool = createMemoryStoreTool({
         client: mockApiClient,
         logger: mockLogger,
@@ -88,9 +88,48 @@ describe('memory_store tool', () => {
 
       const result = await tool.execute({} as MemoryStoreParams);
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('content');
-      }
+    });
+
+    it('should accept text parameter (OpenClaw native)', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ text: 'User prefers dark mode' });
+      expect(result.success).toBe(true);
+      expect(mockPost).toHaveBeenCalledWith(
+        '/api/memories/unified',
+        expect.objectContaining({ content: 'User prefers dark mode' }),
+        expect.any(Object),
+      );
+    });
+
+    it('should accept content parameter as alias', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ content: 'User prefers dark mode' });
+      expect(result.success).toBe(true);
+      expect(mockPost).toHaveBeenCalled();
     });
 
     it('should reject empty content', async () => {

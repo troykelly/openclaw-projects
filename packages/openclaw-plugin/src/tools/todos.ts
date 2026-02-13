@@ -134,17 +134,18 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
 
       try {
         const queryParams = new URLSearchParams({
+          item_type: 'task',
           limit: String(limit),
           offset: String(offset),
         });
         if (projectId) {
-          queryParams.set('projectId', projectId);
+          queryParams.set('parent_work_item_id', projectId);
         }
         if (completed !== undefined) {
-          queryParams.set('completed', String(completed));
+          queryParams.set('status', completed ? 'completed' : 'active');
         }
 
-        const response = await client.get<{ todos?: Todo[]; items?: Todo[]; total?: number }>(`/api/todos?${queryParams.toString()}`, { userId });
+        const response = await client.get<{ items?: Todo[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { userId });
 
         if (!response.success) {
           logger.error('todo_list API error', {
@@ -158,7 +159,7 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
           };
         }
 
-        const todos = response.data.todos ?? response.data.items ?? [];
+        const todos = response.data.items ?? [];
         const total = response.data.total ?? todos.length;
 
         if (todos.length === 0) {
@@ -278,15 +279,16 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
       try {
         const body: Record<string, unknown> = {
           title: sanitizedTitle,
+          item_type: 'task',
         };
         if (projectId) {
-          body.projectId = projectId;
+          body.parent_work_item_id = projectId;
         }
         if (dueDate) {
-          body.dueDate = dueDate;
+          body.not_after = dueDate;
         }
 
-        const response = await client.post<{ id: string; title?: string }>('/api/todos', body, { userId });
+        const response = await client.post<{ id: string; title?: string }>('/api/work-items', body, { userId });
 
         if (!response.success) {
           logger.error('todo_create API error', {
@@ -386,7 +388,7 @@ export function createTodoCompleteTool(options: TodoToolOptions): TodoCompleteTo
       logger.info('todo_complete invoked', { userId, todoId: id });
 
       try {
-        const response = await client.post<{ completed: boolean; title?: string }>(`/api/todos/${id}/complete`, {}, { userId });
+        const response = await client.patch<{ status: string; title?: string }>(`/api/work-items/${id}/status`, { status: 'completed' }, { userId });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {

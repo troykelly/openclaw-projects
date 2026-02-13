@@ -134,24 +134,25 @@ describe('thread tools', () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
           data: {
-            threads: [
+            query: '*',
+            search_type: 'text',
+            results: [
               {
+                type: 'message',
                 id: 'thread-1',
-                channel: 'sms',
-                contactName: 'John Smith',
-                endpointValue: '+15551234567',
-                messageCount: 15,
-                lastMessageAt: '2024-01-15T10:30:00Z',
+                title: 'SMS with John Smith',
+                snippet: 'Hello there',
+                score: 0.95,
               },
               {
+                type: 'message',
                 id: 'thread-2',
-                channel: 'email',
-                contactName: 'Jane Doe',
-                endpointValue: 'jane@example.com',
-                messageCount: 8,
-                lastMessageAt: '2024-01-14T14:20:00Z',
+                title: 'Email with Jane Doe',
+                snippet: 'Invoice attached',
+                score: 0.87,
               },
             ],
+            facets: { message: 2 },
             total: 2,
           },
         });
@@ -167,13 +168,13 @@ describe('thread tools', () => {
 
         expect(result.success).toBe(true);
         expect(result.data).toBeDefined();
-        expect(result.data?.details?.threads).toHaveLength(2);
+        expect(result.data?.details?.results).toHaveLength(2);
       });
 
       it('should call API with correct parameters', async () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
-          data: { threads: [], total: 0 },
+          data: { query: 'sms', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
         });
 
         const tool = createThreadListTool({
@@ -189,9 +190,9 @@ describe('thread tools', () => {
           limit: 30,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads'), { userId });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { userId });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-        expect(callUrl).toContain('channel=sms');
+        expect(callUrl).toContain('types=message');
         expect(callUrl).toContain('contactId=123e4567-e89b-12d3-a456-426614174000');
         expect(callUrl).toContain('limit=30');
       });
@@ -222,7 +223,7 @@ describe('thread tools', () => {
       it('should return empty results gracefully', async () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
-          data: { threads: [], total: 0 },
+          data: { query: '*', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
         });
 
         const tool = createThreadListTool({
@@ -320,25 +321,30 @@ describe('thread tools', () => {
             thread: {
               id: 'thread-1',
               channel: 'sms',
-              contactName: 'John Smith',
-              endpointValue: '+15551234567',
+              externalThreadKey: 'ext-1',
+              contact: { id: 'c-1', displayName: 'John Smith' },
+              createdAt: '2024-01-15T10:00:00Z',
+              updatedAt: '2024-01-15T10:31:00Z',
             },
             messages: [
               {
                 id: 'msg-1',
                 direction: 'inbound',
                 body: 'Hello there',
-                deliveryStatus: 'delivered',
+                receivedAt: '2024-01-15T10:30:00Z',
                 createdAt: '2024-01-15T10:30:00Z',
               },
               {
                 id: 'msg-2',
                 direction: 'outbound',
                 body: 'Hi! How can I help?',
-                deliveryStatus: 'sent',
+                receivedAt: '2024-01-15T10:31:00Z',
                 createdAt: '2024-01-15T10:31:00Z',
               },
             ],
+            relatedWorkItems: [],
+            contactMemories: [],
+            pagination: { hasMore: false },
           },
         });
 
@@ -362,7 +368,13 @@ describe('thread tools', () => {
       it('should call API with correct parameters', async () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
-          data: { thread: {}, messages: [] },
+          data: {
+            thread: { id: 'thread-1', channel: 'sms', externalThreadKey: 'ext-1', contact: { id: 'c-1', displayName: 'Test' }, createdAt: '2024-01-15T10:00:00Z', updatedAt: '2024-01-15T10:00:00Z' },
+            messages: [],
+            relatedWorkItems: [],
+            contactMemories: [],
+            pagination: { hasMore: false },
+          },
         });
 
         const tool = createThreadGetTool({
@@ -377,9 +389,9 @@ describe('thread tools', () => {
           messageLimit: 75,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads/123e4567-e89b-12d3-a456-426614174000'), { userId });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads/123e4567-e89b-12d3-a456-426614174000/history'), { userId });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-        expect(callUrl).toContain('messageLimit=75');
+        expect(callUrl).toContain('limit=75');
       });
 
       it('should handle thread not found', async () => {
@@ -430,22 +442,30 @@ describe('thread tools', () => {
             thread: {
               id: 'thread-1',
               channel: 'sms',
-              contactName: 'John',
+              externalThreadKey: 'ext-1',
+              contact: { id: 'c-1', displayName: 'John' },
+              createdAt: '2024-01-15T10:00:00Z',
+              updatedAt: '2024-01-15T10:31:00Z',
             },
             messages: [
               {
                 id: 'msg-1',
                 direction: 'inbound',
                 body: 'First message',
+                receivedAt: '2024-01-15T10:30:00Z',
                 createdAt: '2024-01-15T10:30:00Z',
               },
               {
                 id: 'msg-2',
                 direction: 'outbound',
                 body: 'Second message',
+                receivedAt: '2024-01-15T10:31:00Z',
                 createdAt: '2024-01-15T10:31:00Z',
               },
             ],
+            relatedWorkItems: [],
+            contactMemories: [],
+            pagination: { hasMore: false },
           },
         });
 

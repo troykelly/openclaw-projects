@@ -186,9 +186,14 @@ export class ApiClient {
 
     try {
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
         'X-Request-Id': requestId,
       };
+
+      // Only set Content-Type for requests that have a body.
+      // Fastify rejects Content-Type: application/json with an empty body.
+      if (body !== undefined) {
+        headers['Content-Type'] = 'application/json';
+      }
 
       if (this.apiKey) {
         headers.Authorization = `Bearer ${this.apiKey}`;

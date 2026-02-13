@@ -172,26 +172,25 @@ describe('message_search tool', () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
         data: {
+          query: 'invoice',
+          search_type: 'hybrid',
           results: [
             {
+              type: 'message',
               id: 'msg-1',
-              body: 'Let me check the invoice',
-              direction: 'inbound',
-              channel: 'email',
-              contactName: 'John Smith',
-              timestamp: '2024-01-15T10:30:00Z',
+              title: 'Email with John Smith',
+              snippet: 'Let me check the invoice',
               score: 0.95,
             },
             {
+              type: 'message',
               id: 'msg-2',
-              body: 'Invoice #1234 has been paid',
-              direction: 'outbound',
-              channel: 'email',
-              contactName: 'John Smith',
-              timestamp: '2024-01-15T10:35:00Z',
+              title: 'Email with John Smith',
+              snippet: 'Invoice #1234 has been paid',
               score: 0.87,
             },
           ],
+          facets: { message: 2 },
           total: 2,
         },
       });
@@ -216,7 +215,7 @@ describe('message_search tool', () => {
     it('should call API with correct parameters', async () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
-        data: { results: [], total: 0 },
+        data: { query: 'meeting notes', search_type: 'hybrid', results: [], facets: { message: 0 }, total: 0 },
       });
 
       const tool = createMessageSearchTool({
@@ -245,7 +244,7 @@ describe('message_search tool', () => {
     it('should not send channel when set to all', async () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
-        data: { results: [], total: 0 },
+        data: { query: 'test', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
       });
 
       const tool = createMessageSearchTool({
@@ -327,7 +326,7 @@ describe('message_search tool', () => {
     it('should return empty results gracefully', async () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
-        data: { results: [], total: 0 },
+        data: { query: 'nonexistent message', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
       });
 
       const tool = createMessageSearchTool({
@@ -349,7 +348,7 @@ describe('message_search tool', () => {
     it('should log search invocation', async () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
-        data: { results: [], total: 0 },
+        data: { query: 'test search', search_type: 'text', results: [], facets: { message: 0 }, total: 0 },
       });
 
       const tool = createMessageSearchTool({
@@ -370,17 +369,18 @@ describe('message_search tool', () => {
       vi.mocked(mockClient.get).mockResolvedValue({
         success: true,
         data: {
+          query: 'test',
+          search_type: 'hybrid',
           results: [
             {
+              type: 'message',
               id: 'msg-1',
-              body: 'Test message content',
-              direction: 'inbound',
-              channel: 'sms',
-              contactName: 'Test Contact',
-              timestamp: '2024-01-15T10:30:00Z',
+              title: 'SMS with Test Contact',
+              snippet: 'Test message content',
               score: 0.92,
             },
           ],
+          facets: { message: 1 },
           total: 1,
         },
       });
@@ -397,7 +397,7 @@ describe('message_search tool', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data?.details?.messages[0]?.similarity).toBe(0.92);
+      expect(result.data?.details?.messages[0]?.score).toBe(0.92);
     });
   });
 });

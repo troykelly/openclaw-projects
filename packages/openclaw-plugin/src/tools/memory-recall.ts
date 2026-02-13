@@ -12,7 +12,7 @@ import type { PluginConfig } from '../config.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Memory categories for filtering */
-export const MemoryCategory = z.enum(['preference', 'fact', 'decision', 'context', 'other']);
+export const MemoryCategory = z.enum(['preference', 'fact', 'decision', 'context', 'entity', 'other']);
 export type MemoryCategory = z.infer<typeof MemoryCategory>;
 
 /** Parameters for memory_recall tool */
