@@ -190,13 +190,39 @@ describe('Nginx Configuration Template', () => {
     });
   });
 
-  describe('Vite base path rewrite', () => {
-    it('should have location block for /static/app/ to strip Vite base prefix', () => {
+  describe('Vite base path handling', () => {
+    it('should rewrite /static/app/assets/ to strip Vite base prefix', () => {
+      expect(nginxConfigContent).toContain('location /static/app/assets/');
+      expect(nginxConfigContent).toMatch(/rewrite.*\/static\/app\/.*last/);
+    });
+
+    it('should have SPA fallback for /static/app/ deep links', () => {
       expect(nginxConfigContent).toContain('location /static/app/');
     });
 
-    it('should rewrite /static/app/* to /* so nginx can find files at root', () => {
-      expect(nginxConfigContent).toMatch(/rewrite.*\/static\/app\/.*last/);
+    it('should NOT have an overly broad rewrite that could tunnel into /api/', () => {
+      // The rewrite must live inside a location scoped to /static/app/assets/,
+      // not a bare /static/app/ location, to prevent /static/app/api/... from
+      // being rewritten into /api/... and hitting the API proxy.
+      expect(nginxConfigContent).toContain('location /static/app/assets/');
+      // The /static/app/ location should use try_files, not rewrite
+      const lines = nginxConfigContent.split('\n');
+      let inStaticAppBlock = false;
+      for (const line of lines) {
+        if (line.includes('location /static/app/') && !line.includes('/assets/')) {
+          inStaticAppBlock = true;
+        }
+        if (inStaticAppBlock && line.includes('rewrite')) {
+          throw new Error(
+            'Found rewrite inside broad /static/app/ location — ' +
+            'this could tunnel /static/app/api/ into /api/. ' +
+            'Rewrites must be scoped to /static/app/assets/ only.',
+          );
+        }
+        if (inStaticAppBlock && line.trim() === '}') {
+          inStaticAppBlock = false;
+        }
+      }
     });
   });
 
@@ -204,7 +230,7 @@ describe('Nginx Configuration Template', () => {
     it('nginx rewrite should match the Vite base path in vite.config.ts', () => {
       const viteConfigPath = resolve(import.meta.dirname, '../../vite.config.ts');
       const viteConfig = readFileSync(viteConfigPath, 'utf-8');
-      // Vite base: '/static/app/' must match the nginx rewrite location
+      // Vite base: '/static/app/' must match the nginx locations
       expect(viteConfig).toContain("base: '/static/app/'");
       expect(nginxConfigContent).toContain('location /static/app/');
     });

@@ -67,14 +67,22 @@ server {
     }
 
     # ==========================================================================
-    # Vite base path rewrite
+    # Vite base path handling
     # ==========================================================================
     # Vite builds with base: '/static/app/' so index.html references assets at
     # /static/app/assets/... but the Docker build copies files to the nginx root
     # (/usr/share/nginx/html/), placing them at /assets/... on disk.
-    # Rewrite to strip the prefix so nginx can find the actual files.
-    location /static/app/ {
+
+    # Rewrite only asset requests to strip the Vite base prefix.
+    # Scoped to /assets/ to avoid rewriting /static/app/api/... into /api/.
+    location /static/app/assets/ {
         rewrite ^/static/app/(.*)$ /$1 last;
+    }
+
+    # SPA fallback for /static/app/* client-side routes (deep links).
+    # Serves index.html directly without rewriting into other location blocks.
+    location /static/app/ {
+        try_files $uri /index.html;
     }
 
     # Hashed assets (immutable cache) - Vite generates files with content hashes
