@@ -118,7 +118,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
 
       try {
         const queryParams = new URLSearchParams({
-          type: 'project',
+          item_type: 'project',
           limit: String(limit),
           offset: String(offset),
         });
@@ -126,7 +126,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
           queryParams.set('status', status);
         }
 
-        const response = await client.get<{ projects?: Project[]; items?: Project[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { userId });
+        const response = await client.get<{ items?: Project[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { userId });
 
         if (!response.success) {
           logger.error('project_list API error', {
@@ -140,7 +140,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
           };
         }
 
-        const projects = response.data.projects ?? response.data.items ?? [];
+        const projects = response.data.items ?? [];
         const total = response.data.total ?? projects.length;
 
         if (projects.length === 0) {
@@ -350,7 +350,7 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
           {
             title: sanitizedName,
             description: sanitizedDescription,
-            type: 'project',
+            item_type: 'project',
           },
           { userId },
         );

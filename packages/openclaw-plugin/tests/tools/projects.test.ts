@@ -78,7 +78,7 @@ describe('project tools', () => {
       it('should accept no parameters', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { projects: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -97,7 +97,7 @@ describe('project tools', () => {
       it('should accept valid status filter', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { projects: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -129,7 +129,7 @@ describe('project tools', () => {
       it('should accept limit within range', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { projects: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -162,7 +162,7 @@ describe('project tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            projects: [
+            items: [
               { id: 'p1', name: 'Project A', status: 'active', description: 'First project' },
               { id: 'p2', name: 'Project B', status: 'completed', description: 'Second project' },
             ],
@@ -192,7 +192,7 @@ describe('project tools', () => {
       it('should handle empty results', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { projects: [], total: 0 },
+          data: { items: [], total: 0 },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -415,7 +415,7 @@ describe('project tools', () => {
           expect.objectContaining({
             title: 'New Project',
             description: 'A new project',
-            type: 'project',
+            item_type: 'project',
           }),
           expect.objectContaining({ userId: 'agent-1' }),
         );
@@ -514,7 +514,7 @@ describe('project tools', () => {
     it('should include userId in all API calls', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
-        data: { projects: [], total: 0 },
+        data: { items: [], total: 0 },
       });
       const client = { ...mockApiClient, get: mockGet };
 
