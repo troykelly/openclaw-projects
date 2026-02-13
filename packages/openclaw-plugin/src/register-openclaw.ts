@@ -954,7 +954,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const queryParams = new URLSearchParams({ q: query, limit: String(limit) });
-        if (category) queryParams.set('category', category);
+        if (category) queryParams.set('memory_type', category);
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
 
@@ -987,7 +987,7 @@ function createToolHandlers(state: PluginState) {
       const {
         content,
         category = 'fact',
-        importance = 0.5,
+        importance = 0.7,
         tags,
         relationship_id,
       } = params as {
@@ -999,11 +999,13 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const payload: Record<string, unknown> = { content, category, importance };
+        const memoryType = category === 'other' ? 'note' : category;
+
+        const payload: Record<string, unknown> = { content, memory_type: memoryType, importance };
         if (tags && tags.length > 0) payload.tags = tags;
         if (relationship_id) payload.relationship_id = relationship_id;
 
-        const response = await apiClient.post<{ id: string }>('/api/memories', payload, { userId });
+        const response = await apiClient.post<{ id: string }>('/api/memories/unified', payload, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
