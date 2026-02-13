@@ -86,6 +86,28 @@ export function generateTitleFromContent(content: string): string {
 }
 
 /**
+ * Normalize importance to 1-10 integer scale.
+ * Accepts both 0-1 float (OpenClaw standard) and 1-10 integer.
+ * Values <= 1.0 are treated as 0-1 float scale and converted.
+ * Values > 1.0 are treated as already on the 1-10 scale.
+ */
+function normalizeImportance(value: number | undefined): number {
+  if (value === undefined) return 5;
+
+  if (value < 0 || value > 10) {
+    throw new Error('Importance must be between 0 and 10');
+  }
+
+  // 0-1 float range → convert to 1-10 integer
+  if (value <= 1) {
+    return Math.round(value * 9) + 1;
+  }
+
+  // Already 1-10 range → round to integer
+  return Math.round(value);
+}
+
+/**
  * Creates a new memory.
  */
 export async function createMemory(pool: Pool, input: CreateMemoryInput): Promise<MemoryEntry> {
@@ -130,7 +152,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       input.createdByAgent ?? null,
       input.createdByHuman ?? false,
       input.sourceUrl ?? null,
-      input.importance ?? 5,
+      normalizeImportance(input.importance),
       input.confidence ?? 1.0,
       input.expiresAt ?? null,
     ],

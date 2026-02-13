@@ -165,6 +165,76 @@ describe('Memory Service', () => {
         }),
       ).rejects.toThrow('Invalid memory type');
     });
+
+    it('normalizes 0-1 float importance to 1-10 integer scale', async () => {
+      const memory = await createMemory(pool, {
+        userEmail: 'test@example.com',
+        title: 'Float importance test',
+        content: 'Testing 0.7 importance',
+        memoryType: 'fact',
+        importance: 0.7,
+      });
+
+      expect(memory.importance).toBe(7); // 0.7 → Math.round(0.7 * 9) + 1 = 7
+    });
+
+    it('normalizes importance 0.0 to 1', async () => {
+      const memory = await createMemory(pool, {
+        userEmail: 'test@example.com',
+        title: 'Min importance',
+        content: 'Testing 0.0 importance',
+        memoryType: 'fact',
+        importance: 0.0,
+      });
+
+      expect(memory.importance).toBe(1);
+    });
+
+    it('normalizes importance 1.0 to 10', async () => {
+      const memory = await createMemory(pool, {
+        userEmail: 'test@example.com',
+        title: 'Max importance',
+        content: 'Testing 1.0 importance',
+        memoryType: 'fact',
+        importance: 1.0,
+      });
+
+      expect(memory.importance).toBe(10);
+    });
+
+    it('passes through 1-10 integer importance unchanged', async () => {
+      const memory = await createMemory(pool, {
+        userEmail: 'test@example.com',
+        title: 'Integer importance',
+        content: 'Testing integer 8',
+        memoryType: 'fact',
+        importance: 8,
+      });
+
+      expect(memory.importance).toBe(8);
+    });
+
+    it('rejects importance outside valid ranges', async () => {
+      await expect(
+        createMemory(pool, {
+          userEmail: 'test@example.com',
+          title: 'Bad importance',
+          content: 'Testing invalid importance',
+          memoryType: 'fact',
+          importance: 15,
+        }),
+      ).rejects.toThrow('Importance must be between 0 and 10');
+
+      await expect(
+        createMemory(pool, {
+          userEmail: 'test@example.com',
+          title: 'Bad importance',
+          content: 'Testing negative importance',
+          memoryType: 'fact',
+          importance: -1,
+        }),
+      ).rejects.toThrow('Importance must be between 0 and 10');
+    });
   });
 
   describe('getMemory', () => {

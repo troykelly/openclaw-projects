@@ -135,6 +135,23 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(body.confidence).toBe(0.95);
     });
 
+    it('normalizes 0-1 float importance to 1-10 scale', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/memories/unified',
+        payload: {
+          title: 'Float importance',
+          content: 'Testing OpenClaw 0-1 importance',
+          memory_type: 'fact',
+          importance: 0.7,
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.importance).toBe(7);
+    });
+
     it('returns 400 for invalid memory type', async () => {
       const res = await app.inject({
         method: 'POST',
