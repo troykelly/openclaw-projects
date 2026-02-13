@@ -127,6 +127,7 @@ describe('Frontend App Dockerfile', () => {
 
 describe('Nginx Configuration Template', () => {
   let nginxConfigContent: string;
+  let dockerfileContent: string;
 
   beforeAll(() => {
     const configPath = resolve(DOCKER_APP_DIR, 'nginx.conf.template');
@@ -134,6 +135,12 @@ describe('Nginx Configuration Template', () => {
       throw new Error('docker/app/nginx.conf.template not found');
     }
     nginxConfigContent = readFileSync(configPath, 'utf-8');
+
+    const dockerfilePath = resolve(DOCKER_APP_DIR, 'Dockerfile');
+    if (!existsSync(dockerfilePath)) {
+      throw new Error('docker/app/Dockerfile not found');
+    }
+    dockerfileContent = readFileSync(dockerfilePath, 'utf-8');
   });
 
   describe('Server configuration', () => {
@@ -190,49 +197,25 @@ describe('Nginx Configuration Template', () => {
     });
   });
 
-  describe('Vite base path handling', () => {
-    it('should rewrite /static/app/assets/ to strip Vite base prefix', () => {
-      expect(nginxConfigContent).toContain('location /static/app/assets/');
-      expect(nginxConfigContent).toMatch(/rewrite.*\/static\/app\/.*last/);
+  describe('Docker Vite base path override', () => {
+    it('should set VITE_BASE=/ before running app:build', () => {
+      expect(dockerfileContent).toMatch(/VITE_BASE=\/\s+pnpm run app:build/);
     });
 
-    it('should have SPA fallback for /static/app/ deep links', () => {
-      expect(nginxConfigContent).toContain('location /static/app/');
+    it('should NOT have any /static/app/ location blocks in nginx', () => {
+      expect(nginxConfigContent).not.toContain('location /static/app/');
     });
 
-    it('should NOT have an overly broad rewrite that could tunnel into /api/', () => {
-      // The rewrite must live inside a location scoped to /static/app/assets/,
-      // not a bare /static/app/ location, to prevent /static/app/api/... from
-      // being rewritten into /api/... and hitting the API proxy.
-      expect(nginxConfigContent).toContain('location /static/app/assets/');
-      // The /static/app/ location should use try_files, not rewrite
-      const lines = nginxConfigContent.split('\n');
-      let inStaticAppBlock = false;
-      for (const line of lines) {
-        if (line.includes('location /static/app/') && !line.includes('/assets/')) {
-          inStaticAppBlock = true;
-        }
-        if (inStaticAppBlock && line.includes('rewrite')) {
-          throw new Error(
-            'Found rewrite inside broad /static/app/ location — ' +
-            'this could tunnel /static/app/api/ into /api/. ' +
-            'Rewrites must be scoped to /static/app/assets/ only.',
-          );
-        }
-        if (inStaticAppBlock && line.trim() === '}') {
-          inStaticAppBlock = false;
-        }
-      }
+    it('should NOT have any rewrite rules in nginx', () => {
+      expect(nginxConfigContent).not.toMatch(/rewrite/);
     });
   });
 
   describe('Vite base path consistency', () => {
-    it('nginx rewrite should match the Vite base path in vite.config.ts', () => {
+    it('vite.config.ts should read VITE_BASE env var with /static/app/ default', () => {
       const viteConfigPath = resolve(import.meta.dirname, '../../vite.config.ts');
       const viteConfig = readFileSync(viteConfigPath, 'utf-8');
-      // Vite base: '/static/app/' must match the nginx locations
-      expect(viteConfig).toContain("base: '/static/app/'");
-      expect(nginxConfigContent).toContain('location /static/app/');
+      expect(viteConfig).toContain("process.env.VITE_BASE || '/static/app/'");
     });
   });
 
