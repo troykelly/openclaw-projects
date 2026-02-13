@@ -355,7 +355,8 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > contact_create parameter schema should match snapshot 1`] = `
 {
   "properties": {
-    "email": {
+    "contactKind": {
+      "maxLength": 50,
       "type": "string",
     },
     "name": {
@@ -365,9 +366,6 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     },
     "notes": {
       "maxLength": 2000,
-      "type": "string",
-    },
-    "phone": {
       "type": "string",
     },
   },
@@ -489,6 +487,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
         "fact",
         "decision",
         "context",
+        "entity",
         "other",
       ],
       "type": "string",
@@ -525,43 +524,6 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > memory_store parameter schema should match snapshot 1`] = `
 {
-  "properties": {
-    "category": {
-      "enum": [
-        "preference",
-        "fact",
-        "decision",
-        "context",
-        "other",
-      ],
-      "type": "string",
-    },
-    "content": {
-      "maxLength": 10000,
-      "minLength": 1,
-      "type": "string",
-    },
-    "importance": {
-      "maximum": 1,
-      "minimum": 0,
-      "type": "number",
-    },
-    "relationship_id": {
-      "format": "uuid",
-      "type": "string",
-    },
-    "tags": {
-      "items": {
-        "maxLength": 100,
-        "minLength": 1,
-        "type": "string",
-      },
-      "type": "array",
-    },
-  },
-  "required": [
-    "content",
-  ],
   "type": "object",
 }
 `;
