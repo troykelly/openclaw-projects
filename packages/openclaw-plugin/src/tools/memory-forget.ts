@@ -200,7 +200,7 @@ async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, 
     limit: '100', // Max to find for deletion
   });
 
-  const searchResponse = await client.get<{ memories: Memory[] }>(`/api/memories/search?${queryParams.toString()}`, { userId });
+  const searchResponse = await client.get<{ results: Array<{ id: string }> }>(`/api/memories/search?${queryParams.toString()}`, { userId });
 
   if (!searchResponse.success) {
     logger.error('memory_forget search error', {
@@ -214,7 +214,7 @@ async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, 
     };
   }
 
-  const memories = searchResponse.data.memories ?? [];
+  const memories = searchResponse.data.results ?? [];
 
   if (memories.length === 0) {
     logger.debug('memory_forget completed', {
