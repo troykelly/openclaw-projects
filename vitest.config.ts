@@ -62,7 +62,7 @@ export default defineConfig({
     setupFiles: [
       './tests/setup-api.ts',
       './tests/setup-ui.ts',
-      ...(hasGateway ? ['./.local/openclaw-gateway/test/setup.ts'] : []),
+      ...(hasGateway ? ['./tests/setup-gateway.ts'] : []),
     ],
   },
   resolve: {
