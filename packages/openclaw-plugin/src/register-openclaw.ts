@@ -1552,7 +1552,7 @@ function createToolHandlers(state: PluginState) {
           messageId: string;
           threadId?: string;
           status: string;
-        }>('/api/email/messages/send', { to, subject, body, htmlBody, threadId, idempotencyKey }, { userId });
+        }>('/api/postmark/email/send', { to, subject, body, htmlBody, threadId, idempotencyKey }, { userId });
 
         if (!response.success) {
           logger.error('email_send API error', {
