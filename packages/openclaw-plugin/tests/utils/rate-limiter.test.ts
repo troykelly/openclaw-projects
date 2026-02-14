@@ -275,5 +275,61 @@ describe('rate-limiter', () => {
       // And specifically, the original 10 should be gone
       expect(statsAfter.activeSenders).toBe(100);
     });
+
+    it('should evict oldest entries when maxSenderEntries is exceeded', () => {
+      const config: RateLimiterConfig = {
+        ...DEFAULT_RATE_LIMITER_CONFIG,
+        knownSenderLimit: 200,
+        recipientGlobalLimit: 10_000,
+        windowMs: 60_000,
+        maxSenderEntries: 50,
+      };
+      const limiter = createRateLimiter(config);
+
+      // Add 100 unique senders — the 100th check triggers cleanup + eviction
+      for (let i = 0; i < 100; i++) {
+        limiter.check(`sender${i}@example.com`, 'me@example.com', 'known');
+      }
+
+      // After the 100th check triggers eviction (trimming to 50),
+      // the 100th sender is then added, giving maxSenderEntries + 1.
+      // The invariant is that entries never exceed maxSenderEntries + CLEANUP_INTERVAL_CHECKS.
+      expect(limiter.getStats().activeSenders).toBeLessThanOrEqual(51);
+    });
+  });
+
+  describe('sender normalization', () => {
+    it('should treat different phone formats as the same sender', () => {
+      const config: RateLimiterConfig = {
+        ...DEFAULT_RATE_LIMITER_CONFIG,
+        unknownSenderLimit: 2,
+        windowMs: 60_000,
+      };
+      const limiter = createRateLimiter(config);
+
+      // Three different formats for the same US number
+      limiter.check('+15551234567', 'me@example.com', 'unknown', 'sms');
+      limiter.check('15551234567', 'me@example.com', 'unknown', 'sms');
+
+      // Third format should be rate-limited (same normalized number)
+      const result = limiter.check('5551234567', 'me@example.com', 'unknown', 'sms');
+      expect(result.allowed).toBe(false);
+    });
+
+    it('should treat email + alias variants as the same sender', () => {
+      const config: RateLimiterConfig = {
+        ...DEFAULT_RATE_LIMITER_CONFIG,
+        unknownSenderLimit: 2,
+        windowMs: 60_000,
+      };
+      const limiter = createRateLimiter(config);
+
+      limiter.check('user@example.com', 'me@example.com', 'unknown', 'email');
+      limiter.check('user+tag@example.com', 'me@example.com', 'unknown', 'email');
+
+      // Third call with different alias should be rate-limited
+      const result = limiter.check('User+other@Example.com', 'me@example.com', 'unknown', 'email');
+      expect(result.allowed).toBe(false);
+    });
   });
 });

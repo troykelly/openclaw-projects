@@ -5,8 +5,15 @@
  * contact-trust-level awareness. Uses in-memory sliding window
  * with automatic cleanup of expired entries.
  *
+ * NOTE: State is in-memory and does not persist across process restarts
+ * or span multiple instances. For multi-instance deployments, a
+ * skill_store-backed implementation would be needed to share rate
+ * limit state across processes.
+ *
  * Part of Issue #1225 — rate limiting and spam protection.
  */
+
+import { normalizeSender, type MessageChannel } from './spam-filter.js';
 
 /** Trust levels for sender classification */
 export type SenderTrust = 'trusted' | 'known' | 'unknown' | 'blocked';
@@ -23,6 +30,13 @@ export interface RateLimiterConfig {
   recipientGlobalLimit: number;
   /** Sliding window duration in milliseconds */
   windowMs: number;
+  /**
+   * Maximum number of tracked sender entries before forced eviction.
+   * Prevents unbounded memory growth if traffic burst creates many keys
+   * and then stops (entries would persist until the next cleanup cycle).
+   * When exceeded, the oldest entries are evicted during the next check.
+   */
+  maxSenderEntries?: number;
 }
 
 /** Result of a rate limit check */
@@ -49,8 +63,12 @@ export interface RateLimiterStats {
 
 /** Rate limiter instance */
 export interface RateLimiter {
-  /** Check if a message is allowed and record it if so */
-  check(sender: string, recipient: string, trust: SenderTrust): RateLimitResult;
+  /**
+   * Check if a message is allowed and record it if so.
+   * Sender and recipient are normalized for consistent matching
+   * (phone number formatting, email alias stripping).
+   */
+  check(sender: string, recipient: string, trust: SenderTrust, channel?: MessageChannel): RateLimitResult;
   /** Get current stats about the limiter */
   getStats(): RateLimiterStats;
 }
@@ -62,6 +80,7 @@ export const DEFAULT_RATE_LIMITER_CONFIG: RateLimiterConfig = {
   unknownSenderLimit: 5,
   recipientGlobalLimit: 200,
   windowMs: 3_600_000, // 1 hour
+  maxSenderEntries: 10_000,
 };
 
 /** Interval for running cleanup of expired entries */
@@ -132,14 +151,39 @@ export function createRateLimiter(config: RateLimiterConfig = DEFAULT_RATE_LIMIT
     }
   }
 
+  /**
+   * Evict oldest sender entries when max capacity is exceeded.
+   * Prevents unbounded memory growth from traffic bursts that create
+   * many keys and then stop before the next cleanup cycle runs.
+   */
+  function evictIfOverCapacity(): void {
+    const maxEntries = config.maxSenderEntries ?? 10_000;
+    if (senderWindows.size <= maxEntries) {
+      return;
+    }
+
+    // Find entries with the oldest most-recent timestamp and evict them
+    const entries = Array.from(senderWindows.entries()).map(([key, timestamps]) => ({
+      key,
+      newestTs: timestamps.length > 0 ? timestamps[timestamps.length - 1] : 0,
+    }));
+    entries.sort((a, b) => a.newestTs - b.newestTs);
+
+    const toEvict = senderWindows.size - maxEntries;
+    for (let i = 0; i < toEvict; i++) {
+      senderWindows.delete(entries[i].key);
+    }
+  }
+
   return {
-    check(sender: string, recipient: string, trust: SenderTrust): RateLimitResult {
+    check(sender: string, recipient: string, trust: SenderTrust, channel?: MessageChannel): RateLimitResult {
       const now = Date.now();
       checkCount++;
 
-      // Periodic cleanup to prevent memory leaks
+      // Periodic cleanup and eviction to prevent memory leaks
       if (checkCount % CLEANUP_INTERVAL_CHECKS === 0) {
         cleanup(now);
+        evictIfOverCapacity();
       }
 
       const limit = getLimitForTrust(trust);
@@ -155,8 +199,9 @@ export function createRateLimiter(config: RateLimiterConfig = DEFAULT_RATE_LIMIT
         };
       }
 
-      // Check per-sender limit
-      const senderKey = sender.toLowerCase();
+      // Normalize sender/recipient for consistent tracking across format variants
+      const ch = channel ?? (sender.includes('@') ? 'email' : 'sms');
+      const senderKey = normalizeSender(sender, ch);
       let senderTimestamps = senderWindows.get(senderKey) ?? [];
       senderTimestamps = pruneWindow(senderTimestamps, now);
 
@@ -175,7 +220,8 @@ export function createRateLimiter(config: RateLimiterConfig = DEFAULT_RATE_LIMIT
       }
 
       // Check per-recipient global limit
-      const recipientKey = recipient.toLowerCase();
+      const recipientCh = channel ?? (recipient.includes('@') ? 'email' : 'sms');
+      const recipientKey = normalizeSender(recipient, recipientCh);
       let recipientTimestamps = recipientWindows.get(recipientKey) ?? [];
       recipientTimestamps = pruneWindow(recipientTimestamps, now);
 

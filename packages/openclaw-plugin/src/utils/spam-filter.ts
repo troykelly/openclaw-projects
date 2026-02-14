@@ -4,6 +4,12 @@
  * Provides pre-processing gate that detects bulk/marketing email,
  * SMS spam signals, and supports configurable allowlist/blocklist.
  *
+ * LIMITATION: Header-based spam detection is inherently best-effort.
+ * Sophisticated spammers can omit or forge headers to bypass these checks.
+ * This filter catches the majority of bulk/marketing email and common SMS
+ * spam patterns, but should be complemented with content-based analysis
+ * and external reputation services for production use at scale.
+ *
  * Part of Issue #1225 — rate limiting and spam protection.
  */
 
@@ -91,6 +97,70 @@ const SMS_OPT_OUT_KEYWORDS = ['stop', 'unsubscribe', 'opt-out', 'opt out', 'canc
 const SHORT_CODE_MAX_LENGTH = 6;
 
 /**
+ * Normalize a sender identifier for consistent comparison.
+ *
+ * - Email: lowercased, with `+` alias portion stripped (e.g. user+tag@gmail.com -> user@gmail.com)
+ * - Phone: non-digit characters stripped, leading country code '1' normalized to '+1'
+ *
+ * This prevents bypass via formatting variants like `+1...` vs `1...`
+ * or `user+spam@gmail.com` vs `user@gmail.com`.
+ */
+export function normalizeSender(sender: string, channel: MessageChannel): string {
+  if (channel === 'email') {
+    return normalizeEmail(sender);
+  }
+  return normalizePhone(sender);
+}
+
+/**
+ * Normalize an email address for consistent comparison.
+ * Lowercases and strips `+` alias tags (e.g. user+tag@example.com -> user@example.com).
+ */
+function normalizeEmail(email: string): string {
+  const lower = email.toLowerCase().trim();
+  const atIndex = lower.indexOf('@');
+  if (atIndex === -1) {
+    return lower;
+  }
+
+  const localPart = lower.slice(0, atIndex);
+  const domain = lower.slice(atIndex);
+
+  // Strip + alias
+  const plusIndex = localPart.indexOf('+');
+  if (plusIndex !== -1) {
+    return localPart.slice(0, plusIndex) + domain;
+  }
+
+  return lower;
+}
+
+/**
+ * Normalize a phone number for consistent comparison.
+ * Strips non-digit characters and normalizes country code.
+ */
+function normalizePhone(phone: string): string {
+  // Strip everything except digits and leading +
+  const hasPlus = phone.startsWith('+');
+  const digits = phone.replace(/[^0-9]/g, '');
+
+  if (digits.length === 0) {
+    return phone.toLowerCase();
+  }
+
+  // Normalize US numbers: 10 digits -> +1XXXXXXXXXX, 11 digits starting with 1 -> +1XXXXXXXXXX
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+
+  // For other formats, preserve the + prefix if it was present
+  return hasPlus ? `+${digits}` : digits;
+}
+
+/**
  * Evaluate whether an inbound message is spam.
  *
  * Checks are applied in this order:
@@ -103,6 +173,8 @@ const SHORT_CODE_MAX_LENGTH = 6;
  * @returns SpamFilterResult with classification and reason
  */
 export function isSpam(message: InboundMessage, config: SpamFilterConfig = DEFAULT_SPAM_FILTER_CONFIG): SpamFilterResult {
+  const normalizedSender = normalizeSender(message.sender, message.channel);
+
   const result: SpamFilterResult = {
     isSpam: false,
     reason: null,
@@ -110,14 +182,14 @@ export function isSpam(message: InboundMessage, config: SpamFilterConfig = DEFAU
     sender: message.sender,
   };
 
-  // Check allowlist first (always passes)
-  if (config.allowlist.some((allowed) => allowed.toLowerCase() === message.sender.toLowerCase())) {
+  // Check allowlist first (always passes) — normalize both sides for consistent matching
+  if (config.allowlist.some((allowed) => normalizeSender(allowed, message.channel) === normalizedSender)) {
     result.reason = 'allowlisted sender';
     return result;
   }
 
-  // Check blocklist (always fails)
-  if (config.blocklist.some((blocked) => blocked.toLowerCase() === message.sender.toLowerCase())) {
+  // Check blocklist (always fails) — normalize both sides for consistent matching
+  if (config.blocklist.some((blocked) => normalizeSender(blocked, message.channel) === normalizedSender)) {
     result.isSpam = true;
     result.reason = 'blocklisted sender';
     return result;

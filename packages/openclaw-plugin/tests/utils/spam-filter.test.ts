@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isSpam,
+  normalizeSender,
   type SpamFilterConfig,
   type InboundMessage,
   DEFAULT_SPAM_FILTER_CONFIG,
@@ -250,6 +251,104 @@ describe('spam-filter', () => {
       };
       const result = isSpam(msg, config);
       expect(result.isSpam).toBe(false);
+    });
+  });
+
+  describe('sender normalization', () => {
+    describe('email normalization', () => {
+      it('should strip + alias tags from email addresses', () => {
+        expect(normalizeSender('user+tag@example.com', 'email')).toBe('user@example.com');
+      });
+
+      it('should lowercase email addresses', () => {
+        expect(normalizeSender('User@Example.COM', 'email')).toBe('user@example.com');
+      });
+
+      it('should handle emails without + aliases', () => {
+        expect(normalizeSender('user@example.com', 'email')).toBe('user@example.com');
+      });
+
+      it('should handle emails without @ gracefully', () => {
+        expect(normalizeSender('notanemail', 'email')).toBe('notanemail');
+      });
+    });
+
+    describe('phone normalization', () => {
+      it('should normalize +1XXXXXXXXXX format', () => {
+        expect(normalizeSender('+15551234567', 'sms')).toBe('+15551234567');
+      });
+
+      it('should normalize 1XXXXXXXXXX to +1XXXXXXXXXX', () => {
+        expect(normalizeSender('15551234567', 'sms')).toBe('+15551234567');
+      });
+
+      it('should normalize 10-digit US numbers to +1XXXXXXXXXX', () => {
+        expect(normalizeSender('5551234567', 'sms')).toBe('+15551234567');
+      });
+
+      it('should strip formatting characters from phone numbers', () => {
+        expect(normalizeSender('+1 (555) 123-4567', 'sms')).toBe('+15551234567');
+      });
+
+      it('should handle international numbers with +', () => {
+        expect(normalizeSender('+44 20 7946 0958', 'sms')).toBe('+442079460958');
+      });
+    });
+
+    describe('normalized allowlist/blocklist matching', () => {
+      it('should block email with + alias when base is blocklisted', () => {
+        const config: SpamFilterConfig = {
+          ...DEFAULT_SPAM_FILTER_CONFIG,
+          blocklist: ['spammer@evil.com'],
+        };
+        const msg: InboundMessage = {
+          ...baseEmailMessage,
+          sender: 'spammer+tag@evil.com',
+        };
+        const result = isSpam(msg, config);
+        expect(result.isSpam).toBe(true);
+        expect(result.reason).toContain('blocklist');
+      });
+
+      it('should allow email with + alias when base is allowlisted', () => {
+        const config: SpamFilterConfig = {
+          ...DEFAULT_SPAM_FILTER_CONFIG,
+          allowlist: ['trusted@example.com'],
+        };
+        const msg: InboundMessage = {
+          ...baseEmailMessage,
+          sender: 'trusted+newsletter@example.com',
+          headers: { 'precedence': 'bulk' }, // would normally be flagged
+        };
+        const result = isSpam(msg, config);
+        expect(result.isSpam).toBe(false);
+      });
+
+      it('should match phone number variants in blocklist', () => {
+        const config: SpamFilterConfig = {
+          ...DEFAULT_SPAM_FILTER_CONFIG,
+          blocklist: ['+15551111111'],
+        };
+        const msg: InboundMessage = {
+          ...baseSmsMessage,
+          sender: '15551111111', // without + prefix
+        };
+        const result = isSpam(msg, config);
+        expect(result.isSpam).toBe(true);
+      });
+
+      it('should match 10-digit phone number against +1 blocklist entry', () => {
+        const config: SpamFilterConfig = {
+          ...DEFAULT_SPAM_FILTER_CONFIG,
+          blocklist: ['+15551111111'],
+        };
+        const msg: InboundMessage = {
+          ...baseSmsMessage,
+          sender: '5551111111', // 10-digit format
+        };
+        const result = isSpam(msg, config);
+        expect(result.isSpam).toBe(true);
+      });
     });
   });
 
