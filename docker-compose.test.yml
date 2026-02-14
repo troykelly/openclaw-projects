@@ -85,6 +85,29 @@ services:
       timeout: 5s
       retries: 10
 
+  worker-test:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    container_name: openclaw-worker-test
+    environment:
+      PGHOST: postgres-test
+      PGPORT: "5432"
+      PGUSER: openclaw
+      PGPASSWORD: openclaw_test
+      PGDATABASE: openclaw_test
+      NODE_ENV: test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      migrate-test:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 networks:
   default:
     name: openclaw-test-network

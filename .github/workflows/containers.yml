@@ -45,6 +45,9 @@ jobs:
           - name: migrate
             context: .
             dockerfile: docker/migrate/Dockerfile
+          - name: worker
+            context: .
+            dockerfile: docker/worker/Dockerfile
 
     steps:
       - name: Checkout repository

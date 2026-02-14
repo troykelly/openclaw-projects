@@ -7,11 +7,55 @@
 import type { Pool } from 'pg';
 import type { WebhookOutboxEntry, WebhookDispatchResult, DispatchStats } from './types.ts';
 import { getOpenClawConfig } from './config.ts';
-import { isAbsoluteUrl } from './ssrf.ts';
+import { isAbsoluteUrl, validateSsrf } from './ssrf.ts';
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Determine if an HTTP status code (or lack thereof) represents a retryable failure.
+ *
+ * Retryable: 408 (timeout), 409 (conflict), 425 (too early), 429 (rate limit),
+ * 5xx (server errors), and network errors (no status code).
+ * Non-retryable: all other 4xx client errors.
+ */
+export function isRetryable(statusCode?: number): boolean {
+  if (statusCode === undefined) {
+    // Network error / timeout — no HTTP response received
+    return true;
+  }
+  if (statusCode >= 500) {
+    return true;
+  }
+  if (statusCode === 408 || statusCode === 409 || statusCode === 425 || statusCode === 429) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Strip query string from a URL for safe logging.
+ */
+function sanitizeDestination(dest: string): string {
+  try {
+    const parsed = new URL(dest);
+    return parsed.origin + parsed.pathname;
+  } catch {
+    // Not a valid absolute URL (e.g. relative path) — safe as-is
+    return dest;
+  }
+}
+
+/**
+ * Truncate a string to a maximum length for log safety.
+ */
+function truncateForLog(value: string, maxLength: number = 256): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength) + '...[truncated]';
+}
 
 /**
  * Calculate exponential backoff delay.
@@ -59,15 +103,16 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
     Object.assign(headers, entry.headers);
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), (config.timeoutSeconds || 120) * 1000);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), (config.timeoutSeconds || 120) * 1000);
 
+  try {
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(entry.body),
       signal: controller.signal,
+      redirect: 'manual', // Prevent SSRF bypass via redirect to internal IPs
     });
 
     clearTimeout(timeout);
@@ -101,6 +146,7 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
       error: `HTTP ${response.status}: ${errorBody}`,
     };
   } catch (error) {
+    clearTimeout(timeout);
     const err = error as Error;
 
     if (err.name === 'AbortError') {
@@ -137,33 +183,36 @@ async function lockWebhookEntry(pool: Pool, entryId: string, workerId: string): 
 
 /**
  * Mark a webhook as successfully dispatched.
+ * Verifies lock ownership to prevent stale workers from mutating state.
  */
-async function markDispatched(pool: Pool, entryId: string): Promise<void> {
+async function markDispatched(pool: Pool, entryId: string, workerId: string): Promise<void> {
   await pool.query(
     `UPDATE webhook_outbox
      SET dispatched_at = NOW(),
          locked_at = NULL,
          locked_by = NULL,
          updated_at = NOW()
-     WHERE id = $1`,
-    [entryId],
+     WHERE id = $1 AND locked_by = $2`,
+    [entryId, workerId],
   );
 }
 
 /**
- * Record a dispatch failure.
+ * Record a dispatch failure with jittered backoff.
+ * Verifies lock ownership to prevent stale workers from mutating state.
  */
-async function recordFailure(pool: Pool, entryId: string, error: string): Promise<void> {
+async function recordFailure(pool: Pool, entryId: string, error: string, workerId: string): Promise<void> {
+  const jitterMs = Math.floor(Math.random() * 1000);
   await pool.query(
     `UPDATE webhook_outbox
      SET attempts = attempts + 1,
          last_error = $2,
          locked_at = NULL,
          locked_by = NULL,
-         run_at = NOW() + (POWER(2, LEAST(attempts, 5)) * INTERVAL '1 second'),
+         run_at = NOW() + (POWER(2, LEAST(attempts, 5)) * INTERVAL '1 second') + ($3 * INTERVAL '1 millisecond'),
          updated_at = NOW()
-     WHERE id = $1`,
-    [entryId, error],
+     WHERE id = $1 AND locked_by = $4`,
+    [entryId, truncateForLog(error), jitterMs, workerId],
   );
 }
 
@@ -232,17 +281,64 @@ export async function processPendingWebhooks(pool: Pool, limit: number = 100): P
 
     stats.processed++;
 
+    // Dispatch-time SSRF re-validation for absolute URLs
+    if (isAbsoluteUrl(entry.destination)) {
+      const ssrfError = validateSsrf(entry.destination);
+      if (ssrfError) {
+        // Non-retryable: dead-letter immediately by maxing out attempts
+        await pool.query(
+          `UPDATE webhook_outbox
+           SET attempts = $2,
+               last_error = $3,
+               locked_at = NULL,
+               locked_by = NULL,
+               updated_at = NOW()
+           WHERE id = $1 AND locked_by = $4`,
+          [entry.id, MAX_RETRIES, `SSRF blocked at dispatch: ${ssrfError}`, workerId],
+        );
+        stats.failed++;
+        console.warn(`[Webhooks] SSRF blocked ${entry.kind} to ${sanitizeDestination(entry.destination)}: ${ssrfError}`);
+        continue;
+      }
+    }
+
     const result = await dispatchWebhook(entry);
 
     if (result.success) {
-      await markDispatched(pool, entry.id);
+      await markDispatched(pool, entry.id, workerId);
       stats.succeeded++;
-      console.log(`[Webhooks] Dispatched ${entry.kind} to ${entry.destination}`);
+      console.log(`[Webhooks] Dispatched ${entry.kind} to ${sanitizeDestination(entry.destination)}`);
     } else {
-      await recordFailure(pool, entry.id, result.error || 'Unknown error');
-      stats.failed++;
-      console.warn(`[Webhooks] Failed to dispatch ${entry.kind}: ${result.error}`);
+      if (!isRetryable(result.statusCode)) {
+        // Non-retryable failure: dead-letter immediately
+        await pool.query(
+          `UPDATE webhook_outbox
+           SET attempts = $2,
+               last_error = $3,
+               locked_at = NULL,
+               locked_by = NULL,
+               updated_at = NOW()
+           WHERE id = $1 AND locked_by = $4`,
+          [entry.id, MAX_RETRIES, truncateForLog(result.error || 'Unknown error'), workerId],
+        );
+        stats.failed++;
+        console.warn(`[Webhooks] Non-retryable failure for ${entry.kind} (HTTP ${result.statusCode}), dead-lettered`);
+      } else {
+        await recordFailure(pool, entry.id, result.error || 'Unknown error', workerId);
+        stats.failed++;
+        console.warn(`[Webhooks] Failed to dispatch ${entry.kind}: ${truncateForLog(result.error || 'Unknown error')}`);
+      }
     }
+  }
+
+  // Check for dead-lettered entries and warn
+  const deadLetterResult = await pool.query(
+    `SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NULL AND attempts >= $1`,
+    [MAX_RETRIES],
+  );
+  const deadLetterCount = parseInt((deadLetterResult.rows[0] as { count: string }).count, 10);
+  if (deadLetterCount > 0) {
+    console.warn(`[Webhooks] ${deadLetterCount} dead-lettered webhook(s) in outbox`);
   }
 
   return stats;

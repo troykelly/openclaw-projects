@@ -137,13 +137,14 @@ log_info "Starting compose stack..."
 # Pull images first (speeds up subsequent runs)
 # If pull fails (e.g., images not published yet for PR branch), build locally
 if ! docker compose -f "$COMPOSE_FILE" pull 2>&1 | tee /tmp/pull.log; then
-  if grep -q "manifest unknown" /tmp/pull.log; then
+  if grep -qE "manifest unknown|not found" /tmp/pull.log; then
     log_warn "Published images not available, building locally..."
     # Build images directly since compose file uses image: not build:
     docker build -f "${PROJECT_ROOT}/docker/postgres/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-db:latest "$PROJECT_ROOT"
     docker build -f "${PROJECT_ROOT}/docker/migrate/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-migrate:latest "$PROJECT_ROOT"
     docker build -f "${PROJECT_ROOT}/docker/api/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-api:latest "$PROJECT_ROOT"
     docker build -f "${PROJECT_ROOT}/docker/app/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-app:latest "$PROJECT_ROOT"
+    docker build -f "${PROJECT_ROOT}/docker/worker/Dockerfile" -t ghcr.io/troykelly/openclaw-projects-worker:latest "$PROJECT_ROOT"
   else
     log_warn "Pull failed, will try to use cached images"
   fi
@@ -249,6 +250,15 @@ fi
 log_info "  Waiting for frontend app..."
 if wait_for_healthy "app"; then
   log_success "  Frontend app is healthy"
+  TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+  TESTS_FAILED=$((TESTS_FAILED + 1))
+fi
+
+# Wait for worker
+log_info "  Waiting for worker..."
+if wait_for_healthy "worker"; then
+  log_success "  Worker is healthy"
   TESTS_PASSED=$((TESTS_PASSED + 1))
 else
   TESTS_FAILED=$((TESTS_FAILED + 1))

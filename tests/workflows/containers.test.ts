@@ -110,10 +110,10 @@ describe('containers.yml workflow', () => {
     });
 
     describe('matrix strategy', () => {
-      it('should define matrix strategy for all 4 images', () => {
+      it('should define matrix strategy for all 5 images', () => {
         const matrix = workflow.jobs.build.strategy?.matrix;
         expect(matrix).toBeDefined();
-        expect(matrix?.image).toHaveLength(4);
+        expect(matrix?.image).toHaveLength(5);
       });
 
       it('should include db image with correct dockerfile path', () => {
@@ -142,6 +142,13 @@ describe('containers.yml workflow', () => {
         const migrate = matrix?.image.find((i) => i.name === 'migrate');
         expect(migrate).toBeDefined();
         expect(migrate?.dockerfile).toBe('docker/migrate/Dockerfile');
+      });
+
+      it('should include worker image with correct dockerfile path', () => {
+        const matrix = workflow.jobs.build.strategy?.matrix;
+        const worker = matrix?.image.find((i) => i.name === 'worker');
+        expect(worker).toBeDefined();
+        expect(worker?.dockerfile).toBe('docker/worker/Dockerfile');
       });
 
       it('should not use fail-fast (allow other images to build if one fails)', () => {

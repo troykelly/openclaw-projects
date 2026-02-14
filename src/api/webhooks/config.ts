@@ -48,6 +48,43 @@ export function clearConfigCache(): void {
 }
 
 /**
+ * Validate OpenClaw configuration and return detailed errors.
+ *
+ * Checks:
+ * - OPENCLAW_GATEWAY_URL is present and parseable as a URL
+ * - OPENCLAW_HOOK_TOKEN is present, non-empty, not a 1Password reference
+ *
+ * Never logs actual token values — only presence/absence.
+ */
+export function validateOpenClawConfig(): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+  if (!gatewayUrl) {
+    errors.push('OPENCLAW_GATEWAY_URL is not set');
+  } else {
+    try {
+      new URL(gatewayUrl);
+    } catch {
+      errors.push('OPENCLAW_GATEWAY_URL is not a valid URL');
+    }
+  }
+
+  const hookToken = process.env.OPENCLAW_HOOK_TOKEN;
+  if (!hookToken) {
+    errors.push('OPENCLAW_HOOK_TOKEN is not set');
+  } else if (hookToken.trim().length === 0) {
+    errors.push('OPENCLAW_HOOK_TOKEN is empty or whitespace');
+  } else if (hookToken.startsWith('op://')) {
+    errors.push('OPENCLAW_HOOK_TOKEN appears to be an unresolved 1Password reference (starts with op://)');
+  } else if (hookToken.includes("[use 'op item get")) {
+    errors.push('OPENCLAW_HOOK_TOKEN contains unresolved 1Password CLI placeholder');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
  * Get config summary for logging/diagnostics.
  */
 export function getConfigSummary(): {

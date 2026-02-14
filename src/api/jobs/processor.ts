@@ -51,16 +51,26 @@ export async function claimJobs(pool: Pool, workerId: string, limit: number = 10
 
 /**
  * Mark a job as completed.
+ * Passes workerId for lock-owner verification (migration 063+).
  */
-export async function completeJob(pool: Pool, jobId: string): Promise<void> {
-  await pool.query(`SELECT internal_job_complete($1)`, [jobId]);
+export async function completeJob(pool: Pool, jobId: string, workerId?: string): Promise<void> {
+  if (workerId) {
+    await pool.query(`SELECT internal_job_complete($1, $2)`, [jobId, workerId]);
+  } else {
+    await pool.query(`SELECT internal_job_complete($1)`, [jobId]);
+  }
 }
 
 /**
  * Mark a job as failed with retry.
+ * Passes workerId for lock-owner verification (migration 063+).
  */
-export async function failJob(pool: Pool, jobId: string, error: string, retrySeconds: number = 60): Promise<void> {
-  await pool.query(`SELECT internal_job_fail($1, $2, $3)`, [jobId, error, retrySeconds]);
+export async function failJob(pool: Pool, jobId: string, error: string, retrySeconds: number = 60, workerId?: string): Promise<void> {
+  if (workerId) {
+    await pool.query(`SELECT internal_job_fail($1, $2, $3, $4)`, [jobId, error, retrySeconds, workerId]);
+  } else {
+    await pool.query(`SELECT internal_job_fail($1, $2, $3)`, [jobId, error, retrySeconds]);
+  }
 }
 
 /**
@@ -358,8 +368,9 @@ export async function processJobs(pool: Pool, limit: number = 10): Promise<JobPr
     const handler = getJobHandler(pool, job.kind);
 
     if (!handler) {
-      console.warn(`[Jobs] Unknown job kind: ${job.kind}`);
-      await failJob(pool, job.id, `Unknown job kind: ${job.kind}`);
+      // Dead-letter unknown job kinds: complete (don't retry) so they stop cycling
+      console.error(`[Jobs] Dead-lettered unknown job kind: ${job.kind} (job ${job.id})`);
+      await completeJob(pool, job.id, workerId);
       stats.failed++;
       continue;
     }
@@ -368,19 +379,19 @@ export async function processJobs(pool: Pool, limit: number = 10): Promise<JobPr
       const result = await handler(job);
 
       if (result.success) {
-        await completeJob(pool, job.id);
+        await completeJob(pool, job.id, workerId);
         stats.succeeded++;
         console.log(`[Jobs] Completed ${job.kind} job ${job.id}`);
       } else {
         const retrySeconds = Math.pow(2, job.attempts) * 60; // Exponential backoff
-        await failJob(pool, job.id, result.error || 'Unknown error', retrySeconds);
+        await failJob(pool, job.id, result.error || 'Unknown error', retrySeconds, workerId);
         stats.failed++;
         console.warn(`[Jobs] Failed ${job.kind} job ${job.id}: ${result.error}`);
       }
     } catch (error) {
       const err = error as Error;
       const retrySeconds = Math.pow(2, job.attempts) * 60;
-      await failJob(pool, job.id, err.message, retrySeconds);
+      await failJob(pool, job.id, err.message, retrySeconds, workerId);
       stats.failed++;
       console.error(`[Jobs] Error processing ${job.kind} job ${job.id}:`, err);
     }

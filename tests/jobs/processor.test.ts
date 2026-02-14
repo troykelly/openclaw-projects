@@ -84,7 +84,11 @@ describe('Job processor (Issue #222)', () => {
       );
       const jobId = result.rows[0].id as string;
 
-      await completeJob(pool, jobId);
+      // Claim the job first (migration 063 requires locked_by IS NOT NULL)
+      const claimed = await claimJobs(pool, 'test-worker', 1);
+      expect(claimed.length).toBe(1);
+
+      await completeJob(pool, jobId, 'test-worker');
 
       const job = await pool.query(`SELECT completed_at FROM internal_job WHERE id = $1`, [jobId]);
 
@@ -101,7 +105,11 @@ describe('Job processor (Issue #222)', () => {
       );
       const jobId = result.rows[0].id as string;
 
-      await failJob(pool, jobId, 'Test error', 60);
+      // Claim the job first (migration 063 requires locked_by IS NOT NULL)
+      const claimed = await claimJobs(pool, 'test-worker', 1);
+      expect(claimed.length).toBe(1);
+
+      await failJob(pool, jobId, 'Test error', 60, 'test-worker');
 
       const job = await pool.query(
         `SELECT attempts, last_error, (run_at > now()) as scheduled_future
