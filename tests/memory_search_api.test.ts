@@ -97,7 +97,7 @@ describe('Memory Search API', () => {
       const body = searchRes.json();
       expect(body.search_type).toBe('semantic');
       expect(body.results.length).toBeGreaterThan(0);
-      expect(body.query_embedding_provider).toBeDefined();
+      expect(body.embedding_provider).toBeDefined();
     });
   });
 
