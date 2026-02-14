@@ -4,7 +4,17 @@
  */
 
 import type { Pool } from 'pg';
-import type { ThreadInfo, ThreadMessage, RelatedWorkItem, ContactMemory, ThreadHistoryResponse, ThreadHistoryOptions } from './types.ts';
+import type {
+  ThreadInfo,
+  ThreadMessage,
+  RelatedWorkItem,
+  ContactMemory,
+  ThreadHistoryResponse,
+  ThreadHistoryOptions,
+  ThreadListOptions,
+  ThreadListResponse,
+  ThreadListItem,
+} from './types.ts';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -249,4 +259,141 @@ export async function getThreadHistory(pool: Pool, threadId: string, options: Th
 export async function threadExists(pool: Pool, threadId: string): Promise<boolean> {
   const result = await pool.query(`SELECT 1 FROM external_thread WHERE id = $1`, [threadId]);
   return result.rows.length > 0;
+}
+
+/**
+ * List threads with pagination and filtering.
+ */
+export async function listThreads(pool: Pool, options: ThreadListOptions = {}): Promise<ThreadListResponse> {
+  const limit = options.limit || 20;
+  const offset = options.offset || 0;
+  const params: (string | number)[] = [];
+  const whereClauses: string[] = [];
+
+  let paramIndex = 1;
+
+  // Filter by channel
+  if (options.channel) {
+    whereClauses.push(`et.channel = $${paramIndex}`);
+    params.push(options.channel);
+    paramIndex++;
+  }
+
+  // Filter by contact_id
+  if (options.contactId) {
+    whereClauses.push(`ce.contact_id = $${paramIndex}`);
+    params.push(options.contactId);
+    paramIndex++;
+  }
+
+  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  // Get total count
+  const countResult = await pool.query(
+    `SELECT COUNT(DISTINCT et.id)::int as count
+     FROM external_thread et
+     JOIN contact_endpoint ce ON ce.id = et.endpoint_id
+     ${whereClause}`,
+    params,
+  );
+  const total = countResult.rows[0].count as number;
+
+  // Get threads with last message
+  params.push(limit + 1); // Fetch one extra to determine hasMore
+  const limitParam = paramIndex;
+  paramIndex++;
+
+  params.push(offset);
+  const offsetParam = paramIndex;
+
+  const result = await pool.query(
+    `SELECT
+       et.id::text as id,
+       et.channel::text as channel,
+       et.external_thread_key as "externalThreadKey",
+       et.created_at as "createdAt",
+       et.updated_at as "updatedAt",
+       c.id::text as "contactId",
+       c.display_name as "displayName",
+       c.notes,
+       (SELECT COUNT(*)::int FROM external_message WHERE thread_id = et.id) as "messageCount",
+       lm.id::text as "lastMessageId",
+       lm.direction::text as "lastMessageDirection",
+       lm.body as "lastMessageBody",
+       lm.subject as "lastMessageSubject",
+       lm.received_at as "lastMessageReceivedAt"
+     FROM external_thread et
+     JOIN contact_endpoint ce ON ce.id = et.endpoint_id
+     JOIN contact c ON c.id = ce.contact_id
+     LEFT JOIN LATERAL (
+       SELECT id, direction, body, subject, received_at
+       FROM external_message
+       WHERE thread_id = et.id
+       ORDER BY received_at DESC
+       LIMIT 1
+     ) lm ON true
+     ${whereClause}
+     ORDER BY COALESCE(lm.received_at, et.updated_at) DESC
+     LIMIT $${limitParam}
+     OFFSET $${offsetParam}`,
+    params,
+  );
+
+  const hasMore = result.rows.length > limit;
+  const rows = result.rows.slice(0, limit);
+
+  const threads: ThreadListItem[] = rows.map((row) => {
+    const r = row as {
+      id: string;
+      channel: string;
+      externalThreadKey: string;
+      createdAt: string;
+      updatedAt: string;
+      contactId: string;
+      displayName: string;
+      notes: string | null;
+      messageCount: number;
+      lastMessageId: string | null;
+      lastMessageDirection: string | null;
+      lastMessageBody: string | null;
+      lastMessageSubject: string | null;
+      lastMessageReceivedAt: string | null;
+    };
+
+    const thread: ThreadListItem = {
+      id: r.id,
+      channel: r.channel,
+      externalThreadKey: r.externalThreadKey,
+      contact: {
+        id: r.contactId,
+        displayName: r.displayName,
+        notes: r.notes || undefined,
+      },
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.updatedAt),
+      messageCount: r.messageCount,
+    };
+
+    if (r.lastMessageId) {
+      thread.lastMessage = {
+        id: r.lastMessageId,
+        direction: r.lastMessageDirection as 'inbound' | 'outbound',
+        body: r.lastMessageBody,
+        subject: r.lastMessageSubject || undefined,
+        receivedAt: new Date(r.lastMessageReceivedAt!),
+      };
+    }
+
+    return thread;
+  });
+
+  return {
+    threads,
+    total,
+    pagination: {
+      limit,
+      offset,
+      hasMore,
+    },
+  };
 }
