@@ -54,11 +54,34 @@ function createRawClient(baseUrl: string) {
   };
 }
 
+type RawClient = ReturnType<typeof createRawClient>;
+
+/**
+ * Retry a POST request up to `maxRetries` times on transient 500 errors
+ * (e.g. database deadlocks when sharing a DB with other processes).
+ */
+async function postWithRetry(
+  api: RawClient,
+  path: string,
+  body: unknown,
+  maxRetries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const res = await api.post(path, body);
+    if (res.status !== 500 || attempt === maxRetries - 1) return res;
+    // Consume the body to avoid leaking connections
+    await res.text();
+    await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+  }
+  // Unreachable, but satisfies the type checker
+  return api.post(path, body);
+}
+
 describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
   const config: E2EConfig = defaultConfig;
   const api = createRawClient(config.apiUrl);
 
-  /** IDs to clean up after each describe block. */
+  /** IDs to clean up after all tests complete. */
   const cleanupWorkItems: string[] = [];
   const cleanupContacts: string[] = [];
 
@@ -89,8 +112,8 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
   describe('Work item isolation', () => {
     let itemIdA: string;
 
-    it('should create a work item scoped to user A', async () => {
-      const res = await api.post('/api/work-items', {
+    beforeAll(async () => {
+      const res = await postWithRetry(api, '/api/work-items', {
         title: `E2E Scoped WI ${Date.now()}`,
         kind: 'issue',
         user_email: USER_A,
@@ -131,8 +154,8 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
   describe('Contact isolation', () => {
     let contactIdA: string;
 
-    it('should create a contact scoped to user A', async () => {
-      const res = await api.post('/api/contacts', {
+    beforeAll(async () => {
+      const res = await postWithRetry(api, '/api/contacts', {
         displayName: `E2E Scoped Contact ${Date.now()}`,
         user_email: USER_A,
       });
@@ -171,13 +194,20 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
 
   describe('Relationship isolation', () => {
     let contactA1: string;
-    let contactA2: string;
+    const relTypeName = `e2e-colleague-${Date.now()}`;
 
-    it('should create contacts and a relationship scoped to user A', async () => {
+    beforeAll(async () => {
       const uniqueTag = Date.now().toString();
 
+      // Ensure a relationship type exists for this test
+      const typeRes = await api.post('/api/relationship-types', {
+        name: relTypeName,
+        label: 'E2E Colleague',
+      });
+      expect([201, 409]).toContain(typeRes.status);
+
       // Create two contacts for user A
-      const c1 = await api.post('/api/contacts', {
+      const c1 = await postWithRetry(api, '/api/contacts', {
         displayName: `E2E RelA1 ${uniqueTag}`,
         user_email: USER_A,
       });
@@ -185,19 +215,19 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
       contactA1 = ((await c1.json()) as { id: string }).id;
       cleanupContacts.push(contactA1);
 
-      const c2 = await api.post('/api/contacts', {
+      const c2 = await postWithRetry(api, '/api/contacts', {
         displayName: `E2E RelA2 ${uniqueTag}`,
         user_email: USER_A,
       });
       expect(c2.status).toBe(201);
-      contactA2 = ((await c2.json()) as { id: string }).id;
+      const contactA2 = ((await c2.json()) as { id: string }).id;
       cleanupContacts.push(contactA2);
 
       // Create relationship via /api/relationships/set with user_email
-      const relRes = await api.post('/api/relationships/set', {
+      const relRes = await postWithRetry(api, '/api/relationships/set', {
         contact_a: `E2E RelA1 ${uniqueTag}`,
         contact_b: `E2E RelA2 ${uniqueTag}`,
-        relationship_type: 'colleague',
+        relationship_type: relTypeName,
         user_email: USER_A,
       });
       expect(relRes.status).toBe(200);
@@ -229,8 +259,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
     let unscopedContactId: string;
 
     it('work items created without user_email are visible to all', async () => {
-      // Create without user_email
-      const res = await api.post('/api/work-items', {
+      const res = await postWithRetry(api, '/api/work-items', {
         title: `E2E Unscoped WI ${Date.now()}`,
         kind: 'issue',
       });
@@ -246,7 +275,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
     });
 
     it('contacts created without user_email are visible to all', async () => {
-      const res = await api.post('/api/contacts', {
+      const res = await postWithRetry(api, '/api/contacts', {
         displayName: `E2E Unscoped Contact ${Date.now()}`,
       });
       expect(res.status).toBe(201);
@@ -266,8 +295,8 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
     describe('work items', () => {
       let protectedItemId: string;
 
-      it('should create a work item scoped to user A', async () => {
-        const res = await api.post('/api/work-items', {
+      beforeAll(async () => {
+        const res = await postWithRetry(api, '/api/work-items', {
           title: `E2E Protected WI ${Date.now()}`,
           kind: 'issue',
           user_email: USER_A,
@@ -316,8 +345,8 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
     describe('contacts', () => {
       let protectedContactId: string;
 
-      it('should create a contact scoped to user A', async () => {
-        const res = await api.post('/api/contacts', {
+      beforeAll(async () => {
+        const res = await postWithRetry(api, '/api/contacts', {
           displayName: `E2E Protected Contact ${Date.now()}`,
           user_email: USER_A,
         });
