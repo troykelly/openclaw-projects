@@ -3032,6 +3032,8 @@ export const schemas = {
   todoList: todoListSchema,
   todoCreate: todoCreateSchema,
   todoComplete: todoCompleteSchema,
+  todoSearch: todoSearchSchema,
+  projectSearch: projectSearchSchema,
   contactSearch: contactSearchSchema,
   contactGet: contactGetSchema,
   contactCreate: contactCreateSchema,
