@@ -4,6 +4,8 @@
  * Automatically creates entity links when inbound SMS/email arrives:
  * 1. Sender -> Contact matching: matches sender email/phone to existing contacts
  * 2. Content -> Project/Todo matching: semantic search for related work items
+ *    (only runs when sender is a known contact — safety decision to prevent
+ *    untrusted senders from creating spurious links)
  *
  * Links are created via the skill_store API using the same pattern as
  * entity-links.ts tools. All operations are failure-isolated so that
@@ -12,6 +14,7 @@
 
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
+import { sanitizeExternalMessage } from './injection-protection.js';
 import { sanitizeErrorMessage } from './sanitize.js';
 
 // ==================== Constants ====================
@@ -106,6 +109,16 @@ interface SkillStoreItem {
 }
 
 // ==================== Helpers ====================
+
+/**
+ * Build a URI-style thread reference for use as target_ref.
+ * Uses 'url' entity type since the entity-links schema has a fixed enum
+ * and does not yet include a 'message_thread' type.
+ * TODO(#1223): Add a proper 'message_thread' entity type to entity-links schema.
+ */
+function buildThreadRef(threadId: string): string {
+  return `thread:${threadId}`;
+}
 
 /**
  * Build a composite key for a link (matches entity-links.ts pattern).
@@ -205,12 +218,16 @@ async function createEntityLink(
     });
 
     // Best-effort rollback of orphaned forward link
-    try {
-      await client.delete(`/api/skill-store/items/${forwardResponse.data.id}`, { userId });
-    } catch {
-      logger.error('auto-linker: rollback of orphaned forward link failed', {
+    const rollbackResponse = await client.delete(
+      `/api/skill-store/items/${forwardResponse.data.id}`,
+      { userId },
+    );
+
+    if (!rollbackResponse.success) {
+      logger.error('auto-linker: rollback of orphaned forward link failed — partial state', {
         userId,
         forwardId: forwardResponse.data.id,
+        rollbackStatus: rollbackResponse.error.status,
       });
     }
 
@@ -223,7 +240,9 @@ async function createEntityLink(
 // ==================== Sender matching ====================
 
 /**
- * Search for contacts matching the sender's email or phone.
+ * Search for contacts matching the sender's email and/or phone.
+ * Searches both identifiers separately when both are present,
+ * then deduplicates matched contact IDs.
  * Returns matched contact IDs and creates links for each match.
  */
 async function matchSenderToContacts(
@@ -234,60 +253,79 @@ async function matchSenderToContacts(
   senderEmail?: string,
   senderPhone?: string,
 ): Promise<string[]> {
-  // Build search query from sender info
-  const searchQuery = senderEmail ?? senderPhone;
-  if (!searchQuery) {
+  if (!senderEmail && !senderPhone) {
     return [];
   }
 
-  const queryParams = new URLSearchParams({
-    search: searchQuery,
-    limit: '5',
-  });
+  // Search both email and phone separately to catch all matches
+  const searchQueries: string[] = [];
+  if (senderEmail) searchQueries.push(senderEmail);
+  if (senderPhone) searchQueries.push(senderPhone);
 
-  const response = await client.get<{
-    contacts?: ContactResult[];
-    items?: ContactResult[];
-    total?: number;
-  }>(`/api/contacts?${queryParams.toString()}`, { userId });
+  // Collect all contacts from all searches
+  const allContacts: ContactResult[] = [];
 
-  if (!response.success) {
-    logger.error('auto-linker: contact search failed', {
-      userId,
-      status: response.error.status,
-      code: response.error.code,
+  for (const searchQuery of searchQueries) {
+    const queryParams = new URLSearchParams({
+      search: searchQuery,
+      limit: '5',
+      user_email: userId,
     });
+
+    const response = await client.get<{
+      contacts?: ContactResult[];
+      items?: ContactResult[];
+      total?: number;
+    }>(`/api/contacts?${queryParams.toString()}`, { userId });
+
+    if (!response.success) {
+      logger.error('auto-linker: contact search failed', {
+        userId,
+        status: response.error.status,
+        code: response.error.code,
+      });
+      continue;
+    }
+
+    const contacts = response.data.contacts ?? response.data.items ?? [];
+    allContacts.push(...contacts);
+  }
+
+  if (allContacts.length === 0) {
     return [];
   }
 
-  const contacts = response.data.contacts ?? response.data.items ?? [];
-  if (contacts.length === 0) {
-    return [];
+  // Filter to exact matches on email or phone, deduplicate by ID
+  const seen = new Set<string>();
+  const matchedContacts: ContactResult[] = [];
+
+  for (const c of allContacts) {
+    if (seen.has(c.id)) continue;
+
+    const emailMatch = senderEmail != null && c.email?.toLowerCase() === senderEmail.toLowerCase();
+    const phoneMatch = senderPhone != null && c.phone === senderPhone;
+
+    if (emailMatch || phoneMatch) {
+      seen.add(c.id);
+      matchedContacts.push(c);
+    }
   }
 
-  // Filter to exact matches on email or phone
-  const matchedContacts = contacts.filter((c) => {
-    if (senderEmail && c.email?.toLowerCase() === senderEmail.toLowerCase()) {
-      return true;
-    }
-    if (senderPhone && c.phone === senderPhone) {
-      return true;
-    }
-    return false;
-  });
-
+  const threadRef = buildThreadRef(threadId);
   const linkedContactIds: string[] = [];
 
   for (const contact of matchedContacts) {
     try {
+      // Use 'url' type with thread: URI since entity-links schema does not have
+      // a 'message_thread' type yet. See buildThreadRef() for details.
       const linked = await createEntityLink(
         client,
         userId,
         logger,
         'contact',
         contact.id,
-        'todo', // Using 'todo' as proxy for thread (threads not an entity-link type)
-        threadId,
+        'url',
+        threadRef,
         'inbound-message-sender',
       );
 
@@ -320,13 +358,16 @@ async function matchContentToWorkItems(
   content: string,
   similarityThreshold: number,
 ): Promise<{ projects: string[]; todos: string[] }> {
-  const trimmedContent = content.trim();
-  if (trimmedContent.length === 0) {
+  // Sanitize external content before using it in search queries.
+  // Removes control characters, unicode invisibles, and potential injection payloads.
+  const sanitizedContent = sanitizeExternalMessage(content);
+
+  if (sanitizedContent.length === 0) {
     return { projects: [], todos: [] };
   }
 
   // Truncate for search
-  const searchQuery = trimmedContent.substring(0, MAX_SEARCH_QUERY_LENGTH);
+  const searchQuery = sanitizedContent.substring(0, MAX_SEARCH_QUERY_LENGTH);
 
   const queryParams = new URLSearchParams({
     q: searchQuery,
@@ -366,6 +407,7 @@ async function matchContentToWorkItems(
     return { projects: [], todos: [] };
   }
 
+  const threadRef = buildThreadRef(threadId);
   const linkedProjects: string[] = [];
   const linkedTodos: string[] = [];
 
@@ -378,17 +420,19 @@ async function matchContentToWorkItems(
       continue;
     }
 
-    const targetType = isProject ? 'project' : 'todo';
+    const sourceType = isProject ? 'project' : 'todo';
 
     try {
+      // Use 'url' type with thread: URI since entity-links schema does not have
+      // a 'message_thread' type yet. See buildThreadRef() for details.
       const linked = await createEntityLink(
         client,
         userId,
         logger,
-        targetType,
+        sourceType,
         item.id,
-        'todo', // Using 'todo' as proxy for thread
-        threadId,
+        'url',
+        threadRef,
         `auto-linked:${item.title.substring(0, 50)}`,
       );
 
@@ -417,7 +461,10 @@ async function matchContentToWorkItems(
 /**
  * Auto-link an inbound message to related entities.
  *
- * Performs sender matching and content matching in parallel.
+ * Performs sender matching first. Content matching only runs when at least
+ * one contact matched — this prevents untrusted/unknown senders from
+ * creating spurious links to projects and todos.
+ *
  * Never throws - all errors are caught and logged.
  *
  * @param options - Auto-link configuration and message data
@@ -446,23 +493,30 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
       contentLength: message.content.length,
     });
 
-    // Run sender matching and content matching in parallel
-    const [contactMatches, contentMatches] = await Promise.all([
-      matchSenderToContacts(
-        client,
-        logger,
+    // Step 1: Sender matching — always runs when sender info is available
+    const contactMatches = await matchSenderToContacts(
+      client,
+      logger,
+      userId,
+      message.threadId,
+      message.senderEmail,
+      message.senderPhone,
+    ).catch((error) => {
+      logger.error('auto-linker: sender matching failed', {
         userId,
-        message.threadId,
-        message.senderEmail,
-        message.senderPhone,
-      ).catch((error) => {
-        logger.error('auto-linker: sender matching failed', {
-          userId,
-          error: sanitizeErrorMessage(error),
-        });
-        return [] as string[];
-      }),
-      matchContentToWorkItems(
+        error: sanitizeErrorMessage(error),
+      });
+      return [] as string[];
+    });
+
+    // Step 2: Content matching — only runs when sender is a known contact.
+    // Safety decision: untrusted/unknown senders should not trigger content-based
+    // linking to prevent spam or malicious messages from creating spurious links
+    // to the user's projects and todos.
+    let contentMatches = { projects: [] as string[], todos: [] as string[] };
+
+    if (contactMatches.length > 0) {
+      contentMatches = await matchContentToWorkItems(
         client,
         logger,
         userId,
@@ -475,8 +529,13 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
           error: sanitizeErrorMessage(error),
         });
         return { projects: [] as string[], todos: [] as string[] };
-      }),
-    ]);
+      });
+    } else {
+      logger.debug('auto-linker: skipping content matching — no known sender contact', {
+        userId,
+        threadId: message.threadId,
+      });
+    }
 
     const result: AutoLinkResult = {
       linksCreated: contactMatches.length + contentMatches.projects.length + contentMatches.todos.length,

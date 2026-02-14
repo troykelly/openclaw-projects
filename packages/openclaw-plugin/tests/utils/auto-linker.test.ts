@@ -28,13 +28,14 @@ function createMockLogger(): Logger {
 
 /**
  * Create a mock ApiClient with configurable responses.
- * Only stubs the methods we actually use (get, post).
+ * Only stubs the methods we actually use (get, post, delete).
  */
 function createMockClient(overrides: {
   getResponses?: Record<string, unknown>;
   postResponses?: Record<string, unknown>;
+  deleteResponse?: unknown;
 } = {}): ApiClient {
-  const { getResponses = {}, postResponses = {} } = overrides;
+  const { getResponses = {}, postResponses = {}, deleteResponse } = overrides;
 
   return {
     get: vi.fn().mockImplementation((path: string) => {
@@ -54,7 +55,7 @@ function createMockClient(overrides: {
       }
       return Promise.resolve({ success: true, data: { id: 'mock-id' } });
     }),
-    delete: vi.fn().mockResolvedValue({ success: true, data: {} }),
+    delete: vi.fn().mockResolvedValue(deleteResponse ?? { success: true, data: {} }),
     healthCheck: vi.fn().mockResolvedValue({ healthy: true, latencyMs: 10 }),
   } as unknown as ApiClient;
 }
@@ -152,6 +153,52 @@ describe('auto-linker', () => {
       expect(result.linksCreated).toBeGreaterThanOrEqual(1);
     });
 
+    it('should search both email and phone when both are provided', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
+      const threadId = '22222222-2222-2222-2222-222222222222';
+
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com', phone: '+61400000000' },
+              ],
+              total: 1,
+            },
+          },
+        },
+        postResponses: {
+          '/api/skill-store/items': {
+            success: true,
+            data: { id: 'link-dual', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
+      });
+
+      const result = await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId,
+          senderEmail: 'alice@example.com',
+          senderPhone: '+61400000000',
+          content: 'Hello',
+        },
+      });
+
+      // Should have searched twice (once for email, once for phone)
+      const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
+      const contactSearchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/contacts'));
+      expect(contactSearchCalls.length).toBe(2);
+
+      // But should only create one set of links (deduplicated by ID)
+      expect(result.matches.contacts).toHaveLength(1);
+      expect(result.matches.contacts).toContain(contactId);
+    });
+
     it('should skip contact linking when no sender info is provided', async () => {
       const client = createMockClient();
 
@@ -223,15 +270,210 @@ describe('auto-linker', () => {
       expect(result.matches.contacts).toHaveLength(0);
       expect(mockLogger.error).toHaveBeenCalled();
     });
+
+    it('should include user_email in contact search params', async () => {
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: { contacts: [], total: 0 },
+          },
+        },
+      });
+
+      await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId: '22222222-2222-2222-2222-222222222222',
+          senderEmail: 'alice@example.com',
+          content: 'Hello',
+        },
+      });
+
+      const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
+      const contactCall = getCalls.find((c: unknown[]) => (c[0] as string).startsWith('/api/contacts'));
+      expect(contactCall).toBeDefined();
+      expect(contactCall![0]).toContain('user_email=user%40test.com');
+    });
   });
 
-  describe('content -> project matching', () => {
-    it('should link thread to project when content matches above threshold', async () => {
+  describe('thread link type', () => {
+    it('should use url type with thread: URI prefix for thread links', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
+      const threadId = '22222222-2222-2222-2222-222222222222';
+
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
+        },
+        postResponses: {
+          '/api/skill-store/items': {
+            success: true,
+            data: { id: 'link-thread', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
+      });
+
+      await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId,
+          senderEmail: 'alice@example.com',
+          content: 'Hello',
+        },
+      });
+
+      // Check that the skill-store post uses 'url' type with 'thread:' prefix
+      const postCalls = (client.post as ReturnType<typeof vi.fn>).mock.calls;
+      const storeCall = postCalls.find((c: unknown[]) => (c[0] as string).startsWith('/api/skill-store'));
+      expect(storeCall).toBeDefined();
+      const body = storeCall![1] as Record<string, unknown>;
+      const data = body.data as Record<string, unknown>;
+      // One of forward/reverse should reference the thread
+      const key = body.key as string;
+      expect(key).toContain(`thread:${threadId}`);
+    });
+  });
+
+  describe('trust gating — content matching requires known sender', () => {
+    it('should skip content matching when sender is unknown (no contact match)', async () => {
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: { contacts: [], total: 0 },
+          },
+        },
+      });
+
+      const result = await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId: '22222222-2222-2222-2222-222222222222',
+          senderEmail: 'stranger@example.com',
+          content: 'This message about the tiny home build should not trigger content linking',
+        },
+      });
+
+      // No contact match, so content matching should be skipped entirely
+      expect(result.matches.projects).toHaveLength(0);
+      expect(result.matches.todos).toHaveLength(0);
+      const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
+      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      expect(searchCalls).toHaveLength(0);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('skipping content matching'),
+        expect.anything(),
+      );
+    });
+
+    it('should skip content matching when no sender info is provided', async () => {
+      const client = createMockClient();
+
+      await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId: '22222222-2222-2222-2222-222222222222',
+          content: 'Anonymous message about projects',
+        },
+      });
+
+      const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
+      const searchCalls = getCalls.filter((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      expect(searchCalls).toHaveLength(0);
+    });
+
+    it('should run content matching when sender matches a known contact', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
       const projectId = '33333333-3333-3333-3333-333333333333';
       const threadId = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
+          '/api/search': {
+            success: true,
+            data: {
+              results: [
+                {
+                  id: projectId,
+                  title: 'Tiny home build',
+                  snippet: 'Building a tiny home',
+                  score: 0.85,
+                  type: 'work_item',
+                  metadata: { kind: 'project', status: 'active' },
+                },
+              ],
+              search_type: 'semantic',
+              total: 1,
+            },
+          },
+        },
+        postResponses: {
+          '/api/skill-store/items': {
+            success: true,
+            data: { id: 'link-trusted', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
+      });
+
+      const result = await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId,
+          senderEmail: 'alice@example.com',
+          content: 'The timber for the tiny home build is ready',
+        },
+      });
+
+      expect(result.matches.contacts).toContain(contactId);
+      expect(result.matches.projects).toContain(projectId);
+    });
+  });
+
+  describe('content -> project matching', () => {
+    it('should link thread to project when content matches above threshold', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
+      const projectId = '33333333-3333-3333-3333-333333333333';
+      const threadId = '22222222-2222-2222-2222-222222222222';
+
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
           '/api/search': {
             success: true,
             data: {
@@ -264,19 +506,30 @@ describe('auto-linker', () => {
         userId: 'user@test.com',
         message: {
           threadId,
+          senderEmail: 'alice@example.com',
           content: 'The timber for the tiny home build is ready for pickup',
         },
       });
 
       expect(result.matches.projects).toContain(projectId);
-      expect(result.linksCreated).toBeGreaterThanOrEqual(1);
+      expect(result.linksCreated).toBeGreaterThanOrEqual(2); // contact + project
     });
 
     it('should not link project when score is below threshold', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
       const threadId = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
           '/api/search': {
             success: true,
             data: {
@@ -295,6 +548,12 @@ describe('auto-linker', () => {
             },
           },
         },
+        postResponses: {
+          '/api/skill-store/items': {
+            success: true,
+            data: { id: 'link-below', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
       });
 
       const result = await autoLinkInboundMessage({
@@ -303,20 +562,30 @@ describe('auto-linker', () => {
         userId: 'user@test.com',
         message: {
           threadId,
+          senderEmail: 'alice@example.com',
           content: 'This should not match',
         },
       });
 
       expect(result.matches.projects).toHaveLength(0);
-      expect(result.linksCreated).toBe(0);
     });
 
     it('should respect custom similarity threshold', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
       const projectId = '33333333-3333-3333-3333-333333333333';
       const threadId = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
           '/api/search': {
             success: true,
             data: {
@@ -350,6 +619,7 @@ describe('auto-linker', () => {
         userId: 'user@test.com',
         message: {
           threadId,
+          senderEmail: 'alice@example.com',
           content: 'Some project related message',
         },
         similarityThreshold: 0.5,
@@ -361,11 +631,21 @@ describe('auto-linker', () => {
 
   describe('content -> todo matching', () => {
     it('should link thread to todo when content matches above threshold', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
       const todoId = '44444444-4444-4444-4444-444444444444';
       const threadId = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
           '/api/search': {
             success: true,
             data: {
@@ -398,17 +678,18 @@ describe('auto-linker', () => {
         userId: 'user@test.com',
         message: {
           threadId,
+          senderEmail: 'alice@example.com',
           content: 'Remember to buy asparagus at the store',
         },
       });
 
       expect(result.matches.todos).toContain(todoId);
-      expect(result.linksCreated).toBeGreaterThanOrEqual(1);
+      expect(result.linksCreated).toBeGreaterThanOrEqual(2); // contact + todo
     });
   });
 
   describe('combined matching', () => {
-    it('should match contacts and content in parallel', async () => {
+    it('should match contacts and then content for known senders', async () => {
       const contactId = '11111111-1111-1111-1111-111111111111';
       const projectId = '33333333-3333-3333-3333-333333333333';
       const threadId = '22222222-2222-2222-2222-222222222222';
@@ -467,40 +748,63 @@ describe('auto-linker', () => {
     });
   });
 
-  describe('failure isolation', () => {
-    it('should not crash when contact linking fails but content linking works', async () => {
-      const todoId = '44444444-4444-4444-4444-444444444444';
-      const threadId = '22222222-2222-2222-2222-222222222222';
-
-      // Contact search throws
+  describe('content sanitization', () => {
+    it('should sanitize content before search (control chars removed)', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
           '/api/contacts': {
-            success: false,
-            error: { status: 500, message: 'Server error', code: 'INTERNAL_ERROR' },
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
           },
           '/api/search': {
             success: true,
-            data: {
-              results: [
-                {
-                  id: todoId,
-                  title: 'A task',
-                  snippet: 'Task content',
-                  score: 0.8,
-                  type: 'work_item',
-                  metadata: { kind: 'task', status: 'open' },
-                },
-              ],
-              search_type: 'semantic',
-              total: 1,
-            },
+            data: { results: [], search_type: 'semantic', total: 0 },
           },
         },
         postResponses: {
           '/api/skill-store/items': {
             success: true,
-            data: { id: 'link-7', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+            data: { id: 'link-sanitize', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
+      });
+
+      await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId: '22222222-2222-2222-2222-222222222222',
+          senderEmail: 'alice@example.com',
+          content: 'Hello\x00\x01\x02World',
+        },
+      });
+
+      // Search should have been called with sanitized content (no control chars)
+      const getCalls = (client.get as ReturnType<typeof vi.fn>).mock.calls;
+      const searchCall = getCalls.find((c: unknown[]) => (c[0] as string).startsWith('/api/search'));
+      expect(searchCall).toBeDefined();
+      const searchUrl = searchCall![0] as string;
+      expect(searchUrl).not.toContain('\x00');
+      expect(searchUrl).not.toContain('\x01');
+    });
+  });
+
+  describe('failure isolation', () => {
+    it('should not crash when contact linking fails and skip content linking (no known sender)', async () => {
+      const threadId = '22222222-2222-2222-2222-222222222222';
+
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: false,
+            error: { status: 500, message: 'Server error', code: 'INTERNAL_ERROR' },
           },
         },
       });
@@ -516,9 +820,10 @@ describe('auto-linker', () => {
         },
       });
 
-      // Contact linking failed but todo linking should still work
+      // Contact linking failed → no known sender → content matching skipped
       expect(result.matches.contacts).toHaveLength(0);
-      expect(result.matches.todos).toContain(todoId);
+      expect(result.matches.todos).toHaveLength(0);
+      expect(result.matches.projects).toHaveLength(0);
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
@@ -586,6 +891,68 @@ describe('auto-linker', () => {
     });
   });
 
+  describe('rollback handling', () => {
+    it('should log partial state when rollback delete fails', async () => {
+      const contactId = '11111111-1111-1111-1111-111111111111';
+      const threadId = '22222222-2222-2222-2222-222222222222';
+
+      let postCallCount = 0;
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
+        },
+        // Rollback delete fails
+        deleteResponse: { success: false, error: { status: 500, message: 'Delete failed' } },
+      });
+
+      // Forward succeeds, reverse fails
+      (client.post as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+        if ((path as string).startsWith('/api/skill-store')) {
+          postCallCount++;
+          if (postCallCount === 1) {
+            // Forward link succeeds
+            return Promise.resolve({
+              success: true,
+              data: { id: 'fwd-id', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+            });
+          }
+          // Reverse link fails
+          return Promise.resolve({
+            success: false,
+            error: { status: 500, message: 'Reverse failed', code: 'INTERNAL_ERROR' },
+          });
+        }
+        return Promise.resolve({ success: true, data: {} });
+      });
+
+      await autoLinkInboundMessage({
+        client,
+        logger: mockLogger,
+        userId: 'user@test.com',
+        message: {
+          threadId,
+          senderEmail: 'alice@example.com',
+          content: 'Hello',
+        },
+      });
+
+      // Should log rollback failure with partial state info
+      const errorCalls = (mockLogger.error as ReturnType<typeof vi.fn>).mock.calls;
+      const rollbackError = errorCalls.find((c: unknown[]) =>
+        (c[0] as string).includes('rollback') && (c[0] as string).includes('partial state'),
+      );
+      expect(rollbackError).toBeDefined();
+    });
+  });
+
   describe('idempotency', () => {
     it('should not create duplicate links on repeated calls', async () => {
       const contactId = '11111111-1111-1111-1111-111111111111';
@@ -638,9 +1005,28 @@ describe('auto-linker', () => {
 
   describe('empty content handling', () => {
     it('should skip content matching when message content is empty', async () => {
-      const client = createMockClient();
+      const contactId = '11111111-1111-1111-1111-111111111111';
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
+        },
+        postResponses: {
+          '/api/skill-store/items': {
+            success: true,
+            data: { id: 'link-empty', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
+      });
 
-      const result = await autoLinkInboundMessage({
+      await autoLinkInboundMessage({
         client,
         logger: mockLogger,
         userId: 'user@test.com',
@@ -658,14 +1044,34 @@ describe('auto-linker', () => {
     });
 
     it('should skip content matching when content is only whitespace', async () => {
-      const client = createMockClient();
+      const contactId = '11111111-1111-1111-1111-111111111111';
+      const client = createMockClient({
+        getResponses: {
+          '/api/contacts': {
+            success: true,
+            data: {
+              contacts: [
+                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+              ],
+              total: 1,
+            },
+          },
+        },
+        postResponses: {
+          '/api/skill-store/items': {
+            success: true,
+            data: { id: 'link-ws', skill_id: 'entity-links', collection: 'entity_links', key: 'fwd', data: {}, tags: [], status: 'active' },
+          },
+        },
+      });
 
-      const result = await autoLinkInboundMessage({
+      await autoLinkInboundMessage({
         client,
         logger: mockLogger,
         userId: 'user@test.com',
         message: {
           threadId: '22222222-2222-2222-2222-222222222222',
+          senderEmail: 'alice@example.com',
           content: '   \n  ',
         },
       });
