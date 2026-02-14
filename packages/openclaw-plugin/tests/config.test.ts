@@ -1076,25 +1076,30 @@ describe('Config Schema', () => {
     });
   });
 
-  describe('strict schema (additionalProperties rejected)', () => {
-    it('should reject config with unexpected keys via RawPluginConfigSchema', () => {
+  describe('lenient schema (unknown properties allowed)', () => {
+    it('should silently ignore unexpected keys via RawPluginConfigSchema', () => {
       const result = RawPluginConfigSchema.safeParse({
         apiUrl: 'https://example.com',
         apiKey: 'test-key',
-        unexpectedField: 'should-fail',
+        unexpectedField: 'should-be-ignored',
       });
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues.some((e) => e.message.includes('Unrecognized key'))).toBe(true);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Unknown fields should be stripped, not included in result
+        expect('unexpectedField' in result.data).toBe(false);
       }
     });
 
-    it('should reject config with typo keys (e.g., apikey instead of apiKey)', () => {
+    it('should ignore typo keys but still validate known fields', () => {
       const result = safeValidateRawConfig({
         apiUrl: 'https://example.com',
-        apikey: 'test-key', // lowercase typo
+        apikey: 'test-key', // lowercase typo - ignored
+        apiKey: 'correct-key', // correct casing
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.apiKey).toBe('correct-key');
+      }
     });
 
     it('should accept config with all valid keys', () => {
@@ -1132,14 +1137,31 @@ describe('Config Schema', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should reject unknown keys even when valid keys are present', () => {
+    it('should ignore unknown keys when valid keys are present', () => {
       const result = safeValidateRawConfig({
         apiUrl: 'https://example.com',
         apiKey: 'test-key',
         autoRecall: true,
-        extraField: 'nope',
+        extraField: 'ignored',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect('extraField' in result.data).toBe(false);
+      }
+    });
+
+    it('should provide helpful error messages for common property name mistakes', () => {
+      // Test with api_url (snake_case) instead of apiUrl (camelCase)
+      const result = safeValidateRawConfig({
+        api_url: 'https://example.com',
       });
       expect(result.success).toBe(false);
+      if (!result.success) {
+        // Should mention apiUrl is required
+        const apiUrlError = result.errors.find((e) => e.path.includes('apiUrl'));
+        expect(apiUrlError).toBeDefined();
+        expect(apiUrlError?.message).toContain('Required');
+      }
     });
   });
 });
