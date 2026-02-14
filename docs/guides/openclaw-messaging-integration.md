@@ -203,7 +203,29 @@ if (endpoint.metadata?.bounced) {
 
 ## Threading
 
-Messages are automatically threaded by conversation:
+Messages are automatically threaded by conversation.
+
+### Listing Threads
+
+```typescript
+// List all threads, optionally filtered by channel or contact
+const threads = await fetch('/api/threads?channel=sms&limit=20', {
+  headers: { 'Authorization': `Bearer ${apiToken}` }
+});
+// Returns { threads: [...], total: N, pagination: { limit, offset, hasMore } }
+```
+
+### Thread History
+
+```typescript
+// Get full thread with messages, related work items, and contact memories
+const history = await fetch(`/api/threads/${threadId}/history?limit=50`, {
+  headers: { 'Authorization': `Bearer ${apiToken}` }
+});
+// Returns { thread, messages, relatedWorkItems, contactMemories, pagination }
+```
+
+### Replying to Threads
 
 ```typescript
 // Reply to existing thread

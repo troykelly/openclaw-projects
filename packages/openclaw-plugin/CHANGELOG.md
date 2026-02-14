@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-02-14
+
+### Fixed
+
+#### Plugin Configuration
+- Config validation now uses lenient parsing (`.strip()`) instead of strict mode — unknown properties are silently stripped rather than causing errors (#1137)
+
+#### Memory Tools
+- `memory_forget` now returns full UUIDs in results and auto-deletes when a single match is found (#1138)
+- `memory_recall` correctly maps the `other` category type bidirectionally (#1144)
+- `memory_store` content alias verified and working (#1142)
+
+#### Contact Tools
+- `contact_search` and `contact_get` now correctly map `display_name` and `contact_kind` fields from the API (#1131)
+
+#### Relationship Tools
+- `relationship_query` now sends `contact` query parameter instead of incorrect `contact_id` (#1132)
+
+### Improved
+
+#### Memory Search (API-side, affects plugin results)
+- Memory search responses now include `score` and `embedding_provider` fields (#1145)
+- Content-based deduplication prevents storing duplicate memories (#1143)
+- Keyword boosting improves semantic search relevance (#1146)
+
 ## [1.0.0] - 2024-02-02
 
 ### Added

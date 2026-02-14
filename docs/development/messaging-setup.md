@@ -210,9 +210,11 @@ pnpm test:integration
 | `POSTMARK_SERVER_TOKEN` | Yes* | Server API token |
 | `POSTMARK_TRANSACTIONAL_TOKEN` | Yes* | Alternative token name |
 | `POSTMARK_TRANSACTIONAL_TOKEN_FILE` | Yes* | Path to token file |
-| `POSTMARK_FROM_EMAIL` | Yes | Verified sender email |
+| `POSTMARK_FROM_EMAIL` | Yes** | Verified sender email |
+| `POSTMARK_FROM` | No | Legacy alias for `POSTMARK_FROM_EMAIL` (used as fallback) |
 
 *One of the token options is required.
+**Either `POSTMARK_FROM_EMAIL` or legacy `POSTMARK_FROM` must be set.
 
 ### Embeddings (for semantic search)
 

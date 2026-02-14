@@ -39,7 +39,8 @@ The migrate service runs automatically on startup and exits when complete.
 Health:
 
 ```bash
-curl -fsS http://127.0.0.1:3000/health
+curl -fsS http://[::1]:3000/health
+# or: curl -fsS http://127.0.0.1:3000/health
 ```
 
 ## Services
@@ -54,9 +55,11 @@ curl -fsS http://127.0.0.1:3000/health
 
 ## Traefik wiring
 
-For production with TLS, use `docker-compose.traefik.yml` (coming soon in #529).
+For production with TLS, use `docker-compose.traefik.yml`. See [docs/deployment.md](../docs/deployment.md) for full production deployment instructions including Traefik, ModSecurity WAF, and HTTP/3 support.
 
-The basic compose publishes the API on **127.0.0.1:${API_PORT:-3000}** and frontend on **127.0.0.1:${FRONTEND_PORT:-8080}**.
+The basic compose publishes the API and frontend on dual-stack localhost (`[::1]` and `127.0.0.1`):
+- API: **`[::1]:${API_PORT:-3000}`** / **`127.0.0.1:${API_PORT:-3000}`**
+- Frontend: **`[::1]:${FRONTEND_PORT:-8080}`** / **`127.0.0.1:${FRONTEND_PORT:-8080}`**
 
 ### Option A: Traefik file-provider (current VM pattern)
 

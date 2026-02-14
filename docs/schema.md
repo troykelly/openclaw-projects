@@ -29,7 +29,7 @@ Adds to `work_item`:
 
 - `estimate_minutes` (int, nullable)
 - `actual_minutes` (int, nullable)
-- `work_item_kind` (`work_item_kind` enum: `project|initiative|epic|issue`, default `issue`)
+- `work_item_kind` (`work_item_kind` enum: `project|initiative|epic|issue|task`, default `issue`)
 - `parent_work_item_id` (self-referential FK for hierarchy, nullable)
 
 Constraints:
