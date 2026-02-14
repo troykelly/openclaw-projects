@@ -187,6 +187,7 @@ generate_config() {
     export API_HOST_PORT="${API_HOST_PORT:-3001}"
     export APP_HOST_PORT="${APP_HOST_PORT:-8081}"
     export GATEWAY_HOST_PORT="${GATEWAY_HOST_PORT:-18789}"
+    export SEAWEEDFS_HOST_PORT="${SEAWEEDFS_HOST_PORT:-8333}"
     
     # Generate TRUSTED_IPS_YAML for template
     export TRUSTED_IPS_YAML
@@ -213,6 +214,7 @@ generate_config() {
         -e "s|\${API_HOST_PORT}|$(escape_sed "${API_HOST_PORT}")|g" \
         -e "s|\${APP_HOST_PORT}|$(escape_sed "${APP_HOST_PORT}")|g" \
         -e "s|\${GATEWAY_HOST_PORT}|$(escape_sed "${GATEWAY_HOST_PORT}")|g" \
+        -e "s|\${SEAWEEDFS_HOST_PORT}|$(escape_sed "${SEAWEEDFS_HOST_PORT}")|g" \
         < "${TEMPLATE_FILE}" \
         > "${OUTPUT_FILE}"
 
