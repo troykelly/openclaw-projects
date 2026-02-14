@@ -6,13 +6,12 @@
  * Issue #1224
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   sanitizeExternalMessage,
   wrapExternalMessage,
   detectInjectionPatterns,
   sanitizeMessageForContext,
-  type InjectionDetectionResult,
 } from '../../src/utils/injection-protection.js';
 
 describe('Prompt Injection Protection', () => {

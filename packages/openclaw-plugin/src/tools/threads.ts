@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
+import { detectInjectionPatterns, sanitizeMessageForContext } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email']);
@@ -355,13 +356,33 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         const contact = thread.contact?.displayName || 'Unknown';
         const header = `Thread with ${contact} [${thread.channel}]`;
 
+        // Detect and log potential injection patterns in inbound messages
+        for (const m of messages) {
+          if (m.direction === 'inbound' && m.body) {
+            const detection = detectInjectionPatterns(m.body);
+            if (detection.detected) {
+              logger.warn('potential prompt injection detected in thread_get result', {
+                userId,
+                threadId,
+                messageId: m.id,
+                patterns: detection.patterns,
+              });
+            }
+          }
+        }
+
         const messageContent =
           messages.length > 0
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
                   const timestamp = new Date(m.createdAt).toLocaleString();
-                  return `${prefix} [${timestamp}] ${m.body || ''}`;
+                  const body = sanitizeMessageForContext(m.body || '', {
+                    direction: m.direction,
+                    channel: thread.channel,
+                    sender: contact,
+                  });
+                  return `${prefix} [${timestamp}] ${body}`;
                 })
                 .join('\n')
             : 'No messages in this thread.';

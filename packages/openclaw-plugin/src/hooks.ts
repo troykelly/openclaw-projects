@@ -6,6 +6,7 @@
 import type { ApiClient } from './api-client.js';
 import type { Logger } from './logger.js';
 import type { PluginConfig } from './config.js';
+import { sanitizeExternalMessage } from './utils/injection-protection.js';
 
 /** Default timeout for auto-recall hook (5 seconds) */
 const DEFAULT_RECALL_TIMEOUT_MS = 5000;
@@ -191,8 +192,10 @@ async function fetchContext(client: ApiClient, userId: string, prompt: string, l
     return null;
   }
 
-  // Format memories as context to prepend to the conversation
-  const context = memories.map((m) => `- [${m.category}] ${m.content}`).join('\n');
+  // Format memories as context to prepend to the conversation.
+  // Sanitize memory content to remove invisible characters that
+  // could be used for injection via stored memory content.
+  const context = memories.map((m) => `- [${m.category}] ${sanitizeExternalMessage(m.content)}`).join('\n');
 
   return {
     prependContext: context,
