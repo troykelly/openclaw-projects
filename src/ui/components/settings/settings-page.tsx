@@ -5,21 +5,22 @@
  * Keyboard Shortcuts, and About. On mobile, the sidebar collapses into a
  * vertical list. Changes save immediately with visual confirmation.
  */
+
+import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, Monitor, Moon, Smartphone, Sun, User } from 'lucide-react';
 import * as React from 'react';
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Sun, Moon, Monitor, Bell, Layout, Clock, Eye, User, Keyboard, Info, CheckCircle, Smartphone, Link2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
-import { Switch } from '@/ui/components/ui/switch';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Skeleton } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
 import { Button } from '@/ui/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
-import { Skeleton } from '@/ui/components/feedback';
 import { Separator } from '@/ui/components/ui/separator';
+import { Switch } from '@/ui/components/ui/switch';
 import { cn } from '@/ui/lib/utils';
-import { useSettings } from './use-settings';
-import { EmbeddingSettingsSection } from './embedding-settings-section';
 import { ConnectedAccountsSection } from './connected-accounts-section';
-import type { Theme, DefaultView, EmailDigestFrequency } from './types';
+import { EmbeddingSettingsSection } from './embedding-settings-section';
+import type { DefaultView, EmailDigestFrequency, Theme } from './types';
+import { useSettings } from './use-settings';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -545,7 +546,7 @@ export function SettingsPage() {
 
   const handleItemsPerPageChange = useCallback(
     (value: string) => {
-      handleUpdate({ items_per_page: parseInt(value, 10) });
+      handleUpdate({ items_per_page: Number.parseInt(value, 10) });
     },
     [handleUpdate],
   );
@@ -604,7 +605,7 @@ export function SettingsPage() {
           <h2 className="text-lg font-semibold text-destructive">Error</h2>
           <p className="mt-2 text-muted-foreground">{state.message}</p>
           {state.status === 401 && (
-            <a href="/app/auth" className="mt-4 inline-block text-primary hover:underline">
+            <a href="/app" className="mt-4 inline-block text-primary hover:underline">
               Sign in
             </a>
           )}

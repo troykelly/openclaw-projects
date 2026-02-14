@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Pool } from 'pg';
-import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import type { Pool } from 'pg';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildServer } from '../src/api/server.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { runMigrate } from './helpers/migrate.ts';
 
 /**
  * New frontend entrypoints.
@@ -47,6 +47,13 @@ describe('/app frontend', () => {
     const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
     return cookieHeader.split(';')[0];
   }
+
+  // Issue #1166: GET / should redirect to /app
+  it('redirects GET / to /app', async () => {
+    const res = await app.inject({ method: 'GET', url: '/' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe('/app');
+  });
 
   it('requires auth (shows login UI) when not authenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/app/work-items' });

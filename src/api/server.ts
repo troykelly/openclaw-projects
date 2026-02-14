@@ -404,8 +404,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return;
     }
 
-    // Skip auth for /app/* routes (these use session cookies via requireDashboardSession)
-    if (url.startsWith('/app/')) {
+    // Skip auth for root redirect and /app/* routes (these use session cookies via requireDashboardSession)
+    if (url === '/' || url === '/app' || url.startsWith('/app/')) {
       return;
     }
 
@@ -1225,6 +1225,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
   }));
+
+  // Root URL redirect (issue #1166): GET / → /app so browsers don't get an empty response.
+  app.get('/', async (_req, reply) => {
+    return reply.redirect('/app');
+  });
 
   // New frontend (issue #52). These routes are protected by the existing dashboard session cookie.
 
