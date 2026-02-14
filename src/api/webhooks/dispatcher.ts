@@ -112,6 +112,7 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
       headers,
       body: JSON.stringify(entry.body),
       signal: controller.signal,
+      redirect: 'manual', // Prevent SSRF bypass via redirect to internal IPs
     });
 
     clearTimeout(timeout);
@@ -145,6 +146,7 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
       error: `HTTP ${response.status}: ${errorBody}`,
     };
   } catch (error) {
+    clearTimeout(timeout);
     const err = error as Error;
 
     if (err.name === 'AbortError') {
@@ -181,23 +183,25 @@ async function lockWebhookEntry(pool: Pool, entryId: string, workerId: string): 
 
 /**
  * Mark a webhook as successfully dispatched.
+ * Verifies lock ownership to prevent stale workers from mutating state.
  */
-async function markDispatched(pool: Pool, entryId: string): Promise<void> {
+async function markDispatched(pool: Pool, entryId: string, workerId: string): Promise<void> {
   await pool.query(
     `UPDATE webhook_outbox
      SET dispatched_at = NOW(),
          locked_at = NULL,
          locked_by = NULL,
          updated_at = NOW()
-     WHERE id = $1`,
-    [entryId],
+     WHERE id = $1 AND locked_by = $2`,
+    [entryId, workerId],
   );
 }
 
 /**
  * Record a dispatch failure with jittered backoff.
+ * Verifies lock ownership to prevent stale workers from mutating state.
  */
-async function recordFailure(pool: Pool, entryId: string, error: string): Promise<void> {
+async function recordFailure(pool: Pool, entryId: string, error: string, workerId: string): Promise<void> {
   const jitterMs = Math.floor(Math.random() * 1000);
   await pool.query(
     `UPDATE webhook_outbox
@@ -207,8 +211,8 @@ async function recordFailure(pool: Pool, entryId: string, error: string): Promis
          locked_by = NULL,
          run_at = NOW() + (POWER(2, LEAST(attempts, 5)) * INTERVAL '1 second') + ($3 * INTERVAL '1 millisecond'),
          updated_at = NOW()
-     WHERE id = $1`,
-    [entryId, truncateForLog(error), jitterMs],
+     WHERE id = $1 AND locked_by = $4`,
+    [entryId, truncateForLog(error), jitterMs, workerId],
   );
 }
 
@@ -289,8 +293,8 @@ export async function processPendingWebhooks(pool: Pool, limit: number = 100): P
                locked_at = NULL,
                locked_by = NULL,
                updated_at = NOW()
-           WHERE id = $1`,
-          [entry.id, MAX_RETRIES, `SSRF blocked at dispatch: ${ssrfError}`],
+           WHERE id = $1 AND locked_by = $4`,
+          [entry.id, MAX_RETRIES, `SSRF blocked at dispatch: ${ssrfError}`, workerId],
         );
         stats.failed++;
         console.warn(`[Webhooks] SSRF blocked ${entry.kind} to ${sanitizeDestination(entry.destination)}: ${ssrfError}`);
@@ -301,7 +305,7 @@ export async function processPendingWebhooks(pool: Pool, limit: number = 100): P
     const result = await dispatchWebhook(entry);
 
     if (result.success) {
-      await markDispatched(pool, entry.id);
+      await markDispatched(pool, entry.id, workerId);
       stats.succeeded++;
       console.log(`[Webhooks] Dispatched ${entry.kind} to ${sanitizeDestination(entry.destination)}`);
     } else {
@@ -314,13 +318,13 @@ export async function processPendingWebhooks(pool: Pool, limit: number = 100): P
                locked_at = NULL,
                locked_by = NULL,
                updated_at = NOW()
-           WHERE id = $1`,
-          [entry.id, MAX_RETRIES, truncateForLog(result.error || 'Unknown error')],
+           WHERE id = $1 AND locked_by = $4`,
+          [entry.id, MAX_RETRIES, truncateForLog(result.error || 'Unknown error'), workerId],
         );
         stats.failed++;
         console.warn(`[Webhooks] Non-retryable failure for ${entry.kind} (HTTP ${result.statusCode}), dead-lettered`);
       } else {
-        await recordFailure(pool, entry.id, result.error || 'Unknown error');
+        await recordFailure(pool, entry.id, result.error || 'Unknown error', workerId);
         stats.failed++;
         console.warn(`[Webhooks] Failed to dispatch ${entry.kind}: ${truncateForLog(result.error || 'Unknown error')}`);
       }

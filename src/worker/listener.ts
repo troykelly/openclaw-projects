@@ -26,6 +26,7 @@ export class NotifyListener {
   private client: Client | null = null;
   private connected = false;
   private stopping = false;
+  private reconnecting = false;
   private reconnectCount = 0;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -116,19 +117,22 @@ export class NotifyListener {
   }
 
   private scheduleReconnect(): void {
-    if (this.stopping) return;
+    if (this.stopping || this.reconnecting) return;
+    this.reconnecting = true;
 
     // Jittered delay: 1-5 s
     const delayMs = 1000 + Math.floor(Math.random() * 4000);
     setTimeout(() => {
-      if (this.stopping) return;
+      if (this.stopping) { this.reconnecting = false; return; }
       this.reconnectCount++;
       console.log(`[Listener] Reconnecting (attempt #${this.reconnectCount})...`);
       this.connect().then(() => {
+        this.reconnecting = false;
         if (this.connected && this.onReconnect) {
           this.onReconnect();
         }
       }).catch((err) => {
+        this.reconnecting = false;
         console.error('[Listener] Reconnect failed:', (err as Error).message);
       });
     }, delayMs);
