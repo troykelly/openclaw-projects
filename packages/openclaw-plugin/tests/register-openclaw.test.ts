@@ -843,7 +843,49 @@ describe('OpenClaw 2026 API Registration', () => {
     });
   });
 
-  describe('inline handler fixes (#1169, #1171)', () => {
+  describe('inline handler fixes (#1169, #1171, #1177)', () => {
+    it('email_send should call /api/postmark/email/send, not /api/email/messages/send (#1177)', async () => {
+      const fetchCalls: { url: string; method: string; body: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        fetchCalls.push({ url, method: init?.method || 'GET', body: (init?.body as string) || '' });
+        return {
+          ok: true,
+          status: 202,
+          json: async () => ({
+            messageId: 'MSG-TEST-1177',
+            threadId: 'TH-TEST-1177',
+            status: 'queued',
+          }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const emailSend = registeredTools.find((t) => t.name === 'email_send');
+        expect(emailSend).toBeDefined();
+
+        const result = await emailSend!.execute('test-id', {
+          to: 'recipient@example.com',
+          subject: 'Test Subject',
+          body: 'Test email body',
+        }, undefined, undefined);
+
+        // Should call /api/postmark/email/send (not /api/email/messages/send)
+        const emailCalls = fetchCalls.filter((c) => c.url.includes('/email/'));
+        expect(emailCalls.length).toBeGreaterThan(0);
+        expect(emailCalls[0].url).toContain('/api/postmark/email/send');
+        expect(emailCalls[0].url).not.toContain('/api/email/messages/send');
+
+        // Result should be successful
+        expect(result.content[0].text).toContain('MSG-TEST-1177');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+
     it('todo_list should use completed boolean, not status string (#1171)', async () => {
       const fetchCalls: { url: string; method: string }[] = [];
       const originalFetch = globalThis.fetch;
