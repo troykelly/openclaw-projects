@@ -292,9 +292,11 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
           const data = response.data as { results: MessageApiResult[] };
           const rawResults = data.results ?? [];
           for (const msg of rawResults) {
-            // Sanitize external message content to prevent prompt injection
-            const safeTitle = sanitizeMetadataField(msg.title ?? '');
-            const safeSnippet = msg.snippet ? wrapExternalMessage(msg.snippet.substring(0, 100)) : '';
+            // Sanitize external message content to prevent prompt injection.
+            // Both title and snippet are wrapped since messages are external/untrusted content
+            // mixed alongside trusted entity results from memories/todos/projects.
+            const safeTitle = wrapExternalMessage(sanitizeMetadataField(msg.title ?? ''));
+            const safeSnippet = msg.snippet ? wrapExternalMessage(sanitizeMetadataField(msg.snippet.substring(0, 100))) : '';
             const meta: Record<string, string> = {};
             if (msg.metadata?.channel) meta.channel = sanitizeMetadataField(msg.metadata.channel);
             if (msg.metadata?.received_at) meta.received_at = sanitizeMetadataField(msg.metadata.received_at);
