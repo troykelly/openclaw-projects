@@ -73,6 +73,58 @@ async function searchWorkItemsText(
 }
 
 /**
+ * Search work items using semantic search (Issue #1216).
+ */
+async function searchWorkItemsSemantic(
+  pool: Pool,
+  queryEmbedding: number[],
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+): Promise<EntitySearchResult[]> {
+  const embeddingStr = `[${queryEmbedding.join(',')}]`;
+  const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'", 'deleted_at IS NULL'];
+  const params: (string | number | Date)[] = [embeddingStr];
+  let paramIndex = 2;
+
+  if (options.dateFrom) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(options.dateFrom);
+    paramIndex++;
+  }
+
+  if (options.dateTo) {
+    conditions.push(`created_at <= $${paramIndex}`);
+    params.push(options.dateTo);
+    paramIndex++;
+  }
+
+  params.push(options.limit, options.offset);
+
+  const result = await pool.query(
+    `SELECT
+       id::text as id,
+       title,
+       description,
+       kind::text as kind,
+       status::text as status,
+       1 - (embedding <=> $1::vector) as similarity
+     FROM work_item
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY embedding <=> $1::vector
+     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    snippet: generateSnippet(row.description || ''),
+    textScore: 0,
+    semanticScore: Number.parseFloat(row.similarity) || 0,
+    metadata: { kind: row.kind, status: row.status },
+  }));
+}
+
+/**
  * Search contacts using full-text search.
  */
 async function searchContactsText(
@@ -413,17 +465,27 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     message: 0,
   };
 
-  // Search work items
+  // Search work items (hybrid if available, Issue #1216)
   if (types.includes('work_item')) {
     const textResults = await searchWorkItemsText(pool, query, searchOpts);
-    facets.work_item = textResults.length;
-    for (const result of textResults) {
+    let workItemResults: EntitySearchResult[];
+
+    if (searchType === 'hybrid' && queryEmbedding) {
+      const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, searchOpts);
+      workItemResults = combineResults(textResults, semanticResults, semanticWeight);
+    } else {
+      workItemResults = textResults;
+    }
+
+    facets.work_item = workItemResults.length;
+    for (const result of workItemResults) {
+      const combinedScore = result.textScore + (result.semanticScore || 0);
       allResults.push({
         type: 'work_item',
         id: result.id,
         title: result.title,
         snippet: result.snippet,
-        score: result.textScore,
+        score: combinedScore,
         url: `/app/work-items/${result.id}`,
         metadata: result.metadata,
       });
