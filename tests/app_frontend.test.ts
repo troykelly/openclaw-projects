@@ -48,9 +48,30 @@ describe('/app frontend', () => {
     return cookieHeader.split(';')[0];
   }
 
-  // Issue #1166: GET / should redirect to /app
-  it('redirects GET / to /app', async () => {
+  // Issue #1166: GET / serves a landing page (not a redirect)
+  it('serves landing page at GET / with sign-in link when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.body).toContain('OpenClaw Projects');
+    expect(res.body).toContain('Sign in');
+  });
+
+  it('serves landing page at GET / with dashboard link when authenticated', async () => {
+    const sessionCookie = await getSessionCookie();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/',
+      headers: { cookie: sessionCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.body).toContain('Dashboard');
+  });
+
+  // Issue #1166: GET /auth redirects to /app
+  it('redirects GET /auth to /app', async () => {
+    const res = await app.inject({ method: 'GET', url: '/auth' });
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe('/app');
   });
@@ -84,5 +105,12 @@ describe('/app frontend', () => {
 
     expect(detail.statusCode).toBe(200);
     expect(detail.body).toContain('data-testid="app-frontend-shell"');
+  });
+
+  // Issue #1166: Login page uses inline CSS (not broken /static/app.css reference)
+  it('login page does not reference non-existent /static/app.css', async () => {
+    const res = await app.inject({ method: 'GET', url: '/app/work-items' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).not.toContain('href="/static/app.css"');
   });
 });

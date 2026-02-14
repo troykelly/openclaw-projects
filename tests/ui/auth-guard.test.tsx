@@ -94,15 +94,15 @@ describe('Auth guard (issue #1166)', () => {
     }, WAIT_OPTS);
   });
 
-  it('shows sign-in prompt when user is not authenticated', async () => {
+  it('shows login form when user is not authenticated', async () => {
     renderWithRouter('/dashboard');
     await waitFor(() => {
       expect(screen.getByTestId('auth-required')).toBeInTheDocument();
     }, WAIT_OPTS);
-    expect(screen.getByText(/you need to sign in/i)).toBeInTheDocument();
-    // The sign-in link should point to /app (server-rendered login page)
-    const signInLink = screen.getByRole('link', { name: /sign in/i });
-    expect(signInLink).toHaveAttribute('href', '/app');
+    // LoginForm renders an email input and magic link button
+    expect(screen.getByText(/sign in with your email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send magic link/i })).toBeInTheDocument();
   });
 
   it('renders page content when user is authenticated', async () => {
