@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import { detectInjectionPatterns, sanitizeExternalMessage, sanitizeMessageForContext } from '../utils/injection-protection.js';
+import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email']);
@@ -176,7 +176,9 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           threadItems.length > 0
             ? threadItems
                 .map((t) => {
-                  return `${sanitizeExternalMessage(t.title)}: ${sanitizeExternalMessage(t.snippet)}`;
+                  const safeTitle = sanitizeMetadataField(t.title);
+                  const wrappedSnippet = wrapExternalMessage(t.snippet);
+                  return `${safeTitle}: ${wrappedSnippet}`;
                 })
                 .join('\n')
             : 'No threads found.';
@@ -353,9 +355,10 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
           messageCount: messages.length,
         });
 
-        // Format content for display
-        const contact = thread.contact?.displayName || 'Unknown';
-        const header = `Thread with ${contact} [${thread.channel}]`;
+        // Format content for display — sanitize metadata fields interpolated outside boundary wrappers
+        const contact = sanitizeMetadataField(thread.contact?.displayName || 'Unknown');
+        const safeChannel = sanitizeMetadataField(thread.channel);
+        const header = `Thread with ${contact} [${safeChannel}]`;
 
         // Detect and log potential injection patterns in inbound messages
         for (const m of messages) {

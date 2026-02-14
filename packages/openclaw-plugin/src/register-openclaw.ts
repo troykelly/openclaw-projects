@@ -16,7 +16,7 @@ import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gat
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
-import { detectInjectionPatterns, sanitizeMessageForContext } from './utils/injection-protection.js';
+import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { createNotificationService } from './services/notification-service.js';
 import {
   createSkillStoreAggregateTool,
@@ -1719,16 +1719,17 @@ function createToolHandlers(state: PluginState) {
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const contact = m.contactName || 'Unknown';
+                  const contact = sanitizeMetadataField(m.contactName || 'Unknown');
+                  const safeChannel = sanitizeMetadataField(m.channel);
                   const similarity = `(${Math.round(m.similarity * 100)}%)`;
                   const rawBody = m.body || '';
                   const truncatedBody = rawBody.substring(0, 100) + (rawBody.length > 100 ? '...' : '');
                   const bodyText = sanitizeMessageForContext(truncatedBody, {
                     direction: m.direction,
                     channel: m.channel,
-                    sender: contact,
+                    sender: m.contactName || 'Unknown',
                   });
-                  return `${prefix} [${m.channel}] ${contact} ${similarity}: ${bodyText}`;
+                  return `${prefix} [${safeChannel}] ${contact} ${similarity}: ${bodyText}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';
@@ -1833,16 +1834,14 @@ function createToolHandlers(state: PluginState) {
                   // Handle both thread and search result formats
                   if ('channel' in r) {
                     const t = r as { channel: string; contactName?: string; endpointValue?: string; messageCount?: number };
-                    const contact = sanitizeMessageForContext(
-                      t.contactName || t.endpointValue || 'Unknown',
-                      { direction: 'outbound' },
-                    );
+                    const safeContact = sanitizeMetadataField(t.contactName || t.endpointValue || 'Unknown');
+                    const safeChannel = sanitizeMetadataField(t.channel);
                     const msgCount = t.messageCount ? `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}` : '';
-                    return `[${t.channel}] ${contact}${msgCount ? ` - ${msgCount}` : ''}`;
+                    return `[${safeChannel}] ${safeContact}${msgCount ? ` - ${msgCount}` : ''}`;
                   }
-                  const title = r.title ? sanitizeMessageForContext(r.title, { direction: 'outbound' }) : '';
-                  const snippet = r.snippet ? sanitizeMessageForContext(r.snippet, { direction: 'outbound' }) : '';
-                  return `- ${title || snippet || r.id}`;
+                  const safeTitle = r.title ? sanitizeMetadataField(r.title) : '';
+                  const wrappedSnippet = r.snippet ? wrapExternalMessage(r.snippet) : '';
+                  return `- ${safeTitle || wrappedSnippet || r.id}`;
                 })
                 .join('\n')
             : 'No threads found.';
@@ -1929,8 +1928,9 @@ function createToolHandlers(state: PluginState) {
           messageCount: messages.length,
         });
 
-        const contact = thread.contactName || thread.endpointValue || 'Unknown';
-        const header = `Thread with ${contact} [${thread.channel}]`;
+        const contact = sanitizeMetadataField(thread.contactName || thread.endpointValue || 'Unknown');
+        const safeChannel = sanitizeMetadataField(thread.channel);
+        const header = `Thread with ${contact} [${safeChannel}]`;
 
         // Detect and log potential injection patterns in inbound messages
         for (const m of messages) {

@@ -150,7 +150,7 @@ function escapeBoundaryMarkers(text: string): string {
  * the boundary wrapper header. Strips control chars, invisible Unicode,
  * newlines (which could break out of the header line), and boundary markers.
  */
-function sanitizeMetadataField(field: string): string {
+export function sanitizeMetadataField(field: string): string {
   return escapeBoundaryMarkers(
     sanitizeExternalMessage(field).replace(/[\r\n]/g, ' '),
   );

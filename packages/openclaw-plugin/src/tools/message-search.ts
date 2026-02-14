@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import { detectInjectionPatterns, wrapExternalMessage } from '../utils/injection-protection.js';
+import { detectInjectionPatterns, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email', 'all']);
@@ -199,8 +199,10 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
             ? messages
                 .map((m) => {
                   const score = `(${Math.round(m.score * 100)}%)`;
-                  const wrappedSnippet = wrapExternalMessage(m.snippet);
-                  return `${m.title} ${score}: ${wrappedSnippet}`;
+                  const truncatedSnippet = m.snippet.substring(0, 100) + (m.snippet.length > 100 ? '...' : '');
+                  const wrappedSnippet = wrapExternalMessage(truncatedSnippet);
+                  const safeTitle = sanitizeMetadataField(m.title);
+                  return `${safeTitle} ${score}: ${wrappedSnippet}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';
