@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { PluginConfig } from '../config.js';
 import type { Logger } from '../logger.js';
+import { sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Supported entity types for cross-entity search */
@@ -33,6 +34,8 @@ export interface ContextSearchResultItem {
   title: string;
   snippet: string;
   score: number;
+  /** Optional metadata for entity-specific annotations (e.g. channel, timestamp) */
+  metadata?: Record<string, string>;
 }
 
 /** Successful tool result */
@@ -147,7 +150,15 @@ function formatResultsAsText(results: ContextSearchResultItem[]): string {
     .map((r) => {
       const scoreStr = r.score.toFixed(2);
       const snippetStr = r.snippet ? ` - ${r.snippet}` : '';
-      return `- [${r.entity_type}] ${r.title}${snippetStr} (score: ${scoreStr})`;
+      // Include metadata annotations for messages (channel, timestamp)
+      let metaStr = '';
+      if (r.entity_type === 'message' && r.metadata) {
+        const parts: string[] = [];
+        if (r.metadata.channel) parts.push(r.metadata.channel);
+        if (r.metadata.received_at) parts.push(r.metadata.received_at);
+        if (parts.length > 0) metaStr = ` [${parts.join(', ')}]`;
+      }
+      return `- [${r.entity_type}] ${r.title}${snippetStr}${metaStr} (score: ${scoreStr})`;
     })
     .join('\n');
 }
@@ -281,12 +292,19 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
           const data = response.data as { results: MessageApiResult[] };
           const rawResults = data.results ?? [];
           for (const msg of rawResults) {
+            // Sanitize external message content to prevent prompt injection
+            const safeTitle = sanitizeMetadataField(msg.title ?? '');
+            const safeSnippet = msg.snippet ? wrapExternalMessage(msg.snippet.substring(0, 100)) : '';
+            const meta: Record<string, string> = {};
+            if (msg.metadata?.channel) meta.channel = sanitizeMetadataField(msg.metadata.channel);
+            if (msg.metadata?.received_at) meta.received_at = sanitizeMetadataField(msg.metadata.received_at);
             messageItems.push({
               id: msg.id,
               entity_type: 'message',
-              title: msg.title,
-              snippet: msg.snippet,
+              title: safeTitle,
+              snippet: safeSnippet,
               score: msg.score ?? 0,
+              metadata: Object.keys(meta).length > 0 ? meta : undefined,
             });
           }
         } else {
