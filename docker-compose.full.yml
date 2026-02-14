@@ -83,6 +83,7 @@ services:
     command:
       - --api.dashboard=false
       - --api.insecure=false
+      - --ping=true
       - --providers.docker=true
       - --providers.docker.exposedByDefault=false
       # Note: --providers.docker.network is omitted because Traefik uses host networking
