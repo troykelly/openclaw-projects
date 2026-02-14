@@ -57,6 +57,9 @@ import {
 // Entity link tool schemas (Issue #1220)
 import { LinksSetParamsSchema, LinksQueryParamsSchema, LinksRemoveParamsSchema } from '../src/tools/index.js';
 
+// Context search tool schemas (Issue #1219)
+import { ContextSearchParamsSchema } from '../src/tools/index.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(__dirname, '..');
 
@@ -124,6 +127,9 @@ const zodParamSchemas = {
   links_set: LinksSetParamsSchema,
   links_query: LinksQueryParamsSchema,
   links_remove: LinksRemoveParamsSchema,
+
+  // Context search tool (Issue #1219)
+  context_search: ContextSearchParamsSchema,
 } as const;
 
 describe('Schema Snapshots', () => {
