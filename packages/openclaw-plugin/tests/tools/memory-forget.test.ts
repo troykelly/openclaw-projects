@@ -298,12 +298,74 @@ describe('memory_forget tool', () => {
       }
     });
 
-    it('should return candidates when single low-confidence match found', async () => {
+    it('should return full UUIDs in candidate list (not truncated)', async () => {
+      const fullUuid1 = '12345678-1234-1234-1234-123456789012';
+      const fullUuid2 = 'abcdefab-abcd-abcd-abcd-abcdefabcdef';
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: fullUuid1, content: 'First memory', similarity: 0.85 },
+            { id: fullUuid2, content: 'Second memory', similarity: 0.78 },
+          ],
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Should contain FULL UUIDs, not truncated versions
+        expect(result.data.content).toContain(fullUuid1);
+        expect(result.data.content).toContain(fullUuid2);
+        // Should not just show truncated 8-char versions
+        expect(result.data.content).not.toMatch(/\[12345678\]/);
+      }
+    });
+
+    it('should auto-delete single candidate when only one match found (regardless of score)', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [{ id: 'mem-only', content: 'The only match', similarity: 0.75 }],
+        },
+      });
+      const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
+      const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+
+      const tool = createMemoryForgetTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'unique' });
+
+      // When there's only 1 candidate, auto-delete it (don't make user copy/paste)
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-only', expect.objectContaining({ userId: 'agent-1' }));
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.deletedCount).toBe(1);
+      }
+    });
+
+    it('should auto-delete single low-confidence match (improved UX)', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { results: [{ id: 'mem-1', content: 'I like coffee', similarity: 0.75 }] },
       });
-      const mockDelete = vi.fn();
+      const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
       const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
 
       const tool = createMemoryForgetTool({
@@ -315,11 +377,12 @@ describe('memory_forget tool', () => {
 
       const result = await tool.execute({ query: 'something vague' });
 
-      // Low confidence → return candidates, don't auto-delete
-      expect(mockDelete).not.toHaveBeenCalled();
+      // Single match (any confidence) → auto-delete for better UX
+      expect(mockDelete).toHaveBeenCalledTimes(1);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.content).toContain('candidates');
+        expect(result.data.details.deletedCount).toBe(1);
+        expect(result.data.content).toContain('Forgotten');
       }
     });
 
