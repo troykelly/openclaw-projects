@@ -20,6 +20,10 @@ export type WorkItemEmbeddingStatus = 'complete' | 'pending' | 'failed' | 'skipp
  * Called after work item creation or title/description update.
  * If embedding fails, the record is still valid but marked accordingly.
  *
+ * TODO: If two concurrent updates race on the same work item, the slower
+ * embedding call may overwrite the newer one. Consider using optimistic
+ * locking (e.g. checking updated_at before writing) for high-traffic items.
+ *
  * @param pool Database pool
  * @param workItemId The work item ID
  * @param content The content to embed (title + description concatenated)

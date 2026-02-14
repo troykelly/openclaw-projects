@@ -179,7 +179,7 @@ describe('todo_search tool', () => {
   });
 
   describe('API interaction', () => {
-    it('should call /api/search with types=work_item and semantic=true', async () => {
+    it('should call /api/search with types=work_item, semantic=true, and user_email', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { results: [], search_type: 'hybrid', total: 0 },
@@ -201,6 +201,27 @@ describe('todo_search tool', () => {
       expect(callUrl).toContain('types=work_item');
       expect(callUrl).toContain('semantic=true');
       expect(callUrl).toContain('q=geolocation+memory');
+      expect(callUrl).toContain('user_email=agent-1');
+    });
+
+    it('should scope search results to the userId (user_email)', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'user@example.com',
+      });
+
+      await tool.execute({ query: 'shopping list' });
+
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('user_email=user%40example.com');
     });
 
     it('should return formatted results', async () => {
@@ -415,7 +436,7 @@ describe('todo_search tool', () => {
       expect(callUrl).not.toContain('\x01');
     });
 
-    it('should pass limit to API', async () => {
+    it('should pass limit to API when no filters', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { results: [], search_type: 'text', total: 0 },
@@ -432,6 +453,93 @@ describe('todo_search tool', () => {
       await tool.execute({ query: 'test', limit: 25 });
       const callUrl = mockGet.mock.calls[0][0] as string;
       expect(callUrl).toContain('limit=25');
+    });
+
+    it('should over-fetch by 3x when kind filter is applied', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', limit: 10, kind: 'task' });
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('limit=30'); // 10 * 3 = 30
+    });
+
+    it('should over-fetch by 3x when status filter is applied', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', limit: 10, status: 'open' });
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('limit=30'); // 10 * 3 = 30
+    });
+
+    it('should cap over-fetch limit at 50', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', limit: 25, kind: 'task' });
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('limit=50'); // min(25 * 3, 50) = 50
+    });
+
+    it('should truncate filtered results to requested limit', async () => {
+      const mockResults = Array.from({ length: 30 }, (_, i) => ({
+        id: `id-${i}`,
+        title: `Task ${i}`,
+        snippet: '',
+        score: 0.9 - i * 0.01,
+        type: 'work_item',
+        metadata: { kind: 'task', status: 'open' },
+      }));
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: mockResults, search_type: 'text', total: 30 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test', limit: 5, kind: 'task' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.count).toBe(5);
+      }
     });
   });
 });

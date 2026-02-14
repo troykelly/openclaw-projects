@@ -4512,6 +4512,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         date_from?: string;
         date_to?: string;
         semantic_weight?: string;
+        user_email?: string;
       };
 
       const searchTerm = query.q?.trim() || '';
@@ -4564,6 +4565,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const pool = createPool();
 
+      // Issue #1216: scope work item results to user_email if provided
+      const userEmail = query.user_email?.trim() || undefined;
+
       try {
         const result = await unifiedSearch(pool, {
           query: searchTerm,
@@ -4574,6 +4578,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           dateFrom,
           dateTo,
           semanticWeight,
+          userEmail,
         });
 
         return reply.send(result);

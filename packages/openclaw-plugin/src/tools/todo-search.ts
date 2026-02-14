@@ -112,11 +112,15 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
       });
 
       try {
+        // Over-fetch by 3x to compensate for client-side kind/status filtering (Issue #1216 review fix)
+        const fetchLimit = (kind || status) ? Math.min(limit * 3, 50) : limit;
+
         const queryParams = new URLSearchParams({
           q: sanitizedQuery,
           types: 'work_item',
-          limit: String(limit),
+          limit: String(fetchLimit),
           semantic: 'true',
+          user_email: userId, // Issue #1216: scope results to current user
         });
 
         const response = await client.get<{
@@ -146,13 +150,14 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
 
         let results = response.data.results ?? [];
 
-        // Client-side filtering by kind and status if specified
+        // Client-side filtering by kind and status if specified, then truncate to requested limit
         if (kind) {
           results = results.filter((r) => r.metadata?.kind === kind);
         }
         if (status) {
           results = results.filter((r) => r.metadata?.status === status);
         }
+        results = results.slice(0, limit);
 
         const items: TodoSearchItem[] = results.map((r) => ({
           id: r.id,

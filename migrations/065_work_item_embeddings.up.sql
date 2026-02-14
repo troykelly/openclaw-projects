@@ -15,6 +15,8 @@ ALTER TABLE work_item
 -- Create HNSW index for fast similarity search
 -- Using cosine distance for semantic similarity
 -- m=16, ef_construction=64 provides good recall/speed balance (same as memory table)
+-- NOTE: On large tables in production, consider using CREATE INDEX CONCURRENTLY
+-- to avoid blocking writes during index creation.
 CREATE INDEX IF NOT EXISTS idx_work_item_embedding
   ON work_item
   USING hnsw (embedding vector_cosine_ops)

@@ -1370,11 +1370,15 @@ function createToolHandlers(state: PluginState) {
       }
 
       try {
+        // Over-fetch by 3x to compensate for client-side kind/status filtering (Issue #1216 review fix)
+        const fetchLimit = (kind || status) ? Math.min((limit as number) * 3, 50) : (limit as number);
+
         const queryParams = new URLSearchParams({
           q: query.trim(),
           types: 'work_item',
-          limit: String(limit),
+          limit: String(fetchLimit),
           semantic: 'true',
+          user_email: userId, // Issue #1216: scope results to current user
         });
 
         const response = await apiClient.get<{
@@ -1396,13 +1400,14 @@ function createToolHandlers(state: PluginState) {
 
         let results = response.data.results ?? [];
 
-        // Client-side filtering by kind and status
+        // Client-side filtering by kind and status, then truncate to requested limit
         if (kind) {
           results = results.filter((r) => r.metadata?.kind === kind);
         }
         if (status) {
           results = results.filter((r) => r.metadata?.status === status);
         }
+        results = results.slice(0, limit as number);
 
         if (results.length === 0) {
           return {

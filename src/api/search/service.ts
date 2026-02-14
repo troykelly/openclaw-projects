@@ -28,11 +28,17 @@ function generateSnippet(text: string, maxLength: number = SNIPPET_LENGTH): stri
 async function searchWorkItemsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date; userEmail?: string },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
+
+  if (options.userEmail) {
+    conditions.push(`user_email = $${paramIndex}`);
+    params.push(options.userEmail);
+    paramIndex++;
+  }
 
   if (options.dateFrom) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -78,12 +84,18 @@ async function searchWorkItemsText(
 async function searchWorkItemsSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date; userEmail?: string },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'", 'deleted_at IS NULL'];
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
+
+  if (options.userEmail) {
+    conditions.push(`user_email = $${paramIndex}`);
+    params.push(options.userEmail);
+    paramIndex++;
+  }
 
   if (options.dateFrom) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -428,10 +440,12 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     dateFrom,
     dateTo,
     semanticWeight = DEFAULT_SEMANTIC_WEIGHT,
+    userEmail,
   } = options;
 
   const effectiveLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
   const searchOpts = { limit: effectiveLimit, offset, dateFrom, dateTo };
+  const workItemSearchOpts = { ...searchOpts, userEmail };
 
   // Determine search type based on capabilities
   let searchType: SearchType = 'text';
@@ -467,11 +481,11 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
 
   // Search work items (hybrid if available, Issue #1216)
   if (types.includes('work_item')) {
-    const textResults = await searchWorkItemsText(pool, query, searchOpts);
+    const textResults = await searchWorkItemsText(pool, query, workItemSearchOpts);
     let workItemResults: EntitySearchResult[];
 
     if (searchType === 'hybrid' && queryEmbedding) {
-      const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, searchOpts);
+      const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, workItemSearchOpts);
       workItemResults = combineResults(textResults, semanticResults, semanticWeight);
     } else {
       workItemResults = textResults;
