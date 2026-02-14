@@ -28,11 +28,17 @@ function generateSnippet(text: string, maxLength: number = SNIPPET_LENGTH): stri
 async function searchWorkItemsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date; userEmail?: string },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
+
+  if (options.userEmail) {
+    conditions.push(`user_email = $${paramIndex}`);
+    params.push(options.userEmail);
+    paramIndex++;
+  }
 
   if (options.dateFrom) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -68,6 +74,64 @@ async function searchWorkItemsText(
     title: row.title,
     snippet: generateSnippet(row.description || ''),
     textScore: parseFloat(row.rank) || 0,
+    metadata: { kind: row.kind, status: row.status },
+  }));
+}
+
+/**
+ * Search work items using semantic search (Issue #1216).
+ */
+async function searchWorkItemsSemantic(
+  pool: Pool,
+  queryEmbedding: number[],
+  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date; userEmail?: string },
+): Promise<EntitySearchResult[]> {
+  const embeddingStr = `[${queryEmbedding.join(',')}]`;
+  const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'", 'deleted_at IS NULL'];
+  const params: (string | number | Date)[] = [embeddingStr];
+  let paramIndex = 2;
+
+  if (options.userEmail) {
+    conditions.push(`user_email = $${paramIndex}`);
+    params.push(options.userEmail);
+    paramIndex++;
+  }
+
+  if (options.dateFrom) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(options.dateFrom);
+    paramIndex++;
+  }
+
+  if (options.dateTo) {
+    conditions.push(`created_at <= $${paramIndex}`);
+    params.push(options.dateTo);
+    paramIndex++;
+  }
+
+  params.push(options.limit, options.offset);
+
+  const result = await pool.query(
+    `SELECT
+       id::text as id,
+       title,
+       description,
+       kind::text as kind,
+       status::text as status,
+       1 - (embedding <=> $1::vector) as similarity
+     FROM work_item
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY embedding <=> $1::vector
+     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    params,
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    snippet: generateSnippet(row.description || ''),
+    textScore: 0,
+    semanticScore: Number.parseFloat(row.similarity) || 0,
     metadata: { kind: row.kind, status: row.status },
   }));
 }
@@ -376,10 +440,12 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     dateFrom,
     dateTo,
     semanticWeight = DEFAULT_SEMANTIC_WEIGHT,
+    userEmail,
   } = options;
 
   const effectiveLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
   const searchOpts = { limit: effectiveLimit, offset, dateFrom, dateTo };
+  const workItemSearchOpts = { ...searchOpts, userEmail };
 
   // Determine search type based on capabilities
   let searchType: SearchType = 'text';
@@ -413,17 +479,27 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     message: 0,
   };
 
-  // Search work items
+  // Search work items (hybrid if available, Issue #1216)
   if (types.includes('work_item')) {
-    const textResults = await searchWorkItemsText(pool, query, searchOpts);
-    facets.work_item = textResults.length;
-    for (const result of textResults) {
+    const textResults = await searchWorkItemsText(pool, query, workItemSearchOpts);
+    let workItemResults: EntitySearchResult[];
+
+    if (searchType === 'hybrid' && queryEmbedding) {
+      const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, workItemSearchOpts);
+      workItemResults = combineResults(textResults, semanticResults, semanticWeight);
+    } else {
+      workItemResults = textResults;
+    }
+
+    facets.work_item = workItemResults.length;
+    for (const result of workItemResults) {
+      const combinedScore = result.textScore + (result.semanticScore || 0);
       allResults.push({
         type: 'work_item',
         id: result.id,
         title: result.title,
         snippet: result.snippet,
-        score: result.textScore,
+        score: combinedScore,
         url: `/app/work-items/${result.id}`,
         metadata: result.metadata,
       });

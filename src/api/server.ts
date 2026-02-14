@@ -14,7 +14,7 @@ import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
-import { EmbeddingHealthChecker, generateMemoryEmbedding, searchMemoriesSemantic, backfillMemoryEmbeddings } from './embeddings/index.ts';
+import { EmbeddingHealthChecker, generateMemoryEmbedding, searchMemoriesSemantic, backfillMemoryEmbeddings, generateWorkItemEmbedding, backfillWorkItemEmbeddings } from './embeddings/index.ts';
 import {
   WebhookHealthChecker,
   verifyTwilioSignature,
@@ -2969,6 +2969,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       [workItem.id, `Created work item: ${workItem.title}`],
     );
 
+    // Generate embedding for the new work item (Issue #1216)
+    const embeddingContent = body.description ? `${body.title.trim()}\n\n${body.description}` : body.title.trim();
+    await generateWorkItemEmbedding(pool, workItem.id, embeddingContent);
+
     await pool.end();
 
     return reply.code(201).send(result.rows[0]);
@@ -3370,6 +3374,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        VALUES ($1, 'updated', $2)`,
       [workItem.id, `Updated work item: ${workItem.title}`],
     );
+
+    // Re-generate embedding on title/description change (Issue #1216)
+    const updatedEmbeddingContent = body.description ? `${body.title.trim()}\n\n${body.description}` : body.title.trim();
+    await generateWorkItemEmbedding(pool, workItem.id, updatedEmbeddingContent);
 
     await pool.end();
     return reply.send(result.rows[0]);
@@ -4504,6 +4512,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         date_from?: string;
         date_to?: string;
         semantic_weight?: string;
+        user_email?: string;
       };
 
       const searchTerm = query.q?.trim() || '';
@@ -4556,6 +4565,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const pool = createPool();
 
+      // Issue #1216: scope work item results to user_email if provided
+      const userEmail = query.user_email?.trim() || undefined;
+
       try {
         const result = await unifiedSearch(pool, {
           query: searchTerm,
@@ -4566,6 +4578,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           dateFrom,
           dateTo,
           semanticWeight,
+          userEmail,
         });
 
         return reply.send(result);
@@ -6345,6 +6358,35 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // POST /api/admin/embeddings/backfill-work-items - Backfill embeddings for work items (Issue #1216)
+  app.post('/api/admin/embeddings/backfill-work-items', async (req, reply) => {
+    const body = req.body as {
+      batch_size?: number;
+      force?: boolean;
+    };
+
+    const batchSize = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
+    const force = body?.force === true;
+
+    const pool = createPool();
+
+    try {
+      const result = await backfillWorkItemEmbeddings(pool, { batchSize, force });
+      return reply.code(202).send({
+        status: 'completed',
+        processed: result.processed,
+        succeeded: result.succeeded,
+        failed: result.failed,
+      });
+    } catch (error) {
+      return reply.code(500).send({
+        error: (error as Error).message,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // GET /api/admin/embeddings/status - Get embedding configuration status (issue #200)
   app.get('/api/admin/embeddings/status', async (req, reply) => {
     const pool = createPool();
@@ -6371,6 +6413,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         failed: string;
       };
 
+      // Get work item embedding stats (Issue #1216)
+      const wiStats = await pool.query(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE embedding_status = 'complete') as with_embedding,
+          COUNT(*) FILTER (WHERE embedding_status = 'pending') as pending,
+          COUNT(*) FILTER (WHERE embedding_status = 'failed') as failed,
+          COUNT(*) FILTER (WHERE embedding_status = 'skipped') as skipped
+        FROM work_item
+        WHERE deleted_at IS NULL
+      `);
+
+      const wiRow = wiStats.rows[0] as {
+        total: string;
+        with_embedding: string;
+        pending: string;
+        failed: string;
+        skipped: string;
+      };
+
       return reply.send({
         configured: config.provider !== null,
         provider: config.provider,
@@ -6382,6 +6444,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           with_embedding: parseInt(row.with_embedding, 10),
           pending: parseInt(row.pending, 10),
           failed: parseInt(row.failed, 10),
+        },
+        work_item_stats: {
+          total: parseInt(wiRow.total, 10),
+          with_embedding: parseInt(wiRow.with_embedding, 10),
+          pending: parseInt(wiRow.pending, 10),
+          failed: parseInt(wiRow.failed, 10),
+          skipped: parseInt(wiRow.skipped, 10),
         },
       });
     } finally {

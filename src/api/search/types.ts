@@ -16,6 +16,7 @@ export interface SearchOptions {
   dateFrom?: Date;
   dateTo?: Date;
   semanticWeight?: number; // 0-1, weight for semantic vs text search in hybrid mode
+  userEmail?: string; // Scope work item results to this user (Issue #1216 review fix)
 }
 
 export interface SearchResult {
