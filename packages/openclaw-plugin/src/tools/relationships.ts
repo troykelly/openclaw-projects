@@ -290,7 +290,7 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
 
       try {
         const queryParams = new URLSearchParams({
-          contact_id: sanitizedContact,
+          contact: sanitizedContact,
         });
         if (type_filter) {
           queryParams.set('type_filter', type_filter);
