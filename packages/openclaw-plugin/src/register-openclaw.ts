@@ -1501,14 +1501,6 @@ function createToolHandlers(state: PluginState) {
         idempotencyKey?: string;
       };
 
-      // Check Postmark configuration
-      if (!config.postmarkToken || !config.postmarkFromEmail) {
-        return {
-          success: false,
-          error: 'Postmark is not configured. Please configure Postmark credentials.',
-        };
-      }
-
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(to)) {

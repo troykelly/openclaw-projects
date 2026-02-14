@@ -84,17 +84,10 @@ function sanitizeErrorMessage(error: unknown): string {
 }
 
 /**
- * Check if Postmark is configured.
- */
-function isPostmarkConfigured(config: PluginConfig): boolean {
-  return !!(config.postmarkToken && config.postmarkFromEmail);
-}
-
-/**
  * Creates the email_send tool.
  */
 export function createEmailSendTool(options: EmailSendToolOptions): EmailSendTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, userId } = options;
 
   return {
     name: 'email_send',
@@ -110,14 +103,6 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
       }
 
       const { to, subject, body, htmlBody, threadId, idempotencyKey } = parseResult.data;
-
-      // Check Postmark configuration
-      if (!isPostmarkConfigured(config)) {
-        return {
-          success: false,
-          error: 'Postmark is not configured. Please configure Postmark credentials.',
-        };
-      }
 
       // Log invocation (without email address for privacy)
       logger.info('email_send invoked', {
