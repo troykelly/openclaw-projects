@@ -720,6 +720,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // Thread list endpoint (Issue #1139)
+  app.get('/api/threads', async (req, reply) => {
+    const { listThreads } = await import('./threads/index.ts');
+
+    const query = req.query as {
+      limit?: string;
+      offset?: string;
+      channel?: string;
+      contact_id?: string;
+    };
+
+    const pool = createPool();
+
+    try {
+      const result = await listThreads(pool, {
+        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        channel: query.channel,
+        contactId: query.contact_id,
+      });
+
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Thread history endpoint for agent conversation context (Issue #226)
   app.get('/api/threads/:id/history', async (req, reply) => {
     const { getThreadHistory } = await import('./threads/index.ts');

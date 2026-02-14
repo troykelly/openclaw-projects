@@ -64,3 +64,37 @@ export interface ThreadHistoryOptions {
   includeWorkItems?: boolean;
   includeMemories?: boolean;
 }
+
+export interface ThreadListOptions {
+  limit?: number;
+  offset?: number;
+  channel?: string;
+  contactId?: string;
+}
+
+export interface ThreadListItem {
+  id: string;
+  channel: string;
+  externalThreadKey: string;
+  contact: ThreadContact;
+  createdAt: Date;
+  updatedAt: Date;
+  lastMessage?: {
+    id: string;
+    direction: 'inbound' | 'outbound';
+    body: string | null;
+    subject?: string;
+    receivedAt: Date;
+  };
+  messageCount: number;
+}
+
+export interface ThreadListResponse {
+  threads: ThreadListItem[];
+  total: number;
+  pagination: {
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
