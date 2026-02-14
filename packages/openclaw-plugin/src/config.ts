@@ -25,6 +25,27 @@ function isProduction(): boolean {
 /**
  * Raw plugin configuration schema (before secret resolution).
  * Accepts direct values, file references, or command references for secrets.
+ *
+ * Configuration Property Names:
+ * - apiUrl: Backend API URL (required)
+ * - apiKey, apiKeyFile, apiKeyCommand: API authentication
+ * - twilioAccountSid, twilioAccountSidFile, twilioAccountSidCommand: Twilio account SID
+ * - twilioAuthToken, twilioAuthTokenFile, twilioAuthTokenCommand: Twilio auth token
+ * - twilioPhoneNumber, twilioPhoneNumberFile, twilioPhoneNumberCommand: Twilio phone number
+ * - postmarkToken, postmarkTokenFile, postmarkTokenCommand: Postmark API token
+ * - postmarkFromEmail, postmarkFromEmailFile, postmarkFromEmailCommand: Postmark from address
+ * - secretCommandTimeout: Timeout for secret command execution (ms)
+ * - autoRecall: Automatically recall relevant memories (boolean)
+ * - autoCapture: Automatically capture important information (boolean)
+ * - userScoping: How to scope user memories ('agent' | 'identity' | 'session')
+ * - maxRecallMemories: Maximum memories to inject (1-20)
+ * - minRecallScore: Minimum relevance score for auto-recall (0-1)
+ * - timeout: Request timeout in milliseconds (1000-60000)
+ * - maxRetries: Maximum retries for failed requests (0-5)
+ * - debug: Enable debug logging (boolean)
+ * - baseUrl: Base URL for web app (for generating note/notebook URLs)
+ *
+ * Unknown properties are silently ignored to provide a better user experience.
  */
 export const RawPluginConfigSchema = z
   .object({
@@ -138,7 +159,7 @@ export const RawPluginConfigSchema = z
     /** Base URL for web app (used for generating note/notebook URLs) */
     baseUrl: z.string().url().optional().describe('Web app base URL'),
   })
-  .strict();
+  .strip(); // Remove unknown properties instead of rejecting with error
 
 export type RawPluginConfig = z.infer<typeof RawPluginConfigSchema>;
 
