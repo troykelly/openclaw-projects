@@ -75,7 +75,8 @@ services:
       SEAWEEDFS_VOLUME_MAX: ${SEAWEEDFS_VOLUME_MAX:-10}
     ports:
       # Bind to localhost only for security (basic compose runs behind proxy)
-      - "127.0.0.1:${SEAWEEDFS_PORT:-8333}:8333"
+      - "[::1]:${SEAWEEDFS_PORT:-8333}:8333"       # IPv6 (preferred)
+      - "127.0.0.1:${SEAWEEDFS_PORT:-8333}:8333"  # IPv4 fallback
     volumes:
       - seaweedfs_data:/data
       - ./docker/seaweedfs/s3.json.template:/etc/seaweedfs/s3.json.template:ro
@@ -147,7 +148,7 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
-      HOST: 0.0.0.0
+      HOST: "::"
       PORT: 3000
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
@@ -210,7 +211,8 @@ services:
       # File upload
       MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-10485760}
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "[::1]:${API_PORT:-3000}:3000"       # IPv6 (preferred)
+      - "127.0.0.1:${API_PORT:-3000}:3000"  # IPv4 fallback
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
@@ -250,7 +252,8 @@ services:
       API_HOST: api
       API_PORT: "3000"
     ports:
-      - "${FRONTEND_PORT:-8080}:8080"
+      - "[::1]:${FRONTEND_PORT:-8080}:8080"       # IPv6 (preferred)
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"  # IPv4 fallback
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 10s

@@ -12,7 +12,7 @@ User=openclaw
 Group=openclaw
 WorkingDirectory=/home/openclaw/openclaw-projects
 
-Environment=HOST=127.0.0.1
+Environment=HOST=::
 Environment=PORT=3000
 Environment=PUBLIC_BASE_URL=https://projects.example.com
 

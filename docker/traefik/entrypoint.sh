@@ -180,9 +180,9 @@ generate_config() {
 
     # Host networking defaults for service routing
     # Traefik runs with network_mode: host and reaches services via localhost
-    # SERVICE_HOST: address Traefik uses to reach backend services (default: 127.0.0.1)
-    # Set to [::1] for IPv6-only or a specific interface address if needed
-    export SERVICE_HOST="${SERVICE_HOST:-127.0.0.1}"
+    # SERVICE_HOST: address Traefik uses to reach backend services (default: [::1])
+    # Set to 127.0.0.1 for IPv4-only environments
+    export SERVICE_HOST="${SERVICE_HOST:-[::1]}"
     export MODSEC_HOST_PORT="${MODSEC_HOST_PORT:-8080}"
     export API_HOST_PORT="${API_HOST_PORT:-3001}"
     export APP_HOST_PORT="${APP_HOST_PORT:-8081}"

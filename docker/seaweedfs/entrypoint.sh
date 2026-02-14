@@ -68,7 +68,7 @@ main() {
         -s3 \
         -s3.port=8333 \
         -s3.config="${OUTPUT_FILE}" \
-        -ip.bind=0.0.0.0 \
+        -ip.bind=:: \
         -master.volumeSizeLimitMB="${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-1000}" \
         -volume.max="${SEAWEEDFS_VOLUME_MAX:-10}"
 }

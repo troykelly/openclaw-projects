@@ -87,8 +87,10 @@ services:
       # SeaweedFS S3 credentials (used by the filer/s3 gateway)
       WEED_S3_AUTH_ENABLED: "false"
     ports:
-      - "8333:8333"
-      - "9333:9333"
+      - "[::1]:8333:8333"       # IPv6 (preferred)
+      - "127.0.0.1:8333:8333"  # IPv4 fallback
+      - "[::1]:9333:9333"       # IPv6 (preferred)
+      - "127.0.0.1:9333:9333"  # IPv4 fallback
     volumes:
       - openclaw_projects_seaweedfs_data:/data
     healthcheck:

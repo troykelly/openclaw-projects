@@ -75,7 +75,7 @@ COPY --from=builder /app/src/email/ ./src/email/
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV HOST=0.0.0.0
+ENV HOST=::
 ENV PORT=3000
 
 # Expose only the API port

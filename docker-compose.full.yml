@@ -11,12 +11,12 @@
 #      v
 #   Traefik (host network, :80/:443)
 #      |
-#      +-- DOMAIN/          --> 127.0.0.1:APP_HOST_PORT   (app frontend)
-#      +-- api.DOMAIN/      --> 127.0.0.1:MODSEC_HOST_PORT (modsecurity --> api)
-#      +-- s3.DOMAIN/       --> 127.0.0.1:SEAWEEDFS_HOST_PORT (seaweedfs S3)
-#      +-- DOMAIN/openclaw/ --> 127.0.0.1:GATEWAY_HOST_PORT (openclaw-gateway)
-#      +-- ws.DOMAIN/       --> 127.0.0.1:GATEWAY_HOST_PORT (openclaw-gateway)
-#      +-- hooks.DOMAIN/    --> 127.0.0.1:GATEWAY_HOST_PORT (openclaw-gateway)
+#      +-- DOMAIN/          --> [::1]:APP_HOST_PORT   (app frontend)
+#      +-- api.DOMAIN/      --> [::1]:MODSEC_HOST_PORT (modsecurity --> api)
+#      +-- s3.DOMAIN/       --> [::1]:SEAWEEDFS_HOST_PORT (seaweedfs S3)
+#      +-- DOMAIN/openclaw/ --> [::1]:GATEWAY_HOST_PORT (openclaw-gateway)
+#      +-- ws.DOMAIN/       --> [::1]:GATEWAY_HOST_PORT (openclaw-gateway)
+#      +-- hooks.DOMAIN/    --> [::1]:GATEWAY_HOST_PORT (openclaw-gateway)
 #
 # Usage:
 #   cp .env.example .env
@@ -60,8 +60,8 @@ services:
       DISABLE_HTTP: ${DISABLE_HTTP:-false}
       # Host networking: address and ports Traefik uses to reach backend services
       # Services publish their ports to localhost; Traefik connects via these settings.
-      # Set SERVICE_HOST to [::1] for IPv6-only environments.
-      SERVICE_HOST: ${SERVICE_HOST:-127.0.0.1}
+      # Set SERVICE_HOST to 127.0.0.1 for IPv4-only environments.
+      SERVICE_HOST: ${SERVICE_HOST:-[::1]}
       MODSEC_HOST_PORT: ${MODSEC_HOST_PORT:-8080}
       API_HOST_PORT: ${API_HOST_PORT:-3001}
       APP_HOST_PORT: ${APP_HOST_PORT:-8081}
@@ -178,8 +178,8 @@ services:
       SERVER_NAME: modsecurity
     # Publish to localhost for Traefik (host networking mode)
     ports:
-      - "127.0.0.1:${MODSEC_HOST_PORT:-8080}:8080"
-      - "[::1]:${MODSEC_HOST_PORT:-8080}:8080"
+      - "[::1]:${MODSEC_HOST_PORT:-8080}:8080"       # IPv6 (preferred)
+      - "127.0.0.1:${MODSEC_HOST_PORT:-8080}:8080"  # IPv4 fallback
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
       interval: 10s
@@ -275,8 +275,8 @@ services:
     # Publish S3 port to localhost for Traefik (host networking mode)
     # Enables presigned URL access via s3.DOMAIN Traefik route
     ports:
-      - "127.0.0.1:${SEAWEEDFS_HOST_PORT:-8333}:8333"
-      - "[::1]:${SEAWEEDFS_HOST_PORT:-8333}:8333"
+      - "[::1]:${SEAWEEDFS_HOST_PORT:-8333}:8333"       # IPv6 (preferred)
+      - "127.0.0.1:${SEAWEEDFS_HOST_PORT:-8333}:8333"  # IPv4 fallback
     volumes:
       - seaweedfs_data:/data
       - ./docker/seaweedfs/s3.json.template:/etc/seaweedfs/s3.json.template:ro
@@ -344,7 +344,7 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
-      HOST: 0.0.0.0
+      HOST: "::"
       PORT: 3001
       PUBLIC_BASE_URL: https://api.${DOMAIN:?DOMAIN is required}
       COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
@@ -401,8 +401,8 @@ services:
       MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-10485760}
     # Publish to localhost for Traefik (host networking mode)
     ports:
-      - "127.0.0.1:${API_HOST_PORT:-3001}:3001"
-      - "[::1]:${API_HOST_PORT:-3001}:3001"
+      - "[::1]:${API_HOST_PORT:-3001}:3001"       # IPv6 (preferred)
+      - "127.0.0.1:${API_HOST_PORT:-3001}:3001"  # IPv4 fallback
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
@@ -443,8 +443,8 @@ services:
     # Publish to localhost for Traefik (host networking mode)
     # Default host port 8081 avoids conflict with ModSecurity on 8080
     ports:
-      - "127.0.0.1:${APP_HOST_PORT:-8081}:8080"
-      - "[::1]:${APP_HOST_PORT:-8081}:8080"
+      - "[::1]:${APP_HOST_PORT:-8081}:8080"       # IPv6 (preferred)
+      - "127.0.0.1:${APP_HOST_PORT:-8081}:8080"  # IPv4 fallback
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 10s
@@ -498,7 +498,7 @@ services:
     environment:
       # Gateway configuration
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:?OPENCLAW_GATEWAY_TOKEN is required}
-      OPENCLAW_BIND: "0.0.0.0"
+      OPENCLAW_BIND: "::"
       OPENCLAW_HOME: /home/node/.openclaw
       # Model provider credentials (at least one required)
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -529,8 +529,8 @@ services:
       - openclaw_data:/home/node/.openclaw
     # Publish to localhost for Traefik (host networking mode)
     ports:
-      - "127.0.0.1:${GATEWAY_HOST_PORT:-18789}:18789"
-      - "[::1]:${GATEWAY_HOST_PORT:-18789}:18789"
+      - "[::1]:${GATEWAY_HOST_PORT:-18789}:18789"       # IPv6 (preferred)
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-18789}:18789"  # IPv4 fallback
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:18789/health || exit 1"]
       interval: 10s

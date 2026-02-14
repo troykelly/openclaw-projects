@@ -28,7 +28,8 @@ services:
       POSTGRES_PASSWORD: openclaw_test
       POSTGRES_DB: openclaw_test
     ports:
-      - "5433:5432"
+      - "[::1]:5433:5432"       # IPv6 (preferred)
+      - "127.0.0.1:5433:5432"  # IPv4 fallback
     command:
       - postgres
       - -c
@@ -71,7 +72,8 @@ services:
       NODE_ENV: test
       PORT: 3001
     ports:
-      - "3001:3001"
+      - "[::1]:3001:3001"       # IPv6 (preferred)
+      - "127.0.0.1:3001:3001"  # IPv4 fallback
     depends_on:
       postgres-test:
         condition: service_healthy

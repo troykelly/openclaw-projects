@@ -6,10 +6,10 @@
 # Services are reached via localhost ports (not Docker hostnames).
 #
 # Architecture:
-#   Client -> Traefik (host network) -> 127.0.0.1:MODSEC_HOST_PORT (ModSecurity WAF) -> API
-#   Client -> Traefik (host network) -> 127.0.0.1:APP_HOST_PORT (App/frontend)
-#   Client -> Traefik (host network) -> 127.0.0.1:SEAWEEDFS_HOST_PORT (SeaweedFS S3)
-#   Client -> Traefik (host network) -> 127.0.0.1:GATEWAY_HOST_PORT (OpenClaw Gateway)
+#   Client -> Traefik (host network) -> [::1]:MODSEC_HOST_PORT (ModSecurity WAF) -> API
+#   Client -> Traefik (host network) -> [::1]:APP_HOST_PORT (App/frontend)
+#   Client -> Traefik (host network) -> [::1]:SEAWEEDFS_HOST_PORT (SeaweedFS S3)
+#   Client -> Traefik (host network) -> [::1]:GATEWAY_HOST_PORT (OpenClaw Gateway)
 
 # TLS Options
 tls:
@@ -140,7 +140,7 @@ http:
   # Services
   # All services point to localhost because Traefik uses host networking.
   # Backend containers publish their ports to localhost for Traefik to reach.
-  # SERVICE_HOST controls the address (default: 127.0.0.1, set to [::1] for IPv6).
+  # SERVICE_HOST controls the address (default: [::1], set to 127.0.0.1 for IPv4-only).
   services:
     # ModSecurity WAF service - proxies to API after inspection
     modsecurity-service:
