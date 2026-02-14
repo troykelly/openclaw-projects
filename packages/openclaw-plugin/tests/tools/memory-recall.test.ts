@@ -312,6 +312,32 @@ describe('memory_recall tool', () => {
       }
     });
 
+    it('should map API note type to plugin other category', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [{ id: '1', content: 'Random note', type: 'note', similarity: 0.8 }],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.memories[0].category).toBe('other');
+        expect(result.data.content).toContain('[other]');
+      }
+    });
+
     it('should handle empty results gracefully', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
