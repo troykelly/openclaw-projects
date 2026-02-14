@@ -103,10 +103,10 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
     Object.assign(headers, entry.headers);
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), (config.timeoutSeconds || 120) * 1000);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), (config.timeoutSeconds || 120) * 1000);
 
+  try {
     const response = await fetch(url, {
       method: 'POST',
       headers,
