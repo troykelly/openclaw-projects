@@ -142,6 +142,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     limits: {
       fileSize: maxFileSize,
     },
+    // Prevent request hanging if parts are not consumed
+    // See: https://github.com/fastify/fastify-multipart#usage
+    attachFieldsToBody: false,
   });
 
   // WebSocket support for real-time updates (Issue #213)
@@ -3296,12 +3299,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     try {
-      const data = await req.file();
-      if (!data) {
+      // Use parts() iterator to ensure all multipart parts are consumed
+      // This prevents request hanging when using curl -F or similar tools
+      // See: https://github.com/fastify/fastify-multipart#usage
+      let buffer: Buffer | null = null;
+      let filename: string | undefined;
+      let mimetype: string | undefined;
+
+      for await (const part of req.parts()) {
+        if (part.type === 'file') {
+          // Take the first file we encounter
+          if (!buffer) {
+            buffer = await part.toBuffer();
+            filename = part.filename;
+            mimetype = part.mimetype;
+            // Don't break - must consume ALL parts to prevent hang
+          } else {
+            // Discard additional files
+            await part.toBuffer();
+          }
+        }
+        // Non-file fields are automatically consumed
+      }
+
+      if (!buffer || !filename) {
         return reply.code(400).send({ error: 'No file uploaded' });
       }
 
-      const buffer = await data.toBuffer();
       const pool = createPool();
 
       try {
@@ -3310,8 +3334,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           pool,
           storage,
           {
-            filename: data.filename,
-            contentType: data.mimetype,
+            filename,
+            contentType: mimetype || 'application/octet-stream',
             data: buffer,
             uploadedBy: email || undefined,
           },
