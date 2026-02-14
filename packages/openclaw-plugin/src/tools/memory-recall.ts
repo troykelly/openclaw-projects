@@ -173,10 +173,11 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         const rawResults = response.data.results ?? [];
 
         // Map API field names to plugin Memory interface
+        // Reverse the category mapping: 'note' (API) → 'other' (plugin)
         const memories: Memory[] = rawResults.map((m) => ({
           id: m.id,
           content: m.content,
-          category: m.type,
+          category: m.type === 'note' ? 'other' : m.type,
           tags: m.tags,
           score: m.similarity,
           createdAt: m.createdAt,
