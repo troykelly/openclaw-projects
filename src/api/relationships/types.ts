@@ -60,6 +60,8 @@ export interface CreateRelationshipInput {
   notes?: string;
   /** Agent that created this relationship */
   createdByAgent?: string;
+  /** User email for scoping (Issue #1172) */
+  userEmail?: string;
 }
 
 /**
@@ -86,6 +88,8 @@ export interface ListRelationshipsOptions {
   limit?: number;
   /** Offset for pagination */
   offset?: number;
+  /** Filter by user email (Issue #1172) */
+  userEmail?: string;
 }
 
 /**
@@ -146,6 +150,8 @@ export interface RelationshipSetInput {
   notes?: string;
   /** Agent performing the operation */
   createdByAgent?: string;
+  /** User email for scoping (Issue #1172) */
+  userEmail?: string;
 }
 
 /**

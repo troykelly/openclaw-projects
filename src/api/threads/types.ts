@@ -70,6 +70,8 @@ export interface ThreadListOptions {
   offset?: number;
   channel?: string;
   contactId?: string;
+  /** Filter by user email (Issue #1172) */
+  userEmail?: string;
 }
 
 export interface ThreadListItem {

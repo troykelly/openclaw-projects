@@ -286,6 +286,13 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
     paramIndex++;
   }
 
+  // Issue #1172: optional user_email scoping
+  if (options.userEmail) {
+    whereClauses.push(`et.user_email = $${paramIndex}`);
+    params.push(options.userEmail);
+    paramIndex++;
+  }
+
   const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
   // Get total count
