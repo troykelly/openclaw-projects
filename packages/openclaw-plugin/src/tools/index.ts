@@ -87,6 +87,17 @@ export {
   type TodoSearchToolOptions,
 } from './todo-search.js';
 
+// Project search tool (Issue #1217)
+export {
+  createProjectSearchTool,
+  ProjectSearchParamsSchema,
+  type ProjectSearchParams,
+  type ProjectSearchTool,
+  type ProjectSearchResult,
+  type ProjectSearchItem,
+  type ProjectSearchToolOptions,
+} from './project-search.js';
+
 // Contact tools
 export {
   createContactSearchTool,
