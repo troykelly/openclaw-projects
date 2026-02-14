@@ -19,6 +19,7 @@ import { createLogger, type Logger } from './logger.js';
 import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { createNotificationService } from './services/notification-service.js';
 import {
+  createProjectSearchTool,
   createSkillStoreAggregateTool,
   createSkillStoreCollectionsTool,
   createSkillStoreDeleteTool,
@@ -1481,100 +1482,8 @@ function createToolHandlers(state: PluginState) {
     },
 
     async project_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const {
-        query,
-        limit = 10,
-        status,
-      } = params as {
-        query: string;
-        limit?: number;
-        status?: string;
-      };
-
-      if (!query || query.trim().length === 0) {
-        return { success: false, error: 'query is required' };
-      }
-
-      try {
-        // Always over-fetch by 3x since we always filter to kind=project client-side
-        const fetchLimit = Math.min((limit as number) * 3, 50);
-
-        const queryParams = new URLSearchParams({
-          q: query.trim(),
-          types: 'work_item',
-          limit: String(fetchLimit),
-          semantic: 'true',
-          user_email: userId,
-        });
-
-        const response = await apiClient.get<{
-          results: Array<{
-            id: string;
-            title: string;
-            snippet: string;
-            score: number;
-            type: string;
-            metadata?: { kind?: string; status?: string };
-          }>;
-          search_type: string;
-          total: number;
-        }>(`/api/search?${queryParams}`, { userId });
-
-        if (!response.success) {
-          return { success: false, error: response.error.message };
-        }
-
-        let results = response.data.results ?? [];
-
-        // Always filter to kind=project
-        results = results.filter((r) => r.metadata?.kind === 'project');
-
-        // Additional filtering by status, then truncate to requested limit
-        if (status) {
-          results = results.filter((r) => r.metadata?.status === status);
-        }
-        results = results.slice(0, limit as number);
-
-        if (results.length === 0) {
-          return {
-            success: true,
-            data: {
-              content: 'No matching projects found.',
-              details: { count: 0, results: [], searchType: response.data.search_type },
-            },
-          };
-        }
-
-        const content = results
-          .map((r) => {
-            const statusStr = r.metadata?.status ? ` (${r.metadata.status})` : '';
-            const snippetStr = r.snippet ? ` - ${r.snippet}` : '';
-            return `- **${r.title}**${statusStr}${snippetStr}`;
-          })
-          .join('\n');
-
-        return {
-          success: true,
-          data: {
-            content,
-            details: {
-              count: results.length,
-              results: results.map((r) => ({
-                id: r.id,
-                title: r.title,
-                snippet: r.snippet,
-                score: r.score,
-                kind: r.metadata?.kind,
-                status: r.metadata?.status,
-              })),
-              searchType: response.data.search_type,
-            },
-          },
-        };
-      } catch (error) {
-        logger.error('project_search failed', { error });
-        return { success: false, error: 'Failed to search projects' };
-      }
+      const tool = createProjectSearchTool({ client: apiClient, logger, config, userId });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async contact_search(params: Record<string, unknown>): Promise<ToolResult> {
