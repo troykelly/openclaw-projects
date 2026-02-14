@@ -108,7 +108,9 @@ function normalizeImportance(value: number | undefined): number {
 }
 
 /**
- * Creates a new memory.
+ * Creates a new memory with deduplication.
+ * If identical content already exists for the same scope, updates the existing memory's timestamp instead.
+ * Issue #1143
  */
 export async function createMemory(pool: Pool, input: CreateMemoryInput): Promise<MemoryEntry> {
   const memoryType = input.memoryType ?? 'note';
@@ -126,6 +128,82 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
 
   const tags = input.tags ?? [];
 
+  // Deduplication: Check for existing memory with identical content
+  // Normalize content: trim whitespace for comparison
+  const normalizedContent = input.content.trim();
+
+  // Build scope conditions for deduplication check
+  const scopeConditions: string[] = [];
+  const scopeParams: unknown[] = [normalizedContent];
+  let paramIndex = 2;
+
+  // Only check within the same scope (same user_email, work_item_id, contact_id, relationship_id)
+  if (input.userEmail !== undefined) {
+    scopeConditions.push(`user_email = $${paramIndex}`);
+    scopeParams.push(input.userEmail);
+    paramIndex++;
+  } else {
+    scopeConditions.push(`user_email IS NULL`);
+  }
+
+  if (input.workItemId !== undefined) {
+    scopeConditions.push(`work_item_id = $${paramIndex}`);
+    scopeParams.push(input.workItemId);
+    paramIndex++;
+  } else {
+    scopeConditions.push(`work_item_id IS NULL`);
+  }
+
+  if (input.contactId !== undefined) {
+    scopeConditions.push(`contact_id = $${paramIndex}`);
+    scopeParams.push(input.contactId);
+    paramIndex++;
+  } else {
+    scopeConditions.push(`contact_id IS NULL`);
+  }
+
+  if (input.relationshipId !== undefined) {
+    scopeConditions.push(`relationship_id = $${paramIndex}`);
+    scopeParams.push(input.relationshipId);
+    paramIndex++;
+  } else {
+    scopeConditions.push(`relationship_id IS NULL`);
+  }
+
+  const scopeWhere = scopeConditions.join(' AND ');
+
+  // Check for duplicate using normalized content comparison
+  const duplicateCheck = await pool.query(
+    `SELECT id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      title, content, memory_type::text, tags,
+      created_by_agent, created_by_human, source_url,
+      importance, confidence, expires_at, superseded_by::text,
+      embedding_status, created_at, updated_at
+    FROM memory
+    WHERE TRIM(content) = $1 AND ${scopeWhere}
+    LIMIT 1`,
+    scopeParams,
+  );
+
+  if (duplicateCheck.rows.length > 0) {
+    // Duplicate found - update timestamp and return existing memory
+    const existingId = duplicateCheck.rows[0].id;
+    const updateResult = await pool.query(
+      `UPDATE memory SET updated_at = NOW()
+      WHERE id = $1
+      RETURNING
+        id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+        title, content, memory_type::text, tags,
+        created_by_agent, created_by_human, source_url,
+        importance, confidence, expires_at, superseded_by::text,
+        embedding_status, created_at, updated_at`,
+      [existingId],
+    );
+
+    return mapRowToMemory(updateResult.rows[0] as Record<string, unknown>);
+  }
+
+  // No duplicate - create new memory
   const result = await pool.query(
     `INSERT INTO memory (
       user_email, work_item_id, contact_id, relationship_id,
