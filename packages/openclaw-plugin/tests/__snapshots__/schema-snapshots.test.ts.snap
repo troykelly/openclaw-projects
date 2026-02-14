@@ -425,6 +425,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
           "memory",
           "todo",
           "project",
+          "message",
         ],
         "type": "string",
       },
