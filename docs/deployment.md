@@ -318,6 +318,8 @@ Traefik starts immediately without waiting for backend services to become health
 
 During startup, you may briefly see 502/503 errors until the backend services (api, app, modsecurity) pass their health checks. This typically resolves within 15-30 seconds.
 
+Traefik exposes a `--ping=true` endpoint (`/ping`) for external healthchecks (e.g., Docker HEALTHCHECK, load balancer probes). This endpoint responds with `200 OK` when Traefik is ready to accept connections, independent of backend health.
+
 **Startup sequence:**
 1. All services start simultaneously
 2. Traefik acquires TLS certificates via ACME DNS-01
@@ -531,7 +533,8 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `POSTMARK_TRANSACTIONAL_TOKEN` | (empty) | Postmark API token |
-| `POSTMARK_FROM` | (empty) | From address (verified sender) |
+| `POSTMARK_FROM_EMAIL` | (empty) | From address (verified sender) |
+| `POSTMARK_FROM` | (empty) | Legacy alias for `POSTMARK_FROM_EMAIL` (used as fallback) |
 | `POSTMARK_REPLY_TO` | (empty) | Reply-to address |
 | `POSTMARK_MESSAGE_STREAM` | `outbound` | Message stream name |
 

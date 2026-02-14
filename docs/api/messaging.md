@@ -184,6 +184,120 @@ Webhook endpoint for Postmark delivery status callbacks. Configure in your Postm
 
 ---
 
+## Thread Endpoints
+
+### List Threads
+
+**GET** `/api/threads`
+
+List all conversation threads with optional filtering by channel or contact.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `limit` | integer | No | Max threads to return (default 20) |
+| `offset` | integer | No | Pagination offset (default 0) |
+| `channel` | string | No | Filter by channel (e.g., `sms`, `email`) |
+| `contact_id` | string | No | Filter by contact UUID |
+
+**Response (200 OK):**
+```json
+{
+  "threads": [
+    {
+      "id": "019c1234-5678-7890-abcd-ef1234567890",
+      "channel": "sms",
+      "externalThreadKey": "+15551234567",
+      "contact": {
+        "id": "019c1234-5678-7890-abcd-ef1234567891",
+        "displayName": "Jane Doe"
+      },
+      "createdAt": "2026-01-15T12:00:00Z",
+      "updatedAt": "2026-02-14T09:30:00Z",
+      "lastMessage": {
+        "id": "019c1234-5678-7890-abcd-ef1234567892",
+        "direction": "inbound",
+        "body": "Thanks for the reminder!",
+        "receivedAt": "2026-02-14T09:30:00Z"
+      },
+      "messageCount": 12
+    }
+  ],
+  "total": 42,
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "hasMore": true
+  }
+}
+```
+
+**Example:**
+```bash
+# List all threads
+curl https://api.example.com/api/threads \
+  -H "Authorization: Bearer $API_TOKEN"
+
+# Filter by channel
+curl "https://api.example.com/api/threads?channel=sms&limit=10" \
+  -H "Authorization: Bearer $API_TOKEN"
+```
+
+### Get Thread History
+
+**GET** `/api/threads/:id/history`
+
+Get full thread history including messages, related work items, and contact memories.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Thread UUID |
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `limit` | integer | No | Max messages to return (default 50, max 200) |
+| `before` | string | No | Messages before this ISO 8601 timestamp |
+| `after` | string | No | Messages after this ISO 8601 timestamp |
+| `includeWorkItems` | boolean | No | Include related work items (default true) |
+| `includeMemories` | boolean | No | Include contact memories (default true) |
+
+**Response (200 OK):**
+```json
+{
+  "thread": {
+    "id": "019c1234-...",
+    "channel": "sms",
+    "externalThreadKey": "+15551234567",
+    "contact": { "id": "...", "displayName": "Jane Doe" },
+    "createdAt": "2026-01-15T12:00:00Z",
+    "updatedAt": "2026-02-14T09:30:00Z"
+  },
+  "messages": [
+    {
+      "id": "...",
+      "direction": "outbound",
+      "body": "Don't forget your appointment tomorrow!",
+      "receivedAt": "2026-02-13T10:00:00Z",
+      "createdAt": "2026-02-13T10:00:00Z"
+    }
+  ],
+  "relatedWorkItems": [],
+  "contactMemories": [],
+  "pagination": {
+    "hasMore": false,
+    "oldestTimestamp": "2026-02-13T10:00:00Z",
+    "newestTimestamp": "2026-02-14T09:30:00Z"
+  }
+}
+```
+
+---
+
 ## Delivery Status Tracking
 
 ### Message Lifecycle
