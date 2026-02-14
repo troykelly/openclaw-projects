@@ -330,12 +330,24 @@ describe('email_send tool', () => {
       expect(mockClient.post).not.toHaveBeenCalled();
     });
 
-    it('should warn when Postmark is not configured', async () => {
+    it('should call API even when Postmark is not configured in plugin config', async () => {
+      // The API server has its own Postmark credentials via env vars,
+      // so the plugin should NOT block email_send when plugin-level
+      // Postmark config is missing. See issue #1174.
       const configWithoutPostmark = {
         ...mockConfig,
         postmarkToken: undefined,
         postmarkFromEmail: undefined,
       };
+
+      vi.mocked(mockClient.post).mockResolvedValue({
+        success: true,
+        data: {
+          messageId: 'MSG-NO-CONFIG',
+          threadId: 'TH-NO-CONFIG',
+          status: 'sent',
+        },
+      });
 
       const tool = createEmailSendTool({
         client: mockClient,
@@ -350,8 +362,73 @@ describe('email_send tool', () => {
         body: 'Test message',
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Postmark');
+      // Should succeed — the API handles Postmark auth, not the plugin
+      expect(result.success).toBe(true);
+      expect(mockClient.post).toHaveBeenCalledWith(
+        '/api/postmark/email/send',
+        expect.objectContaining({
+          to: 'recipient@example.com',
+          subject: 'Test Subject',
+          body: 'Test message',
+        }),
+        { userId },
+      );
+    });
+
+    it('should call API when only postmarkToken is missing from plugin config', async () => {
+      const configPartial = {
+        ...mockConfig,
+        postmarkToken: undefined,
+      };
+
+      vi.mocked(mockClient.post).mockResolvedValue({
+        success: true,
+        data: { messageId: 'MSG-PARTIAL', status: 'sent' },
+      });
+
+      const tool = createEmailSendTool({
+        client: mockClient,
+        logger: mockLogger,
+        config: configPartial,
+        userId,
+      });
+
+      const result = await tool.execute({
+        to: 'recipient@example.com',
+        subject: 'Test',
+        body: 'Test body',
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockClient.post).toHaveBeenCalled();
+    });
+
+    it('should call API when only postmarkFromEmail is missing from plugin config', async () => {
+      const configPartial = {
+        ...mockConfig,
+        postmarkFromEmail: undefined,
+      };
+
+      vi.mocked(mockClient.post).mockResolvedValue({
+        success: true,
+        data: { messageId: 'MSG-PARTIAL2', status: 'sent' },
+      });
+
+      const tool = createEmailSendTool({
+        client: mockClient,
+        logger: mockLogger,
+        config: configPartial,
+        userId,
+      });
+
+      const result = await tool.execute({
+        to: 'recipient@example.com',
+        subject: 'Test',
+        body: 'Test body',
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockClient.post).toHaveBeenCalled();
     });
 
     it('should log successful sends', async () => {
