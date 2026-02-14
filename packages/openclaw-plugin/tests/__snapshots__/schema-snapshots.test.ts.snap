@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `35`;
+exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `38`;
 
 exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`] = `
 [
@@ -9,6 +9,9 @@ exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`
   "contact_search",
   "email_send",
   "file_share",
+  "links_query",
+  "links_remove",
+  "links_set",
   "memory_forget",
   "memory_recall",
   "memory_store",
@@ -467,6 +470,133 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
   },
   "required": [
     "fileId",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > links_query parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "entity_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "entity_type": {
+      "enum": [
+        "memory",
+        "todo",
+        "project",
+        "contact",
+      ],
+      "type": "string",
+    },
+    "link_types": {
+      "items": {
+        "enum": [
+          "memory",
+          "todo",
+          "project",
+          "contact",
+          "github_issue",
+          "url",
+        ],
+        "type": "string",
+      },
+      "type": "array",
+    },
+  },
+  "required": [
+    "entity_type",
+    "entity_id",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > links_remove parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "source_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "source_type": {
+      "enum": [
+        "memory",
+        "todo",
+        "project",
+        "contact",
+      ],
+      "type": "string",
+    },
+    "target_ref": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "target_type": {
+      "enum": [
+        "memory",
+        "todo",
+        "project",
+        "contact",
+        "github_issue",
+        "url",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "source_type",
+    "source_id",
+    "target_type",
+    "target_ref",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > links_set parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "label": {
+      "maxLength": 100,
+      "type": "string",
+    },
+    "source_id": {
+      "format": "uuid",
+      "type": "string",
+    },
+    "source_type": {
+      "enum": [
+        "memory",
+        "todo",
+        "project",
+        "contact",
+      ],
+      "type": "string",
+    },
+    "target_ref": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "target_type": {
+      "enum": [
+        "memory",
+        "todo",
+        "project",
+        "contact",
+        "github_issue",
+        "url",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "source_type",
+    "source_id",
+    "target_type",
+    "target_ref",
   ],
   "type": "object",
 }
