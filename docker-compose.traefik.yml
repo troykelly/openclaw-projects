@@ -73,6 +73,8 @@ services:
       # API and Dashboard
       - --api.dashboard=false
       - --api.insecure=false
+      # Ping endpoint for healthchecks
+      - --ping=true
       # Providers
       - --providers.docker=true
       - --providers.docker.exposedByDefault=false
