@@ -325,6 +325,39 @@ const todoCompleteSchema: JSONSchema = {
 };
 
 /**
+ * Todo search tool JSON Schema (Issue #1216)
+ */
+const todoSearchSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      description: 'Natural language search query for finding work items',
+      minLength: 1,
+      maxLength: 1000,
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return',
+      minimum: 1,
+      maximum: 50,
+      default: 10,
+    },
+    kind: {
+      type: 'string',
+      description: 'Filter by work item kind',
+      enum: ['task', 'project', 'initiative', 'epic', 'issue'],
+    },
+    status: {
+      type: 'string',
+      description: 'Filter by status (e.g., open, completed, in_progress)',
+      maxLength: 50,
+    },
+  },
+  required: ['query'],
+};
+
+/**
  * Contact search tool JSON Schema
  */
 const contactSearchSchema: JSONSchema = {
@@ -1316,6 +1349,101 @@ function createToolHandlers(state: PluginState) {
       } catch (error) {
         logger.error('todo_complete failed', { error });
         return { success: false, error: 'Failed to complete todo' };
+      }
+    },
+
+    async todo_search(params: Record<string, unknown>): Promise<ToolResult> {
+      const {
+        query,
+        limit = 10,
+        kind,
+        status,
+      } = params as {
+        query: string;
+        limit?: number;
+        kind?: string;
+        status?: string;
+      };
+
+      if (!query || query.trim().length === 0) {
+        return { success: false, error: 'query is required' };
+      }
+
+      try {
+        const queryParams = new URLSearchParams({
+          q: query.trim(),
+          types: 'work_item',
+          limit: String(limit),
+          semantic: 'true',
+        });
+
+        const response = await apiClient.get<{
+          results: Array<{
+            id: string;
+            title: string;
+            snippet: string;
+            score: number;
+            type: string;
+            metadata?: { kind?: string; status?: string };
+          }>;
+          search_type: string;
+          total: number;
+        }>(`/api/search?${queryParams}`, { userId });
+
+        if (!response.success) {
+          return { success: false, error: response.error.message };
+        }
+
+        let results = response.data.results ?? [];
+
+        // Client-side filtering by kind and status
+        if (kind) {
+          results = results.filter((r) => r.metadata?.kind === kind);
+        }
+        if (status) {
+          results = results.filter((r) => r.metadata?.status === status);
+        }
+
+        if (results.length === 0) {
+          return {
+            success: true,
+            data: {
+              content: 'No matching work items found.',
+              details: { count: 0, results: [], searchType: response.data.search_type },
+            },
+          };
+        }
+
+        const content = results
+          .map((r) => {
+            const kindStr = r.metadata?.kind ? `[${r.metadata.kind}]` : '';
+            const statusStr = r.metadata?.status ? ` (${r.metadata.status})` : '';
+            const snippetStr = r.snippet ? ` - ${r.snippet}` : '';
+            return `- ${kindStr} **${r.title}**${statusStr}${snippetStr}`;
+          })
+          .join('\n');
+
+        return {
+          success: true,
+          data: {
+            content,
+            details: {
+              count: results.length,
+              results: results.map((r) => ({
+                id: r.id,
+                title: r.title,
+                snippet: r.snippet,
+                score: r.score,
+                kind: r.metadata?.kind,
+                status: r.metadata?.status,
+              })),
+              searchType: response.data.search_type,
+            },
+          },
+        };
+      } catch (error) {
+        logger.error('todo_search failed', { error });
+        return { success: false, error: 'Failed to search work items' };
       }
     },
 
@@ -2448,6 +2576,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: todoCompleteSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_complete(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'todo_search',
+      description: 'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. Optionally filter by kind or status.',
+      parameters: todoSearchSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.todo_search(params);
         return toAgentToolResult(result);
       },
     },

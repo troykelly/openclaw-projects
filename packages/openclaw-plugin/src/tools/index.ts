@@ -76,6 +76,17 @@ export {
   type TodoToolOptions,
 } from './todos.js';
 
+// Todo search tool (Issue #1216)
+export {
+  createTodoSearchTool,
+  TodoSearchParamsSchema,
+  type TodoSearchParams,
+  type TodoSearchTool,
+  type TodoSearchResult,
+  type TodoSearchItem,
+  type TodoSearchToolOptions,
+} from './todo-search.js';
+
 // Contact tools
 export {
   createContactSearchTool,
