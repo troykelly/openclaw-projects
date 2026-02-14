@@ -98,6 +98,18 @@ export {
   type ProjectSearchToolOptions,
 } from './project-search.js';
 
+// Context search tool (Issue #1219)
+export {
+  createContextSearchTool,
+  ContextSearchParamsSchema,
+  EntityType,
+  type ContextSearchParams,
+  type ContextSearchTool,
+  type ContextSearchResult,
+  type ContextSearchResultItem,
+  type ContextSearchToolOptions,
+} from './context-search.js';
+
 // Contact tools
 export {
   createContactSearchTool,

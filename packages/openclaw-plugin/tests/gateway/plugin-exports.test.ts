@@ -46,7 +46,7 @@ describe('Gateway Plugin Exports', () => {
   });
 
   it('should have tool count matching EXPECTED_TOOLS', () => {
-    // Verify the documented tool count matches actual registration count (27 tools)
-    expect(EXPECTED_TOOLS.length).toBe(27);
+    // Verify the documented tool count matches actual registration count (28 tools)
+    expect(EXPECTED_TOOLS.length).toBe(28);
   });
 });
