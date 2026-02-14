@@ -1982,11 +1982,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
   app.get('/api/work-items', async (req, reply) => {
-    const query = req.query as { include_deleted?: string };
+    const query = req.query as { include_deleted?: string; item_type?: string };
     const pool = createPool();
 
+    // Build WHERE clause
+    const conditions: string[] = [];
+    const params: (string | boolean)[] = [];
+
     // By default, exclude soft-deleted items
-    const deletedFilter = query.include_deleted === 'true' ? '' : 'WHERE deleted_at IS NULL';
+    if (query.include_deleted !== 'true') {
+      conditions.push('deleted_at IS NULL');
+    }
+
+    // Filter by item_type if provided
+    if (query.item_type) {
+      params.push(query.item_type);
+      conditions.push(`kind = $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const result = await pool.query(
       `SELECT id::text as id,
@@ -2001,9 +2015,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               estimate_minutes,
               actual_minutes
          FROM work_item
-         ${deletedFilter}
+         ${whereClause}
         ORDER BY created_at DESC
         LIMIT 50`,
+      params,
     );
     await pool.end();
     return reply.send({ items: result.rows });
@@ -2556,6 +2571,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       title?: string;
       description?: string | null;
       kind?: string;
+      type?: string; // Alias for 'kind' for client compatibility
       parentId?: string | null;
       estimateMinutes?: number | null;
       actualMinutes?: number | null;
@@ -2567,10 +2583,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'title is required' });
     }
 
-    const kind = body.kind ?? 'issue';
-    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue']);
+    // Accept 'type' or 'kind' parameter (type takes precedence for client compatibility)
+    const kind = body.type ?? body.kind ?? 'issue';
+    const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task']);
     if (!allowedKinds.has(kind)) {
-      return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue' });
+      return reply.code(400).send({ error: 'kind/type must be one of project|initiative|epic|issue|task' });
     }
 
     // Validate estimate/actual constraints before hitting DB
@@ -2623,6 +2640,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.end();
         return reply.code(400).send({ error: 'issue parent must be epic' });
       }
+      // tasks can have any parent
     } else {
       if (kind === 'epic') {
         await pool.end();
@@ -2631,6 +2649,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (kind === 'issue') {
         // issues may be top-level for backwards compatibility
       }
+      // tasks may be top-level
     }
 
     // Handle recurrence if specified (Issue #217)
