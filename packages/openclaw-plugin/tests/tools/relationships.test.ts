@@ -736,7 +736,7 @@ describe('relationship tools', () => {
     });
 
     describe('API interaction', () => {
-      it('should call GET /api/relationships with contact_id parameter', async () => {
+      it('should call GET /api/relationships with contact parameter', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
@@ -756,7 +756,7 @@ describe('relationship tools', () => {
 
         await tool.execute({ contact: 'Troy' });
 
-        expect(mockGet).toHaveBeenCalledWith('/api/relationships?contact_id=Troy', expect.objectContaining({ userId: 'agent-1' }));
+        expect(mockGet).toHaveBeenCalledWith('/api/relationships?contact=Troy', expect.objectContaining({ userId: 'agent-1' }));
       });
     });
 
