@@ -5702,10 +5702,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           tags: searchTags,
         });
 
+        // Map results to include score (Issue #1145)
+        const mappedResults = result.results.map((r: any) => ({
+          ...r,
+          score: r.similarity || null,
+        }));
+
         return reply.send({
-          results: result.results,
+          results: mappedResults,
           search_type: result.searchType,
-          query_embedding_provider: result.queryEmbeddingProvider,
+          embedding_provider: result.queryEmbeddingProvider,
         });
       } finally {
         await pool.end();
