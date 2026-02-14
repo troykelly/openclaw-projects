@@ -423,10 +423,10 @@ describe('Memory Service', () => {
 
     it('respects pagination', async () => {
       for (let i = 0; i < 5; i++) {
-        await createMemory(pool, { userEmail: 'test@example.com', title: `Memory ${i}`, content: 'C' });
+        await createMemory(pool, { userEmail: 'test@example.com', title: `Memory ${i}`, content: `Content ${i}` });
       }
 
-      const result = await listMemories(pool, { limit: 2, offset: 1 });
+      const result = await listMemories(pool, { userEmail: 'test@example.com', limit: 2, offset: 1 });
 
       expect(result.memories.length).toBe(2);
       expect(result.total).toBe(5);
