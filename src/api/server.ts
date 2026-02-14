@@ -732,6 +732,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
       channel?: string;
       contact_id?: string;
+      user_email?: string;
     };
 
     const pool = createPool();
@@ -742,6 +743,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset: query.offset ? parseInt(query.offset, 10) : undefined,
         channel: query.channel,
         contactId: query.contact_id,
+        userEmail: query.user_email,
       });
 
       return reply.send(result);
@@ -2017,7 +2019,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
   app.get('/api/work-items', async (req, reply) => {
-    const query = req.query as { include_deleted?: string; item_type?: string };
+    const query = req.query as { include_deleted?: string; item_type?: string; user_email?: string };
     const pool = createPool();
 
     // Build WHERE clause
@@ -2033,6 +2035,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (query.item_type) {
       params.push(query.item_type);
       conditions.push(`kind = $${params.length}`);
+    }
+
+    // Filter by user_email if provided (Issue #1172)
+    if (query.user_email) {
+      params.push(query.user_email);
+      conditions.push(`user_email = $${params.length}`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -2234,6 +2242,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.patch('/api/work-items/:id/status', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
     const body = req.body as { status?: string };
 
     if (!body?.status) {
@@ -2241,13 +2250,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
+
+    // Issue #1172: optional user_email scoping
+    const statusParams: string[] = [params.id, body.status];
+    let statusUserEmailFilter = '';
+    if (query.user_email) {
+      statusParams.push(query.user_email);
+      statusUserEmailFilter = `AND user_email = $${statusParams.length}`;
+    }
+
     const result = await pool.query(
       `UPDATE work_item
           SET status = $2,
               updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 ${statusUserEmailFilter}
       RETURNING id::text as id, title, status, priority::text as priority, updated_at`,
-      [params.id, body.status],
+      statusParams,
     );
 
     if (result.rows.length === 0) {
@@ -2613,6 +2631,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       recurrence_rule?: string;
       recurrence_natural?: string;
       recurrence_end?: string;
+      user_email?: string; // Issue #1172: per-user scoping
     };
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
@@ -2713,11 +2732,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    const userEmail = body.user_email?.trim() || null;
+
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template)
-       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10)
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11)
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate],
+      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate, userEmail],
     );
 
     const workItem = result.rows[0] as { id: string; title: string };
@@ -2812,11 +2833,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id - Get single work item (excludes soft-deleted, Issue #225)
   app.get('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { include_deleted?: string };
+    const query = req.query as { include_deleted?: string; user_email?: string };
     const pool = createPool();
 
     // By default, exclude soft-deleted items
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND wi.deleted_at IS NULL';
+
+    // Issue #1172: optional user_email scoping
+    const queryParams: string[] = [params.id];
+    let userEmailFilter = '';
+    if (query.user_email) {
+      queryParams.push(query.user_email);
+      userEmailFilter = `AND wi.user_email = $${queryParams.length}`;
+    }
 
     // Get main work item
     const result = await pool.query(
@@ -2837,8 +2866,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               wi.deleted_at,
               (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id AND c.deleted_at IS NULL) as children_count
          FROM work_item wi
-        WHERE wi.id = $1 ${deletedFilter}`,
-      [params.id],
+        WHERE wi.id = $1 ${deletedFilter} ${userEmailFilter}`,
+      queryParams,
     );
 
     if (result.rows.length === 0) {
@@ -2940,6 +2969,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.put('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
     const body = req.body as {
       title?: string;
       description?: string | null;
@@ -2975,12 +3005,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
+    // Issue #1172: optional user_email scoping
+    const existingParams: string[] = [params.id];
+    let existingUserEmailFilter = '';
+    if (query.user_email) {
+      existingParams.push(query.user_email);
+      existingUserEmailFilter = `AND user_email = $${existingParams.length}`;
+    }
+
     // Fetch current row so we can validate hierarchy semantics on parent changes.
     const existing = await pool.query(
       `SELECT kind, parent_id::text as parent_id, estimate_minutes, actual_minutes
          FROM work_item
-        WHERE id = $1`,
-      [params.id],
+        WHERE id = $1 ${existingUserEmailFilter}`,
+      existingParams,
     );
 
     if (existing.rows.length === 0) {
@@ -3053,6 +3091,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Issue #1172: build user_email WHERE filter for the UPDATE
+    const updateParams: unknown[] = [
+      params.id,
+      body.title.trim(),
+      body.description ?? null,
+      body.status ?? 'open',
+      body.priority ?? 'P2',
+      body.taskType ?? 'general',
+      body.notBefore ?? null,
+      body.notAfter ?? null,
+      parentId,
+      estimateMinutes,
+      actualMinutes,
+    ];
+    let updateUserEmailFilter = '';
+    if (query.user_email) {
+      updateParams.push(query.user_email);
+      updateUserEmailFilter = `AND user_email = $${updateParams.length}`;
+    }
+
     const result = await pool.query(
       `UPDATE work_item
           SET title = $2,
@@ -3066,23 +3124,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               estimate_minutes = $10,
               actual_minutes = $11,
               updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 ${updateUserEmailFilter}
       RETURNING id::text as id, title, description, status, priority::text as priority, task_type::text as task_type,
                 kind, parent_id::text as parent_id,
                 created_at, updated_at, not_before, not_after, estimate_minutes, actual_minutes`,
-      [
-        params.id,
-        body.title.trim(),
-        body.description ?? null,
-        body.status ?? 'open',
-        body.priority ?? 'P2',
-        body.taskType ?? 'general',
-        body.notBefore ?? null,
-        body.notAfter ?? null,
-        parentId,
-        estimateMinutes,
-        actualMinutes,
-      ],
+      updateParams,
     );
 
     if (result.rows.length === 0) {
@@ -3106,12 +3152,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id - Soft delete by default (Issue #225)
   app.delete('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { permanent?: string };
+    const query = req.query as { permanent?: string; user_email?: string };
     const pool = createPool();
+
+    // Issue #1172: optional user_email scoping
+    const deleteParams: string[] = [params.id];
+    let deleteUserEmailFilter = '';
+    if (query.user_email) {
+      deleteParams.push(query.user_email);
+      deleteUserEmailFilter = `AND user_email = $${deleteParams.length}`;
+    }
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
-      const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
+      const result = await pool.query(`DELETE FROM work_item WHERE id = $1 ${deleteUserEmailFilter} RETURNING id::text as id`, deleteParams);
       await pool.end();
       if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
       return reply.code(204).send();
@@ -3120,9 +3174,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Soft delete by default
     const result = await pool.query(
       `UPDATE work_item SET deleted_at = now()
-       WHERE id = $1 AND deleted_at IS NULL
+       WHERE id = $1 AND deleted_at IS NULL ${deleteUserEmailFilter}
        RETURNING id::text as id`,
-      [params.id],
+      deleteParams,
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -4935,7 +4989,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.post('/api/contacts', async (req, reply) => {
-    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string };
+    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string; user_email?: string };
     if (!body?.displayName || body.displayName.trim().length === 0) {
       return reply.code(400).send({ error: 'displayName is required' });
     }
@@ -4947,11 +5001,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
+    const contactUserEmail = body.user_email?.trim() || null;
     const result = await pool.query(
-      `INSERT INTO contact (display_name, notes, contact_kind)
-       VALUES ($1, $2, $3)
+      `INSERT INTO contact (display_name, notes, contact_kind, user_email)
+       VALUES ($1, $2, $3, $4)
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
-      [body.displayName.trim(), body.notes ?? null, contactKind],
+      [body.displayName.trim(), body.notes ?? null, contactKind, contactUserEmail],
     );
     await pool.end();
 
@@ -5075,7 +5130,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts - List contacts with optional search and pagination
   // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
   app.get('/api/contacts', async (req, reply) => {
-    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string };
+    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string; user_email?: string };
     const limit = Math.min(parseInt(query.limit || '50', 10), 100);
     const offset = parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
@@ -5099,6 +5154,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         SELECT 1 FROM contact_endpoint ce2 WHERE ce2.contact_id = c.id AND ce2.endpoint_value ILIKE $${paramIndex}
       ))`);
       params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Issue #1172: optional user_email scoping
+    if (query.user_email) {
+      conditions.push(`c.user_email = $${paramIndex}`);
+      params.push(query.user_email);
       paramIndex++;
     }
 
@@ -5159,10 +5221,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
   app.get('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { include_deleted?: string };
+    const query = req.query as { include_deleted?: string; user_email?: string };
     const pool = createPool();
 
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
+
+    // Issue #1172: optional user_email scoping
+    const contactGetParams: string[] = [params.id];
+    let contactUserEmailFilter = '';
+    if (query.user_email) {
+      contactGetParams.push(query.user_email);
+      contactUserEmailFilter = `AND c.user_email = $${contactGetParams.length}`;
+    }
 
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
@@ -5176,9 +5246,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               ) as endpoints
        FROM contact c
        LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-       WHERE c.id = $1 ${deletedFilter}
+       WHERE c.id = $1 ${deletedFilter} ${contactUserEmailFilter}
        GROUP BY c.id`,
-      [params.id],
+      contactGetParams,
     );
 
     await pool.end();
@@ -5193,6 +5263,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/contacts/:id - Update contact
   app.patch('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { user_email?: string };
     const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string };
 
     const pool = createPool();
@@ -5203,8 +5274,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
     }
 
-    // Check if contact exists
-    const existing = await pool.query('SELECT id FROM contact WHERE id = $1', [params.id]);
+    // Check if contact exists (Issue #1172: optional user_email scoping)
+    const existCheckParams: string[] = [params.id];
+    let existCheckUserEmailFilter = '';
+    if (query.user_email) {
+      existCheckParams.push(query.user_email);
+      existCheckUserEmailFilter = `AND user_email = $${existCheckParams.length}`;
+    }
+    const existing = await pool.query(`SELECT id FROM contact WHERE id = $1 ${existCheckUserEmailFilter}`, existCheckParams);
     if (existing.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5240,9 +5317,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     updates.push('updated_at = now()');
     values.push(params.id);
+    const idParamIndex = paramIndex;
+    paramIndex++;
+
+    // Issue #1172: optional user_email scoping on UPDATE
+    let patchContactUserEmailFilter = '';
+    if (query.user_email) {
+      values.push(query.user_email);
+      patchContactUserEmailFilter = `AND user_email = $${paramIndex}`;
+      paramIndex++;
+    }
 
     const result = await pool.query(
-      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${paramIndex}
+      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex} ${patchContactUserEmailFilter}
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
       values,
     );
@@ -5254,12 +5341,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/contacts/:id - Soft delete by default (Issue #225)
   app.delete('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { permanent?: string };
+    const query = req.query as { permanent?: string; user_email?: string };
     const pool = createPool();
+
+    // Issue #1172: optional user_email scoping
+    const deleteContactParams: string[] = [params.id];
+    let deleteContactUserEmailFilter = '';
+    if (query.user_email) {
+      deleteContactParams.push(query.user_email);
+      deleteContactUserEmailFilter = `AND user_email = $${deleteContactParams.length}`;
+    }
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
-      const result = await pool.query('DELETE FROM contact WHERE id = $1 RETURNING id::text as id', [params.id]);
+      const result = await pool.query(`DELETE FROM contact WHERE id = $1 ${deleteContactUserEmailFilter} RETURNING id::text as id`, deleteContactParams);
       await pool.end();
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
@@ -5270,9 +5365,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Soft delete by default
     const result = await pool.query(
       `UPDATE contact SET deleted_at = now()
-       WHERE id = $1 AND deleted_at IS NULL
+       WHERE id = $1 AND deleted_at IS NULL ${deleteContactUserEmailFilter}
        RETURNING id::text as id`,
-      [params.id],
+      deleteContactParams,
     );
 
     await pool.end();
@@ -13508,6 +13603,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (query.offset !== undefined) {
         options.offset = parseInt(query.offset, 10);
       }
+      // Issue #1172: optional user_email scoping
+      if (query.user_email !== undefined) {
+        options.userEmail = query.user_email;
+      }
 
       const result = await listRelationships(pool, options);
       return reply.send(result);
@@ -13550,6 +13649,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         relationshipType: relationshipType.trim(),
         notes: (body.notes as string) ?? undefined,
         createdByAgent: (body.created_by_agent as string) ?? undefined,
+        userEmail: (body.user_email as string)?.trim() || undefined,
       });
 
       return reply.send(result);
@@ -13686,7 +13786,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const result = await getRelatedContacts(pool, params.id);
+      const query = req.query as { user_email?: string };
+      const result = await getRelatedContacts(pool, params.id, query.user_email);
       return reply.send(result);
     } finally {
       await pool.end();

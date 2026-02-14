@@ -1118,6 +1118,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const queryParams = new URLSearchParams({ item_type: 'project', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
+        queryParams.set('user_email', userId); // Issue #1172: scope by user
 
         const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { userId });
 
@@ -1142,7 +1143,10 @@ function createToolHandlers(state: PluginState) {
       const { projectId } = params as { projectId: string };
 
       try {
-        const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(`/api/work-items/${projectId}`, { userId });
+        const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(
+          `/api/work-items/${projectId}?user_email=${encodeURIComponent(userId)}`,
+          { userId },
+        );
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1174,7 +1178,7 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const response = await apiClient.post<{ id: string }>('/api/work-items', { title: name, description, item_type: 'project', status }, { userId });
+        const response = await apiClient.post<{ id: string }>('/api/work-items', { title: name, description, item_type: 'project', status, user_email: userId }, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1211,6 +1215,7 @@ function createToolHandlers(state: PluginState) {
           item_type: 'task',
           limit: String(limit),
           offset: String(offset),
+          user_email: userId, // Issue #1172: scope by user
         });
         if (projectId) queryParams.set('parent_work_item_id', projectId);
         if (completed !== undefined) {
@@ -1270,7 +1275,7 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const body: Record<string, unknown> = { title, description, item_type: 'task', priority };
+        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: userId };
         if (projectId) body.parent_work_item_id = projectId;
         if (dueDate) body.not_after = dueDate;
 
@@ -1297,7 +1302,7 @@ function createToolHandlers(state: PluginState) {
       const { todoId } = params as { todoId: string };
 
       try {
-        const response = await apiClient.patch<{ id: string }>(`/api/work-items/${todoId}/status`, { status: 'completed' }, { userId });
+        const response = await apiClient.patch<{ id: string }>(`/api/work-items/${todoId}/status?user_email=${encodeURIComponent(userId)}`, { status: 'completed' }, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1317,7 +1322,7 @@ function createToolHandlers(state: PluginState) {
       const { query, limit = 10 } = params as { query: string; limit?: number };
 
       try {
-        const queryParams = new URLSearchParams({ search: query, limit: String(limit) });
+        const queryParams = new URLSearchParams({ search: query, limit: String(limit), user_email: userId });
         const response = await apiClient.get<{ contacts: Array<{ id: string; displayName: string; email?: string }> }>(`/api/contacts?${queryParams}`, {
           userId,
         });
@@ -1343,9 +1348,10 @@ function createToolHandlers(state: PluginState) {
       const { contactId } = params as { contactId: string };
 
       try {
-        const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(`/api/contacts/${contactId}`, {
-          userId,
-        });
+        const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(
+          `/api/contacts/${contactId}?user_email=${encodeURIComponent(userId)}`,
+          { userId },
+        );
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1375,7 +1381,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         // API requires displayName, not name. Email/phone are stored as separate contact_endpoint records.
-        const response = await apiClient.post<{ id: string }>('/api/contacts', { displayName: name, notes }, { userId });
+        const response = await apiClient.post<{ id: string }>('/api/contacts', { displayName: name, notes, user_email: userId }, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1960,6 +1966,7 @@ function createToolHandlers(state: PluginState) {
           contact_a,
           contact_b,
           relationship_type: relationship,
+          user_email: userId, // Issue #1172: scope by user
         };
         if (notes) {
           body.notes = notes;
@@ -2029,8 +2036,8 @@ function createToolHandlers(state: PluginState) {
         if (uuidRegex.test(contact)) {
           contactId = contact;
         } else {
-          // Search for contact by name
-          const searchParams = new URLSearchParams({ search: contact, limit: '1' });
+          // Search for contact by name (Issue #1172: scope by user_email)
+          const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: userId });
           const searchResponse = await apiClient.get<{
             contacts: Array<{ id: string; display_name: string }>;
           }>(`/api/contacts?${searchParams}`, { userId });
@@ -2060,7 +2067,7 @@ function createToolHandlers(state: PluginState) {
             isDirectional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/contacts/${contactId}/relationships`, { userId });
+        }>(`/api/contacts/${contactId}/relationships?user_email=${encodeURIComponent(userId)}`, { userId });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
