@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
+import { detectInjectionPatterns, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email', 'all']);
@@ -177,13 +178,31 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
           total,
         });
 
-        // Format content for display
+        // Detect and log potential injection patterns in message snippets
+        for (const m of messages) {
+          if (m.snippet) {
+            const detection = detectInjectionPatterns(m.snippet);
+            if (detection.detected) {
+              logger.warn('potential prompt injection detected in message_search result', {
+                userId,
+                messageId: m.id,
+                patterns: detection.patterns,
+              });
+            }
+          }
+        }
+
+        // Format content for display with injection protection.
+        // Boundary-wrap all snippets since they may contain external message content.
         const content =
           messages.length > 0
             ? messages
                 .map((m) => {
                   const score = `(${Math.round(m.score * 100)}%)`;
-                  return `${m.title} ${score}: ${m.snippet.substring(0, 100)}${m.snippet.length > 100 ? '...' : ''}`;
+                  const truncatedSnippet = m.snippet.substring(0, 100) + (m.snippet.length > 100 ? '...' : '');
+                  const wrappedSnippet = wrapExternalMessage(truncatedSnippet);
+                  const safeTitle = sanitizeMetadataField(m.title);
+                  return `${safeTitle} ${score}: ${wrappedSnippet}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';

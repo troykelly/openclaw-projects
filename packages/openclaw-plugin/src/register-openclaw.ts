@@ -16,6 +16,7 @@ import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gat
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
+import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { createNotificationService } from './services/notification-service.js';
 import {
   createSkillStoreAggregateTool,
@@ -1698,16 +1699,37 @@ function createToolHandlers(state: PluginState) {
           total,
         });
 
-        // Format content for display
+        // Detect and log potential injection patterns in inbound messages
+        for (const m of messages) {
+          if (m.direction === 'inbound' && m.body) {
+            const detection = detectInjectionPatterns(m.body);
+            if (detection.detected) {
+              logger.warn('potential prompt injection detected in message_search result', {
+                userId,
+                messageId: m.id,
+                patterns: detection.patterns,
+              });
+            }
+          }
+        }
+
+        // Format content for display with injection protection
         const content =
           messages.length > 0
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const contact = m.contactName || 'Unknown';
+                  const contact = sanitizeMetadataField(m.contactName || 'Unknown');
+                  const safeChannel = sanitizeMetadataField(m.channel);
                   const similarity = `(${Math.round(m.similarity * 100)}%)`;
-                  const bodyText = m.body || '';
-                  return `${prefix} [${m.channel}] ${contact} ${similarity}: ${bodyText.substring(0, 100)}${bodyText.length > 100 ? '...' : ''}`;
+                  const rawBody = m.body || '';
+                  const truncatedBody = rawBody.substring(0, 100) + (rawBody.length > 100 ? '...' : '');
+                  const bodyText = sanitizeMessageForContext(truncatedBody, {
+                    direction: m.direction,
+                    channel: m.channel,
+                    sender: m.contactName || 'Unknown',
+                  });
+                  return `${prefix} [${safeChannel}] ${contact} ${similarity}: ${bodyText}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';
@@ -1803,6 +1825,8 @@ function createToolHandlers(state: PluginState) {
           total,
         });
 
+        // Format content with injection protection.
+        // Sanitize all fields that may contain external message content.
         const content =
           results.length > 0
             ? results
@@ -1810,11 +1834,14 @@ function createToolHandlers(state: PluginState) {
                   // Handle both thread and search result formats
                   if ('channel' in r) {
                     const t = r as { channel: string; contactName?: string; endpointValue?: string; messageCount?: number };
-                    const contact = t.contactName || t.endpointValue || 'Unknown';
+                    const safeContact = sanitizeMetadataField(t.contactName || t.endpointValue || 'Unknown');
+                    const safeChannel = sanitizeMetadataField(t.channel);
                     const msgCount = t.messageCount ? `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}` : '';
-                    return `[${t.channel}] ${contact}${msgCount ? ` - ${msgCount}` : ''}`;
+                    return `[${safeChannel}] ${safeContact}${msgCount ? ` - ${msgCount}` : ''}`;
                   }
-                  return `- ${r.title || r.snippet || r.id}`;
+                  const safeTitle = r.title ? sanitizeMetadataField(r.title) : '';
+                  const wrappedSnippet = r.snippet ? wrapExternalMessage(r.snippet) : '';
+                  return `- ${safeTitle || wrappedSnippet || r.id}`;
                 })
                 .join('\n')
             : 'No threads found.';
@@ -1901,8 +1928,24 @@ function createToolHandlers(state: PluginState) {
           messageCount: messages.length,
         });
 
-        const contact = thread.contactName || thread.endpointValue || 'Unknown';
-        const header = `Thread with ${contact} [${thread.channel}]`;
+        const contact = sanitizeMetadataField(thread.contactName || thread.endpointValue || 'Unknown');
+        const safeChannel = sanitizeMetadataField(thread.channel);
+        const header = `Thread with ${contact} [${safeChannel}]`;
+
+        // Detect and log potential injection patterns in inbound messages
+        for (const m of messages) {
+          if (m.direction === 'inbound' && m.body) {
+            const detection = detectInjectionPatterns(m.body);
+            if (detection.detected) {
+              logger.warn('potential prompt injection detected in thread_get result', {
+                userId,
+                threadId,
+                messageId: m.id,
+                patterns: detection.patterns,
+              });
+            }
+          }
+        }
 
         const messageContent =
           messages.length > 0
@@ -1910,7 +1953,12 @@ function createToolHandlers(state: PluginState) {
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
                   const timestamp = new Date(m.createdAt).toLocaleString();
-                  return `${prefix} [${timestamp}] ${m.body}`;
+                  const body = sanitizeMessageForContext(m.body || '', {
+                    direction: m.direction,
+                    channel: thread.channel,
+                    sender: contact,
+                  });
+                  return `${prefix} [${timestamp}] ${body}`;
                 })
                 .join('\n')
             : 'No messages in this thread.';

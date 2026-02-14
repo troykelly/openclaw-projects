@@ -6,6 +6,7 @@
 import type { ApiClient } from './api-client.js';
 import type { Logger } from './logger.js';
 import type { PluginConfig } from './config.js';
+import { wrapExternalMessage } from './utils/injection-protection.js';
 
 /** Default timeout for auto-recall hook (5 seconds) */
 const DEFAULT_RECALL_TIMEOUT_MS = 5000;
@@ -191,8 +192,15 @@ async function fetchContext(client: ApiClient, userId: string, prompt: string, l
     return null;
   }
 
-  // Format memories as context to prepend to the conversation
-  const context = memories.map((m) => `- [${m.category}] ${m.content}`).join('\n');
+  // Format memories as context to prepend to the conversation.
+  // Boundary-wrap each memory to mark recalled content as untrusted data.
+  // Memory content may originate from external messages (indirect injection path).
+  const context = memories
+    .map((m) => {
+      const wrapped = wrapExternalMessage(m.content, { channel: `memory:${m.category}` });
+      return `- ${wrapped}`;
+    })
+    .join('\n');
 
   return {
     prependContext: context,
@@ -410,8 +418,15 @@ async function fetchGraphAwareContext(client: ApiClient, userId: string, prompt:
       queryTimeMs: graphResponse.data.metadata.queryTimeMs,
     });
 
+    // Boundary-wrap the graph-aware context to mark recalled content as untrusted.
+    // The API returns a pre-formatted string that may contain content from
+    // external messages stored as memories (indirect injection path).
+    const wrappedContext = wrapExternalMessage(graphResponse.data.context, {
+      channel: 'memory:graph-aware',
+    });
+
     return {
-      prependContext: graphResponse.data.context,
+      prependContext: wrappedContext,
     };
   }
 
