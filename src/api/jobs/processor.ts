@@ -78,7 +78,8 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
        title,
        description,
        work_item_kind::text as kind,
-       status
+       status,
+       user_email
      FROM work_item
      WHERE id = $1`,
     [workItemId],
@@ -97,6 +98,7 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
     description: string | null;
     kind: string;
     status: string;
+    user_email: string | null;
   };
 
   // Skip if already completed
@@ -111,6 +113,7 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
     workItemDescription: workItem.description || undefined,
     workItemKind: workItem.kind,
     notBefore,
+    agentId: workItem.user_email || undefined,
   });
 
   const destination = getWebhookDestination('reminder_due');
@@ -138,7 +141,8 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
        id::text as id,
        title,
        work_item_kind::text as kind,
-       status
+       status,
+       user_email
      FROM work_item
      WHERE id = $1`,
     [workItemId],
@@ -156,6 +160,7 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
     title: string;
     kind: string;
     status: string;
+    user_email: string | null;
   };
 
   // Skip if already completed
@@ -173,6 +178,7 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
     workItemKind: workItem.kind,
     notAfter,
     hoursRemaining,
+    agentId: workItem.user_email || undefined,
   });
 
   const destination = getWebhookDestination('deadline_approaching');

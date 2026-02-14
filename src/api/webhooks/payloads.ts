@@ -19,6 +19,8 @@ export function buildSmsReceivedPayload(params: {
   threadId: string;
   messageId: string;
   messageBody: string;
+  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
+  agentId?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
@@ -31,6 +33,7 @@ export function buildSmsReceivedPayload(params: {
     channel: 'last',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
     timeoutSeconds: config?.timeoutSeconds || 300,
+    ...(params.agentId ? { agentId: params.agentId } : {}),
     context: {
       event_type: 'sms_received',
       contact_id: params.contactId,
@@ -42,6 +45,7 @@ export function buildSmsReceivedPayload(params: {
       thread_id: params.threadId,
       message_id: params.messageId,
       message_body: params.messageBody,
+      ...(params.agentId ? { agent_id: params.agentId } : {}),
     },
   };
 }
@@ -58,6 +62,8 @@ export function buildEmailReceivedPayload(params: {
   threadId: string;
   messageId: string;
   messageBody: string;
+  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
+  agentId?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
@@ -70,6 +76,7 @@ export function buildEmailReceivedPayload(params: {
     channel: 'last',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
     timeoutSeconds: config?.timeoutSeconds || 300,
+    ...(params.agentId ? { agentId: params.agentId } : {}),
     context: {
       event_type: 'email_received',
       contact_id: params.contactId,
@@ -80,6 +87,7 @@ export function buildEmailReceivedPayload(params: {
       thread_id: params.threadId,
       message_id: params.messageId,
       message_body: params.messageBody,
+      ...(params.agentId ? { agent_id: params.agentId } : {}),
     },
   };
 }
@@ -95,6 +103,8 @@ export function buildReminderDuePayload(params: {
   notBefore: Date;
   contactId?: string;
   contactName?: string;
+  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
+  agentId?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
@@ -107,6 +117,7 @@ export function buildReminderDuePayload(params: {
     channel: 'last',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
     timeoutSeconds: config?.timeoutSeconds || 120,
+    ...(params.agentId ? { agentId: params.agentId } : {}),
     context: {
       event_type: 'reminder_due',
       work_item_id: params.workItemId,
@@ -116,6 +127,7 @@ export function buildReminderDuePayload(params: {
       not_before: params.notBefore.toISOString(),
       contact_id: params.contactId,
       contact_name: params.contactName,
+      ...(params.agentId ? { agent_id: params.agentId } : {}),
     },
   };
 }
@@ -130,10 +142,13 @@ export function buildDeadlineApproachingPayload(params: {
   workItemKind: string;
   notAfter: Date;
   hoursRemaining: number;
+  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
+  agentId?: string;
 }): WakeHookPayload {
   return {
     text: `Deadline approaching: "${params.workItemTitle}" (${params.workItemKind}) is due in ${params.hoursRemaining} hours (${params.notAfter.toISOString()})`,
     mode: 'now',
+    ...(params.agentId ? { agentId: params.agentId } : {}),
   };
 }
 
@@ -147,6 +162,8 @@ export function buildSpawnAgentPayload(params: {
   workItemId?: string;
   workItemTitle?: string;
   instructions?: string;
+  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
+  agentId?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
@@ -159,6 +176,7 @@ export function buildSpawnAgentPayload(params: {
     channel: 'new',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
     timeoutSeconds: config?.timeoutSeconds || 600,
+    ...(params.agentId ? { agentId: params.agentId } : {}),
     context: {
       event_type: 'spawn_agent',
       agent_type: params.agentType,
@@ -167,6 +185,7 @@ export function buildSpawnAgentPayload(params: {
       work_item_id: params.workItemId,
       work_item_title: params.workItemTitle,
       instructions: params.instructions,
+      ...(params.agentId ? { agent_id: params.agentId } : {}),
     },
   };
 }

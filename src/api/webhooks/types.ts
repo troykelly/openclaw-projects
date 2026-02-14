@@ -38,6 +38,8 @@ export interface AgentHookPayload {
   channel?: 'last' | 'new';
   model?: string;
   timeoutSeconds?: number;
+  /** Agent identifier for multi-agent routing in OpenClaw gateway. Maps to user_email scope. */
+  agentId?: string;
   context: Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -45,6 +47,8 @@ export interface AgentHookPayload {
 export interface WakeHookPayload {
   text: string;
   mode?: 'now' | 'schedule';
+  /** Agent identifier for multi-agent routing in OpenClaw gateway. Maps to user_email scope. */
+  agentId?: string;
   [key: string]: unknown;
 }
 
