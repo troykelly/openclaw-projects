@@ -318,7 +318,7 @@ Traefik starts immediately without waiting for backend services to become health
 
 During startup, you may briefly see 502/503 errors until the backend services (api, app, modsecurity) pass their health checks. This typically resolves within 15-30 seconds.
 
-Traefik exposes a `--ping=true` endpoint (`/ping`) for external healthchecks (e.g., Docker HEALTHCHECK, load balancer probes). This endpoint responds with `200 OK` when Traefik is ready to accept connections, independent of backend health.
+Traefik exposes a `/ping` healthcheck endpoint bound to a dedicated `ping` entrypoint on port **8082**. This avoids a conflict with ModSecurity, which uses the default Traefik ping port (8080). The Docker HEALTHCHECK uses `http://127.0.0.1:8082/ping` to verify Traefik is ready, independent of backend health.
 
 **Startup sequence:**
 1. All services start simultaneously

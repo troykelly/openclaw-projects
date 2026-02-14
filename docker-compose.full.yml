@@ -83,7 +83,10 @@ services:
     command:
       - --api.dashboard=false
       - --api.insecure=false
+      # Ping endpoint for healthchecks (bound to dedicated entrypoint to avoid
+      # conflicting with ModSecurity on the default port 8080)
       - --ping=true
+      - --ping.entryPoint=ping
       - --providers.docker=true
       - --providers.docker.exposedByDefault=false
       # Note: --providers.docker.network is omitted because Traefik uses host networking
@@ -91,6 +94,7 @@ services:
       - --providers.file.directory=/etc/traefik/dynamic
       - --providers.file.watch=true
       # Entrypoints (Traefik binds directly to host ports via network_mode: host)
+      - --entrypoints.ping.address=:8082
       - --entrypoints.web.address=:${HTTP_PORT:-80}
       - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
@@ -118,7 +122,7 @@ services:
       - /etc/traefik/acme:/etc/traefik/acme
     entrypoint: ["/entrypoint.sh"]
     healthcheck:
-      test: ["CMD", "traefik", "healthcheck"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8082/ping"]
       interval: 10s
       timeout: 5s
       retries: 5
