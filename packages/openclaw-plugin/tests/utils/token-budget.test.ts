@@ -178,6 +178,67 @@ describe('token-budget', () => {
     });
   });
 
+  describe('tryConsume (atomic check-and-record)', () => {
+    it('should atomically check and record when under limit', () => {
+      const config: TokenBudgetConfig = {
+        enabled: true,
+        dailyTokenLimit: 100_000,
+      };
+      const budget = createTokenBudget(config);
+
+      const result = budget.tryConsume(50_000);
+      expect(result.allowed).toBe(true);
+
+      // Usage should already be recorded
+      const stats = budget.getStats();
+      expect(stats.dailyUsed).toBe(50_000);
+    });
+
+    it('should deny and not record when over limit', () => {
+      const config: TokenBudgetConfig = {
+        enabled: true,
+        dailyTokenLimit: 100_000,
+      };
+      const budget = createTokenBudget(config);
+
+      budget.record(95_000);
+      const result = budget.tryConsume(10_000);
+      expect(result.allowed).toBe(false);
+
+      // Usage should NOT have increased
+      const stats = budget.getStats();
+      expect(stats.dailyUsed).toBe(95_000);
+    });
+
+    it('should prevent TOCTOU races in sequential calls', () => {
+      const config: TokenBudgetConfig = {
+        enabled: true,
+        dailyTokenLimit: 100_000,
+      };
+      const budget = createTokenBudget(config);
+
+      // Two calls that individually fit but together exceed
+      const result1 = budget.tryConsume(60_000);
+      expect(result1.allowed).toBe(true);
+
+      const result2 = budget.tryConsume(60_000);
+      expect(result2.allowed).toBe(false);
+
+      // Only 60k should have been consumed
+      expect(budget.getStats().dailyUsed).toBe(60_000);
+    });
+
+    it('should always allow when budget is disabled', () => {
+      const config: TokenBudgetConfig = {
+        enabled: false,
+      };
+      const budget = createTokenBudget(config);
+
+      const result = budget.tryConsume(10_000);
+      expect(result.allowed).toBe(true);
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle zero token requests', () => {
       const config: TokenBudgetConfig = {

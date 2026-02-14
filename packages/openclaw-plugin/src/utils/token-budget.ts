@@ -43,10 +43,17 @@ export interface TokenBudgetStats {
 
 /** Token budget instance */
 export interface TokenBudget {
-  /** Check if a token expenditure is allowed */
+  /** Check if a token expenditure is allowed (read-only, does not record) */
   check(tokens: number): TokenBudgetResult;
   /** Record actual token usage */
   record(tokens: number): void;
+  /**
+   * Atomically check and record token usage.
+   * Prevents TOCTOU races where concurrent check() calls both pass
+   * before either records, allowing the budget to be exceeded.
+   * Returns the check result; if allowed, tokens are already recorded.
+   */
+  tryConsume(tokens: number): TokenBudgetResult;
   /** Get current usage statistics */
   getStats(): TokenBudgetStats;
 }
@@ -147,6 +154,49 @@ export function createTokenBudget(config: TokenBudgetConfig = DEFAULT_TOKEN_BUDG
       maybeReset();
       dailyUsed += tokens;
       monthlyUsed += tokens;
+    },
+
+    tryConsume(tokens: number): TokenBudgetResult {
+      if (!config.enabled) {
+        return { allowed: true, reason: null };
+      }
+
+      maybeReset();
+
+      // Check daily limit
+      if (config.dailyTokenLimit !== undefined) {
+        if (dailyUsed + tokens > config.dailyTokenLimit) {
+          return {
+            allowed: false,
+            reason: `daily token budget exceeded (${dailyUsed}/${config.dailyTokenLimit} used, requested ${tokens})`,
+            remainingDaily: Math.max(0, config.dailyTokenLimit - dailyUsed),
+            remainingMonthly: config.monthlyTokenLimit !== undefined ? Math.max(0, config.monthlyTokenLimit - monthlyUsed) : undefined,
+          };
+        }
+      }
+
+      // Check monthly limit
+      if (config.monthlyTokenLimit !== undefined) {
+        if (monthlyUsed + tokens > config.monthlyTokenLimit) {
+          return {
+            allowed: false,
+            reason: `monthly token budget exceeded (${monthlyUsed}/${config.monthlyTokenLimit} used, requested ${tokens})`,
+            remainingDaily: config.dailyTokenLimit !== undefined ? Math.max(0, config.dailyTokenLimit - dailyUsed) : undefined,
+            remainingMonthly: Math.max(0, config.monthlyTokenLimit - monthlyUsed),
+          };
+        }
+      }
+
+      // Atomically record usage since check passed
+      dailyUsed += tokens;
+      monthlyUsed += tokens;
+
+      return {
+        allowed: true,
+        reason: null,
+        remainingDaily: config.dailyTokenLimit !== undefined ? config.dailyTokenLimit - dailyUsed : undefined,
+        remainingMonthly: config.monthlyTokenLimit !== undefined ? config.monthlyTokenLimit - monthlyUsed : undefined,
+      };
     },
 
     getStats(): TokenBudgetStats {

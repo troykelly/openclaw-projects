@@ -4,6 +4,13 @@
  * Orchestrates spam filter, rate limiter, and token budget as a single
  * evaluation point before any message processing (embedding, linking, etc.).
  *
+ * NOTE: All state (rate limiter windows, token budget counters) is held
+ * in-memory and does not persist across process restarts or span multiple
+ * instances. This is acceptable for single-instance deployments. For
+ * multi-instance deployments, the rate limiter and token budget would need
+ * to be backed by skill_store or an external store (e.g. Redis) to share
+ * state across processes.
+ *
  * Part of Issue #1225 — rate limiting and spam protection.
  */
 
@@ -110,8 +117,8 @@ export function createInboundGate(config: InboundGateConfig, logger: Logger): In
         };
       }
 
-      // Step 2: Rate limiter
-      const rateResult = rateLimiter.check(message.sender, message.recipient, trust);
+      // Step 2: Rate limiter (pass channel for sender normalization)
+      const rateResult = rateLimiter.check(message.sender, message.recipient, trust, message.channel);
       if (!rateResult.allowed) {
         rateLimited++;
         logger.warn('inbound gate: rate limited', {
@@ -129,9 +136,9 @@ export function createInboundGate(config: InboundGateConfig, logger: Logger): In
         };
       }
 
-      // Step 3: Token budget
+      // Step 3: Token budget (uses tryConsume for atomic check-and-record)
       if (estimatedTokens > 0) {
-        const budgetResult = tokenBudget.check(estimatedTokens);
+        const budgetResult = tokenBudget.tryConsume(estimatedTokens);
         if (!budgetResult.allowed) {
           budgetExceeded++;
           logger.warn('inbound gate: token budget exceeded', {
