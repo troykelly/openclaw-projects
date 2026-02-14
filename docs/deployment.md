@@ -43,7 +43,7 @@ openclaw-projects consists of the following components:
                          │  │ Real Client IPs │    │
                          │  └─────────────────┘    │
                          └───────────┬─────────────┘
-                                     │ localhost (127.0.0.1 / [::1])
+                                     │ localhost ([::1] / 127.0.0.1)
                     ┌────────────────┼────────────────┐
                     │                │                 │
                     ▼                ▼                 ▼
@@ -128,7 +128,7 @@ The frontend's nginx automatically proxies `/api/*` requests to the correct API 
 
 ### Host Networking Port Mapping (Traefik Deployments)
 
-Traefik runs with `network_mode: host` so it sees real client IP addresses (not Docker bridge gateway IPs). Because Traefik shares the host network namespace, it cannot use Docker DNS to reach backend services. Instead, each service publishes its port to dual-stack localhost (`127.0.0.1` + `[::1]`), and Traefik routes to those localhost ports.
+Traefik runs with `network_mode: host` so it sees real client IP addresses (not Docker bridge gateway IPs). Because Traefik shares the host network namespace, it cannot use Docker DNS to reach backend services. Instead, each service publishes its port to dual-stack localhost (`[::1]` + `127.0.0.1`), and Traefik routes to those localhost ports.
 
 | Service | Container Port | Host Port (default) | Env Var | Compose Files |
 |---------|---------------|---------------------|---------|---------------|
@@ -137,7 +137,7 @@ Traefik runs with `network_mode: host` so it sees real client IP addresses (not 
 | **Frontend** | 8080 | 8081 | `APP_HOST_PORT` | traefik, full |
 | **OpenClaw Gateway** | 18789 | 18789 | `GATEWAY_HOST_PORT` | full only |
 
-The `SERVICE_HOST` env var controls which address Traefik uses to reach these services (default: `127.0.0.1`). Set to `[::1]` for IPv6-only hosts.
+The `SERVICE_HOST` env var controls which address Traefik uses to reach these services (default: `[::1]`). Set to `127.0.0.1` for IPv4-only hosts.
 
 **Note:** The frontend's host port defaults to 8081 (not 8080) to avoid a conflict with ModSecurity, which also listens on container port 8080.
 
@@ -486,7 +486,7 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 |----------|---------|-------------|
 | `HTTP_PORT` | `80` | HTTP port (redirects to HTTPS) |
 | `HTTPS_PORT` | `443` | HTTPS port (TCP+UDP for HTTP/3) |
-| `SERVICE_HOST` | `127.0.0.1` | Address Traefik uses to reach backends (set to `[::1]` for IPv6) |
+| `SERVICE_HOST` | `[::1]` | Address Traefik uses to reach backends (set to `127.0.0.1` for IPv4-only) |
 | `MODSEC_HOST_PORT` | `8080` | ModSecurity WAF localhost port |
 | `API_HOST_PORT` | `3001` | API server localhost port |
 | `APP_HOST_PORT` | `8081` | Frontend app localhost port |
@@ -715,8 +715,8 @@ services:
     image: traefik/whoami:latest
     ports:
       # Publish to dual-stack localhost for Traefik (host network) to reach
-      - "127.0.0.1:8888:80"
       - "[::1]:8888:80"
+      - "127.0.0.1:8888:80"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
@@ -724,7 +724,7 @@ services:
       - "traefik.http.routers.whoami.tls.certResolver=letsencrypt"
       - "traefik.http.routers.whoami.middlewares=security-headers@file"
       # Use server.url pointing to localhost (NOT server.port)
-      - "traefik.http.services.whoami.loadbalancer.server.url=http://${SERVICE_HOST:-127.0.0.1}:8888"
+      - "traefik.http.services.whoami.loadbalancer.server.url=http://${SERVICE_HOST:-[::1]}:8888"
 ```
 
 Start with override:
@@ -763,7 +763,7 @@ For complex routing or external services, use the file provider:
        monitoring-service:
          loadBalancer:
            servers:
-             - url: "http://127.0.0.1:9090"
+             - url: "http://[::1]:9090"
    ```
 
 3. **Mount in docker-compose.override.yml:**
@@ -1254,16 +1254,16 @@ Traefik uses host networking and reaches services via localhost ports. If you se
 ss -tlnp | grep -E '(8080|3001|8081|18789)'
 
 # Verify from the host (same network namespace as Traefik)
-curl -s http://127.0.0.1:8080/healthz   # ModSecurity
-curl -s http://127.0.0.1:3001/health     # API
-curl -s http://127.0.0.1:8081/           # Frontend
-curl -s http://127.0.0.1:18789/health    # Gateway (full.yml only)
+curl -s 'http://[::1]:8080/healthz'   # ModSecurity
+curl -s 'http://[::1]:3001/health'     # API
+curl -s 'http://[::1]:8081/'           # Frontend
+curl -s 'http://[::1]:18789/health'    # Gateway (full.yml only)
 
 # Check container port mappings
 docker compose -f docker-compose.traefik.yml ps --format 'table {{.Name}}\t{{.Ports}}'
 
-# If using IPv6 SERVICE_HOST=[::1], test IPv6 instead
-curl -s http://[::1]:3001/health
+# If using IPv4 SERVICE_HOST=127.0.0.1, test IPv4 instead
+curl -s 'http://127.0.0.1:3001/health'
 ```
 
 ### Getting Help

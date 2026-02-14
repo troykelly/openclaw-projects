@@ -230,10 +230,10 @@ test_modsecurity_service() {
     local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
 
     if grep -q "modsecurity-service:" "${config_file}" && \
-       grep -q "http://127.0.0.1:" "${config_file}"; then
-        pass "ModSecurity service is present with localhost URL"
+       grep -q 'http://\[::1\]:' "${config_file}"; then
+        pass "ModSecurity service is present with IPv6 localhost URL"
     else
-        fail "ModSecurity service should be present with localhost URL"
+        fail "ModSecurity service should be present with IPv6 localhost URL"
     fi
 
     cleanup_test_env "${test_dir}"
@@ -624,7 +624,7 @@ test_no_docker_hostnames() {
     local config_file="${test_dir}/etc/traefik/dynamic/system/config.yml"
 
     # Ensure no Docker service hostnames appear in service URLs
-    # Service URLs should use SERVICE_HOST (defaults to 127.0.0.1), not Docker DNS names
+    # Service URLs should use SERVICE_HOST (defaults to [::1]), not Docker DNS names
     if grep -q "http://modsecurity:" "${config_file}" || \
        grep -q "http://api:" "${config_file}" || \
        grep -q "http://app:" "${config_file}"; then

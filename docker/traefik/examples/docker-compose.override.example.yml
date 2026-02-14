@@ -47,8 +47,8 @@ services:
     image: traefik/whoami:latest
     ports:
       # Publish to dual-stack localhost for Traefik to reach
-      - "127.0.0.1:8888:80"
       - "[::1]:8888:80"
+      - "127.0.0.1:8888:80"
     labels:
       # Enable Traefik for this container
       - "traefik.enable=true"
@@ -62,8 +62,8 @@ services:
       - "traefik.http.routers.whoami.middlewares=security-headers@file"
 
       # Point to the localhost port (NOT the container port)
-      # SERVICE_HOST defaults to 127.0.0.1 (see .env.example)
-      - "traefik.http.services.whoami.loadbalancer.server.url=http://${SERVICE_HOST:-127.0.0.1}:8888"
+      # SERVICE_HOST defaults to [::1] (see .env.example)
+      - "traefik.http.services.whoami.loadbalancer.server.url=http://${SERVICE_HOST:-[::1]}:8888"
 
   # =============================================================================
   # Example 2: Adding Grafana with localhost port publishing
@@ -79,15 +79,15 @@ services:
   #     - GF_SERVER_ROOT_URL=https://grafana.${DOMAIN}
   #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
   #   ports:
-  #     - "127.0.0.1:3002:3000"
   #     - "[::1]:3002:3000"
+  #     - "127.0.0.1:3002:3000"
   #   labels:
   #     - "traefik.enable=true"
   #     - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
   #     - "traefik.http.routers.grafana.entrypoints=websecure"
   #     - "traefik.http.routers.grafana.tls.certResolver=letsencrypt"
   #     - "traefik.http.routers.grafana.middlewares=security-headers@file"
-  #     - "traefik.http.services.grafana.loadbalancer.server.url=http://${SERVICE_HOST:-127.0.0.1}:3002"
+  #     - "traefik.http.services.grafana.loadbalancer.server.url=http://${SERVICE_HOST:-[::1]}:3002"
 
   # =============================================================================
   # Example 3: File provider route (for external or complex services)

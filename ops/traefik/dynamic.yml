@@ -23,9 +23,9 @@ http:
     openclaw-gateway:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:18789"
+          - url: "http://[::1]:18789"
 
     openclaw-projects:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:3000"
+          - url: "http://[::1]:3000"

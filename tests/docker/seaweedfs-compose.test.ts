@@ -75,12 +75,15 @@ describe('SeaweedFS in docker-compose.yml (production compose)', () => {
       }
     });
 
-    it('maps port 8333 to localhost only for security', () => {
+    it('maps port 8333 with IPv6-first dual-stack localhost bindings', () => {
       const ports = compose.services.seaweedfs.ports || [];
-      const s3Port = ports.find((p: string) => p.includes('8333'));
-      expect(s3Port).toBeDefined();
-      // Basic compose should bind to localhost only
-      expect(s3Port).toContain('127.0.0.1');
+      const s3Ports = ports.filter((p: string) => p.includes('8333'));
+      expect(s3Ports.length).toBeGreaterThanOrEqual(1);
+      // First binding should be IPv6
+      expect(s3Ports[0]).toContain('[::1]');
+      // Should also have IPv4 fallback
+      const hasIPv4 = s3Ports.some((p: string) => p.includes('127.0.0.1'));
+      expect(hasIPv4).toBe(true);
     });
 
     it('configures volume size limit from env var', () => {
