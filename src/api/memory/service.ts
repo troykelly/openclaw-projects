@@ -456,7 +456,96 @@ export async function cleanupExpiredMemories(pool: Pool): Promise<number> {
 }
 
 /**
+ * Extract significant words from query for keyword boosting.
+ * Removes common stop words and short words.
+ * Issue #1146
+ */
+function extractKeywords(query: string): string[] {
+  const stopWords = new Set([
+    'a',
+    'an',
+    'and',
+    'are',
+    'as',
+    'at',
+    'be',
+    'by',
+    'for',
+    'from',
+    'has',
+    'he',
+    'in',
+    'is',
+    'it',
+    'its',
+    'of',
+    'on',
+    'that',
+    'the',
+    'to',
+    'was',
+    'will',
+    'with',
+  ]);
+
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !stopWords.has(word));
+}
+
+/**
+ * Calculate keyword match ratio for boosting semantic search results.
+ * Returns ratio of query keywords found in content (0-1).
+ * Issue #1146
+ */
+function calculateKeywordRatio(content: string, keywords: string[]): number {
+  if (keywords.length === 0) return 0;
+
+  const contentLower = content.toLowerCase();
+  const matchCount = keywords.filter((keyword) => contentLower.includes(keyword)).length;
+
+  return matchCount / keywords.length;
+}
+
+/**
+ * Apply keyword boosting to search results.
+ * Combines vector similarity (70%) with keyword ratio (30%).
+ * Issue #1146
+ */
+function applyKeywordBoost<T extends { similarity: number; content: string }>(
+  results: T[],
+  query: string,
+): T[] {
+  const keywords = extractKeywords(query);
+
+  if (keywords.length === 0) {
+    // No keywords to boost with, return as-is
+    return results;
+  }
+
+  // Calculate combined scores
+  const scoredResults = results.map((result) => {
+    const vectorSimilarity = result.similarity;
+    const keywordRatio = calculateKeywordRatio(result.content, keywords);
+
+    // Combine: 70% vector similarity + 30% keyword matching
+    const finalScore = vectorSimilarity * 0.7 + keywordRatio * 0.3;
+
+    return {
+      ...result,
+      similarity: finalScore,
+    };
+  });
+
+  // Re-sort by final score
+  return scoredResults.sort((a, b) => b.similarity - a.similarity);
+}
+
+/**
  * Searches memories semantically using embeddings or falls back to text search.
+ * Applies keyword boosting to semantic results to improve ranking.
+ * Issue #1146
  */
 export async function searchMemories(pool: Pool, query: string, options: SearchMemoriesOptions = {}): Promise<MemorySearchResult> {
   const limit = Math.min(options.limit ?? 20, 100);
@@ -530,11 +619,17 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           allParams,
         );
 
+        // Map results with similarity scores
+        const rawResults = result.rows.map((row) => ({
+          ...mapRowToMemory(row as Record<string, unknown>),
+          similarity: parseFloat(row.similarity as string),
+        }));
+
+        // Apply keyword boosting to improve ranking
+        const boostedResults = applyKeywordBoost(rawResults, query);
+
         return {
-          results: result.rows.map((row) => ({
-            ...mapRowToMemory(row as Record<string, unknown>),
-            similarity: parseFloat(row.similarity as string),
-          })),
+          results: boostedResults,
           searchType: 'semantic',
           queryEmbeddingProvider: embeddingResult.provider,
         };
