@@ -105,6 +105,16 @@ describe('Package Structure', () => {
       expect(manifest.configSchema.properties).toHaveProperty('apiKeyFile');
       expect(manifest.configSchema.properties).toHaveProperty('apiKeyCommand');
     });
+
+    it('should not use "format" validators (OpenClaw Ajv does not load ajv-formats)', () => {
+      const manifestPath = join(packageRoot, 'openclaw.plugin.json');
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+      const properties = manifest.configSchema.properties;
+      const propsWithFormat = Object.entries(properties)
+        .filter(([, schema]) => typeof schema === 'object' && schema !== null && 'format' in (schema as Record<string, unknown>))
+        .map(([name]) => name);
+      expect(propsWithFormat).toEqual([]);
+    });
   });
 
   describe('package.json', () => {

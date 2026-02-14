@@ -74,7 +74,7 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
     },
     "baseUrl": {
       "description": "Base URL for web app (used for generating note/notebook URLs)",
-      "format": "uri",
+      "pattern": "^https?://",
       "type": "string",
     },
     "debug": {
@@ -105,7 +105,7 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
     },
     "postmarkFromEmail": {
       "description": "Postmark From Email address (direct value)",
-      "format": "email",
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
       "type": "string",
     },
     "postmarkFromEmailCommand": {
