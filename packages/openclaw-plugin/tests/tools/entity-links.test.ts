@@ -1085,6 +1085,29 @@ describe('entity link tools', () => {
         }
       });
 
+      it('should refuse to delete when one lookup succeeds and the other returns non-404 error', async () => {
+        const mockGet = vi.fn()
+          .mockResolvedValueOnce({ success: true, data: { id: 'fwd-1' } })
+          .mockResolvedValueOnce({ success: false, error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' } });
+        const mockDelete = vi.fn();
+        const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+        const tool = createLinksRemoveTool({ ...toolOptions, client: client as unknown as ApiClient });
+
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'project',
+          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('Server error');
+        }
+        // Must NOT attempt any deletes — that would leave one-sided state
+        expect(mockDelete).not.toHaveBeenCalled();
+      });
+
       it('should reject non-UUID target_ref for internal target_type', async () => {
         const tool = createLinksRemoveTool(toolOptions);
         const result = await tool.execute({

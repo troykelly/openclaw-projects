@@ -64,14 +64,6 @@ export const LinksSetParamsSchema = z.object({
   target_type: z.enum(ALL_ENTITY_TYPES),
   target_ref: z.string().min(1, 'target_ref cannot be empty'),
   label: z.string().max(100, 'label must be 100 characters or less').optional(),
-}).superRefine((data, ctx) => {
-  if (isInternalType(data.target_type) && !UUID_RE.test(data.target_ref)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['target_ref'],
-      message: `target_ref must be a valid UUID for internal type '${data.target_type}'`,
-    });
-  }
 });
 export type LinksSetParams = z.infer<typeof LinksSetParamsSchema>;
 
@@ -89,14 +81,6 @@ export const LinksRemoveParamsSchema = z.object({
   source_id: z.string().uuid('source_id must be a valid UUID'),
   target_type: z.enum(ALL_ENTITY_TYPES),
   target_ref: z.string().min(1, 'target_ref cannot be empty'),
-}).superRefine((data, ctx) => {
-  if (isInternalType(data.target_type) && !UUID_RE.test(data.target_ref)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['target_ref'],
-      message: `target_ref must be a valid UUID for internal type '${data.target_type}'`,
-    });
-  }
 });
 export type LinksRemoveParams = z.infer<typeof LinksRemoveParamsSchema>;
 
@@ -177,6 +161,12 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
       }
 
       const { source_type, source_id, target_type, target_ref, label } = parseResult.data;
+
+      // Validate UUID for internal target types
+      if (isInternalType(target_type) && !UUID_RE.test(target_ref)) {
+        return { success: false, error: `target_ref: target_ref must be a valid UUID for internal type '${target_type}'` };
+      }
+
       const now = new Date().toISOString();
 
       logger.info('links_set invoked', {
@@ -473,6 +463,11 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
 
       const { source_type, source_id, target_type, target_ref } = parseResult.data;
 
+      // Validate UUID for internal target types
+      if (isInternalType(target_type) && !UUID_RE.test(target_ref)) {
+        return { success: false, error: `target_ref: target_ref must be a valid UUID for internal type '${target_type}'` };
+      }
+
       logger.info('links_remove invoked', {
         userId,
         source_type,
@@ -505,26 +500,31 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
           { userId },
         );
 
-        // Check if both lookups failed
-        if (!forwardLookup.success && !reverseLookup.success) {
-          // Differentiate 404 (not found) from other errors
-          const fwdIs404 = !forwardLookup.success && forwardLookup.error.status === 404;
-          const revIs404 = !reverseLookup.success && reverseLookup.error.status === 404;
+        // Classify each lookup result
+        const fwdFailed = !forwardLookup.success;
+        const revFailed = !reverseLookup.success;
+        const fwdIs404 = fwdFailed && forwardLookup.error.status === 404;
+        const revIs404 = revFailed && reverseLookup.error.status === 404;
+        const fwdNon404Error = fwdFailed && !fwdIs404;
+        const revNon404Error = revFailed && !revIs404;
 
-          if (fwdIs404 && revIs404) {
-            return {
-              success: false,
-              error: `Link not found between ${source_type}:${source_id} and ${target_type}:${target_ref}`,
-            };
-          }
-
-          // At least one was a non-404 error — report the actual error
+        // If either lookup had a non-404 error, refuse to proceed — deleting
+        // only one side would leave inconsistent state.
+        if (fwdNon404Error || revNon404Error) {
           const errorMessages: string[] = [];
-          if (!fwdIs404) errorMessages.push(forwardLookup.error.message || 'Forward lookup failed');
-          if (!revIs404) errorMessages.push(reverseLookup.error.message || 'Reverse lookup failed');
+          if (fwdNon404Error) errorMessages.push(forwardLookup.error.message || 'Forward lookup failed');
+          if (revNon404Error) errorMessages.push(reverseLookup.error.message || 'Reverse lookup failed');
           return {
             success: false,
             error: errorMessages.join('; '),
+          };
+        }
+
+        // Both lookups returned 404 — link does not exist
+        if (fwdIs404 && revIs404) {
+          return {
+            success: false,
+            error: `Link not found between ${source_type}:${source_id} and ${target_type}:${target_ref}`,
           };
         }
 
