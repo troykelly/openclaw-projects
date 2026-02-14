@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import { detectInjectionPatterns, sanitizeMessageForContext } from '../utils/injection-protection.js';
+import { detectInjectionPatterns, sanitizeExternalMessage, sanitizeMessageForContext } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email']);
@@ -170,12 +170,13 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           total,
         });
 
-        // Format content for display
+        // Format content for display with injection protection.
+        // Sanitize snippet/title since they may contain external message content.
         const content =
           threadItems.length > 0
             ? threadItems
                 .map((t) => {
-                  return `${t.title}: ${t.snippet}`;
+                  return `${sanitizeExternalMessage(t.title)}: ${sanitizeExternalMessage(t.snippet)}`;
                 })
                 .join('\n')
             : 'No threads found.';

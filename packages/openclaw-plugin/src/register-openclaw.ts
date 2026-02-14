@@ -1824,6 +1824,8 @@ function createToolHandlers(state: PluginState) {
           total,
         });
 
+        // Format content with injection protection.
+        // Sanitize all fields that may contain external message content.
         const content =
           results.length > 0
             ? results
@@ -1831,11 +1833,16 @@ function createToolHandlers(state: PluginState) {
                   // Handle both thread and search result formats
                   if ('channel' in r) {
                     const t = r as { channel: string; contactName?: string; endpointValue?: string; messageCount?: number };
-                    const contact = t.contactName || t.endpointValue || 'Unknown';
+                    const contact = sanitizeMessageForContext(
+                      t.contactName || t.endpointValue || 'Unknown',
+                      { direction: 'outbound' },
+                    );
                     const msgCount = t.messageCount ? `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}` : '';
                     return `[${t.channel}] ${contact}${msgCount ? ` - ${msgCount}` : ''}`;
                   }
-                  return `- ${r.title || r.snippet || r.id}`;
+                  const title = r.title ? sanitizeMessageForContext(r.title, { direction: 'outbound' }) : '';
+                  const snippet = r.snippet ? sanitizeMessageForContext(r.snippet, { direction: 'outbound' }) : '';
+                  return `- ${title || snippet || r.id}`;
                 })
                 .join('\n')
             : 'No threads found.';

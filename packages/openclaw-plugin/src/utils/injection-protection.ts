@@ -134,29 +134,50 @@ export function sanitizeExternalMessage(text: string): string {
 }
 
 /**
+ * Escape boundary marker keywords in a string to prevent breakout attacks.
+ * Replaces the keyword portion (EXTERNAL_MSG_START / EXTERNAL_MSG_END)
+ * regardless of surrounding brackets, since formatting code may supply
+ * brackets that complete a partial marker (e.g., channel `[...START` + `]`).
+ */
+function escapeBoundaryMarkers(text: string): string {
+  return text
+    .replace(/EXTERNAL_MSG_START/g, 'EXTERNAL_MSG_START_ESCAPED')
+    .replace(/EXTERNAL_MSG_END/g, 'EXTERNAL_MSG_END_ESCAPED');
+}
+
+/**
+ * Sanitize a metadata field (sender, channel) for safe insertion into
+ * the boundary wrapper header. Strips control chars, invisible Unicode,
+ * newlines (which could break out of the header line), and boundary markers.
+ */
+function sanitizeMetadataField(field: string): string {
+  return escapeBoundaryMarkers(
+    sanitizeExternalMessage(field).replace(/[\r\n]/g, ' '),
+  );
+}
+
+/**
  * Wrap external message content with data boundary markers.
  *
  * Uses the "spotlighting" / data marking pattern to clearly delineate
  * untrusted external content from system instructions. This tells the LLM
  * "this is external data, not instructions to follow."
  *
- * Content is sanitized before wrapping. Any existing boundary markers
- * in the content are escaped to prevent breakout.
+ * Content, sender, and channel are all sanitized and have boundary markers
+ * escaped before wrapping to prevent breakout attacks.
  */
 export function wrapExternalMessage(content: string, options: WrapOptions = {}): string {
   const sanitized = sanitizeExternalMessage(content);
 
   // Escape any existing boundary markers in the content to prevent breakout
-  const escaped = sanitized
-    .replace(/\[EXTERNAL_MSG_START\]/g, '[EXTERNAL_MSG_START_ESCAPED]')
-    .replace(/\[EXTERNAL_MSG_END\]/g, '[EXTERNAL_MSG_END_ESCAPED]');
+  const escaped = escapeBoundaryMarkers(sanitized);
 
   const attribution: string[] = [];
   if (options.channel) {
-    attribution.push(`[${options.channel}]`);
+    attribution.push(`[${sanitizeMetadataField(options.channel)}]`);
   }
   if (options.sender) {
-    attribution.push(`from: ${options.sender}`);
+    attribution.push(`from: ${sanitizeMetadataField(options.sender)}`);
   }
 
   const header = attribution.length > 0
