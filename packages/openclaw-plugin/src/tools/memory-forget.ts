@@ -232,13 +232,13 @@ async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, 
     };
   }
 
-  // Single high-confidence match → auto-delete
-  if (memories.length === 1 && (memories[0].similarity ?? 0) > AUTO_DELETE_SCORE_THRESHOLD) {
+  // Single match (any confidence) → auto-delete to avoid user having to copy/paste UUID
+  if (memories.length === 1) {
     const deleteResponse = await client.delete(`/api/memories/${memories[0].id}`, { userId });
     if (!deleteResponse.success) {
       return { success: false, error: deleteResponse.error.message || 'Failed to delete memory' };
     }
-    logger.debug('memory_forget auto-deleted', { userId, memoryId: memories[0].id });
+    logger.debug('memory_forget auto-deleted single match', { userId, memoryId: memories[0].id, similarity: memories[0].similarity });
     return {
       success: true,
       data: {
@@ -248,9 +248,9 @@ async function deleteByQuery(client: ApiClient, logger: Logger, userId: string, 
     };
   }
 
-  // Multiple matches or low confidence → return candidates, don't delete
+  // Multiple matches → return candidates with FULL UUIDs for copy/paste or tool re-invocation
   const list = memories
-    .map((m) => `- [${m.id.slice(0, 8)}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`)
+    .map((m) => `- [${m.id}] ${m.content.slice(0, 60)}${m.content.length > 60 ? '...' : ''}`)
     .join('\n');
 
   logger.debug('memory_forget returning candidates', { userId, count: memories.length });
