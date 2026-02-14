@@ -55,6 +55,10 @@ function isPrivateIPv6(ip: string): string | null {
   if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') {
     return 'loopback (IPv6)';
   }
+  // :: or 0:0:0:0:0:0:0:0 — unspecified address (equivalent to IPv4 0.0.0.0)
+  if (normalized === '::' || normalized === '0:0:0:0:0:0:0:0') {
+    return 'unspecified (IPv6)';
+  }
   // fc00::/7 — unique local addresses
   if (normalized.startsWith('fc') || normalized.startsWith('fd')) {
     return 'private (IPv6 ULA)';
