@@ -26,6 +26,9 @@ import {
   createSkillStoreListTool,
   createSkillStorePutTool,
   createSkillStoreSearchTool,
+  createLinksSetTool,
+  createLinksQueryTool,
+  createLinksRemoveTool,
 } from './tools/index.js';
 import type {
   AgentToolResult,
@@ -972,6 +975,93 @@ const skillStoreAggregateSchema: JSONSchema = {
     },
   },
   required: ['skill_id', 'operation'],
+};
+
+/**
+ * Entity linking tool JSON Schemas (Issue #1220)
+ */
+const linksSetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    source_type: {
+      type: 'string',
+      description: 'Type of the source entity',
+      enum: ['memory', 'todo', 'project', 'contact'],
+    },
+    source_id: {
+      type: 'string',
+      description: 'UUID of the source entity',
+      format: 'uuid',
+    },
+    target_type: {
+      type: 'string',
+      description: 'Type of the target entity or external reference',
+      enum: ['memory', 'todo', 'project', 'contact', 'github_issue', 'url'],
+    },
+    target_ref: {
+      type: 'string',
+      description: 'Reference to the target: UUID for internal entities, "owner/repo#N" for GitHub issues, URL for urls',
+      minLength: 1,
+    },
+    label: {
+      type: 'string',
+      description: 'Optional label describing the link (e.g., "spawned from", "tracks", "related to")',
+      maxLength: 100,
+    },
+  },
+  required: ['source_type', 'source_id', 'target_type', 'target_ref'],
+};
+
+const linksQuerySchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    entity_type: {
+      type: 'string',
+      description: 'Type of the entity to query links for',
+      enum: ['memory', 'todo', 'project', 'contact'],
+    },
+    entity_id: {
+      type: 'string',
+      description: 'UUID of the entity to query links for',
+      format: 'uuid',
+    },
+    link_types: {
+      type: 'array',
+      description: 'Optional filter to only return links to specific entity types',
+      items: {
+        type: 'string',
+        enum: ['memory', 'todo', 'project', 'contact', 'github_issue', 'url'],
+      },
+    },
+  },
+  required: ['entity_type', 'entity_id'],
+};
+
+const linksRemoveSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    source_type: {
+      type: 'string',
+      description: 'Type of the source entity',
+      enum: ['memory', 'todo', 'project', 'contact'],
+    },
+    source_id: {
+      type: 'string',
+      description: 'UUID of the source entity',
+      format: 'uuid',
+    },
+    target_type: {
+      type: 'string',
+      description: 'Type of the target entity or external reference',
+      enum: ['memory', 'todo', 'project', 'contact', 'github_issue', 'url'],
+    },
+    target_ref: {
+      type: 'string',
+      description: 'Reference to the target',
+      minLength: 1,
+    },
+  },
+  required: ['source_type', 'source_id', 'target_type', 'target_ref'],
 };
 
 /**
@@ -2441,6 +2531,20 @@ function createToolHandlers(state: PluginState) {
         skill_store_aggregate: (params: Record<string, unknown>) => aggregateTool.execute(params),
       };
     })(),
+
+    // Entity link tools: delegate to tool modules (Issue #1220)
+    ...(() => {
+      const toolOptions = { client: apiClient, logger, config, userId };
+      const setTool = createLinksSetTool(toolOptions);
+      const queryTool = createLinksQueryTool(toolOptions);
+      const removeTool = createLinksRemoveTool(toolOptions);
+
+      return {
+        links_set: (params: Record<string, unknown>) => setTool.execute(params),
+        links_query: (params: Record<string, unknown>) => queryTool.execute(params),
+        links_remove: (params: Record<string, unknown>) => removeTool.execute(params),
+      };
+    })(),
   };
 }
 
@@ -2500,7 +2604,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   // Create tool handlers
   const handlers = createToolHandlers(state);
 
-  // Register all 27 tools with correct OpenClaw Gateway execute signature
+  // Register all 30 tools with correct OpenClaw Gateway execute signature
   // Signature: (toolCallId: string, params: T, signal?: AbortSignal, onUpdate?: (partial: any) => void) => AgentToolResult
   const tools: ToolDefinition[] = [
     {
@@ -2762,6 +2866,36 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: skillStoreAggregateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.skill_store_aggregate(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'links_set',
+      description:
+        'Create a link between two entities (memory, todo, project, contact, GitHub issue, or URL). Links are bidirectional and can be traversed from either end. Use to connect related items for cross-reference and context discovery.',
+      parameters: linksSetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.links_set(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'links_query',
+      description:
+        'Query all links for an entity (memory, todo, project, or contact). Returns connected entities including other items, GitHub issues, and URLs. Optionally filter by link target types.',
+      parameters: linksQuerySchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.links_query(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'links_remove',
+      description:
+        'Remove a link between two entities. Deletes both directions of the link. Use when a connection is no longer relevant or was created in error.',
+      parameters: linksRemoveSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.links_remove(params);
         return toAgentToolResult(result);
       },
     },

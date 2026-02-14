@@ -261,5 +261,21 @@ export {
   type SkillStoreToolOptions,
 } from './skill-store.js';
 
+// Entity linking tools (Issue #1220)
+export {
+  createLinksSetTool,
+  createLinksQueryTool,
+  createLinksRemoveTool,
+  LinksSetParamsSchema,
+  LinksQueryParamsSchema,
+  LinksRemoveParamsSchema,
+  type LinksSetParams,
+  type LinksQueryParams,
+  type LinksRemoveParams,
+  type EntityLinkTool,
+  type EntityLinkToolResult,
+  type EntityLinkToolOptions,
+} from './entity-links.js';
+
 /** Tool factory types */
 export type ToolFactoryOptions = Record<string, never>;

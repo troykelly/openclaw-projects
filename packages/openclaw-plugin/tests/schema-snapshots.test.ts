@@ -54,6 +54,9 @@ import {
   SkillStoreAggregateParamsSchema,
 } from '../src/tools/index.js';
 
+// Entity link tool schemas (Issue #1220)
+import { LinksSetParamsSchema, LinksQueryParamsSchema, LinksRemoveParamsSchema } from '../src/tools/index.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(__dirname, '..');
 
@@ -116,6 +119,11 @@ const zodParamSchemas = {
   skill_store_search: SkillStoreSearchParamsSchema,
   skill_store_collections: SkillStoreCollectionsParamsSchema,
   skill_store_aggregate: SkillStoreAggregateParamsSchema,
+
+  // Entity link tools (Issue #1220)
+  links_set: LinksSetParamsSchema,
+  links_query: LinksQueryParamsSchema,
+  links_remove: LinksRemoveParamsSchema,
 } as const;
 
 describe('Schema Snapshots', () => {
