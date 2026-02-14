@@ -138,6 +138,12 @@ function normalizeEmail(email: string): string {
 /**
  * Normalize a phone number for consistent comparison.
  * Strips non-digit characters and normalizes country code.
+ *
+ * TODO: Non-US phone normalization is best-effort. Numbers like `442079460958`
+ * (without +) and `+442079460958` (with +) will normalize differently because
+ * we can only reliably detect US/NANP 10/11-digit patterns. A full solution
+ * would require a phone number parsing library (e.g. libphonenumber) to handle
+ * international formats consistently.
  */
 function normalizePhone(phone: string): string {
   // Strip everything except digits and leading +

@@ -65,10 +65,13 @@ export interface InboundGateStats {
 
 /** Inbound gate instance */
 export interface InboundGate {
-  /** Evaluate a message and return a gate decision */
+  /**
+   * Evaluate a message and return a gate decision.
+   * When estimatedTokens > 0 and the message is allowed, the token budget
+   * is atomically consumed during evaluation — callers must NOT separately
+   * record token usage or the budget will be double-counted.
+   */
   evaluate(message: InboundMessage, trust: SenderTrust, estimatedTokens?: number): InboundGateDecision;
-  /** Record token usage (after processing) */
-  recordTokenUsage(tokens: number): void;
   /** Get aggregate statistics */
   getStats(): InboundGateStats;
 }
@@ -181,10 +184,6 @@ export function createInboundGate(config: InboundGateConfig, logger: Logger): In
         reason: null,
         skipEmbedding: false,
       };
-    },
-
-    recordTokenUsage(tokens: number): void {
-      tokenBudget.record(tokens);
     },
 
     getStats(): InboundGateStats {

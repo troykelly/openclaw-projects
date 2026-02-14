@@ -155,6 +155,10 @@ export function createRateLimiter(config: RateLimiterConfig = DEFAULT_RATE_LIMIT
    * Evict oldest sender entries when max capacity is exceeded.
    * Prevents unbounded memory growth from traffic bursts that create
    * many keys and then stop before the next cleanup cycle runs.
+   *
+   * TODO: This only evicts senderWindows, not recipientWindows. In practice
+   * recipientWindows is bounded by the number of distinct recipients (typically
+   * small), but a similar cap should be added if this assumption changes.
    */
   function evictIfOverCapacity(): void {
     const maxEntries = config.maxSenderEntries ?? 10_000;

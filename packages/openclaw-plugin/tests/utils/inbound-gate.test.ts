@@ -135,9 +135,6 @@ describe('inbound-gate', () => {
       };
       const gate = createInboundGate(config, mockLogger);
 
-      // Simulate budget usage
-      gate.recordTokenUsage(1000);
-
       const msg: InboundMessage = {
         channel: 'email',
         sender: 'user@example.com',
@@ -145,6 +142,11 @@ describe('inbound-gate', () => {
         body: 'Hello',
       };
 
+      // Exhaust the budget via evaluate() (tryConsume records atomically)
+      const first = gate.evaluate(msg, 'known', 1000);
+      expect(first.action).toBe('allow');
+
+      // Next message should be budget-exceeded
       const decision = gate.evaluate(msg, 'known', 500);
       expect(decision.action).toBe('budget_exceeded');
       expect(decision.skipEmbedding).toBe(true);
@@ -169,6 +171,31 @@ describe('inbound-gate', () => {
 
       const decision = gate.evaluate(msg, 'known', 500);
       expect(decision.action).toBe('allow');
+    });
+
+    it('should not double-count tokens (evaluate consumes atomically)', () => {
+      const config: InboundGateConfig = {
+        ...baseConfig,
+        tokenBudget: {
+          enabled: true,
+          dailyTokenLimit: 1000,
+        },
+      };
+      const gate = createInboundGate(config, mockLogger);
+
+      const msg: InboundMessage = {
+        channel: 'email',
+        sender: 'user@example.com',
+        recipient: 'me@example.com',
+        body: 'Hello',
+      };
+
+      // Consume 500 tokens via evaluate
+      expect(gate.evaluate(msg, 'known', 500).action).toBe('allow');
+      // Another 500 should still fit (exactly at limit)
+      expect(gate.evaluate(msg, 'known', 500).action).toBe('allow');
+      // Now at 1000/1000 — even 1 more should be denied
+      expect(gate.evaluate(msg, 'known', 1).action).toBe('budget_exceeded');
     });
   });
 
