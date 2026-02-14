@@ -1,12 +1,13 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `38`;
+exports[`Schema Snapshots > Full tool list > tool count should be tracked 1`] = `39`;
 
 exports[`Schema Snapshots > Full tool list > tool names should match snapshot 1`] = `
 [
   "contact_create",
   "contact_get",
   "contact_search",
+  "context_search",
   "email_send",
   "file_share",
   "links_query",
@@ -404,6 +405,38 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     },
     "query": {
       "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+  },
+  "required": [
+    "query",
+  ],
+  "type": "object",
+}
+`;
+
+exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > context_search parameter schema should match snapshot 1`] = `
+{
+  "properties": {
+    "entity_types": {
+      "items": {
+        "enum": [
+          "memory",
+          "todo",
+          "project",
+        ],
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "limit": {
+      "maximum": 50,
+      "minimum": 1,
+      "type": "integer",
+    },
+    "query": {
+      "maxLength": 1000,
       "minLength": 1,
       "type": "string",
     },

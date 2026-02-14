@@ -21,6 +21,7 @@ import { createNotificationService } from './services/notification-service.js';
 import { autoLinkInboundMessage } from './utils/auto-linker.js';
 import {
   createProjectSearchTool,
+  createContextSearchTool,
   createSkillStoreAggregateTool,
   createSkillStoreCollectionsTool,
   createSkillStoreDeleteTool,
@@ -386,6 +387,37 @@ const projectSearchSchema: JSONSchema = {
       type: 'string',
       description: 'Filter by project status',
       enum: ['active', 'completed', 'archived'],
+    },
+  },
+  required: ['query'],
+};
+
+/**
+ * Context search tool JSON Schema (Issue #1219)
+ */
+const contextSearchSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      description: 'Natural language search query across memories, todos, and projects',
+      minLength: 1,
+      maxLength: 1000,
+    },
+    entity_types: {
+      type: 'array',
+      description: 'Filter to specific entity types. Defaults to all (memory, todo, project).',
+      items: {
+        type: 'string',
+        enum: ['memory', 'todo', 'project'],
+      },
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return',
+      minimum: 1,
+      maximum: 50,
+      default: 10,
     },
   },
   required: ['query'],
@@ -1578,6 +1610,11 @@ function createToolHandlers(state: PluginState) {
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
+    async context_search(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createContextSearchTool({ client: apiClient, logger, config, userId });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
     async contact_search(params: Record<string, unknown>): Promise<ToolResult> {
       const { query, limit = 10 } = params as { query: string; limit?: number };
 
@@ -2739,6 +2776,16 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: projectSearchSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_search(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'context_search',
+      description:
+        'Search across memories, todos, and projects simultaneously. Use when you need broad context about a topic, person, or project. Returns a blended ranked list from all entity types. Optionally filter by entity_types to narrow the search.',
+      parameters: contextSearchSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.context_search(params);
         return toAgentToolResult(result);
       },
     },
