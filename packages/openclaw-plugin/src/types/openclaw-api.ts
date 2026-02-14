@@ -161,6 +161,22 @@ export interface PluginHookBeforeAgentStartResult {
   prependContext?: string;
 }
 
+/** Event payload for message_received hook (Issue #1223) */
+export interface PluginHookMessageReceivedEvent {
+  /** Thread ID for the message */
+  threadId?: string;
+  /** Sender identifier (email or phone) */
+  sender?: string;
+  /** Sender email address */
+  senderEmail?: string;
+  /** Sender phone number */
+  senderPhone?: string;
+  /** Message body content */
+  content?: string;
+  /** Channel the message was received on (sms, email, etc.) */
+  channel?: string;
+}
+
 /** Event payload for agent_end hook */
 export interface PluginHookAgentEndEvent {
   /** Full conversation messages */

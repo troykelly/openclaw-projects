@@ -18,6 +18,7 @@ import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
 import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { createNotificationService } from './services/notification-service.js';
+import { autoLinkInboundMessage } from './utils/auto-linker.js';
 import {
   createProjectSearchTool,
   createSkillStoreAggregateTool,
@@ -39,6 +40,7 @@ import type {
   PluginHookAgentEndEvent,
   PluginHookBeforeAgentStartEvent,
   PluginHookBeforeAgentStartResult,
+  PluginHookMessageReceivedEvent,
   PluginInitializer,
   ToolDefinition,
   ToolResult,
@@ -3058,6 +3060,59 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     } else {
       // Legacy fallback: api.registerHook('agentEnd', handler)
       api.registerHook('agentEnd', agentEndHandler as (event: unknown) => Promise<unknown>);
+    }
+  }
+
+  // Register auto-linking hook for inbound messages (Issue #1223)
+  // When an inbound SMS/email arrives, automatically link the thread to
+  // matching contacts (by sender email/phone) and related projects/todos
+  // (by semantic content matching).
+  {
+    /**
+     * message_received handler: Extracts sender and content info from the
+     * inbound message event and runs auto-linking in the background.
+     * Failures are logged but never crash message processing.
+     */
+    const messageReceivedHandler = async (
+      event: PluginHookMessageReceivedEvent,
+      _ctx: PluginHookAgentContext,
+    ): Promise<void> => {
+      // Skip if no thread ID (nothing to link to)
+      if (!event.threadId) {
+        logger.debug('Auto-link skipped: no threadId in message_received event');
+        return;
+      }
+
+      // Skip if no content and no sender info (nothing to match on)
+      if (!event.content && !event.senderEmail && !event.senderPhone && !event.sender) {
+        logger.debug('Auto-link skipped: no content or sender info in event');
+        return;
+      }
+
+      try {
+        await autoLinkInboundMessage({
+          client: apiClient,
+          logger,
+          userId,
+          message: {
+            threadId: event.threadId,
+            senderEmail: event.senderEmail ?? (event.sender?.includes('@') ? event.sender : undefined),
+            senderPhone: event.senderPhone ?? (event.sender && !event.sender.includes('@') ? event.sender : undefined),
+            content: event.content ?? '',
+          },
+        });
+      } catch (error) {
+        // Hook errors should never crash inbound message processing
+        logger.error('Auto-link hook failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+
+    if (typeof api.on === 'function') {
+      api.on('message_received', messageReceivedHandler as (...args: unknown[]) => unknown);
+    } else {
+      api.registerHook('messageReceived', messageReceivedHandler as (event: unknown) => Promise<unknown>);
     }
   }
 
