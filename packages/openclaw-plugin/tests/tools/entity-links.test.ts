@@ -166,6 +166,42 @@ describe('entity link tools', () => {
         expect(result.success).toBe(false);
       });
 
+      it('should reject non-UUID target_ref for internal target_type', async () => {
+        const tool = createLinksSetTool(toolOptions);
+        for (const internalType of ['memory', 'todo', 'project', 'contact'] as const) {
+          const result = await tool.execute({
+            source_type: 'todo',
+            source_id: '019c5ae8-0000-0000-0000-000000000001',
+            target_type: internalType,
+            target_ref: 'not-a-uuid',
+          });
+          expect(result.success).toBe(false);
+          if (!result.success) {
+            expect(result.error).toContain('UUID');
+          }
+        }
+      });
+
+      it('should allow non-UUID target_ref for github_issue target_type', async () => {
+        const result = LinksSetParamsSchema.safeParse({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'github_issue',
+          target_ref: 'owner/repo#123',
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it('should allow non-UUID target_ref for url target_type', async () => {
+        const result = LinksSetParamsSchema.safeParse({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'url',
+          target_ref: 'https://example.com/page',
+        });
+        expect(result.success).toBe(true);
+      });
+
       it('should accept optional label', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
@@ -443,6 +479,62 @@ describe('entity link tools', () => {
         if (!result.success) {
           expect(result.error).not.toContain('5432');
           expect(result.error).not.toContain('internal-db');
+        }
+      });
+
+      it('should rollback forward link when reverse link creation fails', async () => {
+        const mockPost = vi.fn()
+          .mockResolvedValueOnce({
+            success: true,
+            data: { id: 'fwd-1', skill_id: 'entity-links', collection: 'entity_links', key: 'test', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
+          })
+          .mockResolvedValueOnce({
+            success: false,
+            error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' },
+          });
+        const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
+        const client = { ...mockApiClient, post: mockPost, delete: mockDelete };
+        const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient });
+
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'project',
+          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        });
+
+        expect(result.success).toBe(false);
+        // Should attempt to delete the orphaned forward link
+        expect(mockDelete).toHaveBeenCalledWith('/api/skill-store/items/fwd-1', expect.any(Object));
+      });
+
+      it('should report partial state when rollback also fails', async () => {
+        const mockPost = vi.fn()
+          .mockResolvedValueOnce({
+            success: true,
+            data: { id: 'fwd-1', skill_id: 'entity-links', collection: 'entity_links', key: 'test', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
+          })
+          .mockResolvedValueOnce({
+            success: false,
+            error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' },
+          });
+        const mockDelete = vi.fn().mockResolvedValue({
+          success: false,
+          error: { status: 500, message: 'Delete failed' },
+        });
+        const client = { ...mockApiClient, post: mockPost, delete: mockDelete };
+        const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient });
+
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'project',
+          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('partial');
         }
       });
     });
@@ -946,6 +1038,82 @@ describe('entity link tools', () => {
           expect(result.error).not.toContain('5432');
           expect(result.error).not.toContain('internal-db');
         }
+      });
+
+      it('should report failure when a delete operation fails', async () => {
+        const mockGet = vi.fn()
+          .mockResolvedValueOnce({ success: true, data: { id: 'fwd-1' } })
+          .mockResolvedValueOnce({ success: true, data: { id: 'rev-1' } });
+        const mockDelete = vi.fn()
+          .mockResolvedValueOnce({ success: true, data: {} })
+          .mockResolvedValueOnce({ success: false, error: { status: 500, message: 'Delete failed', code: 'SERVER_ERROR' } });
+        const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+        const tool = createLinksRemoveTool({ ...toolOptions, client: client as unknown as ApiClient });
+
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'project',
+          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('partial');
+        }
+      });
+
+      it('should differentiate non-404 lookup errors from not-found', async () => {
+        // Both lookups return non-404 errors (e.g. 500)
+        const mockGet = vi.fn()
+          .mockResolvedValueOnce({ success: false, error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' } })
+          .mockResolvedValueOnce({ success: false, error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' } });
+        const client = { ...mockApiClient, get: mockGet };
+        const tool = createLinksRemoveTool({ ...toolOptions, client: client as unknown as ApiClient });
+
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'project',
+          target_ref: '019c5ae8-0000-0000-0000-000000000002',
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          // Should NOT say "not found" since it's a server error, not 404
+          expect(result.error).not.toContain('not found');
+        }
+      });
+
+      it('should reject non-UUID target_ref for internal target_type', async () => {
+        const tool = createLinksRemoveTool(toolOptions);
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'contact',
+          target_ref: 'not-a-uuid',
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toContain('UUID');
+        }
+      });
+
+      it('should allow non-UUID target_ref for external target_type in remove', async () => {
+        const mockGet = vi.fn()
+          .mockResolvedValueOnce({ success: true, data: { id: 'fwd-1' } })
+          .mockResolvedValueOnce({ success: true, data: { id: 'rev-1' } });
+        const mockDelete = vi.fn().mockResolvedValue({ success: true, data: {} });
+        const client = { ...mockApiClient, get: mockGet, delete: mockDelete };
+        const tool = createLinksRemoveTool({ ...toolOptions, client: client as unknown as ApiClient });
+
+        const result = await tool.execute({
+          source_type: 'todo',
+          source_id: '019c5ae8-0000-0000-0000-000000000001',
+          target_type: 'github_issue',
+          target_ref: 'owner/repo#42',
+        });
+        expect(result.success).toBe(true);
       });
     });
   });

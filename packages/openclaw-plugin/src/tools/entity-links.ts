@@ -31,6 +31,30 @@ const INTERNAL_ENTITY_TYPES = ['memory', 'todo', 'project', 'contact'] as const;
 /** All entity types including external references. */
 const ALL_ENTITY_TYPES = [...INTERNAL_ENTITY_TYPES, 'github_issue', 'url'] as const;
 
+// ==================== Helpers ====================
+
+/** UUID regex for validation */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Check whether a target_type is internal (requires UUID). */
+function isInternalType(type: string): boolean {
+  return (INTERNAL_ENTITY_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * Build a composite key for a link: `source_type:source_ref:target_type:target_ref`
+ */
+function buildLinkKey(sourceType: string, sourceRef: string, targetType: string, targetRef: string): string {
+  return `${sourceType}:${sourceRef}:${targetType}:${targetRef}`;
+}
+
+/**
+ * Build a tag for source-entity lookup: `src:type:id`
+ */
+function buildSourceTag(entityType: string, entityRef: string): string {
+  return `src:${entityType}:${entityRef}`;
+}
+
 // ==================== Schemas ====================
 
 /** Parameters for links_set tool */
@@ -40,6 +64,14 @@ export const LinksSetParamsSchema = z.object({
   target_type: z.enum(ALL_ENTITY_TYPES),
   target_ref: z.string().min(1, 'target_ref cannot be empty'),
   label: z.string().max(100, 'label must be 100 characters or less').optional(),
+}).superRefine((data, ctx) => {
+  if (isInternalType(data.target_type) && !UUID_RE.test(data.target_ref)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['target_ref'],
+      message: `target_ref must be a valid UUID for internal type '${data.target_type}'`,
+    });
+  }
 });
 export type LinksSetParams = z.infer<typeof LinksSetParamsSchema>;
 
@@ -57,6 +89,14 @@ export const LinksRemoveParamsSchema = z.object({
   source_id: z.string().uuid('source_id must be a valid UUID'),
   target_type: z.enum(ALL_ENTITY_TYPES),
   target_ref: z.string().min(1, 'target_ref cannot be empty'),
+}).superRefine((data, ctx) => {
+  if (isInternalType(data.target_type) && !UUID_RE.test(data.target_ref)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['target_ref'],
+      message: `target_ref must be a valid UUID for internal type '${data.target_type}'`,
+    });
+  }
 });
 export type LinksRemoveParams = z.infer<typeof LinksRemoveParamsSchema>;
 
@@ -109,22 +149,6 @@ interface SkillStoreItem {
   tags: string[];
   status: string;
   [key: string]: unknown;
-}
-
-// ==================== Helpers ====================
-
-/**
- * Build a composite key for a link: `source_type:source_ref:target_type:target_ref`
- */
-function buildLinkKey(sourceType: string, sourceRef: string, targetType: string, targetRef: string): string {
-  return `${sourceType}:${sourceRef}:${targetType}:${targetRef}`;
-}
-
-/**
- * Build a tag for source-entity lookup: `src:type:id`
- */
-function buildSourceTag(entityType: string, entityRef: string): string {
-  return `src:${entityType}:${entityRef}`;
 }
 
 // ==================== links_set ====================
@@ -231,6 +255,24 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
             status: reverseResponse.error.status,
             code: reverseResponse.error.code,
           });
+
+          // Rollback: delete the orphaned forward link
+          const rollback = await client.delete(
+            `/api/skill-store/items/${forwardResponse.data.id}`,
+            { userId },
+          );
+
+          if (!rollback.success) {
+            logger.error('links_set rollback failed — partial state', {
+              userId,
+              forwardId: forwardResponse.data.id,
+            });
+            return {
+              success: false,
+              error: `Failed to create reverse link and rollback left partial state (orphan: ${forwardResponse.data.id})`,
+            };
+          }
+
           return {
             success: false,
             error: reverseResponse.error.message || 'Failed to create reverse link',
@@ -463,32 +505,73 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
           { userId },
         );
 
-        // If both not found, report error
+        // Check if both lookups failed
         if (!forwardLookup.success && !reverseLookup.success) {
+          // Differentiate 404 (not found) from other errors
+          const fwdIs404 = !forwardLookup.success && forwardLookup.error.status === 404;
+          const revIs404 = !reverseLookup.success && reverseLookup.error.status === 404;
+
+          if (fwdIs404 && revIs404) {
+            return {
+              success: false,
+              error: `Link not found between ${source_type}:${source_id} and ${target_type}:${target_ref}`,
+            };
+          }
+
+          // At least one was a non-404 error — report the actual error
+          const errorMessages: string[] = [];
+          if (!fwdIs404) errorMessages.push(forwardLookup.error.message || 'Forward lookup failed');
+          if (!revIs404) errorMessages.push(reverseLookup.error.message || 'Reverse lookup failed');
           return {
             success: false,
-            error: `Link not found between ${source_type}:${source_id} and ${target_type}:${target_ref}`,
+            error: errorMessages.join('; '),
           };
         }
 
         let deletedCount = 0;
+        let expectedCount = 0;
+        const deleteErrors: string[] = [];
 
         // Delete forward link if found
         if (forwardLookup.success) {
+          expectedCount++;
           const deleteResult = await client.delete(
             `/api/skill-store/items/${forwardLookup.data.id}`,
             { userId },
           );
-          if (deleteResult.success) deletedCount++;
+          if (deleteResult.success) {
+            deletedCount++;
+          } else {
+            deleteErrors.push(`forward (${forwardLookup.data.id})`);
+          }
         }
 
         // Delete reverse link if found
         if (reverseLookup.success) {
+          expectedCount++;
           const deleteResult = await client.delete(
             `/api/skill-store/items/${reverseLookup.data.id}`,
             { userId },
           );
-          if (deleteResult.success) deletedCount++;
+          if (deleteResult.success) {
+            deletedCount++;
+          } else {
+            deleteErrors.push(`reverse (${reverseLookup.data.id})`);
+          }
+        }
+
+        // If any deletes failed, report partial failure
+        if (deletedCount < expectedCount) {
+          logger.error('links_remove partial delete', {
+            userId,
+            deletedCount,
+            expectedCount,
+            deleteErrors,
+          });
+          return {
+            success: false,
+            error: `Removal partial: deleted ${deletedCount}/${expectedCount} records. Failed to delete: ${deleteErrors.join(', ')}`,
+          };
         }
 
         const content = `Removed link between ${source_type}:${source_id} and ${target_type}:${target_ref} (${deletedCount} record${deletedCount !== 1 ? 's' : ''} deleted)`;
