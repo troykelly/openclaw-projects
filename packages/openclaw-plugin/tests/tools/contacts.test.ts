@@ -166,8 +166,8 @@ describe('contact tools', () => {
           success: true,
           data: {
             contacts: [
-              { id: 'c1', displayName: 'John Doe', email: 'john@example.com', phone: '+1234567890' },
-              { id: 'c2', displayName: 'Jane Smith', email: 'jane@example.com' },
+              { id: 'c1', display_name: 'John Doe', email: 'john@example.com', phone: '+1234567890' },
+              { id: 'c2', display_name: 'Jane Smith', email: 'jane@example.com' },
             ],
             total: 2,
           },
@@ -260,7 +260,7 @@ describe('contact tools', () => {
       it('should accept valid UUID', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: '123e4567-e89b-12d3-a456-426614174000', displayName: 'John Doe' },
+          data: { id: '123e4567-e89b-12d3-a456-426614174000', display_name: 'John Doe' },
         });
         const client = { ...mockApiClient, get: mockGet };
 
@@ -282,11 +282,11 @@ describe('contact tools', () => {
           success: true,
           data: {
             id: '123e4567-e89b-12d3-a456-426614174000',
-            displayName: 'John Doe',
+            display_name: 'John Doe',
             email: 'john@example.com',
             phone: '+1234567890',
             notes: 'Important client',
-            createdAt: '2024-01-01T00:00:00Z',
+            created_at: '2024-01-01T00:00:00Z',
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -306,7 +306,7 @@ describe('contact tools', () => {
           expect(result.data.content).toContain('john@example.com');
           expect(result.data.content).toContain('+1234567890');
           expect(result.data.content).toContain('Important client');
-          expect(result.data.details.contact.displayName).toBe('John Doe');
+          expect(result.data.details.contact.display_name).toBe('John Doe');
         }
       });
 
@@ -387,7 +387,7 @@ describe('contact tools', () => {
       it('should accept optional contactKind', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', displayName: 'Acme Corp' },
+          data: { id: 'new-123', display_name: 'Acme Corp' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -403,8 +403,8 @@ describe('contact tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           '/api/contacts',
           expect.objectContaining({
-            displayName: 'Acme Corp',
-            contactKind: 'organisation',
+            display_name: 'Acme Corp',
+            contact_kind: 'organisation',
           }),
           expect.any(Object),
         );
@@ -427,10 +427,10 @@ describe('contact tools', () => {
     });
 
     describe('API interaction', () => {
-      it('should call POST /api/contacts with displayName (not email/phone)', async () => {
+      it('should call POST /api/contacts with display_name (not email/phone)', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', displayName: 'John Doe' },
+          data: { id: 'new-123', display_name: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -449,7 +449,7 @@ describe('contact tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           '/api/contacts',
           expect.objectContaining({
-            displayName: 'John Doe',
+            display_name: 'John Doe',
             notes: 'Important client',
           }),
           expect.objectContaining({ userId: 'agent-1' }),
@@ -466,7 +466,7 @@ describe('contact tools', () => {
       it('should return new contact ID', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', displayName: 'John Doe' },
+          data: { id: 'new-123', display_name: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -491,7 +491,7 @@ describe('contact tools', () => {
       it('should strip HTML tags from name', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', displayName: 'John Doe' },
+          data: { id: 'new-123', display_name: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -507,7 +507,7 @@ describe('contact tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            displayName: 'John Doe',
+            display_name: 'John Doe',
           }),
           expect.any(Object),
         );
@@ -516,7 +516,7 @@ describe('contact tools', () => {
       it('should strip HTML tags from notes', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
-          data: { id: 'new-123', displayName: 'John Doe' },
+          data: { id: 'new-123', display_name: 'John Doe' },
         });
         const client = { ...mockApiClient, post: mockPost };
 
@@ -600,7 +600,7 @@ describe('contact tools', () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          contacts: [{ id: 'c1', displayName: 'John Doe', email: 'john@example.com' }],
+          contacts: [{ id: 'c1', display_name: 'John Doe', email: 'john@example.com' }],
           total: 1,
         },
       });
