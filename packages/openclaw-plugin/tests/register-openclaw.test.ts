@@ -1,14 +1,14 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerOpenClaw, schemas } from '../src/register-openclaw.js';
 import { clearSecretCache } from '../src/secrets.js';
 import type {
-  OpenClawPluginApi,
-  ToolDefinition,
   HookHandler,
-  PluginHookBeforeAgentStartEvent,
+  OpenClawPluginApi,
   PluginHookAgentContext,
-  PluginHookBeforeAgentStartResult,
   PluginHookAgentEndEvent,
+  PluginHookBeforeAgentStartEvent,
+  PluginHookBeforeAgentStartResult,
+  ToolDefinition,
 } from '../src/types/openclaw-api.js';
 
 // Mock fs and child_process for secret resolution
@@ -840,6 +840,212 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       expect(registeredTools).toHaveLength(0);
+    });
+  });
+
+  describe('inline handler fixes (#1169, #1171)', () => {
+    it('todo_list should use completed boolean, not status string (#1171)', async () => {
+      const fetchCalls: { url: string; method: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        fetchCalls.push({ url, method: init?.method || 'GET' });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [{ id: '1', title: 'Test todo', status: 'open', completed: false }],
+            total: 1,
+          }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const todoList = registeredTools.find((t) => t.name === 'todo_list');
+        expect(todoList).toBeDefined();
+
+        // Call with no completed param (should NOT send status=pending)
+        await todoList!.execute('test-id', {}, undefined, undefined);
+
+        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/api/work-items'));
+        expect(workItemCalls.length).toBeGreaterThan(0);
+        const url = workItemCalls[0].url;
+
+        // Should NOT contain status=pending (the old buggy default)
+        expect(url).not.toContain('status=pending');
+        // Should contain item_type=task
+        expect(url).toContain('item_type=task');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('todo_list should send status=active when completed=false (#1171)', async () => {
+      const fetchCalls: { url: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        fetchCalls.push({ url });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], total: 0 }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const todoList = registeredTools.find((t) => t.name === 'todo_list');
+        await todoList!.execute('test-id', { completed: false }, undefined, undefined);
+
+        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/api/work-items'));
+        expect(workItemCalls.length).toBeGreaterThan(0);
+        expect(workItemCalls[0].url).toContain('status=active');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('todo_list should send status=completed when completed=true (#1171)', async () => {
+      const fetchCalls: { url: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        fetchCalls.push({ url });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], total: 0 }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const todoList = registeredTools.find((t) => t.name === 'todo_list');
+        await todoList!.execute('test-id', { completed: true }, undefined, undefined);
+
+        const workItemCalls = fetchCalls.filter((c) => c.url.includes('/api/work-items'));
+        expect(workItemCalls.length).toBeGreaterThan(0);
+        expect(workItemCalls[0].url).toContain('status=completed');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('todo_list schema should have completed boolean, not status enum', () => {
+      expect(schemas.todoList.properties).toHaveProperty('completed');
+      expect(schemas.todoList.properties.completed.type).toBe('boolean');
+      expect(schemas.todoList.properties).not.toHaveProperty('status');
+    });
+
+    it('relationship_query should use /api/contacts/:id/relationships endpoint (#1169)', async () => {
+      const testUuid = '12345678-1234-1234-1234-123456789abc';
+      const fetchCalls: { url: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        fetchCalls.push({ url });
+        if (url.includes(`/api/contacts/${testUuid}/relationships`)) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              contactId: testUuid,
+              contactName: 'Test Contact',
+              relatedContacts: [],
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const relQuery = registeredTools.find((t) => t.name === 'relationship_query');
+        expect(relQuery).toBeDefined();
+
+        // Call with a UUID
+        await relQuery!.execute('test-id', { contact: testUuid }, undefined, undefined);
+
+        // Should call /api/contacts/<uuid>/relationships, NOT /api/relationships?contact_id=<uuid>
+        const relCalls = fetchCalls.filter((c) => c.url.includes('/relationships'));
+        expect(relCalls.length).toBeGreaterThan(0);
+        expect(relCalls[0].url).toContain(`/api/contacts/${testUuid}/relationships`);
+        expect(relCalls[0].url).not.toContain('contact_id=');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('relationship_query should resolve name to UUID via contact search (#1169)', async () => {
+      const fetchCalls: { url: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        fetchCalls.push({ url });
+        if (url.includes('/api/contacts?') || url.includes('/api/contacts%3F')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              contacts: [{ id: 'resolved-uuid-456', display_name: 'John Doe' }],
+            }),
+          };
+        }
+        if (url.includes('/api/contacts/resolved-uuid-456/relationships')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              contactId: 'resolved-uuid-456',
+              contactName: 'John Doe',
+              relatedContacts: [
+                {
+                  contactId: 'other-789',
+                  contactName: 'Jane Doe',
+                  contactKind: 'person',
+                  relationshipId: 'rel-1',
+                  relationshipTypeName: 'partner',
+                  relationshipTypeLabel: 'Partner',
+                  isDirectional: false,
+                  notes: null,
+                },
+              ],
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const relQuery = registeredTools.find((t) => t.name === 'relationship_query');
+        const result = await relQuery!.execute('test-id', { contact: 'John Doe' }, undefined, undefined);
+
+        // Should have searched contacts first (name is not a UUID)
+        const contactSearchCalls = fetchCalls.filter((c) => c.url.includes('/api/contacts?'));
+        expect(contactSearchCalls.length).toBeGreaterThan(0);
+        expect(contactSearchCalls[0].url).toContain('search=John');
+
+        // Then should have called graph traversal with the resolved UUID
+        const relCalls = fetchCalls.filter((c) => c.url.includes('/api/contacts/resolved-uuid-456/relationships'));
+        expect(relCalls.length).toBe(1);
+
+        // Result should contain formatted relationships
+        expect(result.content[0].text).toContain('Partner');
+        expect(result.content[0].text).toContain('Jane Doe');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     });
   });
 

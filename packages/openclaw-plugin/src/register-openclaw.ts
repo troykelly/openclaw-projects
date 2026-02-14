@@ -8,36 +8,36 @@
  * - CLI registered via `api.registerCli()`
  */
 
-import type {
-  OpenClawPluginApi,
-  PluginInitializer,
-  ToolDefinition,
-  JSONSchema,
-  ToolResult,
-  AgentToolResult,
-  PluginHookBeforeAgentStartEvent,
-  PluginHookAgentContext,
-  PluginHookBeforeAgentStartResult,
-  PluginHookAgentEndEvent,
-} from './types/openclaw-api.js';
 import { ZodError } from 'zod';
-import { validateRawConfig, resolveConfigSecretsSync, redactConfig, type PluginConfig, type RawPluginConfig } from './config.js';
-import { createLogger, type Logger } from './logger.js';
-import { createApiClient, type ApiClient } from './api-client.js';
+import { type ApiClient, createApiClient } from './api-client.js';
+import { type PluginConfig, type RawPluginConfig, redactConfig, resolveConfigSecretsSync, validateRawConfig } from './config.js';
 import { extractContext, getUserScopeKey } from './context.js';
+import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gateway/oauth-rpc-methods.js';
+import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
+import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
+import { createLogger, type Logger } from './logger.js';
+import { createNotificationService } from './services/notification-service.js';
 import {
-  createSkillStorePutTool,
+  createSkillStoreAggregateTool,
+  createSkillStoreCollectionsTool,
+  createSkillStoreDeleteTool,
   createSkillStoreGetTool,
   createSkillStoreListTool,
-  createSkillStoreDeleteTool,
+  createSkillStorePutTool,
   createSkillStoreSearchTool,
-  createSkillStoreCollectionsTool,
-  createSkillStoreAggregateTool,
 } from './tools/index.js';
-import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
-import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gateway/oauth-rpc-methods.js';
-import { createNotificationService } from './services/notification-service.js';
-import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
+import type {
+  AgentToolResult,
+  JSONSchema,
+  OpenClawPluginApi,
+  PluginHookAgentContext,
+  PluginHookAgentEndEvent,
+  PluginHookBeforeAgentStartEvent,
+  PluginHookBeforeAgentStartResult,
+  PluginInitializer,
+  ToolDefinition,
+  ToolResult,
+} from './types/openclaw-api.js';
 
 /** Plugin state stored during registration */
 interface PluginState {
@@ -251,18 +251,22 @@ const todoListSchema: JSONSchema = {
       description: 'Filter by project ID',
       format: 'uuid',
     },
-    status: {
-      type: 'string',
-      description: 'Filter by todo status',
-      enum: ['pending', 'in_progress', 'completed', 'all'],
-      default: 'pending',
+    completed: {
+      type: 'boolean',
+      description: 'Filter by completion status. true = completed only, false = active only, omit = all.',
     },
     limit: {
       type: 'integer',
       description: 'Maximum number of todos to return',
       minimum: 1,
-      maximum: 100,
-      default: 20,
+      maximum: 200,
+      default: 50,
+    },
+    offset: {
+      type: 'integer',
+      description: 'Offset for pagination',
+      minimum: 0,
+      default: 0,
     },
   },
 };
@@ -1192,31 +1196,57 @@ function createToolHandlers(state: PluginState) {
     async todo_list(params: Record<string, unknown>): Promise<ToolResult> {
       const {
         projectId,
-        status = 'pending',
-        limit = 20,
+        completed,
+        limit = 50,
+        offset = 0,
       } = params as {
         projectId?: string;
-        status?: string;
+        completed?: boolean;
         limit?: number;
+        offset?: number;
       };
 
       try {
-        const queryParams = new URLSearchParams({ item_type: 'task', limit: String(limit) });
-        if (status !== 'all') queryParams.set('status', status);
+        const queryParams = new URLSearchParams({
+          item_type: 'task',
+          limit: String(limit),
+          offset: String(offset),
+        });
         if (projectId) queryParams.set('parent_work_item_id', projectId);
+        if (completed !== undefined) {
+          queryParams.set('status', completed ? 'completed' : 'active');
+        }
 
-        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { userId });
+        const response = await apiClient.get<{
+          items?: Array<{ id: string; title: string; status: string; completed?: boolean; dueDate?: string }>;
+          total?: number;
+        }>(`/api/work-items?${queryParams}`, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
         }
 
         const todos = response.data.items ?? [];
-        const content = todos.length > 0 ? todos.map((t) => `- [${t.status}] ${t.title}`).join('\n') : 'No todos found.';
+        const total = response.data.total ?? todos.length;
+
+        if (todos.length === 0) {
+          return {
+            success: true,
+            data: { content: 'No todos found.', details: { count: 0, total: 0, todos: [] } },
+          };
+        }
+
+        const content = todos
+          .map((t) => {
+            const checkbox = t.completed ? '[x]' : '[ ]';
+            const dueStr = t.dueDate ? ` (due: ${t.dueDate})` : '';
+            return `- ${checkbox} ${t.title}${dueStr}`;
+          })
+          .join('\n');
 
         return {
           success: true,
-          data: { content, details: { count: todos.length, todos } },
+          data: { content, details: { count: todos.length, total, todos } },
         };
       } catch (error) {
         logger.error('todo_list failed', { error });
@@ -2000,11 +2030,31 @@ function createToolHandlers(state: PluginState) {
       });
 
       try {
-        const queryParams = new URLSearchParams({ contact_id: contact });
-        if (type_filter) {
-          queryParams.set('relationship_type_id', type_filter);
+        // Resolve contact to a UUID — accept UUID directly or search by name
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let contactId: string;
+
+        if (uuidRegex.test(contact)) {
+          contactId = contact;
+        } else {
+          // Search for contact by name
+          const searchParams = new URLSearchParams({ search: contact, limit: '1' });
+          const searchResponse = await apiClient.get<{
+            contacts: Array<{ id: string; display_name: string }>;
+          }>(`/api/contacts?${searchParams}`, { userId });
+
+          if (!searchResponse.success) {
+            return { success: false, error: searchResponse.error.message };
+          }
+
+          const contacts = searchResponse.data.contacts ?? [];
+          if (contacts.length === 0) {
+            return { success: false, error: 'Contact not found.' };
+          }
+          contactId = contacts[0].id;
         }
 
+        // Use graph traversal endpoint which returns relatedContacts
         const response = await apiClient.get<{
           contactId: string;
           contactName: string;
@@ -2018,13 +2068,25 @@ function createToolHandlers(state: PluginState) {
             isDirectional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/relationships?${queryParams}`, { userId });
+        }>(`/api/contacts/${contactId}/relationships`, { userId });
 
         if (!response.success) {
+          if (response.error.code === 'NOT_FOUND') {
+            return { success: false, error: 'Contact not found.' };
+          }
           return { success: false, error: response.error.message };
         }
 
-        const { contactId, contactName, relatedContacts } = response.data;
+        let { relatedContacts } = response.data;
+        const { contactName } = response.data;
+
+        // Apply type_filter client-side if provided
+        if (type_filter && relatedContacts.length > 0) {
+          const filterLower = type_filter.toLowerCase();
+          relatedContacts = relatedContacts.filter(
+            (rel) => rel.relationshipTypeName.toLowerCase().includes(filterLower) || rel.relationshipTypeLabel.toLowerCase().includes(filterLower),
+          );
+        }
 
         if (relatedContacts.length === 0) {
           return {
