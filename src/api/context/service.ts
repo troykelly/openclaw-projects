@@ -168,6 +168,14 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
   // Fetch active projects if requested
   if (includeProjects) {
     try {
+      // Issue #1172: optional user_email scoping
+      const projectParams: string[] = [];
+      let projectUserEmailFilter = '';
+      if (input.userId) {
+        projectParams.push(input.userId);
+        projectUserEmailFilter = ` AND user_email = $${projectParams.length}`;
+      }
+
       const projectResult = await pool.query(
         `SELECT
            id::text,
@@ -176,9 +184,10 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
            status::text
          FROM work_item
          WHERE kind = 'project'
-           AND status NOT IN ('completed', 'archived', 'deleted')
+           AND status NOT IN ('completed', 'archived', 'deleted')${projectUserEmailFilter}
          ORDER BY updated_at DESC
          LIMIT 5`,
+        projectParams,
       );
 
       sources.projects = projectResult.rows.map((row) => ({
@@ -195,6 +204,14 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
   // Fetch pending todos if requested
   if (includeTodos) {
     try {
+      // Issue #1172: optional user_email scoping
+      const todoParams: string[] = [];
+      let todoUserEmailFilter = '';
+      if (input.userId) {
+        todoParams.push(input.userId);
+        todoUserEmailFilter = ` AND user_email = $${todoParams.length}`;
+      }
+
       const todoResult = await pool.query(
         `SELECT
            id::text,
@@ -203,12 +220,13 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
            status::text
          FROM work_item
          WHERE kind IN ('task', 'issue')
-           AND status NOT IN ('completed', 'archived', 'deleted')
+           AND status NOT IN ('completed', 'archived', 'deleted')${todoUserEmailFilter}
          ORDER BY
            CASE WHEN not_after IS NOT NULL THEN 0 ELSE 1 END,
            not_after ASC,
            updated_at DESC
          LIMIT 10`,
+        todoParams,
       );
 
       sources.todos = todoResult.rows.map((row) => ({
