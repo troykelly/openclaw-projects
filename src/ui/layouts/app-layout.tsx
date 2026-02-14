@@ -6,20 +6,21 @@
  * Also provides global features: command palette, keyboard shortcuts,
  * and work item creation dialogs.
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import type React from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
-
-import { AppShell } from '@/ui/components/layout/app-shell';
-import type { BreadcrumbItem } from '@/ui/components/layout/breadcrumb';
 import { CommandPalette, type SearchResult } from '@/ui/components/command-palette';
 import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
-import { QuickAddDialog, WorkItemCreateDialog, type CreatedWorkItem } from '@/ui/components/work-item-create';
-import { apiClient } from '@/ui/lib/api-client';
-import type { SearchResponse, AppBootstrap, Note, Notebook } from '@/ui/lib/api-types';
-import { readBootstrap } from '@/ui/lib/work-item-utils';
-import { useNotes } from '@/ui/hooks/queries/use-notes';
+import { AppShell } from '@/ui/components/layout/app-shell';
+import type { BreadcrumbItem } from '@/ui/components/layout/breadcrumb';
+import { type CreatedWorkItem, QuickAddDialog, WorkItemCreateDialog } from '@/ui/components/work-item-create';
+import { useUser } from '@/ui/contexts/user-context';
 import { useNotebooks } from '@/ui/hooks/queries/use-notebooks';
-import { matchNotesRoute, matchWorkItemsRoute, extractWorkItemId } from '@/ui/lib/route-patterns';
+import { useNotes } from '@/ui/hooks/queries/use-notes';
+import { apiClient } from '@/ui/lib/api-client';
+import type { AppBootstrap, Note, Notebook, SearchResponse } from '@/ui/lib/api-types';
+import { extractWorkItemId, matchNotesRoute, matchWorkItemsRoute } from '@/ui/lib/route-patterns';
+import { readBootstrap } from '@/ui/lib/work-item-utils';
 
 /** Map route pathname segments to sidebar section IDs. */
 function pathToSection(pathname: string): string {
@@ -149,9 +150,35 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
  * Rendered as the layout element in the route configuration.
  */
 export function AppLayout(): React.JSX.Element {
+  const { isAuthenticated, isLoading: isAuthLoading } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
   const bootstrap = readBootstrap<AppBootstrap>();
+
+  // Auth guard: while checking auth status, show a loading spinner.
+  // Once determined unauthenticated, do a full navigation to /app which
+  // triggers the server-rendered login page via requireDashboardSession.
+  if (isAuthLoading) {
+    return (
+      <div data-testid="auth-loading" className="flex min-h-screen items-center justify-center">
+        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div data-testid="auth-required" className="flex min-h-screen flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
+          <h1 className="text-3xl font-bold tracking-tight">OpenClaw Projects</h1>
+          <p className="mt-2 text-sm text-muted-foreground">You need to sign in to access this page.</p>
+          <a href="/app" className="mt-6 inline-block rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   // Work item creation state
   const [quickAddOpen, setQuickAddOpen] = useState(false);

@@ -1,11 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import * as React from 'react';
-import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type * as React from 'react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { routes } from '@/ui/routes.js';
 
 // Pre-resolve all lazy-loaded components so React.lazy resolves synchronously
@@ -38,6 +39,14 @@ vi.mock('@/ui/lib/api-client', () => ({
     patch: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
     delete: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
   },
+}));
+
+// Mock user context to simulate an authenticated user (issue #1166).
+// Without this, the auth guard in AppLayout blocks all route rendering.
+vi.mock('@/ui/contexts/user-context', () => ({
+  useUser: () => ({ email: 'test@example.com', isLoading: false, isAuthenticated: true }),
+  useUserEmail: () => 'test@example.com',
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // Mock command palette to avoid cmdk jsdom rendering issues in route tests
