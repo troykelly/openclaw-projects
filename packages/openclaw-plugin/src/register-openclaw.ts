@@ -19,6 +19,7 @@ import { createLogger, type Logger } from './logger.js';
 import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { createNotificationService } from './services/notification-service.js';
 import {
+  createProjectSearchTool,
   createSkillStoreAggregateTool,
   createSkillStoreCollectionsTool,
   createSkillStoreDeleteTool,
@@ -355,6 +356,34 @@ const todoSearchSchema: JSONSchema = {
       type: 'string',
       description: 'Filter by status (e.g., open, completed, in_progress)',
       maxLength: 50,
+    },
+  },
+  required: ['query'],
+};
+
+/**
+ * Project search tool JSON Schema (Issue #1217)
+ */
+const projectSearchSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      description: 'Natural language search query for finding projects',
+      minLength: 1,
+      maxLength: 1000,
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return',
+      minimum: 1,
+      maximum: 50,
+      default: 10,
+    },
+    status: {
+      type: 'string',
+      description: 'Filter by project status',
+      enum: ['active', 'completed', 'archived'],
     },
   },
   required: ['query'],
@@ -1542,6 +1571,11 @@ function createToolHandlers(state: PluginState) {
       }
     },
 
+    async project_search(params: Record<string, unknown>): Promise<ToolResult> {
+      const tool = createProjectSearchTool({ client: apiClient, logger, config, userId });
+      return tool.execute(params as Parameters<typeof tool.execute>[0]);
+    },
+
     async contact_search(params: Record<string, unknown>): Promise<ToolResult> {
       const { query, limit = 10 } = params as { query: string; limit?: number };
 
@@ -2698,6 +2732,15 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       },
     },
     {
+      name: 'project_search',
+      description: 'Search projects by natural language query. Uses semantic and text search to find relevant projects. Optionally filter by status (active, completed, archived).',
+      parameters: projectSearchSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.project_search(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
       name: 'contact_search',
       description: 'Search contacts by name, email, or other fields. Use to find people.',
       parameters: contactSearchSchema,
@@ -3123,6 +3166,8 @@ export const schemas = {
   todoList: todoListSchema,
   todoCreate: todoCreateSchema,
   todoComplete: todoCompleteSchema,
+  todoSearch: todoSearchSchema,
+  projectSearch: projectSearchSchema,
   contactSearch: contactSearchSchema,
   contactGet: contactGetSchema,
   contactCreate: contactCreateSchema,

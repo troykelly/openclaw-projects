@@ -68,10 +68,10 @@ describe('OpenClaw 2026 API Registration', () => {
   });
 
   describe('registration', () => {
-    it('should register all 31 tools', () => {
+    it('should register all 32 tools', () => {
       registerOpenClaw(mockApi);
 
-      expect(registeredTools).toHaveLength(31);
+      expect(registeredTools).toHaveLength(32);
       const toolNames = registeredTools.map((t) => t.name);
       expect(toolNames).toContain('memory_recall');
       expect(toolNames).toContain('memory_store');
@@ -83,6 +83,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(toolNames).toContain('todo_create');
       expect(toolNames).toContain('todo_complete');
       expect(toolNames).toContain('todo_search');
+      expect(toolNames).toContain('project_search');
       expect(toolNames).toContain('contact_search');
       expect(toolNames).toContain('contact_get');
       expect(toolNames).toContain('contact_create');
@@ -153,7 +154,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(mockApi.logger.info).toHaveBeenCalledWith(
         'OpenClaw Projects plugin registered',
         expect.objectContaining({
-          toolCount: 31,
+          toolCount: 32,
         }),
       );
     });
@@ -685,6 +686,8 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(schemas.todoList).toBeDefined();
       expect(schemas.todoCreate).toBeDefined();
       expect(schemas.todoComplete).toBeDefined();
+      expect(schemas.todoSearch).toBeDefined();
+      expect(schemas.projectSearch).toBeDefined();
       expect(schemas.contactSearch).toBeDefined();
       expect(schemas.contactGet).toBeDefined();
       expect(schemas.contactCreate).toBeDefined();
@@ -720,7 +723,7 @@ describe('OpenClaw 2026 API Registration', () => {
     it('should register all tools synchronously during register() call', () => {
       registerOpenClaw(mockApi);
       // All tools must be registered by the time register() returns
-      expect(registeredTools).toHaveLength(31);
+      expect(registeredTools).toHaveLength(32);
     });
 
     it('should register hooks synchronously during register() call', () => {
@@ -753,7 +756,7 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       // Should succeed — reads pluginConfig, not the full gateway config
-      expect(registeredTools).toHaveLength(31);
+      expect(registeredTools).toHaveLength(32);
     });
 
     it('should fall back to api.config when api.pluginConfig is undefined', () => {
@@ -770,7 +773,7 @@ describe('OpenClaw 2026 API Registration', () => {
       registerOpenClaw(mockApi);
 
       // Should succeed via fallback
-      expect(registeredTools).toHaveLength(31);
+      expect(registeredTools).toHaveLength(32);
     });
   });
 
@@ -1092,6 +1095,72 @@ describe('OpenClaw 2026 API Registration', () => {
       } finally {
         globalThis.fetch = originalFetch;
       }
+    });
+
+    it('project_search registered handler should delegate to factory and return results (#1217)', async () => {
+      const fetchCalls: { url: string }[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        fetchCalls.push({ url });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            results: [
+              {
+                id: 'proj-1',
+                title: 'Home Renovation',
+                snippet: 'Kitchen remodel',
+                score: 0.9,
+                type: 'work_item',
+                metadata: { kind: 'project', status: 'active' },
+              },
+              {
+                id: 'task-1',
+                title: 'Buy paint',
+                snippet: 'Get supplies',
+                score: 0.8,
+                type: 'work_item',
+                metadata: { kind: 'task', status: 'open' },
+              },
+            ],
+            search_type: 'hybrid',
+            total: 2,
+          }),
+        };
+      }) as unknown as typeof fetch;
+
+      try {
+        registerOpenClaw(mockApi);
+
+        const projectSearch = registeredTools.find((t) => t.name === 'project_search');
+        expect(projectSearch).toBeDefined();
+
+        const result = await projectSearch!.execute('test-id', { query: 'renovation' }, undefined, undefined);
+
+        // Should call the search API
+        const searchCalls = fetchCalls.filter((c) => c.url.includes('/api/search'));
+        expect(searchCalls.length).toBeGreaterThan(0);
+        expect(searchCalls[0].url).toContain('types=work_item');
+        expect(searchCalls[0].url).toContain('semantic=true');
+
+        // Result should be AgentToolResult format with only project results (task filtered out)
+        expect(result.content[0].text).toContain('Home Renovation');
+        expect(result.content[0].text).not.toContain('Buy paint');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('project_search registered handler should validate params via Zod (#1217)', async () => {
+      registerOpenClaw(mockApi);
+
+      const projectSearch = registeredTools.find((t) => t.name === 'project_search');
+      expect(projectSearch).toBeDefined();
+
+      // Empty query should fail validation
+      const result = await projectSearch!.execute('test-id', { query: '' }, undefined, undefined);
+      expect(result.content[0].text).toContain('Error');
     });
   });
 
