@@ -3389,6 +3389,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result);
   });
 
+  // GET /api/files/share - Clarify that sharing uses /api/files/shared/:token (Issue #1141)
+  app.get('/api/files/share', async (req, reply) => {
+    return reply.code(400).send({
+      error: 'Invalid endpoint',
+      message: 'To access a shared file, use GET /api/files/shared/:token. To create a share link, use POST /api/files/:id/share.',
+    });
+  });
+
   // GET /api/files/:id - Download a file
   app.get('/api/files/:id', async (req, reply) => {
     const storage = getFileStorage();
@@ -5129,6 +5137,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.end();
 
     return reply.send({ contacts: result.rows, total });
+  });
+
+  // GET /api/contacts/search - Alias for /api/contacts?search= (Issue #1141: prevent route collision with /:id)
+  app.get('/api/contacts/search', async (req, reply) => {
+    const query = req.query as { q?: string; limit?: string; offset?: string };
+
+    // Redirect to the main contacts endpoint with search parameter
+    const searchQuery = query.q || '';
+    const limit = query.limit || '50';
+    const offset = query.offset || '0';
+
+    return reply.redirect(`/api/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}`, 301);
   });
 
   // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
