@@ -400,16 +400,16 @@ const contextSearchSchema: JSONSchema = {
   properties: {
     query: {
       type: 'string',
-      description: 'Natural language search query across memories, todos, and projects',
+      description: 'Natural language search query across memories, todos, projects, and messages',
       minLength: 1,
       maxLength: 1000,
     },
     entity_types: {
       type: 'array',
-      description: 'Filter to specific entity types. Defaults to all (memory, todo, project).',
+      description: 'Filter to specific entity types. Defaults to all (memory, todo, project, message).',
       items: {
         type: 'string',
-        enum: ['memory', 'todo', 'project'],
+        enum: ['memory', 'todo', 'project', 'message'],
       },
     },
     limit: {
@@ -2782,7 +2782,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'context_search',
       description:
-        'Search across memories, todos, and projects simultaneously. Use when you need broad context about a topic, person, or project. Returns a blended ranked list from all entity types. Optionally filter by entity_types to narrow the search.',
+        'Search across memories, todos, projects, and messages simultaneously. Use when you need broad context about a topic, person, or project. Returns a blended ranked list from all entity types. Optionally filter by entity_types to narrow the search.',
       parameters: contextSearchSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.context_search(params);
