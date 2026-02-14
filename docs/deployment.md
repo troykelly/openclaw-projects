@@ -211,8 +211,9 @@ The basic deployment uses `docker-compose.yml` for localhost or behind-proxy dep
    # Check all services are running
    docker compose ps
 
-   # Check API health
-   curl http://localhost:3000/health
+   # Check API health (IPv6-first — use [::1] or 127.0.0.1)
+   curl http://[::1]:3000/health
+   # or: curl http://127.0.0.1:3000/health
 
    # View logs
    docker compose logs -f
@@ -220,11 +221,13 @@ The basic deployment uses `docker-compose.yml` for localhost or behind-proxy dep
 
 ### Service Endpoints (Basic)
 
+Services bind to **localhost only** (both `[::1]` and `127.0.0.1`), not to all interfaces. To expose services to the network, use a reverse proxy or override port bindings in a `docker-compose.override.yml`.
+
 | Service | URL | Description |
 |---------|-----|-------------|
-| API | http://localhost:3000 | REST API |
-| Frontend | http://localhost:8080 | Web dashboard |
-| SeaweedFS | http://localhost:8333 | S3-compatible storage (internal) |
+| API | `http://[::1]:3000` or `http://127.0.0.1:3000` | REST API |
+| Frontend | `http://[::1]:8080` or `http://127.0.0.1:8080` | Web dashboard |
+| SeaweedFS | `http://[::1]:8333` or `http://127.0.0.1:8333` | S3-compatible storage (internal) |
 
 ---
 

@@ -171,6 +171,14 @@ describe('.env.example documents IPv6-first defaults', () => {
   });
 });
 
+describe('Dockerfile HOST is :: (dual-stack)', () => {
+  it('docker/api/Dockerfile sets HOST=::', () => {
+    const content = readFileSync(resolve(ROOT_DIR, 'docker/api/Dockerfile'), 'utf-8');
+    expect(content).toContain('ENV HOST=::');
+    expect(content).not.toContain('ENV HOST=0.0.0.0');
+  });
+});
+
 describe('ops reference configs use [::1]', () => {
   it('ops/traefik/dynamic.yml uses [::1] in service URLs', () => {
     const path = resolve(ROOT_DIR, 'ops/traefik/dynamic.yml');
