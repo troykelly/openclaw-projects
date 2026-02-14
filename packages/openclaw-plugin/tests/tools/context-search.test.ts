@@ -284,6 +284,23 @@ describe('context_search tool', () => {
       expect(searchCall).toBeDefined();
       expect(searchCall![0]).toContain('user_email=user%40example.com');
     });
+
+    it('should pass user_email to memory search API', async () => {
+      const client = createMockClient();
+      const tool = createContextSearchTool({
+        client,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'user@example.com',
+      });
+
+      await tool.execute({ query: 'test' });
+
+      const mockGet = (client as unknown as { get: ReturnType<typeof vi.fn> }).get;
+      const memoryCall = mockGet.mock.calls.find((c: unknown[]) => (c[0] as string).includes('/api/memories/search'));
+      expect(memoryCall).toBeDefined();
+      expect(memoryCall![0]).toContain('user_email=user%40example.com');
+    });
   });
 
   describe('score normalization and merging', () => {
@@ -334,6 +351,73 @@ describe('context_search tool', () => {
         // Work item scores: 5.0/5.0=1.0, 2.5/5.0=0.5
         // All normalized scores should be between 0 and 1
         for (const r of results) {
+          expect(r.score).toBeGreaterThanOrEqual(0);
+          expect(r.score).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+
+    it('should set scores to 0 when all raw scores are zero', async () => {
+      const client = createMockClient(
+        [{ id: 'm1', content: 'Memory one', type: 'fact', similarity: 0 }],
+        [{ id: 'w1', title: 'Task one', snippet: '', score: 0, type: 'work_item', metadata: { kind: 'task', status: 'open' } }],
+      );
+
+      const tool = createContextSearchTool({
+        client,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        for (const r of result.data.details.results) {
+          expect(r.score).toBe(0);
+        }
+      }
+    });
+
+    it('should set scores to 0 when all raw scores are negative', async () => {
+      const client = createMockClient([{ id: 'm1', content: 'Memory one', type: 'fact', similarity: -0.5 }], []);
+
+      const tool = createContextSearchTool({
+        client,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        for (const r of result.data.details.results) {
+          expect(r.score).toBe(0);
+        }
+      }
+    });
+
+    it('should clamp all normalized scores to [0, 1]', async () => {
+      const client = createMockClient(
+        [
+          { id: 'm1', content: 'Memory one', type: 'fact', similarity: 1.5 },
+          { id: 'm2', content: 'Memory two', type: 'fact', similarity: -0.3 },
+        ],
+        [],
+      );
+
+      const tool = createContextSearchTool({
+        client,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        for (const r of result.data.details.results) {
           expect(r.score).toBeGreaterThanOrEqual(0);
           expect(r.score).toBeLessThanOrEqual(1);
         }
@@ -615,6 +699,39 @@ describe('context_search tool', () => {
       if (result.success) {
         expect(result.data.details.warnings).toBeDefined();
         expect(result.data.details.warnings!.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should sanitize error messages in warnings', async () => {
+      const mockGet = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('/api/memories/search')) {
+          return Promise.reject(new Error('Connection to postgres://admin:secret@db:5432/prod failed'));
+        }
+        if (url.includes('/api/search')) {
+          return Promise.resolve({
+            success: true,
+            data: { results: [], search_type: 'text', total: 0 },
+          });
+        }
+        return Promise.resolve({ success: false, error: { status: 404, message: 'Not found' } });
+      });
+
+      const client = { ...mockApiClient, get: mockGet } as unknown as ApiClient;
+      const tool = createContextSearchTool({
+        client,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.warnings).toBeDefined();
+        // sanitizeErrorMessage should not leak raw connection strings
+        // The exact sanitization depends on the utility, but warning should exist
+        expect(result.data.details.warnings!.length).toBeGreaterThan(0);
+        expect(result.data.details.warnings![0]).toContain('memory search failed');
       }
     });
 

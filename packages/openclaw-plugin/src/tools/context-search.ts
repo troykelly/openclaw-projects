@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { PluginConfig } from '../config.js';
 import type { Logger } from '../logger.js';
+import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Supported entity types for cross-entity search */
 export const EntityType = z.enum(['memory', 'todo', 'project']);
@@ -101,14 +102,19 @@ interface WorkItemApiResult {
 
 /**
  * Normalize an array of scores to 0-1 by dividing each by the max score in the set.
- * Returns original scores if max is 0 or no scores exist.
+ * If maxScore <= 0, all scores are set to 0. All results are clamped to [0, 1].
  */
 function normalizeScores(items: { score: number }[]): void {
   if (items.length === 0) return;
   const maxScore = Math.max(...items.map((i) => i.score));
-  if (maxScore <= 0) return;
+  if (maxScore <= 0) {
+    for (const item of items) {
+      item.score = 0;
+    }
+    return;
+  }
   for (const item of items) {
-    item.score = item.score / maxScore;
+    item.score = Math.max(0, Math.min(1, item.score / maxScore));
   }
 }
 
@@ -176,67 +182,64 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         entity_types: entity_types ?? 'all',
       });
 
-      // Build promises for parallel fan-out
-      const promises: Array<Promise<{ type: 'memory' | 'work_item'; result: PromiseSettledResult<unknown> }>> = [];
+      // Build tagged promises for parallel fan-out via Promise.allSettled
+      type SearchTag = 'memory' | 'work_item';
+      const taggedPromises: Array<{ tag: SearchTag; promise: Promise<unknown> }> = [];
 
       if (searchMemories) {
-        const memoryPromise = (async () => {
-          const queryParams = new URLSearchParams({
-            q: sanitizedQuery,
-            limit: String(limit),
-          });
-          return client.get<{ results: MemoryApiResult[]; search_type: string }>(`/api/memories/search?${queryParams.toString()}`, { userId });
-        })();
-        promises.push(
-          memoryPromise
-            .then((r) => ({ type: 'memory' as const, result: { status: 'fulfilled' as const, value: r } }))
-            .catch((e) => ({ type: 'memory' as const, result: { status: 'rejected' as const, reason: e } })),
-        );
+        const memoryParams = new URLSearchParams({
+          q: sanitizedQuery,
+          limit: String(limit),
+          user_email: userId,
+        });
+        taggedPromises.push({
+          tag: 'memory',
+          promise: client.get<{ results: MemoryApiResult[]; search_type: string }>(`/api/memories/search?${memoryParams.toString()}`, { userId }),
+        });
       }
 
       if (searchWorkItems) {
-        const searchPromise = (async () => {
-          const queryParams = new URLSearchParams({
-            q: sanitizedQuery,
-            types: 'work_item',
-            limit: String(Math.min(limit * 3, 50)), // Over-fetch for client-side filtering
-            semantic: 'true',
-            user_email: userId,
-          });
-          return client.get<{ results: WorkItemApiResult[]; search_type: string; total: number }>(`/api/search?${queryParams.toString()}`, { userId });
-        })();
-        promises.push(
-          searchPromise
-            .then((r) => ({ type: 'work_item' as const, result: { status: 'fulfilled' as const, value: r } }))
-            .catch((e) => ({ type: 'work_item' as const, result: { status: 'rejected' as const, reason: e } })),
-        );
+        const searchParams = new URLSearchParams({
+          q: sanitizedQuery,
+          types: 'work_item',
+          limit: String(Math.min(limit * 3, 50)), // Over-fetch for client-side filtering
+          semantic: 'true',
+          user_email: userId,
+        });
+        taggedPromises.push({
+          tag: 'work_item',
+          promise: client.get<{ results: WorkItemApiResult[]; search_type: string; total: number }>(`/api/search?${searchParams.toString()}`, { userId }),
+        });
       }
 
-      const settled = await Promise.all(promises);
+      const settled = await Promise.allSettled(taggedPromises.map((tp) => tp.promise));
 
       // Process results
       const warnings: string[] = [];
       const memoryItems: ContextSearchResultItem[] = [];
       const workItemResults: ContextSearchResultItem[] = [];
 
-      for (const entry of settled) {
-        if (entry.result.status === 'rejected') {
-          const errorMsg = entry.result.reason instanceof Error ? entry.result.reason.message : String(entry.result.reason);
-          warnings.push(`${entry.type} search failed: ${errorMsg}`);
-          logger.error(`context_search ${entry.type} search failed`, { userId, error: errorMsg });
+      for (let i = 0; i < settled.length; i++) {
+        const entry = settled[i];
+        const tag = taggedPromises[i].tag;
+
+        if (entry.status === 'rejected') {
+          const safeMsg = sanitizeErrorMessage(entry.reason);
+          warnings.push(`${tag} search failed: ${safeMsg}`);
+          logger.error(`context_search ${tag} search failed`, { userId, error: safeMsg });
           continue;
         }
 
-        const response = entry.result.value as { success: boolean; data?: unknown; error?: { message?: string } };
+        const response = entry.value as { success: boolean; data?: unknown; error?: { message?: string } };
 
         if (!response.success) {
-          const errorMsg = response.error?.message ?? 'Unknown error';
-          warnings.push(`${entry.type} search failed: ${errorMsg}`);
-          logger.error(`context_search ${entry.type} API error`, { userId, error: errorMsg });
+          const safeMsg = sanitizeErrorMessage(response.error?.message ?? 'Unknown error');
+          warnings.push(`${tag} search failed: ${safeMsg}`);
+          logger.error(`context_search ${tag} API error`, { userId, error: safeMsg });
           continue;
         }
 
-        if (entry.type === 'memory') {
+        if (tag === 'memory') {
           const data = response.data as { results: MemoryApiResult[] };
           const rawResults = data.results ?? [];
           for (const m of rawResults) {
