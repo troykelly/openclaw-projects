@@ -5,10 +5,14 @@
  * routes render inside the consistent sidebar + header chrome.
  * Also provides global features: command palette, keyboard shortcuts,
  * and work item creation dialogs.
+ *
+ * Split into AppLayout (auth guard) and AuthenticatedLayout (hooks + UI)
+ * to satisfy React's rules of hooks — no hooks after early returns.
  */
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
+import { LoginForm } from '@/ui/components/auth/login-form';
 import { CommandPalette, type SearchResult } from '@/ui/components/command-palette';
 import { KeyboardShortcutsHandler } from '@/ui/components/keyboard-shortcuts-handler';
 import { AppShell } from '@/ui/components/layout/app-shell';
@@ -123,7 +127,7 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
 
   // Work items routes - use shared route patterns (#673)
   const workItemsMatch = matchWorkItemsRoute(pathname);
-  if (workItemsMatch && workItemsMatch.id) {
+  if (workItemsMatch?.id) {
     const id = workItemsMatch.id;
 
     if (workItemsMatch.type === 'timeline') {
@@ -146,18 +150,12 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
 }
 
 /**
- * Root layout component providing AppShell + global UI features.
- * Rendered as the layout element in the route configuration.
+ * Root layout component with auth guard.
+ * Checks authentication state before rendering the authenticated layout.
  */
 export function AppLayout(): React.JSX.Element {
   const { isAuthenticated, isLoading: isAuthLoading } = useUser();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const bootstrap = readBootstrap<AppBootstrap>();
 
-  // Auth guard: while checking auth status, show a loading spinner.
-  // Once determined unauthenticated, do a full navigation to /app which
-  // triggers the server-rendered login page via requireDashboardSession.
   if (isAuthLoading) {
     return (
       <div data-testid="auth-loading" className="flex min-h-screen items-center justify-center">
@@ -167,18 +165,20 @@ export function AppLayout(): React.JSX.Element {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div data-testid="auth-required" className="flex min-h-screen flex-col items-center justify-center px-4">
-        <div className="w-full max-w-md text-center">
-          <h1 className="text-3xl font-bold tracking-tight">OpenClaw Projects</h1>
-          <p className="mt-2 text-sm text-muted-foreground">You need to sign in to access this page.</p>
-          <a href="/app" className="mt-6 inline-block rounded-md bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-            Sign in
-          </a>
-        </div>
-      </div>
-    );
+    return <LoginForm />;
   }
+
+  return <AuthenticatedLayout />;
+}
+
+/**
+ * Inner layout rendered only when the user is authenticated.
+ * All hooks are called unconditionally here, satisfying React's rules of hooks.
+ */
+function AuthenticatedLayout(): React.JSX.Element {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const bootstrap = readBootstrap<AppBootstrap>();
 
   // Work item creation state
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -253,12 +253,9 @@ export function AppLayout(): React.JSX.Element {
         if (result === 'create-issue' || result === 'create-project') {
           navigate('/work-items');
         } else if (result === 'view-all') {
-          // Navigate to full search page with current query
-          // The command palette passes 'view-all' when the user wants to see all results
           navigate('/search');
         }
       } else if (result.href) {
-        // Result href may be an absolute /app/ path -- strip prefix for React Router
         const href = result.href.startsWith('/app/') ? result.href.replace('/app', '') : result.href;
         navigate(href);
       } else {

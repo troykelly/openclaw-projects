@@ -290,42 +290,42 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/app.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #fafafa; --surface: #fff; --border: #e5e5e5; --fg: #171717; --muted: #737373; --primary: #6366f1; --primary-fg: #fff; --success: #22c55e; --error: #ef4444; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --surface: #171717; --border: #262626; --fg: #fafafa; --muted: #a3a3a3; --primary: #818cf8; --primary-fg: #0a0a0a; } }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; -webkit-font-smoothing: antialiased; }
+    .card { width: 100%; max-width: 28rem; }
+    .card h1 { font-size: 1.875rem; font-weight: 700; text-align: center; letter-spacing: -0.025em; }
+    .card .subtitle { margin-top: 0.5rem; font-size: 0.875rem; color: var(--muted); text-align: center; }
+    .form-box { margin-top: 2rem; border: 1px solid var(--border); background: var(--surface); border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
+    .form-box h2 { font-size: 1.25rem; font-weight: 600; }
+    .form-box .desc { margin-top: 0.25rem; font-size: 0.875rem; color: var(--muted); }
+    form { margin-top: 1.5rem; }
+    input[type="email"] { display: block; width: 100%; height: 2.5rem; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 0.375rem; padding: 0 0.75rem; font-size: 0.875rem; outline: none; }
+    input[type="email"]:focus { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent); }
+    button[type="submit"] { margin-top: 1rem; display: block; width: 100%; height: 2.5rem; background: var(--primary); color: var(--primary-fg); border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+    button[type="submit"]:hover { opacity: 0.9; }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+    #message { margin-top: 1rem; font-size: 0.875rem; text-align: center; }
+    #message.hidden { display: none; }
+    .msg-ok { color: var(--success); }
+    .msg-err { color: var(--error); }
+  </style>
 </head>
-<body class="min-h-screen bg-background text-foreground font-sans">
-  <div class="flex min-h-screen flex-col items-center justify-center px-4">
-    <div class="w-full max-w-md">
-      <div class="mb-8 text-center">
-        <h1 class="text-3xl font-bold tracking-tight">OpenClaw Projects</h1>
-        <p class="mt-2 text-sm text-muted-foreground">Human-Agent Collaboration Workspace</p>
-      </div>
-      <div class="rounded-lg border border-border bg-surface p-6 shadow-sm">
-        <div class="mb-6">
-          <h2 class="text-xl font-semibold tracking-tight">Sign in</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Enter your email to receive a magic link.</p>
-        </div>
-        <form id="login-form" class="space-y-4">
-          <div>
-            <label class="sr-only" for="email">Email address</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              autocomplete="email"
-              required
-              class="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <button
-            type="submit"
-            class="h-10 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            Send magic link
-          </button>
-        </form>
-        <p id="message" class="mt-4 text-sm text-center hidden"></p>
-      </div>
+<body>
+  <div class="card">
+    <h1>OpenClaw Projects</h1>
+    <p class="subtitle">Human-Agent Collaboration Workspace</p>
+    <div class="form-box">
+      <h2>Sign in</h2>
+      <p class="desc">Enter your email to receive a magic link.</p>
+      <form id="login-form">
+        <label for="email" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Email address</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+        <button type="submit">Send magic link</button>
+      </form>
+      <p id="message" class="hidden"></p>
     </div>
   </div>
   <script>
@@ -345,14 +345,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const data = await res.json();
         if (res.ok) {
           msg.textContent = 'Check your email for the magic link!';
-          msg.className = 'mt-4 text-sm text-center text-success';
+          msg.className = 'msg-ok';
         } else {
           msg.textContent = data.error || 'Failed to send link';
-          msg.className = 'mt-4 text-sm text-center text-destructive';
+          msg.className = 'msg-err';
         }
       } catch {
         msg.textContent = 'Network error. Please try again.';
-        msg.className = 'mt-4 text-sm text-center text-destructive';
+        msg.className = 'msg-err';
       }
       msg.classList.remove('hidden');
       btn.disabled = false;
@@ -404,8 +404,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return;
     }
 
-    // Skip auth for root redirect and /app/* routes (these use session cookies via requireDashboardSession)
-    if (url === '/' || url === '/app' || url.startsWith('/app/')) {
+    // Skip auth for root landing page, /auth redirect, and /app/* routes (session cookies via requireDashboardSession)
+    if (url === '/' || url === '/auth' || url === '/app' || url.startsWith('/app/')) {
       return;
     }
 
@@ -1226,8 +1226,169 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     },
   }));
 
-  // Root URL redirect (issue #1166): GET / → /app so browsers don't get an empty response.
-  app.get('/', async (_req, reply) => {
+  // Issue #1166: Landing page at root URL
+  function renderLandingPage(email: string | null): string {
+    const ctaHref = '/app';
+    const ctaLabel = email ? 'Dashboard' : 'Sign in';
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenClaw Projects \u2014 Human-Agent Collaboration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #fafafa; --surface: #fff; --border: #e5e5e5; --fg: #171717;
+      --muted: #737373; --primary: #6366f1; --primary-fg: #fff;
+      --gradient-start: #6366f1; --gradient-end: #a855f7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a; --surface: #171717; --border: #262626; --fg: #fafafa;
+        --muted: #a3a3a3; --primary: #818cf8; --primary-fg: #0a0a0a;
+        --gradient-start: #818cf8; --gradient-end: #c084fc;
+      }
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+
+    .lp-header { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px); background: color-mix(in srgb, var(--bg) 80%, transparent); border-bottom: 1px solid var(--border); }
+    .lp-header-inner { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; height: 4rem; display: flex; align-items: center; justify-content: space-between; }
+    .lp-logo { font-weight: 800; font-size: 1.125rem; letter-spacing: -0.025em; display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--fg); }
+    .lp-logo-icon { width: 1.75rem; height: 1.75rem; background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)); border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.875rem; font-weight: 900; }
+    .lp-nav { display: flex; align-items: center; gap: 1rem; }
+    .lp-nav a { font-size: 0.875rem; font-weight: 500; text-decoration: none; color: var(--muted); transition: color 0.15s; }
+    .lp-nav a:hover { color: var(--fg); }
+    .lp-btn { display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; background: var(--primary); color: var(--primary-fg); border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; text-decoration: none; transition: opacity 0.15s; border: none; cursor: pointer; }
+    .lp-btn:hover { opacity: 0.9; }
+    .lp-btn-ghost { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+    .lp-btn-ghost:hover { background: var(--surface); }
+
+    .lp-hero { position: relative; overflow: hidden; padding: 6rem 1.5rem 4rem; text-align: center; }
+    .lp-hero::before { content: ''; position: absolute; top: -40%; left: 50%; transform: translateX(-50%); width: 80rem; height: 80rem; background: radial-gradient(circle, color-mix(in srgb, var(--primary) 8%, transparent), transparent 60%); pointer-events: none; }
+    .lp-hero-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.375rem 1rem; background: color-mix(in srgb, var(--primary) 10%, transparent); border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent); border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: var(--primary); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2rem; }
+    .lp-hero h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 900; letter-spacing: -0.04em; line-height: 1.1; max-width: 48rem; margin: 0 auto; }
+    .lp-hero h1 .gradient { background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .lp-hero .tagline { margin-top: 1.5rem; font-size: clamp(1.125rem, 2vw, 1.375rem); color: var(--muted); max-width: 36rem; margin-left: auto; margin-right: auto; line-height: 1.6; }
+    .lp-hero .cta-row { margin-top: 2.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .lp-hero .cta-row .lp-btn { height: 3rem; padding: 0 2rem; font-size: 1rem; border-radius: 0.5rem; }
+
+    .lp-features { max-width: 72rem; margin: 0 auto; padding: 4rem 1.5rem; }
+    .lp-features h2 { text-align: center; font-size: 1.875rem; font-weight: 800; letter-spacing: -0.025em; }
+    .lp-features .subtitle { text-align: center; color: var(--muted); margin-top: 0.75rem; font-size: 1.125rem; }
+    .lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1.5rem; margin-top: 3rem; }
+    .lp-card { border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; background: var(--surface); transition: border-color 0.2s, box-shadow 0.2s; }
+    .lp-card:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    .lp-card-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; background: color-mix(in srgb, var(--primary) 10%, transparent); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; margin-bottom: 1rem; }
+    .lp-card h3 { font-size: 1.125rem; font-weight: 700; }
+    .lp-card p { margin-top: 0.5rem; font-size: 0.875rem; color: var(--muted); line-height: 1.7; }
+
+    .lp-proof { max-width: 72rem; margin: 0 auto; padding: 3rem 1.5rem 4rem; text-align: center; }
+    .lp-proof .quote { font-size: 1.25rem; font-style: italic; color: var(--muted); max-width: 40rem; margin: 0 auto; }
+    .lp-proof .attribution { margin-top: 1rem; font-size: 0.875rem; font-weight: 600; }
+
+    .lp-footer { border-top: 1px solid var(--border); padding: 2rem 1.5rem; text-align: center; font-size: 0.75rem; color: var(--muted); }
+    .lp-footer a { color: var(--primary); text-decoration: none; }
+    .lp-footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 640px) {
+      .lp-header-inner { padding: 0 1rem; }
+      .lp-hero { padding: 4rem 1rem 3rem; }
+      .lp-features { padding: 3rem 1rem; }
+      .lp-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="lp-header">
+    <div class="lp-header-inner">
+      <a href="/" class="lp-logo">
+        <span class="lp-logo-icon">\u2756</span>
+        OpenClaw Projects
+      </a>
+      <nav class="lp-nav">
+        <a href="https://docs.openclaw.ai/" target="_blank" rel="noopener">Docs</a>
+        <a href="https://github.com/openclaw" target="_blank" rel="noopener">GitHub</a>
+        <a href="${ctaHref}" class="lp-btn">${ctaLabel}</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="lp-hero">
+    <span class="lp-hero-badge">\u2728 Now with 10x more synergy</span>
+    <h1>Your AI agents<br/>deserve a <span class="gradient">project manager</span></h1>
+    <p class="tagline">
+      OpenClaw Projects is the collaboration workspace where humans and AI agents
+      manage tasks, memories, and communications together.
+      It&rsquo;s like Jira, but your agents actually enjoy using it.
+    </p>
+    <div class="cta-row">
+      <a href="${ctaHref}" class="lp-btn">${ctaLabel} &rarr;</a>
+      <a href="https://docs.openclaw.ai/" target="_blank" rel="noopener" class="lp-btn lp-btn-ghost">Read the docs</a>
+    </div>
+  </section>
+
+  <section class="lp-features">
+    <h2>Everything your agents need to not hallucinate your to-do list</h2>
+    <p class="subtitle">Built for the workflows humans and AI agents actually have.</p>
+    <div class="lp-grid">
+      <div class="lp-card">
+        <div class="lp-card-icon">\uD83D\uDCCB</div>
+        <h3>Task Management</h3>
+        <p>Projects, epics, issues, and tasks in a hierarchy that makes sense. Your agent can finally stop guessing what you meant by &ldquo;fix the thing.&rdquo;</p>
+      </div>
+      <div class="lp-card">
+        <div class="lp-card-icon">\uD83E\uDDE0</div>
+        <h3>Semantic Memory</h3>
+        <p>Powered by pgvector. Your agents remember your preferences, past decisions, and that you hate tabs. Context that persists across sessions.</p>
+      </div>
+      <div class="lp-card">
+        <div class="lp-card-icon">\uD83D\uDCEC</div>
+        <h3>Communications</h3>
+        <p>SMS, email, and messaging platforms flow in. Your agents link messages to contacts and work items automatically. No more lost context.</p>
+      </div>
+      <div class="lp-card">
+        <div class="lp-card-icon">\u23F0</div>
+        <h3>Smart Reminders</h3>
+        <p>pgcron-powered hooks fire when deadlines approach or reminders are due. Your agent nudges you before things fall through the cracks.</p>
+      </div>
+      <div class="lp-card">
+        <div class="lp-card-icon">\uD83D\uDD17</div>
+        <h3>OpenClaw Integration</h3>
+        <p>Built for the OpenClaw gateway. Hooks, webhooks, and a REST API designed for agent-first interaction. Humans get a nice UI too.</p>
+      </div>
+      <div class="lp-card">
+        <div class="lp-card-icon">\uD83D\uDE80</div>
+        <h3>Self-Hosted</h3>
+        <p>Your data, your infrastructure. PostgreSQL + a single container. No vendor lock-in, no surprise pricing, no &ldquo;we pivoted to crypto.&rdquo;</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-proof">
+    <p class="quote">&ldquo;We gave our AI agent a project manager and it stopped sending us passive-aggressive status updates.&rdquo;</p>
+    <p class="attribution">&mdash; Definitely a real testimonial</p>
+  </section>
+
+  <footer class="lp-footer">
+    <p>&copy; ${new Date().getFullYear()} OpenClaw &middot; <a href="https://docs.openclaw.ai/">Documentation</a> &middot; <a href="https://github.com/openclaw">Open Source</a></p>
+  </footer>
+</body>
+</html>`;
+  }
+
+  // Issue #1166: Root landing page
+  app.get('/', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLandingPage(email));
+  });
+
+  // Issue #1166: Redirect /auth to /app (which shows login if unauthenticated)
+  app.get('/auth', async (_req, reply) => {
     return reply.redirect('/app');
   });
 

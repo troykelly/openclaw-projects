@@ -11,7 +11,6 @@ import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
-import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Separator } from '@/ui/components/ui/separator';
@@ -605,9 +604,9 @@ export function SettingsPage() {
           <h2 className="text-lg font-semibold text-destructive">Error</h2>
           <p className="mt-2 text-muted-foreground">{state.message}</p>
           {state.status === 401 && (
-            <a href="/app" className="mt-4 inline-block text-primary hover:underline">
+            <button type="button" onClick={() => window.location.reload()} className="mt-4 inline-block text-primary hover:underline">
               Sign in
-            </a>
+            </button>
           )}
         </div>
       </div>
