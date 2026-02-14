@@ -14,8 +14,8 @@ export interface PostmarkConfig {
  * Check if Postmark is configured with required environment variables.
  */
 export function isPostmarkConfigured(): boolean {
-  // POSTMARK_FROM_EMAIL is required for outbound
-  if (!process.env.POSTMARK_FROM_EMAIL) {
+  // POSTMARK_FROM_EMAIL is required for outbound (fallback to legacy POSTMARK_FROM)
+  if (!process.env.POSTMARK_FROM_EMAIL && !process.env.POSTMARK_FROM) {
     return false;
   }
 
@@ -28,10 +28,10 @@ export function isPostmarkConfigured(): boolean {
  * Throws if required configuration is missing.
  */
 export async function getPostmarkConfig(): Promise<PostmarkConfig> {
-  const fromEmail = process.env.POSTMARK_FROM_EMAIL;
+  const fromEmail = process.env.POSTMARK_FROM_EMAIL || process.env.POSTMARK_FROM;
 
   if (!fromEmail) {
-    throw new Error('Postmark not configured. Required env var: POSTMARK_FROM_EMAIL');
+    throw new Error('Postmark not configured. Required env var: POSTMARK_FROM_EMAIL (or legacy POSTMARK_FROM)');
   }
 
   // Try to get token from env or file
@@ -49,5 +49,5 @@ export async function getPostmarkConfig(): Promise<PostmarkConfig> {
  * Used for quick validation before async token lookup.
  */
 export function hasPostmarkFromEmail(): boolean {
-  return !!process.env.POSTMARK_FROM_EMAIL;
+  return !!(process.env.POSTMARK_FROM_EMAIL || process.env.POSTMARK_FROM);
 }

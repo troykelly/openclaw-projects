@@ -363,7 +363,7 @@ services:
       # When set, presigned URLs use this public address instead of the internal
       # Docker endpoint. Requires s3.DOMAIN DNS + Traefik route (automatic).
       S3_EXTERNAL_ENDPOINT: ${S3_EXTERNAL_ENDPOINT:-https://s3.${DOMAIN}}
-      POSTMARK_FROM: ${POSTMARK_FROM:-}
+      POSTMARK_FROM_EMAIL: ${POSTMARK_FROM_EMAIL:-${POSTMARK_FROM:-}}
       POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
       POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
       POSTMARK_TRANSACTIONAL_TOKEN: ${POSTMARK_TRANSACTIONAL_TOKEN:-}
