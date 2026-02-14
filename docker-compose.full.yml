@@ -13,6 +13,7 @@
 #      |
 #      +-- DOMAIN/          --> 127.0.0.1:APP_HOST_PORT   (app frontend)
 #      +-- api.DOMAIN/      --> 127.0.0.1:MODSEC_HOST_PORT (modsecurity --> api)
+#      +-- s3.DOMAIN/       --> 127.0.0.1:SEAWEEDFS_HOST_PORT (seaweedfs S3)
 #      +-- DOMAIN/openclaw/ --> 127.0.0.1:GATEWAY_HOST_PORT (openclaw-gateway)
 #      +-- ws.DOMAIN/       --> 127.0.0.1:GATEWAY_HOST_PORT (openclaw-gateway)
 #      +-- hooks.DOMAIN/    --> 127.0.0.1:GATEWAY_HOST_PORT (openclaw-gateway)
@@ -65,6 +66,7 @@ services:
       API_HOST_PORT: ${API_HOST_PORT:-3001}
       APP_HOST_PORT: ${APP_HOST_PORT:-8081}
       GATEWAY_HOST_PORT: ${GATEWAY_HOST_PORT:-18789}
+      SEAWEEDFS_HOST_PORT: ${SEAWEEDFS_HOST_PORT:-8333}
       # DNS provider credentials (passed through to ACME/lego)
       # Note: lego checks CF_DNS_API_TOKEN first — if set (even empty),
       # it ignores CF_API_KEY + CF_API_EMAIL.  The entrypoint unsets
@@ -270,6 +272,11 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       SEAWEEDFS_VOLUME_SIZE_LIMIT_MB: ${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-30000}
       SEAWEEDFS_VOLUME_MAX: ${SEAWEEDFS_VOLUME_MAX:-100}
+    # Publish S3 port to localhost for Traefik (host networking mode)
+    # Enables presigned URL access via s3.DOMAIN Traefik route
+    ports:
+      - "127.0.0.1:${SEAWEEDFS_HOST_PORT:-8333}:8333"
+      - "[::1]:${SEAWEEDFS_HOST_PORT:-8333}:8333"
     volumes:
       - seaweedfs_data:/data
       - ./docker/seaweedfs/s3.json.template:/etc/seaweedfs/s3.json.template:ro
@@ -352,6 +359,10 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-openclaw}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_FORCE_PATH_STYLE: "true"
+      # External S3 endpoint for presigned URL rewriting
+      # When set, presigned URLs use this public address instead of the internal
+      # Docker endpoint. Requires s3.DOMAIN DNS + Traefik route (automatic).
+      S3_EXTERNAL_ENDPOINT: ${S3_EXTERNAL_ENDPOINT:-https://s3.${DOMAIN}}
       POSTMARK_FROM: ${POSTMARK_FROM:-}
       POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
       POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}

@@ -8,6 +8,7 @@
 # Architecture:
 #   Client -> Traefik (host network) -> 127.0.0.1:MODSEC_HOST_PORT (ModSecurity WAF) -> API
 #   Client -> Traefik (host network) -> 127.0.0.1:APP_HOST_PORT (App/frontend)
+#   Client -> Traefik (host network) -> 127.0.0.1:SEAWEEDFS_HOST_PORT (SeaweedFS S3)
 #   Client -> Traefik (host network) -> 127.0.0.1:GATEWAY_HOST_PORT (OpenClaw Gateway)
 
 # TLS Options
@@ -121,6 +122,21 @@ http:
         certResolver: letsencrypt
         options: default
 
+    # SeaweedFS S3 - Presigned URL access at s3.DOMAIN
+    # Allows clients to download shared files via presigned S3 URLs
+    # The API rewrites internal S3 URLs to https://s3.DOMAIN when
+    # S3_EXTERNAL_ENDPOINT is set (see src/api/file-storage/sharing.ts)
+    s3-router:
+      rule: "Host(`s3.${DOMAIN}`)"
+      service: seaweedfs-service
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+      tls:
+        certResolver: letsencrypt
+        options: default
+
   # Services
   # All services point to localhost because Traefik uses host networking.
   # Backend containers publish their ports to localhost for Traefik to reach.
@@ -166,3 +182,10 @@ http:
           path: /health
           interval: 10s
           timeout: 3s
+
+    # SeaweedFS S3 service
+    # Serves presigned URL downloads directly from object storage
+    seaweedfs-service:
+      loadBalancer:
+        servers:
+          - url: "http://${SERVICE_HOST}:${SEAWEEDFS_HOST_PORT}"
