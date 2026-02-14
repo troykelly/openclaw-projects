@@ -150,6 +150,18 @@ describe('SSRF Protection (Issue #823)', () => {
         expect(result).not.toBeNull();
         expect(result).toContain('unspecified');
       });
+
+      it('blocks :: (IPv6 unspecified)', () => {
+        const result = validateSsrf('http://[::]/api');
+        expect(result).not.toBeNull();
+        expect(result).toContain('unspecified');
+      });
+
+      it('blocks 0:0:0:0:0:0:0:0 (IPv6 unspecified expanded)', () => {
+        const result = validateSsrf('http://[0:0:0:0:0:0:0:0]/api');
+        expect(result).not.toBeNull();
+        expect(result).toContain('unspecified');
+      });
     });
 
     it('rejects invalid URLs', () => {
