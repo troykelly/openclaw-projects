@@ -96,7 +96,7 @@ function validateWebhookUrl(url: string, fieldName: string): void {
   }
 
   // Must be HTTPS (allow localhost for dev)
-  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '[::1]';
   if (parsed.protocol !== 'https:' && !isLocalhost) {
     throw new Error(`${fieldName} must use HTTPS (got ${parsed.protocol}). Use https:// for webhook URLs.`);
   }
