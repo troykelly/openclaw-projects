@@ -120,11 +120,20 @@ export interface ContactEndpoint {
   value: string;
 }
 
+/** Valid communication channel types (issue #1269). */
+export type CommChannel = 'telegram' | 'email' | 'sms' | 'voice';
+
 /** Single contact from GET /api/contacts */
 export interface Contact {
   id: string;
   display_name: string;
   notes: string | null;
+  preferred_channel: CommChannel | null;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  quiet_hours_timezone: string | null;
+  urgency_override_channel: CommChannel | null;
+  notification_notes: string | null;
   created_at: string;
   updated_at?: string;
   endpoints: ContactEndpoint[];
@@ -140,6 +149,12 @@ export interface ContactsResponse {
 export interface ContactBody {
   displayName: string;
   notes?: string;
+  preferred_channel?: CommChannel | null;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  quiet_hours_timezone?: string | null;
+  urgency_override_channel?: CommChannel | null;
+  notification_notes?: string | null;
 }
 
 // ---------------------------------------------------------------------------
