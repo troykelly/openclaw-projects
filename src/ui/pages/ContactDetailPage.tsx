@@ -4,33 +4,42 @@
  * Displays a full profile for a single contact, with a header showing
  * avatar, name, and contact information, and tabs for:
  * - Endpoints (all communication endpoints)
- * - Linked Work Items (work items associated with this contact)
- * - Activity (recent activity for this contact)
+ * - Preferences (communication preferences and quiet hours, issue #1269)
  * - Notes (contact notes with inline editing)
+ * - Activity (recent activity for this contact)
  *
  * Navigated to via /people/:contactId.
  */
-import React, { useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Mail, Phone, Pencil, Trash2, Link2, Calendar, FileText, MessageSquare } from 'lucide-react';
-import { apiClient } from '@/ui/lib/api-client';
-import type { Contact, ContactBody } from '@/ui/lib/api-types';
-import { getInitials } from '@/ui/lib/work-item-utils';
-import { Skeleton, SkeletonText, ErrorState, EmptyState } from '@/ui/components/feedback';
-import { Button } from '@/ui/components/ui/button';
-import { Input } from '@/ui/components/ui/input';
-import { Textarea } from '@/ui/components/ui/textarea';
+
+import { ArrowLeft, Bell, Calendar, Clock, Globe, Link2, Mail, MessageSquare, Pencil, Phone, Trash2 } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { EmptyState, ErrorState, Skeleton, SkeletonText } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
+import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
+import { Input } from '@/ui/components/ui/input';
 import { Separator } from '@/ui/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
+import { Textarea } from '@/ui/components/ui/textarea';
 import { useContactDetail } from '@/ui/hooks/queries/use-contacts';
+import { apiClient } from '@/ui/lib/api-client';
+import type { CommChannel, Contact, ContactBody } from '@/ui/lib/api-types';
+import { getInitials } from '@/ui/lib/work-item-utils';
+
+const CHANNEL_LABELS: Record<string, string> = {
+  telegram: 'Telegram',
+  email: 'Email',
+  sms: 'SMS',
+  voice: 'Voice',
+};
 
 export function ContactDetailPage(): React.JSX.Element {
   const { contactId } = useParams<{ contactId: string }>();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
+  const [prefsEditOpen, setPrefsEditOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -47,6 +56,7 @@ export function ContactDetailPage(): React.JSX.Element {
       try {
         await apiClient.patch(`/api/contacts/${contactId}`, body);
         setEditOpen(false);
+        setPrefsEditOpen(false);
         refetch();
       } catch (err) {
         console.error('Failed to update contact:', err);
@@ -104,6 +114,7 @@ export function ContactDetailPage(): React.JSX.Element {
 
   const email = contact.endpoints.find((ep) => ep.type === 'email')?.value;
   const phone = contact.endpoints.find((ep) => ep.type === 'phone')?.value;
+  const hasPrefs = contact.preferred_channel || contact.quiet_hours_start || contact.urgency_override_channel || contact.notification_notes;
 
   return (
     <div data-testid="page-contact-detail" className="p-6 h-full flex flex-col">
@@ -170,6 +181,10 @@ export function ContactDetailPage(): React.JSX.Element {
             <Link2 className="size-3" />
             Endpoints
           </TabsTrigger>
+          <TabsTrigger value="preferences" className="gap-1">
+            <Bell className="size-3" />
+            Preferences
+          </TabsTrigger>
           <TabsTrigger value="notes" className="gap-1">
             <MessageSquare className="size-3" />
             Notes
@@ -207,6 +222,85 @@ export function ContactDetailPage(): React.JSX.Element {
           )}
         </TabsContent>
 
+        {/* Preferences Tab (Issue #1269) */}
+        <TabsContent value="preferences" className="mt-4" data-testid="preferences-tab">
+          {hasPrefs ? (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => setPrefsEditOpen(true)} data-testid="edit-prefs-button">
+                  <Pencil className="mr-1 size-3" />
+                  Edit Preferences
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {contact.preferred_channel && (
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                        <Bell className="size-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Preferred Channel</p>
+                        <p className="text-sm font-medium">{CHANNEL_LABELS[contact.preferred_channel] ?? contact.preferred_channel}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {contact.quiet_hours_start && contact.quiet_hours_end && (
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                        <Clock className="size-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Quiet Hours</p>
+                        <p className="text-sm font-medium">
+                          {contact.quiet_hours_start.slice(0, 5)} – {contact.quiet_hours_end.slice(0, 5)}
+                        </p>
+                        {contact.quiet_hours_timezone && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Globe className="size-3" />
+                            {contact.quiet_hours_timezone}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {contact.urgency_override_channel && (
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                        <Phone className="size-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Urgency Override</p>
+                        <p className="text-sm font-medium">{CHANNEL_LABELS[contact.urgency_override_channel] ?? contact.urgency_override_channel}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {contact.notification_notes && (
+                  <Card className="sm:col-span-2">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Notification Notes</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap">{contact.notification_notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              variant="notifications"
+              title="No preferences set"
+              description="Configure preferred communication channel, quiet hours, and notification preferences for this contact."
+              onAction={() => setPrefsEditOpen(true)}
+              actionLabel="Set Preferences"
+            />
+          )}
+        </TabsContent>
+
         {/* Notes Tab */}
         <TabsContent value="notes" className="mt-4">
           {contact.notes ? (
@@ -236,6 +330,9 @@ export function ContactDetailPage(): React.JSX.Element {
 
       {/* Edit Contact Dialog */}
       <ContactEditDialog open={editOpen} onOpenChange={setEditOpen} contact={contact} isSubmitting={isSubmitting} onSubmit={handleUpdate} />
+
+      {/* Edit Communication Preferences Dialog (Issue #1269) */}
+      <CommPrefsEditDialog open={prefsEditOpen} onOpenChange={setPrefsEditOpen} contact={contact} isSubmitting={isSubmitting} onSubmit={handleUpdate} />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
@@ -320,6 +417,159 @@ function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
             </Button>
             <Button type="submit" disabled={!isValid || isSubmitting}>
               Save Changes
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CommPrefsEditDialog - Communication preferences editor (Issue #1269)
+// ---------------------------------------------------------------------------
+
+const CHANNEL_OPTIONS: Array<{ value: CommChannel; label: string }> = [
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'email', label: 'Email' },
+  { value: 'sms', label: 'SMS' },
+  { value: 'voice', label: 'Voice' },
+];
+
+interface CommPrefsEditDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contact: Contact;
+  isSubmitting: boolean;
+  onSubmit: (body: ContactBody) => void;
+}
+
+function CommPrefsEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: CommPrefsEditDialogProps) {
+  const [preferredChannel, setPreferredChannel] = useState<CommChannel | ''>('');
+  const [quietStart, setQuietStart] = useState('');
+  const [quietEnd, setQuietEnd] = useState('');
+  const [quietTimezone, setQuietTimezone] = useState('');
+  const [urgencyChannel, setUrgencyChannel] = useState<CommChannel | ''>('');
+  const [notifNotes, setNotifNotes] = useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setPreferredChannel(contact.preferred_channel ?? '');
+      setQuietStart(contact.quiet_hours_start?.slice(0, 5) ?? '');
+      setQuietEnd(contact.quiet_hours_end?.slice(0, 5) ?? '');
+      setQuietTimezone(contact.quiet_hours_timezone ?? '');
+      setUrgencyChannel(contact.urgency_override_channel ?? '');
+      setNotifNotes(contact.notification_notes ?? '');
+    }
+  }, [open, contact]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      displayName: contact.display_name,
+      preferred_channel: (preferredChannel as CommChannel) || null,
+      quiet_hours_start: quietStart || null,
+      quiet_hours_end: quietEnd || null,
+      quiet_hours_timezone: quietTimezone.trim() || null,
+      urgency_override_channel: (urgencyChannel as CommChannel) || null,
+      notification_notes: notifNotes.trim() || null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" data-testid="comm-prefs-edit-dialog">
+        <DialogHeader>
+          <DialogTitle>Communication Preferences</DialogTitle>
+          <DialogDescription>Configure how and when to reach this contact.</DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="pref-channel" className="text-sm font-medium">
+              Preferred Channel
+            </label>
+            <select
+              id="pref-channel"
+              value={preferredChannel}
+              onChange={(e) => setPreferredChannel(e.target.value as CommChannel | '')}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">None</option>
+              {CHANNEL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Quiet Hours</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label htmlFor="quiet-start" className="text-xs text-muted-foreground">
+                  Start
+                </label>
+                <Input id="quiet-start" type="time" value={quietStart} onChange={(e) => setQuietStart(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="quiet-end" className="text-xs text-muted-foreground">
+                  End
+                </label>
+                <Input id="quiet-end" type="time" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="quiet-tz" className="text-xs text-muted-foreground">
+                Timezone (IANA)
+              </label>
+              <Input id="quiet-tz" placeholder="e.g. Australia/Sydney" value={quietTimezone} onChange={(e) => setQuietTimezone(e.target.value)} />
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <label htmlFor="urgency-channel" className="text-sm font-medium">
+              Urgency Override Channel
+            </label>
+            <select
+              id="urgency-channel"
+              value={urgencyChannel}
+              onChange={(e) => setUrgencyChannel(e.target.value as CommChannel | '')}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">None</option>
+              {CHANNEL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="notif-notes" className="text-sm font-medium">
+              Notification Notes
+            </label>
+            <Textarea
+              id="notif-notes"
+              value={notifNotes}
+              onChange={(e) => setNotifNotes(e.target.value)}
+              rows={2}
+              placeholder="e.g. Prefers voice for bad news"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              Save Preferences
             </Button>
           </DialogFooter>
         </form>
