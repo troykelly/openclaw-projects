@@ -1,7 +1,7 @@
 /**
  * Geolocation ingestion pipeline.
  * Validates, deduplicates, rate-limits, and stores location updates.
- * Issue #1245.
+ * Issue #1245, #1268 (transactional dedup guards).
  */
 
 import type { Pool } from 'pg';
@@ -147,6 +147,9 @@ export function shouldRateLimit(
  * Main ingestion entry point.
  * Validates, finds matching subscriptions, checks rate limiting and dedup,
  * then inserts into geo_location for each matched user.
+ *
+ * Uses a transaction with FOR UPDATE locking and ON CONFLICT DO NOTHING
+ * to prevent TOCTOU race conditions under concurrent ingestion (#1268).
  */
 export async function ingestLocationUpdate(
   pool: Pool,
@@ -180,65 +183,87 @@ export async function ingestLocationUpdate(
   let anyInserted = false;
   let lastReason: string | undefined;
 
-  for (const sub of subsResult.rows) {
-    const userEmail = sub.user_email as string;
+  // 3. Use a transaction for the rate-limit + dedup + insert cycle
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-    // 3a. Rate limit check
-    const rateLimitResult = await pool.query(
-      `SELECT time FROM geo_location
-       WHERE provider_id = $1 AND user_email = $2 AND entity_id = $3
-       ORDER BY time DESC LIMIT 1`,
-      [providerId, userEmail, validUpdate.entity_id],
-    );
-    const lastInsertTime = rateLimitResult.rows.length > 0
-      ? (rateLimitResult.rows[0].time as Date)
-      : null;
+    for (const sub of subsResult.rows) {
+      const userEmail = sub.user_email as string;
 
-    if (shouldRateLimit(lastInsertTime)) {
-      lastReason = 'Skipped: rate-limited';
-      continue;
+      // 3a. Advisory lock serializes concurrent ingestion for the same
+      // (provider, user, entity) triple. This eliminates the TOCTOU window
+      // where two transactions both read "no recent row" and both insert.
+      // The lock is released automatically when the transaction ends.
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1 || $2 || $3))',
+        [providerId, userEmail, validUpdate.entity_id],
+      );
+
+      // 3b. Rate-limit + dedup check (safe under advisory lock)
+      const lastResult = await client.query(
+        `SELECT time, lat, lng FROM geo_location
+         WHERE provider_id = $1 AND user_email = $2 AND entity_id = $3
+         ORDER BY time DESC LIMIT 1`,
+        [providerId, userEmail, validUpdate.entity_id],
+      );
+
+      const lastRow = lastResult.rows.length > 0 ? lastResult.rows[0] : null;
+      const lastInsertTime = lastRow ? (lastRow.time as Date) : null;
+
+      if (shouldRateLimit(lastInsertTime)) {
+        lastReason = 'Skipped: rate-limited';
+        continue;
+      }
+
+      const previousLocation = lastRow ? (lastRow as GeoLocation) : null;
+      if (shouldDedup(validUpdate, previousLocation)) {
+        lastReason = 'Skipped: dedup (too close in space+time)';
+        continue;
+      }
+
+      // 3c. INSERT with ON CONFLICT DO NOTHING as a final safety net.
+      // The advisory lock prevents most races; the DB-level unique index
+      // on (provider_id, user_email, entity_id, time) (migration 070)
+      // catches exact-timestamp duplicates that slip through.
+      const insertResult = await client.query(
+        `INSERT INTO geo_location (
+          time, user_email, provider_id, entity_id, lat, lng,
+          accuracy_m, altitude_m, speed_mps, bearing,
+          indoor_zone, raw_payload
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (provider_id, user_email, entity_id, time)
+        DO NOTHING
+        RETURNING time`,
+        [
+          validUpdate.timestamp,
+          userEmail,
+          providerId,
+          validUpdate.entity_id,
+          validUpdate.lat,
+          validUpdate.lng,
+          validUpdate.accuracy_m ?? null,
+          validUpdate.altitude_m ?? null,
+          validUpdate.speed_mps ?? null,
+          validUpdate.bearing ?? null,
+          validUpdate.indoor_zone ?? null,
+          validUpdate.raw_payload ? JSON.stringify(validUpdate.raw_payload) : null,
+        ],
+      );
+
+      if (insertResult.rowCount && insertResult.rowCount > 0) {
+        anyInserted = true;
+      } else {
+        lastReason = 'Skipped: concurrent dedup';
+      }
     }
 
-    // 3b. Dedup check
-    const dedupResult = await pool.query(
-      `SELECT time, lat, lng FROM geo_location
-       WHERE provider_id = $1 AND user_email = $2 AND entity_id = $3
-       ORDER BY time DESC LIMIT 1`,
-      [providerId, userEmail, validUpdate.entity_id],
-    );
-    const previousLocation = dedupResult.rows.length > 0
-      ? (dedupResult.rows[0] as GeoLocation)
-      : null;
-
-    if (shouldDedup(validUpdate, previousLocation)) {
-      lastReason = 'Skipped: dedup (too close in space+time)';
-      continue;
-    }
-
-    // 3c. Insert into geo_location
-    await pool.query(
-      `INSERT INTO geo_location (
-        time, user_email, provider_id, entity_id, lat, lng,
-        accuracy_m, altitude_m, speed_mps, bearing,
-        indoor_zone, raw_payload
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [
-        validUpdate.timestamp,
-        userEmail,
-        providerId,
-        validUpdate.entity_id,
-        validUpdate.lat,
-        validUpdate.lng,
-        validUpdate.accuracy_m ?? null,
-        validUpdate.altitude_m ?? null,
-        validUpdate.speed_mps ?? null,
-        validUpdate.bearing ?? null,
-        validUpdate.indoor_zone ?? null,
-        validUpdate.raw_payload ? JSON.stringify(validUpdate.raw_payload) : null,
-      ],
-    );
-
-    anyInserted = true;
+    await client.query('COMMIT');
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* connection may be dead */ }
+    throw err;
+  } finally {
+    client.release();
   }
 
   // 4. Update last_seen_at on provider

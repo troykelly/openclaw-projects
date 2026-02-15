@@ -1,9 +1,9 @@
 /**
  * Tests for geolocation ingestion pipeline.
- * Issue #1245.
+ * Issue #1245, #1268.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import {
   validateLocationUpdate,
   haversineDistance,
@@ -261,48 +261,97 @@ describe('geolocation/ingestion', () => {
   });
 
   describe('ingestLocationUpdate', () => {
-    function mockPool(queryResults: Array<{ rows: unknown[]; rowCount: number }>): Pool {
-      const queryFn = vi.fn();
-      for (const r of queryResults) {
-        queryFn.mockResolvedValueOnce(r);
+    /**
+     * Create a mock pool that supports pool.query() for subscription lookup
+     * and pool.connect() returning a mock client for transactional work.
+     */
+    function mockPool(opts: {
+      /** Results for pool.query calls (subscription lookup, last_seen_at update) */
+      poolResults: Array<{ rows: unknown[]; rowCount: number }>;
+      /** Results for client.query calls (BEGIN, rate limit, dedup, INSERT, COMMIT) */
+      clientResults: Array<{ rows: unknown[]; rowCount: number }>;
+    }): Pool {
+      const poolQueryFn = vi.fn();
+      for (const r of opts.poolResults) {
+        poolQueryFn.mockResolvedValueOnce(r);
       }
-      return { query: queryFn } as unknown as Pool;
+
+      const clientQueryFn = vi.fn();
+      for (const r of opts.clientResults) {
+        clientQueryFn.mockResolvedValueOnce(r);
+      }
+
+      const mockClient = {
+        query: clientQueryFn,
+        release: vi.fn(),
+      } as unknown as PoolClient;
+
+      const pool = {
+        query: poolQueryFn,
+        connect: vi.fn().mockResolvedValue(mockClient),
+      } as unknown as Pool;
+
+      return pool;
     }
 
     it('inserts a valid update for a matched user', async () => {
-      const pool = mockPool([
-        // 1. Find matching subscriptions
-        { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
-        // 2. Rate limit check - no recent insert
-        { rows: [], rowCount: 0 },
-        // 3. Dedup check - no recent location
-        { rows: [], rowCount: 0 },
-        // 4. Insert location
-        { rows: [{ time: new Date() }], rowCount: 1 },
-        // 5. Update last_seen_at
-        { rows: [], rowCount: 0 },
-      ]);
+      const pool = mockPool({
+        poolResults: [
+          // 1. Find matching subscriptions
+          { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
+          // last: Update last_seen_at
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [
+          // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit/dedup check - no recent insert
+          { rows: [], rowCount: 0 },
+          // INSERT with ON CONFLICT DO NOTHING
+          { rows: [{ time: new Date() }], rowCount: 1 },
+          // COMMIT
+          { rows: [], rowCount: 0 },
+        ],
+      });
 
       const result = await ingestLocationUpdate(pool, 'p1', validUpdate());
       expect(result.inserted).toBe(true);
+
+      // Verify transaction was used
+      const client = await (pool.connect as ReturnType<typeof vi.fn>).mock.results[0].value;
+      expect(client.query).toHaveBeenCalledWith('BEGIN');
+      expect(client.query).toHaveBeenCalledWith('COMMIT');
+      expect(client.release).toHaveBeenCalled();
     });
 
     it('rejects invalid location update', async () => {
-      const pool = mockPool([]);
+      const pool = mockPool({ poolResults: [], clientResults: [] });
       const result = await ingestLocationUpdate(pool, 'p1', validUpdate({ lat: 999 }));
       expect(result.inserted).toBe(false);
       expect(result.reason).toContain('Validation');
     });
 
     it('skips insert when rate-limited', async () => {
-      const pool = mockPool([
-        // 1. Find matching subscriptions
-        { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
-        // 2. Rate limit check - recent insert exists
-        { rows: [{ time: new Date(Date.now() - 3_000) }], rowCount: 1 },
-        // 3. Update last_seen_at
-        { rows: [], rowCount: 0 },
-      ]);
+      const pool = mockPool({
+        poolResults: [
+          // 1. Find matching subscriptions
+          { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
+          // last: Update last_seen_at
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [
+          // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit check - recent insert exists (3s ago)
+          { rows: [{ time: new Date(Date.now() - 3_000), lat: -33.8688, lng: 151.2093 }], rowCount: 1 },
+          // COMMIT
+          { rows: [], rowCount: 0 },
+        ],
+      });
 
       const result = await ingestLocationUpdate(pool, 'p1', validUpdate());
       expect(result.inserted).toBe(false);
@@ -311,23 +360,33 @@ describe('geolocation/ingestion', () => {
 
     it('skips insert when deduped', async () => {
       const now = new Date();
-      const pool = mockPool([
-        // 1. Find matching subscriptions
-        { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
-        // 2. Rate limit check - pass
-        { rows: [], rowCount: 0 },
-        // 3. Dedup check - identical recent location
-        {
-          rows: [{
-            time: new Date(Date.now() - 10_000),
-            lat: -33.8688,
-            lng: 151.2093,
-          }],
-          rowCount: 1,
-        },
-        // 4. Update last_seen_at
-        { rows: [], rowCount: 0 },
-      ]);
+      const pool = mockPool({
+        poolResults: [
+          // 1. Find matching subscriptions
+          { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
+          // last: Update last_seen_at
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [
+          // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit + dedup check - passes rate limit but triggers dedup
+          {
+            rows: [{
+              time: new Date(Date.now() - 10_000),
+              lat: -33.8688,
+              lng: 151.2093,
+            }],
+            rowCount: 1,
+          },
+          // INSERT with ON CONFLICT DO NOTHING - dedup detected, no row inserted
+          { rows: [], rowCount: 0 },
+          // COMMIT
+          { rows: [], rowCount: 0 },
+        ],
+      });
 
       const result = await ingestLocationUpdate(pool, 'p1', validUpdate({ timestamp: now }));
       expect(result.inserted).toBe(false);
@@ -335,16 +394,165 @@ describe('geolocation/ingestion', () => {
     });
 
     it('skips when no subscriptions match', async () => {
-      const pool = mockPool([
-        // 1. No matching subscriptions
-        { rows: [], rowCount: 0 },
-        // 2. Update last_seen_at
-        { rows: [], rowCount: 0 },
-      ]);
+      const pool = mockPool({
+        poolResults: [
+          // 1. No matching subscriptions
+          { rows: [], rowCount: 0 },
+          // 2. Update last_seen_at
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [],
+      });
 
       const result = await ingestLocationUpdate(pool, 'p1', validUpdate());
       expect(result.inserted).toBe(false);
       expect(result.reason).toContain('No subscriptions');
+    });
+
+    it('rolls back transaction on error and releases client', async () => {
+      const clientQueryFn = vi.fn();
+      // BEGIN succeeds
+      clientQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Advisory lock succeeds
+      clientQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Rate limit query throws
+      clientQueryFn.mockRejectedValueOnce(new Error('DB connection lost'));
+      // ROLLBACK succeeds
+      clientQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+      const mockClient = {
+        query: clientQueryFn,
+        release: vi.fn(),
+      } as unknown as PoolClient;
+
+      const poolQueryFn = vi.fn();
+      // Subscription lookup
+      poolQueryFn.mockResolvedValueOnce({
+        rows: [{ user_email: 'user@example.com', provider_id: 'p1' }],
+        rowCount: 1,
+      });
+
+      const pool = {
+        query: poolQueryFn,
+        connect: vi.fn().mockResolvedValue(mockClient),
+      } as unknown as Pool;
+
+      await expect(ingestLocationUpdate(pool, 'p1', validUpdate())).rejects.toThrow('DB connection lost');
+
+      expect(clientQueryFn).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('uses ON CONFLICT for concurrent dedup safety', async () => {
+      const pool = mockPool({
+        poolResults: [
+          { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [
+          // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit/dedup check - no previous
+          { rows: [], rowCount: 0 },
+          // INSERT with ON CONFLICT DO NOTHING - conflict hit, 0 rows inserted
+          { rows: [], rowCount: 0 },
+          // COMMIT
+          { rows: [], rowCount: 0 },
+        ],
+      });
+
+      const result = await ingestLocationUpdate(pool, 'p1', validUpdate());
+      // ON CONFLICT hit means rowCount=0 → treated as concurrent dedup
+      expect(result.inserted).toBe(false);
+      expect(result.reason).toContain('dedup');
+
+      // Verify the INSERT query includes ON CONFLICT
+      const client = await (pool.connect as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const insertCall = client.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('INSERT'),
+      );
+      expect(insertCall).toBeDefined();
+      expect(insertCall[0]).toContain('ON CONFLICT');
+      expect(insertCall[0]).toContain('DO NOTHING');
+    });
+
+    it('uses advisory lock for TOCTOU prevention', async () => {
+      const pool = mockPool({
+        poolResults: [
+          { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [
+          // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit/dedup check
+          { rows: [], rowCount: 0 },
+          // INSERT
+          { rows: [{ time: new Date() }], rowCount: 1 },
+          // COMMIT
+          { rows: [], rowCount: 0 },
+        ],
+      });
+
+      await ingestLocationUpdate(pool, 'p1', validUpdate());
+
+      const client = await (pool.connect as ReturnType<typeof vi.fn>).mock.results[0].value;
+      // The advisory lock serializes concurrent ingestion per (provider, user, entity)
+      const lockCall = client.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('pg_advisory_xact_lock'),
+      );
+      expect(lockCall).toBeDefined();
+      expect(lockCall[1]).toEqual(['p1', 'user@example.com', expect.any(String)]);
+    });
+
+    it('handles multiple subscriptions in single transaction', async () => {
+      const pool = mockPool({
+        poolResults: [
+          // Two matching subscriptions
+          {
+            rows: [
+              { user_email: 'user1@example.com', provider_id: 'p1' },
+              { user_email: 'user2@example.com', provider_id: 'p1' },
+            ],
+            rowCount: 2,
+          },
+          // Update last_seen_at
+          { rows: [], rowCount: 0 },
+        ],
+        clientResults: [
+          // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock for user1
+          { rows: [], rowCount: 0 },
+          // Rate limit check for user1 - no previous
+          { rows: [], rowCount: 0 },
+          // INSERT for user1 - success
+          { rows: [{ time: new Date() }], rowCount: 1 },
+          // Advisory lock for user2
+          { rows: [], rowCount: 0 },
+          // Rate limit check for user2 - no previous
+          { rows: [], rowCount: 0 },
+          // INSERT for user2 - success
+          { rows: [{ time: new Date() }], rowCount: 1 },
+          // COMMIT
+          { rows: [], rowCount: 0 },
+        ],
+      });
+
+      const result = await ingestLocationUpdate(pool, 'p1', validUpdate());
+      expect(result.inserted).toBe(true);
+
+      // Verify single BEGIN/COMMIT wraps all subscription processing
+      const client = await (pool.connect as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const calls = client.query.mock.calls.map((c: unknown[]) =>
+        typeof c[0] === 'string' ? c[0] : 'parameterized',
+      );
+      expect(calls[0]).toBe('BEGIN');
+      expect(calls[calls.length - 1]).toBe('COMMIT');
     });
   });
 });
