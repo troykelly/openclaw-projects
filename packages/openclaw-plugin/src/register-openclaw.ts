@@ -17,6 +17,7 @@ import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-m
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
 import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
+import { injectionLogLimiter } from './utils/injection-log-rate-limiter.js';
 import { haversineDistanceKm, computeGeoScore, blendScores } from './utils/geo.js';
 import { reverseGeocode } from './utils/nominatim.js';
 import { createNotificationService } from './services/notification-service.js';
@@ -2113,15 +2114,23 @@ function createToolHandlers(state: PluginState) {
         // truncation. Bodies are later truncated to 100 chars for display, but
         // detection must see the complete content to catch payloads that an
         // attacker could hide beyond the truncation boundary. (Issue #1258)
+        // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
             const detection = detectInjectionPatterns(m.body);
             if (detection.detected) {
-              logger.warn('potential prompt injection detected in message_search result', {
-                userId,
-                messageId: m.id,
-                patterns: detection.patterns,
-              });
+              const logDecision = injectionLogLimiter.shouldLog(userId);
+              if (logDecision.log) {
+                logger.warn(
+                  logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in message_search result',
+                  {
+                    userId,
+                    messageId: m.id,
+                    patterns: detection.patterns,
+                    ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
+                  },
+                );
+              }
             }
           }
         }
@@ -2354,16 +2363,24 @@ function createToolHandlers(state: PluginState) {
         const header = `Thread with ${contact} [${safeChannel}]`;
 
         // Detect and log potential injection patterns in inbound messages
+        // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
             const detection = detectInjectionPatterns(m.body);
             if (detection.detected) {
-              logger.warn('potential prompt injection detected in thread_get result', {
-                userId,
-                threadId,
-                messageId: m.id,
-                patterns: detection.patterns,
-              });
+              const logDecision = injectionLogLimiter.shouldLog(userId);
+              if (logDecision.log) {
+                logger.warn(
+                  logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in thread_get result',
+                  {
+                    userId,
+                    threadId,
+                    messageId: m.id,
+                    patterns: detection.patterns,
+                    ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
+                  },
+                );
+              }
             }
           }
         }

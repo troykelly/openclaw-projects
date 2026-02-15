@@ -5,9 +5,16 @@
 
 import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
-import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from '../utils/injection-protection.js';
+import type { Logger } from '../logger.js';
+import { injectionLogLimiter } from '../utils/injection-log-rate-limiter.js';
+import {
+  createBoundaryMarkers,
+  detectInjectionPatterns,
+  sanitizeMessageForContext,
+  sanitizeMetadataField,
+  wrapExternalMessage,
+} from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email']);
@@ -365,16 +372,24 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         const header = `Thread with ${contact} [${safeChannel}]`;
 
         // Detect and log potential injection patterns in inbound messages
+        // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
             const detection = detectInjectionPatterns(m.body);
             if (detection.detected) {
-              logger.warn('potential prompt injection detected in thread_get result', {
-                userId,
-                threadId,
-                messageId: m.id,
-                patterns: detection.patterns,
-              });
+              const logDecision = injectionLogLimiter.shouldLog(userId);
+              if (logDecision.log) {
+                logger.warn(
+                  logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in thread_get result',
+                  {
+                    userId,
+                    threadId,
+                    messageId: m.id,
+                    patterns: detection.patterns,
+                    ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
+                  },
+                );
+              }
             }
           }
         }

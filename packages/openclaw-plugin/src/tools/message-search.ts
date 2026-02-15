@@ -5,8 +5,9 @@
 
 import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
-import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
+import type { Logger } from '../logger.js';
+import { injectionLogLimiter } from '../utils/injection-log-rate-limiter.js';
 import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
@@ -182,15 +183,23 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         // truncation. Snippets are later truncated to 100 chars for display, but
         // detection must see the complete content to catch payloads that an
         // attacker could hide beyond the truncation boundary. (Issue #1258)
+        // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.snippet) {
             const detection = detectInjectionPatterns(m.snippet);
             if (detection.detected) {
-              logger.warn('potential prompt injection detected in message_search result', {
-                userId,
-                messageId: m.id,
-                patterns: detection.patterns,
-              });
+              const logDecision = injectionLogLimiter.shouldLog(userId);
+              if (logDecision.log) {
+                logger.warn(
+                  logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in message_search result',
+                  {
+                    userId,
+                    messageId: m.id,
+                    patterns: detection.patterns,
+                    ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
+                  },
+                );
+              }
             }
           }
         }
