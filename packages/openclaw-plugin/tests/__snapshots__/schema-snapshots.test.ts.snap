@@ -661,6 +661,35 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minimum": 1,
       "type": "integer",
     },
+    "location": {
+      "properties": {
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number",
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number",
+        },
+      },
+      "required": [
+        "lat",
+        "lng",
+      ],
+      "type": "object",
+    },
+    "location_radius_km": {
+      "maximum": 100,
+      "minimum": 0.1,
+      "type": "number",
+    },
+    "location_weight": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number",
+    },
     "query": {
       "maxLength": 1000,
       "minLength": 1,

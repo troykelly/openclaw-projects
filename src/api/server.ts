@@ -6512,10 +6512,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       confidence?: number;
       expires_at?: string;
       tags?: string[];
+      lat?: number;
+      lng?: number;
+      address?: string;
+      place_label?: string;
     };
 
     if (!body?.content?.trim()) {
       return reply.code(400).send({ error: 'content is required' });
+    }
+
+    // Validate geo coordinates if provided
+    if (body.lat !== undefined || body.lng !== undefined) {
+      if (body.lat === undefined || body.lng === undefined) {
+        return reply.code(400).send({ error: 'lat and lng must be provided together' });
+      }
+      if (typeof body.lat !== 'number' || body.lat < -90 || body.lat > 90) {
+        return reply.code(400).send({ error: 'lat must be a number between -90 and 90' });
+      }
+      if (typeof body.lng !== 'number' || body.lng < -180 || body.lng > 180) {
+        return reply.code(400).send({ error: 'lng must be a number between -180 and 180' });
+      }
     }
 
     const title = body?.title?.trim() || generateTitleFromContent(body.content.trim());
@@ -6545,11 +6562,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         confidence: body.confidence,
         expiresAt: body.expires_at ? new Date(body.expires_at) : undefined,
         tags: body.tags,
+        lat: body.lat,
+        lng: body.lng,
+        address: body.address,
+        placeLabel: body.place_label,
       });
 
-      // Generate embedding asynchronously
+      // Generate content embedding asynchronously
       const memoryContent = `${memory.title}\n\n${memory.content}`;
       await generateMemoryEmbedding(pool, memory.id, memoryContent);
+
+      // Generate location embedding if geo data present
+      if (memory.address || memory.placeLabel) {
+        const locationText = [memory.address, memory.placeLabel].filter(Boolean).join(' ');
+        const { generateLocationEmbedding } = await import('./embeddings/memory-integration.ts');
+        await generateLocationEmbedding(pool, memory.id, locationText);
+      }
 
       return reply.code(201).send(memory);
     } finally {
@@ -6577,6 +6605,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         confidence?: number;
         expires_at?: string;
         tags?: string[];
+        lat?: number;
+        lng?: number;
+        address?: string;
+        place_label?: string;
       }>;
     };
 
@@ -6638,6 +6670,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             confidence: mem.confidence,
             expiresAt: mem.expires_at ? new Date(mem.expires_at) : undefined,
             tags: mem.tags,
+            lat: mem.lat,
+            lng: mem.lng,
+            address: mem.address,
+            placeLabel: mem.place_label,
           });
 
           // Generate embedding asynchronously (don't await to avoid blocking)

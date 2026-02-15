@@ -11,6 +11,15 @@ import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
 import { MemoryCategory } from './memory-recall.js';
 import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js';
+import { reverseGeocode } from '../utils/nominatim.js';
+
+/** Location schema for geo-aware memory storage */
+export const MemoryLocationSchema = z.object({
+  lat: z.number().min(-90, 'Latitude must be >= -90').max(90, 'Latitude must be <= 90'),
+  lng: z.number().min(-180, 'Longitude must be >= -180').max(180, 'Longitude must be <= 180'),
+  address: z.string().max(500, 'Address must be 500 characters or less').optional(),
+  place_label: z.string().max(200, 'Place label must be 200 characters or less').optional(),
+});
 
 /** Parameters for memory_store tool — matches OpenClaw gateway: 'text' is primary, 'content' alias for compat */
 export const MemoryStoreParamsSchema = z.object({
@@ -20,6 +29,7 @@ export const MemoryStoreParamsSchema = z.object({
   importance: z.number().min(0).max(1).optional(),
   tags: z.array(z.string().min(1).max(100)).max(20, 'Maximum 20 tags per memory').optional(),
   relationship_id: z.string().uuid('relationship_id must be a valid UUID').optional(),
+  location: MemoryLocationSchema.optional(),
 }).refine((data) => data.text || data.content, {
   message: 'Either text or content is required',
 });
@@ -95,7 +105,7 @@ function mayContainCredentials(text: string): boolean {
  * Creates the memory_store tool.
  */
 export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemoryStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'memory_store',
@@ -111,7 +121,7 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         return { success: false, error: errorMessage };
       }
 
-      const { text, content: contentAlias, category = 'other', importance = 0.7, tags = [], relationship_id } = parseResult.data;
+      const { text, content: contentAlias, category = 'other', importance = 0.7, tags = [], relationship_id, location } = parseResult.data;
 
       // Accept 'text' (OpenClaw native) or 'content' (backwards compat)
       const rawText = text || contentAlias;
@@ -155,6 +165,24 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         };
         if (relationship_id) {
           payload.relationship_id = relationship_id;
+        }
+        if (location) {
+          payload.lat = location.lat;
+          payload.lng = location.lng;
+
+          // Reverse geocode if address is missing and Nominatim is configured
+          if (!location.address && config.nominatimUrl) {
+            const geocoded = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
+            if (geocoded) {
+              payload.address = geocoded.address;
+              if (!location.place_label && geocoded.placeLabel) {
+                payload.place_label = geocoded.placeLabel;
+              }
+            }
+          }
+
+          if (location.address) payload.address = location.address;
+          if (location.place_label) payload.place_label = location.place_label;
         }
 
         const response = await client.post<StoredMemory>('/api/memories/unified', payload, { userId });

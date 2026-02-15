@@ -3,6 +3,7 @@
  * Part of Epic #199, Issue #209
  * Tags support added in Issue #492
  * Relationship scope added in Issue #493
+ * Geolocation fields added in Epic #1204
  */
 
 import type { Pool } from 'pg';
@@ -42,6 +43,10 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
     supersededBy: row.superseded_by as string | null,
     embeddingStatus: row.embedding_status as 'pending' | 'complete' | 'failed',
+    lat: (row.lat as number) ?? null,
+    lng: (row.lng as number) ?? null,
+    address: (row.address as string) ?? null,
+    placeLabel: (row.place_label as string) ?? null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };
@@ -178,7 +183,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at
+      embedding_status, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     WHERE TRIM(content) = $1 AND ${scopeWhere}
     LIMIT 1`,
@@ -196,7 +201,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
         title, content, memory_type::text, tags,
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
-        embedding_status, created_at, updated_at`,
+        embedding_status, lat, lng, address, place_label, created_at, updated_at`,
       [existingId],
     );
 
@@ -210,14 +215,15 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       title, content, memory_type,
       tags,
       created_by_agent, created_by_human, source_url,
-      importance, confidence, expires_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14)
+      importance, confidence, expires_at,
+      lat, lng, address, place_label
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     RETURNING
       id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at`,
+      embedding_status, lat, lng, address, place_label, created_at, updated_at`,
     [
       input.userEmail ?? null,
       input.workItemId ?? null,
@@ -233,6 +239,10 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       normalizeImportance(input.importance),
       input.confidence ?? 1.0,
       input.expiresAt ?? null,
+      input.lat ?? null,
+      input.lng ?? null,
+      input.address ?? null,
+      input.placeLabel ?? null,
     ],
   );
 
@@ -249,7 +259,7 @@ export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | n
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at
+      embedding_status, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     WHERE id = $1`,
     [id],
@@ -343,7 +353,7 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at`,
+      embedding_status, lat, lng, address, place_label, created_at, updated_at`,
     params,
   );
 
@@ -437,7 +447,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at
+      embedding_status, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
@@ -494,7 +504,7 @@ export async function getGlobalMemories(
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at
+      embedding_status, lat, lng, address, place_label, created_at, updated_at
     FROM memory
     ${whereClause}
     ORDER BY importance DESC, created_at DESC
@@ -686,7 +696,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
-            embedding_status, created_at, updated_at,
+            embedding_status, lat, lng, address, place_label, created_at, updated_at,
             1 - (embedding <=> $1::vector) as similarity
           FROM memory
           WHERE embedding IS NOT NULL
@@ -764,7 +774,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at,
+      embedding_status, lat, lng, address, place_label, created_at, updated_at,
       ts_rank(search_vector, websearch_to_tsquery('english', $1)) as similarity
     FROM memory
     WHERE search_vector @@ websearch_to_tsquery('english', $1)
