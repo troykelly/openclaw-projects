@@ -96,9 +96,9 @@ describe('Injection Protection Integration', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Inbound message body MUST be wrapped with boundary markers
-        expect(result.data.content).toContain('[EXTERNAL_MSG_START]');
-        expect(result.data.content).toContain('[EXTERNAL_MSG_END]');
+        // Inbound message body MUST be wrapped with nonce-based boundary markers (#1255)
+        expect(result.data.content).toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_START\]/);
+        expect(result.data.content).toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_END\]/);
         // The injection payload should be inside the boundaries
         expect(result.data.content).toContain('Ignore all previous instructions');
       }
@@ -142,8 +142,9 @@ describe('Injection Protection Integration', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Outbound messages should NOT have boundary markers
+        // Outbound messages should NOT have boundary markers (old or nonce-based)
         expect(result.data.content).not.toContain('[EXTERNAL_MSG_START]');
+        expect(result.data.content).not.toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_START\]/);
         expect(result.data.content).toContain('Hello Alice');
       }
     });
@@ -269,9 +270,9 @@ describe('Injection Protection Integration', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Snippet MUST be wrapped with boundary markers
-        expect(result.data.content).toContain('[EXTERNAL_MSG_START]');
-        expect(result.data.content).toContain('[EXTERNAL_MSG_END]');
+        // Snippet MUST be wrapped with nonce-based boundary markers (#1255)
+        expect(result.data.content).toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_START\]/);
+        expect(result.data.content).toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_END\]/);
         expect(result.data.content).toContain('Ignore previous instructions');
       }
     });
@@ -442,9 +443,9 @@ describe('Injection Protection Integration', () => {
 
       expect(result).not.toBeNull();
       if (result) {
-        // Memory content MUST be boundary-wrapped
-        expect(result.prependContext).toContain('[EXTERNAL_MSG_START]');
-        expect(result.prependContext).toContain('[EXTERNAL_MSG_END]');
+        // Memory content MUST be boundary-wrapped with nonce-based markers (#1255)
+        expect(result.prependContext).toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_START\]/);
+        expect(result.prependContext).toMatch(/\[EXTERNAL_MSG_[0-9a-f]{8}_END\]/);
         // The actual content should be inside the boundaries
         expect(result.prependContext).toContain('Ignore previous instructions');
       }

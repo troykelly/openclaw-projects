@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from '../utils/injection-protection.js';
+import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email']);
@@ -172,12 +172,14 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
 
         // Format content for display with injection protection.
         // Sanitize snippet/title since they may contain external message content.
+        // Generate a per-invocation nonce for boundary markers (#1255)
+        const { nonce } = createBoundaryMarkers();
         const content =
           threadItems.length > 0
             ? threadItems
                 .map((t) => {
-                  const safeTitle = sanitizeMetadataField(t.title);
-                  const wrappedSnippet = wrapExternalMessage(t.snippet);
+                  const safeTitle = sanitizeMetadataField(t.title, nonce);
+                  const wrappedSnippet = wrapExternalMessage(t.snippet, { nonce });
                   return `${safeTitle}: ${wrappedSnippet}`;
                 })
                 .join('\n')
@@ -356,8 +358,10 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         });
 
         // Format content for display — sanitize metadata fields interpolated outside boundary wrappers
-        const contact = sanitizeMetadataField(thread.contact?.displayName || 'Unknown');
-        const safeChannel = sanitizeMetadataField(thread.channel);
+        // Generate a per-invocation nonce for boundary markers (#1255)
+        const { nonce: threadGetNonce } = createBoundaryMarkers();
+        const contact = sanitizeMetadataField(thread.contact?.displayName || 'Unknown', threadGetNonce);
+        const safeChannel = sanitizeMetadataField(thread.channel, threadGetNonce);
         const header = `Thread with ${contact} [${safeChannel}]`;
 
         // Detect and log potential injection patterns in inbound messages
@@ -385,6 +389,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
                     direction: m.direction,
                     channel: thread.channel,
                     sender: contact,
+                    nonce: threadGetNonce,
                   });
                   return `${prefix} [${timestamp}] ${body}`;
                 })

@@ -3,15 +3,47 @@
  *
  * Provides layered defence for external message content before LLM exposure:
  * 1. Unicode/control character sanitisation
- * 2. Data boundary marking (spotlighting)
+ * 2. Data boundary marking (spotlighting) with per-session nonce
  * 3. Suspicious pattern detection and logging
  *
- * Issue #1224
+ * Issue #1224, #1255
  */
 
-/** Boundary markers for external message content */
-const EXTERNAL_MSG_START = '[EXTERNAL_MSG_START]';
-const EXTERNAL_MSG_END = '[EXTERNAL_MSG_END]';
+import { randomBytes } from 'node:crypto';
+
+/** Boundary markers for external message content, keyed by per-session nonce */
+export interface BoundaryMarkers {
+  /** Opening marker, e.g. `[EXTERNAL_MSG_a1b2c3d4_START]` */
+  start: string;
+  /** Closing marker, e.g. `[EXTERNAL_MSG_a1b2c3d4_END]` */
+  end: string;
+  /** The nonce embedded in the markers */
+  nonce: string;
+}
+
+/** Regex to validate nonce format: 1-32 lowercase hex characters */
+const VALID_NONCE_RE = /^[0-9a-f]{1,32}$/;
+
+/**
+ * Create boundary markers with a per-session cryptographic nonce.
+ *
+ * If no nonce is provided, one is generated from 4 random bytes (8 hex chars).
+ * Callers should create markers once per session/hook invocation and reuse
+ * them for all messages in that session, rather than generating per-message.
+ *
+ * @throws {Error} If a provided nonce contains non-hex characters.
+ */
+export function createBoundaryMarkers(nonce?: string): BoundaryMarkers {
+  const n = nonce ?? randomBytes(4).toString('hex');
+  if (!VALID_NONCE_RE.test(n)) {
+    throw new Error('Boundary marker nonce must be 1-32 lowercase hex characters');
+  }
+  return {
+    start: `[EXTERNAL_MSG_${n}_START]`,
+    end: `[EXTERNAL_MSG_${n}_END]`,
+    nonce: n,
+  };
+}
 
 /**
  * Regex matching control characters to strip (ASCII 0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F).
@@ -107,6 +139,8 @@ export interface WrapOptions {
   channel?: string;
   /** Sender name or identifier */
   sender?: string;
+  /** Per-session nonce for boundary markers. If omitted, one is auto-generated. */
+  nonce?: string;
 }
 
 /** Options for context sanitisation */
@@ -117,6 +151,8 @@ export interface ContextSanitizeOptions {
   channel?: string;
   /** Sender name */
   sender?: string;
+  /** Per-session nonce for boundary markers. If omitted, one is auto-generated. */
+  nonce?: string;
 }
 
 /**
@@ -135,14 +171,25 @@ export function sanitizeExternalMessage(text: string): string {
 
 /**
  * Escape boundary marker keywords in a string to prevent breakout attacks.
- * Replaces the keyword portion (EXTERNAL_MSG_START / EXTERNAL_MSG_END)
- * regardless of surrounding brackets, since formatting code may supply
- * brackets that complete a partial marker (e.g., channel `[...START` + `]`).
+ *
+ * When a nonce is provided, escapes markers containing that specific nonce.
+ * Also escapes the generic `EXTERNAL_MSG_START` / `EXTERNAL_MSG_END` keywords
+ * (without nonce) so that attackers cannot inject markers from the public source.
  */
-function escapeBoundaryMarkers(text: string): string {
-  return text
+function escapeBoundaryMarkers(text: string, nonce?: string): string {
+  let result = text;
+  if (nonce) {
+    // Escape nonce-specific markers first (more specific match)
+    result = result
+      .replace(new RegExp(`EXTERNAL_MSG_${nonce}_START`, 'g'), `EXTERNAL_MSG_${nonce}_START_ESCAPED`)
+      .replace(new RegExp(`EXTERNAL_MSG_${nonce}_END`, 'g'), `EXTERNAL_MSG_${nonce}_END_ESCAPED`);
+  }
+  // Always escape the generic (non-nonce) marker keywords to prevent
+  // attackers from using the old hardcoded pattern
+  result = result
     .replace(/EXTERNAL_MSG_START/g, 'EXTERNAL_MSG_START_ESCAPED')
     .replace(/EXTERNAL_MSG_END/g, 'EXTERNAL_MSG_END_ESCAPED');
+  return result;
 }
 
 /**
@@ -150,9 +197,10 @@ function escapeBoundaryMarkers(text: string): string {
  * the boundary wrapper header. Strips control chars, invisible Unicode,
  * newlines (which could break out of the header line), and boundary markers.
  */
-export function sanitizeMetadataField(field: string): string {
+export function sanitizeMetadataField(field: string, nonce?: string): string {
   return escapeBoundaryMarkers(
     sanitizeExternalMessage(field).replace(/[\r\n]/g, ' '),
+    nonce,
   );
 }
 
@@ -165,26 +213,31 @@ export function sanitizeMetadataField(field: string): string {
  *
  * Content, sender, and channel are all sanitized and have boundary markers
  * escaped before wrapping to prevent breakout attacks.
+ *
+ * When `options.nonce` is provided, markers use that nonce. Otherwise a
+ * fresh cryptographic nonce is generated per call.
  */
 export function wrapExternalMessage(content: string, options: WrapOptions = {}): string {
+  const markers = createBoundaryMarkers(options.nonce);
+
   const sanitized = sanitizeExternalMessage(content);
 
   // Escape any existing boundary markers in the content to prevent breakout
-  const escaped = escapeBoundaryMarkers(sanitized);
+  const escaped = escapeBoundaryMarkers(sanitized, markers.nonce);
 
   const attribution: string[] = [];
   if (options.channel) {
-    attribution.push(`[${sanitizeMetadataField(options.channel)}]`);
+    attribution.push(`[${sanitizeMetadataField(options.channel, markers.nonce)}]`);
   }
   if (options.sender) {
-    attribution.push(`from: ${sanitizeMetadataField(options.sender)}`);
+    attribution.push(`from: ${sanitizeMetadataField(options.sender, markers.nonce)}`);
   }
 
   const header = attribution.length > 0
-    ? `${EXTERNAL_MSG_START} ${attribution.join(' ')}`
-    : EXTERNAL_MSG_START;
+    ? `${markers.start} ${attribution.join(' ')}`
+    : markers.start;
 
-  return `${header}\n${escaped}\n${EXTERNAL_MSG_END}`;
+  return `${header}\n${escaped}\n${markers.end}`;
 }
 
 /**
@@ -227,11 +280,11 @@ export function sanitizeMessageForContext(
   content: string,
   options: ContextSanitizeOptions = {},
 ): string {
-  const { direction = 'inbound', channel, sender } = options;
+  const { direction = 'inbound', channel, sender, nonce } = options;
 
   if (direction === 'outbound') {
     return sanitizeExternalMessage(content);
   }
 
-  return wrapExternalMessage(content, { channel, sender });
+  return wrapExternalMessage(content, { channel, sender, nonce });
 }

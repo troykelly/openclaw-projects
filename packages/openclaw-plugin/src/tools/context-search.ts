@@ -11,7 +11,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { PluginConfig } from '../config.js';
 import type { Logger } from '../logger.js';
-import { sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
+import { createBoundaryMarkers, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Supported entity types for cross-entity search */
@@ -291,15 +291,17 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         } else if (tag === 'message') {
           const data = response.data as { results: MessageApiResult[] };
           const rawResults = data.results ?? [];
+          // Generate a per-invocation nonce for boundary markers (#1255)
+          const { nonce: msgNonce } = createBoundaryMarkers();
           for (const msg of rawResults) {
             // Sanitize external message content to prevent prompt injection.
             // Both title and snippet are wrapped since messages are external/untrusted content
             // mixed alongside trusted entity results from memories/todos/projects.
-            const safeTitle = wrapExternalMessage(sanitizeMetadataField(msg.title ?? ''));
-            const safeSnippet = msg.snippet ? wrapExternalMessage(sanitizeMetadataField(msg.snippet.substring(0, 100))) : '';
+            const safeTitle = wrapExternalMessage(sanitizeMetadataField(msg.title ?? '', msgNonce), { nonce: msgNonce });
+            const safeSnippet = msg.snippet ? wrapExternalMessage(sanitizeMetadataField(msg.snippet.substring(0, 100), msgNonce), { nonce: msgNonce }) : '';
             const meta: Record<string, string> = {};
-            if (msg.metadata?.channel) meta.channel = sanitizeMetadataField(msg.metadata.channel);
-            if (msg.metadata?.received_at) meta.received_at = sanitizeMetadataField(msg.metadata.received_at);
+            if (msg.metadata?.channel) meta.channel = sanitizeMetadataField(msg.metadata.channel, msgNonce);
+            if (msg.metadata?.received_at) meta.received_at = sanitizeMetadataField(msg.metadata.received_at, msgNonce);
             messageItems.push({
               id: msg.id,
               entity_type: 'message',
