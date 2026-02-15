@@ -805,6 +805,84 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // POST /api/messages/:id/link-contact - Link a message sender to a contact (Issue #1270)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  app.post('/api/messages/:id/link-contact', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { contact_id?: string };
+
+    // Validate message id format
+    if (!UUID_RE.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid message id format' });
+    }
+
+    // Validate contact_id
+    if (!body.contact_id || typeof body.contact_id !== 'string') {
+      return reply.code(400).send({ error: 'contact_id is required' });
+    }
+    if (!UUID_RE.test(body.contact_id)) {
+      return reply.code(400).send({ error: 'Invalid contact_id format' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Look up the message
+      const msgResult = await pool.query(
+        `SELECT m.id, m.from_address, m.thread_id,
+                et.channel, et.endpoint_id
+         FROM external_message m
+         JOIN external_thread et ON et.id = m.thread_id
+         WHERE m.id = $1`,
+        [params.id],
+      );
+
+      if (msgResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Message not found' });
+      }
+
+      const message = msgResult.rows[0];
+
+      // Verify contact exists
+      const contactResult = await pool.query(
+        `SELECT id FROM contact WHERE id = $1 AND deleted_at IS NULL`,
+        [body.contact_id],
+      );
+
+      if (contactResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Contact not found' });
+      }
+
+      // Determine the sender address and channel
+      const senderAddress = message.from_address;
+      const channel = message.channel;
+
+      if (senderAddress && channel) {
+        // Create or get the contact endpoint for this sender
+        const endpointType = channel === 'phone' ? 'phone' : 'email';
+        await pool.query(
+          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
+           VALUES ($1, $2::contact_endpoint_type, $3)
+           ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
+          [body.contact_id, endpointType, senderAddress],
+        );
+      }
+
+      return reply.send({
+        message_id: params.id,
+        contact_id: body.contact_id,
+        from_address: senderAddress,
+        linked: true,
+      });
+    } catch (err) {
+      req.log.error(err, 'Failed to link message to contact');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // API Capabilities endpoint - Agent-discoverable capability list (Issue #207)
   app.get('/api/capabilities', async () => ({
     name: 'openclaw-projects',
@@ -5637,6 +5715,214 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const userEmailParam = query.user_email ? `&user_email=${encodeURIComponent(query.user_email)}` : '';
 
     return reply.redirect(`/api/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}${userEmailParam}`, 301);
+  });
+
+  // GET /api/contacts/suggest-match - Fuzzy contact matching (Issue #1270)
+  app.get('/api/contacts/suggest-match', async (req, reply) => {
+    const query = req.query as {
+      phone?: string;
+      email?: string;
+      name?: string;
+      limit?: string;
+      user_email?: string;
+    };
+
+    const phone = query.phone?.trim() || '';
+    const email = query.email?.trim().toLowerCase() || '';
+    const name = query.name?.trim() || '';
+
+    if (!phone && !email && !name) {
+      return reply.code(400).send({ error: 'At least one of phone, email, or name is required' });
+    }
+
+    const limit = Math.min(Math.max(parseInt(query.limit || '10', 10) || 10, 1), 50);
+    const pool = createPool();
+
+    try {
+      // Build a scored union of matches from different signals
+      const matchScores = new Map<string, { confidence: number; reasons: string[] }>();
+
+      // --- Phone matching ---
+      if (phone) {
+        const normalizedPhone = phone.replace(/[^0-9+]/g, '');
+
+        if (normalizedPhone.length >= 4) {
+          // Exact normalized match
+          const exactPhoneResult = await pool.query(
+            `SELECT ce.contact_id::text, c.display_name
+             FROM contact_endpoint ce
+             JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+             WHERE ce.endpoint_type = 'phone'
+               AND ce.normalized_value = $1
+               ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}`,
+            query.user_email ? [normalizedPhone, query.user_email] : [normalizedPhone],
+          );
+
+          for (const row of exactPhoneResult.rows) {
+            const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+            existing.confidence = Math.max(existing.confidence, 1.0);
+            existing.reasons.push('phone_exact');
+            matchScores.set(row.contact_id, existing);
+          }
+
+          // Partial match - shared prefix (first N-2 digits are the same, at least 7 chars)
+          if (normalizedPhone.length >= 8) {
+            const prefix = normalizedPhone.slice(0, -2);
+            const partialPhoneResult = await pool.query(
+              `SELECT ce.contact_id::text, c.display_name
+               FROM contact_endpoint ce
+               JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+               WHERE ce.endpoint_type = 'phone'
+                 AND ce.normalized_value LIKE $1 || '%'
+                 AND ce.normalized_value != $2
+                 ${query.user_email ? 'AND (c.user_email = $3 OR c.user_email IS NULL)' : ''}
+               LIMIT 20`,
+              query.user_email ? [prefix, normalizedPhone, query.user_email] : [prefix, normalizedPhone],
+            );
+
+            for (const row of partialPhoneResult.rows) {
+              const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+              existing.confidence = Math.max(existing.confidence, 0.7);
+              existing.reasons.push('phone_partial');
+              matchScores.set(row.contact_id, existing);
+            }
+          }
+        }
+      }
+
+      // --- Email matching ---
+      if (email) {
+        // Exact normalized match
+        const exactEmailResult = await pool.query(
+          `SELECT ce.contact_id::text, c.display_name
+           FROM contact_endpoint ce
+           JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+           WHERE ce.endpoint_type = 'email'
+             AND ce.normalized_value = $1
+             ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}`,
+          query.user_email ? [email, query.user_email] : [email],
+        );
+
+        for (const row of exactEmailResult.rows) {
+          const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+          existing.confidence = Math.max(existing.confidence, 1.0);
+          existing.reasons.push('email_exact');
+          matchScores.set(row.contact_id, existing);
+        }
+
+        // Domain match (same domain, different local part)
+        const atIndex = email.indexOf('@');
+        if (atIndex > 0) {
+          const domain = email.slice(atIndex + 1);
+          const domainEmailResult = await pool.query(
+            `SELECT ce.contact_id::text, c.display_name
+             FROM contact_endpoint ce
+             JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+             WHERE ce.endpoint_type = 'email'
+               AND ce.normalized_value LIKE '%@' || $1
+               AND ce.normalized_value != $2
+               ${query.user_email ? 'AND (c.user_email = $3 OR c.user_email IS NULL)' : ''}
+             LIMIT 20`,
+            query.user_email ? [domain, email, query.user_email] : [domain, email],
+          );
+
+          for (const row of domainEmailResult.rows) {
+            const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+            existing.confidence = Math.max(existing.confidence, 0.4);
+            existing.reasons.push('email_domain');
+            matchScores.set(row.contact_id, existing);
+          }
+        }
+      }
+
+      // --- Name matching ---
+      if (name) {
+        const nameResult = await pool.query(
+          `SELECT c.id::text AS contact_id, c.display_name,
+                  CASE
+                    WHEN lower(c.display_name) = lower($1) THEN 1.0
+                    WHEN lower(c.display_name) ILIKE '%' || lower($1) || '%' THEN 0.6
+                    ELSE 0.3
+                  END AS name_score
+           FROM contact c
+           WHERE c.deleted_at IS NULL
+             AND c.display_name ILIKE '%' || $1 || '%'
+             ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}
+           LIMIT 20`,
+          query.user_email ? [name, query.user_email] : [name],
+        );
+
+        for (const row of nameResult.rows) {
+          const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+          const nameScore = parseFloat(row.name_score);
+          existing.confidence = Math.max(existing.confidence, nameScore);
+          existing.reasons.push('name');
+          matchScores.set(row.contact_id, existing);
+        }
+      }
+
+      // Boost confidence when multiple signals match the same contact
+      for (const [, entry] of matchScores) {
+        if (entry.reasons.length > 1) {
+          entry.confidence = Math.min(1.0, entry.confidence + 0.1 * (entry.reasons.length - 1));
+        }
+      }
+
+      // Sort by confidence descending, take top N
+      const sortedIds = [...matchScores.entries()]
+        .sort((a, b) => b[1].confidence - a[1].confidence)
+        .slice(0, limit)
+        .map(([id]) => id);
+
+      if (sortedIds.length === 0) {
+        return reply.send({ matches: [] });
+      }
+
+      // Fetch full contact details + endpoints for the matched contacts
+      const contactsResult = await pool.query(
+        `SELECT c.id::text AS contact_id, c.display_name,
+                json_agg(json_build_object(
+                  'type', ce.endpoint_type,
+                  'value', ce.endpoint_value
+                )) FILTER (WHERE ce.id IS NOT NULL) AS endpoints
+         FROM contact c
+         LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+         WHERE c.id = ANY($1::uuid[])
+         GROUP BY c.id, c.display_name`,
+        [sortedIds],
+      );
+
+      const contactMap = new Map<string, { display_name: string; endpoints: Array<{ type: string; value: string }> }>();
+      for (const row of contactsResult.rows) {
+        contactMap.set(row.contact_id, {
+          display_name: row.display_name,
+          endpoints: row.endpoints || [],
+        });
+      }
+
+      const matches = sortedIds
+        .map((id) => {
+          const contact = contactMap.get(id);
+          const scores = matchScores.get(id)!;
+          return contact
+            ? {
+                contact_id: id,
+                display_name: contact.display_name,
+                confidence: Math.round(scores.confidence * 100) / 100,
+                match_reasons: scores.reasons,
+                endpoints: contact.endpoints,
+              }
+            : null;
+        })
+        .filter(Boolean);
+
+      return reply.send({ matches });
+    } catch (err) {
+      req.log.error(err, 'Failed to suggest contact matches');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
   });
 
   // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
