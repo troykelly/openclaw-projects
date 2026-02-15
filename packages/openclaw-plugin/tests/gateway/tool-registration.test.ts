@@ -1,6 +1,6 @@
 /**
  * Gateway Integration Tests: Tool Registration
- * Tests that all 27 tools are registered correctly via the Gateway loader.
+ * Tests that all 33 tools are registered correctly via the Gateway loader.
  *
  * The registry stores tool registrations in registry.tools[] as
  * PluginToolRegistration objects with { pluginId, factory, names, optional }.
@@ -23,7 +23,7 @@ describe('Gateway Tool Registration', () => {
     expect(plugin?.toolNames.length).toBe(EXPECTED_TOOLS.length);
   });
 
-  it('should register exactly 27 tools', () => {
+  it('should register exactly 33 tools', () => {
     const logger = createTestLogger();
     const config = createTestConfig();
 
@@ -33,7 +33,7 @@ describe('Gateway Tool Registration', () => {
     const pluginTools = registry.tools.filter((t) => t.pluginId === 'openclaw-projects');
     // Each tool registration may cover multiple names
     const allNames = pluginTools.flatMap((t) => t.names);
-    expect(allNames.length).toBe(27);
+    expect(allNames.length).toBe(33);
   });
 
   it('should include every expected tool name', () => {
