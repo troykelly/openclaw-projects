@@ -13,10 +13,13 @@ import type { FileStorage, S3Config } from './types.ts';
  */
 export class S3Storage implements FileStorage {
   private client: S3Client;
+  private externalClient: S3Client | null = null;
   private bucket: string;
+  private config: S3Config;
 
   constructor(config: S3Config) {
     this.bucket = config.bucket;
+    this.config = config;
 
     this.client = new S3Client({
       endpoint: config.endpoint,
@@ -83,6 +86,47 @@ export class S3Storage implements FileStorage {
   }
 
   /**
+   * Get a signed URL using the external endpoint for browser-facing presigned URLs.
+   * Uses a separate S3Client configured with the external endpoint so that the
+   * Signature V4 Host header matches the endpoint the browser actually hits.
+   * Falls back to the internal client when no external endpoint is configured.
+   */
+  async getExternalSignedUrl(key: string, expiresIn: number): Promise<string> {
+    const signingClient = this.getExternalClient();
+
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    return s3GetSignedUrl(signingClient, command, { expiresIn });
+  }
+
+  /**
+   * Get or lazily create the external S3Client for presigning.
+   * Returns the internal client if no external endpoint is configured.
+   */
+  private getExternalClient(): S3Client {
+    if (!this.config.externalEndpoint) {
+      return this.client;
+    }
+
+    if (!this.externalClient) {
+      this.externalClient = new S3Client({
+        endpoint: this.config.externalEndpoint,
+        region: this.config.region,
+        credentials: {
+          accessKeyId: this.config.accessKeyId,
+          secretAccessKey: this.config.secretAccessKey,
+        },
+        forcePathStyle: this.config.forcePathStyle ?? !!this.config.externalEndpoint,
+      });
+    }
+
+    return this.externalClient;
+  }
+
+  /**
    * Delete a file from S3
    */
   async delete(key: string): Promise<void> {
@@ -130,6 +174,7 @@ export function createS3StorageFromEnv(): S3Storage | null {
 
   return new S3Storage({
     endpoint: process.env.S3_ENDPOINT,
+    externalEndpoint: process.env.S3_EXTERNAL_ENDPOINT,
     bucket,
     region,
     accessKeyId,
