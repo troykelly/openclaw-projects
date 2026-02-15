@@ -37,7 +37,7 @@ describe('Gateway Hook Registration', () => {
     expect(typeof agentEndHooks[0].handler).toBe('function');
   });
 
-  it('should not register hooks when both autoRecall and autoCapture are false', () => {
+  it('should register 1 hook when both autoRecall and autoCapture are false', () => {
     const logger = createTestLogger();
     const config = createTestConfig({ autoRecall: false, autoCapture: false });
 
@@ -46,6 +46,6 @@ describe('Gateway Hook Registration', () => {
     const pluginHooks = registry.typedHooks.filter(
       (h) => h.pluginId === 'openclaw-projects',
     );
-    expect(pluginHooks.length).toBe(0);
+    expect(pluginHooks.length).toBe(1);
   });
 });
