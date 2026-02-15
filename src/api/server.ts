@@ -17647,6 +17647,435 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
 
+  // ── Shared lists (Issue #1277) ──────────────────────────────────────
+
+  // POST /api/lists - Create a new list
+  app.post('/api/lists', async (req, reply) => {
+    const body = req.body as { name?: string; list_type?: string; is_shared?: boolean } | null;
+
+    if (!body?.name?.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO list (name, list_type, is_shared)
+         VALUES ($1, $2, $3)
+         RETURNING id::text as id, name, list_type, is_shared, created_at, updated_at`,
+        [body.name.trim(), body.list_type || 'shopping', body.is_shared !== false],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/lists - List all lists with optional filtering
+  app.get('/api/lists', async (req, reply) => {
+    const query = req.query as { list_type?: string; limit?: string; offset?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (query.list_type) {
+      conditions.push(`list_type = $${paramIndex}`);
+      params.push(query.list_type);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(`SELECT COUNT(*) as total FROM list ${whereClause}`, params);
+      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+      params.push(limit);
+      const limitIdx = paramIndex++;
+      params.push(offset);
+      const offsetIdx = paramIndex++;
+
+      const result = await pool.query(
+        `SELECT id::text as id, name, list_type, is_shared, created_at, updated_at
+         FROM list ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+
+      return reply.send({ total, limit, offset, items: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/lists/:id - Get a list with all its items
+  app.get('/api/lists/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const listResult = await pool.query(
+        `SELECT id::text as id, name, list_type, is_shared, created_at, updated_at
+         FROM list WHERE id = $1`,
+        [id],
+      );
+      if (listResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const itemsResult = await pool.query(
+        `SELECT id::text as id, name, quantity, category, is_checked, is_recurring,
+                checked_at, checked_by, source_type, source_id::text as source_id,
+                sort_order, notes, created_at, updated_at
+         FROM list_item WHERE list_id = $1
+         ORDER BY sort_order ASC, created_at ASC`,
+        [id],
+      );
+
+      return reply.send({ ...listResult.rows[0], items: itemsResult.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/lists/:id - Update a list
+  app.patch('/api/lists/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { name?: string; list_type?: string; is_shared?: boolean } | null;
+    const pool = createPool();
+    try {
+      const existing = await pool.query('SELECT id FROM list WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const updates: string[] = [];
+      const values: (string | boolean)[] = [];
+      let paramIndex = 1;
+
+      if (body?.name !== undefined) {
+        updates.push(`name = $${paramIndex}`);
+        values.push(body.name.trim());
+        paramIndex++;
+      }
+      if (body?.list_type !== undefined) {
+        updates.push(`list_type = $${paramIndex}`);
+        values.push(body.list_type);
+        paramIndex++;
+      }
+      if (body?.is_shared !== undefined) {
+        updates.push(`is_shared = $${paramIndex}`);
+        values.push(body.is_shared);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ error: 'no fields to update' });
+      }
+
+      values.push(id);
+      const result = await pool.query(
+        `UPDATE list SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id, name, list_type, is_shared, created_at, updated_at`,
+        values,
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/lists/:id - Delete a list (cascade deletes items)
+  app.delete('/api/lists/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query('DELETE FROM list WHERE id = $1 RETURNING id', [id]);
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items - Add an item to a list
+  app.post('/api/lists/:id/items', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as {
+      name?: string; quantity?: string; category?: string;
+      is_recurring?: boolean; sort_order?: number; notes?: string;
+      source_type?: string; source_id?: string;
+    } | null;
+
+    if (!body?.name?.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const listCheck = await pool.query('SELECT id FROM list WHERE id = $1', [id]);
+      if (listCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'list not found' });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO list_item (list_id, name, quantity, category, is_recurring, sort_order, notes, source_type, source_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id::text as id, list_id::text as list_id, name, quantity, category,
+                   is_checked, is_recurring, checked_at, checked_by,
+                   source_type, source_id::text as source_id, sort_order, notes,
+                   created_at, updated_at`,
+        [id, body.name.trim(), body.quantity || null, body.category || null,
+         body.is_recurring === true, body.sort_order ?? 0, body.notes || null,
+         body.source_type || null, body.source_id || null],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/lists/:listId/items/:itemId - Update an item
+  app.patch('/api/lists/:listId/items/:itemId', async (req, reply) => {
+    const { listId, itemId } = req.params as { listId: string; itemId: string };
+    const body = req.body as {
+      name?: string; quantity?: string | null; category?: string | null;
+      is_recurring?: boolean; sort_order?: number; notes?: string | null;
+    } | null;
+
+    const pool = createPool();
+    try {
+      const existing = await pool.query(
+        'SELECT id FROM list_item WHERE id = $1 AND list_id = $2',
+        [itemId, listId],
+      );
+      if (existing.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const updates: string[] = [];
+      const values: (string | boolean | number | null)[] = [];
+      let paramIndex = 1;
+
+      if (body?.name !== undefined) {
+        updates.push(`name = $${paramIndex}`);
+        values.push(body.name.trim());
+        paramIndex++;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'quantity')) {
+        updates.push(`quantity = $${paramIndex}`);
+        values.push(body!.quantity ?? null);
+        paramIndex++;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'category')) {
+        updates.push(`category = $${paramIndex}`);
+        values.push(body!.category ?? null);
+        paramIndex++;
+      }
+      if (body?.is_recurring !== undefined) {
+        updates.push(`is_recurring = $${paramIndex}`);
+        values.push(body.is_recurring);
+        paramIndex++;
+      }
+      if (body?.sort_order !== undefined) {
+        updates.push(`sort_order = $${paramIndex}`);
+        values.push(body.sort_order);
+        paramIndex++;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'notes')) {
+        updates.push(`notes = $${paramIndex}`);
+        values.push(body!.notes ?? null);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ error: 'no fields to update' });
+      }
+
+      values.push(itemId);
+      const result = await pool.query(
+        `UPDATE list_item SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id, list_id::text as list_id, name, quantity, category,
+                   is_checked, is_recurring, checked_at, checked_by,
+                   source_type, source_id::text as source_id, sort_order, notes,
+                   created_at, updated_at`,
+        values,
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/lists/:listId/items/:itemId - Remove an item
+  app.delete('/api/lists/:listId/items/:itemId', async (req, reply) => {
+    const { listId, itemId } = req.params as { listId: string; itemId: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        'DELETE FROM list_item WHERE id = $1 AND list_id = $2 RETURNING id',
+        [itemId, listId],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items/check - Check off items by ID
+  app.post('/api/lists/:id/items/check', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { item_ids?: string[]; checked_by?: string } | null;
+
+    if (!body?.item_ids?.length) {
+      return reply.code(400).send({ error: 'item_ids is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE list_item SET is_checked = true, checked_at = NOW(), checked_by = $3
+         WHERE list_id = $1 AND id = ANY($2::uuid[])
+         RETURNING id`,
+        [id, body.item_ids, body.checked_by || null],
+      );
+      return reply.send({ checked: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items/uncheck - Uncheck items by ID
+  app.post('/api/lists/:id/items/uncheck', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { item_ids?: string[] } | null;
+
+    if (!body?.item_ids?.length) {
+      return reply.code(400).send({ error: 'item_ids is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE list_item SET is_checked = false, checked_at = NULL, checked_by = NULL
+         WHERE list_id = $1 AND id = ANY($2::uuid[])
+         RETURNING id`,
+        [id, body.item_ids],
+      );
+      return reply.send({ unchecked: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/reset - Reset list after a shop
+  // Removes checked non-recurring items; unchecks checked recurring items
+  app.post('/api/lists/:id/reset', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      // Remove checked non-recurring items
+      const removeResult = await pool.query(
+        `DELETE FROM list_item WHERE list_id = $1 AND is_checked = true AND is_recurring = false
+         RETURNING id`,
+        [id],
+      );
+
+      // Uncheck checked recurring items
+      const uncheckResult = await pool.query(
+        `UPDATE list_item SET is_checked = false, checked_at = NULL, checked_by = NULL
+         WHERE list_id = $1 AND is_checked = true AND is_recurring = true
+         RETURNING id`,
+        [id],
+      );
+
+      return reply.send({
+        removed: removeResult.rowCount,
+        unchecked: uncheckResult.rowCount,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/merge - Merge items (add new, update existing by name match)
+  app.post('/api/lists/:id/merge', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { items?: Array<{ name: string; quantity?: string; category?: string }> } | null;
+
+    if (!body?.items?.length) {
+      return reply.code(400).send({ error: 'items array is required and must not be empty' });
+    }
+
+    const pool = createPool();
+    try {
+      // Get existing items by name (case-insensitive)
+      const existingResult = await pool.query(
+        `SELECT id, lower(name) as lower_name FROM list_item WHERE list_id = $1`,
+        [id],
+      );
+      const existingByName = new Map(
+        (existingResult.rows as Array<{ id: string; lower_name: string }>).map(r => [r.lower_name, r.id]),
+      );
+
+      let added = 0;
+      let updated = 0;
+
+      for (const item of body.items) {
+        if (!item.name?.trim()) continue;
+
+        const existingId = existingByName.get(item.name.toLowerCase());
+        if (existingId) {
+          // Update existing item's quantity and category
+          const updates: string[] = [];
+          const values: (string | null)[] = [];
+          let pi = 1;
+
+          if (item.quantity !== undefined) {
+            updates.push(`quantity = $${pi}`);
+            values.push(item.quantity);
+            pi++;
+          }
+          if (item.category !== undefined) {
+            updates.push(`category = $${pi}`);
+            values.push(item.category);
+            pi++;
+          }
+
+          if (updates.length > 0) {
+            values.push(existingId);
+            await pool.query(
+              `UPDATE list_item SET ${updates.join(', ')} WHERE id = $${pi}`,
+              values,
+            );
+          }
+          updated++;
+        } else {
+          // Add new item
+          await pool.query(
+            `INSERT INTO list_item (list_id, name, quantity, category)
+             VALUES ($1, $2, $3, $4)`,
+            [id, item.name.trim(), item.quantity || null, item.category || null],
+          );
+          added++;
+        }
+      }
+
+      return reply.send({ added, updated });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
