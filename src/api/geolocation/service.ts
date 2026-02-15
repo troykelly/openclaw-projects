@@ -279,7 +279,7 @@ export interface CanDeleteProviderResult {
  */
 export async function canDeleteProvider(pool: Queryable, providerId: string): Promise<CanDeleteProviderResult> {
   const providerResult = await pool.query(
-    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
     [providerId],
   );
 
