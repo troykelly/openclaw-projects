@@ -89,6 +89,8 @@ const APPLICATION_TABLES = [
   'recipe_step',
   'recipe_ingredient',
   'recipe',
+  // Meal log (Issue #1279)
+  'meal_log',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
