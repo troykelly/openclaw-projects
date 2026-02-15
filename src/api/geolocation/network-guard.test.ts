@@ -18,6 +18,13 @@ describe('isPrivateIp', () => {
     ['fd12::1', true],
     ['fe80::1', true],
     ['febf::1', true],
+    ['::', true],
+    // IPv4-mapped IPv6
+    ['::ffff:127.0.0.1', true],
+    ['::ffff:10.0.0.1', true],
+    ['::ffff:192.168.1.1', true],
+    ['::ffff:172.16.0.1', true],
+    ['::ffff:8.8.8.8', false],
     // Public IPs
     ['8.8.8.8', false],
     ['1.1.1.1', false],
@@ -90,8 +97,40 @@ describe('validateOutboundUrl', () => {
     }
   });
 
-  it('rejects localhost in https URLs', () => {
+  it('rejects localhost IP in https URLs', () => {
     const result = validateOutboundUrl('https://127.0.0.1/api');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('private');
+    }
+  });
+
+  it('rejects "localhost" hostname', () => {
+    const result = validateOutboundUrl('https://localhost/api');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('local');
+    }
+  });
+
+  it('rejects ".local" suffix hostnames', () => {
+    const result = validateOutboundUrl('https://homeassistant.local/api');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('local');
+    }
+  });
+
+  it('rejects IPv4-mapped IPv6 loopback', () => {
+    const result = validateOutboundUrl('https://[::ffff:127.0.0.1]/api');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('private');
+    }
+  });
+
+  it('rejects IPv4-mapped IPv6 private', () => {
+    const result = validateOutboundUrl('https://[::ffff:192.168.1.1]/api');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain('private');
@@ -183,10 +222,27 @@ describe('validateOutboundHost', () => {
   });
 
   it('rejects localhost IP', () => {
-    const result = validateOutboundHost('127.0.0.1', 1883);
+    const result = validateOutboundHost('127.0.0.1', 8883);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain('private');
+    }
+  });
+
+  it('rejects "localhost" hostname', () => {
+    const result = validateOutboundHost('localhost', 8883);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('local');
+    }
+  });
+
+  it('rejects standard non-TLS MQTT port 1883', () => {
+    const result = validateOutboundHost('mqtt.example.com', 1883);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('1883');
+      expect(result.error).toContain('8883');
     }
   });
 

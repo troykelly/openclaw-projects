@@ -16,6 +16,26 @@ const ALLOWED_SCHEMES = new Set(['https:', 'wss:']);
  *   IPv4: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 0.0.0.0/8
  *   IPv6: ::1, fc00::/7, fe80::/10
  */
+/** Known local hostnames that must be blocked regardless of IP checks. */
+const LOCAL_HOSTNAMES = new Set(['localhost', 'localhost.localdomain']);
+const LOCAL_HOSTNAME_SUFFIXES = ['.local', '.localhost', '.internal'];
+
+function isLocalHostname(host: string): boolean {
+  const lower = host.toLowerCase();
+  if (LOCAL_HOSTNAMES.has(lower)) return true;
+  return LOCAL_HOSTNAME_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
+function isPrivateIpv4(a: number, b: number): boolean {
+  if (a === 127) return true; // 127.0.0.0/8
+  if (a === 10) return true; // 10.0.0.0/8
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16
+  if (a === 0) return true; // 0.0.0.0/8
+  return false;
+}
+
 export function isPrivateIp(ip: string): boolean {
   // Normalise: strip IPv6 zone IDs and surrounding brackets
   const cleaned = ip.replace(/%.*$/, '').replace(/^\[|\]$/g, '');
@@ -23,23 +43,26 @@ export function isPrivateIp(ip: string): boolean {
   // IPv4
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(cleaned)) {
     const parts = cleaned.split('.').map(Number);
-    const [a, b] = parts;
-    if (a === 127) return true; // 127.0.0.0/8
-    if (a === 10) return true; // 10.0.0.0/8
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 169 && b === 254) return true; // 169.254.0.0/16
-    if (a === 0) return true; // 0.0.0.0/8
-    return false;
+    return isPrivateIpv4(parts[0], parts[1]);
   }
 
   // IPv6
   const lower = cleaned.toLowerCase();
-  if (lower === '::1') return true;
+  if (lower === '::1' || lower === '::') return true;
 
-  // Expand :: and parse the first two 16-bit groups to check fc00::/7 and fe80::/10
+  // Expand :: and parse groups
   const expanded = expandIpv6(lower);
   if (!expanded) return false;
+
+  // Check for IPv4-mapped IPv6 (::ffff:x.x.x.x → groups [0,0,0,0,0,0xffff,high,low])
+  if (
+    expanded[0] === 0 && expanded[1] === 0 && expanded[2] === 0 &&
+    expanded[3] === 0 && expanded[4] === 0 && expanded[5] === 0xffff
+  ) {
+    const a = (expanded[6] >> 8) & 0xff;
+    const b = expanded[6] & 0xff;
+    return isPrivateIpv4(a, b);
+  }
 
   const first = expanded[0];
   // fc00::/7 → first byte 0xfc or 0xfd → first group 0xfc00–0xfdff
@@ -74,6 +97,10 @@ export function validateOutboundUrl(url: string): Result<URL, string> {
     return { ok: false, error: 'URL has no hostname' };
   }
 
+  if (isLocalHostname(host)) {
+    return { ok: false, error: `Host "${host}" is a local/reserved hostname` };
+  }
+
   if (isPrivateIp(host)) {
     return { ok: false, error: `Host "${host}" resolves to a private/reserved IP range` };
   }
@@ -92,6 +119,15 @@ export function validateOutboundHost(host: string, port: number): Result<void, s
 
   if (!host) {
     return { ok: false, error: 'Host must not be empty' };
+  }
+
+  // Reject standard non-TLS MQTT port
+  if (port === 1883) {
+    return { ok: false, error: 'Port 1883 is the standard non-TLS MQTT port; use port 8883 (MQTTS) instead' };
+  }
+
+  if (isLocalHostname(host)) {
+    return { ok: false, error: `Host "${host}" is a local/reserved hostname` };
   }
 
   if (isPrivateIp(host)) {
