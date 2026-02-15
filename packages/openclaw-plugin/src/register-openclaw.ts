@@ -16,15 +16,13 @@ import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gat
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
-import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
-import { injectionLogLimiter } from './utils/injection-log-rate-limiter.js';
-import { haversineDistanceKm, computeGeoScore, blendScores } from './utils/geo.js';
-import { reverseGeocode } from './utils/nominatim.js';
 import { createNotificationService } from './services/notification-service.js';
-import { autoLinkInboundMessage } from './utils/auto-linker.js';
 import {
-  createProjectSearchTool,
   createContextSearchTool,
+  createLinksQueryTool,
+  createLinksRemoveTool,
+  createLinksSetTool,
+  createProjectSearchTool,
   createSkillStoreAggregateTool,
   createSkillStoreCollectionsTool,
   createSkillStoreDeleteTool,
@@ -32,9 +30,6 @@ import {
   createSkillStoreListTool,
   createSkillStorePutTool,
   createSkillStoreSearchTool,
-  createLinksSetTool,
-  createLinksQueryTool,
-  createLinksRemoveTool,
 } from './tools/index.js';
 import type {
   AgentToolResult,
@@ -49,6 +44,17 @@ import type {
   ToolDefinition,
   ToolResult,
 } from './types/openclaw-api.js';
+import { autoLinkInboundMessage } from './utils/auto-linker.js';
+import { blendScores, computeGeoScore, haversineDistanceKm } from './utils/geo.js';
+import {
+  createBoundaryMarkers,
+  detectInjectionPatternsAsync,
+  sanitizeMessageForContext,
+  sanitizeMetadataField,
+  wrapExternalMessage,
+} from './utils/injection-protection.js';
+import { injectionLogLimiter } from './utils/injection-log-rate-limiter.js';
+import { reverseGeocode } from './utils/nominatim.js';
 
 /** Plugin state stored during registration */
 interface PluginState {
@@ -1218,10 +1224,18 @@ function createToolHandlers(state: PluginState) {
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
 
-        const response = await apiClient.get<{ results: Array<{ id: string; content: string; type: string; similarity?: number; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }> }>(
-          `/api/memories/search?${queryParams}`,
-          { userId },
-        );
+        const response = await apiClient.get<{
+          results: Array<{
+            id: string;
+            content: string;
+            type: string;
+            similarity?: number;
+            lat?: number | null;
+            lng?: number | null;
+            address?: string | null;
+            place_label?: string | null;
+          }>;
+        }>(`/api/memories/search?${queryParams}`, { userId });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1480,7 +1494,11 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const response = await apiClient.post<{ id: string }>('/api/work-items', { title: name, description, item_type: 'project', status, user_email: userId }, { userId });
+        const response = await apiClient.post<{ id: string }>(
+          '/api/work-items',
+          { title: name, description, item_type: 'project', status, user_email: userId },
+          { userId },
+        );
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1604,7 +1622,11 @@ function createToolHandlers(state: PluginState) {
       const { todoId } = params as { todoId: string };
 
       try {
-        const response = await apiClient.patch<{ id: string }>(`/api/work-items/${todoId}/status?user_email=${encodeURIComponent(userId)}`, { status: 'completed' }, { userId });
+        const response = await apiClient.patch<{ id: string }>(
+          `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(userId)}`,
+          { status: 'completed' },
+          { userId },
+        );
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1639,7 +1661,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         // Over-fetch by 3x to compensate for client-side kind/status filtering (Issue #1216 review fix)
-        const fetchLimit = (kind || status) ? Math.min((limit as number) * 3, 50) : (limit as number);
+        const fetchLimit = kind || status ? Math.min((limit as number) * 3, 50) : (limit as number);
 
         const queryParams = new URLSearchParams({
           q: query.trim(),
@@ -2117,7 +2139,9 @@ function createToolHandlers(state: PluginState) {
         // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
-            const detection = detectInjectionPatterns(m.body);
+            const detection = await detectInjectionPatternsAsync(m.body, {
+              promptGuardUrl: config.promptGuardUrl,
+            });
             if (detection.detected) {
               const logDecision = injectionLogLimiter.shouldLog(userId);
               if (logDecision.log) {
@@ -2127,6 +2151,7 @@ function createToolHandlers(state: PluginState) {
                     userId,
                     messageId: m.id,
                     patterns: detection.patterns,
+                    source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
                   },
                 );
@@ -2366,7 +2391,9 @@ function createToolHandlers(state: PluginState) {
         // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
-            const detection = detectInjectionPatterns(m.body);
+            const detection = await detectInjectionPatternsAsync(m.body, {
+              promptGuardUrl: config.promptGuardUrl,
+            });
             if (detection.detected) {
               const logDecision = injectionLogLimiter.shouldLog(userId);
               if (logDecision.log) {
@@ -2377,6 +2404,7 @@ function createToolHandlers(state: PluginState) {
                     threadId,
                     messageId: m.id,
                     patterns: detection.patterns,
+                    source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
                   },
                 );
@@ -2906,7 +2934,8 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'todo_search',
-      description: 'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. Optionally filter by kind or status.',
+      description:
+        'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. Optionally filter by kind or status.',
       parameters: todoSearchSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_search(params);
@@ -2915,7 +2944,8 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     },
     {
       name: 'project_search',
-      description: 'Search projects by natural language query. Uses semantic and text search to find relevant projects. Optionally filter by status (active, completed, archived).',
+      description:
+        'Search projects by natural language query. Uses semantic and text search to find relevant projects. Optionally filter by status (active, completed, archived).',
       parameters: projectSearchSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_search(params);
@@ -3263,10 +3293,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      * inbound message event and runs auto-linking in the background.
      * Failures are logged but never crash message processing.
      */
-    const messageReceivedHandler = async (
-      event: PluginHookMessageReceivedEvent,
-      _ctx: PluginHookAgentContext,
-    ): Promise<void> => {
+    const messageReceivedHandler = async (event: PluginHookMessageReceivedEvent, _ctx: PluginHookAgentContext): Promise<void> => {
       // Skip if no thread ID (nothing to link to)
       if (!event.threadId) {
         logger.debug('Auto-link skipped: no threadId in message_received event');

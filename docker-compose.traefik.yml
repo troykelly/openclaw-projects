@@ -633,10 +633,50 @@ services:
     # Note: No Traefik labels - routing is handled by the file provider
     # (dynamic-config.yml.template) which routes DOMAIN/www.DOMAIN -> app
 
+  # =============================================================================
+  # PromptGuard-2 (Prompt Injection Detection)
+  # =============================================================================
+  # Classifier service using Meta's Llama-Prompt-Guard-2-86M for multilingual
+  # prompt injection and jailbreak detection. On first start, downloads the
+  # model (~500MB) from HuggingFace using HF_TOKEN. Subsequent starts use the
+  # cached model from the persistent volume.
+  # If PromptGuard is unavailable, injection detection falls back to regex.
+  prompt-guard:
+    image: ghcr.io/troykelly/openclaw-projects-prompt-guard:latest
+    profiles: ["ml"]
+    container_name: openclaw-prompt-guard
+    restart: unless-stopped
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      MODEL_CACHE_DIR: /app/model_cache
+    volumes:
+      - prompt_guard_model_cache:/app/model_cache
+    ports:
+      - "[::1]:${PROMPT_GUARD_HOST_PORT:-8190}:8190"       # IPv6 (preferred)
+      - "127.0.0.1:${PROMPT_GUARD_HOST_PORT:-8190}:8190"  # IPv4 fallback
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8190/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    # Container hardening
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1536M
+        reservations:
+          cpus: "0.5"
+          memory: 768M
+
 volumes:
   db_data:
   seaweedfs_data:
   nominatim_data:
+  prompt_guard_model_cache:
   traefik_dynamic:
   # ModSecurity named volumes — auto-populated from the CRS image on first run.
   # Required because the CRS entrypoint modifies files that ship inside the image

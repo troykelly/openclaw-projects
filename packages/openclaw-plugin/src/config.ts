@@ -161,6 +161,9 @@ export const RawPluginConfigSchema = z
 
     /** Nominatim reverse geocoding URL (e.g., http://nominatim:8080) */
     nominatimUrl: z.string().url().optional().describe('Nominatim reverse geocoding URL'),
+
+    /** PromptGuard-2 classifier URL (e.g., http://prompt-guard:8190) */
+    promptGuardUrl: z.string().url().optional().describe('PromptGuard classifier URL'),
   })
   .strip(); // Remove unknown properties instead of rejecting with error
 
@@ -224,6 +227,9 @@ export const PluginConfigSchema = z.object({
 
   /** Nominatim reverse geocoding URL */
   nominatimUrl: z.string().url().optional(),
+
+  /** PromptGuard-2 classifier URL */
+  promptGuardUrl: z.string().url().optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
@@ -343,6 +349,7 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
     nominatimUrl: rawConfig.nominatimUrl,
+    promptGuardUrl: rawConfig.promptGuardUrl,
   };
 
   // Validate the resolved config

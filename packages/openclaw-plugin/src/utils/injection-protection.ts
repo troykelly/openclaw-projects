@@ -5,11 +5,13 @@
  * 1. Unicode/control character sanitisation
  * 2. Data boundary marking (spotlighting) with per-session nonce
  * 3. Suspicious pattern detection and logging
+ * 4. PromptGuard-2 classifier integration (optional, async)
  *
- * Issue #1224, #1255
+ * Issue #1224, #1255, #1256
  */
 
 import { randomBytes } from 'node:crypto';
+import { classifyText, type PromptGuardResult } from './prompt-guard-client.js';
 
 /** Boundary markers for external message content, keyed by per-session nonce */
 export interface BoundaryMarkers {
@@ -85,11 +87,13 @@ interface InjectionPattern {
 const INJECTION_PATTERNS: InjectionPattern[] = [
   {
     name: 'instruction_override',
-    regex: /\b(?:ignore|disregard|forget|override|bypass)\b.{0,30}\b(?:previous|prior|above|earlier|all|your|system|safety)\b.{0,30}\b(?:instructions?|rules?|guidelines?|prompts?|constraints?|directives?|and\b|do\b|instead\b)/i,
+    regex:
+      /\b(?:ignore|disregard|forget|override|bypass)\b.{0,30}\b(?:previous|prior|above|earlier|all|your|system|safety)\b.{0,30}\b(?:instructions?|rules?|guidelines?|prompts?|constraints?|directives?|and\b|do\b|instead\b)/i,
   },
   {
     name: 'role_reassignment',
-    regex: /\b(?:you are now|act as|pretend (?:you are|to be)|roleplay as|behave as)\b.{0,50}\b(?:ai|assistant|bot|agent|unrestricted|dan|jailbreak|without.*?(?:restrictions?|limits?|safety|guidelines?))\b/i,
+    regex:
+      /\b(?:you are now|act as|pretend (?:you are|to be)|roleplay as|behave as)\b.{0,50}\b(?:ai|assistant|bot|agent|unrestricted|dan|jailbreak|without.*?(?:restrictions?|limits?|safety|guidelines?))\b/i,
   },
   {
     name: 'new_instructions',
@@ -109,11 +113,13 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
   },
   {
     name: 'tool_call_injection',
-    regex: /\b(?:call|use|invoke|execute|run)\b.{0,20}\b(?:the\s+)?(?:sms_send|email_send|memory_store|memory_forget|todo_create|contact_create|memory_recall)\b.{0,20}\btool\b/i,
+    regex:
+      /\b(?:call|use|invoke|execute|run)\b.{0,20}\b(?:the\s+)?(?:sms_send|email_send|memory_store|memory_forget|todo_create|contact_create|memory_recall)\b.{0,20}\btool\b/i,
   },
   {
     name: 'data_exfiltration',
-    regex: /\b(?:send|forward|share|export|transmit|email|text)\b.{0,30}\b(?:all|every|the)\b.{0,20}\b(?:memories?|contacts?|data|information|messages?|threads?|projects?|todos?)\b.{0,30}\b(?:to|@)\b/i,
+    regex:
+      /\b(?:send|forward|share|export|transmit|email|text)\b.{0,30}\b(?:all|every|the)\b.{0,20}\b(?:memories?|contacts?|data|information|messages?|threads?|projects?|todos?)\b.{0,30}\b(?:to|@)\b/i,
   },
   {
     name: 'system_note_injection',
@@ -131,6 +137,10 @@ export interface InjectionDetectionResult {
   detected: boolean;
   /** Names of the patterns that matched */
   patterns: string[];
+  /** PromptGuard classifier result, if available (Issue #1256) */
+  classifier?: PromptGuardResult;
+  /** Detection source: 'regex' (default), 'classifier', or 'both' */
+  source?: 'regex' | 'classifier' | 'both';
 }
 
 /** Options for wrapping external messages */
@@ -163,10 +173,7 @@ export interface ContextSanitizeOptions {
  * characters (tab, newline, carriage return).
  */
 export function sanitizeExternalMessage(text: string): string {
-  return text
-    .replace(CONTROL_CHARS_REGEX, '')
-    .replace(UNICODE_INVISIBLE_REGEX, '')
-    .trim();
+  return text.replace(CONTROL_CHARS_REGEX, '').replace(UNICODE_INVISIBLE_REGEX, '').trim();
 }
 
 /**
@@ -186,9 +193,7 @@ function escapeBoundaryMarkers(text: string, nonce?: string): string {
   }
   // Always escape the generic (non-nonce) marker keywords to prevent
   // attackers from using the old hardcoded pattern
-  result = result
-    .replace(/EXTERNAL_MSG_START/g, 'EXTERNAL_MSG_START_ESCAPED')
-    .replace(/EXTERNAL_MSG_END/g, 'EXTERNAL_MSG_END_ESCAPED');
+  result = result.replace(/EXTERNAL_MSG_START/g, 'EXTERNAL_MSG_START_ESCAPED').replace(/EXTERNAL_MSG_END/g, 'EXTERNAL_MSG_END_ESCAPED');
   return result;
 }
 
@@ -198,10 +203,7 @@ function escapeBoundaryMarkers(text: string, nonce?: string): string {
  * newlines (which could break out of the header line), and boundary markers.
  */
 export function sanitizeMetadataField(field: string, nonce?: string): string {
-  return escapeBoundaryMarkers(
-    sanitizeExternalMessage(field).replace(/[\r\n]/g, ' '),
-    nonce,
-  );
+  return escapeBoundaryMarkers(sanitizeExternalMessage(field).replace(/[\r\n]/g, ' '), nonce);
 }
 
 /**
@@ -233,9 +235,7 @@ export function wrapExternalMessage(content: string, options: WrapOptions = {}):
     attribution.push(`from: ${sanitizeMetadataField(options.sender, markers.nonce)}`);
   }
 
-  const header = attribution.length > 0
-    ? `${markers.start} ${attribution.join(' ')}`
-    : markers.start;
+  const header = attribution.length > 0 ? `${markers.start} ${attribution.join(' ')}` : markers.start;
 
   return `${header}\n${escaped}\n${markers.end}`;
 }
@@ -267,6 +267,65 @@ export function detectInjectionPatterns(text: string): InjectionDetectionResult 
   };
 }
 
+/** Options for async injection detection */
+export interface AsyncDetectionOptions {
+  /** PromptGuard service base URL (e.g. http://localhost:8190) */
+  promptGuardUrl?: string;
+  /** Timeout for classifier requests in milliseconds (default 500ms) */
+  classifierTimeoutMs?: number;
+}
+
+/**
+ * Detect suspicious prompt injection patterns using both regex and
+ * (optionally) the PromptGuard-2 classifier.
+ *
+ * When `promptGuardUrl` is configured, the classifier is called in parallel
+ * with regex scanning. If the classifier is unavailable or times out,
+ * the function gracefully falls back to regex-only results.
+ *
+ * Detection remains monitoring-only (no blocking).
+ *
+ * Issue #1256
+ */
+export async function detectInjectionPatternsAsync(text: string, options: AsyncDetectionOptions = {}): Promise<InjectionDetectionResult> {
+  // Always run regex detection (fast, synchronous)
+  const regexResult = detectInjectionPatterns(text);
+
+  // If no classifier URL configured, return regex-only result
+  if (!options.promptGuardUrl) {
+    return { ...regexResult, source: 'regex' };
+  }
+
+  // Call classifier in parallel (with timeout)
+  const classifierResult = await classifyText(options.promptGuardUrl, text, options.classifierTimeoutMs ?? 500);
+
+  // Classifier unavailable — fall back to regex
+  if (!classifierResult) {
+    return { ...regexResult, source: 'regex' };
+  }
+
+  // Merge results: detected if either regex or classifier flags it
+  const classifierDetected = classifierResult.injection || classifierResult.jailbreak;
+  const patterns = [...regexResult.patterns];
+
+  if (classifierResult.injection) {
+    patterns.push('classifier:injection');
+  }
+  if (classifierResult.jailbreak) {
+    patterns.push('classifier:jailbreak');
+  }
+
+  const detected = regexResult.detected || classifierDetected;
+  const source: InjectionDetectionResult['source'] = regexResult.detected && classifierDetected ? 'both' : classifierDetected ? 'classifier' : 'regex';
+
+  return {
+    detected,
+    patterns,
+    classifier: classifierResult,
+    source,
+  };
+}
+
 /**
  * Sanitize message content for safe inclusion in LLM context.
  *
@@ -276,10 +335,7 @@ export function detectInjectionPatterns(text: string): InjectionDetectionResult 
  * This is the primary function to call when preparing message content
  * for any LLM-facing output (auto-recall context, tool results, etc.).
  */
-export function sanitizeMessageForContext(
-  content: string,
-  options: ContextSanitizeOptions = {},
-): string {
+export function sanitizeMessageForContext(content: string, options: ContextSanitizeOptions = {}): string {
   const { direction = 'inbound', channel, sender, nonce } = options;
 
   if (direction === 'outbound') {

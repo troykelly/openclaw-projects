@@ -1,0 +1,16 @@
+Built with Llama
+
+This container uses Meta's Llama-Prompt-Guard-2-86M model for prompt
+injection and jailbreak detection.
+
+Llama 4 is licensed under the Llama 4 Community License,
+Copyright (c) Meta Platforms, Inc. All Rights Reserved.
+
+Model weights are NOT distributed with this container image. They are
+downloaded at runtime from HuggingFace upon first startup, subject to
+Meta's gated model access requirements and the Llama 4 Community License.
+
+For more information:
+- Model: https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M
+- License: See LICENSE file in this directory
+- Blog: https://ai.meta.com/blog/meta-prompt-guard-2/

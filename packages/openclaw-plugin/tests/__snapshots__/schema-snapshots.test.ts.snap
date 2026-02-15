@@ -137,6 +137,11 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
       "description": "Path to file containing Postmark Token",
       "type": "string",
     },
+    "promptGuardUrl": {
+      "description": "PromptGuard-2 classifier URL for multilingual injection detection (e.g., http://prompt-guard:8190)",
+      "pattern": "^https?://",
+      "type": "string",
+    },
     "secretCommandTimeout": {
       "default": 5000,
       "description": "Timeout for secret command execution in milliseconds",
@@ -308,6 +313,12 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
   "postmarkTokenFile": {
     "group": "Postmark Email",
     "label": "Postmark Token File",
+  },
+  "promptGuardUrl": {
+    "group": "Advanced",
+    "help": "URL for PromptGuard-2 classifier service (enables multilingual prompt injection detection)",
+    "label": "PromptGuard URL",
+    "placeholder": "http://prompt-guard:8190",
   },
   "secretCommandTimeout": {
     "group": "Advanced",

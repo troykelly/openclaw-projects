@@ -8,7 +8,7 @@ import type { ApiClient } from '../api-client.js';
 import type { PluginConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 import { injectionLogLimiter } from '../utils/injection-log-rate-limiter.js';
-import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
+import { createBoundaryMarkers, detectInjectionPatternsAsync, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email', 'all']);
@@ -100,7 +100,7 @@ export interface MessageSearchTool {
  * Creates the message_search tool.
  */
 export function createMessageSearchTool(options: MessageSearchToolOptions): MessageSearchTool {
-  const { client, logger, userId } = options;
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'message_search',
@@ -186,7 +186,9 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.snippet) {
-            const detection = detectInjectionPatterns(m.snippet);
+            const detection = await detectInjectionPatternsAsync(m.snippet, {
+              promptGuardUrl: config.promptGuardUrl,
+            });
             if (detection.detected) {
               const logDecision = injectionLogLimiter.shouldLog(userId);
               if (logDecision.log) {
@@ -196,6 +198,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
                     userId,
                     messageId: m.id,
                     patterns: detection.patterns,
+                    source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
                   },
                 );

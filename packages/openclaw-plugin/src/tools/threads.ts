@@ -10,7 +10,7 @@ import type { Logger } from '../logger.js';
 import { injectionLogLimiter } from '../utils/injection-log-rate-limiter.js';
 import {
   createBoundaryMarkers,
-  detectInjectionPatterns,
+  detectInjectionPatternsAsync,
   sanitizeMessageForContext,
   sanitizeMetadataField,
   wrapExternalMessage,
@@ -314,7 +314,7 @@ export interface ThreadGetTool {
  * Creates the thread_get tool.
  */
 export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
-  const { client, logger, userId } = options;
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'thread_get',
@@ -375,7 +375,9 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         // Rate-limited to prevent log flooding from volume attacks. (#1257)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
-            const detection = detectInjectionPatterns(m.body);
+            const detection = await detectInjectionPatternsAsync(m.body, {
+              promptGuardUrl: config.promptGuardUrl,
+            });
             if (detection.detected) {
               const logDecision = injectionLogLimiter.shouldLog(userId);
               if (logDecision.log) {
@@ -386,6 +388,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
                     threadId,
                     messageId: m.id,
                     patterns: detection.patterns,
+                    source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
                   },
                 );
