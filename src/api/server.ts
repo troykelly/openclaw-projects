@@ -16428,6 +16428,267 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Context entities (Issue #1275) ──────────────────────────────────
+
+  // POST /api/contexts - Create a new context
+  app.post('/api/contexts', async (req, reply) => {
+    const body = req.body as { label?: string; content?: string; content_type?: string } | null;
+
+    if (!body?.label?.trim()) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+    if (!body.content) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO context (label, content, content_type)
+         VALUES ($1, $2, $3)
+         RETURNING id::text as id, label, content, content_type, is_active, created_at, updated_at`,
+        [body.label.trim(), body.content, body.content_type || 'text'],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contexts - List contexts with pagination and search
+  app.get('/api/contexts', async (req, reply) => {
+    const query = req.query as { search?: string; limit?: string; offset?: string; include_inactive?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    // By default only return active contexts
+    if (query.include_inactive !== 'true') {
+      conditions.push('is_active = true');
+    }
+
+    if (query.search) {
+      conditions.push(`(label ILIKE $${paramIndex} OR content ILIKE $${paramIndex})`);
+      params.push(`%${query.search}%`);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(`SELECT COUNT(*) as total FROM context ${whereClause}`, params);
+      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+      params.push(limit);
+      const limitIdx = paramIndex++;
+      params.push(offset);
+      const offsetIdx = paramIndex++;
+
+      const result = await pool.query(
+        `SELECT id::text as id, label, content, content_type, is_active, created_at, updated_at
+         FROM context ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+
+      return reply.send({ total, limit, offset, items: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contexts/:id - Get a single context
+  app.get('/api/contexts/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT id::text as id, label, content, content_type, is_active, created_at, updated_at
+         FROM context WHERE id = $1`,
+        [id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/contexts/:id - Update a context
+  app.patch('/api/contexts/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { label?: string; content?: string; content_type?: string; is_active?: boolean } | null;
+    const pool = createPool();
+    try {
+      const existing = await pool.query('SELECT id FROM context WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const updates: string[] = [];
+      const values: (string | boolean | null)[] = [];
+      let paramIndex = 1;
+
+      if (body?.label !== undefined) {
+        updates.push(`label = $${paramIndex}`);
+        values.push(body.label.trim());
+        paramIndex++;
+      }
+      if (body?.content !== undefined) {
+        updates.push(`content = $${paramIndex}`);
+        values.push(body.content);
+        paramIndex++;
+      }
+      if (body?.content_type !== undefined) {
+        updates.push(`content_type = $${paramIndex}`);
+        values.push(body.content_type);
+        paramIndex++;
+      }
+      if (body?.is_active !== undefined) {
+        updates.push(`is_active = $${paramIndex}`);
+        values.push(body.is_active);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ error: 'no fields to update' });
+      }
+
+      values.push(id);
+      const result = await pool.query(
+        `UPDATE context SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id, label, content, content_type, is_active, created_at, updated_at`,
+        values,
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/contexts/:id - Delete a context (cascade deletes links)
+  app.delete('/api/contexts/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query('DELETE FROM context WHERE id = $1 RETURNING id', [id]);
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/contexts/:id/links - Create a link from context to target entity
+  app.post('/api/contexts/:id/links', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { target_type?: string; target_id?: string; priority?: number } | null;
+
+    if (!body?.target_type?.trim()) {
+      return reply.code(400).send({ error: 'target_type is required' });
+    }
+    if (!body.target_id?.trim()) {
+      return reply.code(400).send({ error: 'target_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Check context exists
+      const ctxCheck = await pool.query('SELECT id FROM context WHERE id = $1', [id]);
+      if (ctxCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'context not found' });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO context_link (context_id, target_type, target_id, priority)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id::text as id, context_id::text as context_id, target_type, target_id::text as target_id, priority, created_at`,
+        [id, body.target_type.trim(), body.target_id.trim(), body.priority ?? 0],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('uq_context_link') || msg.includes('unique')) {
+        return reply.code(409).send({ error: 'link already exists' });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contexts/:id/links - List links for a context
+  app.get('/api/contexts/:id/links', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT id::text as id, context_id::text as context_id, target_type, target_id::text as target_id, priority, created_at
+         FROM context_link WHERE context_id = $1
+         ORDER BY priority DESC, created_at ASC`,
+        [id],
+      );
+      return reply.send({ links: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/contexts/:id/links/:linkId - Remove a specific link
+  app.delete('/api/contexts/:id/links/:linkId', async (req, reply) => {
+    const { id, linkId } = req.params as { id: string; linkId: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        'DELETE FROM context_link WHERE id = $1 AND context_id = $2 RETURNING id',
+        [linkId, id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/entity-contexts - Reverse lookup: find all contexts linked to a target entity
+  app.get('/api/entity-contexts', async (req, reply) => {
+    const query = req.query as { target_type?: string; target_id?: string };
+
+    if (!query.target_type?.trim()) {
+      return reply.code(400).send({ error: 'target_type is required' });
+    }
+    if (!query.target_id?.trim()) {
+      return reply.code(400).send({ error: 'target_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT c.id::text as id, c.label, c.content, c.content_type, c.is_active,
+                c.created_at, c.updated_at, cl.priority, cl.id::text as link_id
+         FROM context c
+         JOIN context_link cl ON cl.context_id = c.id
+         WHERE cl.target_type = $1 AND cl.target_id = $2 AND c.is_active = true
+         ORDER BY cl.priority DESC, c.created_at ASC`,
+        [query.target_type.trim(), query.target_id.trim()],
+      );
+      return reply.send({ contexts: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
