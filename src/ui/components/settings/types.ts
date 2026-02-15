@@ -14,6 +14,10 @@ export interface UserSettings {
   email_notifications: boolean;
   email_digest_frequency: EmailDigestFrequency;
   timezone: string;
+  geo_auto_inject: boolean;
+  geo_high_res_retention_hours: number;
+  geo_general_retention_days: number;
+  geo_high_res_threshold_m: number;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +34,10 @@ export type SettingsUpdatePayload = Partial<
     | 'email_notifications'
     | 'email_digest_frequency'
     | 'timezone'
+    | 'geo_auto_inject'
+    | 'geo_high_res_retention_hours'
+    | 'geo_general_retention_days'
+    | 'geo_high_res_threshold_m'
   >
 >;
 
