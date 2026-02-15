@@ -112,6 +112,10 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
     supersededBy: row.superseded_by as string | null,
     embeddingStatus: row.embedding_status as 'pending' | 'complete' | 'failed',
+    lat: (row.lat as number) ?? null,
+    lng: (row.lng as number) ?? null,
+    address: (row.address as string) ?? null,
+    placeLabel: (row.place_label as string) ?? null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };

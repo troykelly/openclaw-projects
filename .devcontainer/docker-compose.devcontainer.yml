@@ -100,6 +100,25 @@ services:
       retries: 20
       start_period: 30s
 
+  nominatim:
+    image: mediagis/nominatim:4.4
+    environment:
+      PBF_URL: https://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf
+      REPLICATION_URL: https://download.geofabrik.de/australia-oceania/australia-updates/
+      NOMINATIM_PASSWORD: openclaw
+    volumes:
+      - openclaw_projects_nominatim_data:/var/lib/postgresql/14/main
+    ports:
+      - "[::1]:8080:8080"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 600s
+
 volumes:
   openclaw_projects_postgres_data:
   openclaw_projects_seaweedfs_data:
+  openclaw_projects_nominatim_data:

@@ -3,6 +3,7 @@
  * Part of Epic #199, Issue #209
  * Tags added in Issue #492
  * Relationship scope added in Issue #493
+ * Geolocation fields added in Epic #1204
  */
 
 /** Valid memory types */
@@ -49,6 +50,14 @@ export interface CreateMemoryInput extends MemoryScope, MemoryAttribution, Memor
   memoryType?: MemoryType;
   /** Freeform text tags for categorical filtering */
   tags?: string[];
+  /** WGS84 latitude (-90 to 90) */
+  lat?: number;
+  /** WGS84 longitude (-180 to 180) */
+  lng?: number;
+  /** Reverse-geocoded address */
+  address?: string;
+  /** Short human-friendly place name */
+  placeLabel?: string;
 }
 
 /** Input for updating a memory */
@@ -85,6 +94,14 @@ export interface MemoryEntry {
   expiresAt: Date | null;
   supersededBy: string | null;
   embeddingStatus: 'pending' | 'complete' | 'failed';
+  /** WGS84 latitude */
+  lat: number | null;
+  /** WGS84 longitude */
+  lng: number | null;
+  /** Reverse-geocoded address */
+  address: string | null;
+  /** Short human-friendly place name */
+  placeLabel: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

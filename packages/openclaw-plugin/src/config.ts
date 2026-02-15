@@ -158,6 +158,9 @@ export const RawPluginConfigSchema = z
 
     /** Base URL for web app (used for generating note/notebook URLs) */
     baseUrl: z.string().url().optional().describe('Web app base URL'),
+
+    /** Nominatim reverse geocoding URL (e.g., http://nominatim:8080) */
+    nominatimUrl: z.string().url().optional().describe('Nominatim reverse geocoding URL'),
   })
   .strip(); // Remove unknown properties instead of rejecting with error
 
@@ -218,6 +221,9 @@ export const PluginConfigSchema = z.object({
 
   /** Base URL for web app */
   baseUrl: z.string().url().optional(),
+
+  /** Nominatim reverse geocoding URL */
+  nominatimUrl: z.string().url().optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
@@ -336,6 +342,7 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     maxRetries: rawConfig.maxRetries,
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
+    nominatimUrl: rawConfig.nominatimUrl,
   };
 
   // Validate the resolved config
@@ -385,6 +392,7 @@ export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConf
     maxRetries: rawConfig.maxRetries,
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
+    nominatimUrl: rawConfig.nominatimUrl,
   };
 
   // Validate the resolved config

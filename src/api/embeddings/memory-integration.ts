@@ -3,6 +3,7 @@
  *
  * This module provides functions to generate and update embeddings
  * for memory records, with graceful degradation if embedding fails.
+ * Location embedding support added in Epic #1204.
  */
 
 import type { Pool } from 'pg';
@@ -79,6 +80,44 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
     await pool.query(`UPDATE memory SET embedding_status = 'failed' WHERE id = $1`, [memoryId]).catch(() => {});
 
     return 'failed';
+  }
+}
+
+/**
+ * Generate and store a separate location embedding for a memory record.
+ * Uses address + place_label text as input. Non-fatal on failure.
+ * Part of Epic #1204, Issue #1210.
+ *
+ * @param pool Database pool
+ * @param memoryId The memory ID
+ * @param locationText The location text to embed (address + place_label)
+ */
+export async function generateLocationEmbedding(
+  pool: Pool,
+  memoryId: string,
+  locationText: string,
+): Promise<void> {
+  if (!embeddingService.isConfigured() || !locationText.trim()) return;
+
+  try {
+    const result = await embeddingService.embed(locationText);
+    if (!result) return;
+
+    await pool.query(
+      `UPDATE memory
+       SET location_embedding = $1::vector
+       WHERE id = $2`,
+      [`[${result.embedding.join(',')}]`, memoryId],
+    );
+  } catch (error) {
+    // Non-fatal: location embedding is a bonus relevance signal
+    const msg = error instanceof Error ? error.message : String(error);
+    if (!msg.includes('Cannot use a pool after calling end')) {
+      console.error(
+        `[Embeddings] Failed to embed location for memory ${memoryId}:`,
+        error instanceof EmbeddingError ? error.toSafeString() : msg,
+      );
+    }
   }
 }
 
@@ -203,6 +242,10 @@ export async function searchMemoriesSemantic(
          m.embedding_provider,
          m.embedding_model,
          m.tags,
+         m.lat,
+         m.lng,
+         m.address,
+         m.place_label,
          1 - (m.embedding <=> $${embeddingParamIndex}::vector) as similarity
        FROM memory m
        ${fullWhereClause}

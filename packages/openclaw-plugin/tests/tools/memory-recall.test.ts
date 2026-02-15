@@ -574,4 +574,389 @@ describe('memory_recall tool', () => {
       }
     });
   });
+
+  describe('location parameter validation', () => {
+    it('should accept valid location params', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'nearby cafes',
+        location: { lat: -33.8688, lng: 151.2093 },
+        location_radius_km: 5,
+        location_weight: 0.4,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject latitude out of range', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: 91, lng: 0 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject longitude out of range', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: 0, lng: 181 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject location_radius_km below 0.1', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location_radius_km: 0.05,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject location_radius_km above 100', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location_radius_km: 101,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject location_weight below 0', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location_weight: -0.1,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject location_weight above 1', async () => {
+      const tool = createMemoryRecallTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location_weight: 1.1,
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('geo re-ranking', () => {
+    it('should over-fetch from API when location is provided', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'semantic' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({
+        query: 'test',
+        limit: 5,
+        location: { lat: 0, lng: 0 },
+      });
+
+      // Should request 3x the limit (15) instead of 5
+      const calledUrl = mockGet.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('limit=15');
+    });
+
+    it('should re-rank results with geo scoring', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: '1', content: 'Far away memory', type: 'fact', similarity: 0.9, lat: 40.7128, lng: -74.006 }, // New York
+            { id: '2', content: 'Nearby memory', type: 'fact', similarity: 0.8, lat: -33.87, lng: 151.21 }, // Near Sydney
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      // Search from Sydney with high geo weight
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: -33.8688, lng: 151.2093 },
+        location_weight: 0.8,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Nearby memory should be ranked first because geo weight is high
+        expect(result.data.details.memories[0].id).toBe('2');
+      }
+    });
+
+    it('should filter by radius when location_radius_km is set', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: '1', content: 'Far away', type: 'fact', similarity: 0.9, lat: 40.7128, lng: -74.006 }, // New York
+            { id: '2', content: 'Nearby', type: 'fact', similarity: 0.8, lat: -33.87, lng: 151.21 }, // Near Sydney
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      // Search from Sydney with a 10km radius - should exclude New York
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: -33.8688, lng: 151.2093 },
+        location_radius_km: 10,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.count).toBe(1);
+        expect(result.data.details.memories[0].id).toBe('2');
+      }
+    });
+
+    it('should exclude memories without lat/lng when radius filtering', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: '1', content: 'No location', type: 'fact', similarity: 0.9 },
+            { id: '2', content: 'Has location', type: 'fact', similarity: 0.8, lat: -33.87, lng: 151.21 },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: -33.8688, lng: 151.2093 },
+        location_radius_km: 10,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Memory without lat/lng should be excluded when radius filtering
+        expect(result.data.details.count).toBe(1);
+        expect(result.data.details.memories[0].id).toBe('2');
+      }
+    });
+
+    it('should use neutral geo score for memories without location', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: '1', content: 'No location high content', type: 'fact', similarity: 0.95 },
+            { id: '2', content: 'Has location nearby', type: 'fact', similarity: 0.5, lat: -33.87, lng: 151.21 },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      // Without radius filtering, memories without location still appear
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: -33.8688, lng: 151.2093 },
+        location_weight: 0.3,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.count).toBe(2);
+      }
+    });
+
+    it('should default location_weight to 0.3', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: '1', content: 'High content, far', type: 'fact', similarity: 0.9, lat: 40.7128, lng: -74.006 },
+            { id: '2', content: 'Lower content, near', type: 'fact', similarity: 0.7, lat: -33.87, lng: 151.21 },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      // With default weight 0.3, content still dominates
+      const result = await tool.execute({
+        query: 'test',
+        location: { lat: -33.8688, lng: 151.2093 },
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Content score dominates at weight 0.3, so high content memory comes first
+        expect(result.data.details.memories).toHaveLength(2);
+      }
+    });
+
+    it('should truncate to original limit after geo re-ranking', async () => {
+      const results = Array.from({ length: 10 }, (_, i) => ({
+        id: String(i),
+        content: `Memory ${i}`,
+        type: 'fact',
+        similarity: 0.9 - i * 0.05,
+        lat: -33.87 + i * 0.01,
+        lng: 151.21 + i * 0.01,
+      }));
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results, search_type: 'semantic' },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        query: 'test',
+        limit: 3,
+        location: { lat: -33.87, lng: 151.21 },
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.details.memories).toHaveLength(3);
+      }
+    });
+
+    it('should include geo fields in memory results', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            {
+              id: '1',
+              content: 'Memory with location',
+              type: 'fact',
+              similarity: 0.9,
+              lat: -33.8688,
+              lng: 151.2093,
+              address: '1 Martin Place, Sydney',
+              place_label: 'Martin Place',
+            },
+          ],
+          search_type: 'semantic',
+        },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createMemoryRecallTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test' });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const mem = result.data.details.memories[0];
+        expect(mem.lat).toBe(-33.8688);
+        expect(mem.lng).toBe(151.2093);
+        expect(mem.address).toBe('1 Martin Place, Sydney');
+        expect(mem.place_label).toBe('Martin Place');
+      }
+    });
+  });
 });

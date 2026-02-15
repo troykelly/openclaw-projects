@@ -581,6 +581,137 @@ describe('memory_store tool', () => {
     });
   });
 
+  describe('location fields', () => {
+    it('should accept location with all fields', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        text: 'Met at the cafe',
+        location: { lat: -33.8688, lng: 151.2093, address: '123 George St, Sydney', place_label: 'Sydney CBD' },
+      });
+      expect(result.success).toBe(true);
+      expect(mockPost).toHaveBeenCalledWith(
+        '/api/memories/unified',
+        expect.objectContaining({
+          lat: -33.8688,
+          lng: 151.2093,
+          address: '123 George St, Sydney',
+          place_label: 'Sydney CBD',
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('should accept location with lat/lng only', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        text: 'At the park',
+        location: { lat: 40.7128, lng: -74.006 },
+      });
+      expect(result.success).toBe(true);
+      expect(mockPost).toHaveBeenCalledWith(
+        '/api/memories/unified',
+        expect.objectContaining({
+          lat: 40.7128,
+          lng: -74.006,
+        }),
+        expect.any(Object),
+      );
+      // address/place_label should not be in payload when not provided
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.address).toBeUndefined();
+      expect(payload.place_label).toBeUndefined();
+    });
+
+    it('should reject invalid latitude (> 90)', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        text: 'test',
+        location: { lat: 91, lng: 0 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject invalid latitude (< -90)', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        text: 'test',
+        location: { lat: -91, lng: 0 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject invalid longitude (> 180)', async () => {
+      const tool = createMemoryStoreTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({
+        text: 'test',
+        location: { lat: 0, lng: 181 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should not include location in payload when not provided', async () => {
+      const mockPost = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: 'mem-1', content: 'test' },
+      });
+      const client = { ...mockApiClient, post: mockPost };
+
+      const tool = createMemoryStoreTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ text: 'no location' });
+      const payload = mockPost.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload.lat).toBeUndefined();
+      expect(payload.lng).toBeUndefined();
+    });
+  });
+
   describe('user scoping', () => {
     it('should use provided userId for API calls', async () => {
       const mockPost = vi.fn().mockResolvedValue({
