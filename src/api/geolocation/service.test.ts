@@ -19,6 +19,8 @@ import {
   rowToProvider,
   rowToProviderUser,
   rowToLocation,
+  canDeleteProvider,
+  deleteSubscriptionsByProvider,
 } from './service.ts';
 
 /** Build a mock Pool that returns the given rows for any query. */
@@ -319,6 +321,59 @@ describe('geolocation/service', () => {
       });
       const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(query[0]).toContain('INSERT INTO geo_location');
+    });
+  });
+
+  describe('canDeleteProvider', () => {
+    it('allows deleting a non-shared provider', async () => {
+      // First query: get provider (non-shared)
+      // Second query: subscriber count (irrelevant for non-shared)
+      const pool = mockPoolSequence([
+        { rows: [{ ...providerRow, is_shared: false }], rowCount: 1 } as QueryResult,
+        { rows: [{ count: '0' }], rowCount: 1 } as QueryResult,
+      ]);
+      const result = await canDeleteProvider(pool, providerRow.id);
+      expect(result.canDelete).toBe(true);
+    });
+
+    it('allows deleting a shared provider with no other subscribers', async () => {
+      const pool = mockPoolSequence([
+        { rows: [{ ...providerRow, is_shared: true }], rowCount: 1 } as QueryResult,
+        { rows: [{ count: '0' }], rowCount: 1 } as QueryResult,
+      ]);
+      const result = await canDeleteProvider(pool, providerRow.id);
+      expect(result.canDelete).toBe(true);
+    });
+
+    it('blocks deleting a shared provider with other subscribers', async () => {
+      const pool = mockPoolSequence([
+        { rows: [{ ...providerRow, is_shared: true }], rowCount: 1 } as QueryResult,
+        { rows: [{ count: '3' }], rowCount: 1 } as QueryResult,
+      ]);
+      const result = await canDeleteProvider(pool, providerRow.id);
+      expect(result.canDelete).toBe(false);
+      expect(result.subscriberCount).toBe(3);
+      expect(result.reason).toContain('subscriber');
+    });
+
+    it('returns canDelete false when provider not found', async () => {
+      const pool = mockPoolSequence([
+        { rows: [], rowCount: 0 } as unknown as QueryResult,
+      ]);
+      const result = await canDeleteProvider(pool, 'nonexistent-id');
+      expect(result.canDelete).toBe(false);
+      expect(result.reason).toContain('not found');
+    });
+  });
+
+  describe('deleteSubscriptionsByProvider', () => {
+    it('deletes all subscriptions for a provider', async () => {
+      const pool = mockPool([]);
+      await deleteSubscriptionsByProvider(pool, providerRow.id);
+      const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(query[0]).toContain('DELETE FROM geo_provider_user');
+      expect(query[0]).toContain('provider_id');
+      expect(query[1]).toEqual([providerRow.id]);
     });
   });
 });

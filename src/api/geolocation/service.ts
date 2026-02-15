@@ -265,6 +265,61 @@ export async function softDeleteProvider(pool: Queryable, id: string): Promise<v
   );
 }
 
+/** Result of checking whether a provider can be deleted. */
+export interface CanDeleteProviderResult {
+  canDelete: boolean;
+  reason?: string;
+  subscriberCount?: number;
+}
+
+/**
+ * Check whether a geo provider can be safely deleted.
+ * Non-shared providers are always deletable.
+ * Shared providers are blocked if other users (not the owner) are subscribed.
+ */
+export async function canDeleteProvider(pool: Queryable, providerId: string): Promise<CanDeleteProviderResult> {
+  const providerResult = await pool.query(
+    `SELECT owner_email, is_shared FROM geo_provider WHERE id = $1 AND deleted_at IS NULL`,
+    [providerId],
+  );
+
+  if (providerResult.rows.length === 0) {
+    return { canDelete: false, reason: 'Provider not found' };
+  }
+
+  const { owner_email, is_shared } = providerResult.rows[0];
+
+  if (!is_shared) {
+    return { canDelete: true };
+  }
+
+  // Count subscribers that are not the owner
+  const subResult = await pool.query(
+    `SELECT COUNT(*)::text AS count FROM geo_provider_user WHERE provider_id = $1 AND user_email != $2`,
+    [providerId, owner_email],
+  );
+
+  const subscriberCount = parseInt(subResult.rows[0].count, 10);
+
+  if (subscriberCount > 0) {
+    return {
+      canDelete: false,
+      reason: 'Cannot delete shared provider with active subscribers',
+      subscriberCount,
+    };
+  }
+
+  return { canDelete: true };
+}
+
+/** Delete all subscriptions for a provider. Used during provider cleanup. */
+export async function deleteSubscriptionsByProvider(pool: Queryable, providerId: string): Promise<void> {
+  await pool.query(
+    `DELETE FROM geo_provider_user WHERE provider_id = $1`,
+    [providerId],
+  );
+}
+
 // ─── Subscription CRUD ──────────────────────────────────────────────────────
 
 export async function createSubscription(pool: Queryable, input: CreateSubscriptionInput): Promise<GeoProviderUser> {
