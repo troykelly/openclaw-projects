@@ -59,6 +59,13 @@ http:
         excludedContentTypes:
           - text/event-stream
 
+    # Redirect bare root (/) to /app for the SPA
+    root-redirect:
+      redirectRegex:
+        regex: "^https?://[^/]+/$"
+        replacement: "/app"
+        permanent: false
+
   # Routers
   routers:
     # API router - routes through ModSecurity WAF for full request/response inspection
@@ -71,6 +78,39 @@ http:
       middlewares:
         - security-headers
         - rate-limit
+      tls:
+        certResolver: letsencrypt
+        options: default
+
+    # API path router - routes /api/* on the app domain through ModSecurity WAF
+    # The web UI makes API calls to /api/* on the same origin (DOMAIN), so these
+    # must be forwarded to the API via ModSecurity rather than nginx.
+    # Priority 100 ensures this matches before the catch-all app-router.
+    api-path-router:
+      rule: "(Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)) && PathPrefix(`/api`)"
+      service: modsecurity-service
+      priority: 100
+      entryPoints:
+        - websecure
+      middlewares:
+        - security-headers
+        - rate-limit
+      tls:
+        certResolver: letsencrypt
+        options: default
+
+    # Root redirect router - redirects / to /app on the app domain
+    # React Router uses basename="/app" so the bare root must redirect.
+    # Priority 200 ensures exact root match takes precedence.
+    root-redirect-router:
+      rule: "(Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)) && Path(`/`)"
+      service: app-service
+      priority: 200
+      entryPoints:
+        - websecure
+      middlewares:
+        - root-redirect
+        - security-headers
       tls:
         certResolver: letsencrypt
         options: default
