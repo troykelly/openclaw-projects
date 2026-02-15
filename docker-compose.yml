@@ -396,7 +396,7 @@ services:
     container_name: openclaw-prompt-guard
     restart: unless-stopped
     environment:
-      HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is required for PromptGuard model download}
+      HF_TOKEN: ${HF_TOKEN:-}
       MODEL_CACHE_DIR: /app/model_cache
     volumes:
       - prompt_guard_model_cache:/app/model_cache
