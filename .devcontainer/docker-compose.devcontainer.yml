@@ -16,6 +16,8 @@ services:
       S3_FORCE_PATH_STYLE: "true"
       # Claude Code agent teams (experimental) — enables parallel coordination
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
+      # Nominatim (reverse geocoding for geo-contextual search)
+      NOMINATIM_URL: http://nominatim:8080
     volumes:
       - ..:/workspaces/openclaw-projects:cached
       # ┌─────────────────────────────────────────────────────────────────┐

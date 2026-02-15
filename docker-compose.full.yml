@@ -403,6 +403,8 @@ services:
       WEBHOOK_IP_WHITELIST_DISABLED: ${WEBHOOK_IP_WHITELIST_DISABLED:-false}
       OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
       OPENCLAW_HOOK_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      # Nominatim (reverse geocoding for geo-contextual search)
+      NOMINATIM_URL: ${NOMINATIM_URL:-http://nominatim:8080}
       MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-10485760}
     # Publish to localhost for Traefik (host networking mode)
     ports:
@@ -537,6 +539,48 @@ services:
     # (dynamic-config.yml.template) which routes DOMAIN/www.DOMAIN -> app
 
   # =============================================================================
+  # Nominatim (Reverse Geocoding)
+  # =============================================================================
+  # Self-hosted OpenStreetMap geocoder for geo-contextual search features.
+  # On first start, imports the PBF extract (this takes 10+ minutes depending
+  # on region size). After import, the service provides fast local geocoding.
+  # If Nominatim is unavailable, geo features silently degrade.
+  nominatim:
+    image: mediagis/nominatim:4.4
+    container_name: openclaw-nominatim
+    restart: unless-stopped
+    environment:
+      # OpenStreetMap PBF extract to import
+      # Find regional extracts at: https://download.geofabrik.de/
+      PBF_URL: ${NOMINATIM_PBF_URL:-https://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf}
+      REPLICATION_URL: ${NOMINATIM_REPLICATION_URL:-https://download.geofabrik.de/australia-oceania/australia-updates/}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-openclaw}
+    volumes:
+      - nominatim_data:/var/lib/postgresql/14/main
+    # Publish to localhost for potential external access
+    ports:
+      - "[::1]:${NOMINATIM_HOST_PORT:-8180}:8080"       # IPv6 (preferred)
+      - "127.0.0.1:${NOMINATIM_HOST_PORT:-8180}:8080"  # IPv4 fallback
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 600s
+    # Container hardening
+    # Note: Nominatim runs PostgreSQL internally and requires more capabilities
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+
+  # =============================================================================
   # OpenClaw Gateway (AI Agent Gateway)
   # =============================================================================
   # The OpenClaw gateway manages AI agent sessions, routes messages from
@@ -622,6 +666,7 @@ services:
 volumes:
   db_data:
   seaweedfs_data:
+  nominatim_data:
   traefik_dynamic:
   # ModSecurity named volumes — auto-populated from the CRS image on first run.
   # Required because the CRS entrypoint modifies files that ship inside the image
