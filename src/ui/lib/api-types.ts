@@ -357,6 +357,32 @@ export interface CalendarEventsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Contact Suggest-Match (Issue #1270)
+// ---------------------------------------------------------------------------
+
+/** Single match from GET /api/contacts/suggest-match */
+export interface ContactMatch {
+  contact_id: string;
+  display_name: string;
+  confidence: number;
+  match_reasons: string[];
+  endpoints: Array<{ type: string; value: string }>;
+}
+
+/** Response from GET /api/contacts/suggest-match */
+export interface ContactSuggestMatchResponse {
+  matches: ContactMatch[];
+}
+
+/** Response from POST /api/messages/:id/link-contact */
+export interface MessageLinkContactResponse {
+  message_id: string;
+  contact_id: string;
+  from_address: string | null;
+  linked: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 
