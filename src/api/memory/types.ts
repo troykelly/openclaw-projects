@@ -109,6 +109,8 @@ export interface MemoryEntry {
   placeLabel: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Number of file attachments (Issue #1271), populated when joined */
+  attachmentCount?: number;
 }
 
 /** Query options for listing memories */

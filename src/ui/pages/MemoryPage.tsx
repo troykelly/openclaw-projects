@@ -26,6 +26,7 @@ import {
   Lightbulb,
   Link2,
   MoreVertical,
+  Paperclip,
   Pencil,
   Plus,
   Search,
@@ -404,6 +405,12 @@ export function MemoryPage(): React.JSX.Element {
                           <span className="flex items-center gap-1">
                             <Link2 className="size-3" />
                             Linked
+                          </span>
+                        )}
+                        {(memory.attachment_count ?? 0) > 0 && (
+                          <span className="flex items-center gap-1" data-testid="memory-attachment-count">
+                            <Paperclip className="size-3" />
+                            {memory.attachment_count}
                           </span>
                         )}
                         <span className="flex items-center gap-1">

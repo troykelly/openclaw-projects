@@ -7467,6 +7467,110 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // POST /api/memories/:id/attachments - Attach a file to a memory (Issue #1271)
+  app.post('/api/memories/:id/attachments', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { fileId: string };
+
+    if (!body.fileId) {
+      return reply.code(400).send({ error: 'fileId is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Check memory exists
+      const memResult = await pool.query('SELECT id FROM memory WHERE id = $1', [params.id]);
+      if (memResult.rowCount === 0) {
+        return reply.code(404).send({ error: 'Memory not found' });
+      }
+
+      // Check file exists
+      const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.fileId]);
+      if (fileResult.rowCount === 0) {
+        return reply.code(404).send({ error: 'File not found' });
+      }
+
+      // Create attachment link
+      const email = await getSessionEmail(req);
+      await pool.query(
+        `INSERT INTO unified_memory_attachment (memory_id, file_attachment_id, attached_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [params.id, body.fileId, email],
+      );
+
+      return reply.code(201).send({
+        memoryId: params.id,
+        fileId: body.fileId,
+        attached: true,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/memories/:id/attachments - List memory attachments (Issue #1271)
+  app.get('/api/memories/:id/attachments', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `SELECT
+          fa.id::text,
+          fa.original_filename,
+          fa.content_type,
+          fa.size_bytes,
+          fa.created_at,
+          uma.attached_at,
+          uma.attached_by
+        FROM unified_memory_attachment uma
+        JOIN file_attachment fa ON fa.id = uma.file_attachment_id
+        WHERE uma.memory_id = $1
+        ORDER BY uma.attached_at DESC`,
+        [params.id],
+      );
+
+      return reply.send({
+        attachments: result.rows.map((row) => ({
+          id: row.id,
+          originalFilename: row.original_filename,
+          contentType: row.content_type,
+          sizeBytes: Number.parseInt(row.size_bytes, 10),
+          createdAt: row.created_at,
+          attachedAt: row.attached_at,
+          attachedBy: row.attached_by,
+        })),
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/memories/:memoryId/attachments/:fileId - Remove attachment from memory (Issue #1271)
+  app.delete('/api/memories/:memoryId/attachments/:fileId', async (req, reply) => {
+    const params = req.params as { memoryId: string; fileId: string };
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `DELETE FROM unified_memory_attachment
+         WHERE memory_id = $1 AND file_attachment_id = $2
+         RETURNING memory_id`,
+        [params.memoryId, params.fileId],
+      );
+
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Attachment not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // DELETE /api/memories/cleanup-expired - Cleanup expired memories (issue #209)
   app.delete('/api/memories/cleanup-expired', async (_req, reply) => {
     const { cleanupExpiredMemories } = await import('./memory/index.ts');
