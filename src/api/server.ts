@@ -1778,6 +1778,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       'email_notifications',
       'email_digest_frequency',
       'timezone',
+      'geo_auto_inject',
+      'geo_high_res_retention_hours',
+      'geo_general_retention_days',
+      'geo_high_res_threshold_m',
     ];
 
     for (const field of allowedFields) {
@@ -15926,6 +15930,476 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Geolocation API (Issue #1249) ──────────────────────────────────
+
+  const GEO_PROVIDER_TYPES = ['home_assistant', 'mqtt', 'webhook'] as const;
+  const GEO_AUTH_TYPES = ['oauth2', 'access_token', 'mqtt_credentials', 'webhook_token'] as const;
+  const GEO_MAX_PROVIDERS_PER_USER = 10;
+
+  // POST /api/geolocation/providers — Create provider
+  app.post('/api/geolocation/providers', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const providerType = body.provider_type as string | undefined;
+    const authType = body.auth_type as string | undefined;
+    const label = body.label as string | undefined;
+    const config = body.config as Record<string, unknown> | undefined;
+
+    if (!providerType || !authType || !label || !config) {
+      return reply.code(400).send({ error: 'provider_type, auth_type, label, and config are required' });
+    }
+
+    if (!(GEO_PROVIDER_TYPES as readonly string[]).includes(providerType)) {
+      return reply.code(400).send({ error: `Invalid provider_type. Must be one of: ${GEO_PROVIDER_TYPES.join(', ')}` });
+    }
+    if (!(GEO_AUTH_TYPES as readonly string[]).includes(authType)) {
+      return reply.code(400).send({ error: `Invalid auth_type. Must be one of: ${GEO_AUTH_TYPES.join(', ')}` });
+    }
+
+    // Validate config via registry plugin
+    const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
+    const plugin = getRegistryPlugin(providerType as 'home_assistant' | 'mqtt' | 'webhook');
+    if (plugin) {
+      const validation = plugin.validateConfig(config);
+      if (!validation.ok) {
+        return reply.code(400).send({ error: 'Invalid config', details: validation.error });
+      }
+    }
+
+    // Validate numeric fields
+    const pollInterval = typeof body.poll_interval_seconds === 'number' ? body.poll_interval_seconds : undefined;
+    const maxAge = typeof body.max_age_seconds === 'number' ? body.max_age_seconds : undefined;
+    if (pollInterval !== undefined && (!Number.isFinite(pollInterval) || pollInterval <= 0)) {
+      return reply.code(400).send({ error: 'poll_interval_seconds must be a positive number' });
+    }
+    if (maxAge !== undefined && (!Number.isFinite(maxAge) || maxAge <= 0)) {
+      return reply.code(400).send({ error: 'max_age_seconds must be a positive number' });
+    }
+
+    const pool = createPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Enforce provider limit (inside transaction for atomicity)
+      const countResult = await client.query(
+        `SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE`,
+        [email],
+      );
+      if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
+        await client.query('ROLLBACK');
+        return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
+      }
+
+      // Encrypt credentials if provided
+      const credentials = (body.credentials as string | undefined) ?? null;
+      const { encryptCredentials } = await import('./geolocation/crypto.ts');
+      // We need the provider ID for encryption, so create first then update
+      const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
+      const provider = await createGeoProvider(client, {
+        ownerEmail: email,
+        providerType: providerType as 'home_assistant' | 'mqtt' | 'webhook',
+        authType: authType as 'oauth2' | 'access_token' | 'mqtt_credentials' | 'webhook_token',
+        label,
+        config,
+        credentials: null, // placeholder
+        pollIntervalSeconds: pollInterval,
+        maxAgeSeconds: maxAge,
+        isShared: typeof body.is_shared === 'boolean' ? body.is_shared : undefined,
+      });
+
+      // Encrypt and update credentials if provided
+      if (credentials) {
+        const encrypted = encryptCredentials(credentials, provider.id);
+        const { updateProvider: updateGeoProvider } = await import('./geolocation/service.ts');
+        await updateGeoProvider(client, provider.id, { credentials: encrypted });
+        provider.credentials = encrypted;
+      }
+
+      // Auto-create subscription for owner
+      const { createSubscription: createGeoSubscription } = await import('./geolocation/service.ts');
+      await createGeoSubscription(client, {
+        providerId: provider.id,
+        userEmail: email,
+        priority: 0,
+        isActive: true,
+        entities: [],
+      });
+
+      await client.query('COMMIT');
+      return reply.code(201).send(provider);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/providers — List providers (owned + subscribed)
+  app.get('/api/geolocation/providers', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const pool = createPool();
+    try {
+      const { listProviders: listGeoProviders } = await import('./geolocation/service.ts');
+      const providers = await listGeoProviders(pool, email);
+
+      // Strip credentials and config for non-owners
+      const sanitized = providers.map((p) => ({
+        ...p,
+        credentials: p.ownerEmail === email ? p.credentials : null,
+        config: p.ownerEmail === email ? p.config : {},
+      }));
+
+      return reply.send(sanitized);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/providers/:id — Get single provider
+  app.get('/api/geolocation/providers/:id', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid provider ID' });
+    }
+
+    const pool = createPool();
+    try {
+      const { getProvider: getGeoProvider } = await import('./geolocation/service.ts');
+      const provider = await getGeoProvider(pool, id);
+      if (!provider) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      // Check access: must be owner or subscriber
+      const subResult = await pool.query(
+        `SELECT 1 FROM geo_provider_user WHERE provider_id = $1 AND user_email = $2`,
+        [id, email],
+      );
+      if (provider.ownerEmail !== email && subResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      // Strip credentials/config for non-owners
+      const sanitized = {
+        ...provider,
+        credentials: provider.ownerEmail === email ? provider.credentials : null,
+        config: provider.ownerEmail === email ? provider.config : {},
+      };
+
+      return reply.send(sanitized);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/geolocation/providers/:id — Update provider (owner only)
+  app.patch('/api/geolocation/providers/:id', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid provider ID' });
+    }
+
+    const pool = createPool();
+    try {
+      const { getProvider: getGeoProvider, updateProvider: updateGeoProvider } = await import('./geolocation/service.ts');
+      const existing = await getGeoProvider(pool, id);
+      if (!existing) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+      if (existing.ownerEmail !== email) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      const body = req.body as Record<string, unknown> | null;
+      if (!body || typeof body !== 'object') {
+        return reply.code(400).send({ error: 'Request body is required' });
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (typeof body.label === 'string') updates.label = body.label;
+      if (body.config && typeof body.config === 'object') {
+        // Validate new config via registry plugin
+        const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
+        const plugin = getRegistryPlugin(existing.providerType);
+        if (plugin) {
+          const validation = plugin.validateConfig(body.config);
+          if (!validation.ok) {
+            return reply.code(400).send({ error: 'Invalid config', details: validation.error });
+          }
+        }
+        updates.config = body.config;
+      }
+      if (typeof body.credentials === 'string') {
+        const { encryptCredentials } = await import('./geolocation/crypto.ts');
+        updates.credentials = encryptCredentials(body.credentials, id);
+      }
+      if (typeof body.poll_interval_seconds === 'number') {
+        if (!Number.isFinite(body.poll_interval_seconds) || body.poll_interval_seconds <= 0) {
+          return reply.code(400).send({ error: 'poll_interval_seconds must be a positive number' });
+        }
+        updates.pollIntervalSeconds = body.poll_interval_seconds;
+      }
+      if (typeof body.max_age_seconds === 'number') {
+        if (!Number.isFinite(body.max_age_seconds) || body.max_age_seconds <= 0) {
+          return reply.code(400).send({ error: 'max_age_seconds must be a positive number' });
+        }
+        updates.maxAgeSeconds = body.max_age_seconds;
+      }
+      if (typeof body.is_shared === 'boolean') updates.isShared = body.is_shared;
+
+      if (Object.keys(updates).length === 0) {
+        return reply.code(400).send({ error: 'No valid fields to update' });
+      }
+
+      const updated = await updateGeoProvider(pool, id, updates);
+      if (!updated) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      // Send pg NOTIFY for worker to pick up config changes
+      await pool.query(`SELECT pg_notify('geo_provider_config_changed', $1)`, [id]);
+
+      return reply.send(updated);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/geolocation/providers/:id — Soft delete provider (owner only)
+  app.delete('/api/geolocation/providers/:id', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid provider ID' });
+    }
+
+    const pool = createPool();
+    try {
+      const { getProvider: getGeoProvider, softDeleteProvider: softDeleteGeoProvider } = await import('./geolocation/service.ts');
+      const existing = await getGeoProvider(pool, id);
+      if (!existing) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+      if (existing.ownerEmail !== email) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      await softDeleteGeoProvider(pool, id);
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/geolocation/providers/:id/verify — Test connection
+  app.post('/api/geolocation/providers/:id/verify', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid provider ID' });
+    }
+
+    const pool = createPool();
+    try {
+      const { getProvider: getGeoProvider } = await import('./geolocation/service.ts');
+      const provider = await getGeoProvider(pool, id);
+      if (!provider) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+      if (provider.ownerEmail !== email) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
+      const plugin = getRegistryPlugin(provider.providerType);
+      if (!plugin) {
+        return reply.code(400).send({ error: `No plugin registered for provider type: ${provider.providerType}` });
+      }
+
+      // Decrypt credentials for verification
+      const { decryptCredentials } = await import('./geolocation/crypto.ts');
+      const credentials = provider.credentials ? decryptCredentials(provider.credentials, id) : '';
+
+      const result = await plugin.verify(provider.config, credentials);
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/providers/:id/entities — Discover entities
+  app.get('/api/geolocation/providers/:id/entities', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid provider ID' });
+    }
+
+    const pool = createPool();
+    try {
+      const { getProvider: getGeoProvider } = await import('./geolocation/service.ts');
+      const provider = await getGeoProvider(pool, id);
+      if (!provider) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+      if (provider.ownerEmail !== email) {
+        return reply.code(404).send({ error: 'Provider not found' });
+      }
+
+      const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
+      const plugin = getRegistryPlugin(provider.providerType);
+      if (!plugin) {
+        return reply.code(400).send({ error: `No plugin registered for provider type: ${provider.providerType}` });
+      }
+
+      const { decryptCredentials } = await import('./geolocation/crypto.ts');
+      const credentials = provider.credentials ? decryptCredentials(provider.credentials, id) : '';
+
+      const entities = await plugin.discoverEntities(provider.config, credentials);
+      return reply.send(entities);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/subscriptions — List user's subscriptions
+  app.get('/api/geolocation/subscriptions', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const pool = createPool();
+    try {
+      const { listSubscriptions: listGeoSubscriptions } = await import('./geolocation/service.ts');
+      const subscriptions = await listGeoSubscriptions(pool, email);
+      return reply.send(subscriptions);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/geolocation/subscriptions/:id — Update subscription
+  app.patch('/api/geolocation/subscriptions/:id', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'Invalid subscription ID' });
+    }
+
+    const body = req.body as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify subscription belongs to requesting user
+      const subResult = await pool.query(
+        `SELECT * FROM geo_provider_user WHERE id = $1`,
+        [id],
+      );
+      if (subResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Subscription not found' });
+      }
+      if (subResult.rows[0].user_email !== email) {
+        return reply.code(404).send({ error: 'Subscription not found' });
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (typeof body.priority === 'number') {
+        if (!Number.isInteger(body.priority) || body.priority < 0) {
+          return reply.code(400).send({ error: 'priority must be a non-negative integer' });
+        }
+        updates.priority = body.priority;
+      }
+      if (typeof body.is_active === 'boolean') updates.isActive = body.is_active;
+      if (Array.isArray(body.entities)) updates.entities = body.entities;
+
+      if (Object.keys(updates).length === 0) {
+        return reply.code(400).send({ error: 'No valid fields to update' });
+      }
+
+      const { updateSubscription: updateGeoSubscription } = await import('./geolocation/service.ts');
+      const updated = await updateGeoSubscription(pool, id, updates);
+      if (!updated) {
+        return reply.code(404).send({ error: 'Subscription not found' });
+      }
+
+      return reply.send(updated);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/current — Resolve current location
+  app.get('/api/geolocation/current', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const pool = createPool();
+    try {
+      const { getCurrentLocation } = await import('./geolocation/service.ts');
+      const location = await getCurrentLocation(pool, email);
+      if (!location) {
+        return reply.code(404).send({ error: 'No current location available' });
+      }
+      return reply.send(location);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/geolocation/history — Query location history
+  app.get('/api/geolocation/history', async (req, reply) => {
+    const email = await getSessionEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as { from?: string; to?: string; limit?: string };
+
+    const from = query.from ? new Date(query.from) : new Date(Date.now() - 24 * 60 * 60 * 1000); // default: 24h ago
+    const to = query.to ? new Date(query.to) : new Date();
+
+    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+      return reply.code(400).send({ error: 'Invalid date format for from/to parameters' });
+    }
+
+    const requestedLimit = query.limit ? parseInt(query.limit, 10) : 100;
+    const limit = Math.min(Math.max(isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
+
+    const pool = createPool();
+    try {
+      const { getLocationHistory } = await import('./geolocation/service.ts');
+      const history = await getLocationHistory(pool, email, from, to, limit);
+      return reply.send({ locations: history, from, to, limit });
     } finally {
       await pool.end();
     }
