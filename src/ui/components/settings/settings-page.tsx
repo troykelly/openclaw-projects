@@ -6,7 +6,7 @@
  * vertical list. Changes save immediately with visual confirmation.
  */
 
-import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, Monitor, Moon, Smartphone, Sun, User } from 'lucide-react';
+import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, Monitor, Moon, Smartphone, Sun, User } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/ui/components/feedback';
@@ -18,6 +18,7 @@ import { Switch } from '@/ui/components/ui/switch';
 import { cn } from '@/ui/lib/utils';
 import { ConnectedAccountsSection } from './connected-accounts-section';
 import { EmbeddingSettingsSection } from './embedding-settings-section';
+import { LocationSection } from './location-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
 import { useSettings } from './use-settings';
 
@@ -49,6 +50,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 75, 100];
 const SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'accounts', label: 'Connected Accounts', icon: Link2 },
+  { id: 'location', label: 'Location', icon: MapPin },
   { id: 'appearance', label: 'Appearance', icon: Sun },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
@@ -491,6 +493,7 @@ export function SettingsPage() {
   const sectionRefs = useRef<Record<SectionId, HTMLDivElement | null>>({
     profile: null,
     accounts: null,
+    location: null,
     appearance: null,
     notifications: null,
     shortcuts: null,
@@ -672,6 +675,20 @@ export function SettingsPage() {
               }}
             >
               <ConnectedAccountsSection />
+            </div>
+
+            {/* Location */}
+            <div
+              ref={(el) => {
+                sectionRefs.current.location = el;
+              }}
+            >
+              <LocationSection
+                geoAutoInject={settings.geo_auto_inject}
+                geoHighResRetentionHours={settings.geo_high_res_retention_hours}
+                geoGeneralRetentionDays={settings.geo_general_retention_days}
+                onUpdate={handleUpdate}
+              />
             </div>
 
             {/* Appearance */}
