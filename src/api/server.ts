@@ -1003,6 +1003,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           { method: 'GET', path: '/api/analytics/overdue', description: 'Overdue items' },
         ],
       },
+      {
+        name: 'webhooks',
+        description: 'Ad-hoc webhook ingestion for project events (CI, deployments, alerts)',
+        endpoints: [
+          { method: 'POST', path: '/api/projects/:id/webhooks', description: 'Create a webhook for a project' },
+          { method: 'GET', path: '/api/projects/:id/webhooks', description: 'List project webhooks' },
+          { method: 'DELETE', path: '/api/projects/:id/webhooks/:webhook_id', description: 'Delete a webhook' },
+          { method: 'POST', path: '/api/webhooks/:webhook_id', description: 'Ingest webhook payload (bearer token auth)' },
+          { method: 'GET', path: '/api/projects/:id/events', description: 'List project events (paginated)' },
+        ],
+      },
     ],
     workflows: [
       {
@@ -17135,6 +17146,140 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     } finally {
       await pool.end();
     }
+  });
+
+  // ── Project Webhooks (Issue #1274) ─────────────────────────────────
+
+  // POST /api/projects/:id/webhooks - Create a webhook for a project
+  app.post('/api/projects/:id/webhooks', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { label?: string; user_email?: string };
+
+    if (!body?.label || body.label.trim().length === 0) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+
+    const pool = createPool();
+
+    // Verify project exists
+    const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
+    if (projectCheck.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'project not found' });
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const result = await pool.query(
+      `INSERT INTO project_webhook (project_id, user_email, label, token)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
+      [id, body.user_email ?? null, body.label.trim(), token],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // GET /api/projects/:id/webhooks - List webhooks for a project
+  app.get('/api/projects/:id/webhooks', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at
+       FROM project_webhook WHERE project_id = $1 ORDER BY created_at DESC`,
+      [id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // DELETE /api/projects/:id/webhooks/:webhook_id - Delete a webhook
+  app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
+    const { id, webhook_id } = req.params as { id: string; webhook_id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
+      [webhook_id, id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.code(204).send();
+  });
+
+  // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
+  app.post('/api/webhooks/:webhook_id', async (req, reply) => {
+    const { webhook_id } = req.params as { webhook_id: string };
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.code(401).send({ error: 'Bearer token required' });
+    }
+    const bearerToken = authHeader.slice(7);
+
+    const pool = createPool();
+    const webhookResult = await pool.query(
+      `SELECT id::text, project_id::text, user_email, token, is_active
+       FROM project_webhook WHERE id = $1`,
+      [webhook_id],
+    );
+
+    if (webhookResult.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'webhook not found' });
+    }
+
+    const webhook = webhookResult.rows[0] as { id: string; project_id: string; user_email: string | null; token: string; is_active: boolean };
+    if (webhook.token !== bearerToken) {
+      await pool.end();
+      return reply.code(401).send({ error: 'invalid token' });
+    }
+
+    if (!webhook.is_active) {
+      await pool.end();
+      return reply.code(403).send({ error: 'webhook is inactive' });
+    }
+
+    const payload = req.body;
+    const summary = typeof payload === 'object' && payload !== null
+      ? (payload as Record<string, unknown>).summary as string ?? (payload as Record<string, unknown>).action as string ?? null
+      : null;
+
+    // Insert event
+    const eventResult = await pool.query(
+      `INSERT INTO project_event (project_id, webhook_id, user_email, event_type, summary, raw_payload)
+       VALUES ($1, $2, $3, 'webhook', $4, $5)
+       RETURNING id::text, project_id::text, webhook_id::text, user_email, event_type, summary, raw_payload, created_at`,
+      [webhook.project_id, webhook.id, webhook.user_email, summary, JSON.stringify(payload)],
+    );
+
+    // Update last_received
+    await pool.query(
+      `UPDATE project_webhook SET last_received = now(), updated_at = now() WHERE id = $1`,
+      [webhook.id],
+    );
+
+    await pool.end();
+    return reply.code(201).send(eventResult.rows[0]);
+  });
+
+  // GET /api/projects/:id/events - List project events (paginated)
+  app.get('/api/projects/:id/events', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const query = req.query as { limit?: string; offset?: string };
+    const limit = Math.min(Number(query.limit) || 50, 200);
+    const offset = Number(query.offset) || 0;
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, project_id::text, webhook_id::text, user_email, event_type, summary, raw_payload, created_at
+       FROM project_event WHERE project_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [id, limit, offset],
+    );
+    await pool.end();
+    return reply.send({ events: result.rows });
   });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
