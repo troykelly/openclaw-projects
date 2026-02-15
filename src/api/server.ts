@@ -3054,6 +3054,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Validate date range consistency
+    if (notBefore && notAfter && notBefore > notAfter) {
+      await pool.end();
+      return reply.code(400).send({ error: 'not_before must be before or equal to not_after' });
+    }
+
     const userEmail = body.user_email?.trim() || null;
 
     const result = await pool.query(

@@ -104,6 +104,22 @@ describe('Work item reminders (Issue #1321)', () => {
       expect(new Date(body.not_after).toISOString()).toContain('2026-03-31');
     });
 
+    it('rejects not_before after not_after', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: {
+          title: 'Backwards dates',
+          not_before: '2026-06-15T00:00:00Z',
+          not_after: '2026-06-01T00:00:00Z',
+        },
+      });
+
+      expect(res.statusCode).toBe(400);
+      const body = res.json() as { error: string };
+      expect(body.error).toContain('not_before must be before');
+    });
+
     it('rejects invalid not_before date', async () => {
       const res = await app.inject({
         method: 'POST',
