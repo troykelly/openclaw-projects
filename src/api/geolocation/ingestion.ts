@@ -21,6 +21,17 @@ const DEFAULT_RATE_LIMIT_S = 10;
  * Validate a location update from any provider.
  */
 export function validateLocationUpdate(update: LocationUpdate): Result<LocationUpdate, string> {
+  // Guard against malformed runtime input
+  if (typeof update.entity_id !== 'string') {
+    return { ok: false, error: 'entity_id must be a string' };
+  }
+  if (typeof update.lat !== 'number' || !Number.isFinite(update.lat)) {
+    return { ok: false, error: 'lat must be a finite number' };
+  }
+  if (typeof update.lng !== 'number' || !Number.isFinite(update.lng)) {
+    return { ok: false, error: 'lng must be a finite number' };
+  }
+
   // Sanitise entity_id: strip control characters, truncate
   let entityId = update.entity_id.replace(/[\x00-\x1f\x7f]/g, '');
   if (entityId.length > MAX_ENTITY_ID_LENGTH) {
@@ -53,6 +64,8 @@ export function validateLocationUpdate(update: LocationUpdate): Result<LocationU
   let timestamp = update.timestamp;
   if (!timestamp) {
     timestamp = new Date();
+  } else if (!(timestamp instanceof Date) || Number.isNaN(timestamp.getTime())) {
+    return { ok: false, error: 'timestamp must be a valid Date' };
   }
 
   const now = Date.now();

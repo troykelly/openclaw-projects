@@ -45,7 +45,7 @@ export async function processGeoGeocode(pool: Pool, batchSize: number = DEFAULT_
       );
 
       if (!response.ok) {
-        // Log and skip on API errors
+        console.error(`[geo-geocode] Nominatim returned ${response.status} for (${row.lat}, ${row.lng})`);
         continue;
       }
 
@@ -56,13 +56,13 @@ export async function processGeoGeocode(pool: Pool, batchSize: number = DEFAULT_
       await pool.query(
         `UPDATE geo_location
          SET address = $1, place_label = $2
-         WHERE time = $3 AND user_email = $4 AND provider_id = $5 AND entity_id = $6`,
+         WHERE time = $3 AND user_email = $4 AND provider_id = $5 AND entity_id IS NOT DISTINCT FROM $6`,
         [address, placeLabel, row.time, row.user_email, row.provider_id, row.entity_id],
       );
 
       processed++;
-    } catch {
-      // Network errors, JSON parse errors — skip and continue
+    } catch (err) {
+      console.error(`[geo-geocode] Failed to geocode (${row.lat}, ${row.lng}):`, err);
       continue;
     }
   }
@@ -97,7 +97,7 @@ export async function processGeoEmbeddings(pool: Pool, batchSize: number = DEFAU
     // Check if a previous record has the same address for this user+entity
     const dupCheck = await pool.query(
       `SELECT address FROM geo_location
-       WHERE user_email = $1 AND entity_id = $2
+       WHERE user_email = $1 AND entity_id IS NOT DISTINCT FROM $2
          AND address = $3
          AND embedding_status IN ('complete', 'skipped')
          AND time < $4
@@ -110,7 +110,7 @@ export async function processGeoEmbeddings(pool: Pool, batchSize: number = DEFAU
       await pool.query(
         `UPDATE geo_location
          SET embedding_status = 'skipped'
-         WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id = $4`,
+         WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
         [row.time, row.user_email, row.provider_id, row.entity_id],
       );
       processed++;
@@ -128,7 +128,7 @@ export async function processGeoEmbeddings(pool: Pool, batchSize: number = DEFAU
         await pool.query(
           `UPDATE geo_location
            SET embedding_status = 'skipped'
-           WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id = $4`,
+           WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
           [row.time, row.user_email, row.provider_id, row.entity_id],
         );
         processed++;
@@ -148,13 +148,13 @@ export async function processGeoEmbeddings(pool: Pool, batchSize: number = DEFAU
         await pool.query(
           `UPDATE geo_location
            SET embedding_status = 'skipped'
-           WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id = $4`,
+           WHERE time = $1 AND user_email = $2 AND provider_id = $3 AND entity_id IS NOT DISTINCT FROM $4`,
           [row.time, row.user_email, row.provider_id, row.entity_id],
         );
       }
       processed++;
-    } catch {
-      // Embedding generation failed — skip
+    } catch (err) {
+      console.error(`[geo-embeddings] Failed to generate embedding for address "${row.address}":`, err);
       continue;
     }
   }
