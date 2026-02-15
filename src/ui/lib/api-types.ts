@@ -619,6 +619,63 @@ export interface UpdateRecipeBody {
 }
 
 // ---------------------------------------------------------------------------
+// Meal Log (Issue #1279)
+// ---------------------------------------------------------------------------
+
+export interface MealLogEntry {
+  id: string;
+  user_email: string;
+  meal_date: string;
+  meal_type: string;
+  title: string;
+  source: string;
+  recipe_id: string | null;
+  order_ref: string | null;
+  restaurant: string | null;
+  cuisine: string | null;
+  who_ate: string[];
+  who_cooked: string | null;
+  rating: number | null;
+  notes: string | null;
+  leftovers_stored: boolean;
+  image_s3_key: string | null;
+  created_at: string;
+}
+
+export interface MealLogResponse {
+  meals: MealLogEntry[];
+}
+
+export interface CreateMealLogBody {
+  meal_date: string;
+  meal_type: string;
+  title: string;
+  source: string;
+  recipe_id?: string;
+  restaurant?: string;
+  cuisine?: string;
+  who_ate?: string[];
+  who_cooked?: string;
+  rating?: number;
+  notes?: string;
+  leftovers_stored?: boolean;
+}
+
+export interface UpdateMealLogBody {
+  rating?: number;
+  notes?: string;
+  cuisine?: string;
+  leftovers_stored?: boolean;
+}
+
+export interface MealLogStats {
+  total: number;
+  days: number;
+  by_source: Array<{ source: string; count: number }>;
+  by_cuisine: Array<{ cuisine: string; count: number }>;
+}
+
+// ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 

@@ -19202,6 +19202,264 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Meal Log API (Issue #1279) ───────────────────────────────────────
+
+  function getMealLogUserEmail(req: { headers?: Record<string, string | string[] | undefined> }): string | null {
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  const MEAL_LOG_UPDATABLE_FIELDS = [
+    'meal_date', 'meal_type', 'title', 'source', 'order_ref',
+    'restaurant', 'cuisine', 'who_cooked', 'notes', 'image_s3_key',
+  ] as const;
+
+  // POST /api/meal-log — Log a meal
+  app.post('/api/meal-log', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body.title !== 'string' || !body.title.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+    if (typeof body.meal_date !== 'string' || typeof body.meal_type !== 'string' || typeof body.source !== 'string') {
+      return reply.code(400).send({ error: 'meal_date, meal_type, and source are required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO meal_log (user_email, meal_date, meal_type, title, source, recipe_id,
+          order_ref, restaurant, cuisine, who_ate, who_cooked, rating, notes,
+          leftovers_stored, image_s3_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         RETURNING *`,
+        [
+          email,
+          body.meal_date,
+          body.meal_type,
+          body.title.trim(),
+          body.source,
+          body.recipe_id ?? null,
+          body.order_ref ?? null,
+          body.restaurant ?? null,
+          body.cuisine ?? null,
+          Array.isArray(body.who_ate) ? body.who_ate : [],
+          body.who_cooked ?? null,
+          body.rating ?? null,
+          body.notes ?? null,
+          body.leftovers_stored === true,
+          body.image_s3_key ?? null,
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/meal-log/stats — Meal statistics (must be before :id route)
+  app.get('/api/meal-log/stats', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const days = query.days ? Number.parseInt(query.days, 10) : 30;
+
+    const pool = createPool();
+    try {
+      const totalResult = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM meal_log
+         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int`,
+        [email, days],
+      );
+
+      const bySourceResult = await pool.query(
+        `SELECT source, COUNT(*)::int AS count FROM meal_log
+         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int
+         GROUP BY source ORDER BY count DESC`,
+        [email, days],
+      );
+
+      const byCuisineResult = await pool.query(
+        `SELECT cuisine, COUNT(*)::int AS count FROM meal_log
+         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int AND cuisine IS NOT NULL
+         GROUP BY cuisine ORDER BY count DESC`,
+        [email, days],
+      );
+
+      return reply.send({
+        total: totalResult.rows[0].total,
+        days,
+        by_source: bySourceResult.rows,
+        by_cuisine: byCuisineResult.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/meal-log — List meals with optional filters
+  app.get('/api/meal-log', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1'];
+    const params: unknown[] = [email];
+    let paramIdx = 2;
+
+    if (query.cuisine) {
+      conditions.push(`cuisine = $${paramIdx}`);
+      params.push(query.cuisine);
+      paramIdx++;
+    }
+    if (query.source) {
+      conditions.push(`source = $${paramIdx}`);
+      params.push(query.source);
+      paramIdx++;
+    }
+    if (query.meal_type) {
+      conditions.push(`meal_type = $${paramIdx}`);
+      params.push(query.meal_type);
+      paramIdx++;
+    }
+    if (query.days) {
+      conditions.push(`meal_date >= CURRENT_DATE - $${paramIdx}::int`);
+      params.push(Number.parseInt(query.days, 10));
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM meal_log WHERE ${conditions.join(' AND ')} ORDER BY meal_date DESC, created_at DESC`,
+        params,
+      );
+      return reply.send({ meals: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/meal-log/:id — Get a specific meal entry
+  app.get('/api/meal-log/:id', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid meal ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM meal_log WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Meal not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/meal-log/:id — Update a meal entry
+  app.patch('/api/meal-log/:id', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid meal ID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body) return reply.code(400).send({ error: 'Body is required' });
+
+    const setClauses: string[] = [];
+    const queryParams: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of MEAL_LOG_UPDATABLE_FIELDS) {
+      if (field in body) {
+        setClauses.push(`${field} = $${paramIdx}`);
+        queryParams.push(body[field]);
+        paramIdx++;
+      }
+    }
+    if ('rating' in body) {
+      setClauses.push(`rating = $${paramIdx}`);
+      queryParams.push(body.rating);
+      paramIdx++;
+    }
+    if ('leftovers_stored' in body) {
+      setClauses.push(`leftovers_stored = $${paramIdx}`);
+      queryParams.push(body.leftovers_stored);
+      paramIdx++;
+    }
+    if ('who_ate' in body && Array.isArray(body.who_ate)) {
+      setClauses.push(`who_ate = $${paramIdx}`);
+      queryParams.push(body.who_ate);
+      paramIdx++;
+    }
+    if ('recipe_id' in body) {
+      setClauses.push(`recipe_id = $${paramIdx}`);
+      queryParams.push(body.recipe_id);
+      paramIdx++;
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE meal_log SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         RETURNING *`,
+        [...queryParams, routeParams.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Meal not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/meal-log/:id — Delete a meal entry
+  app.delete('/api/meal-log/:id', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid meal ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM meal_log WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Meal not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
