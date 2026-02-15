@@ -6661,12 +6661,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             failedCount++;
             continue;
           }
-          if (typeof mem.lat !== 'number' || mem.lat < -90 || mem.lat > 90) {
+          if (!Number.isFinite(mem.lat) || mem.lat < -90 || mem.lat > 90) {
             results.push({ index: i, status: 'failed', error: 'lat must be a number between -90 and 90' });
             failedCount++;
             continue;
           }
-          if (typeof mem.lng !== 'number' || mem.lng < -180 || mem.lng > 180) {
+          if (!Number.isFinite(mem.lng) || mem.lng < -180 || mem.lng > 180) {
             results.push({ index: i, status: 'failed', error: 'lng must be a number between -180 and 180' });
             failedCount++;
             continue;
