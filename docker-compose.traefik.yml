@@ -461,6 +461,9 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    # Allow containers to reach services on the Docker host (e.g. OpenClaw gateway)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Container hardening
     read_only: true
     tmpfs:
@@ -524,6 +527,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    # Allow containers to reach services on the Docker host (e.g. OpenClaw gateway)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Container hardening
     read_only: true
     tmpfs:
