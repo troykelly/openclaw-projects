@@ -1,6 +1,7 @@
 /**
  * Tests for todo_search tool.
  * Verifies semantic work item search functionality.
+ * Geo-contextual ranking tests added in Issue #1218.
  *
  * Part of Issue #1216.
  */
@@ -10,6 +11,10 @@ import { createTodoSearchTool, type TodoSearchParams } from '../../src/tools/tod
 import type { ApiClient } from '../../src/api-client.js';
 import type { Logger } from '../../src/logger.js';
 import type { PluginConfig } from '../../src/config.js';
+
+vi.mock('../../src/utils/nominatim.js', () => ({
+  reverseGeocode: vi.fn(),
+}));
 
 describe('todo_search tool', () => {
   const mockLogger: Logger = {
@@ -540,6 +545,224 @@ describe('todo_search tool', () => {
       if (result.success) {
         expect(result.data.details.count).toBe(5);
       }
+    });
+  });
+
+  describe('geo-contextual ranking (Issue #1218)', () => {
+    const geoConfig: PluginConfig = {
+      ...mockConfig,
+      nominatimUrl: 'http://nominatim:8080',
+    };
+
+    it('should augment query with place label when location and nominatimUrl provided', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const mockReverseGeocode = vi.mocked(reverseGeocode);
+      mockReverseGeocode.mockResolvedValue({ address: '123 Main St, Melbourne', placeLabel: 'Melbourne' });
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'hybrid', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
+
+      expect(mockReverseGeocode).toHaveBeenCalledWith(-37.8136, 144.9631, 'http://nominatim:8080');
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('restaurants+near+Melbourne');
+    });
+
+    it('should not augment query when nominatimUrl is not configured', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const mockReverseGeocode = vi.mocked(reverseGeocode);
+      mockReverseGeocode.mockClear();
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: mockConfig, // no nominatimUrl
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
+
+      expect(mockReverseGeocode).not.toHaveBeenCalled();
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=restaurants');
+      expect(callUrl).not.toContain('near');
+    });
+
+    it('should fall back to original query when reverse geocode returns null', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const mockReverseGeocode = vi.mocked(reverseGeocode);
+      mockReverseGeocode.mockResolvedValue(null);
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
+
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=restaurants');
+      expect(callUrl).not.toContain('near');
+    });
+
+    it('should fall back to original query when placeLabel is empty', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const mockReverseGeocode = vi.mocked(reverseGeocode);
+      mockReverseGeocode.mockResolvedValue({ address: '123 Main St', placeLabel: '' });
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
+
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=restaurants');
+      expect(callUrl).not.toContain('near');
+    });
+
+    it('should over-fetch by 3x when location is provided', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const mockReverseGeocode = vi.mocked(reverseGeocode);
+      mockReverseGeocode.mockResolvedValue({ address: 'Sydney', placeLabel: 'Sydney' });
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', limit: 10, location: { lat: -33.8688, lng: 151.2093 } });
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('limit=30'); // 10 * 3 = 30
+    });
+
+    it('should validate location lat/lng ranges', async () => {
+      const tool = createTodoSearchTool({
+        client: mockApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'test', location: { lat: 91, lng: 0 } });
+      expect(result.success).toBe(false);
+    });
+
+    it('should degrade gracefully when reverseGeocode throws', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      vi.mocked(reverseGeocode).mockRejectedValue(new Error('DNS resolution failed'));
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
+      expect(result.success).toBe(true);
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=restaurants');
+      expect(callUrl).not.toContain('near');
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
+    it('should not augment query when augmented length exceeds 1000 chars', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const longLabel = 'A'.repeat(1000);
+      vi.mocked(reverseGeocode).mockResolvedValue({ address: longLabel, placeLabel: longLabel });
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
+
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=restaurants');
+      expect(callUrl).not.toContain('near');
+    });
+
+    it('should log hasLocation when location is provided', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      vi.mocked(reverseGeocode).mockResolvedValue(null);
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createTodoSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'test', location: { lat: 0, lng: 0 } });
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'todo_search invoked',
+        expect.objectContaining({ hasLocation: true }),
+      );
     });
   });
 });

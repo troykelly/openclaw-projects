@@ -2,6 +2,7 @@
  * project_search tool implementation.
  * Provides semantic search specifically for projects (kind=project work items).
  * Uses the unified search API with work_item type filter and client-side kind filtering.
+ * Geo-contextual ranking added in Issue #1218.
  *
  * Part of Issue #1217.
  */
@@ -11,12 +12,17 @@ import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
+import { reverseGeocode } from '../utils/nominatim.js';
 
 /** Parameters for project_search tool */
 export const ProjectSearchParamsSchema = z.object({
   query: z.string().min(1, 'Query cannot be empty').max(1000, 'Query must be 1000 characters or less'),
   limit: z.number().int().min(1).max(50).optional(),
   status: z.enum(['active', 'completed', 'archived']).optional(),
+  location: z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }).optional(),
 });
 export type ProjectSearchParams = z.infer<typeof ProjectSearchParamsSchema>;
 
@@ -79,13 +85,14 @@ function sanitizeQuery(query: string): string {
  * Creates the project_search tool.
  */
 export function createProjectSearchTool(options: ProjectSearchToolOptions): ProjectSearchTool {
-  const { client, logger, userId } = options;
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'project_search',
     description:
       'Search projects by natural language query. Uses semantic and text search to find relevant projects. ' +
-      'Optionally filter by status (active, completed, archived).',
+      'Optionally filter by status (active, completed, archived). ' +
+      'Provide location (lat/lng) to boost results relevant to the current location.',
     parameters: ProjectSearchParamsSchema,
 
     async execute(params: ProjectSearchParams): Promise<ProjectSearchResult> {
@@ -95,7 +102,7 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
         return { success: false, error: errorMessage };
       }
 
-      const { query, limit = 10, status } = parseResult.data;
+      const { query, limit = 10, status, location } = parseResult.data;
 
       const sanitizedQuery = sanitizeQuery(query);
       if (sanitizedQuery.length === 0) {
@@ -107,14 +114,31 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
         queryLength: sanitizedQuery.length,
         limit,
         status: status ?? 'all',
+        hasLocation: !!location,
       });
 
       try {
+        // Augment query with location context for geo-contextual ranking (Issue #1218)
+        let searchQuery = sanitizedQuery;
+        if (location && config.nominatimUrl) {
+          try {
+            const geo = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
+            if (geo?.placeLabel) {
+              const augmented = `${sanitizedQuery} near ${geo.placeLabel}`;
+              if (augmented.length <= 1000) {
+                searchQuery = augmented;
+              }
+            }
+          } catch {
+            logger.warn('Reverse geocode failed, proceeding without location augmentation', { userId });
+          }
+        }
+
         // Always over-fetch by 3x since we always filter to kind=project client-side
         const fetchLimit = Math.min(limit * 3, 50);
 
         const queryParams = new URLSearchParams({
-          q: sanitizedQuery,
+          q: searchQuery,
           types: 'work_item',
           limit: String(fetchLimit),
           semantic: 'true',
