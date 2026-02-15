@@ -26,8 +26,8 @@ CREATE TABLE geo_provider (
   status_message text,
   config        jsonb NOT NULL DEFAULT '{}',
   credentials   bytea,
-  poll_interval_seconds integer,
-  max_age_seconds       integer NOT NULL DEFAULT 900,
+  poll_interval_seconds integer CHECK (poll_interval_seconds IS NULL OR poll_interval_seconds > 0),
+  max_age_seconds       integer NOT NULL DEFAULT 900 CHECK (max_age_seconds > 0),
   is_shared     boolean NOT NULL DEFAULT false,
   last_seen_at  timestamptz,
   deleted_at    timestamptz,
@@ -121,7 +121,7 @@ CREATE TABLE geo_location (
   accuracy_m       double precision,
   altitude_m       double precision,
   speed_mps        double precision,
-  bearing          double precision,
+  bearing          double precision CHECK (bearing IS NULL OR (bearing >= 0 AND bearing < 360)),
   indoor_zone      text,
   address          text,
   place_label      text,
@@ -132,7 +132,7 @@ CREATE TABLE geo_location (
 );
 
 -- Convert to TimescaleDB hypertable
-SELECT create_hypertable('geo_location', 'time');
+SELECT create_hypertable('geo_location', 'time', if_not_exists => TRUE);
 
 -- Indexes for common query patterns
 CREATE INDEX idx_geo_location_user_time
@@ -147,7 +147,8 @@ CREATE INDEX idx_geo_location_coords
 -- HNSW index for location embedding similarity search
 CREATE INDEX idx_geo_location_embedding
   ON geo_location USING hnsw (location_embedding vector_cosine_ops)
-  WITH (m = 16, ef_construction = 64);
+  WITH (m = 16, ef_construction = 64)
+  WHERE location_embedding IS NOT NULL;
 
 COMMENT ON TABLE geo_location IS 'Time-series geolocation data from all providers (TimescaleDB hypertable)';
 COMMENT ON COLUMN geo_location.time IS 'Timestamp of the location observation';
@@ -173,9 +174,12 @@ COMMENT ON COLUMN geo_location.embedding_status IS 'Status of embedding generati
 
 ALTER TABLE user_setting
   ADD COLUMN IF NOT EXISTS geo_auto_inject boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS geo_high_res_retention_hours integer NOT NULL DEFAULT 168,
-  ADD COLUMN IF NOT EXISTS geo_general_retention_days integer NOT NULL DEFAULT 365,
-  ADD COLUMN IF NOT EXISTS geo_high_res_threshold_m double precision NOT NULL DEFAULT 50.0;
+  ADD COLUMN IF NOT EXISTS geo_high_res_retention_hours integer NOT NULL DEFAULT 168
+    CHECK (geo_high_res_retention_hours > 0),
+  ADD COLUMN IF NOT EXISTS geo_general_retention_days integer NOT NULL DEFAULT 365
+    CHECK (geo_general_retention_days > 0),
+  ADD COLUMN IF NOT EXISTS geo_high_res_threshold_m double precision NOT NULL DEFAULT 50.0
+    CHECK (geo_high_res_threshold_m >= 0);
 
 COMMENT ON COLUMN user_setting.geo_auto_inject IS 'Whether to automatically inject location context into agent prompts';
 COMMENT ON COLUMN user_setting.geo_high_res_retention_hours IS 'Hours to retain high-resolution (raw) location data (default 7 days)';
