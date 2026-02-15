@@ -72,7 +72,12 @@ jobs:
         run: |
           docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T workspace bash -lc "cd /workspaces/openclaw-projects && pnpm --filter @troykelly/openclaw-projects run build"
 
-      - name: Run tests
+      - name: Run unit tests (parallel, no DB)
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T \
+            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm -s test:unit"
+
+      - name: Run integration tests (serial, DB)
         env:
           VOYAGERAI_API_KEY: ${{ secrets.VOYAGERAI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -82,7 +87,7 @@ jobs:
             -e VOYAGERAI_API_KEY \
             -e OPENAI_API_KEY \
             -e GEMINI_API_KEY \
-            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm -s test"
+            workspace bash -lc "cd /workspaces/openclaw-projects && pnpm -s test:integration"
 
       - name: Start E2E services
         run: |

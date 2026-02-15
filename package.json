@@ -7,6 +7,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json --noEmit",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:changed": "vitest run --changed",
     "test:watch": "vitest",
     "test:e2e": "RUN_E2E=true vitest run --config vitest.config.e2e.ts",
     "test:gateway": "vitest run packages/openclaw-plugin/tests/gateway",

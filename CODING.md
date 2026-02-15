@@ -14,9 +14,21 @@ These principles are **non-negotiable**. They apply to all contributors — huma
 
 - Write failing tests **before** implementation code
 - Tests must cover expected usage, edge cases, and error conditions
-- “Minimal TDD to satisfy TDD” is not acceptable — coverage must be meaningful
+- "Minimal TDD to satisfy TDD" is not acceptable — coverage must be meaningful
 - Run tests frequently during development, not just at completion
 - Commit only when tests pass
+
+### Test commands for development
+
+| Command | When to use |
+|---------|-------------|
+| `pnpm test:changed` | **During active development** — runs only tests affected by uncommitted changes |
+| `pnpm test:unit` | Quick feedback — pure tests (no DB), runs in parallel |
+| `pnpm test:integration` | DB-dependent tests — runs serially |
+| `pnpm test` | **Before committing/pushing** — runs both unit + integration |
+| `pnpm run test:e2e` | Level 2 E2E tests (requires Docker backend) |
+
+Prefer `pnpm test:changed` during iterative development to keep the feedback loop fast. Always run `pnpm test` before pushing.
 
 ## Test Against Real Services
 
