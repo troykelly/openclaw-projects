@@ -17,6 +17,7 @@ import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-m
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
 import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
+import { haversineDistanceKm, computeGeoScore, blendScores } from './utils/geo.js';
 import { createNotificationService } from './services/notification-service.js';
 import { autoLinkInboundMessage } from './utils/auto-linker.js';
 import {
@@ -113,6 +114,28 @@ const memoryRecallSchema: JSONSchema = {
       description: 'Scope search to a specific relationship between contacts',
       format: 'uuid',
     },
+    location: {
+      type: 'object',
+      description: 'Current location for geo-aware recall ranking',
+      properties: {
+        lat: { type: 'number', minimum: -90, maximum: 90 },
+        lng: { type: 'number', minimum: -180, maximum: 180 },
+      },
+      required: ['lat', 'lng'],
+    },
+    location_radius_km: {
+      type: 'number',
+      description: 'Filter memories within this radius (km) of the given location',
+      minimum: 0.1,
+      maximum: 100,
+    },
+    location_weight: {
+      type: 'number',
+      description: 'Weight for geo scoring (0 = content only, 1 = geo only)',
+      minimum: 0,
+      maximum: 1,
+      default: 0.3,
+    },
   },
   required: ['query'],
 };
@@ -161,6 +184,35 @@ const memoryStoreSchema: JSONSchema = {
       type: 'string',
       description: 'Scope memory to a specific relationship between contacts',
       format: 'uuid',
+    },
+    location: {
+      type: 'object',
+      description: 'Geographic location to associate with this memory',
+      properties: {
+        lat: {
+          type: 'number',
+          description: 'Latitude (-90 to 90)',
+          minimum: -90,
+          maximum: 90,
+        },
+        lng: {
+          type: 'number',
+          description: 'Longitude (-180 to 180)',
+          minimum: -180,
+          maximum: 180,
+        },
+        address: {
+          type: 'string',
+          description: 'Street address (max 500 chars)',
+          maxLength: 500,
+        },
+        place_label: {
+          type: 'string',
+          description: 'Short place name (max 200 chars)',
+          maxLength: 200,
+        },
+      },
+      required: ['lat', 'lng'],
     },
   },
   required: ['text'],
@@ -1141,21 +1193,30 @@ function createToolHandlers(state: PluginState) {
         category,
         tags,
         relationship_id,
+        location,
+        location_radius_km,
+        location_weight,
       } = params as {
         query: string;
         limit?: number;
         category?: string;
         tags?: string[];
         relationship_id?: string;
+        location?: { lat: number; lng: number };
+        location_radius_km?: number;
+        location_weight?: number;
       };
 
       try {
-        const queryParams = new URLSearchParams({ q: query, limit: String(limit) });
+        // Over-fetch when location is provided to allow geo re-ranking
+        const apiLimit = location ? Math.min(limit * 3, 60) : limit;
+
+        const queryParams = new URLSearchParams({ q: query, limit: String(apiLimit) });
         if (category) queryParams.set('memory_type', category);
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
 
-        const response = await apiClient.get<{ results: Array<{ id: string; content: string; type: string; similarity?: number }> }>(
+        const response = await apiClient.get<{ results: Array<{ id: string; content: string; type: string; similarity?: number; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }> }>(
           `/api/memories/search?${queryParams}`,
           { userId },
         );
@@ -1164,7 +1225,39 @@ function createToolHandlers(state: PluginState) {
           return { success: false, error: response.error.message };
         }
 
-        const memories = response.data.results ?? [];
+        let memories = (response.data.results ?? []).map((m) => ({
+          ...m,
+          category: m.type === 'note' ? 'other' : m.type,
+          score: m.similarity,
+        }));
+
+        // Apply geo re-ranking if location is provided
+        if (location) {
+          const { lat: qLat, lng: qLng } = location;
+          const weight = location_weight ?? 0.3;
+
+          // Filter by radius if specified
+          if (location_radius_km !== undefined) {
+            memories = memories.filter((m) => {
+              if (m.lat == null || m.lng == null) return false;
+              return haversineDistanceKm(qLat, qLng, m.lat, m.lng) <= location_radius_km;
+            });
+          }
+
+          // Compute blended scores and re-sort
+          memories = memories
+            .map((m) => {
+              const contentScore = m.score ?? 0;
+              let geoScore = 0.5;
+              if (m.lat != null && m.lng != null) {
+                geoScore = computeGeoScore(haversineDistanceKm(qLat, qLng, m.lat, m.lng));
+              }
+              return { ...m, score: blendScores(contentScore, geoScore, weight) };
+            })
+            .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+            .slice(0, limit);
+        }
+
         const content = memories.length > 0 ? memories.map((m) => `- [${m.type}] ${m.content}`).join('\n') : 'No relevant memories found.';
 
         return {
@@ -1189,6 +1282,7 @@ function createToolHandlers(state: PluginState) {
         importance = 0.7,
         tags,
         relationship_id,
+        location,
       } = params as {
         text?: string;
         content?: string;
@@ -1196,6 +1290,7 @@ function createToolHandlers(state: PluginState) {
         importance?: number;
         tags?: string[];
         relationship_id?: string;
+        location?: { lat: number; lng: number; address?: string; place_label?: string };
       };
 
       const memoryText = text || contentAlias;
@@ -1213,6 +1308,12 @@ function createToolHandlers(state: PluginState) {
         };
         if (tags && tags.length > 0) payload.tags = tags;
         if (relationship_id) payload.relationship_id = relationship_id;
+        if (location) {
+          payload.lat = location.lat;
+          payload.lng = location.lng;
+          if (location.address) payload.address = location.address;
+          if (location.place_label) payload.place_label = location.place_label;
+        }
 
         const response = await apiClient.post<{ id: string }>('/api/memories/unified', payload, { userId });
 
