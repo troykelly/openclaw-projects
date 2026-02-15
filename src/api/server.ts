@@ -17282,6 +17282,371 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ events: result.rows });
   });
 
+  // ── Agent Identity (Issue #1287) ────────────────────────────────────
+
+  const IDENTITY_UPDATABLE_FIELDS = [
+    'display_name', 'emoji', 'avatar_s3_key', 'persona',
+    'principles', 'quirks', 'voice_config', 'is_active',
+  ] as const;
+
+  /** Build a JSON snapshot of the identity row for history. */
+  function identitySnapshot(row: Record<string, unknown>): Record<string, unknown> {
+    return {
+      name: row.name, display_name: row.display_name, emoji: row.emoji,
+      persona: row.persona, principles: row.principles, quirks: row.quirks,
+      voice_config: row.voice_config, is_active: row.is_active, version: row.version,
+    };
+  }
+
+  // GET /api/identity — Get current identity by name (query param) or first active
+  app.get('/api/identity', async (req, reply) => {
+    const query = req.query as Record<string, string | undefined>;
+    const pool = createPool();
+    try {
+      let result;
+      if (query.name) {
+        result = await pool.query(`SELECT * FROM agent_identity WHERE name = $1`, [query.name]);
+      } else {
+        result = await pool.query(`SELECT * FROM agent_identity WHERE is_active = true ORDER BY created_at LIMIT 1`);
+      }
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'No identity found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/identity — Create or fully replace an identity
+  app.put('/api/identity', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return reply.code(400).send({ error: 'name is required' });
+
+    const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : name;
+    const persona = typeof body.persona === 'string' ? body.persona : '';
+
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const changedBy = typeof hdr === 'string' ? `user:${hdr}` : 'system';
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO agent_identity (name, display_name, emoji, avatar_s3_key, persona, principles, quirks, voice_config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (name) DO UPDATE SET
+           display_name = EXCLUDED.display_name,
+           emoji = EXCLUDED.emoji,
+           avatar_s3_key = EXCLUDED.avatar_s3_key,
+           persona = EXCLUDED.persona,
+           principles = EXCLUDED.principles,
+           quirks = EXCLUDED.quirks,
+           voice_config = EXCLUDED.voice_config,
+           version = agent_identity.version + 1,
+           updated_at = now()
+         RETURNING *`,
+        [
+          name,
+          displayName,
+          body.emoji ?? null,
+          body.avatar_s3_key ?? null,
+          persona,
+          Array.isArray(body.principles) ? body.principles : [],
+          Array.isArray(body.quirks) ? body.quirks : [],
+          body.voice_config ?? null,
+        ],
+      );
+
+      const row = result.rows[0];
+      // Record history
+      await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, full_snapshot)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [row.id, row.version, changedBy, row.version === 1 ? 'create' : 'update', identitySnapshot(row)],
+      );
+
+      return reply.send(row);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/identity — Partially update an identity
+  app.patch('/api/identity', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return reply.code(400).send({ error: 'name is required to identify which identity to update' });
+
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const changedBy = typeof hdr === 'string' ? `user:${hdr}` : 'system';
+
+    const setClauses: string[] = ['version = version + 1', 'updated_at = now()'];
+    const params: unknown[] = [name];
+    let idx = 2;
+    const fieldsChanged: string[] = [];
+
+    for (const field of IDENTITY_UPDATABLE_FIELDS) {
+      if (field in body) {
+        setClauses.push(`${field} = $${idx}`);
+        params.push(body[field]);
+        fieldsChanged.push(field);
+        idx++;
+      }
+    }
+
+    if (fieldsChanged.length === 0) {
+      return reply.code(400).send({ error: 'No updatable fields provided' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE agent_identity SET ${setClauses.join(', ')}
+         WHERE name = $1
+         RETURNING *`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const row = result.rows[0];
+      await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, field_changed, full_snapshot)
+         VALUES ($1, $2, $3, 'update', $4, $5)`,
+        [row.id, row.version, changedBy, fieldsChanged.join(','), identitySnapshot(row)],
+      );
+
+      return reply.send(row);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/proposals — Agent proposes a change
+  app.post('/api/identity/proposals', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const field = typeof body.field === 'string' ? body.field : '';
+    const newValue = typeof body.new_value === 'string' ? body.new_value : '';
+    const proposedBy = typeof body.proposed_by === 'string' ? body.proposed_by : 'agent:unknown';
+    const reason = typeof body.reason === 'string' ? body.reason : null;
+
+    if (!name || !field) {
+      return reply.code(400).send({ error: 'name and field are required' });
+    }
+
+    const pool = createPool();
+    try {
+      const identity = await pool.query(`SELECT * FROM agent_identity WHERE name = $1`, [name]);
+      if (identity.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const row = identity.rows[0];
+      const previousValue = row[field] != null ? String(row[field]) : null;
+
+      const result = await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, change_reason, field_changed, previous_value, new_value, full_snapshot)
+         VALUES ($1, $2, $3, 'propose', $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [row.id, row.version, proposedBy, reason, field, previousValue, newValue, identitySnapshot(row)],
+      );
+
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/proposals/:id/approve — Approve a proposal
+  app.post('/api/identity/proposals/:id/approve', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const approvedBy = typeof hdr === 'string' ? hdr : 'system';
+
+    const pool = createPool();
+    try {
+      // Find the proposal
+      const proposal = await pool.query(
+        `SELECT * FROM agent_identity_history WHERE id = $1 AND change_type = 'propose'`,
+        [id],
+      );
+      if (proposal.rows.length === 0) {
+        return reply.code(404).send({ error: 'Proposal not found' });
+      }
+
+      const prop = proposal.rows[0];
+
+      // Apply the change to the identity if field is valid
+      if (prop.field_changed && prop.new_value != null) {
+        const field = prop.field_changed;
+        // For array fields (principles, quirks), append the value
+        if (field === 'principles' || field === 'quirks') {
+          await pool.query(
+            `UPDATE agent_identity SET ${field} = array_append(${field}, $2), version = version + 1, updated_at = now()
+             WHERE id = $1`,
+            [prop.identity_id, prop.new_value],
+          );
+        } else {
+          await pool.query(
+            `UPDATE agent_identity SET ${field} = $2, version = version + 1, updated_at = now()
+             WHERE id = $1`,
+            [prop.identity_id, prop.new_value],
+          );
+        }
+      }
+
+      // Mark proposal as approved
+      const result = await pool.query(
+        `UPDATE agent_identity_history
+         SET change_type = 'approve', approved_by = $2, approved_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, approvedBy],
+      );
+
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/proposals/:id/reject — Reject a proposal
+  app.post('/api/identity/proposals/:id/reject', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (req.body as Record<string, unknown>) ?? {};
+    const reason = typeof body.reason === 'string' ? body.reason : null;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE agent_identity_history
+         SET change_type = 'reject', change_reason = COALESCE($2, change_reason)
+         WHERE id = $1 AND change_type = 'propose'
+         RETURNING *`,
+        [id, reason],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Proposal not found' });
+      }
+
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/identity/history — Version history for an identity
+  app.get('/api/identity/history', async (req, reply) => {
+    const query = req.query as Record<string, string | undefined>;
+    const name = query.name;
+    if (!name) return reply.code(400).send({ error: 'name query parameter is required' });
+
+    const limit = Math.min(parseInt(query.limit || '50', 10) || 50, 200);
+
+    const pool = createPool();
+    try {
+      const identity = await pool.query(`SELECT id FROM agent_identity WHERE name = $1`, [name]);
+      if (identity.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const result = await pool.query(
+        `SELECT * FROM agent_identity_history
+         WHERE identity_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [identity.rows[0].id, limit],
+      );
+
+      return reply.send({ history: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/rollback — Rollback to a previous version
+  app.post('/api/identity/rollback', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const version = typeof body.version === 'number' ? body.version : null;
+    if (!name || version == null) {
+      return reply.code(400).send({ error: 'name and version are required' });
+    }
+
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const changedBy = typeof hdr === 'string' ? `user:${hdr}` : 'system';
+
+    const pool = createPool();
+    try {
+      const identity = await pool.query(`SELECT id FROM agent_identity WHERE name = $1`, [name]);
+      if (identity.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const identityId = identity.rows[0].id;
+
+      // Find the snapshot at the requested version
+      const historyResult = await pool.query(
+        `SELECT full_snapshot FROM agent_identity_history
+         WHERE identity_id = $1 AND version = $2
+         ORDER BY created_at LIMIT 1`,
+        [identityId, version],
+      );
+      if (historyResult.rows.length === 0) {
+        return reply.code(404).send({ error: `Version ${version} not found in history` });
+      }
+
+      const snapshot = historyResult.rows[0].full_snapshot as Record<string, unknown>;
+
+      // Apply the snapshot
+      const result = await pool.query(
+        `UPDATE agent_identity SET
+           display_name = $2, emoji = $3, persona = $4,
+           principles = $5, quirks = $6, voice_config = $7,
+           is_active = $8, version = version + 1, updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [
+          identityId,
+          snapshot.display_name,
+          snapshot.emoji ?? null,
+          snapshot.persona,
+          snapshot.principles ?? [],
+          snapshot.quirks ?? [],
+          snapshot.voice_config ?? null,
+          snapshot.is_active ?? true,
+        ],
+      );
+
+      const row = result.rows[0];
+      await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, change_reason, full_snapshot)
+         VALUES ($1, $2, $3, 'rollback', $4, $5)`,
+        [identityId, row.version, changedBy, `Rolled back to version ${version}`, identitySnapshot(row)],
+      );
+
+      return reply.send(row);
+    } finally {
+      await pool.end();
+    }
+  });
+
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
