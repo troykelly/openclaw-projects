@@ -11,6 +11,7 @@ import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
 import { MemoryCategory } from './memory-recall.js';
 import { sanitizeText, sanitizeErrorMessage, truncateForPreview } from '../utils/sanitize.js';
+import { reverseGeocode } from '../utils/nominatim.js';
 
 /** Location schema for geo-aware memory storage */
 export const MemoryLocationSchema = z.object({
@@ -104,7 +105,7 @@ function mayContainCredentials(text: string): boolean {
  * Creates the memory_store tool.
  */
 export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemoryStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'memory_store',
@@ -168,6 +169,18 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         if (location) {
           payload.lat = location.lat;
           payload.lng = location.lng;
+
+          // Reverse geocode if address is missing and Nominatim is configured
+          if (!location.address && config.nominatimUrl) {
+            const geocoded = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
+            if (geocoded) {
+              payload.address = geocoded.address;
+              if (!location.place_label && geocoded.placeLabel) {
+                payload.place_label = geocoded.placeLabel;
+              }
+            }
+          }
+
           if (location.address) payload.address = location.address;
           if (location.place_label) payload.place_label = location.place_label;
         }

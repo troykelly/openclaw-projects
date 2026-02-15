@@ -18,6 +18,7 @@ import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
 import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { haversineDistanceKm, computeGeoScore, blendScores } from './utils/geo.js';
+import { reverseGeocode } from './utils/nominatim.js';
 import { createNotificationService } from './services/notification-service.js';
 import { autoLinkInboundMessage } from './utils/auto-linker.js';
 import {
@@ -1311,6 +1312,18 @@ function createToolHandlers(state: PluginState) {
         if (location) {
           payload.lat = location.lat;
           payload.lng = location.lng;
+
+          // Reverse geocode if address is missing and Nominatim is configured
+          if (!location.address && config.nominatimUrl) {
+            const geocoded = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
+            if (geocoded) {
+              payload.address = geocoded.address;
+              if (!location.place_label && geocoded.placeLabel) {
+                payload.place_label = geocoded.placeLabel;
+              }
+            }
+          }
+
           if (location.address) payload.address = location.address;
           if (location.place_label) payload.place_label = location.place_label;
         }
