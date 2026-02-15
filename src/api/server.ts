@@ -6654,6 +6654,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           continue;
         }
 
+        // Validate geo coordinates if provided
+        if (mem.lat !== undefined || mem.lng !== undefined) {
+          if (mem.lat === undefined || mem.lng === undefined) {
+            results.push({ index: i, status: 'failed', error: 'lat and lng must be provided together' });
+            failedCount++;
+            continue;
+          }
+          if (!Number.isFinite(mem.lat) || mem.lat < -90 || mem.lat > 90) {
+            results.push({ index: i, status: 'failed', error: 'lat must be a number between -90 and 90' });
+            failedCount++;
+            continue;
+          }
+          if (!Number.isFinite(mem.lng) || mem.lng < -180 || mem.lng > 180) {
+            results.push({ index: i, status: 'failed', error: 'lng must be a number between -180 and 180' });
+            failedCount++;
+            continue;
+          }
+        }
+
         try {
           const memory = await createMemory(pool, {
             title: mem.title.trim(),

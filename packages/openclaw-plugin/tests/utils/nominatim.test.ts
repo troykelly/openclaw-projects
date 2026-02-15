@@ -101,7 +101,8 @@ describe('Nominatim reverse geocoding', () => {
     );
   });
 
-  it('should return null on non-ok response', async () => {
+  it('should return null and log warning on non-ok response', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 404,
@@ -109,13 +110,22 @@ describe('Nominatim reverse geocoding', () => {
 
     const result = await reverseGeocode(0, 0, 'http://nominatim:8080');
     expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('HTTP 404'),
+    );
+    warnSpy.mockRestore();
   });
 
-  it('should return null on network error', async () => {
+  it('should return null and log warning on network error', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
     const result = await reverseGeocode(0, 0, 'http://nominatim:8080');
     expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Network error'),
+    );
+    warnSpy.mockRestore();
   });
 
   it('should cache results for the same rounded coordinates', async () => {

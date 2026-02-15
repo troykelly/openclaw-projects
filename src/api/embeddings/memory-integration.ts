@@ -285,6 +285,10 @@ export async function searchMemoriesSemantic(
        m.embedding_status,
        m.embedding_provider,
        m.embedding_model,
+       m.lat,
+       m.lng,
+       m.address,
+       m.place_label,
        0.5 as similarity
      FROM memory m
      ${fullWhereClause}
