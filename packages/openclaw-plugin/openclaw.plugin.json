@@ -145,6 +145,11 @@
         "type": "string",
         "pattern": "^https?://",
         "description": "Base URL for web app (used for generating note/notebook URLs)"
+      },
+      "nominatimUrl": {
+        "type": "string",
+        "pattern": "^https?://",
+        "description": "Nominatim reverse geocoding URL (e.g., http://nominatim:8080)"
       }
     },
     "additionalProperties": false,
@@ -287,6 +292,12 @@
       "label": "Web App URL",
       "placeholder": "https://app.example.com",
       "help": "Base URL for the web app (used for generating links)",
+      "group": "Advanced"
+    },
+    "nominatimUrl": {
+      "label": "Nominatim URL",
+      "placeholder": "http://nominatim:8080",
+      "help": "URL for self-hosted Nominatim reverse geocoding service (enables geo-contextual search)",
       "group": "Advanced"
     }
   }

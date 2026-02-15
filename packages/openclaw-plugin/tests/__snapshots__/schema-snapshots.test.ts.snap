@@ -107,6 +107,11 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
       "minimum": 0,
       "type": "number",
     },
+    "nominatimUrl": {
+      "description": "Nominatim reverse geocoding URL (e.g., http://nominatim:8080)",
+      "pattern": "^https?://",
+      "type": "string",
+    },
     "postmarkFromEmail": {
       "description": "Postmark From Email address (direct value)",
       "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
@@ -271,6 +276,12 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
     "group": "Memory",
     "help": "Minimum relevance score (0-1) for auto-recall",
     "label": "Min Recall Score",
+  },
+  "nominatimUrl": {
+    "group": "Advanced",
+    "help": "URL for self-hosted Nominatim reverse geocoding service (enables geo-contextual search)",
+    "label": "Nominatim URL",
+    "placeholder": "http://nominatim:8080",
   },
   "postmarkFromEmail": {
     "group": "Postmark Email",
