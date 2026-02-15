@@ -18861,6 +18861,347 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Recipes API (Issue #1278) ────────────────────────────────────────
+
+  function getRecipeUserEmail(req: { headers?: Record<string, string | string[] | undefined> }): string | null {
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  const RECIPE_UPDATABLE_FIELDS = [
+    'title', 'description', 'source_url', 'source_name',
+    'prep_time_min', 'cook_time_min', 'total_time_min',
+    'servings', 'difficulty', 'cuisine', 'notes', 'image_s3_key',
+  ] as const;
+
+  // POST /api/recipes — Create a recipe with ingredients and steps
+  app.post('/api/recipes', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body.title !== 'string' || !body.title.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Insert recipe
+      const recipeResult = await pool.query(
+        `INSERT INTO recipe (user_email, title, description, source_url, source_name,
+          prep_time_min, cook_time_min, total_time_min, servings, difficulty,
+          cuisine, meal_type, tags, rating, notes, is_favourite, image_s3_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+         RETURNING *`,
+        [
+          email,
+          body.title,
+          body.description ?? null,
+          body.source_url ?? null,
+          body.source_name ?? null,
+          body.prep_time_min ?? null,
+          body.cook_time_min ?? null,
+          body.total_time_min ?? null,
+          body.servings ?? null,
+          body.difficulty ?? null,
+          body.cuisine ?? null,
+          Array.isArray(body.meal_type) ? body.meal_type : [],
+          Array.isArray(body.tags) ? body.tags : [],
+          body.rating ?? null,
+          body.notes ?? null,
+          body.is_favourite === true,
+          body.image_s3_key ?? null,
+        ],
+      );
+      const recipe = recipeResult.rows[0] as Record<string, unknown>;
+      const recipeId = recipe.id;
+
+      // Insert ingredients
+      const ingredients: Record<string, unknown>[] = [];
+      if (Array.isArray(body.ingredients)) {
+        for (const ing of body.ingredients as Record<string, unknown>[]) {
+          const name = typeof ing.name === 'string' ? ing.name.trim() : '';
+          if (!name) continue;
+          const result = await pool.query(
+            `INSERT INTO recipe_ingredient (recipe_id, name, quantity, unit, category, is_optional, notes, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING *`,
+            [
+              recipeId, name,
+              ing.quantity ?? null, ing.unit ?? null, ing.category ?? null,
+              ing.is_optional === true, ing.notes ?? null,
+              typeof ing.sort_order === 'number' ? ing.sort_order : ingredients.length,
+            ],
+          );
+          ingredients.push(result.rows[0]);
+        }
+      }
+
+      // Insert steps
+      const steps: Record<string, unknown>[] = [];
+      if (Array.isArray(body.steps)) {
+        for (const step of body.steps as Record<string, unknown>[]) {
+          const instruction = typeof step.instruction === 'string' ? step.instruction.trim() : '';
+          if (!instruction) continue;
+          const result = await pool.query(
+            `INSERT INTO recipe_step (recipe_id, step_number, instruction, duration_min, image_s3_key)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *`,
+            [
+              recipeId,
+              typeof step.step_number === 'number' ? step.step_number : steps.length + 1,
+              instruction,
+              step.duration_min ?? null,
+              step.image_s3_key ?? null,
+            ],
+          );
+          steps.push(result.rows[0]);
+        }
+      }
+
+      return reply.code(201).send({ ...recipe, ingredients, steps });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/recipes — List recipes with optional filters
+  app.get('/api/recipes', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1'];
+    const params: unknown[] = [email];
+    let paramIdx = 2;
+
+    if (query.cuisine) {
+      conditions.push(`cuisine = $${paramIdx}`);
+      params.push(query.cuisine);
+      paramIdx++;
+    }
+    if (query.tag) {
+      conditions.push(`$${paramIdx} = ANY(tags)`);
+      params.push(query.tag);
+      paramIdx++;
+    }
+    if (query.meal_type) {
+      conditions.push(`$${paramIdx} = ANY(meal_type)`);
+      params.push(query.meal_type);
+      paramIdx++;
+    }
+    if (query.favourites === 'true') {
+      conditions.push('is_favourite = true');
+    }
+    if (query.difficulty) {
+      conditions.push(`difficulty = $${paramIdx}`);
+      params.push(query.difficulty);
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM recipe WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC`,
+        params,
+      );
+      return reply.send({ recipes: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/recipes/:id — Get recipe with ingredients and steps
+  app.get('/api/recipes/:id', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid recipe ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const recipeResult = await pool.query(
+        `SELECT * FROM recipe WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (recipeResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+
+      const ingredientsResult = await pool.query(
+        `SELECT * FROM recipe_ingredient WHERE recipe_id = $1 ORDER BY sort_order`,
+        [params.id],
+      );
+      const stepsResult = await pool.query(
+        `SELECT * FROM recipe_step WHERE recipe_id = $1 ORDER BY step_number`,
+        [params.id],
+      );
+
+      return reply.send({
+        ...recipeResult.rows[0],
+        ingredients: ingredientsResult.rows,
+        steps: stepsResult.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/recipes/:id — Update recipe fields
+  app.patch('/api/recipes/:id', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid recipe ID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body) return reply.code(400).send({ error: 'Body is required' });
+
+    const setClauses: string[] = [];
+    const queryParams: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of RECIPE_UPDATABLE_FIELDS) {
+      if (field in body) {
+        setClauses.push(`${field} = $${paramIdx}`);
+        queryParams.push(body[field]);
+        paramIdx++;
+      }
+    }
+    // Handle special fields
+    if ('rating' in body) {
+      setClauses.push(`rating = $${paramIdx}`);
+      queryParams.push(body.rating);
+      paramIdx++;
+    }
+    if ('is_favourite' in body) {
+      setClauses.push(`is_favourite = $${paramIdx}`);
+      queryParams.push(body.is_favourite);
+      paramIdx++;
+    }
+    if ('meal_type' in body && Array.isArray(body.meal_type)) {
+      setClauses.push(`meal_type = $${paramIdx}`);
+      queryParams.push(body.meal_type);
+      paramIdx++;
+    }
+    if ('tags' in body && Array.isArray(body.tags)) {
+      setClauses.push(`tags = $${paramIdx}`);
+      queryParams.push(body.tags);
+      paramIdx++;
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    setClauses.push(`updated_at = now()`);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE recipe SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         RETURNING *`,
+        [...queryParams, routeParams.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/recipes/:id — Delete a recipe (cascade deletes ingredients/steps)
+  app.delete('/api/recipes/:id', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid recipe ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM recipe WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/recipes/:id/to-shopping-list — Push ingredients to a shopping list
+  app.post('/api/recipes/:id/to-shopping-list', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const listId = typeof body?.list_id === 'string' ? body.list_id : null;
+
+    if (!listId || !isValidUUID(listId)) {
+      return reply.code(400).send({ error: 'list_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify recipe exists and belongs to user
+      const recipeCheck = await pool.query(
+        `SELECT id FROM recipe WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (recipeCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+
+      // Verify list exists and belongs to user
+      const listCheck = await pool.query(
+        `SELECT id FROM list WHERE id = $1 AND user_email = $2`,
+        [listId, email],
+      );
+      if (listCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'List not found' });
+      }
+
+      // Get recipe ingredients
+      const ingredients = await pool.query(
+        `SELECT name, quantity, unit, category FROM recipe_ingredient WHERE recipe_id = $1 ORDER BY sort_order`,
+        [routeParams.id],
+      );
+
+      // Add each ingredient as a list item
+      let added = 0;
+      for (const ing of ingredients.rows) {
+        const quantityStr = [ing.quantity, ing.unit].filter(Boolean).join(' ') || null;
+        await pool.query(
+          `INSERT INTO list_item (list_id, name, quantity, category)
+           VALUES ($1, $2, $3, $4)`,
+          [listId, ing.name, quantityStr, ing.category],
+        );
+        added++;
+      }
+
+      return reply.send({ added });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA

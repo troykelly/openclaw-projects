@@ -524,6 +524,101 @@ export interface UpdateDevSessionBody {
 }
 
 // ---------------------------------------------------------------------------
+// Recipes (Issue #1278)
+// ---------------------------------------------------------------------------
+
+export interface Recipe {
+  id: string;
+  user_email: string;
+  title: string;
+  description: string | null;
+  source_url: string | null;
+  source_name: string | null;
+  prep_time_min: number | null;
+  cook_time_min: number | null;
+  total_time_min: number | null;
+  servings: number | null;
+  difficulty: string | null;
+  cuisine: string | null;
+  meal_type: string[];
+  tags: string[];
+  rating: number | null;
+  notes: string | null;
+  is_favourite: boolean;
+  image_s3_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipe_id: string;
+  name: string;
+  quantity: string | null;
+  unit: string | null;
+  category: string | null;
+  is_optional: boolean;
+  notes: string | null;
+  sort_order: number;
+}
+
+export interface RecipeStep {
+  id: string;
+  recipe_id: string;
+  step_number: number;
+  instruction: string;
+  duration_min: number | null;
+  image_s3_key: string | null;
+}
+
+export interface RecipeWithDetails extends Recipe {
+  ingredients: RecipeIngredient[];
+  steps: RecipeStep[];
+}
+
+export interface RecipesResponse {
+  recipes: Recipe[];
+}
+
+export interface CreateRecipeBody {
+  title: string;
+  description?: string;
+  source_url?: string;
+  source_name?: string;
+  prep_time_min?: number;
+  cook_time_min?: number;
+  total_time_min?: number;
+  servings?: number;
+  difficulty?: string;
+  cuisine?: string;
+  meal_type?: string[];
+  tags?: string[];
+  ingredients?: Array<{
+    name: string;
+    quantity?: string;
+    unit?: string;
+    category?: string;
+    is_optional?: boolean;
+  }>;
+  steps?: Array<{
+    step_number: number;
+    instruction: string;
+    duration_min?: number;
+  }>;
+}
+
+export interface UpdateRecipeBody {
+  title?: string;
+  description?: string;
+  rating?: number;
+  is_favourite?: boolean;
+  notes?: string;
+  cuisine?: string;
+  meal_type?: string[];
+  tags?: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 

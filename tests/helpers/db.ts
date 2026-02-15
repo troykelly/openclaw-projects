@@ -84,6 +84,11 @@ const APPLICATION_TABLES = [
   'entity_link',
   // Dev sessions (Issue #1285)
   'dev_session',
+  // Recipes (Issue #1278)
+  'recipe_image',
+  'recipe_step',
+  'recipe_ingredient',
+  'recipe',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
