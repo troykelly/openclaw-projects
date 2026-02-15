@@ -178,7 +178,10 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
           total,
         });
 
-        // Detect and log potential injection patterns in message snippets
+        // SECURITY: Run injection detection on the FULL snippet BEFORE any
+        // truncation. Snippets are later truncated to 100 chars for display, but
+        // detection must see the complete content to catch payloads that an
+        // attacker could hide beyond the truncation boundary. (Issue #1258)
         for (const m of messages) {
           if (m.snippet) {
             const detection = detectInjectionPatterns(m.snippet);
@@ -194,6 +197,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
 
         // Format content for display with injection protection.
         // Boundary-wrap all snippets since they may contain external message content.
+        // NOTE: Truncation happens here AFTER detection above — do not reorder.
         const content =
           messages.length > 0
             ? messages

@@ -2109,7 +2109,10 @@ function createToolHandlers(state: PluginState) {
           total,
         });
 
-        // Detect and log potential injection patterns in inbound messages
+        // SECURITY: Run injection detection on the FULL message body BEFORE any
+        // truncation. Bodies are later truncated to 100 chars for display, but
+        // detection must see the complete content to catch payloads that an
+        // attacker could hide beyond the truncation boundary. (Issue #1258)
         for (const m of messages) {
           if (m.direction === 'inbound' && m.body) {
             const detection = detectInjectionPatterns(m.body);
@@ -2123,7 +2126,8 @@ function createToolHandlers(state: PluginState) {
           }
         }
 
-        // Format content for display with injection protection
+        // Format content for display with injection protection.
+        // NOTE: Truncation happens here AFTER detection above — do not reorder.
         const content =
           messages.length > 0
             ? messages
