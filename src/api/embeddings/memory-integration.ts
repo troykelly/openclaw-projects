@@ -143,13 +143,15 @@ export async function searchMemoriesSemantic(
     relationshipId?: string;
     userEmail?: string;
     tags?: string[];
+    createdAfter?: Date;
+    createdBefore?: Date;
   } = {},
 ): Promise<{
   results: Array<MemoryWithEmbedding & { similarity: number }>;
   searchType: 'semantic' | 'text';
   queryEmbeddingProvider?: string;
 }> {
-  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, userEmail, tags } = options;
+  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, userEmail, tags, createdAfter, createdBefore } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -208,6 +210,18 @@ export async function searchMemoriesSemantic(
   if (tags && tags.length > 0) {
     conditions.push(`m.tags @> $${paramIndex}`);
     params.push(tags);
+    paramIndex++;
+  }
+
+  // Temporal filters (issue #1272)
+  if (createdAfter) {
+    conditions.push(`m.created_at >= $${paramIndex}`);
+    params.push(createdAfter.toISOString());
+    paramIndex++;
+  }
+  if (createdBefore) {
+    conditions.push(`m.created_at < $${paramIndex}`);
+    params.push(createdBefore.toISOString());
     paramIndex++;
   }
 

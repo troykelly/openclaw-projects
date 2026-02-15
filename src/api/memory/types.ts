@@ -114,6 +114,10 @@ export interface ListMemoriesOptions extends MemoryScope {
   tags?: string[];
   includeExpired?: boolean;
   includeSuperseded?: boolean;
+  /** Only include memories created at or after this date (issue #1272) */
+  createdAfter?: Date;
+  /** Only include memories created before this date (issue #1272) */
+  createdBefore?: Date;
   limit?: number;
   offset?: number;
 }
@@ -136,6 +140,10 @@ export interface SearchMemoriesOptions extends MemoryScope {
   memoryType?: MemoryType;
   /** Filter to memories containing all of these tags */
   tags?: string[];
+  /** Only include memories created at or after this date (issue #1272) */
+  createdAfter?: Date;
+  /** Only include memories created before this date (issue #1272) */
+  createdBefore?: Date;
   limit?: number;
   offset?: number;
   minSimilarity?: number;
