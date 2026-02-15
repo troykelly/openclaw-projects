@@ -75,6 +75,9 @@ const APPLICATION_TABLES = [
   'skill_store_activity',
   'skill_store_schedule',
   'skill_store_item',
+  // Agent identity (Issue #1287)
+  'agent_identity_history',
+  'agent_identity',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',

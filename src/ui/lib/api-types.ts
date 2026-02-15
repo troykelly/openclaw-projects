@@ -911,6 +911,68 @@ export interface SkillStoreSearchResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Agent Identity (Issue #1287)
+// ---------------------------------------------------------------------------
+
+/** The agent's core identity/persona. */
+export interface AgentIdentity {
+  id: string;
+  name: string;
+  display_name: string;
+  emoji: string | null;
+  avatar_s3_key: string | null;
+  persona: string;
+  principles: string[];
+  quirks: string[];
+  voice_config: Record<string, unknown> | null;
+  is_active: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A history entry tracking identity changes. */
+export interface AgentIdentityHistoryEntry {
+  id: string;
+  identity_id: string;
+  version: number;
+  changed_by: string;
+  change_type: 'create' | 'update' | 'propose' | 'approve' | 'reject' | 'rollback';
+  change_reason: string | null;
+  field_changed: string | null;
+  previous_value: string | null;
+  new_value: string | null;
+  full_snapshot: Record<string, unknown>;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+}
+
+/** Response from GET /api/identity/history */
+export interface AgentIdentityHistoryResponse {
+  history: AgentIdentityHistoryEntry[];
+}
+
+/** Body for PUT /api/identity */
+export interface CreateAgentIdentityBody {
+  name: string;
+  display_name?: string;
+  emoji?: string;
+  persona: string;
+  principles?: string[];
+  quirks?: string[];
+}
+
+/** Body for POST /api/identity/proposals */
+export interface ProposeIdentityChangeBody {
+  name: string;
+  field: string;
+  new_value: string;
+  reason?: string;
+  proposed_by: string;
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
