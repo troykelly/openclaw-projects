@@ -36,7 +36,10 @@ export async function reverseGeocode(
       headers: { 'User-Agent': 'openclaw-projects/1.0' },
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn(`[Nominatim] Reverse geocode failed: HTTP ${response.status} for (${lat}, ${lng})`);
+      return null;
+    }
 
     const data = (await response.json()) as {
       display_name?: string;
@@ -61,7 +64,9 @@ export async function reverseGeocode(
     }
     geocodeCache.set(key, result);
     return result;
-  } catch {
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`[Nominatim] Reverse geocode error for (${lat}, ${lng}): ${msg}`);
     return null;
   }
 }
