@@ -398,6 +398,46 @@ export interface MessageLinkContactResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Entity Links (Issue #1276)
+// ---------------------------------------------------------------------------
+
+/** Source entity type for entity links. */
+export type EntityLinkSourceType = 'message' | 'thread' | 'memory' | 'todo' | 'project_event';
+
+/** Target entity type for entity links. */
+export type EntityLinkTargetType = 'project' | 'contact' | 'todo' | 'memory';
+
+/** Relationship kind for entity links. */
+export type EntityLinkRelType = 'related' | 'caused_by' | 'resulted_in' | 'about';
+
+/** Single entity link from GET /api/entity-links. */
+export interface EntityLink {
+  id: string;
+  source_type: EntityLinkSourceType;
+  source_id: string;
+  target_type: EntityLinkTargetType;
+  target_id: string;
+  link_type: EntityLinkRelType;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Response from GET /api/entity-links. */
+export interface EntityLinksResponse {
+  links: EntityLink[];
+}
+
+/** Body for POST /api/entity-links. */
+export interface CreateEntityLinkBody {
+  source_type: EntityLinkSourceType;
+  source_id: string;
+  target_type: EntityLinkTargetType;
+  target_id: string;
+  link_type?: EntityLinkRelType;
+  created_by?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 

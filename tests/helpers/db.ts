@@ -80,6 +80,8 @@ const APPLICATION_TABLES = [
   // Agent identity (Issue #1287)
   'agent_identity_history',
   'agent_identity',
+  // Entity links (no FKs, polymorphic references)
+  'entity_link',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
