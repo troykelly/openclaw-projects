@@ -673,6 +673,7 @@ services:
   # If PromptGuard is unavailable, injection detection falls back to regex.
   prompt-guard:
     image: ghcr.io/troykelly/openclaw-projects-prompt-guard:latest
+    profiles: ["ml"]
     container_name: openclaw-prompt-guard
     restart: unless-stopped
     environment:
