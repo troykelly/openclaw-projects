@@ -2500,6 +2500,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   /** Valid contact_kind enum values (issue #489). */
   const VALID_CONTACT_KINDS = ['person', 'organisation', 'group', 'agent'] as const;
   type ContactKind = (typeof VALID_CONTACT_KINDS)[number];
+
+  /** Valid contact_channel enum values (issue #1269). */
+  const VALID_CONTACT_CHANNELS = ['telegram', 'email', 'sms', 'voice'] as const;
+  type ContactChannel = (typeof VALID_CONTACT_CHANNELS)[number];
+
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   // Bulk operations endpoints
@@ -5366,7 +5371,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.post('/api/contacts', async (req, reply) => {
-    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string; user_email?: string };
+    const body = req.body as {
+      displayName?: string; notes?: string | null; contactKind?: string; user_email?: string;
+      preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
+      quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
+    };
     if (!body?.displayName || body.displayName.trim().length === 0) {
       return reply.code(400).send({ error: 'displayName is required' });
     }
@@ -5377,13 +5386,41 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
     }
 
+    // Validate communication channel preferences (issue #1269)
+    if (body.preferred_channel !== undefined && body.preferred_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.preferred_channel as ContactChannel)) {
+        return reply.code(400).send({ error: `Invalid preferred_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
+    }
+    if (body.urgency_override_channel !== undefined && body.urgency_override_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.urgency_override_channel as ContactChannel)) {
+        return reply.code(400).send({ error: `Invalid urgency_override_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
+    }
+
+    // Quiet hours start and end must be provided together
+    const hasStart = body.quiet_hours_start !== undefined && body.quiet_hours_start !== null;
+    const hasEnd = body.quiet_hours_end !== undefined && body.quiet_hours_end !== null;
+    if (hasStart !== hasEnd) {
+      return reply.code(400).send({ error: 'quiet_hours_start and quiet_hours_end must be provided together' });
+    }
+
     const pool = createPool();
     const contactUserEmail = body.user_email?.trim() || null;
     const result = await pool.query(
-      `INSERT INTO contact (display_name, notes, contact_kind, user_email)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
-      [body.displayName.trim(), body.notes ?? null, contactKind, contactUserEmail],
+      `INSERT INTO contact (display_name, notes, contact_kind, user_email,
+        preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
+        urgency_override_channel, notification_notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+        urgency_override_channel::text, notification_notes,
+        created_at, updated_at`,
+      [
+        body.displayName.trim(), body.notes ?? null, contactKind, contactUserEmail,
+        body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
+        body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
+      ],
     );
     await pool.end();
 
@@ -5564,7 +5601,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get contacts with endpoints
     const result = await pool.query(
-      `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind, c.created_at,
+      `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.preferred_channel::text, c.quiet_hours_start::text, c.quiet_hours_end::text,
+              c.quiet_hours_timezone, c.urgency_override_channel::text, c.notification_notes,
+              c.created_at,
               COALESCE(
                 json_agg(
                   json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
@@ -5617,6 +5657,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.preferred_channel::text, c.quiet_hours_start::text, c.quiet_hours_end::text,
+              c.quiet_hours_timezone, c.urgency_override_channel::text, c.notification_notes,
               c.created_at, c.updated_at,
               c.deleted_at,
               COALESCE(
@@ -5645,7 +5687,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.patch('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string };
+    const body = req.body as {
+      displayName?: string; notes?: string | null; contactKind?: string;
+      preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
+      quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
+    };
 
     const pool = createPool();
 
@@ -5653,6 +5699,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (body.contactKind !== undefined && !VALID_CONTACT_KINDS.includes(body.contactKind as ContactKind)) {
       await pool.end();
       return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
+    // Validate communication channel preferences (issue #1269)
+    if (body.preferred_channel !== undefined && body.preferred_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.preferred_channel as ContactChannel)) {
+        await pool.end();
+        return reply.code(400).send({ error: `Invalid preferred_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
+    }
+    if (body.urgency_override_channel !== undefined && body.urgency_override_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.urgency_override_channel as ContactChannel)) {
+        await pool.end();
+        return reply.code(400).send({ error: `Invalid urgency_override_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
     }
 
     // Check if contact exists (Issue #1172: optional user_email scoping)
@@ -5691,6 +5751,38 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
+    // Communication preference fields (issue #1269)
+    if (Object.prototype.hasOwnProperty.call(body, 'preferred_channel')) {
+      updates.push(`preferred_channel = $${paramIndex}`);
+      values.push(body.preferred_channel ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'quiet_hours_start')) {
+      updates.push(`quiet_hours_start = $${paramIndex}`);
+      values.push(body.quiet_hours_start ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'quiet_hours_end')) {
+      updates.push(`quiet_hours_end = $${paramIndex}`);
+      values.push(body.quiet_hours_end ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'quiet_hours_timezone')) {
+      updates.push(`quiet_hours_timezone = $${paramIndex}`);
+      values.push(body.quiet_hours_timezone ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'urgency_override_channel')) {
+      updates.push(`urgency_override_channel = $${paramIndex}`);
+      values.push(body.urgency_override_channel ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'notification_notes')) {
+      updates.push(`notification_notes = $${paramIndex}`);
+      values.push(body.notification_notes ?? null);
+      paramIndex++;
+    }
+
     if (updates.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'no fields to update' });
@@ -5711,7 +5803,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const result = await pool.query(
       `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex} ${patchContactUserEmailFilter}
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
+       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+        urgency_override_channel::text, notification_notes,
+        created_at, updated_at`,
       values,
     );
 
