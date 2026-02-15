@@ -173,6 +173,9 @@ importers:
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0
       zustand:
         specifier: ^5.0.11
         version: 5.0.11(@types/react@19.2.10)(react@19.2.4)
