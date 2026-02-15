@@ -24,6 +24,7 @@ import {
 } from './webhooks/index.ts';
 import { twilioIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, getClientIP } from './webhooks/ip-whitelist.ts';
 import { createRateLimitKeyGenerator, getEndpointRateLimitCategory, getRateLimitConfig, type GetSessionEmailFn } from './rate-limit/per-user.ts';
+import { geoAutoInjectHook } from './geolocation/auto-inject.ts';
 import {
   processTwilioSms,
   type TwilioSmsWebhookPayload,
@@ -6498,7 +6499,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/unified - Create memory with flexible scoping (issue #209)
-  app.post('/api/memories/unified', async (req, reply) => {
+  app.post('/api/memories/unified', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
     const { createMemory, isValidMemoryType, generateTitleFromContent } = await import('./memory/index.ts');
 
     const body = req.body as {
@@ -6590,7 +6591,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // POST /api/memories/bulk - Bulk create memories (Issue #218)
-  app.post('/api/memories/bulk', async (req, reply) => {
+  app.post('/api/memories/bulk', { preHandler: [geoAutoInjectHook(createPool)] }, async (req, reply) => {
     const { createMemory, isValidMemoryType } = await import('./memory/index.ts');
 
     const body = req.body as {
