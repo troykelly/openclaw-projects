@@ -870,6 +870,55 @@ export interface SkillStoreSearchResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Pantry Inventory (Issue #1280)
+// ---------------------------------------------------------------------------
+
+export interface PantryItem {
+  id: string;
+  user_email: string;
+  name: string;
+  location: string;
+  quantity: string | null;
+  category: string | null;
+  is_leftover: boolean;
+  leftover_dish: string | null;
+  leftover_portions: number | null;
+  meal_log_id: string | null;
+  added_date: string;
+  use_by_date: string | null;
+  use_soon: boolean;
+  notes: string | null;
+  is_depleted: boolean;
+  depleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PantryItemsResponse {
+  items: PantryItem[];
+}
+
+export interface CreatePantryItemBody {
+  name: string;
+  location: string;
+  quantity?: string;
+  category?: string;
+  is_leftover?: boolean;
+  leftover_dish?: string;
+  leftover_portions?: number;
+  use_by_date?: string;
+  use_soon?: boolean;
+  notes?: string;
+}
+
+export interface UpdatePantryItemBody {
+  quantity?: string;
+  use_soon?: boolean;
+  notes?: string;
+  location?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
