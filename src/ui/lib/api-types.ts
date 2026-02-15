@@ -439,6 +439,26 @@ export interface CreateEntityLinkBody {
 }
 
 // ---------------------------------------------------------------------------
+// Memory Attachments (Issue #1271)
+// ---------------------------------------------------------------------------
+
+/** File attachment metadata */
+export interface MemoryAttachment {
+  id: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  attachedAt: string;
+  attachedBy?: string | null;
+}
+
+/** Response from GET /api/memories/:id/attachments */
+export interface MemoryAttachmentsResponse {
+  attachments: MemoryAttachment[];
+}
+
+// ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 

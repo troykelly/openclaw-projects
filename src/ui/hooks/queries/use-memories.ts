@@ -7,7 +7,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/ui/lib/api-client.ts';
-import type { MemoryListResponse, WorkItemMemoriesResponse } from '@/ui/lib/api-types.ts';
+import type { MemoryAttachmentsResponse, MemoryListResponse, WorkItemMemoriesResponse } from '@/ui/lib/api-types.ts';
 
 /** Query key factory for memories. */
 export const memoryKeys = {
@@ -16,6 +16,7 @@ export const memoryKeys = {
   list: () => [...memoryKeys.lists()] as const,
   forWorkItem: (workItemId: string) => [...memoryKeys.all, 'work-item', workItemId] as const,
   forProject: (projectId: string) => [...memoryKeys.all, 'project', projectId] as const,
+  attachments: (memoryId: string) => [...memoryKeys.all, memoryId, 'attachments'] as const,
 };
 
 /**
@@ -55,5 +56,19 @@ export function useProjectMemories(projectId: string) {
     queryKey: memoryKeys.forProject(projectId),
     queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/projects/${projectId}/memories`, { signal }),
     enabled: !!projectId,
+  });
+}
+
+/**
+ * Fetch file attachments for a specific memory (Issue #1271).
+ *
+ * @param memoryId - The memory UUID
+ * @returns TanStack Query result with `MemoryAttachmentsResponse`
+ */
+export function useMemoryAttachments(memoryId: string) {
+  return useQuery({
+    queryKey: memoryKeys.attachments(memoryId),
+    queryFn: ({ signal }) => apiClient.get<MemoryAttachmentsResponse>(`/api/memories/${memoryId}/attachments`, { signal }),
+    enabled: !!memoryId,
   });
 }
