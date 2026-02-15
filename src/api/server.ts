@@ -16428,6 +16428,255 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Pantry Inventory API (Issue #1280) ───────────────────────────────
+
+  function getPantryUserEmail(req: { headers?: Record<string, string | string[] | undefined> }): string | null {
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  // POST /api/pantry — Add a pantry item
+  app.post('/api/pantry', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body.name !== 'string' || !body.name.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+    if (typeof body.location !== 'string' || !body.location.trim()) {
+      return reply.code(400).send({ error: 'location is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO pantry_item (user_email, name, location, quantity, category,
+          is_leftover, leftover_dish, leftover_portions, meal_log_id,
+          use_by_date, use_soon, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING *`,
+        [
+          email,
+          body.name.trim(),
+          body.location.trim(),
+          body.quantity ?? null,
+          body.category ?? null,
+          body.is_leftover === true,
+          body.leftover_dish ?? null,
+          body.leftover_portions ?? null,
+          body.meal_log_id ?? null,
+          body.use_by_date ?? null,
+          body.use_soon === true,
+          body.notes ?? null,
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry/expiring — Items expiring within N days (before :id route)
+  app.get('/api/pantry/expiring', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const days = query.days ? Number.parseInt(query.days, 10) : 3;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM pantry_item
+         WHERE user_email = $1 AND NOT is_depleted
+           AND use_by_date IS NOT NULL
+           AND use_by_date <= CURRENT_DATE + $2::int
+         ORDER BY use_by_date ASC`,
+        [email, days],
+      );
+      return reply.send({ items: result.rows, days });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/pantry/use — Mark items as depleted (before :id route)
+  app.post('/api/pantry/use', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const itemIds = Array.isArray(body?.item_ids) ? (body.item_ids as string[]) : [];
+
+    if (itemIds.length === 0) {
+      return reply.code(400).send({ error: 'item_ids array is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE pantry_item SET is_depleted = true, depleted_at = now(), updated_at = now()
+         WHERE user_email = $1 AND id = ANY($2::uuid[]) AND NOT is_depleted`,
+        [email, itemIds],
+      );
+      return reply.send({ depleted: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry — List active pantry items with optional filters
+  app.get('/api/pantry', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1', 'NOT is_depleted'];
+    const params: unknown[] = [email];
+    let paramIdx = 2;
+
+    if (query.location) {
+      conditions.push(`location = $${paramIdx}`);
+      params.push(query.location);
+      paramIdx++;
+    }
+    if (query.category) {
+      conditions.push(`category = $${paramIdx}`);
+      params.push(query.category);
+      paramIdx++;
+    }
+    if (query.leftovers === 'true') {
+      conditions.push('is_leftover = true');
+    }
+    if (query.use_soon === 'true') {
+      conditions.push('use_soon = true');
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM pantry_item WHERE ${conditions.join(' AND ')} ORDER BY location, name`,
+        params,
+      );
+      return reply.send({ items: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry/:id — Get a specific pantry item
+  app.get('/api/pantry/:id', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid item ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM pantry_item WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/pantry/:id — Update a pantry item
+  app.patch('/api/pantry/:id', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid item ID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body) return reply.code(400).send({ error: 'Body is required' });
+
+    const UPDATABLE = ['name', 'location', 'quantity', 'category', 'leftover_dish',
+      'leftover_portions', 'use_by_date', 'notes'] as const;
+
+    const setClauses: string[] = [];
+    const queryParams: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of UPDATABLE) {
+      if (field in body) {
+        setClauses.push(`${field} = $${paramIdx}`);
+        queryParams.push(body[field]);
+        paramIdx++;
+      }
+    }
+    if ('use_soon' in body) {
+      setClauses.push(`use_soon = $${paramIdx}`);
+      queryParams.push(body.use_soon);
+      paramIdx++;
+    }
+    if ('is_leftover' in body) {
+      setClauses.push(`is_leftover = $${paramIdx}`);
+      queryParams.push(body.is_leftover);
+      paramIdx++;
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    setClauses.push('updated_at = now()');
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE pantry_item SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         RETURNING *`,
+        [...queryParams, routeParams.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/pantry/:id — Delete a pantry item
+  app.delete('/api/pantry/:id', async (req, reply) => {
+    const email = getPantryUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid item ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM pantry_item WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Item not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA

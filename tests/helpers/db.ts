@@ -73,6 +73,8 @@ const APPLICATION_TABLES = [
   'skill_store_activity',
   'skill_store_schedule',
   'skill_store_item',
+  // Pantry inventory (Issue #1280)
+  'pantry_item',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
