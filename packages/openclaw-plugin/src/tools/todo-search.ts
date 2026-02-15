@@ -2,6 +2,7 @@
  * todo_search tool implementation.
  * Provides semantic search through work items (todos and projects).
  * Uses the unified search API with work_item type filter.
+ * Geo-contextual ranking added in Issue #1218.
  *
  * Part of Issue #1216.
  */
@@ -11,6 +12,7 @@ import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
+import { reverseGeocode } from '../utils/nominatim.js';
 
 /** Parameters for todo_search tool */
 export const TodoSearchParamsSchema = z.object({
@@ -18,6 +20,10 @@ export const TodoSearchParamsSchema = z.object({
   limit: z.number().int().min(1).max(50).optional(),
   kind: z.enum(['task', 'project', 'initiative', 'epic', 'issue']).optional(),
   status: z.string().max(50).optional(),
+  location: z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }).optional(),
 });
 export type TodoSearchParams = z.infer<typeof TodoSearchParamsSchema>;
 
@@ -80,13 +86,14 @@ function sanitizeQuery(query: string): string {
  * Creates the todo_search tool.
  */
 export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearchTool {
-  const { client, logger, userId } = options;
+  const { client, logger, config, userId } = options;
 
   return {
     name: 'todo_search',
     description:
       'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. ' +
-      'Optionally filter by kind (task, project, initiative, epic, issue) or status.',
+      'Optionally filter by kind (task, project, initiative, epic, issue) or status. ' +
+      'Provide location (lat/lng) to boost results relevant to the current location.',
     parameters: TodoSearchParamsSchema,
 
     async execute(params: TodoSearchParams): Promise<TodoSearchResult> {
@@ -96,7 +103,7 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
         return { success: false, error: errorMessage };
       }
 
-      const { query, limit = 10, kind, status } = parseResult.data;
+      const { query, limit = 10, kind, status, location } = parseResult.data;
 
       const sanitizedQuery = sanitizeQuery(query);
       if (sanitizedQuery.length === 0) {
@@ -109,14 +116,24 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
         limit,
         kind: kind ?? 'all',
         status: status ?? 'all',
+        hasLocation: !!location,
       });
 
       try {
+        // Augment query with location context for geo-contextual ranking (Issue #1218)
+        let searchQuery = sanitizedQuery;
+        if (location && config.nominatimUrl) {
+          const geo = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
+          if (geo?.placeLabel) {
+            searchQuery = `${sanitizedQuery} near ${geo.placeLabel}`;
+          }
+        }
+
         // Over-fetch by 3x to compensate for client-side kind/status filtering (Issue #1216 review fix)
-        const fetchLimit = (kind || status) ? Math.min(limit * 3, 50) : limit;
+        const fetchLimit = (kind || status || location) ? Math.min(limit * 3, 50) : limit;
 
         const queryParams = new URLSearchParams({
-          q: sanitizedQuery,
+          q: searchQuery,
           types: 'work_item',
           limit: String(fetchLimit),
           semantic: 'true',
