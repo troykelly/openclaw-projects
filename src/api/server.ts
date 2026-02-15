@@ -280,6 +280,82 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return result.rows.length > 0;
   }
 
+  /**
+   * Issue #1321: Schedule or update reminder/nudge internal_job entries for a work item.
+   * Uses idempotency keys matching the pg_cron functions' format for dedup.
+   * When a date is null, any existing uncompleted job for that kind is deleted.
+   */
+  async function scheduleWorkItemReminders(
+    pool: ReturnType<typeof createPool>,
+    workItemId: string,
+    notBefore: Date | null,
+    notAfter: Date | null,
+  ): Promise<void> {
+    // Handle not_before → reminder job
+    if (notBefore) {
+      const idempotencyKey = `work_item_not_before:${workItemId}:${notBefore.toISOString().split('T')[0]}`;
+      const payload = JSON.stringify({ work_item_id: workItemId, not_before: notBefore.toISOString() });
+      // Delete any existing uncompleted reminder jobs for this work item (handles date changes)
+      await pool.query(
+        `DELETE FROM internal_job
+          WHERE kind = 'reminder.work_item.not_before'
+            AND payload->>'work_item_id' = $1
+            AND completed_at IS NULL`,
+        [workItemId],
+      );
+      // Insert the new job
+      await pool.query(
+        `INSERT INTO internal_job (kind, run_at, payload, idempotency_key)
+         VALUES ('reminder.work_item.not_before', $1::timestamptz, $2::jsonb, $3)
+         ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO UPDATE
+           SET run_at = EXCLUDED.run_at, payload = EXCLUDED.payload, updated_at = now()`,
+        [notBefore, payload, idempotencyKey],
+      );
+    } else {
+      // Date cleared — remove any pending reminder jobs for this work item
+      await pool.query(
+        `DELETE FROM internal_job
+          WHERE kind = 'reminder.work_item.not_before'
+            AND payload->>'work_item_id' = $1
+            AND completed_at IS NULL`,
+        [workItemId],
+      );
+    }
+
+    // Handle not_after → nudge job
+    if (notAfter) {
+      const idempotencyKey = `work_item_not_after:${workItemId}:${notAfter.toISOString().split('T')[0]}`;
+      const payload = JSON.stringify({ work_item_id: workItemId, not_after: notAfter.toISOString() });
+      // Nudge run_at: 24 hours before deadline, or now if deadline is within 24h
+      const nudgeRunAt = new Date(Math.max(notAfter.getTime() - 24 * 60 * 60 * 1000, Date.now()));
+      // Delete any existing uncompleted nudge jobs for this work item (handles date changes)
+      await pool.query(
+        `DELETE FROM internal_job
+          WHERE kind = 'nudge.work_item.not_after'
+            AND payload->>'work_item_id' = $1
+            AND completed_at IS NULL`,
+        [workItemId],
+      );
+      // Insert the new job
+      await pool.query(
+        `INSERT INTO internal_job (kind, run_at, payload, idempotency_key)
+         VALUES ('nudge.work_item.not_after', $1::timestamptz, $2::jsonb, $3)
+         ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO UPDATE
+           SET run_at = EXCLUDED.run_at, payload = EXCLUDED.payload, updated_at = now()`,
+        [nudgeRunAt, payload, idempotencyKey],
+      );
+    } else {
+      // Date cleared — remove any pending nudge jobs for this work item
+      await pool.query(
+        `DELETE FROM internal_job
+          WHERE kind = 'nudge.work_item.not_after'
+            AND payload->>'work_item_id' = $1
+            AND completed_at IS NULL`,
+        [workItemId],
+      );
+    }
+  }
+
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
     // E2E browser test bypass: requires both auth disabled AND the explicit
     // session email env var (set only in playwright.config.ts webServer env).
@@ -2855,6 +2931,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       recurrence_rule?: string;
       recurrence_natural?: string;
       recurrence_end?: string;
+      not_before?: string | null; // Issue #1321: reminder date
+      not_after?: string | null; // Issue #1321: deadline date
       user_email?: string; // Issue #1172: per-user scoping
     };
     if (!body?.title || body.title.trim().length === 0) {
@@ -2956,13 +3034,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Issue #1321: Parse and validate not_before / not_after dates
+    let notBefore: Date | null = null;
+    let notAfter: Date | null = null;
+
+    if (body.not_before) {
+      notBefore = new Date(body.not_before);
+      if (isNaN(notBefore.getTime())) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Invalid not_before date format' });
+      }
+    }
+
+    if (body.not_after) {
+      notAfter = new Date(body.not_after);
+      if (isNaN(notAfter.getTime())) {
+        await pool.end();
+        return reply.code(400).send({ error: 'Invalid not_after date format' });
+      }
+    }
+
     const userEmail = body.user_email?.trim() || null;
 
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email)
-       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11)
-       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate, userEmail],
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email, not_before, not_after)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11, $12::timestamptz, $13::timestamptz)
+       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, not_before, not_after`,
+      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate, userEmail, notBefore, notAfter],
     );
 
     const workItem = result.rows[0] as { id: string; title: string };
@@ -2977,6 +3075,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Generate embedding for the new work item (Issue #1216)
     const embeddingContent = body.description ? `${body.title.trim()}\n\n${body.description}` : body.title.trim();
     await generateWorkItemEmbedding(pool, workItem.id, embeddingContent);
+
+    // Issue #1321: Schedule reminder/nudge jobs for dates
+    await scheduleWorkItemReminders(pool, workItem.id, notBefore, notAfter);
 
     await pool.end();
 
@@ -9636,14 +9737,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       [params.id, finalStartDate, finalEndDate],
     );
 
-    await pool.end();
-
     const row = result.rows[0] as {
       id: string;
       not_before: Date | null;
       not_after: Date | null;
       updated_at: Date;
     };
+
+    // Issue #1321: Schedule or clear reminder/nudge jobs based on final dates
+    await scheduleWorkItemReminders(pool, params.id, row.not_before, row.not_after);
+
+    await pool.end();
 
     // Format dates as YYYY-MM-DD for response
     const formatDate = (d: Date | null): string | null => {
