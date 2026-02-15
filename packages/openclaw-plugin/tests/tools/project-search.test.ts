@@ -686,6 +686,56 @@ describe('project_search tool', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should degrade gracefully when reverseGeocode throws', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      vi.mocked(reverseGeocode).mockRejectedValue(new Error('DNS resolution failed'));
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createProjectSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      const result = await tool.execute({ query: 'renovation', location: { lat: -37.8136, lng: 144.9631 } });
+      expect(result.success).toBe(true);
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=renovation');
+      expect(callUrl).not.toContain('near');
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
+    it('should not augment query when augmented length exceeds 1000 chars', async () => {
+      const { reverseGeocode } = await import('../../src/utils/nominatim.js');
+      const longLabel = 'A'.repeat(1000);
+      vi.mocked(reverseGeocode).mockResolvedValue({ address: longLabel, placeLabel: longLabel });
+
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [], search_type: 'text', total: 0 },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const tool = createProjectSearchTool({
+        client: client as unknown as ApiClient,
+        logger: mockLogger,
+        config: geoConfig,
+        userId: 'agent-1',
+      });
+
+      await tool.execute({ query: 'renovation', location: { lat: -37.8136, lng: 144.9631 } });
+
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=renovation');
+      expect(callUrl).not.toContain('near');
+    });
+
     it('should log hasLocation when location is provided', async () => {
       const { reverseGeocode } = await import('../../src/utils/nominatim.js');
       vi.mocked(reverseGeocode).mockResolvedValue(null);

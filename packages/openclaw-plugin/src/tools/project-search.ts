@@ -121,9 +121,16 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
         // Augment query with location context for geo-contextual ranking (Issue #1218)
         let searchQuery = sanitizedQuery;
         if (location && config.nominatimUrl) {
-          const geo = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
-          if (geo?.placeLabel) {
-            searchQuery = `${sanitizedQuery} near ${geo.placeLabel}`;
+          try {
+            const geo = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
+            if (geo?.placeLabel) {
+              const augmented = `${sanitizedQuery} near ${geo.placeLabel}`;
+              if (augmented.length <= 1000) {
+                searchQuery = augmented;
+              }
+            }
+          } catch {
+            logger.warn('Reverse geocode failed, proceeding without location augmentation', { userId });
           }
         }
 
