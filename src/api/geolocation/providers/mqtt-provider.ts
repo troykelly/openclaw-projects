@@ -295,7 +295,7 @@ function validatePayloadMapping(mapping: unknown): Result<PayloadMapping, Valida
   };
   for (const field of optionalFields) {
     if (typeof m[field] === 'string') {
-      (result as Record<string, string>)[field] = m[field] as string;
+      (result as unknown as Record<string, string>)[field] = m[field] as string;
     }
   }
 
