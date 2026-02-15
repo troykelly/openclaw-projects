@@ -191,14 +191,20 @@ export async function ingestLocationUpdate(
     for (const sub of subsResult.rows) {
       const userEmail = sub.user_email as string;
 
-      // 3a. Combined rate-limit + dedup check with FOR UPDATE lock
-      // FOR UPDATE prevents concurrent transactions from reading the same row
-      // until this transaction completes, eliminating the TOCTOU window.
+      // 3a. Advisory lock serializes concurrent ingestion for the same
+      // (provider, user, entity) triple. This eliminates the TOCTOU window
+      // where two transactions both read "no recent row" and both insert.
+      // The lock is released automatically when the transaction ends.
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1 || $2 || $3))',
+        [providerId, userEmail, validUpdate.entity_id],
+      );
+
+      // 3b. Rate-limit + dedup check (safe under advisory lock)
       const lastResult = await client.query(
         `SELECT time, lat, lng FROM geo_location
          WHERE provider_id = $1 AND user_email = $2 AND entity_id = $3
-         ORDER BY time DESC LIMIT 1
-         FOR UPDATE`,
+         ORDER BY time DESC LIMIT 1`,
         [providerId, userEmail, validUpdate.entity_id],
       );
 
@@ -216,16 +222,17 @@ export async function ingestLocationUpdate(
         continue;
       }
 
-      // 3b. INSERT with ON CONFLICT DO NOTHING for concurrent dedup safety.
-      // Even if the FOR UPDATE lock prevents most races, the DB-level unique
-      // index (migration 069) acts as a final safety net.
+      // 3c. INSERT with ON CONFLICT DO NOTHING as a final safety net.
+      // The advisory lock prevents most races; the DB-level unique index
+      // on (provider_id, user_email, entity_id, time) (migration 070)
+      // catches exact-timestamp duplicates that slip through.
       const insertResult = await client.query(
         `INSERT INTO geo_location (
           time, user_email, provider_id, entity_id, lat, lng,
           accuracy_m, altitude_m, speed_mps, bearing,
           indoor_zone, raw_payload
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        ON CONFLICT (provider_id, user_email, entity_id, date_trunc('second', time))
+        ON CONFLICT (provider_id, user_email, entity_id, time)
         DO NOTHING
         RETURNING time`,
         [
@@ -253,7 +260,7 @@ export async function ingestLocationUpdate(
 
     await client.query('COMMIT');
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch { /* connection may be dead */ }
     throw err;
   } finally {
     client.release();

@@ -305,7 +305,9 @@ describe('geolocation/ingestion', () => {
         clientResults: [
           // BEGIN
           { rows: [], rowCount: 0 },
-          // Rate limit check (SELECT ... FOR UPDATE) - no recent insert
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit/dedup check - no recent insert
           { rows: [], rowCount: 0 },
           // INSERT with ON CONFLICT DO NOTHING
           { rows: [{ time: new Date() }], rowCount: 1 },
@@ -342,6 +344,8 @@ describe('geolocation/ingestion', () => {
         clientResults: [
           // BEGIN
           { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
           // Rate limit check - recent insert exists (3s ago)
           { rows: [{ time: new Date(Date.now() - 3_000), lat: -33.8688, lng: 151.2093 }], rowCount: 1 },
           // COMMIT
@@ -366,7 +370,9 @@ describe('geolocation/ingestion', () => {
         clientResults: [
           // BEGIN
           { rows: [], rowCount: 0 },
-          // Rate limit + dedup check (combined query now) - passes rate limit but triggers dedup
+          // Advisory lock
+          { rows: [], rowCount: 0 },
+          // Rate limit + dedup check - passes rate limit but triggers dedup
           {
             rows: [{
               time: new Date(Date.now() - 10_000),
@@ -407,6 +413,8 @@ describe('geolocation/ingestion', () => {
       const clientQueryFn = vi.fn();
       // BEGIN succeeds
       clientQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Advisory lock succeeds
+      clientQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
       // Rate limit query throws
       clientQueryFn.mockRejectedValueOnce(new Error('DB connection lost'));
       // ROLLBACK succeeds
@@ -444,6 +452,8 @@ describe('geolocation/ingestion', () => {
         clientResults: [
           // BEGIN
           { rows: [], rowCount: 0 },
+          // Advisory lock
+          { rows: [], rowCount: 0 },
           // Rate limit/dedup check - no previous
           { rows: [], rowCount: 0 },
           // INSERT with ON CONFLICT DO NOTHING - conflict hit, 0 rows inserted
@@ -468,7 +478,7 @@ describe('geolocation/ingestion', () => {
       expect(insertCall[0]).toContain('DO NOTHING');
     });
 
-    it('uses FOR UPDATE locking on rate limit query', async () => {
+    it('uses advisory lock for TOCTOU prevention', async () => {
       const pool = mockPool({
         poolResults: [
           { rows: [{ user_email: 'user@example.com', provider_id: 'p1' }], rowCount: 1 },
@@ -476,6 +486,8 @@ describe('geolocation/ingestion', () => {
         ],
         clientResults: [
           // BEGIN
+          { rows: [], rowCount: 0 },
+          // Advisory lock
           { rows: [], rowCount: 0 },
           // Rate limit/dedup check
           { rows: [], rowCount: 0 },
@@ -489,12 +501,12 @@ describe('geolocation/ingestion', () => {
       await ingestLocationUpdate(pool, 'p1', validUpdate());
 
       const client = await (pool.connect as ReturnType<typeof vi.fn>).mock.results[0].value;
-      // The SELECT query should use FOR UPDATE to lock rows and prevent TOCTOU
-      const selectCall = client.query.mock.calls.find(
-        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('SELECT'),
+      // The advisory lock serializes concurrent ingestion per (provider, user, entity)
+      const lockCall = client.query.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && call[0].includes('pg_advisory_xact_lock'),
       );
-      expect(selectCall).toBeDefined();
-      expect(selectCall[0]).toContain('FOR UPDATE');
+      expect(lockCall).toBeDefined();
+      expect(lockCall[1]).toEqual(['p1', 'user@example.com', expect.any(String)]);
     });
 
     it('handles multiple subscriptions in single transaction', async () => {
@@ -514,10 +526,14 @@ describe('geolocation/ingestion', () => {
         clientResults: [
           // BEGIN
           { rows: [], rowCount: 0 },
+          // Advisory lock for user1
+          { rows: [], rowCount: 0 },
           // Rate limit check for user1 - no previous
           { rows: [], rowCount: 0 },
           // INSERT for user1 - success
           { rows: [{ time: new Date() }], rowCount: 1 },
+          // Advisory lock for user2
+          { rows: [], rowCount: 0 },
           // Rate limit check for user2 - no previous
           { rows: [], rowCount: 0 },
           // INSERT for user2 - success
