@@ -8851,6 +8851,147 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
+  // ---------------------------------------------------------------------------
+  // Entity Links (Issue #1276)
+  // ---------------------------------------------------------------------------
+
+  const VALID_ENTITY_SOURCE_TYPES = ['message', 'thread', 'memory', 'todo', 'project_event'] as const;
+  const VALID_ENTITY_TARGET_TYPES = ['project', 'contact', 'todo', 'memory'] as const;
+  const VALID_ENTITY_LINK_TYPES = ['related', 'caused_by', 'resulted_in', 'about'] as const;
+
+  // POST /api/entity-links - Create an entity link
+  app.post('/api/entity-links', async (req, reply) => {
+    const query = req.query as { user_email?: string };
+    const body = req.body as {
+      source_type?: string; source_id?: string;
+      target_type?: string; target_id?: string;
+      link_type?: string; created_by?: string;
+    };
+
+    if (!body?.source_type || !body?.source_id || !body?.target_type || !body?.target_id) {
+      return reply.code(400).send({ error: 'source_type, source_id, target_type, and target_id are required' });
+    }
+
+    if (!VALID_ENTITY_SOURCE_TYPES.includes(body.source_type as (typeof VALID_ENTITY_SOURCE_TYPES)[number])) {
+      return reply.code(400).send({ error: `Invalid source_type. Must be one of: ${VALID_ENTITY_SOURCE_TYPES.join(', ')}` });
+    }
+    if (!VALID_ENTITY_TARGET_TYPES.includes(body.target_type as (typeof VALID_ENTITY_TARGET_TYPES)[number])) {
+      return reply.code(400).send({ error: `Invalid target_type. Must be one of: ${VALID_ENTITY_TARGET_TYPES.join(', ')}` });
+    }
+    if (body.link_type !== undefined && !VALID_ENTITY_LINK_TYPES.includes(body.link_type as (typeof VALID_ENTITY_LINK_TYPES)[number])) {
+      return reply.code(400).send({ error: `Invalid link_type. Must be one of: ${VALID_ENTITY_LINK_TYPES.join(', ')}` });
+    }
+    if (!uuidRegex.test(body.source_id) || !uuidRegex.test(body.target_id)) {
+      return reply.code(400).send({ error: 'source_id and target_id must be valid UUID format' });
+    }
+
+    const pool = createPool();
+    const linkType = body.link_type ?? 'related';
+    const result = await pool.query(
+      `INSERT INTO entity_link (source_type, source_id, target_type, target_id, link_type, created_by, user_email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT ON CONSTRAINT uq_entity_link DO UPDATE SET created_by = EXCLUDED.created_by
+       RETURNING id::text, source_type, source_id::text, target_type, target_id::text, link_type, created_by, created_at`,
+      [body.source_type, body.source_id, body.target_type, body.target_id, linkType, body.created_by ?? null, query.user_email ?? null],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // GET /api/entity-links - Query links by source or target
+  app.get('/api/entity-links', async (req, reply) => {
+    const query = req.query as {
+      source_type?: string; source_id?: string;
+      target_type?: string; target_id?: string;
+      link_type?: string; user_email?: string;
+    };
+
+    const hasSource = query.source_type && query.source_id;
+    const hasTarget = query.target_type && query.target_id;
+    if (!hasSource && !hasTarget) {
+      return reply.code(400).send({ error: 'Must provide source_type+source_id or target_type+target_id' });
+    }
+
+    const conditions: string[] = [];
+    const params: string[] = [];
+    let paramIdx = 1;
+
+    if (hasSource) {
+      conditions.push(`source_type = $${paramIdx} AND source_id = $${paramIdx + 1}`);
+      params.push(query.source_type!, query.source_id!);
+      paramIdx += 2;
+    }
+    if (hasTarget) {
+      conditions.push(`target_type = $${paramIdx} AND target_id = $${paramIdx + 1}`);
+      params.push(query.target_type!, query.target_id!);
+      paramIdx += 2;
+    }
+    if (query.link_type) {
+      conditions.push(`link_type = $${paramIdx}`);
+      params.push(query.link_type);
+      paramIdx++;
+    }
+    if (query.user_email) {
+      conditions.push(`(user_email = $${paramIdx} OR user_email IS NULL)`);
+      params.push(query.user_email);
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, source_type, source_id::text, target_type, target_id::text,
+              link_type, created_by, created_at
+       FROM entity_link
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY created_at DESC`,
+      params,
+    );
+    await pool.end();
+    return reply.send({ links: result.rows });
+  });
+
+  // GET /api/entity-links/:id - Get single link
+  app.get('/api/entity-links/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!uuidRegex.test(params.id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, source_type, source_id::text, target_type, target_id::text,
+              link_type, created_by, created_at
+       FROM entity_link WHERE id = $1`,
+      [params.id],
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/entity-links/:id - Remove a link
+  app.delete('/api/entity-links/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!uuidRegex.test(params.id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      'DELETE FROM entity_link WHERE id = $1 RETURNING id::text',
+      [params.id],
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.code(204).send();
+  });
+
   // Ingestion: create (or reuse) contact+endpoint, create (or reuse) thread, insert message.
   app.post('/api/ingest/external-message', async (req, reply) => {
     const body = req.body as {
