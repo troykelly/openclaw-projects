@@ -870,6 +870,62 @@ export interface SkillStoreSearchResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Project Webhooks (Issue #1274)
+// ---------------------------------------------------------------------------
+
+/** A webhook endpoint registered on a project. */
+export interface ProjectWebhook {
+  id: string;
+  project_id: string;
+  label: string;
+  token: string;
+  ingestion_url: string;
+  payload_mapping: Record<string, unknown>;
+  is_active: boolean;
+  last_received: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /api/projects/:id/webhooks */
+export interface ProjectWebhooksResponse {
+  webhooks: ProjectWebhook[];
+}
+
+/** Body for POST /api/projects/:id/webhooks */
+export interface CreateProjectWebhookBody {
+  label: string;
+  payload_mapping?: Record<string, unknown>;
+}
+
+/** Body for PATCH /api/projects/:id/webhooks/:wid */
+export interface UpdateProjectWebhookBody {
+  label?: string;
+  payload_mapping?: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Project Events (Issue #1274)
+// ---------------------------------------------------------------------------
+
+/** An event recorded against a project (e.g. from a webhook ingestion). */
+export interface ProjectEvent {
+  id: string;
+  project_id: string;
+  webhook_id: string | null;
+  event_type: string;
+  summary: string | null;
+  raw_payload: unknown;
+  created_at: string;
+}
+
+/** Response from GET /api/projects/:id/events */
+export interface ProjectEventsResponse {
+  events: ProjectEvent[];
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
