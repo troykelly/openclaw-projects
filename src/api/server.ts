@@ -18217,6 +18217,256 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+      {
+        name: 'pantry',
+        description: 'Track fridge, freezer, and pantry inventory including leftovers',
+        endpoints: [
+          { method: 'POST', path: '/api/pantry', description: 'Add a pantry item' },
+          { method: 'GET', path: '/api/pantry', description: 'List pantry items (filters: location, category, leftovers_only, use_soon_only, include_depleted)' },
+          { method: 'GET', path: '/api/pantry/expiring', description: 'Items expiring within N days (default 7)' },
+          { method: 'GET', path: '/api/pantry/:id', description: 'Get a pantry item' },
+          { method: 'PATCH', path: '/api/pantry/:id', description: 'Update a pantry item' },
+          { method: 'POST', path: '/api/pantry/:id/deplete', description: 'Mark item as used/depleted' },
+          { method: 'DELETE', path: '/api/pantry/:id', description: 'Delete a pantry item' },
+        ],
+      },
+  // ── Pantry Inventory (Issue #1280) ────────────────────────────────
+
+  const PANTRY_COLUMNS = `id, user_email, name, location, quantity, category,
+    is_leftover, leftover_dish, leftover_portions, meal_log_id,
+    added_date, use_by_date, use_soon, notes, is_depleted, depleted_at,
+    created_at, updated_at`;
+
+  // POST /api/pantry — Add a pantry item
+  app.post('/api/pantry', async (req, reply) => {
+    const body = req.body as {
+      name?: string;
+      location?: string;
+      quantity?: string;
+      category?: string;
+      is_leftover?: boolean;
+      leftover_dish?: string;
+      leftover_portions?: number;
+      meal_log_id?: string;
+      use_by_date?: string;
+      use_soon?: boolean;
+      notes?: string;
+    } | null;
+
+    if (!body?.name || !body?.location) {
+      return reply.code(400).send({ error: 'name and location are required' });
+    }
+
+    const email = await getSessionEmail(req);
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO pantry_item (
+          user_email, name, location, quantity, category,
+          is_leftover, leftover_dish, leftover_portions, meal_log_id,
+          use_by_date, use_soon, notes
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        RETURNING ${PANTRY_COLUMNS}`,
+        [
+          email,
+          body.name,
+          body.location,
+          body.quantity ?? null,
+          body.category ?? null,
+          body.is_leftover ?? false,
+          body.leftover_dish ?? null,
+          body.leftover_portions ?? null,
+          body.meal_log_id ?? null,
+          body.use_by_date ?? null,
+          body.use_soon ?? false,
+          body.notes ?? null,
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry/expiring — Items expiring within N days
+  // NOTE: This route MUST be registered before GET /api/pantry/:id
+  app.get('/api/pantry/expiring', async (req, reply) => {
+    const query = req.query as { days?: string };
+    const days = query.days ? parseInt(query.days, 10) : 7;
+    const effectiveDays = isNaN(days) ? 7 : Math.max(1, days);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT ${PANTRY_COLUMNS} FROM pantry_item
+         WHERE NOT is_depleted
+           AND use_by_date IS NOT NULL
+           AND use_by_date <= CURRENT_DATE + $1 * INTERVAL '1 day'
+         ORDER BY use_by_date ASC`,
+        [effectiveDays],
+      );
+      return reply.send({ items: result.rows, total: result.rows.length });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry — List pantry items (with filters)
+  app.get('/api/pantry', async (req, reply) => {
+    const query = req.query as {
+      location?: string;
+      category?: string;
+      leftovers_only?: string;
+      use_soon_only?: string;
+      include_depleted?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    if (query.include_depleted !== 'true') {
+      conditions.push('NOT is_depleted');
+    }
+    if (query.location) {
+      conditions.push(`location = $${paramIdx++}`);
+      params.push(query.location);
+    }
+    if (query.category) {
+      conditions.push(`category = $${paramIdx++}`);
+      params.push(query.category);
+    }
+    if (query.leftovers_only === 'true') {
+      conditions.push('is_leftover = true');
+    }
+    if (query.use_soon_only === 'true') {
+      conditions.push('use_soon = true');
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const requestedLimit = query.limit ? parseInt(query.limit, 10) : 100;
+    const limit = Math.min(Math.max(isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
+    const offset = query.offset ? parseInt(query.offset, 10) || 0 : 0;
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(`SELECT COUNT(*) FROM pantry_item ${where}`, params);
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      const result = await pool.query(
+        `SELECT ${PANTRY_COLUMNS} FROM pantry_item ${where}
+         ORDER BY created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+        [...params, limit, offset],
+      );
+      return reply.send({ items: result.rows, total });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry/:id — Get a single pantry item
+  app.get('/api/pantry/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT ${PANTRY_COLUMNS} FROM pantry_item WHERE id = $1`,
+        [id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/pantry/:id — Update a pantry item
+  app.patch('/api/pantry/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null;
+
+    if (!body || Object.keys(body).length === 0) {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const allowedFields = [
+      'name', 'location', 'quantity', 'category',
+      'is_leftover', 'leftover_dish', 'leftover_portions', 'meal_log_id',
+      'use_by_date', 'use_soon', 'notes',
+    ];
+
+    const updates: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        updates.push(`${field} = $${paramIdx++}`);
+        params.push(body[field]);
+      }
+    }
+
+    if (updates.length === 0) {
+      return reply.code(400).send({ error: 'No valid fields to update' });
+    }
+
+    updates.push(`updated_at = now()`);
+    params.push(id);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE pantry_item SET ${updates.join(', ')} WHERE id = $${paramIdx}
+         RETURNING ${PANTRY_COLUMNS}`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/pantry/:id/deplete — Mark item as depleted
+  app.post('/api/pantry/:id/deplete', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE pantry_item SET is_depleted = true, depleted_at = now(), updated_at = now()
+         WHERE id = $1 RETURNING ${PANTRY_COLUMNS}`,
+        [id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/pantry/:id — Hard-delete a pantry item
+  app.delete('/api/pantry/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query('DELETE FROM pantry_item WHERE id = $1', [id]);
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
