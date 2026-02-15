@@ -870,6 +870,63 @@ export interface SkillStoreSearchResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Shared Lists (Issue #1277)
+// ---------------------------------------------------------------------------
+
+export interface SharedList {
+  id: string;
+  user_email: string;
+  name: string;
+  list_type: string;
+  is_shared: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SharedListItem {
+  id: string;
+  list_id: string;
+  name: string;
+  quantity: string | null;
+  category: string | null;
+  is_checked: boolean;
+  is_recurring: boolean;
+  checked_at: string | null;
+  checked_by: string | null;
+  sort_order: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SharedListWithItems extends SharedList {
+  items: SharedListItem[];
+}
+
+export interface SharedListsResponse {
+  lists: SharedList[];
+}
+
+export interface CreateListBody {
+  name: string;
+  list_type?: string;
+  is_shared?: boolean;
+}
+
+export interface AddListItemsBody {
+  items: Array<{
+    name: string;
+    quantity?: string;
+    category?: string;
+    is_recurring?: boolean;
+  }>;
+}
+
+export interface CheckItemsBody {
+  item_ids: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
