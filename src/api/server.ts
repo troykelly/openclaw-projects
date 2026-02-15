@@ -16428,6 +16428,249 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Shared Lists API (Issue #1277) ───────────────────────────────────
+
+  function getListUserEmail(req: { headers?: Record<string, string | string[] | undefined> }): string | null {
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  // POST /api/lists — Create a list
+  app.post('/api/lists', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body.name !== 'string' || !body.name.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const name = body.name.trim();
+    const listType = typeof body.list_type === 'string' ? body.list_type : 'shopping';
+    const isShared = body.is_shared !== false;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO list (user_email, name, list_type, is_shared)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [email, name, listType, isShared],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/lists — List all lists for a user
+  app.get('/api/lists', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM list WHERE user_email = $1 ORDER BY created_at DESC`,
+        [email],
+      );
+      return reply.send({ lists: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/lists/:id — Get a list with its items
+  app.get('/api/lists/:id', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid list ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const listResult = await pool.query(
+        `SELECT * FROM list WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (listResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'List not found' });
+      }
+
+      const itemsResult = await pool.query(
+        `SELECT * FROM list_item WHERE list_id = $1 ORDER BY sort_order, created_at`,
+        [params.id],
+      );
+
+      return reply.send({ ...listResult.rows[0], items: itemsResult.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items — Add items to a list
+  app.post('/api/lists/:id/items', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid list ID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const items = Array.isArray(body?.items) ? (body.items as Record<string, unknown>[]) : [];
+    if (items.length === 0) {
+      return reply.code(400).send({ error: 'items array is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify list exists and belongs to user
+      const listCheck = await pool.query(
+        `SELECT id FROM list WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (listCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'List not found' });
+      }
+
+      const inserted = [];
+      for (const item of items) {
+        const name = typeof item.name === 'string' ? item.name.trim() : '';
+        if (!name) continue;
+        const quantity = typeof item.quantity === 'string' ? item.quantity : null;
+        const category = typeof item.category === 'string' ? item.category : null;
+        const isRecurring = item.is_recurring === true;
+
+        const result = await pool.query(
+          `INSERT INTO list_item (list_id, name, quantity, category, is_recurring)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING *`,
+          [params.id, name, quantity, category, isRecurring],
+        );
+        inserted.push(result.rows[0]);
+      }
+
+      return reply.code(201).send({ items: inserted });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items/check — Check off items
+  app.post('/api/lists/:id/items/check', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const itemIds = Array.isArray(body?.item_ids) ? (body.item_ids as string[]) : [];
+
+    if (itemIds.length === 0) {
+      return reply.code(400).send({ error: 'item_ids array is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE list_item SET is_checked = true, checked_at = now(), checked_by = $3, updated_at = now()
+         WHERE list_id = $1 AND id = ANY($2::uuid[])`,
+        [params.id, itemIds, email],
+      );
+      return reply.send({ checked: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items/uncheck — Uncheck items
+  app.post('/api/lists/:id/items/uncheck', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const itemIds = Array.isArray(body?.item_ids) ? (body.item_ids as string[]) : [];
+
+    if (itemIds.length === 0) {
+      return reply.code(400).send({ error: 'item_ids array is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE list_item SET is_checked = false, checked_at = NULL, checked_by = NULL, updated_at = now()
+         WHERE list_id = $1 AND id = ANY($2::uuid[])`,
+        [params.id, itemIds],
+      );
+      return reply.send({ unchecked: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/reset — Reset a list (remove checked non-recurring, uncheck recurring)
+  app.post('/api/lists/:id/reset', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+
+    const pool = createPool();
+    try {
+      // Remove checked non-recurring items
+      const removeResult = await pool.query(
+        `DELETE FROM list_item
+         WHERE list_id = $1 AND is_checked = true AND is_recurring = false`,
+        [params.id],
+      );
+
+      // Uncheck recurring items
+      const uncheckResult = await pool.query(
+        `UPDATE list_item SET is_checked = false, checked_at = NULL, checked_by = NULL, updated_at = now()
+         WHERE list_id = $1 AND is_checked = true AND is_recurring = true`,
+        [params.id],
+      );
+
+      return reply.send({
+        removed: removeResult.rowCount,
+        unchecked: uncheckResult.rowCount,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/lists/:id — Delete a list and its items
+  app.delete('/api/lists/:id', async (req, reply) => {
+    const email = getListUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid list ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM list WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'List not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA

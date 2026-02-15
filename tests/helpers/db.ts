@@ -73,6 +73,9 @@ const APPLICATION_TABLES = [
   'skill_store_activity',
   'skill_store_schedule',
   'skill_store_item',
+  // Shared lists (Issue #1277)
+  'list_item',
+  'list',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
