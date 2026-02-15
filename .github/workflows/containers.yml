@@ -48,6 +48,9 @@ jobs:
           - name: worker
             context: .
             dockerfile: docker/worker/Dockerfile
+          - name: prompt-guard
+            context: docker/prompt-guard
+            dockerfile: docker/prompt-guard/Dockerfile
 
     steps:
       - name: Checkout repository

@@ -150,6 +150,11 @@
         "type": "string",
         "pattern": "^https?://",
         "description": "Nominatim reverse geocoding URL (e.g., http://nominatim:8080)"
+      },
+      "promptGuardUrl": {
+        "type": "string",
+        "pattern": "^https?://",
+        "description": "PromptGuard-2 classifier URL for multilingual injection detection (e.g., http://prompt-guard:8190)"
       }
     },
     "additionalProperties": false,
@@ -298,6 +303,12 @@
       "label": "Nominatim URL",
       "placeholder": "http://nominatim:8080",
       "help": "URL for self-hosted Nominatim reverse geocoding service (enables geo-contextual search)",
+      "group": "Advanced"
+    },
+    "promptGuardUrl": {
+      "label": "PromptGuard URL",
+      "placeholder": "http://prompt-guard:8190",
+      "help": "URL for PromptGuard-2 classifier service (enables multilingual prompt injection detection)",
       "group": "Advanced"
     }
   }
