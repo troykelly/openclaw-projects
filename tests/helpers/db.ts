@@ -82,6 +82,8 @@ const APPLICATION_TABLES = [
   'agent_identity',
   // Entity links (no FKs, polymorphic references)
   'entity_link',
+  // Dev sessions (Issue #1285)
+  'dev_session',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',

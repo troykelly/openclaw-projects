@@ -459,6 +459,71 @@ export interface MemoryAttachmentsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Dev Sessions (Issue #1285)
+// ---------------------------------------------------------------------------
+
+/** A dev session tracking a long-running agent development session. */
+export interface DevSession {
+  id: string;
+  user_email: string;
+  project_id: string | null;
+  session_name: string;
+  node: string;
+  container: string | null;
+  container_user: string | null;
+  repo_org: string | null;
+  repo_name: string | null;
+  branch: string | null;
+  status: 'active' | 'stalled' | 'completed' | 'errored';
+  task_summary: string | null;
+  task_prompt: string | null;
+  linked_issues: string[];
+  linked_prs: string[];
+  context_pct: number | null;
+  last_capture: string | null;
+  last_capture_at: string | null;
+  webhook_id: string | null;
+  completion_summary: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /api/dev-sessions */
+export interface DevSessionsResponse {
+  sessions: DevSession[];
+}
+
+/** Body for POST /api/dev-sessions */
+export interface CreateDevSessionBody {
+  session_name: string;
+  node: string;
+  project_id?: string;
+  container?: string;
+  container_user?: string;
+  repo_org?: string;
+  repo_name?: string;
+  branch?: string;
+  task_summary?: string;
+  task_prompt?: string;
+  linked_issues?: string[];
+  linked_prs?: string[];
+}
+
+/** Body for PATCH /api/dev-sessions/:id */
+export interface UpdateDevSessionBody {
+  status?: string;
+  task_summary?: string;
+  branch?: string;
+  context_pct?: number;
+  last_capture?: string;
+  linked_issues?: string[];
+  linked_prs?: string[];
+  completion_summary?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 

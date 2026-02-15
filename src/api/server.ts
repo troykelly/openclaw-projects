@@ -18640,6 +18640,227 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Dev Sessions (Issue #1285) ─────────────────────────────────────
+
+  const DEV_SESSION_UPDATABLE = [
+    'status', 'task_summary', 'task_prompt', 'branch', 'container',
+    'container_user', 'repo_org', 'repo_name', 'context_pct',
+    'last_capture', 'last_capture_at', 'completion_summary',
+    'linked_issues', 'linked_prs', 'webhook_id',
+  ] as const;
+
+  /** Extract user_email from body, query, or x-user-email header. */
+  function getDevSessionEmail(req: { body?: unknown; query?: unknown; headers?: Record<string, string | string[] | undefined> }): string | null {
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (body && typeof body.user_email === 'string' && body.user_email) return body.user_email;
+    const query = req.query as Record<string, string | undefined> | undefined;
+    if (query && typeof query.user_email === 'string' && query.user_email) return query.user_email;
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  // POST /api/dev-sessions — Create a dev session
+  app.post('/api/dev-sessions', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const sessionName = typeof body.session_name === 'string' ? body.session_name.trim() : '';
+    const node = typeof body.node === 'string' ? body.node.trim() : '';
+    if (!sessionName) return reply.code(400).send({ error: 'session_name is required' });
+    if (!node) return reply.code(400).send({ error: 'node is required' });
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO dev_session (
+          user_email, session_name, node, project_id, container,
+          container_user, repo_org, repo_name, branch, task_summary,
+          task_prompt, linked_issues, linked_prs
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        RETURNING *`,
+        [
+          email,
+          sessionName,
+          node,
+          body.project_id ?? null,
+          body.container ?? null,
+          body.container_user ?? null,
+          body.repo_org ?? null,
+          body.repo_name ?? null,
+          body.branch ?? null,
+          body.task_summary ?? null,
+          body.task_prompt ?? null,
+          Array.isArray(body.linked_issues) ? body.linked_issues : [],
+          Array.isArray(body.linked_prs) ? body.linked_prs : [],
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/dev-sessions — List sessions (filterable by status, node, project_id)
+  app.get('/api/dev-sessions', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1'];
+    const params: unknown[] = [email];
+    let idx = 2;
+
+    if (query.status) {
+      conditions.push(`status = $${idx}`);
+      params.push(query.status);
+      idx++;
+    }
+    if (query.node) {
+      conditions.push(`node = $${idx}`);
+      params.push(query.node);
+      idx++;
+    }
+    if (query.project_id) {
+      conditions.push(`project_id = $${idx}::uuid`);
+      params.push(query.project_id);
+      idx++;
+    }
+
+    const limit = Math.min(Math.max(parseInt(query.limit || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(query.offset || '0', 10) || 0, 0);
+    params.push(limit, offset);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM dev_session
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY created_at DESC
+         LIMIT $${idx} OFFSET $${idx + 1}`,
+        params,
+      );
+      return reply.send({ sessions: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/dev-sessions/:id — Get a specific session
+  app.get('/api/dev-sessions/:id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
+
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM dev_session WHERE id = $1 AND user_email = $2`,
+        [id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/dev-sessions/:id — Update session fields
+  app.patch('/api/dev-sessions/:id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const setClauses: string[] = ['updated_at = now()'];
+    const params: unknown[] = [id, email];
+    let idx = 3;
+
+    for (const field of DEV_SESSION_UPDATABLE) {
+      if (field in body) {
+        setClauses.push(`${field} = $${idx}`);
+        params.push(body[field]);
+        idx++;
+      }
+    }
+
+    if (setClauses.length === 1) {
+      return reply.code(400).send({ error: 'No updatable fields provided' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE dev_session SET ${setClauses.join(', ')}
+         WHERE id = $1 AND user_email = $2
+         RETURNING *`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/dev-sessions/:id/complete — Mark session as completed
+  app.post('/api/dev-sessions/:id/complete', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const body = (req.body as Record<string, unknown>) ?? {};
+    const completionSummary = typeof body.completion_summary === 'string' ? body.completion_summary : null;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE dev_session
+         SET status = 'completed', completed_at = now(), updated_at = now(),
+             completion_summary = COALESCE($3, completion_summary)
+         WHERE id = $1 AND user_email = $2
+         RETURNING *`,
+        [id, email, completionSummary],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/dev-sessions/:id — Delete a session
+  app.delete('/api/dev-sessions/:id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM dev_session WHERE id = $1 AND user_email = $2 RETURNING id`,
+        [id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
