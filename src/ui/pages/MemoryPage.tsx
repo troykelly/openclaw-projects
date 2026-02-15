@@ -13,44 +13,45 @@
  *
  * Uses TanStack Query hooks for data fetching and mutations.
  */
-import React, { useState, useMemo, useCallback } from 'react';
+
 import {
-  Search,
-  Plus,
   Brain,
-  FileText,
-  Lightbulb,
+  Calendar,
   CheckCircle,
-  Layers,
-  MoreVertical,
-  Pencil,
-  Trash2,
   ChevronDown,
   ChevronUp,
+  FileText,
+  Folder,
+  Layers,
+  Lightbulb,
   Link2,
-  Calendar,
-  Tag,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
 } from 'lucide-react';
-import { apiClient } from '@/ui/lib/api-client';
-import type { Memory, MemoryListResponse, CreateMemoryBody, UpdateMemoryBody } from '@/ui/lib/api-types';
-import { Skeleton, SkeletonList, ErrorState, EmptyState } from '@/ui/components/feedback';
-import { Button } from '@/ui/components/ui/button';
-import { Input } from '@/ui/components/ui/input';
-import { Textarea } from '@/ui/components/ui/textarea';
+import React, { useCallback, useMemo, useState } from 'react';
+import { EmptyState, ErrorState, Skeleton, SkeletonList } from '@/ui/components/feedback';
 import { Badge } from '@/ui/components/ui/badge';
+import { Button } from '@/ui/components/ui/button';
 import { Card, CardContent } from '@/ui/components/ui/card';
-import { ScrollArea } from '@/ui/components/ui/scroll-area';
-import { Separator } from '@/ui/components/ui/separator';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/ui/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
+import { Input } from '@/ui/components/ui/input';
+import { ScrollArea } from '@/ui/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
+import { Textarea } from '@/ui/components/ui/textarea';
 import { useMemories } from '@/ui/hooks/queries/use-memories';
+import { useProjects } from '@/ui/hooks/queries/use-projects';
+import { apiClient } from '@/ui/lib/api-client';
+import type { CreateMemoryBody, Memory, UpdateMemoryBody } from '@/ui/lib/api-types';
 
 /** Memory type for filtering. */
 type MemoryType = 'preference' | 'fact' | 'decision' | 'context';
 
 /** All valid memory types. */
-const MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'decision', 'context'];
+const _MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'decision', 'context'];
 
 /** Get icon for a memory type. */
 function getTypeIcon(type: string | undefined): React.ReactNode {
@@ -112,6 +113,7 @@ function formatDate(dateStr: string): string {
 export function MemoryPage(): React.JSX.Element {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
@@ -119,6 +121,18 @@ export function MemoryPage(): React.JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useMemories();
+  const { data: projectsData } = useProjects();
+
+  /** Map of project IDs to their titles for display. */
+  const projectNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (projectsData?.items) {
+      for (const p of projectsData.items) {
+        map.set(p.id, p.title);
+      }
+    }
+    return map;
+  }, [projectsData?.items]);
 
   /** Filter and search memories. */
   const filteredMemories = useMemo(() => {
@@ -130,6 +144,13 @@ export function MemoryPage(): React.JSX.Element {
       result = result.filter((m) => m.type === typeFilter);
     }
 
+    // Filter by project scope
+    if (projectFilter === 'global') {
+      result = result.filter((m) => !m.project_id);
+    } else if (projectFilter !== 'all') {
+      result = result.filter((m) => m.project_id === projectFilter);
+    }
+
     // Search by title and content
     if (search.trim()) {
       const query = search.toLowerCase();
@@ -137,7 +158,7 @@ export function MemoryPage(): React.JSX.Element {
     }
 
     return result;
-  }, [data?.memories, typeFilter, search]);
+  }, [data?.memories, typeFilter, projectFilter, search]);
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -246,7 +267,7 @@ export function MemoryPage(): React.JSX.Element {
           <h1 className="text-2xl font-semibold text-foreground">Memory</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {total} memor{total !== 1 ? 'ies' : 'y'}
-            {typeFilter !== 'all' && ` (${filteredMemories.length} shown)`}
+            {(typeFilter !== 'all' || projectFilter !== 'all') && ` (${filteredMemories.length} shown)`}
           </p>
         </div>
         <Button onClick={handleAddNew} data-testid="add-memory-button">
@@ -281,6 +302,21 @@ export function MemoryPage(): React.JSX.Element {
             <SelectItem value="context">Context</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={projectFilter} onValueChange={setProjectFilter}>
+          <SelectTrigger className="w-[180px]" data-testid="project-filter">
+            <SelectValue placeholder="All projects" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All projects</SelectItem>
+            <SelectItem value="global">Global only</SelectItem>
+            {projectsData?.items?.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Memory List */}
@@ -289,13 +325,13 @@ export function MemoryPage(): React.JSX.Element {
           <CardContent className="p-8">
             <EmptyState
               variant="documents"
-              title={search || typeFilter !== 'all' ? 'No memories found' : 'No memories yet'}
+              title={search || typeFilter !== 'all' || projectFilter !== 'all' ? 'No memories found' : 'No memories yet'}
               description={
-                search || typeFilter !== 'all'
+                search || typeFilter !== 'all' || projectFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Store knowledge, preferences, decisions, and context for AI agents.'
               }
-              onAction={!search && typeFilter === 'all' ? handleAddNew : undefined}
+              onAction={!search && typeFilter === 'all' && projectFilter === 'all' ? handleAddNew : undefined}
               actionLabel="Create Memory"
             />
           </CardContent>
@@ -305,7 +341,7 @@ export function MemoryPage(): React.JSX.Element {
           <div className="space-y-3" data-testid="memory-list">
             {filteredMemories.map((memory) => {
               const isExpanded = expandedId === memory.id;
-              const preview = memory.content.length > 200 ? memory.content.slice(0, 200) + '...' : memory.content;
+              const preview = memory.content.length > 200 ? `${memory.content.slice(0, 200)}...` : memory.content;
 
               return (
                 <Card key={memory.id} data-testid="memory-card" className="group transition-colors hover:bg-accent/30">
@@ -318,6 +354,12 @@ export function MemoryPage(): React.JSX.Element {
                             <Badge variant="outline" className={`text-xs gap-1 ${getTypeBadgeClass(memory.type)}`} data-testid="memory-type-badge">
                               {getTypeIcon(memory.type)}
                               {getTypeLabel(memory.type)}
+                            </Badge>
+                          )}
+                          {memory.project_id && projectNameMap.has(memory.project_id) && (
+                            <Badge variant="outline" className="text-xs gap-1" data-testid="memory-project-badge">
+                              <Folder className="size-3" />
+                              {projectNameMap.get(memory.project_id)}
                             </Badge>
                           )}
                         </div>
