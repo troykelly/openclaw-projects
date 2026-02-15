@@ -72,10 +72,14 @@ export function extractByPath(obj: unknown, path: string): unknown {
  * Validate that a dot-notation path is well-formed.
  * Rules: non-empty, no leading/trailing dots, no consecutive dots, alphanumeric + underscore segments.
  */
+const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function isValidPropertyPath(path: string): boolean {
   if (!path || path.startsWith('.') || path.endsWith('.')) return false;
   const segments = path.split('.');
-  return segments.every((seg) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(seg));
+  return segments.every(
+    (seg) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(seg) && !FORBIDDEN_SEGMENTS.has(seg),
+  );
 }
 
 // ---------- payload parsers ----------
@@ -363,7 +367,12 @@ function createMessageHandler(config: MqttProviderConfig, ctx: MqttContext, onUp
   return (topic: string, message: Buffer) => {
     let payload: Record<string, unknown>;
     try {
-      payload = JSON.parse(message.toString()) as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(message.toString());
+      // Guard: must be a non-null object (reject arrays, primitives, null)
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return;
+      }
+      payload = parsed as Record<string, unknown>;
     } catch {
       return; // Ignore non-JSON messages
     }
@@ -502,7 +511,7 @@ function connectMqtt(config: MqttProviderConfig, credentials: string, onUpdate: 
     client.on('close', () => {
       ctx.connected = false;
       ctx.client = null;
-      if (!ctx.disconnecting && ctx.attempt > 0) {
+      if (!ctx.disconnecting) {
         scheduleReconnect();
       }
     });
@@ -554,7 +563,11 @@ async function verifyMqtt(config: MqttProviderConfig, credentials: string): Prom
     client.on('message', (topic: string, message: Buffer) => {
       let payload: Record<string, unknown>;
       try {
-        payload = JSON.parse(message.toString()) as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(message.toString());
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          return;
+        }
+        payload = parsed as Record<string, unknown>;
       } catch {
         return;
       }
