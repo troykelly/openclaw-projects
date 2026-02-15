@@ -99,7 +99,7 @@ export function handleWebhookRequest(options: WebhookHandlerOptions): WebhookRes
     return {
       ok: false,
       status: 413,
-      message: `Payload too large: ${bodySize} bytes exceeds ${MAX_PAYLOAD_SIZE} byte limit`,
+      message: 'Payload too large',
     };
   }
 

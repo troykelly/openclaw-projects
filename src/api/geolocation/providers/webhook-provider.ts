@@ -111,7 +111,11 @@ export interface OwnTracksPayload {
 export function isOwnTracksPayload(payload: unknown): payload is OwnTracksPayload {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
-  return p._type === 'location' && typeof p.lat === 'number' && typeof p.lon === 'number';
+  return (
+    p._type === 'location' &&
+    typeof p.lat === 'number' && Number.isFinite(p.lat) &&
+    typeof p.lon === 'number' && Number.isFinite(p.lon)
+  );
 }
 
 /**
@@ -137,8 +141,9 @@ export function parseOwnTracksPayload(payload: OwnTracksPayload): LocationUpdate
   if (typeof payload.cog === 'number') {
     update.bearing = payload.cog;
   }
-  if (typeof payload.tst === 'number') {
-    update.timestamp = new Date(payload.tst * 1000);
+  if (typeof payload.tst === 'number' && Number.isFinite(payload.tst)) {
+    const d = new Date(payload.tst * 1000);
+    if (!isNaN(d.getTime())) update.timestamp = d;
   }
 
   return update;
@@ -153,7 +158,8 @@ export function parseStandardPayload(payload: unknown): LocationUpdate | null {
 
   const p = payload as Record<string, unknown>;
 
-  if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return null;
+  if (typeof p.lat !== 'number' || !Number.isFinite(p.lat)) return null;
+  if (typeof p.lng !== 'number' || !Number.isFinite(p.lng)) return null;
 
   const update: LocationUpdate = {
     entity_id: typeof p.entity_id === 'string' ? p.entity_id : 'webhook',
