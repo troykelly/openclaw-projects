@@ -100,6 +100,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     workItemId: row.work_item_id as string | null,
     contactId: row.contact_id as string | null,
     relationshipId: row.relationship_id as string | null,
+    projectId: row.project_id as string | null,
     title: row.title as string,
     content: row.content as string,
     memoryType: row.memory_type as MemoryType,
@@ -171,11 +172,11 @@ async function vectorSearch(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at,
+      embedding_status, lat, lng, address, place_label, created_at, updated_at,
       1 - (embedding <=> $1::vector) as similarity
     FROM memory
     WHERE embedding IS NOT NULL
@@ -191,7 +192,7 @@ async function vectorSearch(
     const memory = mapRowToMemory(row as Record<string, unknown>);
     results.set(memory.id, {
       memory,
-      vectorScore: parseFloat(row.similarity as string),
+      vectorScore: Number.parseFloat(row.similarity as string),
     });
   }
 
@@ -215,11 +216,11 @@ async function textSearch(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text,
-      title, content, memory_type::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
-      embedding_status, created_at, updated_at,
+      embedding_status, lat, lng, address, place_label, created_at, updated_at,
       ts_rank(search_vector, websearch_to_tsquery('english', $1)) as ts_rank
     FROM memory
     WHERE search_vector @@ websearch_to_tsquery('english', $1)
@@ -235,7 +236,7 @@ async function textSearch(
     const memory = mapRowToMemory(row as Record<string, unknown>);
     results.set(memory.id, {
       memory,
-      textScore: parseFloat(row.ts_rank as string),
+      textScore: Number.parseFloat(row.ts_rank as string),
     });
   }
 

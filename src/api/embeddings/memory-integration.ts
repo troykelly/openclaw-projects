@@ -7,8 +7,8 @@
  */
 
 import type { Pool } from 'pg';
-import { embeddingService } from './service.ts';
 import { EmbeddingError } from './errors.ts';
+import { embeddingService } from './service.ts';
 
 /** Embedding status for memory records. */
 export type MemoryEmbeddingStatus = 'complete' | 'pending' | 'failed';
@@ -92,11 +92,7 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
  * @param memoryId The memory ID
  * @param locationText The location text to embed (address + place_label)
  */
-export async function generateLocationEmbedding(
-  pool: Pool,
-  memoryId: string,
-  locationText: string,
-): Promise<void> {
+export async function generateLocationEmbedding(pool: Pool, memoryId: string, locationText: string): Promise<void> {
   if (!embeddingService.isConfigured() || !locationText.trim()) return;
 
   try {
@@ -113,10 +109,7 @@ export async function generateLocationEmbedding(
     // Non-fatal: location embedding is a bonus relevance signal
     const msg = error instanceof Error ? error.message : String(error);
     if (!msg.includes('Cannot use a pool after calling end')) {
-      console.error(
-        `[Embeddings] Failed to embed location for memory ${memoryId}:`,
-        error instanceof EmbeddingError ? error.toSafeString() : msg,
-      );
+      console.error(`[Embeddings] Failed to embed location for memory ${memoryId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
     }
   }
 }
@@ -141,6 +134,7 @@ export async function searchMemoriesSemantic(
     workItemId?: string;
     contactId?: string;
     relationshipId?: string;
+    projectId?: string;
     userEmail?: string;
     tags?: string[];
     createdAfter?: Date;
@@ -151,7 +145,7 @@ export async function searchMemoriesSemantic(
   searchType: 'semantic' | 'text';
   queryEmbeddingProvider?: string;
 }> {
-  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, userEmail, tags, createdAfter, createdBefore } = options;
+  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, projectId, userEmail, tags, createdAfter, createdBefore } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -198,6 +192,12 @@ export async function searchMemoriesSemantic(
   if (relationshipId) {
     conditions.push(`m.relationship_id = $${paramIndex}`);
     params.push(relationshipId);
+    paramIndex++;
+  }
+
+  if (projectId) {
+    conditions.push(`m.project_id = $${paramIndex}`);
+    params.push(projectId);
     paramIndex++;
   }
 

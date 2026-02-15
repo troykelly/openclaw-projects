@@ -168,6 +168,7 @@ export interface Memory {
   content: string;
   type?: string;
   work_item_id?: string | null;
+  project_id?: string | null;
   created_at: string;
   updated_at: string;
 }

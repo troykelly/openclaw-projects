@@ -1,108 +1,112 @@
-import Fastify, { type FastifyInstance } from 'fastify';
-import cookie from '@fastify/cookie';
-import formbody from '@fastify/formbody';
-import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
-import rateLimit from '@fastify/rate-limit';
-import websocket from '@fastify/websocket';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import cookie from '@fastify/cookie';
+import formbody from '@fastify/formbody';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
+import websocket from '@fastify/websocket';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
-import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
-import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
-import { EmbeddingHealthChecker, generateMemoryEmbedding, searchMemoriesSemantic, backfillMemoryEmbeddings, generateWorkItemEmbedding, backfillWorkItemEmbeddings } from './embeddings/index.ts';
+import { compareSecrets, getCachedSecret, isAuthDisabled } from './auth/secret.ts';
+import { type CloudflareEmailPayload, processCloudflareEmail } from './cloudflare-email/index.ts';
 import {
-  WebhookHealthChecker,
-  verifyTwilioSignature,
-  verifyPostmarkAuth,
-  verifyCloudflareEmailSecret,
-  isWebhookVerificationConfigured,
-} from './webhooks/index.ts';
-import { twilioIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, getClientIP } from './webhooks/ip-whitelist.ts';
-import { createRateLimitKeyGenerator, getEndpointRateLimitCategory, getRateLimitConfig, type GetSessionEmailFn } from './rate-limit/per-user.ts';
-import { geoAutoInjectHook } from './geolocation/auto-inject.ts';
+  backfillMemoryEmbeddings,
+  backfillWorkItemEmbeddings,
+  EmbeddingHealthChecker,
+  generateMemoryEmbedding,
+  generateWorkItemEmbedding,
+  searchMemoriesSemantic,
+} from './embeddings/index.ts';
 import {
-  processTwilioSms,
-  type TwilioSmsWebhookPayload,
-  enqueueSmsMessage,
-  isTwilioConfigured,
-  processDeliveryStatus,
-  type TwilioStatusCallback,
-  listPhoneNumbers,
-  getPhoneNumberDetails,
-  updatePhoneNumberWebhooks,
-} from './twilio/index.ts';
-import {
-  processPostmarkEmail,
-  type PostmarkInboundPayload,
-  enqueueEmailMessage,
-  isPostmarkConfigured,
-  processPostmarkDeliveryStatus,
-  type PostmarkWebhookPayload,
-} from './postmark/index.ts';
-import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
-import { RealtimeHub } from './realtime/index.ts';
-import {
-  S3Storage,
-  createS3StorageFromEnv,
-  uploadFile,
-  downloadFile,
-  getFileUrl,
-  deleteFile,
-  listFiles,
-  getFileMetadata,
-  FileTooLargeError,
-  FileNotFoundError,
-  DEFAULT_MAX_FILE_SIZE_BYTES,
   createFileShare,
+  createS3StorageFromEnv,
+  DEFAULT_MAX_FILE_SIZE_BYTES,
+  deleteFile,
+  downloadFile,
   downloadFileByShareToken,
+  FileNotFoundError,
+  FileTooLargeError,
+  getFileMetadata,
+  getFileUrl,
+  listFiles,
+  type S3Storage,
   ShareLinkError,
   sanitizeFilenameForHeader,
+  uploadFile,
 } from './file-storage/index.ts';
+import { geoAutoInjectHook } from './geolocation/auto-inject.ts';
+import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 import {
-  getAuthorizationUrl,
-  exchangeCodeForTokens,
-  getUserEmail as getOAuthUserEmail,
-  saveConnection,
-  getConnection,
-  listConnections,
-  updateConnection,
-  validateFeatures,
-  getValidAccessToken,
-  isProviderConfigured,
-  getConfiguredProviders,
-  getRequiredScopes,
-  getMissingScopes,
-  syncContacts,
-  getContactSyncCursor,
-  validateState,
-  listFiles as listDriveFiles,
-  searchFiles as searchDriveFiles,
-  getFile as getDriveFile,
-  OAuthError,
-  ProviderNotConfiguredError,
-  NoConnectionError,
-  InvalidStateError,
-  ALLOWED_FEATURES,
-  type OAuthProvider,
-  type OAuthPermissionLevel,
-  type OAuthFeature,
-  emailService,
-  enqueueSyncJob,
-  removePendingSyncJobs,
-  getSyncStatus,
-  executeContactSync,
+  type EmailDraftParams,
   type EmailListParams,
   type EmailSendParams,
-  type EmailDraftParams,
   type EmailUpdateParams,
+  emailService,
+  enqueueSyncJob,
+  exchangeCodeForTokens,
+  getAuthorizationUrl,
+  getConfiguredProviders,
+  getConnection,
+  getContactSyncCursor,
+  getFile as getDriveFile,
+  getMissingScopes,
+  getUserEmail as getOAuthUserEmail,
+  getRequiredScopes,
+  getSyncStatus,
+  InvalidStateError,
+  isProviderConfigured,
+  listConnections,
+  listFiles as listDriveFiles,
+  NoConnectionError,
+  OAuthError,
+  type OAuthFeature,
+  type OAuthPermissionLevel,
+  type OAuthProvider,
+  ProviderNotConfiguredError,
+  removePendingSyncJobs,
+  saveConnection,
+  searchFiles as searchDriveFiles,
+  syncContacts,
+  updateConnection,
+  validateFeatures,
+  validateState,
 } from './oauth/index.ts';
 import { validateOAuthStartup } from './oauth/startup-validation.ts';
+import {
+  enqueueEmailMessage,
+  isPostmarkConfigured,
+  type PostmarkInboundPayload,
+  type PostmarkWebhookPayload,
+  processPostmarkDeliveryStatus,
+  processPostmarkEmail,
+} from './postmark/index.ts';
+import { createRateLimitKeyGenerator, type GetSessionEmailFn, getEndpointRateLimitCategory } from './rate-limit/per-user.ts';
+import { RealtimeHub } from './realtime/index.ts';
+import {
+  enqueueSmsMessage,
+  getPhoneNumberDetails,
+  isTwilioConfigured,
+  listPhoneNumbers,
+  processDeliveryStatus,
+  processTwilioSms,
+  type TwilioSmsWebhookPayload,
+  type TwilioStatusCallback,
+  updatePhoneNumberWebhooks,
+} from './twilio/index.ts';
 import { isValidUUID } from './utils/validation.ts';
+import {
+  isWebhookVerificationConfigured,
+  verifyCloudflareEmailSecret,
+  verifyPostmarkAuth,
+  verifyTwilioSignature,
+  WebhookHealthChecker,
+} from './webhooks/index.ts';
+import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
+import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -122,8 +126,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   if (!oauthValidation.ok) {
     throw new Error(
       'OAuth startup validation failed. ' +
-      'Set OAUTH_TOKEN_ENCRYPTION_KEY or remove OAuth provider credentials. ' +
-      `Details: ${oauthValidation.errors.join('; ')}`,
+        'Set OAUTH_TOKEN_ENCRYPTION_KEY or remove OAuth provider credentials. ' +
+        `Details: ${oauthValidation.errors.join('; ')}`,
     );
   }
 
@@ -138,7 +142,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.register(formbody);
 
   // Multipart support for file uploads (Issue #215)
-  const maxFileSize = parseInt(process.env.MAX_FILE_SIZE_BYTES || String(DEFAULT_MAX_FILE_SIZE_BYTES), 10);
+  const maxFileSize = Number.parseInt(process.env.MAX_FILE_SIZE_BYTES || String(DEFAULT_MAX_FILE_SIZE_BYTES), 10);
   app.register(multipart, {
     limits: {
       fileSize: maxFileSize,
@@ -185,8 +189,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     app.register(rateLimit, {
       // Default: 100 requests per minute (per user when authenticated, per IP otherwise)
-      max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
-      timeWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+      max: Number.parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      timeWindow: Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
 
       // Add standard rate limit headers
       addHeaders: {
@@ -209,7 +213,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
 
       // Custom error response
-      errorResponseBuilder: (req, context) => ({
+      errorResponseBuilder: (_req, context) => ({
         error: 'Too Many Requests',
         message: `Rate limit exceeded. Try again in ${Math.ceil((context.ttl ?? 60000) / 1000)} seconds.`,
         statusCode: 429,
@@ -477,7 +481,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/health/live', async () => ({ status: 'ok' }));
 
   // Readiness probe - checks critical dependencies
-  app.get('/api/health/ready', async (req, reply) => {
+  app.get('/api/health/ready', async (_req, reply) => {
     const ready = await healthRegistry.isReady();
     if (ready) {
       return { status: 'ok' };
@@ -486,7 +490,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Detailed health status for monitoring
-  app.get('/api/health', async (req, reply) => {
+  app.get('/api/health', async (_req, reply) => {
     const health = await healthRegistry.checkAll();
     const statusCode = health.status === 'unhealthy' ? 503 : 200;
     return reply.code(statusCode).send(health);
@@ -751,8 +755,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listThreads(pool, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         channel: query.channel,
         contactId: query.contact_id,
         userEmail: query.user_email,
@@ -788,7 +792,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await getThreadHistory(pool, params.id, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         before: query.before ? new Date(query.before) : undefined,
         after: query.after ? new Date(query.after) : undefined,
         includeWorkItems: query.include_work_items !== 'false',
@@ -1770,7 +1774,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const { id, email } = link.rows[0] as { id: string; email: string };
 
-      await client.query(`UPDATE auth_magic_link SET used_at = now() WHERE id = $1`, [id]);
+      await client.query('UPDATE auth_magic_link SET used_at = now() WHERE id = $1', [id]);
 
       const session = await client.query(
         `INSERT INTO auth_session (email, expires_at)
@@ -1903,7 +1907,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Embedding Settings API (issue #231)
-  app.get('/api/settings/embeddings', async (req, reply) => {
+  app.get('/api/settings/embeddings', async (_req, reply) => {
     const pool = createPool();
     try {
       const { getEmbeddingSettings } = await import('./embeddings/settings.ts');
@@ -1949,7 +1953,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.post('/api/settings/embeddings/test', async (req, reply) => {
+  app.post('/api/settings/embeddings/test', async (_req, reply) => {
     const { testProviderConnection } = await import('./embeddings/settings.ts');
     const result = await testProviderConnection();
     return reply.send(result);
@@ -1968,9 +1972,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     // Support both page-based and offset-based pagination
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const page = query.page ? parseInt(query.page, 10) : null;
-    const offset = page ? (page - 1) * limit : parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const page = query.page ? Number.parseInt(query.page, 10) : null;
+    const offset = page ? (page - 1) * limit : Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
@@ -2000,7 +2004,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const countResult = await pool.query(`SELECT COUNT(*) as count FROM skill_store_activity sa ${whereClause}`, params);
-      const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+      const total = Number.parseInt((countResult.rows[0] as { count: string }).count, 10);
 
       params.push(limit);
       params.push(offset);
@@ -2066,7 +2070,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           SELECT w.id FROM work_item w
           JOIN project_tree pt ON w.parent_work_item_id = pt.id
         )`;
-      conditions.push(`w.id IN (SELECT id FROM project_tree)`);
+      conditions.push('w.id IN (SELECT id FROM project_tree)');
       params.push(query.projectId);
       paramIndex++;
     }
@@ -2094,7 +2098,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM skill_store_activity sa`
       : '';
 
-    const skillStoreCountUnion = includeSkillStore ? `UNION ALL SELECT sa.id FROM skill_store_activity sa` : '';
+    const skillStoreCountUnion = includeSkillStore ? 'UNION ALL SELECT sa.id FROM skill_store_activity sa' : '';
 
     // Get total count for pagination
     const countResult = await pool.query(
@@ -2108,7 +2112,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ) combined`,
       params,
     );
-    const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+    const total = Number.parseInt((countResult.rows[0] as { count: string }).count, 10);
 
     // Add limit and offset params
     params.push(limit);
@@ -2259,8 +2263,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/work-items/:id/activity', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; offset?: string; user_email?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
@@ -2349,7 +2353,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Work Items Tree API (issue #145)
   app.get('/api/work-items/tree', async (req, reply) => {
     const query = req.query as { root_id?: string; depth?: string; user_email?: string };
-    const maxDepth = Math.min(parseInt(query.depth || '10', 10), 20);
+    const maxDepth = Math.min(Number.parseInt(query.depth || '10', 10), 20);
 
     const pool = createPool();
 
@@ -2454,7 +2458,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         priority: r.priority,
         parent_id: r.parent_id,
         level: r.level,
-        children_count: parseInt(r.children_count, 10),
+        children_count: Number.parseInt(r.children_count, 10),
         children: [],
       };
 
@@ -2673,7 +2677,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
           // Handle labels via junction table if provided
           if (item.labels && item.labels.length > 0) {
-            await client.query(`SELECT set_work_item_labels($1, $2)`, [workItemId, item.labels]);
+            await client.query('SELECT set_work_item_labels($1, $2)', [workItemId, item.labels]);
           }
           results.push({ index: i, id: result.rows[0].id, status: 'created' });
           createdCount++;
@@ -2746,7 +2750,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         bulkDeleteParams.push(query.user_email);
         bulkDeleteUserEmailFilter = ` AND user_email = $${bulkDeleteParams.length}`;
       }
-      const result = await pool.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[])${bulkDeleteUserEmailFilter} RETURNING id::text as id`, bulkDeleteParams);
+      const result = await pool.query(
+        `DELETE FROM work_item WHERE id = ANY($1::uuid[])${bulkDeleteUserEmailFilter} RETURNING id::text as id`,
+        bulkDeleteParams,
+      );
 
       await pool.end();
 
@@ -2801,7 +2808,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const client = await pool.connect();
 
     // Issue #1172: optional user_email scoping for bulk operations
-    const bulkPatchUserEmailFilter = query.user_email ? ` AND user_email = $3` : '';
+    const bulkPatchUserEmailFilter = query.user_email ? ' AND user_email = $3' : '';
     const bulkPatchExtraParams = query.user_email ? [query.user_email] : [];
 
     try {
@@ -2852,7 +2859,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           );
           break;
 
-        case 'parent':
+        case 'parent': {
           // value is the new parent ID, or null to unparent
           const parentId = body.value || null;
           if (parentId && !uuidRegex.test(parentId)) {
@@ -2869,15 +2876,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             [parentId, ids, ...bulkPatchExtraParams],
           );
           break;
+        }
 
-        case 'delete':
+        case 'delete': {
           // First get titles for activity log
-          const itemsToDelete = await client.query(`SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''}`, query.user_email ? [ids, query.user_email] : [ids]);
+          const _itemsToDelete = await client.query(
+            `SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''}`,
+            query.user_email ? [ids, query.user_email] : [ids],
+          );
 
-          result = await client.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''} RETURNING id::text as id`, query.user_email ? [ids, query.user_email] : [ids]);
+          result = await client.query(
+            `DELETE FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''} RETURNING id::text as id`,
+            query.user_email ? [ids, query.user_email] : [ids],
+          );
 
           // Note: Activity entries will be cascade deleted along with work items
           break;
+        }
 
         default:
           await client.query('ROLLBACK');
@@ -2989,7 +3004,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parentId must be a UUID' });
       }
 
-      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3044,7 +3059,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (body.recurrence_end) {
       recurrenceEnd = new Date(body.recurrence_end);
-      if (isNaN(recurrenceEnd.getTime())) {
+      if (Number.isNaN(recurrenceEnd.getTime())) {
         await pool.end();
         return reply.code(400).send({ error: 'Invalid recurrence_end date format' });
       }
@@ -3056,7 +3071,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email)
        VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11)
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate, userEmail],
+      [
+        body.title.trim(),
+        body.description ?? null,
+        kind,
+        parentId,
+        kind,
+        estimateMinutes,
+        actualMinutes,
+        recurrenceRule,
+        recurrenceEnd,
+        isRecurrenceTemplate,
+        userEmail,
+      ],
     );
 
     const workItem = result.rows[0] as { id: string; title: string };
@@ -3108,7 +3135,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parentId must be a UUID' });
       }
 
-      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3225,7 +3252,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     } else {
       // Check parent_work_item_id as fallback
-      const parentCheck = await pool.query(`SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1`, [params.id]);
+      const parentCheck = await pool.query('SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1', [params.id]);
       const altParentId = (parentCheck.rows[0] as { parent_id: string | null })?.parent_id;
       if (altParentId) {
         const parentResult = await pool.query(
@@ -3289,7 +3316,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.send({
       ...workItem,
-      children_count: parseInt(workItem.children_count, 10),
+      children_count: Number.parseInt(workItem.children_count, 10),
       parent,
       dependencies,
       attachments,
@@ -3317,8 +3344,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Validate estimate/actual constraints before hitting DB
-    const estimateMinutesSpecified = Object.prototype.hasOwnProperty.call(body, 'estimateMinutes');
-    const actualMinutesSpecified = Object.prototype.hasOwnProperty.call(body, 'actualMinutes');
+    const estimateMinutesSpecified = Object.hasOwn(body, 'estimateMinutes');
+    const actualMinutesSpecified = Object.hasOwn(body, 'actualMinutes');
 
     if (estimateMinutesSpecified && body.estimateMinutes !== null) {
       if (typeof body.estimateMinutes !== 'number' || body.estimateMinutes < 0 || body.estimateMinutes > 525600) {
@@ -3368,7 +3395,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     // If parentId is omitted, keep the current value.
-    const parentIdSpecified = Object.prototype.hasOwnProperty.call(body, 'parentId');
+    const parentIdSpecified = Object.hasOwn(body, 'parentId');
     const parentId = parentIdSpecified ? (body.parentId ?? null) : currentParentId;
 
     // If estimate/actual not specified, keep current values.
@@ -3387,7 +3414,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Validate parent relationship before update for a clearer 4xx than a DB exception.
     let parentKind: string | null = null;
     if (parentId) {
-      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3550,8 +3577,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     const retentionDays = 30;
-    const limit = Math.min(parseInt(query.limit || '50', 10), 500);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 500);
+    const offset = Number.parseInt(query.offset || '0', 10);
 
     const items: Array<{
       id: string;
@@ -3578,7 +3605,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [retentionDays, limit, offset],
       );
 
-      const wiCountResult = await pool.query(`SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`);
+      const wiCountResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL');
 
       for (const row of wiResult.rows) {
         items.push({
@@ -3590,7 +3617,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      total += parseInt(wiCountResult.rows[0].count, 10);
+      total += Number.parseInt(wiCountResult.rows[0].count, 10);
     }
 
     // Query contacts
@@ -3608,7 +3635,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [retentionDays, limit, offset],
       );
 
-      const cCountResult = await pool.query(`SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL`);
+      const cCountResult = await pool.query('SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL');
 
       for (const row of cResult.rows) {
         items.push({
@@ -3620,7 +3647,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      total += parseInt(cCountResult.rows[0].count, 10);
+      total += Number.parseInt(cCountResult.rows[0].count, 10);
     }
 
     await pool.end();
@@ -3650,13 +3677,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    const result = await pool.query(`SELECT * FROM purge_soft_deleted($1)`, [retentionDays]);
+    const result = await pool.query('SELECT * FROM purge_soft_deleted($1)', [retentionDays]);
 
     await pool.end();
 
     const row = result.rows[0];
-    const workItemsPurged = parseInt(row.work_items_purged || '0', 10);
-    const contactsPurged = parseInt(row.contacts_purged || '0', 10);
+    const workItemsPurged = Number.parseInt(row.work_items_purged || '0', 10);
+    const contactsPurged = Number.parseInt(row.contacts_purged || '0', 10);
 
     return reply.send({
       success: true,
@@ -3772,8 +3799,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const result = await listFiles(pool, {
-      limit: query.limit ? parseInt(query.limit, 10) : undefined,
-      offset: query.offset ? parseInt(query.offset, 10) : undefined,
+      limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+      offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       uploadedBy: query.uploadedBy,
     });
     await pool.end();
@@ -3782,7 +3809,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/share - Clarify that sharing uses /api/files/shared/:token (Issue #1141)
-  app.get('/api/files/share', async (req, reply) => {
+  app.get('/api/files/share', async (_req, reply) => {
     return reply.code(400).send({
       error: 'Invalid endpoint',
       message: 'To access a shared file, use GET /api/files/shared/:token. To create a share link, use POST /api/files/:id/share.',
@@ -3851,7 +3878,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const params = req.params as { id: string };
     const query = req.query as { expiresIn?: string };
-    const expiresIn = query.expiresIn ? parseInt(query.expiresIn, 10) : 3600;
+    const expiresIn = query.expiresIn ? Number.parseInt(query.expiresIn, 10) : 3600;
 
     if (expiresIn < 60 || expiresIn > 86400) {
       return reply.code(400).send({
@@ -4112,7 +4139,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: row.id,
         originalFilename: row.original_filename,
         contentType: row.content_type,
-        sizeBytes: parseInt(row.size_bytes, 10),
+        sizeBytes: Number.parseInt(row.size_bytes, 10),
         createdAt: row.created_at,
         attachedAt: row.attached_at,
         attachedBy: row.attached_by,
@@ -4177,7 +4204,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         isTemplate: info.isTemplate,
         nextOccurrence: info.nextOccurrence,
       });
-    } catch (error) {
+    } catch (_error) {
       await pool.end();
       return reply.code(500).send({ error: 'Failed to get recurrence info' });
     }
@@ -4224,7 +4251,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           recurrenceEnd = null;
         } else {
           recurrenceEnd = new Date(body.recurrence_end);
-          if (isNaN(recurrenceEnd.getTime())) {
+          if (Number.isNaN(recurrenceEnd.getTime())) {
             await pool.end();
             return reply.code(400).send({ error: 'Invalid recurrence_end date format' });
           }
@@ -4315,7 +4342,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { getInstances } = await import('./recurrence/index.ts');
 
       const instances = await getInstances(pool, params.id, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         includeCompleted: query.includeCompleted !== 'false',
       });
 
@@ -4344,8 +4371,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { getTemplates } = await import('./recurrence/index.ts');
 
       const templates = await getTemplates(pool, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       await pool.end();
@@ -4409,8 +4436,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         entityType: query.entityType,
         entityId: query.entityId,
         actorId: query.actorId,
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       };
 
       // Parse actor type
@@ -4436,7 +4463,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Parse dates
       if (query.startDate) {
         const date = new Date(query.startDate);
-        if (isNaN(date.getTime())) {
+        if (Number.isNaN(date.getTime())) {
           await pool.end();
           return reply.code(400).send({ error: 'Invalid startDate' });
         }
@@ -4445,7 +4472,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (query.endDate) {
         const date = new Date(query.endDate);
-        if (isNaN(date.getTime())) {
+        if (Number.isNaN(date.getTime())) {
           await pool.end();
           return reply.code(400).send({ error: 'Invalid endDate' });
         }
@@ -4479,8 +4506,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { getEntityAuditLog } = await import('./audit/index.ts');
 
       const entries = await getEntityAuditLog(pool, params.type, params.id, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       await pool.end();
@@ -4540,7 +4567,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // First check if the work item exists and get its kind
-    const item = await pool.query(`SELECT id, work_item_kind FROM work_item WHERE id = $1`, [params.id]);
+    const item = await pool.query('SELECT id, work_item_kind FROM work_item WHERE id = $1', [params.id]);
 
     if (item.rows.length === 0) {
       await pool.end();
@@ -4627,10 +4654,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-      const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+      const limit = Math.min(Number.parseInt(query.limit || '20', 10), 100);
+      const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
       const semantic = query.semantic !== 'false'; // Default true
-      const semanticWeight = Math.min(1, Math.max(0, parseFloat(query.semantic_weight || '0.5')));
+      const semanticWeight = Math.min(1, Math.max(0, Number.parseFloat(query.semantic_weight || '0.5')));
 
       // Parse entity types
       const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
@@ -4651,13 +4678,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       let dateTo: Date | undefined;
       if (query.date_from) {
         const parsed = new Date(query.date_from);
-        if (!isNaN(parsed.getTime())) {
+        if (!Number.isNaN(parsed.getTime())) {
           dateFrom = parsed;
         }
       }
       if (query.date_to) {
         const parsed = new Date(query.date_to);
-        if (!isNaN(parsed.getTime())) {
+        if (!Number.isNaN(parsed.getTime())) {
           dateTo = parsed;
         }
       }
@@ -4860,7 +4887,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if root item exists
-    const root = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
+    const root = await pool.query('SELECT id FROM work_item WHERE id = $1', [params.id]);
 
     if (root.rows.length === 0) {
       await pool.end();
@@ -4936,7 +4963,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if root item exists
-    const root = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
+    const root = await pool.query('SELECT id FROM work_item WHERE id = $1', [params.id]);
 
     if (root.rows.length === 0) {
       await pool.end();
@@ -4994,7 +5021,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (!dependencyMap.has(source)) {
         dependencyMap.set(source, []);
       }
-      dependencyMap.get(source)!.push(target);
+      dependencyMap.get(source)?.push(target);
     }
 
     // Mark items that are blocking other open items
@@ -5018,7 +5045,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Compute critical path using longest path through dependency graph
     // Critical path = longest chain of dependent items (by estimate sum or count)
-    const criticalPath: Array<{ id: string; title: string; estimate_minutes: number | null }> = [];
+    const _criticalPath: Array<{ id: string; title: string; estimate_minutes: number | null }> = [];
 
     // Build adjacency list for reverse traversal (target -> sources that depend on it)
     const reverseAdjacency = new Map<string, string[]>();
@@ -5027,12 +5054,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (!reverseAdjacency.has(target)) {
           reverseAdjacency.set(target, []);
         }
-        reverseAdjacency.get(target)!.push(source);
+        reverseAdjacency.get(target)?.push(source);
       }
     }
 
     // Find nodes with no dependencies (leaf nodes in dependency graph)
-    const leafNodes = itemIds.filter((id: string) => !dependencyMap.has(id) || dependencyMap.get(id)!.length === 0);
+    const leafNodes = itemIds.filter((id: string) => !dependencyMap.has(id) || dependencyMap.get(id)?.length === 0);
 
     // DFS to find longest path from each leaf, tracking by estimate sum
     function findLongestPath(nodeId: string, visited: Set<string>): Array<{ id: string; title: string; estimate_minutes: number | null }> {
@@ -5375,13 +5402,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Ensure both nodes exist so we can return a 4xx instead of relying on FK errors.
-    const a = await pool.query(`SELECT 1 FROM work_item WHERE id = $1`, [params.id]);
+    const a = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
     if (a.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const b = await pool.query(`SELECT 1 FROM work_item WHERE id = $1`, [dependsOnWorkItemId]);
+    const b = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [dependsOnWorkItemId]);
     if (b.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'dependsOn work item not found' });
@@ -5636,8 +5663,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
   app.get('/api/contacts', async (req, reply) => {
     const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string; user_email?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
     const includeDeleted = query.include_deleted === 'true';
     const contactKindFilter = query.contact_kind?.trim() || null;
@@ -5686,7 +5713,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get total count
     const countResult = await pool.query(`SELECT COUNT(DISTINCT c.id) as total FROM contact c ${whereClause}`, params);
-    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+    const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
     // Get contacts with endpoints
     const result = await pool.query(
@@ -6036,7 +6063,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, 'notes')) {
+    if (Object.hasOwn(body, 'notes')) {
       updates.push(`notes = $${paramIndex}`);
       values.push(body.notes ?? null);
       paramIndex++;
@@ -6396,8 +6423,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       tags?: string;
     };
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
     const typeFilter = query.type || null;
     const kindFilter = query.linkedItemKind || null;
@@ -6449,7 +6476,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ${whereClause}`,
       params,
     );
-    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+    const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
     // Get paginated results
     params.push(limit);
@@ -6680,6 +6707,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         work_item_id?: string;
         contact_id?: string;
         relationship_id?: string;
+        project_id?: string;
         user_email?: string;
         tags?: string;
         since?: string;
@@ -6691,8 +6719,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'q (query) parameter is required' });
       }
 
-      const limit = Math.min(Math.max(parseInt(query.limit || '20', 10), 1), 100);
-      const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+      const limit = Math.min(Math.max(Number.parseInt(query.limit || '20', 10), 1), 100);
+      const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
       const searchTags = query.tags
         ? query.tags
             .split(',')
@@ -6737,6 +6765,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           workItemId: query.work_item_id,
           contactId: query.contact_id,
           relationshipId: query.relationship_id,
+          projectId: query.project_id,
           userEmail: query.user_email,
           tags: searchTags,
           createdAfter,
@@ -6819,7 +6848,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/admin/embeddings/status - Get embedding configuration status (issue #200)
-  app.get('/api/admin/embeddings/status', async (req, reply) => {
+  app.get('/api/admin/embeddings/status', async (_req, reply) => {
     const pool = createPool();
 
     try {
@@ -6871,17 +6900,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         dimensions: config.dimensions,
         configured_providers: config.configuredProviders,
         stats: {
-          total_memories: parseInt(row.total, 10),
-          with_embedding: parseInt(row.with_embedding, 10),
-          pending: parseInt(row.pending, 10),
-          failed: parseInt(row.failed, 10),
+          total_memories: Number.parseInt(row.total, 10),
+          with_embedding: Number.parseInt(row.with_embedding, 10),
+          pending: Number.parseInt(row.pending, 10),
+          failed: Number.parseInt(row.failed, 10),
         },
         work_item_stats: {
-          total: parseInt(wiRow.total, 10),
-          with_embedding: parseInt(wiRow.with_embedding, 10),
-          pending: parseInt(wiRow.pending, 10),
-          failed: parseInt(wiRow.failed, 10),
-          skipped: parseInt(wiRow.skipped, 10),
+          total: Number.parseInt(wiRow.total, 10),
+          with_embedding: Number.parseInt(wiRow.with_embedding, 10),
+          pending: Number.parseInt(wiRow.pending, 10),
+          failed: Number.parseInt(wiRow.failed, 10),
+          skipped: Number.parseInt(wiRow.skipped, 10),
         },
       });
     } finally {
@@ -6911,8 +6940,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await getGlobalMemories(pool, query.user_email, {
         memoryType: query.memory_type as any,
-        limit: parseInt(query.limit || '50', 10),
-        offset: parseInt(query.offset || '0', 10),
+        limit: Number.parseInt(query.limit || '50', 10),
+        offset: Number.parseInt(query.offset || '0', 10),
       });
 
       return reply.send({
@@ -6936,6 +6965,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       work_item_id?: string;
       contact_id?: string;
       relationship_id?: string;
+      project_id?: string;
       created_by_agent?: string;
       created_by_human?: boolean;
       source_url?: string;
@@ -6971,7 +7001,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const memoryType = body.memory_type ?? 'note';
     if (!isValidMemoryType(memoryType)) {
       return reply.code(400).send({
-        error: `Invalid memory_type. Valid types: preference, fact, note, decision, context, reference`,
+        error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
       });
     }
 
@@ -6986,6 +7016,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         workItemId: body.work_item_id,
         contactId: body.contact_id,
         relationshipId: body.relationship_id,
+        projectId: body.project_id,
         createdByAgent: body.created_by_agent,
         createdByHuman: body.created_by_human,
         sourceUrl: body.source_url,
@@ -7029,6 +7060,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         work_item_id?: string;
         contact_id?: string;
         relationship_id?: string;
+        project_id?: string;
         created_by_agent?: string;
         created_by_human?: boolean;
         source_url?: string;
@@ -7113,6 +7145,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             workItemId: mem.work_item_id,
             contactId: mem.contact_id,
             relationshipId: mem.relationship_id,
+            projectId: mem.project_id,
             createdByAgent: mem.created_by_agent,
             createdByHuman: mem.created_by_human,
             sourceUrl: mem.source_url,
@@ -7306,6 +7339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       work_item_id?: string;
       contact_id?: string;
       relationship_id?: string;
+      project_id?: string;
       memory_type?: string;
       include_expired?: string;
       include_superseded?: string;
@@ -7351,6 +7385,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         workItemId: query.work_item_id,
         contactId: query.contact_id,
         relationshipId: query.relationship_id,
+        projectId: query.project_id,
         memoryType: query.memory_type as any,
         includeExpired: query.include_expired === 'true',
         includeSuperseded: query.include_superseded === 'true',
@@ -7402,7 +7437,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const memoryType = body.memory_type ?? oldMemory.memoryType;
       if (!isValidMemoryType(memoryType)) {
         return reply.code(400).send({
-          error: `Invalid memory_type. Valid types: preference, fact, note, decision, context, reference`,
+          error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
         });
       }
 
@@ -7414,6 +7449,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         workItemId: oldMemory.workItemId ?? undefined,
         contactId: oldMemory.contactId ?? undefined,
         relationshipId: oldMemory.relationshipId ?? undefined,
+        projectId: oldMemory.projectId ?? undefined,
         importance: body.importance ?? oldMemory.importance,
         confidence: body.confidence ?? oldMemory.confidence,
       });
@@ -7432,7 +7468,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/memories/cleanup-expired - Cleanup expired memories (issue #209)
-  app.delete('/api/memories/cleanup-expired', async (req, reply) => {
+  app.delete('/api/memories/cleanup-expired', async (_req, reply) => {
     const { cleanupExpiredMemories } = await import('./memory/index.ts');
 
     const pool = createPool();
@@ -7459,8 +7495,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     const status = query.status as 'pending' | 'failed' | 'dispatched' | undefined;
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
 
     const pool = createPool();
 
@@ -7511,7 +7547,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/webhooks/status - Get webhook configuration status
-  app.get('/api/webhooks/status', async (req, reply) => {
+  app.get('/api/webhooks/status', async (_req, reply) => {
     const { getConfigSummary, getWebhookOutbox } = await import('./webhooks/index.ts');
 
     const config = getConfigSummary();
@@ -7521,7 +7557,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get stats
       const pendingResult = await getWebhookOutbox(pool, { status: 'pending', limit: 0 });
       const failedResult = await getWebhookOutbox(pool, { status: 'failed', limit: 0 });
-      const dispatchedResult = await pool.query(`SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL`);
+      const dispatchedResult = await pool.query('SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL');
 
       return reply.send({
         configured: config.configured,
@@ -7532,7 +7568,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         stats: {
           pending: pendingResult.total,
           failed: failedResult.total,
-          dispatched: parseInt((dispatchedResult.rows[0] as { count: string }).count, 10),
+          dispatched: Number.parseInt((dispatchedResult.rows[0] as { count: string }).count, 10),
         },
       });
     } finally {
@@ -7558,6 +7594,46 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         succeeded: stats.succeeded,
         failed: stats.failed,
         skipped: stats.skipped,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/projects/:id/memories - List memories scoped to a project (Issue #1273)
+  app.get('/api/projects/:id/memories', async (req, reply) => {
+    const { listMemories } = await import('./memory/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      memory_type?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid project ID' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Verify project exists and is a project-kind work item
+      const projectCheck = await pool.query("SELECT 1 FROM work_item WHERE id = $1 AND kind = 'project'", [params.id]);
+      if (projectCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' });
+      }
+
+      const result = await listMemories(pool, {
+        projectId: params.id,
+        memoryType: query.memory_type as undefined,
+        limit: Number.parseInt(query.limit || '50', 10),
+        offset: Number.parseInt(query.offset || '0', 10),
+      });
+
+      return reply.send({
+        memories: result.memories,
+        total: result.total,
       });
     } finally {
       await pool.end();
@@ -7862,8 +7938,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { relationshipType?: string; limit?: string; offset?: string; user_email?: string };
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
@@ -8020,7 +8096,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const queryParams: string[] = [params.id];
 
       if (query.relationshipType) {
-        const typeCondition = ` AND mr.relationship_type = $2::memory_relationship_type`;
+        const typeCondition = ' AND mr.relationship_type = $2::memory_relationship_type';
         outgoingSql += typeCondition;
         incomingSql += typeCondition;
         queryParams.push(query.relationshipType);
@@ -8029,9 +8105,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Combine based on direction filter
       let results;
       if (query.direction === 'outgoing') {
-        results = await pool.query(outgoingSql + ' ORDER BY mr.created_at DESC', queryParams);
+        results = await pool.query(`${outgoingSql} ORDER BY mr.created_at DESC`, queryParams);
       } else if (query.direction === 'incoming') {
-        results = await pool.query(incomingSql + ' ORDER BY mr.created_at DESC', queryParams);
+        results = await pool.query(`${incomingSql} ORDER BY mr.created_at DESC`, queryParams);
       } else {
         // Get both directions
         const combinedSql = `(${outgoingSql}) UNION ALL (${incomingSql}) ORDER BY "linkedAt" DESC`;
@@ -8075,8 +8151,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string };
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
-    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.7')));
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.7')));
 
     const pool = createPool();
 
@@ -8142,8 +8218,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string; user_email?: string };
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
-    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.6')));
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.6')));
 
     const pool = createPool();
 
@@ -8188,7 +8264,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
 
         const contact = contactResult.rows[0] as { id: string; display_name: string; notes: string | null };
-        const contextText = `${contact.display_name}${contact.notes ? '\n' + contact.notes : ''}`;
+        const contextText = `${contact.display_name}${contact.notes ? `\n${contact.notes}` : ''}`;
 
         const embeddingResult = await embeddingService.embed(contextText);
         if (!embeddingResult) {
@@ -8266,8 +8342,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string; user_email?: string };
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
-    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.6')));
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.6')));
 
     const pool = createPool();
 
@@ -9716,7 +9792,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const payloadTime = new Date(payload.timestamp).getTime();
       const now = Date.now();
       const fiveMinutes = 5 * 60 * 1000;
-      if (isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
+      if (Number.isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
         console.warn('[Cloudflare Email] Rejecting stale or invalid timestamp:', payload.timestamp);
         return reply.code(400).send({ error: 'Invalid or stale timestamp' });
       }
@@ -9803,7 +9879,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get new parent info if not null
       let newParentKind: string | null = null;
       if (newParentId) {
-        const parentResult = await client.query(`SELECT work_item_kind as kind FROM work_item WHERE id = $1`, [newParentId]);
+        const parentResult = await client.query('SELECT work_item_kind as kind FROM work_item WHERE id = $1', [newParentId]);
         if (parentResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -9851,7 +9927,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (afterId) {
         // Position after a specific sibling in new parent
-        const afterResult = await client.query(`SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1`, [afterId]);
+        const afterResult = await client.query('SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1', [afterId]);
         if (afterResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -9940,8 +10016,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as { afterId?: string | null; beforeId?: string | null };
 
     // Validate exactly one of afterId or beforeId is provided
-    const hasAfter = Object.prototype.hasOwnProperty.call(body, 'afterId');
-    const hasBefore = Object.prototype.hasOwnProperty.call(body, 'beforeId');
+    const hasAfter = Object.hasOwn(body, 'afterId');
+    const hasBefore = Object.hasOwn(body, 'beforeId');
 
     if (!hasAfter && !hasBefore) {
       return reply.code(400).send({ error: 'afterId or beforeId is required' });
@@ -9980,7 +10056,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       // Get the work item being reordered
-      const itemResult = await client.query(`SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE`, [params.id]);
+      const itemResult = await client.query('SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE', [params.id]);
       if (itemResult.rows.length === 0) {
         await client.query('ROLLBACK');
         client.release();
@@ -10034,7 +10110,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       } else {
         // Move relative to a specific sibling
-        const targetResult = await client.query(`SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1`, [targetId]);
+        const targetResult = await client.query('SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1', [targetId]);
         if (targetResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -10079,7 +10155,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === target.sort_order || newSortOrder === nextOrder) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query(`SELECT sort_order FROM work_item WHERE id = $1`, [targetId]);
+              const refetch = await client.query('SELECT sort_order FROM work_item WHERE id = $1', [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder + 500;
             }
@@ -10107,7 +10183,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === prevOrder || newSortOrder === target.sort_order) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query(`SELECT sort_order FROM work_item WHERE id = $1`, [targetId]);
+              const refetch = await client.query('SELECT sort_order FROM work_item WHERE id = $1', [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder - 500;
             }
@@ -10150,8 +10226,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as { startDate?: string | null; endDate?: string | null };
 
     // Check at least one field is provided
-    const hasStartDate = Object.prototype.hasOwnProperty.call(body, 'startDate');
-    const hasEndDate = Object.prototype.hasOwnProperty.call(body, 'endDate');
+    const hasStartDate = Object.hasOwn(body, 'startDate');
+    const hasEndDate = Object.hasOwn(body, 'endDate');
     if (!hasStartDate && !hasEndDate) {
       return reply.code(400).send({ error: 'at least one date field is required' });
     }
@@ -10161,8 +10237,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const parseDate = (str: string | null | undefined): Date | null => {
       if (str === null || str === undefined) return null;
       if (!dateRegex.test(str)) return new Date('invalid');
-      const d = new Date(str + 'T00:00:00Z');
-      return isNaN(d.getTime()) ? new Date('invalid') : d;
+      const d = new Date(`${str}T00:00:00Z`);
+      return Number.isNaN(d.getTime()) ? new Date('invalid') : d;
     };
 
     let newStartDate: Date | null | undefined;
@@ -10173,7 +10249,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         newStartDate = null;
       } else {
         newStartDate = parseDate(body.startDate);
-        if (newStartDate && isNaN(newStartDate.getTime())) {
+        if (newStartDate && Number.isNaN(newStartDate.getTime())) {
           return reply.code(400).send({ error: 'invalid date format' });
         }
       }
@@ -10184,7 +10260,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         newEndDate = null;
       } else {
         newEndDate = parseDate(body.endDate);
-        if (newEndDate && isNaN(newEndDate.getTime())) {
+        if (newEndDate && Number.isNaN(newEndDate.getTime())) {
           return reply.code(400).send({ error: 'invalid date format' });
         }
       }
@@ -10199,7 +10275,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if work item exists and get current dates
-    const existing = await pool.query(`SELECT id, not_before, not_after FROM work_item WHERE id = $1`, [params.id]);
+    const existing = await pool.query('SELECT id, not_before, not_after FROM work_item WHERE id = $1', [params.id]);
     if (existing.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -10380,7 +10456,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (hasText) {
       updates.push(`text = $${paramIndex}`);
-      values.push(body.text!.trim());
+      values.push(body.text?.trim() ?? null);
       paramIndex++;
     }
 
@@ -10391,9 +10467,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Set or clear completed_at based on completed status
       if (body.completed) {
-        updates.push(`completed_at = now()`);
+        updates.push('completed_at = now()');
       } else {
-        updates.push(`completed_at = NULL`);
+        updates.push('completed_at = NULL');
       }
     }
 
@@ -10462,8 +10538,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'userEmail is required' });
     }
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const unreadOnly = query.unreadOnly === 'true';
 
     const pool = createPool();
@@ -10493,7 +10569,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       [...params, limit, offset],
     );
 
-    const countResult = await pool.query(`SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`, [
+    const countResult = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [
       query.userEmail,
     ]);
 
@@ -10501,7 +10577,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.send({
       notifications: result.rows,
-      unreadCount: parseInt(countResult.rows[0].count, 10),
+      unreadCount: Number.parseInt(countResult.rows[0].count, 10),
     });
   });
 
@@ -10514,10 +10590,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
-    const result = await pool.query(`SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`, [query.userEmail]);
+    const result = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [query.userEmail]);
     await pool.end();
 
-    return reply.send({ unreadCount: parseInt(result.rows[0].count, 10) });
+    return reply.send({ unreadCount: Number.parseInt(result.rows[0].count, 10) });
   });
 
   // POST /api/notifications/:id/read - Mark a notification as read
@@ -10703,7 +10779,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get reactions for all comments
     const commentIds = comments.rows.map((c) => c.id);
-    let reactionsMap: Record<string, Record<string, number>> = {};
+    const reactionsMap: Record<string, Record<string, number>> = {};
 
     if (commentIds.length > 0) {
       const reactions = await pool.query(
@@ -10718,7 +10794,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (!reactionsMap[r.comment_id]) {
           reactionsMap[r.comment_id] = {};
         }
-        reactionsMap[r.comment_id][r.emoji] = parseInt(r.count, 10);
+        reactionsMap[r.comment_id][r.emoji] = Number.parseInt(r.count, 10);
       }
     }
 
@@ -11021,7 +11097,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'q query parameter is required' });
     }
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
     const pool = createPool();
 
     // Search for users based on email from various sources
@@ -11085,7 +11161,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/velocity - Get velocity data
   app.get('/api/analytics/velocity', async (req, reply) => {
     const query = req.query as { weeks?: string; projectId?: string };
-    const weeks = Math.min(parseInt(query.weeks || '12', 10), 52);
+    const weeks = Math.min(Number.parseInt(query.weeks || '12', 10), 52);
     const pool = createPool();
 
     const result = await pool.query(
@@ -11114,7 +11190,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/analytics/effort - Get effort summary
   app.get('/api/analytics/effort', async (req, reply) => {
-    const query = req.query as { projectId?: string };
+    const _query = req.query as { projectId?: string };
     const pool = createPool();
 
     // Get total effort
@@ -11190,7 +11266,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/overdue - Get overdue items
   app.get('/api/analytics/overdue', async (req, reply) => {
     const query = req.query as { limit?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
     const result = await pool.query(
@@ -11218,7 +11294,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/blocked - Get blocked items
   app.get('/api/analytics/blocked', async (req, reply) => {
     const query = req.query as { limit?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
     const result = await pool.query(
@@ -11250,7 +11326,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/activity-summary - Get activity summary by day
   app.get('/api/analytics/activity-summary', async (req, reply) => {
     const query = req.query as { days?: string };
-    const days = Math.min(parseInt(query.days || '30', 10), 90);
+    const days = Math.min(Number.parseInt(query.days || '30', 10), 90);
     const pool = createPool();
 
     const result = await pool.query(
@@ -11808,7 +11884,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params: EmailListParams = {
         folderId: query.folderId,
         query: query.q,
-        maxResults: query.maxResults ? parseInt(query.maxResults, 10) : undefined,
+        maxResults: query.maxResults ? Number.parseInt(query.maxResults, 10) : undefined,
         pageToken: query.pageToken,
         includeSpamTrash: query.includeSpamTrash === 'true',
         labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
@@ -11870,7 +11946,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params: EmailListParams = {
         folderId: query.folderId,
         query: query.q,
-        maxResults: query.maxResults ? parseInt(query.maxResults, 10) : undefined,
+        maxResults: query.maxResults ? Number.parseInt(query.maxResults, 10) : undefined,
         pageToken: query.pageToken,
         includeSpamTrash: query.includeSpamTrash === 'true',
         labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
@@ -12190,7 +12266,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const pool = createPool();
       try {
         const params: EmailListParams = {
-          maxResults: query.limit ? parseInt(query.limit, 10) : 50,
+          maxResults: query.limit ? Number.parseInt(query.limit, 10) : 50,
         };
         const result = await emailService.listMessages(pool, query.connectionId, params);
         return reply.send({ emails: result.messages });
@@ -12205,7 +12281,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Fallback to database query for locally stored emails
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
     let sql = `
@@ -12288,10 +12364,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'threadId and userEmail are required (or use connectionId + to for the new API)' });
     }
 
-    const thread = await pool.query(
-      `SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1`,
-      [body.threadId],
-    );
+    const thread = await pool.query('SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1', [body.threadId]);
 
     if (thread.rows.length === 0) {
       await pool.end();
@@ -12397,7 +12470,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       endBefore?: string;
       limit?: string;
     };
-    const limit = Math.min(parseInt(query.limit || '100', 10), 500);
+    const limit = Math.min(Number.parseInt(query.limit || '100', 10), 500);
     const pool = createPool();
 
     let sql = `
@@ -12712,8 +12785,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
         search: query.search,
         isPinned: query.is_pinned !== undefined ? query.is_pinned === 'true' : undefined,
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         sortBy: query.sort_by as 'createdAt' | 'updatedAt' | 'title' | undefined,
         sortOrder: query.sort_order as 'asc' | 'desc' | undefined,
       });
@@ -12977,8 +13050,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listVersions(pool, params.id, query.user_email, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       if (!result) {
@@ -13010,10 +13083,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'from and to version numbers are required' });
     }
 
-    const fromVersion = parseInt(query.from, 10);
-    const toVersion = parseInt(query.to, 10);
+    const fromVersion = Number.parseInt(query.from, 10);
+    const toVersion = Number.parseInt(query.to, 10);
 
-    if (isNaN(fromVersion) || isNaN(toVersion)) {
+    if (Number.isNaN(fromVersion) || Number.isNaN(toVersion)) {
       return reply.code(400).send({ error: 'from and to must be valid version numbers' });
     }
 
@@ -13045,8 +13118,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
-    const versionNumber = parseInt(params.versionNumber, 10);
-    if (isNaN(versionNumber)) {
+    const versionNumber = Number.parseInt(params.versionNumber, 10);
+    if (Number.isNaN(versionNumber)) {
       return reply.code(400).send({ error: 'versionNumber must be a valid number' });
     }
 
@@ -13078,8 +13151,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
-    const versionNumber = parseInt(params.versionNumber, 10);
-    if (isNaN(versionNumber)) {
+    const versionNumber = Number.parseInt(params.versionNumber, 10);
+    if (Number.isNaN(versionNumber)) {
       return reply.code(400).send({ error: 'versionNumber must be a valid number' });
     }
 
@@ -13598,8 +13671,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         includeArchived: query.include_archived === 'true',
         includeNoteCounts: query.include_note_counts !== 'false',
         includeChildCounts: query.include_child_counts !== 'false',
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       return reply.send(result);
@@ -14193,7 +14266,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/embeddings/status/notes - Get note embedding statistics
-  app.get('/api/admin/embeddings/status/notes', async (req, reply) => {
+  app.get('/api/admin/embeddings/status/notes', async (_req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
 
     const pool = createPool();
@@ -14399,7 +14472,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/skill-store/embeddings/status - Get skill store embedding statistics
-  app.get('/api/admin/skill-store/embeddings/status', async (req, reply) => {
+  app.get('/api/admin/skill-store/embeddings/status', async (_req, reply) => {
     const skillStoreEmbeddings = await import('./embeddings/skill-store-integration.ts');
 
     const pool = createPool();
@@ -14451,7 +14524,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Total items (excluding soft-deleted)
-      const totalResult = await pool.query(`SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL`);
+      const totalResult = await pool.query('SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL');
       const totalItems = totalResult.rows[0].total;
 
       // Counts by status (excluding soft-deleted)
@@ -14540,13 +14613,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if skill exists
-      const existsResult = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`, [skill_id]);
+      const existsResult = await pool.query('SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL', [skill_id]);
       if (existsResult.rows[0].cnt === 0) {
         return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
       }
 
       // Total items
-      const totalResult = await pool.query(`SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`, [skill_id]);
+      const totalResult = await pool.query('SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL', [skill_id]);
 
       // By status
       const statusResult = await pool.query(
@@ -14643,16 +14716,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if skill has any data at all (including soft-deleted)
-      const existsResult = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1`, [skill_id]);
+      const existsResult = await pool.query('SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1', [skill_id]);
       if (existsResult.rows[0].cnt === 0) {
         return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
       }
 
       // Hard delete all items for this skill (including soft-deleted)
-      const deleteResult = await pool.query(`DELETE FROM skill_store_item WHERE skill_id = $1`, [skill_id]);
+      const deleteResult = await pool.query('DELETE FROM skill_store_item WHERE skill_id = $1', [skill_id]);
 
       // Also delete schedules for this skill
-      const scheduleResult = await pool.query(`DELETE FROM skill_store_schedule WHERE skill_id = $1`, [skill_id]);
+      const scheduleResult = await pool.query('DELETE FROM skill_store_schedule WHERE skill_id = $1', [skill_id]);
 
       return reply.send({
         skill_id,
@@ -14742,9 +14815,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         notebookId: query.notebookId,
         tags: query.tags ? query.tags.split(',') : undefined,
         visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
-        limit: query.limit ? Math.min(parseInt(query.limit, 10), 50) : 20,
-        offset: query.offset ? parseInt(query.offset, 10) : 0,
-        minSimilarity: query.minSimilarity ? parseFloat(query.minSimilarity) : 0.3,
+        limit: query.limit ? Math.min(Number.parseInt(query.limit, 10), 50) : 20,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : 0,
+        minSimilarity: query.minSimilarity ? Number.parseFloat(query.minSimilarity) : 0.3,
         isAgent,
       });
 
@@ -14776,8 +14849,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await noteSearch.findSimilarNotes(pool, params.id, query.user_email, {
-        limit: query.limit ? Math.min(parseInt(query.limit, 10), 20) : 5,
-        minSimilarity: query.minSimilarity ? parseFloat(query.minSimilarity) : 0.5,
+        limit: query.limit ? Math.min(Number.parseInt(query.limit, 10), 20) : 5,
+        minSimilarity: query.minSimilarity ? Number.parseFloat(query.minSimilarity) : 0.5,
         isAgent,
       });
 
@@ -14814,10 +14887,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         options.preSeededOnly = true;
       }
       if (query.limit !== undefined) {
-        options.limit = parseInt(query.limit, 10);
+        options.limit = Number.parseInt(query.limit, 10);
       }
       if (query.offset !== undefined) {
-        options.offset = parseInt(query.offset, 10);
+        options.offset = Number.parseInt(query.offset, 10);
       }
 
       const result = await listRelationshipTypes(pool, options);
@@ -14839,7 +14912,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Query parameter "q" is required' });
       }
 
-      const limit = query.limit ? parseInt(query.limit, 10) : undefined;
+      const limit = query.limit ? Number.parseInt(query.limit, 10) : undefined;
       const results = await findSemanticMatch(pool, query.q.trim(), { limit });
       return reply.send({ results });
     } finally {
@@ -14935,10 +15008,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         options.createdByAgent = query.created_by_agent;
       }
       if (query.limit !== undefined) {
-        options.limit = parseInt(query.limit, 10);
+        options.limit = Number.parseInt(query.limit, 10);
       }
       if (query.offset !== undefined) {
-        options.offset = parseInt(query.offset, 10);
+        options.offset = Number.parseInt(query.offset, 10);
       }
       // Issue #1172: optional user_email scoping
       if (query.user_email !== undefined) {
@@ -15676,8 +15749,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'skill_id query parameter is required' });
     }
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 200);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 200);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const collection = query.collection;
     const status = query.status;
     const tagsFilter = query.tags
@@ -15740,7 +15813,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       // Get total count
       const countResult = await pool.query(`SELECT COUNT(*) AS total FROM skill_store_item WHERE ${whereClause}`, params);
-      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+      const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
       // Get paginated results
       const dataParams = [...params, limit, offset];
@@ -15856,7 +15929,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Fetch item info for activity event before deletion (Issue #808)
-      const itemInfo = await pool.query(`SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1`, [params.id]);
+      const itemInfo = await pool.query('SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1', [params.id]);
 
       let result;
       if (permanent) {
@@ -16020,7 +16093,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Check for step patterns like */N where N < 5
     const stepMatch = minuteField.match(/^\*\/(\d+)$/);
     if (stepMatch) {
-      const step = parseInt(stepMatch[1], 10);
+      const step = Number.parseInt(stepMatch[1], 10);
       if (step < 5) {
         return `cron_expression fires more frequently than every 5 minutes (every ${step} minutes). Minimum interval is 5 minutes.`;
       }
@@ -16198,8 +16271,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'skill_id is required' });
     }
 
-    const limit = Math.min(Math.max(parseInt(query.limit || '50', 10), 1), 100);
-    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+    const limit = Math.min(Math.max(Number.parseInt(query.limit || '50', 10), 1), 100);
+    const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
 
     const conditions: string[] = [];
     const params: (string | number | boolean)[] = [];
@@ -16220,7 +16293,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const countResult = await pool.query(`SELECT COUNT(*) as count FROM skill_store_schedule ${whereClause}`, params);
-      const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+      const total = Number.parseInt((countResult.rows[0] as { count: string }).count, 10);
 
       const selectParams = [...params, limit, offset];
       const result = await pool.query(
@@ -16374,7 +16447,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await pool.query(`DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id`, [id]);
+      const result = await pool.query('DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id', [id]);
 
       if (result.rowCount === 0) {
         return reply.code(404).send({ error: 'Schedule not found' });
@@ -16440,7 +16513,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_triggered'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Manually triggered schedule`, JSON.stringify({ schedule_id: schedule.id })],
+        [schedule.skill_id, schedule.collection, 'Manually triggered schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.code(202).send({
@@ -16485,7 +16558,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_paused'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Paused schedule`, JSON.stringify({ schedule_id: schedule.id })],
+        [schedule.skill_id, schedule.collection, 'Paused schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -16527,7 +16600,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_resumed'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Resumed schedule`, JSON.stringify({ schedule_id: schedule.id })],
+        [schedule.skill_id, schedule.collection, 'Resumed schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -16594,10 +16667,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       // Enforce provider limit (inside transaction for atomicity)
-      const countResult = await client.query(
-        `SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE`,
-        [email],
-      );
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
@@ -16691,10 +16761,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Check access: must be owner or subscriber
-      const subResult = await pool.query(
-        `SELECT 1 FROM geo_provider_user WHERE provider_id = $1 AND user_email = $2`,
-        [id, email],
-      );
+      const subResult = await pool.query('SELECT 1 FROM geo_provider_user WHERE provider_id = $1 AND user_email = $2', [id, email]);
       if (provider.ownerEmail !== email && subResult.rows.length === 0) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
@@ -16800,7 +16867,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const { getProvider: getGeoProvider, canDeleteProvider: canDeleteGeoProvider, deleteSubscriptionsByProvider: deleteGeoSubscriptions, softDeleteProvider: softDeleteGeoProvider } = await import('./geolocation/service.ts');
+      const {
+        getProvider: getGeoProvider,
+        canDeleteProvider: canDeleteGeoProvider,
+        deleteSubscriptionsByProvider: deleteGeoSubscriptions,
+        softDeleteProvider: softDeleteGeoProvider,
+      } = await import('./geolocation/service.ts');
       const existing = await getGeoProvider(pool, id);
       if (!existing) {
         return reply.code(404).send({ error: 'Provider not found' });
@@ -16946,10 +17018,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Verify subscription belongs to requesting user
-      const subResult = await pool.query(
-        `SELECT * FROM geo_provider_user WHERE id = $1`,
-        [id],
-      );
+      const subResult = await pool.query('SELECT * FROM geo_provider_user WHERE id = $1', [id]);
       if (subResult.rows.length === 0) {
         return reply.code(404).send({ error: 'Subscription not found' });
       }
@@ -17011,12 +17080,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const from = query.from ? new Date(query.from) : new Date(Date.now() - 24 * 60 * 60 * 1000); // default: 24h ago
     const to = query.to ? new Date(query.to) : new Date();
 
-    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
       return reply.code(400).send({ error: 'Invalid date format for from/to parameters' });
     }
 
-    const requestedLimit = query.limit ? parseInt(query.limit, 10) : 100;
-    const limit = Math.min(Math.max(isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
+    const requestedLimit = query.limit ? Number.parseInt(query.limit, 10) : 100;
+    const limit = Math.min(Math.max(Number.isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
 
     const pool = createPool();
     try {

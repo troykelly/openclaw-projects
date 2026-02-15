@@ -8,26 +8,26 @@
  *
  * @see Issue #468
  */
-import React, { useCallback } from 'react';
-import { useParams, Link } from 'react-router';
-import { useWorkItem, workItemKeys } from '@/ui/hooks/queries/use-work-items';
-import { useWorkItemTree } from '@/ui/hooks/queries/use-work-items';
-import { useBacklog } from '@/ui/hooks/queries/use-backlog';
-import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
+
 import { useQueryClient } from '@tanstack/react-query';
-import { Skeleton, SkeletonCard, SkeletonTable, ErrorState } from '@/ui/components/feedback';
-import { Button } from '@/ui/components/ui/button';
-import { Badge } from '@/ui/components/ui/badge';
-import { Card, CardContent } from '@/ui/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/ui/components/ui/tabs';
+import { Brain, Calendar, ChevronRight, Clock, FolderKanban, GitBranch, LayoutGrid, List } from 'lucide-react';
+import React, { useCallback } from 'react';
+import { Link, useParams } from 'react-router';
+import { ErrorState, Skeleton, SkeletonTable } from '@/ui/components/feedback';
 import { InlineEditableText } from '@/ui/components/inline-edit';
-import { priorityColors, kindColors, mapApiPriority, mapApiTreeToTreeItems } from '@/ui/lib/work-item-utils';
-import { ListView } from './project-views/ListView';
+import { Badge } from '@/ui/components/ui/badge';
+import { Button } from '@/ui/components/ui/button';
+import { Card, CardContent } from '@/ui/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/components/ui/tabs';
+import { useUpdateWorkItem } from '@/ui/hooks/mutations/use-update-work-item';
+import { useProjectMemories } from '@/ui/hooks/queries/use-memories';
+import { useWorkItem, useWorkItemTree } from '@/ui/hooks/queries/use-work-items';
+import type { Memory, WorkItemTreeNode } from '@/ui/lib/api-types';
+import { mapApiTreeToTreeItems, priorityColors } from '@/ui/lib/work-item-utils';
 import { BoardView } from './project-views/BoardView';
-import { TreeView } from './project-views/TreeView';
 import { CalendarView } from './project-views/CalendarView';
-import { ChevronRight, List, LayoutGrid, GitBranch, Calendar, Clock, FolderKanban } from 'lucide-react';
-import type { WorkItemTreeNode, BacklogItem } from '@/ui/lib/api-types';
+import { ListView } from './project-views/ListView';
+import { TreeView } from './project-views/TreeView';
 
 /** Format a relative time string from a Date. */
 function formatRelativeTime(date: Date): string {
@@ -94,7 +94,7 @@ const statusColors: Record<string, string> = {
 export function ProjectDetailPage(): React.JSX.Element {
   const { projectId, view } = useParams<{ projectId: string; view?: string }>();
   const itemId = projectId ?? '';
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
 
   // Determine the initial view from URL param
   const initialView = view ?? 'list';
@@ -330,6 +330,10 @@ export function ProjectDetailPage(): React.JSX.Element {
                 <Calendar className="size-3.5" />
                 Calendar
               </TabsTrigger>
+              <TabsTrigger value="memories" className="gap-1.5">
+                <Brain className="size-3.5" />
+                Memories
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -348,8 +352,70 @@ export function ProjectDetailPage(): React.JSX.Element {
           <TabsContent value="calendar" data-testid="view-calendar" className="px-6 py-4">
             <CalendarView items={childrenAsItems} isLoading={treeLoading} />
           </TabsContent>
+
+          <TabsContent value="memories" data-testid="view-memories" className="px-6 py-4">
+            <ProjectMemoriesView projectId={itemId} />
+          </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProjectMemoriesView - inline component for the Memories tab
+// ---------------------------------------------------------------------------
+
+function ProjectMemoriesView({ projectId }: { projectId: string }): React.JSX.Element {
+  const { data, isLoading, isError } = useProjectMemories(projectId);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} width="100%" height={72} />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return <p className="text-sm text-destructive">Failed to load project memories.</p>;
+  }
+
+  const memories = data?.memories ?? [];
+
+  if (memories.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Brain className="mx-auto size-8 mb-2 opacity-40" />
+        <p className="text-sm">No memories scoped to this project yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {memories.map((memory: Memory) => (
+        <Card key={memory.id}>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                {memory.type && (
+                  <Badge variant="outline" className="text-xs mb-1 capitalize">
+                    {memory.type}
+                  </Badge>
+                )}
+                <h4 className="font-medium text-sm text-foreground">{memory.title}</h4>
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{memory.content}</p>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {new Date(memory.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

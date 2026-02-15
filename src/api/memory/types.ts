@@ -4,6 +4,7 @@
  * Tags added in Issue #492
  * Relationship scope added in Issue #493
  * Geolocation fields added in Epic #1204
+ * Project scope added in Issue #1273
  */
 
 /** Valid memory types */
@@ -19,6 +20,8 @@ export interface MemoryScope {
   contactId?: string;
   /** Relationship ID for relationship scope (e.g., anniversaries, interpersonal metadata) */
   relationshipId?: string;
+  /** Project ID for project scope (FK to work_item of kind 'project') */
+  projectId?: string;
 }
 
 /** Attribution metadata for a memory */
@@ -81,6 +84,8 @@ export interface MemoryEntry {
   contactId: string | null;
   /** Relationship this memory is scoped to (e.g., anniversaries, interpersonal metadata) */
   relationshipId: string | null;
+  /** Project this memory is scoped to (FK to work_item of kind 'project') */
+  projectId: string | null;
   title: string;
   content: string;
   memoryType: MemoryType;
