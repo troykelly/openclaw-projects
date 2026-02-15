@@ -6659,6 +6659,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
+      const { resolveRelativeTime, resolvePeriod, VALID_PERIODS } = await import('./memory/temporal.ts');
+
       const query = req.query as {
         q?: string;
         limit?: string;
@@ -6669,6 +6671,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         relationship_id?: string;
         user_email?: string;
         tags?: string;
+        since?: string;
+        before?: string;
+        period?: string;
       };
 
       if (!query.q || query.q.trim().length === 0) {
@@ -6684,6 +6689,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             .filter(Boolean)
         : undefined;
 
+      // Resolve temporal parameters (issue #1272)
+      let createdAfter: Date | undefined;
+      let createdBefore: Date | undefined;
+
+      if (query.period) {
+        const periodResult = resolvePeriod(query.period);
+        if (!periodResult) {
+          return reply.code(400).send({ error: `Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}` });
+        }
+        createdAfter = periodResult.since;
+        createdBefore = periodResult.before;
+      }
+      if (query.since) {
+        const resolved = resolveRelativeTime(query.since);
+        if (!resolved) {
+          return reply.code(400).send({ error: 'Invalid since parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+        }
+        createdAfter = resolved;
+      }
+      if (query.before) {
+        const resolved = resolveRelativeTime(query.before);
+        if (!resolved) {
+          return reply.code(400).send({ error: 'Invalid before parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+        }
+        createdBefore = resolved;
+      }
+
       const pool = createPool();
 
       try {
@@ -6696,6 +6728,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           relationshipId: query.relationship_id,
           userEmail: query.user_email,
           tags: searchTags,
+          createdAfter,
+          createdBefore,
         });
 
         // Map results to include score (Issue #1145)
@@ -7254,6 +7288,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/memories/unified - List memories with flexible filtering (issue #209)
   app.get('/api/memories/unified', async (req, reply) => {
     const { listMemories } = await import('./memory/index.ts');
+    const { resolveRelativeTime, resolvePeriod, VALID_PERIODS } = await import('./memory/temporal.ts');
 
     const query = req.query as {
       user_email?: string;
@@ -7263,9 +7298,39 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       memory_type?: string;
       include_expired?: string;
       include_superseded?: string;
+      since?: string;
+      before?: string;
+      period?: string;
       limit?: string;
       offset?: string;
     };
+
+    // Resolve temporal parameters (issue #1272)
+    let createdAfter: Date | undefined;
+    let createdBefore: Date | undefined;
+
+    if (query.period) {
+      const periodResult = resolvePeriod(query.period);
+      if (!periodResult) {
+        return reply.code(400).send({ error: `Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}` });
+      }
+      createdAfter = periodResult.since;
+      createdBefore = periodResult.before;
+    }
+    if (query.since) {
+      const resolved = resolveRelativeTime(query.since);
+      if (!resolved) {
+        return reply.code(400).send({ error: 'Invalid since parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+      }
+      createdAfter = resolved;
+    }
+    if (query.before) {
+      const resolved = resolveRelativeTime(query.before);
+      if (!resolved) {
+        return reply.code(400).send({ error: 'Invalid before parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+      }
+      createdBefore = resolved;
+    }
 
     const pool = createPool();
 
@@ -7278,6 +7343,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         memoryType: query.memory_type as any,
         includeExpired: query.include_expired === 'true',
         includeSuperseded: query.include_superseded === 'true',
+        createdAfter,
+        createdBefore,
         limit: parseInt(query.limit || '50', 10),
         offset: parseInt(query.offset || '0', 10),
       });

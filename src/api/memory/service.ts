@@ -429,6 +429,18 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
     conditions.push(`superseded_by IS NULL`);
   }
 
+  // Temporal filters (issue #1272)
+  if (options.createdAfter !== undefined) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(options.createdAfter.toISOString());
+    paramIndex++;
+  }
+  if (options.createdBefore !== undefined) {
+    conditions.push(`created_at < $${paramIndex}`);
+    params.push(options.createdBefore.toISOString());
+    paramIndex++;
+  }
+
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
@@ -685,6 +697,17 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           semanticParams.push(options.tags);
           semanticIdx++;
         }
+        // Temporal filters (issue #1272)
+        if (options.createdAfter !== undefined) {
+          semanticConditions.push(`created_at >= $${semanticIdx}`);
+          semanticParams.push(options.createdAfter.toISOString());
+          semanticIdx++;
+        }
+        if (options.createdBefore !== undefined) {
+          semanticConditions.push(`created_at < $${semanticIdx}`);
+          semanticParams.push(options.createdBefore.toISOString());
+          semanticIdx++;
+        }
 
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
         const allParams = [embeddingStr, minSimilarity, ...semanticParams, limit, offset];
@@ -762,6 +785,17 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
   if (options.tags !== undefined && options.tags.length > 0) {
     textConditions.push(`tags @> $${textIdx}`);
     textParams.push(options.tags);
+    textIdx++;
+  }
+  // Temporal filters (issue #1272)
+  if (options.createdAfter !== undefined) {
+    textConditions.push(`created_at >= $${textIdx}`);
+    textParams.push(options.createdAfter.toISOString());
+    textIdx++;
+  }
+  if (options.createdBefore !== undefined) {
+    textConditions.push(`created_at < $${textIdx}`);
+    textParams.push(options.createdBefore.toISOString());
     textIdx++;
   }
 
