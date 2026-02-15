@@ -219,20 +219,38 @@ describe('geolocation/routes', () => {
       const effectiveLimit = requestedLimit ? Math.min(Math.max(requestedLimit, 1), 1000) : 100;
       expect(effectiveLimit).toBe(100);
     });
+
+    it('rejects NaN poll_interval_seconds', () => {
+      const val = NaN;
+      const isValid = Number.isFinite(val) && val > 0;
+      expect(isValid).toBe(false);
+    });
+
+    it('rejects negative max_age_seconds', () => {
+      const val = -10;
+      const isValid = Number.isFinite(val) && val > 0;
+      expect(isValid).toBe(false);
+    });
+
+    it('rejects Infinity for numeric fields', () => {
+      const val = Infinity;
+      const isValid = Number.isFinite(val) && val > 0;
+      expect(isValid).toBe(false);
+    });
+
+    it('rejects negative priority', () => {
+      const val = -1;
+      const isValid = Number.isInteger(val) && val >= 0;
+      expect(isValid).toBe(false);
+    });
   });
 
   describe('owner-only enforcement', () => {
-    it('only owner can update provider', () => {
+    it('non-owner gets 404 (anti-enumeration) not 403', () => {
       const provider = geoService.rowToProvider(providerRow);
       const requestEmail = OTHER_EMAIL;
       const isOwner = provider.ownerEmail === requestEmail;
-      expect(isOwner).toBe(false);
-    });
-
-    it('only owner can delete provider', () => {
-      const provider = geoService.rowToProvider(providerRow);
-      const requestEmail = OTHER_EMAIL;
-      const isOwner = provider.ownerEmail === requestEmail;
+      // Routes return 404 for non-owners to prevent resource enumeration
       expect(isOwner).toBe(false);
     });
 

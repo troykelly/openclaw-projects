@@ -4,8 +4,11 @@
  * Issue #1245.
  */
 
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { GeoProviderType, GeoAuthType, GeoProviderStatus } from './types.ts';
+
+/** Queryable database connection — either a Pool or a PoolClient (for transactions). */
+type Queryable = Pool | PoolClient;
 
 // ─── Row types (camelCase) ───────────────────────────────────────────────────
 
@@ -160,7 +163,7 @@ export interface InsertLocationInput {
 
 // ─── Provider CRUD ───────────────────────────────────────────────────────────
 
-export async function createProvider(pool: Pool, input: CreateProviderInput): Promise<GeoProvider> {
+export async function createProvider(pool: Queryable, input: CreateProviderInput): Promise<GeoProvider> {
   const result = await pool.query(
     `INSERT INTO geo_provider (
       owner_email, provider_type, auth_type, label, config, credentials,
@@ -182,7 +185,7 @@ export async function createProvider(pool: Pool, input: CreateProviderInput): Pr
   return rowToProvider(result.rows[0]);
 }
 
-export async function getProvider(pool: Pool, id: string): Promise<GeoProvider | null> {
+export async function getProvider(pool: Queryable, id: string): Promise<GeoProvider | null> {
   const result = await pool.query(
     `SELECT * FROM geo_provider WHERE id = $1 AND deleted_at IS NULL`,
     [id],
@@ -190,7 +193,7 @@ export async function getProvider(pool: Pool, id: string): Promise<GeoProvider |
   return result.rows.length > 0 ? rowToProvider(result.rows[0]) : null;
 }
 
-export async function listProviders(pool: Pool, userEmail: string): Promise<GeoProvider[]> {
+export async function listProviders(pool: Queryable, userEmail: string): Promise<GeoProvider[]> {
   const result = await pool.query(
     `SELECT DISTINCT gp.* FROM geo_provider gp
      LEFT JOIN geo_provider_user gpu ON gp.id = gpu.provider_id
@@ -226,7 +229,7 @@ const PROVIDER_FIELD_MAP: Record<string, string> = {
 };
 
 export async function updateProvider(
-  pool: Pool,
+  pool: Queryable,
   id: string,
   updates: UpdateProviderFields,
 ): Promise<GeoProvider | null> {
@@ -255,7 +258,7 @@ export async function updateProvider(
   return result.rows.length > 0 ? rowToProvider(result.rows[0]) : null;
 }
 
-export async function softDeleteProvider(pool: Pool, id: string): Promise<void> {
+export async function softDeleteProvider(pool: Queryable, id: string): Promise<void> {
   await pool.query(
     `UPDATE geo_provider SET deleted_at = now(), updated_at = now() WHERE id = $1 AND deleted_at IS NULL`,
     [id],
@@ -264,7 +267,7 @@ export async function softDeleteProvider(pool: Pool, id: string): Promise<void> 
 
 // ─── Subscription CRUD ──────────────────────────────────────────────────────
 
-export async function createSubscription(pool: Pool, input: CreateSubscriptionInput): Promise<GeoProviderUser> {
+export async function createSubscription(pool: Queryable, input: CreateSubscriptionInput): Promise<GeoProviderUser> {
   const result = await pool.query(
     `INSERT INTO geo_provider_user (provider_id, user_email, priority, is_active, entities)
      VALUES ($1, $2, $3, $4, $5)
@@ -280,7 +283,7 @@ export async function createSubscription(pool: Pool, input: CreateSubscriptionIn
   return rowToProviderUser(result.rows[0]);
 }
 
-export async function listSubscriptions(pool: Pool, userEmail: string): Promise<GeoProviderUser[]> {
+export async function listSubscriptions(pool: Queryable, userEmail: string): Promise<GeoProviderUser[]> {
   const result = await pool.query(
     `SELECT * FROM geo_provider_user WHERE user_email = $1 ORDER BY priority ASC`,
     [userEmail],
@@ -301,7 +304,7 @@ const SUBSCRIPTION_FIELD_MAP: Record<string, string> = {
 };
 
 export async function updateSubscription(
-  pool: Pool,
+  pool: Queryable,
   id: string,
   updates: UpdateSubscriptionFields,
 ): Promise<GeoProviderUser | null> {
@@ -332,7 +335,7 @@ export async function updateSubscription(
 
 // ─── Location queries ────────────────────────────────────────────────────────
 
-export async function getCurrentLocation(pool: Pool, userEmail: string): Promise<GeoLocation | null> {
+export async function getCurrentLocation(pool: Queryable, userEmail: string): Promise<GeoLocation | null> {
   const result = await pool.query(
     `SELECT gl.* FROM geo_location gl
      JOIN geo_provider_user gpu ON gl.provider_id = gpu.provider_id
@@ -349,7 +352,7 @@ export async function getCurrentLocation(pool: Pool, userEmail: string): Promise
 }
 
 export async function getLocationHistory(
-  pool: Pool,
+  pool: Queryable,
   userEmail: string,
   from: Date,
   to: Date,
@@ -367,7 +370,7 @@ export async function getLocationHistory(
   return result.rows.map(rowToLocation);
 }
 
-export async function insertLocation(pool: Pool, input: InsertLocationInput): Promise<GeoLocation> {
+export async function insertLocation(pool: Queryable, input: InsertLocationInput): Promise<GeoLocation> {
   const result = await pool.query(
     `INSERT INTO geo_location (
       time, user_email, provider_id, entity_id, lat, lng,

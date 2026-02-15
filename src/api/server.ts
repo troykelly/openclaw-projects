@@ -15977,31 +15977,45 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Validate numeric fields
+    const pollInterval = typeof body.poll_interval_seconds === 'number' ? body.poll_interval_seconds : undefined;
+    const maxAge = typeof body.max_age_seconds === 'number' ? body.max_age_seconds : undefined;
+    if (pollInterval !== undefined && (!Number.isFinite(pollInterval) || pollInterval <= 0)) {
+      return reply.code(400).send({ error: 'poll_interval_seconds must be a positive number' });
+    }
+    if (maxAge !== undefined && (!Number.isFinite(maxAge) || maxAge <= 0)) {
+      return reply.code(400).send({ error: 'max_age_seconds must be a positive number' });
+    }
+
     const pool = createPool();
+    const client = await pool.connect();
     try {
-      // Enforce provider limit
-      const countResult = await pool.query(
-        `SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL`,
+      await client.query('BEGIN');
+
+      // Enforce provider limit (inside transaction for atomicity)
+      const countResult = await client.query(
+        `SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE`,
         [email],
       );
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
+        await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
       }
 
       // Encrypt credentials if provided
-      let credentials = (body.credentials as string | undefined) ?? null;
+      const credentials = (body.credentials as string | undefined) ?? null;
       const { encryptCredentials } = await import('./geolocation/crypto.ts');
       // We need the provider ID for encryption, so create first then update
       const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
-      const provider = await createGeoProvider(pool, {
+      const provider = await createGeoProvider(client, {
         ownerEmail: email,
         providerType: providerType as 'home_assistant' | 'mqtt' | 'webhook',
         authType: authType as 'oauth2' | 'access_token' | 'mqtt_credentials' | 'webhook_token',
         label,
         config,
         credentials: null, // placeholder
-        pollIntervalSeconds: typeof body.poll_interval_seconds === 'number' ? body.poll_interval_seconds : undefined,
-        maxAgeSeconds: typeof body.max_age_seconds === 'number' ? body.max_age_seconds : undefined,
+        pollIntervalSeconds: pollInterval,
+        maxAgeSeconds: maxAge,
         isShared: typeof body.is_shared === 'boolean' ? body.is_shared : undefined,
       });
 
@@ -16009,13 +16023,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (credentials) {
         const encrypted = encryptCredentials(credentials, provider.id);
         const { updateProvider: updateGeoProvider } = await import('./geolocation/service.ts');
-        await updateGeoProvider(pool, provider.id, { credentials: encrypted });
+        await updateGeoProvider(client, provider.id, { credentials: encrypted });
         provider.credentials = encrypted;
       }
 
       // Auto-create subscription for owner
       const { createSubscription: createGeoSubscription } = await import('./geolocation/service.ts');
-      await createGeoSubscription(pool, {
+      await createGeoSubscription(client, {
         providerId: provider.id,
         userEmail: email,
         priority: 0,
@@ -16023,8 +16037,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         entities: [],
       });
 
+      await client.query('COMMIT');
       return reply.code(201).send(provider);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
     } finally {
+      client.release();
       await pool.end();
     }
   });
@@ -16110,7 +16129,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Provider not found' });
       }
       if (existing.ownerEmail !== email) {
-        return reply.code(403).send({ error: 'Only the provider owner can update it' });
+        return reply.code(404).send({ error: 'Provider not found' });
       }
 
       const body = req.body as Record<string, unknown> | null;
@@ -16136,8 +16155,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const { encryptCredentials } = await import('./geolocation/crypto.ts');
         updates.credentials = encryptCredentials(body.credentials, id);
       }
-      if (typeof body.poll_interval_seconds === 'number') updates.pollIntervalSeconds = body.poll_interval_seconds;
-      if (typeof body.max_age_seconds === 'number') updates.maxAgeSeconds = body.max_age_seconds;
+      if (typeof body.poll_interval_seconds === 'number') {
+        if (!Number.isFinite(body.poll_interval_seconds) || body.poll_interval_seconds <= 0) {
+          return reply.code(400).send({ error: 'poll_interval_seconds must be a positive number' });
+        }
+        updates.pollIntervalSeconds = body.poll_interval_seconds;
+      }
+      if (typeof body.max_age_seconds === 'number') {
+        if (!Number.isFinite(body.max_age_seconds) || body.max_age_seconds <= 0) {
+          return reply.code(400).send({ error: 'max_age_seconds must be a positive number' });
+        }
+        updates.maxAgeSeconds = body.max_age_seconds;
+      }
       if (typeof body.is_shared === 'boolean') updates.isShared = body.is_shared;
 
       if (Object.keys(updates).length === 0) {
@@ -16176,7 +16205,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Provider not found' });
       }
       if (existing.ownerEmail !== email) {
-        return reply.code(403).send({ error: 'Only the provider owner can delete it' });
+        return reply.code(404).send({ error: 'Provider not found' });
       }
 
       await softDeleteGeoProvider(pool, id);
@@ -16204,7 +16233,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Provider not found' });
       }
       if (provider.ownerEmail !== email) {
-        return reply.code(403).send({ error: 'Only the provider owner can verify it' });
+        return reply.code(404).send({ error: 'Provider not found' });
       }
 
       const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
@@ -16242,7 +16271,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Provider not found' });
       }
       if (provider.ownerEmail !== email) {
-        return reply.code(403).send({ error: 'Only the provider owner can discover entities' });
+        return reply.code(404).send({ error: 'Provider not found' });
       }
 
       const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
@@ -16302,11 +16331,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Subscription not found' });
       }
       if (subResult.rows[0].user_email !== email) {
-        return reply.code(403).send({ error: 'You can only update your own subscriptions' });
+        return reply.code(404).send({ error: 'Subscription not found' });
       }
 
       const updates: Record<string, unknown> = {};
-      if (typeof body.priority === 'number') updates.priority = body.priority;
+      if (typeof body.priority === 'number') {
+        if (!Number.isInteger(body.priority) || body.priority < 0) {
+          return reply.code(400).send({ error: 'priority must be a non-negative integer' });
+        }
+        updates.priority = body.priority;
+      }
       if (typeof body.is_active === 'boolean') updates.isActive = body.is_active;
       if (Array.isArray(body.entities)) updates.entities = body.entities;
 
