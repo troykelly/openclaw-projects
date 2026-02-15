@@ -37,6 +37,8 @@ export function createTestPool(): Pool {
  */
 const APPLICATION_TABLES = [
   // FK children first
+  'list_item',
+  'list',
   'context_link',
   'context',
   'relationship',
