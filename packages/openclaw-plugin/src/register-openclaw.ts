@@ -16,7 +16,7 @@ import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gat
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
 import { createAutoCaptureHook, createGraphAwareRecallHook } from './hooks.js';
 import { createLogger, type Logger } from './logger.js';
-import { detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
+import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, sanitizeMessageForContext, wrapExternalMessage } from './utils/injection-protection.js';
 import { haversineDistanceKm, computeGeoScore, blendScores } from './utils/geo.js';
 import { reverseGeocode } from './utils/nominatim.js';
 import { createNotificationService } from './services/notification-service.js';
@@ -2128,13 +2128,15 @@ function createToolHandlers(state: PluginState) {
 
         // Format content for display with injection protection.
         // NOTE: Truncation happens here AFTER detection above — do not reorder.
+        // Generate a per-invocation nonce for boundary markers (#1255)
+        const { nonce } = createBoundaryMarkers();
         const content =
           messages.length > 0
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const contact = sanitizeMetadataField(m.contactName || 'Unknown');
-                  const safeChannel = sanitizeMetadataField(m.channel);
+                  const contact = sanitizeMetadataField(m.contactName || 'Unknown', nonce);
+                  const safeChannel = sanitizeMetadataField(m.channel, nonce);
                   const similarity = `(${Math.round(m.similarity * 100)}%)`;
                   const rawBody = m.body || '';
                   const truncatedBody = rawBody.substring(0, 100) + (rawBody.length > 100 ? '...' : '');
@@ -2142,6 +2144,7 @@ function createToolHandlers(state: PluginState) {
                     direction: m.direction,
                     channel: m.channel,
                     sender: m.contactName || 'Unknown',
+                    nonce,
                   });
                   return `${prefix} [${safeChannel}] ${contact} ${similarity}: ${bodyText}`;
                 })
@@ -2241,6 +2244,8 @@ function createToolHandlers(state: PluginState) {
 
         // Format content with injection protection.
         // Sanitize all fields that may contain external message content.
+        // Generate a per-invocation nonce for boundary markers (#1255)
+        const { nonce: threadListNonce } = createBoundaryMarkers();
         const content =
           results.length > 0
             ? results
@@ -2248,13 +2253,13 @@ function createToolHandlers(state: PluginState) {
                   // Handle both thread and search result formats
                   if ('channel' in r) {
                     const t = r as { channel: string; contactName?: string; endpointValue?: string; messageCount?: number };
-                    const safeContact = sanitizeMetadataField(t.contactName || t.endpointValue || 'Unknown');
-                    const safeChannel = sanitizeMetadataField(t.channel);
+                    const safeContact = sanitizeMetadataField(t.contactName || t.endpointValue || 'Unknown', threadListNonce);
+                    const safeChannel = sanitizeMetadataField(t.channel, threadListNonce);
                     const msgCount = t.messageCount ? `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}` : '';
                     return `[${safeChannel}] ${safeContact}${msgCount ? ` - ${msgCount}` : ''}`;
                   }
-                  const safeTitle = r.title ? sanitizeMetadataField(r.title) : '';
-                  const wrappedSnippet = r.snippet ? wrapExternalMessage(r.snippet) : '';
+                  const safeTitle = r.title ? sanitizeMetadataField(r.title, threadListNonce) : '';
+                  const wrappedSnippet = r.snippet ? wrapExternalMessage(r.snippet, { nonce: threadListNonce }) : '';
                   return `- ${safeTitle || wrappedSnippet || r.id}`;
                 })
                 .join('\n')
@@ -2342,8 +2347,10 @@ function createToolHandlers(state: PluginState) {
           messageCount: messages.length,
         });
 
-        const contact = sanitizeMetadataField(thread.contactName || thread.endpointValue || 'Unknown');
-        const safeChannel = sanitizeMetadataField(thread.channel);
+        // Generate a per-invocation nonce for boundary markers (#1255)
+        const { nonce: threadGetNonce } = createBoundaryMarkers();
+        const contact = sanitizeMetadataField(thread.contactName || thread.endpointValue || 'Unknown', threadGetNonce);
+        const safeChannel = sanitizeMetadataField(thread.channel, threadGetNonce);
         const header = `Thread with ${contact} [${safeChannel}]`;
 
         // Detect and log potential injection patterns in inbound messages
@@ -2371,6 +2378,7 @@ function createToolHandlers(state: PluginState) {
                     direction: m.direction,
                     channel: thread.channel,
                     sender: contact,
+                    nonce: threadGetNonce,
                   });
                   return `${prefix} [${timestamp}] ${body}`;
                 })

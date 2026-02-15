@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import { detectInjectionPatterns, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
+import { createBoundaryMarkers, detectInjectionPatterns, sanitizeMetadataField, wrapExternalMessage } from '../utils/injection-protection.js';
 
 /** Channel type enum */
 const ChannelType = z.enum(['sms', 'email', 'all']);
@@ -198,14 +198,16 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         // Format content for display with injection protection.
         // Boundary-wrap all snippets since they may contain external message content.
         // NOTE: Truncation happens here AFTER detection above — do not reorder.
+        // Generate a per-invocation nonce for boundary markers (#1255)
+        const { nonce } = createBoundaryMarkers();
         const content =
           messages.length > 0
             ? messages
                 .map((m) => {
                   const score = `(${Math.round(m.score * 100)}%)`;
                   const truncatedSnippet = m.snippet.substring(0, 100) + (m.snippet.length > 100 ? '...' : '');
-                  const wrappedSnippet = wrapExternalMessage(truncatedSnippet);
-                  const safeTitle = sanitizeMetadataField(m.title);
+                  const wrappedSnippet = wrapExternalMessage(truncatedSnippet, { nonce });
+                  const safeTitle = sanitizeMetadataField(m.title, nonce);
                   return `${safeTitle} ${score}: ${wrappedSnippet}`;
                 })
                 .join('\n')
