@@ -8392,6 +8392,278 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(204).send();
   });
 
+  // ─── Project Webhooks & Events (Issue #1274) ───────────────────────────
+
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // POST /api/projects/:id/webhooks — create a webhook endpoint
+  app.post('/api/projects/:id/webhooks', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { label?: string; payload_mapping?: Record<string, unknown> };
+    const userEmail = (req.headers as Record<string, string>)['x-user-email'];
+
+    if (!body.label || typeof body.label !== 'string' || !body.label.trim()) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify project exists
+      const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
+      if (projectCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' });
+      }
+
+      // Generate a secure token
+      const { randomBytes } = await import('crypto');
+      const token = randomBytes(32).toString('hex');
+
+      const result = await pool.query(
+        `INSERT INTO project_webhook (project_id, user_email, label, token, payload_mapping)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id::text, project_id::text, label, token, payload_mapping, is_active, last_received, created_at`,
+        [params.id, userEmail || 'anonymous', body.label.trim(), token, JSON.stringify(body.payload_mapping || {})],
+      );
+
+      const webhook = result.rows[0];
+      return reply.code(201).send({
+        id: webhook.id,
+        project_id: webhook.project_id,
+        label: webhook.label,
+        token: webhook.token,
+        payload_mapping: webhook.payload_mapping,
+        is_active: webhook.is_active,
+        last_received: webhook.last_received,
+        created_at: webhook.created_at,
+        ingestion_url: `/api/webhooks/${webhook.id}`,
+      });
+    } catch (err) {
+      req.log.error(err, 'Failed to create project webhook');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/projects/:id/webhooks — list webhooks for a project
+  app.get('/api/projects/:id/webhooks', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT id::text, project_id::text, label, token, payload_mapping,
+                is_active, last_received, created_at, updated_at
+         FROM project_webhook
+         WHERE project_id = $1
+         ORDER BY created_at DESC`,
+        [params.id],
+      );
+
+      return reply.send({ webhooks: result.rows });
+    } catch (err) {
+      req.log.error(err, 'Failed to list project webhooks');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/projects/:id/webhooks/:wid — update webhook
+  app.patch('/api/projects/:id/webhooks/:wid', async (req, reply) => {
+    const params = req.params as { id: string; wid: string };
+    const body = req.body as { label?: string; payload_mapping?: Record<string, unknown>; is_active?: boolean };
+    const pool = createPool();
+
+    try {
+      const setClauses: string[] = [];
+      const values: unknown[] = [];
+      let paramIdx = 1;
+
+      if (body.label !== undefined) {
+        setClauses.push(`label = $${paramIdx++}`);
+        values.push(body.label);
+      }
+      if (body.payload_mapping !== undefined) {
+        setClauses.push(`payload_mapping = $${paramIdx++}`);
+        values.push(JSON.stringify(body.payload_mapping));
+      }
+      if (body.is_active !== undefined) {
+        setClauses.push(`is_active = $${paramIdx++}`);
+        values.push(body.is_active);
+      }
+      setClauses.push(`updated_at = now()`);
+
+      values.push(params.wid); // webhook id
+      values.push(params.id); // project id
+
+      const result = await pool.query(
+        `UPDATE project_webhook
+         SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx++} AND project_id = $${paramIdx}
+         RETURNING id::text, project_id::text, label, token, payload_mapping, is_active, last_received, created_at, updated_at`,
+        values,
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Webhook not found' });
+      }
+
+      return reply.send(result.rows[0]);
+    } catch (err) {
+      req.log.error(err, 'Failed to update project webhook');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/projects/:id/webhooks/:wid — delete webhook
+  app.delete('/api/projects/:id/webhooks/:wid', async (req, reply) => {
+    const params = req.params as { id: string; wid: string };
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
+        [params.wid, params.id],
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Webhook not found' });
+      }
+
+      return reply.code(204).send();
+    } catch (err) {
+      req.log.error(err, 'Failed to delete project webhook');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/webhooks/:wid — public ingestion endpoint (bearer token auth)
+  app.post('/api/webhooks/:wid', async (req, reply) => {
+    const params = req.params as { wid: string };
+    const authHeader = (req.headers as Record<string, string>).authorization || '';
+    const payload = req.body as Record<string, unknown>;
+
+    if (!authHeader.startsWith('Bearer ')) {
+      return reply.code(401).send({ error: 'Bearer token required' });
+    }
+
+    const token = authHeader.slice(7);
+    const pool = createPool();
+
+    try {
+      // Look up webhook and verify token
+      const webhookResult = await pool.query(
+        `SELECT id, project_id::text, user_email, token, payload_mapping, is_active
+         FROM project_webhook
+         WHERE id = $1`,
+        [params.wid],
+      );
+
+      if (webhookResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Webhook not found' });
+      }
+
+      const webhook = webhookResult.rows[0];
+
+      // Constant-time token comparison to prevent timing attacks
+      const { timingSafeEqual } = await import('crypto');
+      const tokenBuf = Buffer.from(token);
+      const expectedBuf = Buffer.from(webhook.token);
+      if (tokenBuf.length !== expectedBuf.length || !timingSafeEqual(tokenBuf, expectedBuf)) {
+        return reply.code(401).send({ error: 'Invalid token' });
+      }
+
+      if (!webhook.is_active) {
+        return reply.code(410).send({ error: 'Webhook is inactive' });
+      }
+
+      // Extract summary from payload using payload_mapping (simple key extraction)
+      let summary: string | null = null;
+      const mapping = webhook.payload_mapping as Record<string, string>;
+      if (mapping.summary_key && typeof payload === 'object' && payload !== null) {
+        const val = (payload as Record<string, unknown>)[mapping.summary_key];
+        if (typeof val === 'string') summary = val;
+      }
+      // Fallback: try common summary fields
+      if (!summary && typeof payload === 'object' && payload !== null) {
+        const p = payload as Record<string, unknown>;
+        summary = typeof p.summary === 'string' ? p.summary
+          : typeof p.action === 'string' ? p.action
+          : typeof p.message === 'string' ? p.message
+          : null;
+      }
+
+      // Create event
+      const eventResult = await pool.query(
+        `INSERT INTO project_event (project_id, webhook_id, user_email, event_type, summary, raw_payload)
+         VALUES ($1, $2, $3, 'webhook', $4, $5)
+         RETURNING id::text`,
+        [webhook.project_id, webhook.id, webhook.user_email, summary, JSON.stringify(payload)],
+      );
+
+      // Update last_received
+      await pool.query(
+        `UPDATE project_webhook SET last_received = now() WHERE id = $1`,
+        [webhook.id],
+      );
+
+      return reply.send({
+        event_id: eventResult.rows[0].id,
+        received: true,
+      });
+    } catch (err) {
+      req.log.error(err, 'Failed to process webhook ingestion');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/projects/:id/events — list project events (paginated, filterable)
+  app.get('/api/projects/:id/events', async (req, reply) => {
+    const params = req.params as { id: string };
+    const query = req.query as { limit?: string; offset?: string; event_type?: string };
+    const limit = Math.min(Math.max(parseInt(query.limit || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(query.offset || '0', 10) || 0, 0);
+    const pool = createPool();
+
+    try {
+      const conditions = ['project_id = $1'];
+      const values: unknown[] = [params.id];
+
+      if (query.event_type) {
+        values.push(query.event_type);
+        conditions.push(`event_type = $${values.length}`);
+      }
+
+      values.push(limit);
+      const limitParam = `$${values.length}`;
+      values.push(offset);
+      const offsetParam = `$${values.length}`;
+
+      const result = await pool.query(
+        `SELECT id::text, project_id::text, webhook_id::text, user_email, event_type,
+                summary, raw_payload, created_at
+         FROM project_event
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY created_at DESC
+         LIMIT ${limitParam} OFFSET ${offsetParam}`,
+        values,
+      );
+
+      return reply.send({ events: result.rows });
+    } catch (err) {
+      req.log.error(err, 'Failed to list project events');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Ingestion: create (or reuse) contact+endpoint, create (or reuse) thread, insert message.
   app.post('/api/ingest/external-message', async (req, reply) => {
     const body = req.body as {

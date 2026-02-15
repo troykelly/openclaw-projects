@@ -73,6 +73,9 @@ const APPLICATION_TABLES = [
   'skill_store_activity',
   'skill_store_schedule',
   'skill_store_item',
+  // Project webhooks/events (Issue #1274)
+  'project_event',
+  'project_webhook',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
