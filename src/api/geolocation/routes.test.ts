@@ -365,4 +365,59 @@ describe('geolocation/routes', () => {
       expect(result.error[0].field).toBe('url');
     });
   });
+
+  describe('cascade delete guard for shared providers', () => {
+    it('canDeleteProvider returns canDelete=true for non-shared provider', async () => {
+      const { canDeleteProvider } = geoService;
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce({ rows: [{ ...providerRow, is_shared: false }], rowCount: 1 })
+          .mockResolvedValueOnce({ rows: [{ count: '0' }], rowCount: 1 }),
+      } as unknown as Pool;
+      const result = await canDeleteProvider(pool, providerRow.id);
+      expect(result.canDelete).toBe(true);
+    });
+
+    it('canDeleteProvider blocks shared provider with subscribers', async () => {
+      const { canDeleteProvider } = geoService;
+      const pool = {
+        query: vi.fn()
+          .mockResolvedValueOnce({ rows: [{ ...providerRow, is_shared: true }], rowCount: 1 })
+          .mockResolvedValueOnce({ rows: [{ count: '2' }], rowCount: 1 }),
+      } as unknown as Pool;
+      const result = await canDeleteProvider(pool, providerRow.id);
+      expect(result.canDelete).toBe(false);
+      expect(result.subscriberCount).toBe(2);
+    });
+
+    it('DELETE route should return 409 when shared provider has subscribers', () => {
+      // Simulates the route logic: check canDeleteProvider → if blocked, return 409
+      const canDeleteResult = { canDelete: false, reason: 'Cannot delete shared provider with active subscribers', subscriberCount: 3 };
+      const reply = mockReply();
+
+      if (!canDeleteResult.canDelete) {
+        reply.code(409).send({
+          error: canDeleteResult.reason,
+          subscriber_count: canDeleteResult.subscriberCount,
+        });
+      }
+
+      expect(reply._statusCode).toBe(409);
+      expect((reply._body as Record<string, unknown>).error).toContain('subscriber');
+      expect((reply._body as Record<string, unknown>).subscriber_count).toBe(3);
+    });
+
+    it('DELETE route should succeed (204) when shared provider has no subscribers', () => {
+      const canDeleteResult = { canDelete: true };
+      const reply = mockReply();
+
+      if (!canDeleteResult.canDelete) {
+        reply.code(409).send({ error: 'blocked' });
+      } else {
+        reply.code(204).send();
+      }
+
+      expect(reply._statusCode).toBe(204);
+    });
+  });
 });

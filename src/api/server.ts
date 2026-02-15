@@ -16200,7 +16200,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const { getProvider: getGeoProvider, softDeleteProvider: softDeleteGeoProvider } = await import('./geolocation/service.ts');
+      const { getProvider: getGeoProvider, canDeleteProvider: canDeleteGeoProvider, deleteSubscriptionsByProvider: deleteGeoSubscriptions, softDeleteProvider: softDeleteGeoProvider } = await import('./geolocation/service.ts');
       const existing = await getGeoProvider(pool, id);
       if (!existing) {
         return reply.code(404).send({ error: 'Provider not found' });
@@ -16209,7 +16209,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
-      await softDeleteGeoProvider(pool, id);
+      // Wrap check + cleanup + soft-delete in a transaction to prevent TOCTOU race
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        const deleteCheck = await canDeleteGeoProvider(client, id);
+        if (!deleteCheck.canDelete) {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({
+            error: deleteCheck.reason,
+            subscriber_count: deleteCheck.subscriberCount,
+          });
+        }
+
+        await deleteGeoSubscriptions(client, id);
+        await softDeleteGeoProvider(client, id);
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
       return reply.code(204).send();
     } finally {
       await pool.end();
