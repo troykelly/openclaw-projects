@@ -186,31 +186,27 @@ describe('Project Tree', () => {
 
   describe('Tree in Sidebar', () => {
     it('renders sidebar with tree in app shell', async () => {
-      // Create session for authenticated access
-      const session = await pool.query(
-        `INSERT INTO auth_session (email, expires_at)
-         VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`,
-      );
-      const sessionId = (session.rows[0] as { id: string }).id;
+      // Use E2E bypass for authentication (JWT replaced session cookies)
+      process.env.OPENCLAW_E2E_SESSION_EMAIL = 'test@example.com';
 
-      // Create some work items for the tree
-      await pool.query(
-        `INSERT INTO work_item (title, work_item_kind)
-         VALUES ('Test Project', 'project')`,
-      );
+      try {
+        // Create some work items for the tree
+        await pool.query(
+          `INSERT INTO work_item (title, work_item_kind)
+           VALUES ('Test Project', 'project')`,
+        );
 
-      const res = await app.inject({
-        method: 'GET',
-        url: '/app/work-items',
-        cookies: {
-          projects_session: sessionId,
-        },
-      });
+        const res = await app.inject({
+          method: 'GET',
+          url: '/app/work-items',
+        });
 
-      expect(res.statusCode).toBe(200);
-      // The app shell should include project tree data
-      expect(res.payload).toContain('app-bootstrap');
+        expect(res.statusCode).toBe(200);
+        // The app shell should include project tree data
+        expect(res.payload).toContain('app-bootstrap');
+      } finally {
+        delete process.env.OPENCLAW_E2E_SESSION_EMAIL;
+      }
     });
   });
 });
