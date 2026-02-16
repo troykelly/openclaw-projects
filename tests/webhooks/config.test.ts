@@ -18,32 +18,32 @@ describe('Webhook Config', () => {
   describe('getOpenClawConfig', () => {
     it('returns null when OPENCLAW_GATEWAY_URL is not set', () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
 
       expect(getOpenClawConfig()).toBeNull();
     });
 
-    it('returns null when OPENCLAW_HOOK_TOKEN is not set', () => {
+    it('returns null when OPENCLAW_API_TOKEN is not set', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
 
       expect(getOpenClawConfig()).toBeNull();
     });
 
     it('returns config when both required vars are set', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       const config = getOpenClawConfig();
 
       expect(config).not.toBeNull();
       expect(config!.gatewayUrl).toBe('http://localhost:18789');
-      expect(config!.hookToken).toBe('test-token');
+      expect(config!.apiToken).toBe('test-token');
     });
 
     it('removes trailing slash from gateway URL', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789/';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       const config = getOpenClawConfig();
 
@@ -52,7 +52,7 @@ describe('Webhook Config', () => {
 
     it('uses default model when not specified', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       const config = getOpenClawConfig();
 
@@ -61,7 +61,7 @@ describe('Webhook Config', () => {
 
     it('uses custom model when specified', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
       process.env.OPENCLAW_DEFAULT_MODEL = 'anthropic/claude-opus-4';
 
       const config = getOpenClawConfig();
@@ -71,7 +71,7 @@ describe('Webhook Config', () => {
 
     it('uses default timeout when not specified', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       const config = getOpenClawConfig();
 
@@ -80,7 +80,7 @@ describe('Webhook Config', () => {
 
     it('uses custom timeout when specified', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
       process.env.OPENCLAW_TIMEOUT_SECONDS = '300';
 
       const config = getOpenClawConfig();
@@ -88,9 +88,31 @@ describe('Webhook Config', () => {
       expect(config!.timeoutSeconds).toBe(300);
     });
 
+    it('falls back to OPENCLAW_HOOK_TOKEN when OPENCLAW_API_TOKEN is not set', () => {
+      process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
+      delete process.env.OPENCLAW_API_TOKEN;
+      process.env.OPENCLAW_HOOK_TOKEN = 'legacy-hook-token';
+
+      const config = getOpenClawConfig();
+
+      expect(config).not.toBeNull();
+      expect(config!.apiToken).toBe('legacy-hook-token');
+    });
+
+    it('prefers OPENCLAW_API_TOKEN over OPENCLAW_HOOK_TOKEN', () => {
+      process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
+      process.env.OPENCLAW_API_TOKEN = 'api-token';
+      process.env.OPENCLAW_HOOK_TOKEN = 'hook-token';
+
+      const config = getOpenClawConfig();
+
+      expect(config).not.toBeNull();
+      expect(config!.apiToken).toBe('api-token');
+    });
+
     it('caches the config', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       const config1 = getOpenClawConfig();
       process.env.OPENCLAW_GATEWAY_URL = 'http://changed:8080';
@@ -104,14 +126,14 @@ describe('Webhook Config', () => {
   describe('isOpenClawConfigured', () => {
     it('returns false when not configured', () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
 
       expect(isOpenClawConfigured()).toBe(false);
     });
 
     it('returns true when configured', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       expect(isOpenClawConfigured()).toBe(true);
     });
@@ -120,7 +142,7 @@ describe('Webhook Config', () => {
   describe('getConfigSummary', () => {
     it('returns unconfigured summary when not set', () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
 
       const summary = getConfigSummary();
 
@@ -131,7 +153,7 @@ describe('Webhook Config', () => {
 
     it('returns configured summary when set', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
 
       const summary = getConfigSummary();
 

@@ -6,7 +6,7 @@ import { claimJobs, completeJob, failJob, processJobs, getPendingJobCounts } fro
 
 // Set up OpenClaw config for webhook tests
 vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://test-gateway.openclaw.ai');
-vi.stubEnv('OPENCLAW_HOOK_TOKEN', 'test-hook-token');
+vi.stubEnv('OPENCLAW_API_TOKEN', 'test-hook-token');
 
 describe('Job processor (Issue #222)', () => {
   let pool: Pool;

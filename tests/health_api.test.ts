@@ -20,7 +20,7 @@ describe('Health API endpoints', () => {
     // Configure webhooks to avoid degraded status
     process.env = { ...originalEnv };
     process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-    process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+    process.env.OPENCLAW_API_TOKEN = 'test-token';
     clearConfigCache();
   });
 

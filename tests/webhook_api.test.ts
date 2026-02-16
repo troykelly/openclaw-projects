@@ -193,7 +193,7 @@ describe('Webhook API', () => {
   describe('GET /api/webhooks/status', () => {
     it('returns configuration status when not configured', async () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
       clearConfigCache();
 
       const res = await app.inject({
@@ -210,7 +210,7 @@ describe('Webhook API', () => {
 
     it('returns configuration status when configured', async () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
       clearConfigCache();
 
       const res = await app.inject({
@@ -271,7 +271,7 @@ describe('Webhook API', () => {
 
     it('skips processing when OpenClaw not configured', async () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
       clearConfigCache();
 
       // Create a webhook
@@ -316,7 +316,7 @@ describe('Webhook API', () => {
 
     it('reports degraded when not configured', async () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
       clearConfigCache();
 
       const res = await app.inject({
@@ -331,7 +331,7 @@ describe('Webhook API', () => {
 
     it('reports healthy when configured', async () => {
       process.env.OPENCLAW_GATEWAY_URL = 'http://localhost:18789';
-      process.env.OPENCLAW_HOOK_TOKEN = 'test-token';
+      process.env.OPENCLAW_API_TOKEN = 'test-token';
       clearConfigCache();
 
       const res = await app.inject({

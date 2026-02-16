@@ -7,7 +7,7 @@ export type WebhookEventType = 'sms_received' | 'email_received' | 'reminder_due
 
 export interface OpenClawConfig {
   gatewayUrl: string;
-  hookToken: string;
+  apiToken: string;
   defaultModel?: string;
   timeoutSeconds?: number;
 }

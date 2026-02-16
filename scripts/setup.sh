@@ -564,12 +564,9 @@ fi
 if [ "$CONFIGURE_GATEWAY" = "y" ]; then
   OPENCLAW_GATEWAY_URL="$(prompt_value OPENCLAW_GATEWAY_URL "Gateway URL" "https://gateway.openclaw.ai")"
   set_env OPENCLAW_GATEWAY_URL "$OPENCLAW_GATEWAY_URL"
-  OPENCLAW_HOOK_TOKEN="$(prompt_value OPENCLAW_HOOK_TOKEN "Hook authentication token" "" --secret)"
-  if [ -n "$OPENCLAW_HOOK_TOKEN" ]; then
-    set_env OPENCLAW_HOOK_TOKEN "$OPENCLAW_HOOK_TOKEN"
-  fi
+  # Note: Outbound hooks now use OPENCLAW_API_TOKEN (set above) — no separate hook token needed
 else
-  for key in OPENCLAW_GATEWAY_URL OPENCLAW_HOOK_TOKEN; do
+  for key in OPENCLAW_GATEWAY_URL; do
     if [ -n "${EXISTING_ENV[$key]:-}" ]; then
       set_env "$key" "${EXISTING_ENV[$key]}"
     fi
@@ -666,7 +663,7 @@ HEADER
   printf "# OpenClaw Gateway\n"
   printf "# =============================================================================\n\n"
 
-  for key in OPENCLAW_GATEWAY_URL OPENCLAW_HOOK_TOKEN; do
+  for key in OPENCLAW_GATEWAY_URL; do
     if [ -n "${ENV_VALUES[$key]:-}" ]; then
       printf '%s=%s\n' "$key" "${ENV_VALUES[$key]}"
     fi
