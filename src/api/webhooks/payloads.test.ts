@@ -8,7 +8,6 @@ import {
   buildEmailReceivedPayload,
   buildReminderDuePayload,
   buildDeadlineApproachingPayload,
-  buildSpawnAgentPayload,
 } from './payloads.ts';
 
 describe('webhook payloads — agentId', () => {
@@ -125,27 +124,4 @@ describe('webhook payloads — agentId', () => {
     });
   });
 
-  describe('buildSpawnAgentPayload', () => {
-    const baseParams = {
-      agentType: 'coder',
-      repository: 'test/repo',
-      workItemId: 'wi-3',
-      workItemTitle: 'Implement feature',
-    };
-
-    it('includes agentId at top level when provided', () => {
-      const payload = buildSpawnAgentPayload({ ...baseParams, agentId: 'agent@example.com' });
-      expect(payload.agentId).toBe('agent@example.com');
-    });
-
-    it('includes agent_id in context when agentId is provided', () => {
-      const payload = buildSpawnAgentPayload({ ...baseParams, agentId: 'agent@example.com' });
-      expect(payload.context.agent_id).toBe('agent@example.com');
-    });
-
-    it('omits agentId when not provided', () => {
-      const payload = buildSpawnAgentPayload(baseParams);
-      expect(payload.agentId).toBeUndefined();
-    });
-  });
 });
