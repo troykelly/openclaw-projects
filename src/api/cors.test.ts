@@ -2,7 +2,7 @@
  * Unit tests for CORS configuration.
  * Issue #1327: Add CORS configuration with @fastify/cors.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify from 'fastify';
 import { registerCors } from './cors.ts';
 
@@ -28,7 +28,14 @@ describe('CORS configuration (Issue #1327)', () => {
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    // Restore only touched keys instead of replacing the entire env object
+    for (const key of ['CORS_ALLOWED_ORIGINS', 'PUBLIC_BASE_URL']) {
+      if (key in originalEnv) {
+        process.env[key] = originalEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
   });
 
   describe('preflight (OPTIONS) requests', () => {

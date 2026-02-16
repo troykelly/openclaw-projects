@@ -12,11 +12,20 @@
 import cors from '@fastify/cors';
 import type { FastifyInstance } from 'fastify';
 
+/** Normalize a URL string to its origin (protocol + host), stripping paths and trailing slashes. */
+function toOrigin(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
 /** Build the allowed-origins set from environment variables. */
 function getAllowedOrigins(): string[] {
   return (process.env.CORS_ALLOWED_ORIGINS || process.env.PUBLIC_BASE_URL || 'http://localhost:3000')
     .split(',')
-    .map((s) => s.trim())
+    .map((s) => toOrigin(s.trim()))
     .filter(Boolean);
 }
 
