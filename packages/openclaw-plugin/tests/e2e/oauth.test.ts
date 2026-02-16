@@ -146,57 +146,32 @@ describe.skipIf(!RUN_E2E)('OAuth Authorization URL', () => {
     }
   });
 
-  it('should generate authorization URL for configured provider', async () => {
+  it('should redirect to authorization URL for configured provider', async () => {
     if (configuredProviders.length === 0) {
       console.log('No providers configured — skipping authorization URL test');
       return;
     }
 
     const provider = configuredProviders[0];
-    const res = await rawFetch(
-      context.config.apiUrl,
-      `/api/oauth/authorize/${provider}?features=contacts&permissionLevel=read`,
+    const token = await signTestJwt();
+    const res = await fetch(
+      `${context.config.apiUrl}/api/oauth/authorize/${provider}?features=contacts&permissionLevel=read`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        redirect: 'manual',
+      },
     );
-    expect(res.ok).toBe(true);
 
-    const body = (await res.json()) as {
-      authUrl: string;
-      state: string;
-      provider: string;
-      scopes: string[];
-    };
-
-    expect(body.authUrl).toBeTruthy();
-    expect(body.state).toBeTruthy();
-    expect(body.provider).toBe(provider);
-    expect(body.scopes).toBeDefined();
-    expect(Array.isArray(body.scopes)).toBe(true);
-    expect(body.scopes.length).toBeGreaterThan(0);
+    expect(res.status).toBe(302);
+    const location = res.headers.get('location');
+    expect(location).toBeTruthy();
 
     // Authorization URL should point to the provider
     if (provider === 'google') {
-      expect(body.authUrl).toContain('accounts.google.com');
+      expect(location).toContain('accounts.google.com');
     } else if (provider === 'microsoft') {
-      expect(body.authUrl).toContain('login.microsoftonline.com');
+      expect(location).toContain('login.microsoftonline.com');
     }
-  });
-
-  it('should include feature-specific scopes', async () => {
-    if (configuredProviders.length === 0) {
-      console.log('No providers configured — skipping feature-specific scopes test');
-      return;
-    }
-
-    const provider = configuredProviders[0];
-    const res = await rawFetch(
-      context.config.apiUrl,
-      `/api/oauth/authorize/${provider}?features=contacts,email,files&permissionLevel=read_write`,
-    );
-    expect(res.ok).toBe(true);
-
-    const body = (await res.json()) as { scopes: string[] };
-    // Should have multiple scopes including base + feature scopes
-    expect(body.scopes.length).toBeGreaterThan(1);
   });
 
   it('should return 503 for unconfigured provider', async () => {

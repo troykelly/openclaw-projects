@@ -90,7 +90,7 @@ describe('OAuth API Endpoints', () => {
       expect(body.error).toContain('not configured');
     });
 
-    it('returns authorization URL when configured', async () => {
+    it('redirects to authorization URL when configured', async () => {
       process.env.MS365_CLIENT_ID = 'test-client-id';
       process.env.MS365_CLIENT_SECRET = 'test-client-secret';
 
@@ -102,11 +102,9 @@ describe('OAuth API Endpoints', () => {
         url: '/api/oauth/authorize/microsoft',
       });
 
-      expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body.authUrl).toContain('login.microsoftonline.com');
-      expect(body.state).toBeTruthy();
-      expect(body.provider).toBe('microsoft');
+      expect(response.statusCode).toBe(302);
+      const location = response.headers.location as string;
+      expect(location).toContain('login.microsoftonline.com');
     });
 
     it('returns error for invalid provider', async () => {
