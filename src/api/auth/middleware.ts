@@ -16,43 +16,46 @@ export interface AuthIdentity {
  * Extracts an authenticated identity from the request.
  *
  * Checks (in order):
- * 1. E2E bypass: if `isAuthDisabled()` AND `OPENCLAW_E2E_SESSION_EMAIL` is set, returns a synthetic user identity.
- * 2. `Authorization: Bearer <jwt>` header: verifies the JWT and returns the identity.
+ * 1. `Authorization: Bearer <jwt>` header: verifies the JWT and returns the identity.
+ * 2. E2E bypass: if `isAuthDisabled()` AND `OPENCLAW_E2E_SESSION_EMAIL` is set
+ *    and no valid JWT was provided, returns a synthetic user identity.
+ *
+ * JWTs take precedence so that E2E tests can use per-user and M2M tokens
+ * to exercise principal binding (Issue #1353).
  *
  * @returns The authenticated identity, or `null` if no valid credentials are present.
  */
 export async function getAuthIdentity(req: FastifyRequest): Promise<AuthIdentity | null> {
-  // E2E bypass: requires both auth disabled AND the explicit session email env var
+  // Extract JWT from Authorization header (checked first so that E2E tests
+  // can provide explicit per-user or M2M tokens — Issue #1353)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    if (token) {
+      try {
+        const payload: JwtPayload = await verifyAccessToken(token);
+        const identity: AuthIdentity = {
+          email: payload.sub,
+          type: payload.type,
+        };
+        if (payload.scope) {
+          identity.scopes = payload.scope.split(' ');
+        }
+        return identity;
+      } catch {
+        // Invalid/expired token — fall through to E2E bypass or null
+      }
+    }
+  }
+
+  // E2E bypass: requires both auth disabled AND the explicit session email env var.
+  // Only used when no valid JWT was provided above.
   const e2eEmail = process.env.OPENCLAW_E2E_SESSION_EMAIL;
   if (e2eEmail && isAuthDisabled()) {
     return { email: e2eEmail, type: 'user' };
   }
 
-  // Extract JWT from Authorization header
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const payload: JwtPayload = await verifyAccessToken(token);
-    const identity: AuthIdentity = {
-      email: payload.sub,
-      type: payload.type,
-    };
-    if (payload.scope) {
-      identity.scopes = payload.scope.split(' ');
-    }
-    return identity;
-  } catch {
-    // Invalid/expired token
-    return null;
-  }
+  return null;
 }
 
 /**

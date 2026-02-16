@@ -150,6 +150,42 @@ describe('JWT auth middleware', () => {
       expect(identity!.type).toBe('user');
     });
 
+    it('should prefer JWT over E2E bypass when both are available (Issue #1353)', async () => {
+      vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
+      vi.stubEnv('OPENCLAW_E2E_SESSION_EMAIL', 'e2e@test.com');
+      vi.resetModules();
+
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('jwt-user@example.com');
+      const { getAuthIdentity } = await loadMiddleware();
+
+      const identity = await getAuthIdentity(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+      );
+
+      expect(identity).not.toBeNull();
+      expect(identity!.email).toBe('jwt-user@example.com');
+      expect(identity!.type).toBe('user');
+    });
+
+    it('should prefer M2M JWT over E2E bypass when both are available (Issue #1353)', async () => {
+      vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
+      vi.stubEnv('OPENCLAW_E2E_SESSION_EMAIL', 'e2e@test.com');
+      vi.resetModules();
+
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const { getAuthIdentity } = await loadMiddleware();
+
+      const identity = await getAuthIdentity(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+      );
+
+      expect(identity).not.toBeNull();
+      expect(identity!.email).toBe('gateway-service');
+      expect(identity!.type).toBe('m2m');
+    });
+
     it('should NOT E2E bypass when only auth is disabled (no E2E email)', async () => {
       vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
       vi.resetModules();

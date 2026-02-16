@@ -62,6 +62,32 @@ export async function signTestJwt(email: string = E2E_TEST_EMAIL): Promise<strin
 }
 
 /**
+ * Signs a short-lived M2M JWT for E2E tests that need cross-user access.
+ *
+ * M2M tokens are not subject to principal binding — they can pass any
+ * user_email to operate on behalf of different users.
+ *
+ * @param serviceId - Subject identifier for the M2M client.
+ * @returns Compact JWS string suitable for Authorization: Bearer header.
+ */
+export async function signTestM2MJwt(serviceId: string = 'e2e-agent'): Promise<string> {
+  const secret = new TextEncoder().encode(E2E_JWT_SECRET);
+  const kid = createHash('sha256')
+    .update(E2E_JWT_SECRET.slice(0, 8))
+    .digest('hex')
+    .slice(0, 8);
+
+  return new SignJWT({ type: 'm2m', scope: 'api:full' })
+    .setProtectedHeader({ alg: 'HS256', kid })
+    .setSubject(serviceId)
+    .setIssuer('openclaw-projects')
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .setJti(randomUUID())
+    .sign(secret);
+}
+
+/**
  * Wait for a service to become healthy.
  *
  * @param url - Health check URL

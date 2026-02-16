@@ -494,6 +494,50 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(401).send({ error: 'unauthorized' });
   });
 
+  // Principal binding hook (Issue #1353): for user tokens, override any
+  // user_email / userEmail supplied in query, body, or X-User-Email header
+  // so that downstream handlers always operate on the authenticated user's
+  // own data.  M2M tokens pass through the requested email unchanged.
+  app.addHook('preHandler', async (req) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity || identity.type !== 'user') {
+      return; // M2M, unauthenticated, or auth-disabled — no override
+    }
+
+    const bound = identity.email;
+
+    // Override query params
+    const q = req.query as Record<string, unknown> | undefined;
+    if (q) {
+      if ('user_email' in q) q.user_email = bound;
+      if ('userEmail' in q) q.userEmail = bound;
+    }
+
+    // Override body fields
+    const b = req.body as Record<string, unknown> | undefined | null;
+    if (b && typeof b === 'object') {
+      if ('user_email' in b) b.user_email = bound;
+      if ('userEmail' in b) b.userEmail = bound;
+
+      // Handle arrays that may contain per-element user_email
+      for (const arrayKey of ['items', 'memories', 'contacts']) {
+        const arr = b[arrayKey];
+        if (Array.isArray(arr)) {
+          for (const el of arr) {
+            if (el && typeof el === 'object' && 'user_email' in el) {
+              (el as Record<string, unknown>).user_email = bound;
+            }
+          }
+        }
+      }
+    }
+
+    // Override X-User-Email header
+    if (req.headers['x-user-email']) {
+      (req.headers as Record<string, string>)['x-user-email'] = bound;
+    }
+  });
+
   app.get('/health', async () => ({ ok: true }));
 
   // Health check endpoints (Kubernetes-compatible)
