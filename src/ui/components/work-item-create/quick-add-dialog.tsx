@@ -5,6 +5,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Input } from '@/ui/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, Plus } from 'lucide-react';
+import { apiClient } from '@/ui/lib/api-client';
 import type { QuickAddDialogProps, WorkItemKind, WorkItemCreatePayload, CreatedWorkItem } from './types';
 
 const kindLabels: Record<WorkItemKind, string> = {
@@ -39,23 +40,7 @@ export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId,
     };
 
     try {
-      const response = await fetch('/api/work-items', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = (errorData as { error?: string }).error ?? `Failed to create work item (${response.status})`;
-        setError(errorMessage);
-        setIsLoading(false);
-        return;
-      }
-
-      const createdItem = (await response.json()) as CreatedWorkItem;
+      const createdItem = await apiClient.post<CreatedWorkItem>('/api/work-items', payload);
       onCreated?.(createdItem);
       resetForm();
       onOpenChange(false);

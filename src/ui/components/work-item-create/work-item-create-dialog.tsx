@@ -7,6 +7,7 @@ import { Textarea } from '@/ui/components/ui/textarea';
 import { Label } from '@/ui/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, FileText } from 'lucide-react';
+import { apiClient } from '@/ui/lib/api-client';
 import type { WorkItemCreateDialogProps, WorkItemKind, WorkItemCreatePayload, CreatedWorkItem, ParentSelectorItem } from './types';
 
 const kindLabels: Record<WorkItemKind, string> = {
@@ -76,13 +77,8 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     async function loadParents() {
       setLoadingParents(true);
       try {
-        const response = await fetch('/api/work-items/tree', {
-          headers: { accept: 'application/json' },
-        });
-        if (response.ok) {
-          const data = (await response.json()) as { items: ApiTreeItem[] };
-          setParentOptions(flattenTree(data.items));
-        }
+        const data = await apiClient.get<{ items: ApiTreeItem[] }>('/api/work-items/tree');
+        setParentOptions(flattenTree(data.items));
       } catch {
         // Silently fail - parent selection will just be empty
       } finally {
@@ -153,23 +149,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     };
 
     try {
-      const response = await fetch('/api/work-items', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = (errorData as { error?: string }).error ?? `Failed to create work item (${response.status})`;
-        setError(errorMessage);
-        setIsLoading(false);
-        return;
-      }
-
-      const createdItem = (await response.json()) as CreatedWorkItem;
+      const createdItem = await apiClient.post<CreatedWorkItem>('/api/work-items', payload);
       onCreated?.(createdItem);
       resetForm();
       onOpenChange(false);

@@ -14,6 +14,28 @@ import { calculateMilestoneStatus } from '@/ui/components/milestones/utils';
 import type { Milestone, MilestoneStatus } from '@/ui/components/milestones/types';
 
 // Mock fetch for API calls
+// Mock apiClient for API calls (hooks now use apiClient instead of fetch directly)
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  ApiRequestError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+import { apiClient } from '@/ui/lib/api-client';
+const mockGet = vi.mocked(apiClient.get);
+const mockPost = vi.mocked(apiClient.post);
+const mockDelete = vi.mocked(apiClient.delete);
+// Keep mockFetch for any remaining tests that use it directly
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
@@ -210,14 +232,13 @@ describe('MilestoneDialog', () => {
 
 describe('useMilestones hook', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockGet.mockReset();
+    mockPost.mockReset();
+    mockDelete.mockReset();
   });
 
   it('fetches milestones on mount', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [mockMilestone],
-    });
+    mockGet.mockResolvedValueOnce([mockMilestone]);
 
     const { result } = renderHook(() => useMilestones('proj-1'));
 
@@ -227,21 +248,14 @@ describe('useMilestones hook', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/projects/proj-1/milestones');
+    expect(mockGet).toHaveBeenCalledWith('/api/projects/proj-1/milestones');
     expect(result.current.milestones).toHaveLength(1);
     expect(result.current.loading).toBe(false);
   });
 
   it('creates a milestone', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [],
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ id: 'new-ms', name: 'New' }),
-      });
+    mockGet.mockResolvedValueOnce([]);
+    mockPost.mockResolvedValueOnce({ id: 'new-ms', name: 'New' });
 
     const { result } = renderHook(() => useMilestones('proj-1'));
 
@@ -256,22 +270,15 @@ describe('useMilestones hook', () => {
       });
     });
 
-    expect(mockFetch).toHaveBeenLastCalledWith('/api/projects/proj-1/milestones', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: expect.any(String),
+    expect(mockPost).toHaveBeenCalledWith('/api/projects/proj-1/milestones', {
+      name: 'New Milestone',
+      targetDate: '2024-12-31',
     });
   });
 
   it('deletes a milestone', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [mockMilestone],
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-      });
+    mockGet.mockResolvedValueOnce([mockMilestone]);
+    mockDelete.mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() => useMilestones('proj-1'));
 
@@ -283,9 +290,7 @@ describe('useMilestones hook', () => {
       await result.current.deleteMilestone('ms-1');
     });
 
-    expect(mockFetch).toHaveBeenLastCalledWith('/api/milestones/ms-1', {
-      method: 'DELETE',
-    });
+    expect(mockDelete).toHaveBeenCalledWith('/api/milestones/ms-1');
   });
 });
 

@@ -10,6 +10,26 @@ import '@testing-library/jest-dom';
 import { PresenceIndicator } from '@/ui/components/notes/presence/presence-indicator';
 import type { NotePresenceUser } from '@/ui/components/notes/presence/use-note-presence';
 
+// Mock apiClient for hooks that now use it instead of fetch directly
+const mockApiPost = vi.fn();
+const mockApiDelete = vi.fn();
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: mockApiPost,
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: mockApiDelete,
+  },
+  ApiRequestError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
 // Mock tooltip provider to simplify testing
 vi.mock('@/ui/components/ui/tooltip', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -256,88 +276,65 @@ describe('useNotePresence hook', () => {
   // These tests verify the hook's API behavior by testing the fetch calls
   // that are made when the hook's functions are called.
 
+  beforeEach(() => {
+    mockApiPost.mockReset();
+    mockApiDelete.mockReset();
+  });
+
   it('joins presence on mount when autoJoin is true', async () => {
     const { renderHook, waitFor: waitForHook } = await import('@testing-library/react');
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
 
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ collaborators: [] }),
-    });
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mockFetch;
+    mockApiPost.mockResolvedValue({ collaborators: [] });
 
-    try {
-      renderHook(() =>
-        useNotePresence({
-          noteId: 'test-note-123',
-          userEmail: 'user@example.com',
-          autoJoin: true,
-          apiUrl: '/api',
-        }),
+    renderHook(() =>
+      useNotePresence({
+        noteId: 'test-note-123',
+        userEmail: 'user@example.com',
+        autoJoin: true,
+      }),
+    );
+
+    await waitForHook(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/api/notes/test-note-123/presence',
+        { userEmail: 'user@example.com' },
       );
-
-      await waitForHook(() => {
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/notes/test-note-123/presence',
-          expect.objectContaining({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail: 'user@example.com' }),
-          }),
-        );
-      });
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    });
   });
 
   it('leaves presence on unmount', async () => {
     const { renderHook, waitFor: waitForHook } = await import('@testing-library/react');
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
 
-    const mockFetch = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ collaborators: [] }),
-      })
-      .mockResolvedValueOnce({ ok: true });
+    mockApiPost.mockResolvedValue({ collaborators: [] });
+    mockApiDelete.mockResolvedValue(undefined);
 
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mockFetch;
+    const { unmount } = renderHook(() =>
+      useNotePresence({
+        noteId: 'test-note-456',
+        userEmail: 'user@example.com',
+        autoJoin: true,
+      }),
+    );
 
-    try {
-      const { unmount } = renderHook(() =>
-        useNotePresence({
-          noteId: 'test-note-456',
-          userEmail: 'user@example.com',
-          autoJoin: true,
-          apiUrl: '/api',
-        }),
-      );
+    // Wait for join to complete
+    await waitForHook(() => {
+      expect(mockApiPost).toHaveBeenCalledTimes(1);
+    });
 
-      // Wait for join to complete
-      await waitForHook(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(1);
-      });
+    // Unmount the hook to trigger leave
+    unmount();
 
-      // Unmount the hook to trigger leave
-      unmount();
-
-      // Wait a tick for leave to be called
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(mockFetch).toHaveBeenCalledWith(
+    // Wait for leave to be called (async cleanup after unmount)
+    await waitForHook(() => {
+      expect(mockApiDelete).toHaveBeenCalledWith(
         '/api/notes/test-note-456/presence',
         expect.objectContaining({
-          method: 'DELETE',
           headers: { 'X-User-Email': 'user@example.com' },
         }),
       );
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    });
   });
 
   it('handles WebSocket presence events by updating viewers list', async () => {
@@ -347,88 +344,61 @@ describe('useNotePresence hook', () => {
     const { renderHook, act, waitFor: waitForHook } = await import('@testing-library/react');
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
 
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          collaborators: [{ email: 'initial@example.com', displayName: 'Initial', lastSeenAt: new Date().toISOString() }],
-        }),
+    mockApiPost.mockResolvedValue({
+      collaborators: [{ email: 'initial@example.com', displayName: 'Initial', lastSeenAt: new Date().toISOString() }],
     });
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mockFetch;
 
-    try {
-      const { result } = renderHook(() =>
-        useNotePresence({
-          noteId: 'ws-test-note',
-          userEmail: 'user@example.com',
-          autoJoin: true,
-          apiUrl: '/api',
-        }),
-      );
+    const { result } = renderHook(() =>
+      useNotePresence({
+        noteId: 'ws-test-note',
+        userEmail: 'user@example.com',
+        autoJoin: true,
+      }),
+    );
 
-      // Wait for initial state to be set from join response
-      await waitForHook(() => {
-        expect(result.current.viewers).toHaveLength(1);
-        expect(result.current.viewers[0].email).toBe('initial@example.com');
-      });
+    // Wait for initial state to be set from join response
+    await waitForHook(() => {
+      expect(result.current.viewers).toHaveLength(1);
+      expect(result.current.viewers[0].email).toBe('initial@example.com');
+    });
 
-      // Verify the hook properly initializes viewer state from API response
-      expect(result.current.isConnected).toBe(true);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    // Verify the hook properly initializes viewer state from API response
+    expect(result.current.isConnected).toBe(true);
   });
 
   it('updates cursor position via API call', async () => {
     const { renderHook, act, waitFor: waitForHook } = await import('@testing-library/react');
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
+    const { apiClient: mockClient } = await import('@/ui/lib/api-client');
 
-    const mockFetch = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ collaborators: [] }),
-      })
-      .mockResolvedValueOnce({ ok: true });
+    mockApiPost.mockResolvedValue({ collaborators: [] });
+    vi.mocked(mockClient.put).mockResolvedValue(undefined);
 
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mockFetch;
+    const { result } = renderHook(() =>
+      useNotePresence({
+        noteId: 'cursor-test-note',
+        userEmail: 'user@example.com',
+        autoJoin: true,
+      }),
+    );
 
-    try {
-      const { result } = renderHook(() =>
-        useNotePresence({
-          noteId: 'cursor-test-note',
-          userEmail: 'user@example.com',
-          autoJoin: true,
-          apiUrl: '/api',
-        }),
-      );
+    // Wait for join
+    await waitForHook(() => {
+      expect(result.current.isConnected).toBe(true);
+    });
 
-      // Wait for join
-      await waitForHook(() => {
-        expect(result.current.isConnected).toBe(true);
-      });
+    // Update cursor position
+    await act(async () => {
+      await result.current.updateCursor({ line: 10, column: 5 });
+    });
 
-      // Update cursor position
-      await act(async () => {
-        await result.current.updateCursor({ line: 10, column: 5 });
-      });
-
-      // Verify cursor update was called with correct params
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/notes/cursor-test-note/presence/cursor',
-        expect.objectContaining({
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userEmail: 'user@example.com',
-            cursorPosition: { line: 10, column: 5 },
-          }),
-        }),
-      );
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    // Verify cursor update was called
+    expect(vi.mocked(mockClient.put)).toHaveBeenCalledWith(
+      '/api/notes/cursor-test-note/presence/cursor',
+      {
+        userEmail: 'user@example.com',
+        cursorPosition: { line: 10, column: 5 },
+      },
+    );
   });
 });
