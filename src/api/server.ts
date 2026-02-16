@@ -3034,6 +3034,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       description?: string | null;
       kind?: string;
       type?: string; // Alias for 'kind' for client compatibility
+      item_type?: string; // Alias used by OpenClaw plugin (Issue #1347)
       parentId?: string | null;
       estimateMinutes?: number | null;
       actualMinutes?: number | null;
@@ -3048,11 +3049,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'title is required' });
     }
 
-    // Accept 'type' or 'kind' parameter (type takes precedence for client compatibility)
-    const kind = body.type ?? body.kind ?? 'issue';
+    // Accept 'type', 'kind', or 'item_type' parameter (type takes precedence, then kind, then item_type)
+    const kind = body.type ?? body.kind ?? body.item_type ?? 'issue';
     const allowedKinds = new Set(['project', 'initiative', 'epic', 'issue', 'task']);
     if (!allowedKinds.has(kind)) {
-      return reply.code(400).send({ error: 'kind/type must be one of project|initiative|epic|issue|task' });
+      return reply.code(400).send({ error: 'kind/type/item_type must be one of project|initiative|epic|issue|task' });
     }
 
     // Validate estimate/actual constraints before hitting DB
