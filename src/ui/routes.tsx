@@ -32,6 +32,7 @@ const NotFoundPage = React.lazy(() => import('@/ui/pages/NotFoundPage.js').then(
 const NotesPage = React.lazy(() => import('@/ui/pages/NotesPage.js').then((m) => ({ default: m.NotesPage })));
 const SkillStorePage = React.lazy(() => import('@/ui/pages/SkillStorePage.js').then((m) => ({ default: m.SkillStorePage })));
 const OAuthCallbackPage = React.lazy(() => import('@/ui/pages/OAuthCallbackPage.js').then((m) => ({ default: m.OAuthCallbackPage })));
+const AuthConsumePage = React.lazy(() => import('@/ui/pages/AuthConsumePage.js').then((m) => ({ default: m.AuthConsumePage })));
 
 /** Loading fallback shown while lazy-loaded pages are being fetched. */
 function PageLoader(): React.JSX.Element {
@@ -68,11 +69,17 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /contacts -> ContactsPage
  *   /memory -> MemoryPage
  *   /settings -> SettingsPage
+ *   /auth/consume -> AuthConsumePage (outside AppLayout, pre-auth)
  *   /settings/oauth/callback -> OAuthCallbackPage
  *   /search -> SearchPage
  *   * -> NotFoundPage
  */
 export const routes: RouteObject[] = [
+  // Auth routes live outside the AppLayout — the user is not yet authenticated.
+  {
+    path: 'auth/consume',
+    element: lazy(AuthConsumePage),
+  },
   {
     element: lazy(AppLayout),
     children: [
