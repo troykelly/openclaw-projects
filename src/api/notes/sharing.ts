@@ -220,7 +220,7 @@ export async function createLinkShare(
   );
 
   const share = mapRowToLinkShare(result.rows[0]);
-  const baseUrl = process.env.APP_BASE_URL ?? 'https://app.example.com';
+  const baseUrl = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
 
   return {
     ...share,
