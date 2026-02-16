@@ -338,32 +338,28 @@ describe('Enhanced Work Item Detail', () => {
     });
 
     it('includes work item data in bootstrap', async () => {
-      // Create session for authenticated access
-      const session = await pool.query(
-        `INSERT INTO auth_session (email, expires_at)
-         VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`,
-      );
-      const sessionId = (session.rows[0] as { id: string }).id;
+      // Use E2E bypass for authentication (JWT replaced session cookies)
+      process.env.OPENCLAW_E2E_SESSION_EMAIL = 'test@example.com';
 
-      const item = await pool.query(
-        `INSERT INTO work_item (title, work_item_kind, description)
-         VALUES ('Test Item', 'issue', 'Test description')
-         RETURNING id::text as id`,
-      );
-      const itemId = (item.rows[0] as { id: string }).id;
+      try {
+        const item = await pool.query(
+          `INSERT INTO work_item (title, work_item_kind, description)
+           VALUES ('Test Item', 'issue', 'Test description')
+           RETURNING id::text as id`,
+        );
+        const itemId = (item.rows[0] as { id: string }).id;
 
-      const res = await app.inject({
-        method: 'GET',
-        url: `/app/work-items/${itemId}`,
-        cookies: {
-          projects_session: sessionId,
-        },
-      });
+        const res = await app.inject({
+          method: 'GET',
+          url: `/app/work-items/${itemId}`,
+        });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.payload).toContain('app-bootstrap');
-      expect(res.payload).toContain('Test Item');
+        expect(res.statusCode).toBe(200);
+        expect(res.payload).toContain('app-bootstrap');
+        expect(res.payload).toContain('Test Item');
+      } finally {
+        delete process.env.OPENCLAW_E2E_SESSION_EMAIL;
+      }
     });
   });
 });

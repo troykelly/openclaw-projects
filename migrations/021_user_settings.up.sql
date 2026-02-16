@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS user_setting (
   id uuid PRIMARY KEY DEFAULT new_uuid(),
-  email text NOT NULL UNIQUE,  -- Links to auth_session.email
+  email text NOT NULL UNIQUE,  -- User's email address (authenticated via JWT)
 
   -- Theme preference
   theme text NOT NULL DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),

@@ -107,7 +107,6 @@ const APPLICATION_TABLES = [
   'auth_refresh_token',
   'auth_one_time_code',
   'auth_magic_link',
-  'auth_session',
 ] as const;
 
 /**
