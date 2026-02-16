@@ -353,6 +353,9 @@ services:
       PORT: 3001
       PUBLIC_BASE_URL: https://${DOMAIN:?DOMAIN is required}
       COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
+      # JWT signing (required for production auth)
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
       PGHOST: db
       PGPORT: 5432
       PGUSER: ${POSTGRES_USER:-openclaw}
@@ -456,6 +459,9 @@ services:
       PGDATABASE: ${POSTGRES_DB:-openclaw}
       OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
       OPENCLAW_API_TOKEN: ${OPENCLAW_API_TOKEN:-}
+      # JWT signing (required when worker verifies tokens)
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_KEY_FILE: ${OPENAI_API_KEY_FILE:-}
