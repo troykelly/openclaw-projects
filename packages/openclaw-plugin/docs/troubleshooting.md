@@ -117,7 +117,7 @@ If the status is healthy but you still have issues, continue with the specific s
 
 3. **Quickstart compose has auth disabled**
    - The quickstart compose sets `OPENCLAW_PROJECTS_AUTH_DISABLED=true` by default, so `apiKey` is not needed
-   - If you have overridden this to `false` (enabling auth), ensure your `apiKey` matches `OPENCLAW_PROJECTS_AUTH_SECRET` in the backend `.env`
+   - If you have overridden this to `false` (enabling auth), ensure your `apiKey` matches `OPENCLAW_API_TOKEN` in the backend `.env`
 
 4. **API key expired or revoked**
    - Generate new key in backend

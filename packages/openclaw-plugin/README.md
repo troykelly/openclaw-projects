@@ -73,7 +73,7 @@ plugins:
         apiUrl: http://localhost:3000
 ```
 
-The quickstart compose disables authentication by default, so no `apiKey` is needed. When you later switch to a production compose file with auth enabled, add `apiKey` with the `OPENCLAW_PROJECTS_AUTH_SECRET` value from your `.env` file. See [Configuration](#configuration) for details.
+The quickstart compose disables authentication by default, so no `apiKey` is needed. When you later switch to a production compose file with auth enabled, add `apiKey` with the `OPENCLAW_API_TOKEN` value from your `.env` file. See [Configuration](#configuration) for details.
 
 ### 6. Verify the connection
 
@@ -117,7 +117,7 @@ Start with `docker-compose.quickstart.yml`. When you are ready for production, s
 When you're ready to move from the quickstart to a production setup:
 
 1. Stop the quickstart services: `docker compose -f docker-compose.quickstart.yml down`
-2. Open your `.env` file and find the `OPENCLAW_PROJECTS_AUTH_SECRET` value
+2. Open your `.env` file and find the `OPENCLAW_API_TOKEN` value
 3. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=false` in your `.env`
 4. Add the API key to your OpenClaw plugin config:
    ```yaml
@@ -126,7 +126,7 @@ When you're ready to move from the quickstart to a production setup:
        openclaw-projects:
          config:
            apiUrl: https://your-domain.example.com
-           apiKey: your-OPENCLAW_PROJECTS_AUTH_SECRET-value
+           apiKey: your-OPENCLAW_API_TOKEN-value
    ```
 5. Switch to a production compose file: `docker compose -f docker-compose.yml up -d`
 
@@ -487,7 +487,7 @@ For detailed troubleshooting, see [docs/troubleshooting.md](docs/troubleshooting
 ### Authentication failures
 
 If the status command reports `Auth: invalid`:
-- Verify your `apiKey` matches the `OPENCLAW_PROJECTS_AUTH_SECRET` in the backend `.env`
+- Verify your `apiKey` matches the `OPENCLAW_API_TOKEN` in the backend `.env`
 - Check the secret retrieval method (file, command) is working
 - If using the quickstart compose, auth is disabled by default (`OPENCLAW_PROJECTS_AUTH_DISABLED=true`). If you have overridden this to `false` (enabling auth), ensure your `apiKey` is correctly configured
 

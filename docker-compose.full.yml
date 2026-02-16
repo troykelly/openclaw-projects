@@ -372,9 +372,7 @@ services:
       POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
       POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
       POSTMARK_TRANSACTIONAL_TOKEN: ${POSTMARK_TRANSACTIONAL_TOKEN:-}
-      OPENCLAW_PROJECTS_AUTH_SECRET: ${OPENCLAW_PROJECTS_AUTH_SECRET:-}
-      OPENCLAW_PROJECTS_AUTH_SECRET_FILE: ${OPENCLAW_PROJECTS_AUTH_SECRET_FILE:-}
-      OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND: ${OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND:-}
+      OPENCLAW_API_TOKEN: ${OPENCLAW_API_TOKEN:-}
       OPENCLAW_PROJECTS_AUTH_DISABLED: ${OPENCLAW_PROJECTS_AUTH_DISABLED:-false}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -598,7 +596,7 @@ services:
   #   - https://hooks.DOMAIN/           -> Webhook receiver for channels
   #
   # The openclaw-projects plugin is automatically configured to connect to
-  # the API server using the shared OPENCLAW_PROJECTS_AUTH_SECRET.
+  # the API server using the shared OPENCLAW_API_TOKEN (long-lived JWT).
   openclaw-gateway:
     # Use the pre-built OpenClaw image. Alternative: build locally with openclaw:local
     # See https://docs.openclaw.ai/install/docker for build instructions
@@ -622,7 +620,7 @@ services:
       # Plugin configuration for openclaw-projects
       # The plugin connects to the API server for task/memory management
       OPENCLAW_PROJECTS_API_URL: http://api:3001
-      OPENCLAW_PROJECTS_AUTH_SECRET: ${OPENCLAW_PROJECTS_AUTH_SECRET:-}
+      OPENCLAW_API_TOKEN: ${OPENCLAW_API_TOKEN:-}
       # Channel credentials (optional - configure as needed)
       # Telegram
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}

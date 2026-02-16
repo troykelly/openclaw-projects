@@ -1,7 +1,7 @@
 /**
  * Configuration loading for embedding providers.
  *
- * Follows the same three-tier loading pattern as auth/secret.ts:
+ * Follows a three-tier loading pattern:
  * 1. Command (e.g., 1Password CLI)
  * 2. File
  * 3. Direct environment variable
@@ -38,7 +38,7 @@ export function loadApiKey(envVarBase: string): string {
       // 1. The command comes from environment variables set by system administrators
       // 2. It must support shell commands like `op read 'op://...'` for secret managers
       // 3. This is NOT user input - it's server-side configuration
-      // This matches the established pattern in auth/secret.ts
+      // This is the established config-loading pattern
       // eslint-disable-next-line security/detect-child-process
       const result = execSync(command, {
         encoding: 'utf-8',
