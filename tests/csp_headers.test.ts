@@ -86,6 +86,7 @@ describe('CSP headers', () => {
       expect(csp).toContain('style-src');
       expect(csp).toContain("img-src 'self' data: https:");
       expect(csp).toContain("connect-src 'self'");
+      expect(csp).toContain("object-src 'none'");
       expect(csp).toContain("frame-ancestors 'none'");
     });
 

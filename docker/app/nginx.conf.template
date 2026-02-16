@@ -41,7 +41,7 @@ server {
     # CSP for static assets served by nginx. The application server sets
     # per-request nonce-based CSP on HTML responses; this covers only the
     # assets (JS, CSS, images, fonts) served directly from the nginx root.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # ==========================================================================
     # API Proxy - Route /api/* requests to the backend API server

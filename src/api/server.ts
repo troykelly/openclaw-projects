@@ -257,6 +257,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       "img-src 'self' data: https:",
       "font-src 'self' https://fonts.gstatic.com",
       "connect-src 'self'",
+      "object-src 'none'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
