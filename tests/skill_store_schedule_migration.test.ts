@@ -325,6 +325,66 @@ describe('Skill Store Schedule Migration (Issue #796)', () => {
       const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
       expect(parseInt(result.rows[0].count)).toBe(1);
     });
+
+    // Issue #1360: consecutive_failures race condition guard
+    it('skips schedules where consecutive_failures >= max_retries', async () => {
+      await pool.query(
+        `INSERT INTO skill_store_schedule
+         (skill_id, cron_expression, webhook_url, max_retries, consecutive_failures,
+          last_run_status, next_run_at)
+         VALUES ('failing-skill', '0 9 * * *', 'https://example.com/hook',
+                 3, 3, 'failed', now() - interval '1 minute')`,
+      );
+
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
+      expect(parseInt(result.rows[0].count)).toBe(0);
+    });
+
+    it('skips schedules where consecutive_failures exceeds max_retries', async () => {
+      await pool.query(
+        `INSERT INTO skill_store_schedule
+         (skill_id, cron_expression, webhook_url, max_retries, consecutive_failures,
+          last_run_status, next_run_at)
+         VALUES ('very-broken', '0 9 * * *', 'https://example.com/hook',
+                 3, 10, 'failed', now() - interval '1 minute')`,
+      );
+
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
+      expect(parseInt(result.rows[0].count)).toBe(0);
+    });
+
+    it('auto-disables schedules with max_retries=0 on enqueue tick', async () => {
+      await pool.query(
+        `INSERT INTO skill_store_schedule
+         (skill_id, cron_expression, webhook_url, max_retries, consecutive_failures,
+          enabled, last_run_status, next_run_at)
+         VALUES ('zero-retries', '0 9 * * *', 'https://example.com/hook',
+                 0, 0, true, 'success', now() - interval '1 minute')`,
+      );
+
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
+      expect(parseInt(result.rows[0].count)).toBe(0);
+
+      // Verify schedule was auto-disabled
+      const schedule = await pool.query(
+        `SELECT enabled, last_run_status FROM skill_store_schedule WHERE skill_id = 'zero-retries'`,
+      );
+      expect(schedule.rows[0].enabled).toBe(false);
+      expect(schedule.rows[0].last_run_status).toBe('failed');
+    });
+
+    it('still enqueues schedules below max_retries', async () => {
+      await pool.query(
+        `INSERT INTO skill_store_schedule
+         (skill_id, cron_expression, webhook_url, max_retries, consecutive_failures,
+          last_run_status, next_run_at)
+         VALUES ('recovering-skill', '0 9 * * *', 'https://example.com/hook',
+                 5, 2, 'failed', now() - interval '1 minute')`,
+      );
+
+      const result = await pool.query(`SELECT enqueue_skill_store_scheduled_jobs() as count`);
+      expect(parseInt(result.rows[0].count)).toBe(1);
+    });
   });
 
   describe('pgcron job', () => {
