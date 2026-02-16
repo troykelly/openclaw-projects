@@ -40,18 +40,20 @@ describe('validateOpenClawConfig', () => {
       expect(result.errors).toContain('OPENCLAW_GATEWAY_URL is not set');
     });
 
-    it('reports missing OPENCLAW_API_TOKEN', () => {
+    it('reports missing OPENCLAW_HOOK_TOKEN / OPENCLAW_API_TOKEN', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'https://gateway.example.com';
       delete process.env.OPENCLAW_API_TOKEN;
+      delete process.env.OPENCLAW_HOOK_TOKEN;
 
       const result = validateOpenClawConfig();
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('OPENCLAW_API_TOKEN is not set');
+      expect(result.errors).toContain('OPENCLAW_HOOK_TOKEN (or OPENCLAW_API_TOKEN) is not set');
     });
 
     it('reports both missing', () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
       delete process.env.OPENCLAW_API_TOKEN;
+      delete process.env.OPENCLAW_HOOK_TOKEN;
 
       const result = validateOpenClawConfig();
       expect(result.valid).toBe(false);
@@ -71,11 +73,12 @@ describe('validateOpenClawConfig', () => {
 
     it('detects empty token (whitespace)', () => {
       process.env.OPENCLAW_GATEWAY_URL = 'https://gateway.example.com';
+      delete process.env.OPENCLAW_HOOK_TOKEN;
       process.env.OPENCLAW_API_TOKEN = '   ';
 
       const result = validateOpenClawConfig();
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('OPENCLAW_API_TOKEN is empty or whitespace');
+      expect(result.errors).toContain('OPENCLAW_HOOK_TOKEN is empty or whitespace');
     });
 
     it('detects 1Password reference (op://)', () => {
