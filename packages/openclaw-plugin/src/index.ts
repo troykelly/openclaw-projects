@@ -430,12 +430,9 @@ export type {
   CliCommands,
   CommandResult,
   RecallOptions,
-  ExportOptions,
   StatusData,
   UsersData,
   RecallData,
-  StatsData,
-  ExportData,
   MemoryItem,
 } from './cli.js';
 export {
@@ -443,8 +440,6 @@ export {
   createStatusCommand,
   createUsersCommand,
   createRecallCommand,
-  createStatsCommand,
-  createExportCommand,
 } from './cli.js';
 
 // Re-export Gateway RPC methods

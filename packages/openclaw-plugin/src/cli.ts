@@ -31,11 +31,6 @@ export interface RecallOptions {
   limit?: number;
 }
 
-/** Options for export command */
-export interface ExportOptions {
-  output?: string;
-}
-
 /** Status command result data */
 export interface StatusData {
   healthy: boolean;
@@ -63,28 +58,6 @@ export interface RecallData {
   memories: MemoryItem[];
   query: string;
   limit: number;
-}
-
-/** Stats command result data */
-export interface StatsData {
-  totalMemories: number;
-  byCategory: Record<string, number>;
-  recentActivity?: {
-    last24h: number;
-    last7d: number;
-  };
-}
-
-/** Export command result data */
-export interface ExportData {
-  memories: Array<{
-    id: string;
-    content: string;
-    category?: string;
-  }>;
-  exportedAt: string;
-  userId: string;
-  suggestedPath?: string;
 }
 
 /** User scoping mode descriptions */
@@ -168,7 +141,7 @@ export function createUsersCommand(ctx: CliContext): () => Promise<CommandResult
 
 /**
  * Creates the recall command handler.
- * Searches memories from the command line.
+ * Searches memories using the /api/memories/search endpoint.
  */
 export function createRecallCommand(ctx: CliContext): (options: RecallOptions) => Promise<CommandResult<RecallData>> {
   const { client, logger, config, userId } = ctx;
@@ -192,11 +165,11 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
 
     try {
       const queryParams = new URLSearchParams({
-        query: query.substring(0, 500), // Limit query length
+        q: query.substring(0, 500), // Limit query length
         limit: String(limit),
       });
 
-      const response = await client.get<{ memories: MemoryItem[] }>(`/api/memory/recall?${queryParams.toString()}`, { userId });
+      const response = await client.get<{ memories: MemoryItem[] }>(`/api/memories/search?${queryParams.toString()}`, { userId });
 
       if (!response.success) {
         logger.error('CLI recall command API error', {
@@ -236,111 +209,11 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
   };
 }
 
-/**
- * Creates the stats command handler.
- * Displays memory statistics.
- */
-export function createStatsCommand(ctx: CliContext): () => Promise<CommandResult<StatsData>> {
-  const { client, logger, userId } = ctx;
-
-  return async (): Promise<CommandResult<StatsData>> => {
-    logger.info('CLI stats command invoked', { userId });
-
-    try {
-      const response = await client.get<StatsData>('/api/memory/stats', { userId });
-
-      if (!response.success) {
-        logger.error('CLI stats command API error', {
-          userId,
-          status: response.error.status,
-          code: response.error.code,
-        });
-
-        return {
-          success: false,
-          message: `API error: ${response.error.message}`,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Total memories: ${response.data.totalMemories}`,
-        data: response.data,
-      };
-    } catch (error) {
-      logger.error('CLI stats command error', {
-        userId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      return {
-        success: false,
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  };
-}
-
-/**
- * Creates the export command handler.
- * Exports all memories for GDPR data portability.
- */
-export function createExportCommand(ctx: CliContext): (options?: ExportOptions) => Promise<CommandResult<ExportData>> {
-  const { client, logger, userId } = ctx;
-
-  return async (options?: ExportOptions): Promise<CommandResult<ExportData>> => {
-    logger.info('CLI export command invoked', { userId });
-
-    try {
-      const response = await client.get<{
-        memories: Array<{ id: string; content: string; category?: string }>;
-        exportedAt: string;
-      }>('/api/memory/export', { userId });
-
-      if (!response.success) {
-        logger.error('CLI export command API error', {
-          userId,
-          status: response.error.status,
-          code: response.error.code,
-        });
-
-        return {
-          success: false,
-          message: `API error: ${response.error.message}`,
-        };
-      }
-
-      return {
-        success: true,
-        message: `Exported ${response.data.memories.length} memories`,
-        data: {
-          memories: response.data.memories,
-          exportedAt: response.data.exportedAt,
-          userId,
-          suggestedPath: options?.output,
-        },
-      };
-    } catch (error) {
-      logger.error('CLI export command error', {
-        userId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      return {
-        success: false,
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  };
-}
-
 /** All CLI command handlers */
 export interface CliCommands {
   status: () => Promise<CommandResult<StatusData>>;
   users: () => Promise<CommandResult<UsersData>>;
   recall: (options: RecallOptions) => Promise<CommandResult<RecallData>>;
-  stats: () => Promise<CommandResult<StatsData>>;
-  export: (options?: ExportOptions) => Promise<CommandResult<ExportData>>;
 }
 
 /**
@@ -351,7 +224,5 @@ export function createCliCommands(ctx: CliContext): CliCommands {
     status: createStatusCommand(ctx),
     users: createUsersCommand(ctx),
     recall: createRecallCommand(ctx),
-    stats: createStatsCommand(ctx),
-    export: createExportCommand(ctx),
   };
 }

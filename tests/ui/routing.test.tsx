@@ -32,14 +32,18 @@ beforeAll(async () => {
 });
 
 // Mock the api-client to prevent real network requests
-vi.mock('@/ui/lib/api-client', () => ({
-  apiClient: {
-    get: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
-    post: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
-    patch: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
-    delete: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
-  },
-}));
+vi.mock('@/ui/lib/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/ui/lib/api-client')>();
+  return {
+    ...actual,
+    apiClient: {
+      get: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
+      post: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
+      patch: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
+      delete: vi.fn().mockRejectedValue(new Error('Not implemented in test')),
+    },
+  };
+});
 
 // Mock user context to simulate an authenticated user (issue #1166).
 // Without this, the auth guard in AppLayout blocks all route rendering.

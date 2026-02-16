@@ -130,8 +130,6 @@ describe('Integration Tests', () => {
       expect(instance.cli.status).toBeDefined();
       expect(instance.cli.users).toBeDefined();
       expect(instance.cli.recall).toBeDefined();
-      expect(instance.cli.stats).toBeDefined();
-      expect(instance.cli.export).toBeDefined();
     });
 
     it('should create health check function', () => {

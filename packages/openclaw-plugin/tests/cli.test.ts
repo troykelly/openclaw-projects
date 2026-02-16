@@ -1,6 +1,6 @@
 /**
  * Tests for CLI command handlers.
- * Covers status, users, recall, stats, and export commands.
+ * Covers status, users, and recall commands.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -8,8 +8,6 @@ import {
   createStatusCommand,
   createUsersCommand,
   createRecallCommand,
-  createStatsCommand,
-  createExportCommand,
   createCliCommands,
   type CliContext,
 } from '../src/cli.js';
@@ -223,7 +221,7 @@ describe('CLI Commands', () => {
       expect(typeof command).toBe('function');
     });
 
-    it('should search memories with query', async () => {
+    it('should search memories with query via /api/memories/search', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
@@ -244,7 +242,25 @@ describe('CLI Commands', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.memories).toHaveLength(2);
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memory/recall'), expect.any(Object));
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.any(Object));
+    });
+
+    it('should use q= parameter for the search query', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { memories: [] },
+      });
+      const client = { ...mockApiClient, get: mockGet };
+
+      const command = createRecallCommand({
+        ...mockContext,
+        client: client as unknown as ApiClient,
+      });
+
+      await command({ query: 'test query' });
+
+      const callUrl = mockGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain('q=test+query');
     });
 
     it('should support limit option', async () => {
@@ -328,187 +344,6 @@ describe('CLI Commands', () => {
     });
   });
 
-  describe('stats command', () => {
-    it('should create a callable command function', () => {
-      const command = createStatsCommand(mockContext);
-      expect(typeof command).toBe('function');
-    });
-
-    it('should fetch and display memory statistics', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          totalMemories: 42,
-          byCategory: {
-            preference: 15,
-            fact: 20,
-            decision: 5,
-            context: 2,
-          },
-          recentActivity: {
-            last24h: 5,
-            last7d: 12,
-          },
-        },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createStatsCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command();
-
-      expect(result.success).toBe(true);
-      expect(result.data?.totalMemories).toBe(42);
-      expect(result.data?.byCategory).toBeDefined();
-    });
-
-    it('should handle API errors gracefully', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: false,
-        error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createStatsCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command();
-
-      expect(result.success).toBe(false);
-    });
-
-    it('should call stats endpoint', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: { totalMemories: 0, byCategory: {} },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createStatsCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      await command();
-
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memory/stats'), expect.any(Object));
-    });
-  });
-
-  describe('export command', () => {
-    it('should create a callable command function', () => {
-      const command = createExportCommand(mockContext);
-      expect(typeof command).toBe('function');
-    });
-
-    it('should fetch all memories for export', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          memories: [
-            { id: '1', content: 'Memory 1', category: 'preference' },
-            { id: '2', content: 'Memory 2', category: 'fact' },
-          ],
-          exportedAt: '2024-01-15T12:00:00Z',
-        },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createExportCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command();
-
-      expect(result.success).toBe(true);
-      expect(result.data?.memories).toHaveLength(2);
-    });
-
-    it('should include export metadata', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          memories: [],
-          exportedAt: '2024-01-15T12:00:00Z',
-        },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createExportCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command();
-
-      expect(result.data?.exportedAt).toBeDefined();
-      expect(result.data?.userId).toBe('agent-1');
-    });
-
-    it('should handle API errors gracefully', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: false,
-        error: { status: 500, message: 'Server error', code: 'SERVER_ERROR' },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createExportCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command();
-
-      expect(result.success).toBe(false);
-    });
-
-    it('should support output path option', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          memories: [],
-          exportedAt: '2024-01-15T12:00:00Z',
-        },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createExportCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command({ output: '/tmp/export.json' });
-
-      expect(result.data?.suggestedPath).toBe('/tmp/export.json');
-    });
-
-    it('should never include API key in export', async () => {
-      const mockGet = vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          memories: [{ id: '1', content: 'test' }],
-          exportedAt: '2024-01-15T12:00:00Z',
-        },
-      });
-      const client = { ...mockApiClient, get: mockGet };
-
-      const command = createExportCommand({
-        ...mockContext,
-        client: client as unknown as ApiClient,
-      });
-
-      const result = await command();
-
-      expect(JSON.stringify(result)).not.toContain('test-key-secret');
-    });
-  });
-
   describe('createCliCommands', () => {
     it('should create all command handlers', () => {
       const commands = createCliCommands(mockContext);
@@ -516,8 +351,6 @@ describe('CLI Commands', () => {
       expect(commands.status).toBeDefined();
       expect(commands.users).toBeDefined();
       expect(commands.recall).toBeDefined();
-      expect(commands.stats).toBeDefined();
-      expect(commands.export).toBeDefined();
     });
 
     it('should create callable functions for each command', () => {
@@ -526,8 +359,6 @@ describe('CLI Commands', () => {
       expect(typeof commands.status).toBe('function');
       expect(typeof commands.users).toBe('function');
       expect(typeof commands.recall).toBe('function');
-      expect(typeof commands.stats).toBe('function');
-      expect(typeof commands.export).toBe('function');
     });
   });
 
