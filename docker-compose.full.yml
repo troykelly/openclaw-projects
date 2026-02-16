@@ -351,6 +351,10 @@ services:
       NODE_ENV: production
       HOST: "::"
       PORT: 3001
+      # PUBLIC_BASE_URL is the app/root domain where the SPA is served, NOT the
+      # API subdomain. The API URL is derived automatically as api.${DOMAIN} by
+      # deriveApiUrl() in server.ts. Changed from https://api.${DOMAIN} in
+      # v0.0.56 (#1328). See docs/deployment.md "Breaking Changes".
       PUBLIC_BASE_URL: https://${DOMAIN:?DOMAIN is required}
       COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
       # JWT signing (required for production auth)

@@ -18,6 +18,7 @@ This guide covers deploying openclaw-projects using Docker Compose, from simple 
 - [Backup and Restore](#backup-and-restore)
 - [Upgrading Containers](#upgrading-containers)
 - [Troubleshooting](#troubleshooting)
+- [Breaking Changes](#breaking-changes)
 
 ---
 
@@ -1363,3 +1364,46 @@ docker compose exec api env | sort
 docker volume ls
 docker volume inspect openclaw-projects_db_data
 ```
+
+---
+
+## Breaking Changes
+
+### PUBLIC_BASE_URL now refers to the app domain (v0.0.56+, #1328)
+
+**Changed in:** v0.0.56 (JWT auth epic #1322)
+
+**What changed:** In `docker-compose.traefik.yml` and `docker-compose.full.yml`, `PUBLIC_BASE_URL` was changed from `https://api.${DOMAIN}` to `https://${DOMAIN}`.
+
+**Why:** `PUBLIC_BASE_URL` was standardized to mean the **app/root domain** where the SPA is served, not the API subdomain. The API URL (`https://api.${DOMAIN}`) is now derived automatically by `deriveApiUrl()` in `server.ts`, which prepends `api.` to non-localhost hostnames. This is consistent with how magic links, share URLs, CORS origins, and CSP connect-src directives all need the app domain as the base.
+
+**Who is affected:** Existing Traefik deployments that rely on the compose file default (i.e., do not explicitly set `PUBLIC_BASE_URL` in `.env`). Deployments that set `PUBLIC_BASE_URL` in `.env` are unaffected since the env file takes precedence.
+
+**How to migrate:**
+
+1. If you previously had no `PUBLIC_BASE_URL` in your `.env` file and relied on the compose default, **no action is needed** — the new default is correct.
+
+2. If you explicitly set `PUBLIC_BASE_URL=https://api.yourdomain.com` in your `.env`, update it:
+
+   ```bash
+   # Before (incorrect — points to API subdomain)
+   PUBLIC_BASE_URL=https://api.yourdomain.com
+
+   # After (correct — points to app domain)
+   PUBLIC_BASE_URL=https://yourdomain.com
+   ```
+
+3. If you have OAuth redirect URIs registered with a provider, verify they use the API subdomain:
+
+   ```bash
+   OAUTH_REDIRECT_URI=https://api.yourdomain.com/api/oauth/callback
+   ```
+
+**Routing summary (unchanged):**
+
+| URL | Routes to |
+|-----|-----------|
+| `https://DOMAIN/` | Frontend SPA (React app) |
+| `https://DOMAIN/app/*` | Frontend SPA routes |
+| `https://api.DOMAIN/*` | API server (via ModSecurity WAF) |
+| `https://DOMAIN/api/*` | Redirected to `https://api.DOMAIN/api/*` (307) |
