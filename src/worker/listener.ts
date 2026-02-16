@@ -130,10 +130,15 @@ export class NotifyListener {
         this.reconnecting = false;
         if (this.connected && this.onReconnect) {
           this.onReconnect();
+        } else if (!this.connected) {
+          // connect() caught its own error and called scheduleReconnect(),
+          // which no-op'd because reconnecting was still true. Retry now.
+          this.scheduleReconnect();
         }
       }).catch((err) => {
         this.reconnecting = false;
         console.error('[Listener] Reconnect failed:', (err as Error).message);
+        this.scheduleReconnect();
       });
     }, delayMs);
   }
