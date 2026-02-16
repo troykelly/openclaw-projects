@@ -1,10 +1,17 @@
 /**
- * Magic link consumption page.
+ * Authentication consumption page.
  *
- * Handles the final step of magic link login: reads the one-time `token`
- * from the URL query string, sends it to `POST /api/auth/consume`, and
- * on success stores the JWT access token in memory and redirects to the
- * app. The API also sets an HttpOnly refresh cookie via the response.
+ * Handles the final step of both magic link and OAuth login flows:
+ *
+ * 1. **Magic link** (`?token=<token>`): Sends the one-time token to
+ *    `POST /api/auth/consume` to exchange it for a JWT access token.
+ *
+ * 2. **OAuth callback** (`?code=<code>`): After a successful OAuth provider
+ *    callback, the API redirects here with a one-time authorization code.
+ *    The code is exchanged for a JWT via `POST /api/auth/exchange`.
+ *
+ * Both flows store the JWT access token in memory and redirect to the app.
+ * The API also sets an HttpOnly refresh cookie via the response.
  *
  * Deep link preservation: if the user was on a specific page before being
  * redirected to login, that path is stored in `sessionStorage` under
@@ -40,7 +47,7 @@ function getReturnPath(): string {
   try {
     const stored = sessionStorage.getItem(RETURN_TO_KEY);
     sessionStorage.removeItem(RETURN_TO_KEY);
-    if (stored && stored.startsWith('/') && !stored.startsWith('//') && !stored.startsWith('/auth')) {
+    if (stored?.startsWith('/') && !stored.startsWith('//') && !stored.startsWith('/auth')) {
       return stored;
     }
   } catch {
@@ -49,68 +56,101 @@ function getReturnPath(): string {
   return DEFAULT_REDIRECT;
 }
 
+/**
+ * Exchange a credential (magic link token or OAuth code) for a JWT.
+ *
+ * Calls the appropriate API endpoint based on the credential type:
+ * - token -> POST /api/auth/consume
+ * - code  -> POST /api/auth/exchange
+ */
+async function exchangeCredential(token: string | null, code: string | null, signal: AbortSignal): Promise<{ accessToken: string }> {
+  let endpoint: string;
+  let payload: Record<string, string>;
+
+  if (token) {
+    endpoint = `${getApiBaseUrl()}/api/auth/consume`;
+    payload = { token };
+  } else if (code) {
+    endpoint = `${getApiBaseUrl()}/api/auth/exchange`;
+    payload = { code };
+  } else {
+    throw new Error('No credential provided');
+  }
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    credentials: 'include',
+    referrerPolicy: 'no-referrer',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const message = typeof body.error === 'string' ? body.error : `Authentication failed (${res.status})`;
+    throw new Error(message);
+  }
+
+  const body = (await res.json()) as Record<string, unknown>;
+  if (typeof body.accessToken !== 'string' || body.accessToken.length === 0) {
+    throw new Error('Invalid response from server.');
+  }
+
+  return { accessToken: body.accessToken };
+}
+
 export function AuthConsumePage(): React.JSX.Element {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Extract credentials from URL query parameters.
+  // Token (magic link) takes priority over code (OAuth) if both are present.
   const token = searchParams.get('token');
+  const code = searchParams.get('code');
+  const hasCredential = Boolean(token || code);
 
   const [state, setState] = useState<ConsumeState>(() => {
-    if (!token) {
-      return { status: 'error', errorMessage: 'Missing authentication token. Please request a new magic link.' };
+    if (!hasCredential) {
+      return {
+        status: 'error',
+        errorMessage: 'Missing authentication credentials. Please request a new login link.',
+      };
     }
     return { status: 'loading', errorMessage: null };
   });
 
   useEffect(() => {
-    if (!token) return;
+    if (!token && !code) return;
 
     const controller = new AbortController();
 
     (async () => {
       try {
-        const res = await fetch(`${getApiBaseUrl()}/api/auth/consume`, {
-          method: 'POST',
-          credentials: 'include',
-          referrerPolicy: 'no-referrer',
-          headers: {
-            'content-type': 'application/json',
-            accept: 'application/json',
-          },
-          body: JSON.stringify({ token }),
-          signal: controller.signal,
-        });
+        const { accessToken } = await exchangeCredential(token, code, controller.signal);
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({})) as Record<string, unknown>;
-          const message = typeof body.error === 'string'
-            ? body.error
-            : `Authentication failed (${res.status})`;
-          setState({ status: 'error', errorMessage: message });
-          return;
-        }
-
-        const body = await res.json() as Record<string, unknown>;
-        if (typeof body.accessToken !== 'string' || body.accessToken.length === 0) {
-          setState({ status: 'error', errorMessage: 'Invalid response from server.' });
-          return;
-        }
-
-        setAccessToken(body.accessToken);
+        setAccessToken(accessToken);
         setState({ status: 'success', errorMessage: null });
 
         const returnPath = getReturnPath();
         navigate(returnPath, { replace: true });
       } catch (err) {
         if (controller.signal.aborted) return;
-        const message = err instanceof TypeError
-          ? 'Network error. Please check your connection and try again.'
-          : 'An unexpected error occurred.';
+        const message =
+          err instanceof TypeError
+            ? 'Network error. Please check your connection and try again.'
+            : err instanceof Error
+              ? err.message
+              : 'An unexpected error occurred.';
         setState({ status: 'error', errorMessage: message });
       }
     })();
 
     return () => controller.abort();
-  }, [token, navigate]);
+  }, [token, code, navigate]);
 
   return (
     <div data-testid="page-auth-consume" className="flex min-h-[60vh] items-center justify-center p-8">
@@ -118,14 +158,12 @@ export function AuthConsumePage(): React.JSX.Element {
         {state.status === 'loading' && (
           <div>
             <div className="mb-6 flex justify-center">
-              <div className="size-12 animate-spin rounded-full border-4 border-primary border-t-transparent" role="status">
+              <output className="size-12 animate-spin rounded-full border-4 border-primary border-t-transparent">
                 <span className="sr-only">Signing you in...</span>
-              </div>
+              </output>
             </div>
             <h1 className="text-xl font-semibold text-foreground">Signing you in...</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Please wait while we verify your magic link.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Please wait while we verify your credentials.</p>
           </div>
         )}
 
@@ -133,15 +171,13 @@ export function AuthConsumePage(): React.JSX.Element {
           <div>
             <div className="mb-6 flex justify-center">
               <div className="flex size-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                <svg className="size-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <svg className="size-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
             </div>
             <h1 className="text-xl font-semibold text-foreground">Sign in failed</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {state.errorMessage}
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">{state.errorMessage}</p>
             <div className="mt-6">
               <a
                 href="/app/login"
