@@ -31,6 +31,12 @@ const EXPIRY_BUFFER_SECONDS = 30;
 let refreshPromise: Promise<string> | null = null;
 
 /**
+ * Generation counter incremented on clearAccessToken() to prevent
+ * in-flight refresh from restoring a token after logout.
+ */
+let tokenGeneration = 0;
+
+/**
  * Parse the `exp` claim from a JWT payload without verifying the signature.
  * The server is the source of truth for signature verification — the client
  * only needs to read the expiration for proactive refresh scheduling.
@@ -39,7 +45,10 @@ function parseExp(token: string): number | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1])) as { exp?: number };
+    // JWT payloads are base64url-encoded: replace -/_ with +// and pad
+    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const payload = JSON.parse(atob(b64)) as { exp?: number };
     return typeof payload.exp === 'number' ? payload.exp : null;
   } catch {
     return null;
@@ -71,6 +80,8 @@ export function setAccessToken(token: string): void {
 export function clearAccessToken(): void {
   accessToken = null;
   tokenExp = null;
+  tokenGeneration++;
+  refreshPromise = null;
 }
 
 /**
@@ -104,6 +115,7 @@ export function refreshAccessToken(): Promise<string> {
     return refreshPromise;
   }
 
+  const gen = tokenGeneration;
   refreshPromise = (async (): Promise<string> => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
@@ -121,7 +133,16 @@ export function refreshAccessToken(): Promise<string> {
         throw new Error(message);
       }
 
-      const body = (await res.json()) as { accessToken: string };
+      const body = (await res.json()) as Record<string, unknown>;
+      if (typeof body.accessToken !== 'string' || body.accessToken.length === 0) {
+        clearAccessToken();
+        throw new Error('Refresh response missing valid accessToken');
+      }
+      // Guard: if clearAccessToken() was called while refresh was in-flight,
+      // don't restore the token (prevents logout race condition).
+      if (tokenGeneration !== gen) {
+        throw new Error('Auth state was cleared during refresh');
+      }
       setAccessToken(body.accessToken);
       return body.accessToken;
     } finally {
