@@ -11789,12 +11789,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // GET /api/oauth/authorize/:provider - Get OAuth authorization URL
+  // GET /api/oauth/authorize/:provider - Redirect to OAuth provider
   // Accepts optional query params:
   //   scopes: comma-separated raw scope strings (legacy)
   //   features: comma-separated feature names (contacts,email,files,calendar)
   //   permissionLevel: 'read' or 'read_write' (default: 'read')
   // When features are provided, scopes are computed from the feature-to-scope map.
+  // Returns a 302 redirect to the provider's authorization URL.
   app.get('/api/oauth/authorize/:provider', async (req, reply) => {
     const params = req.params as { provider: string };
     const query = req.query as { scopes?: string; features?: string; permissionLevel?: string };
@@ -11843,12 +11844,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         permissionLevel,
       });
 
-      return reply.send({
-        authUrl: authResult.url,
-        state: authResult.state,
-        provider: authResult.provider,
-        scopes: authResult.scopes,
-      });
+      return reply.redirect(authResult.url);
     } catch (error) {
       if (error instanceof ProviderNotConfiguredError) {
         return reply.code(503).send({

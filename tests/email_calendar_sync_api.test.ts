@@ -71,27 +71,26 @@ describe('Email & Calendar Sync API', () => {
     });
 
     describe('GET /api/oauth/authorize/:provider', () => {
-      it('returns authorization URL for google', async () => {
+      it('redirects to authorization URL for google', async () => {
         const response = await app.inject({
           method: 'GET',
           url: '/api/oauth/authorize/google?userEmail=user@example.com&scopes=email,calendar',
         });
 
-        expect(response.statusCode).toBe(200);
-        const body = response.json();
-        expect(body.authUrl).toBeDefined();
-        expect(body.state).toBeDefined();
+        expect(response.statusCode).toBe(302);
+        const location = response.headers.location as string;
+        expect(location).toContain('accounts.google.com');
       });
 
-      it('returns authorization URL for microsoft', async () => {
+      it('redirects to authorization URL for microsoft', async () => {
         const response = await app.inject({
           method: 'GET',
           url: '/api/oauth/authorize/microsoft?userEmail=user@example.com&scopes=email,calendar',
         });
 
-        expect(response.statusCode).toBe(200);
-        const body = response.json();
-        expect(body.authUrl).toBeDefined();
+        expect(response.statusCode).toBe(302);
+        const location = response.headers.location as string;
+        expect(location).toContain('login.microsoftonline.com');
       });
 
       it('returns 400 for unknown provider', async () => {
