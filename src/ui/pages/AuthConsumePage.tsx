@@ -40,7 +40,7 @@ function getReturnPath(): string {
   try {
     const stored = sessionStorage.getItem(RETURN_TO_KEY);
     sessionStorage.removeItem(RETURN_TO_KEY);
-    if (stored && !stored.startsWith('/auth')) {
+    if (stored && stored.startsWith('/') && !stored.startsWith('//') && !stored.startsWith('/auth')) {
       return stored;
     }
   } catch {
@@ -71,6 +71,7 @@ export function AuthConsumePage(): React.JSX.Element {
         const res = await fetch(`${getApiBaseUrl()}/api/auth/consume`, {
           method: 'POST',
           credentials: 'include',
+          referrerPolicy: 'no-referrer',
           headers: {
             'content-type': 'application/json',
             accept: 'application/json',
