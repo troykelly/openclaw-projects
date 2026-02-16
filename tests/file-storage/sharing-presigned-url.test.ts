@@ -22,7 +22,7 @@ vi.mock('../../src/api/file-storage/service.ts', () => ({
 
 describe('createFileShare presigned mode', () => {
   const envBackup: Record<string, string | undefined> = {};
-  const envKeys = ['FILE_SHARE_MODE', 'S3_ENDPOINT', 'S3_EXTERNAL_ENDPOINT', 'APP_BASE_URL'];
+  const envKeys = ['FILE_SHARE_MODE', 'S3_ENDPOINT', 'S3_EXTERNAL_ENDPOINT', 'PUBLIC_BASE_URL'];
 
   beforeEach(() => {
     for (const key of envKeys) {
