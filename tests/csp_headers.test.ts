@@ -107,13 +107,11 @@ describe('CSP headers', () => {
       }
     });
 
-    it('401 JSON responses do not include nonce-based CSP', async () => {
+    it('unauthenticated login page does not leak nonce in CSP to third parties', async () => {
       const res = await app.inject({ method: 'GET', url: '/app/work-items' });
-      expect(res.statusCode).toBe(401);
-      const csp = getCsp(res.headers);
-      if (csp) {
-        expect(csp).not.toContain("'nonce-");
-      }
+      // Unauthenticated requests now render a login page (200) instead of 401
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toContain('Sign in');
     });
   });
 

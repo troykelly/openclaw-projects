@@ -64,7 +64,7 @@ describe('Postmark delivery for magic-link auth', () => {
     expect(body.ReplyTo).toBe('quasar@execdesk.ai');
     expect(body.To).toBe('test@example.com');
     expect(body.Subject).toMatch(/login link/i);
-    expect(body.TextBody).toMatch(/\/api\/auth\/consume\?token=/);
-    expect(body.HtmlBody).toMatch(/\/api\/auth\/consume\?token=/);
+    expect(body.TextBody).toMatch(/\/app\/auth\/consume\?token=/);
+    expect(body.HtmlBody).toMatch(/\/app\/auth\/consume\?token=/);
   });
 });
