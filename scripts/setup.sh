@@ -313,7 +313,7 @@ fi
 # ============================================================================
 section "Core Application Settings"
 
-PUBLIC_BASE_URL="$(prompt_value PUBLIC_BASE_URL "Public base URL" "http://localhost:3000")"
+PUBLIC_BASE_URL="$(prompt_value PUBLIC_BASE_URL "Public base URL (app/root domain, NOT api subdomain)" "http://localhost:3000")"
 if [ -n "$PUBLIC_BASE_URL" ] && ! validate_url "$PUBLIC_BASE_URL"; then
   warn "URL does not start with http:// or https:// — proceeding anyway"
 fi
@@ -333,6 +333,13 @@ if [ -z "$OPENCLAW_API_TOKEN" ]; then
   info "  JWT_SECRET=<your-jwt-secret> pnpm run generate-api-token"
 fi
 set_env OPENCLAW_API_TOKEN "$OPENCLAW_API_TOKEN"
+
+JWT_SECRET="$(resolve JWT_SECRET "")"
+if [ -z "$JWT_SECRET" ]; then
+  JWT_SECRET="$(generate_secret 48)"
+  info "Generated JWT_SECRET (HS256 signing key, min 32 bytes)"
+fi
+set_env JWT_SECRET "$JWT_SECRET"
 
 NODE_ENV="$(prompt_value NODE_ENV "Node environment" "production")"
 set_env NODE_ENV "$NODE_ENV"
@@ -590,7 +597,7 @@ HEADER
   printf "# Core Application Settings\n"
   printf "# =============================================================================\n\n"
 
-  for key in PUBLIC_BASE_URL NODE_ENV COOKIE_SECRET OPENCLAW_API_TOKEN; do
+  for key in PUBLIC_BASE_URL NODE_ENV COOKIE_SECRET OPENCLAW_API_TOKEN JWT_SECRET; do
     if [ -n "${ENV_VALUES[$key]:-}" ]; then
       printf '%s=%s\n' "$key" "${ENV_VALUES[$key]}"
     fi
@@ -680,7 +687,7 @@ section "Setup Complete"
 
 printf "  ${BOLD}Generated secrets:${RESET}\n"
 # Check which secrets were auto-generated (not from existing env)
-for key in COOKIE_SECRET OPENCLAW_API_TOKEN POSTGRES_PASSWORD S3_SECRET_KEY OAUTH_TOKEN_ENCRYPTION_KEY; do
+for key in COOKIE_SECRET OPENCLAW_API_TOKEN JWT_SECRET POSTGRES_PASSWORD S3_SECRET_KEY OAUTH_TOKEN_ENCRYPTION_KEY; do
   if [ -n "${ENV_VALUES[$key]:-}" ]; then
     printf "    - %s\n" "$key"
   fi
