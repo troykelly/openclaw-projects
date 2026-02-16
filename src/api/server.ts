@@ -12,7 +12,9 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { compareSecrets, getCachedSecret, isAuthDisabled } from './auth/secret.ts';
+import { getAuthIdentity, getSessionEmail } from './auth/middleware.ts';
+import { isAuthDisabled } from './auth/secret.ts';
+import { verifyAccessToken } from './auth/jwt.ts';
 import { type CloudflareEmailPayload, processCloudflareEmail } from './cloudflare-email/index.ts';
 import {
   backfillMemoryEmbeddings,
@@ -134,8 +136,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     );
   }
 
-  const sessionCookieName = 'projects_session';
-
   // CORS must be registered early, before routes (Issue #1327)
   registerCors(app);
 
@@ -160,30 +160,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // WebSocket support for real-time updates (Issue #213)
   app.register(websocket);
-
-  // Session email extraction for rate limiting and auth
-  // Moved before rate limit registration to allow per-user rate limiting (Issue #323)
-  async function getSessionEmail(req: any): Promise<string | null> {
-    const sessionId = (req.cookies as Record<string, string | undefined>)[sessionCookieName];
-    if (!sessionId) return null;
-
-    const pool = createPool();
-    try {
-      const result = await pool.query(
-        `SELECT email
-           FROM auth_session
-          WHERE id = $1
-            AND revoked_at IS NULL
-            AND expires_at > now()`,
-        [sessionId],
-      );
-
-      if (result.rows.length === 0) return null;
-      return result.rows[0].email as string;
-    } finally {
-      await pool.end();
-    }
-  }
 
   // Rate limiting configuration (Issue #212, enhanced by Issue #323)
   // Skip rate limiting in test environment or when explicitly disabled
@@ -367,101 +343,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
-    // E2E browser test bypass: requires both auth disabled AND the explicit
-    // session email env var (set only in playwright.config.ts webServer env).
-    const e2eEmail = process.env.OPENCLAW_E2E_SESSION_EMAIL;
-    if (e2eEmail && isAuthDisabled()) return e2eEmail;
-
     const email = await getSessionEmail(req);
     if (email) return email;
-    reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLoginPage());
+    reply.code(401).send({ error: 'unauthorized' });
     return null;
   }
 
-  function renderLoginPage(): string {
-    return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sign in - OpenClaw Projects</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --bg: #fafafa; --surface: #fff; --border: #e5e5e5; --fg: #171717; --muted: #737373; --primary: #6366f1; --primary-fg: #fff; --success: #22c55e; --error: #ef4444; }
-    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --surface: #171717; --border: #262626; --fg: #fafafa; --muted: #a3a3a3; --primary: #818cf8; --primary-fg: #0a0a0a; } }
-    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; -webkit-font-smoothing: antialiased; }
-    .card { width: 100%; max-width: 28rem; }
-    .card h1 { font-size: 1.875rem; font-weight: 700; text-align: center; letter-spacing: -0.025em; }
-    .card .subtitle { margin-top: 0.5rem; font-size: 0.875rem; color: var(--muted); text-align: center; }
-    .form-box { margin-top: 2rem; border: 1px solid var(--border); background: var(--surface); border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
-    .form-box h2 { font-size: 1.25rem; font-weight: 600; }
-    .form-box .desc { margin-top: 0.25rem; font-size: 0.875rem; color: var(--muted); }
-    form { margin-top: 1.5rem; }
-    input[type="email"] { display: block; width: 100%; height: 2.5rem; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 0.375rem; padding: 0 0.75rem; font-size: 0.875rem; outline: none; }
-    input[type="email"]:focus { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent); }
-    button[type="submit"] { margin-top: 1rem; display: block; width: 100%; height: 2.5rem; background: var(--primary); color: var(--primary-fg); border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
-    button[type="submit"]:hover { opacity: 0.9; }
-    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
-    #message { margin-top: 1rem; font-size: 0.875rem; text-align: center; }
-    #message.hidden { display: none; }
-    .msg-ok { color: var(--success); }
-    .msg-err { color: var(--error); }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>OpenClaw Projects</h1>
-    <p class="subtitle">Human-Agent Collaboration Workspace</p>
-    <div class="form-box">
-      <h2>Sign in</h2>
-      <p class="desc">Enter your email to receive a magic link.</p>
-      <form id="login-form">
-        <label for="email" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Email address</label>
-        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
-        <button type="submit">Send magic link</button>
-      </form>
-      <p id="message" class="hidden"></p>
-    </div>
-  </div>
-  <script>
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const msg = document.getElementById('message');
-      const btn = e.target.querySelector('button');
-      btn.disabled = true;
-      btn.textContent = 'Sending...';
-      try {
-        const res = await fetch('/api/auth/request-link', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          msg.textContent = 'Check your email for the magic link!';
-          msg.className = 'msg-ok';
-        } else {
-          msg.textContent = data.error || 'Failed to send link';
-          msg.className = 'msg-err';
-        }
-      } catch {
-        msg.textContent = 'Network error. Please try again.';
-        msg.className = 'msg-err';
-      }
-      msg.classList.remove('hidden');
-      btn.disabled = false;
-      btn.textContent = 'Send magic link';
-    });
-  </script>
-</body>
-</html>`;
-  }
-
-  // Routes that skip bearer token authentication
+  // Routes that skip JWT authentication
   // (These routes use their own authentication methods)
   const authSkipPaths = new Set([
     '/health',
@@ -484,7 +372,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/oauth/callback',
   ]);
 
-  // Bearer token authentication hook for API routes
+  // JWT authentication hook for API routes
   app.addHook('onRequest', async (req, reply) => {
     const url = req.url.split('?')[0]; // Remove query string
 
@@ -504,7 +392,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return;
     }
 
-    // Skip auth for root landing page, /auth redirect, and /app/* routes (session cookies via requireDashboardSession)
+    // Skip auth for root landing page, /auth redirect, and /app/* routes (JWT via requireDashboardSession)
     if (url === '/' || url === '/auth' || url === '/app' || url.startsWith('/app/')) {
       return;
     }
@@ -519,37 +407,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return;
     }
 
-    // Check for valid session cookie first (allows browser-based access)
-    const sessionEmail = await getSessionEmail(req);
-    if (sessionEmail) {
+    // Verify JWT from Authorization header (also handles E2E bypass)
+    const identity = await getAuthIdentity(req);
+    if (identity) {
       return;
     }
 
-    // Check for bearer token
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
-    // Validate bearer token format
-    if (!authHeader.startsWith('Bearer ')) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
-    const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-    const expectedSecret = getCachedSecret();
-
-    // If no secret is configured and auth is not disabled, reject
-    if (!expectedSecret) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
-    // Compare tokens using constant-time comparison
-    if (!compareSecrets(token, expectedSecret)) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
-
-    // Token is valid - continue to route handler
+    return reply.code(401).send({ error: 'unauthorized' });
   });
 
   app.get('/health', async () => ({ ok: true }));
@@ -594,26 +458,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   app.get('/api/ws', { websocket: true }, async (socket, req) => {
-    // Authenticate via session cookie or bearer token in query
+    // Authenticate via JWT in Authorization header or query string
     let userId: string | undefined;
 
-    // Try session cookie first
-    const sessionEmail = await getSessionEmail(req);
-    if (sessionEmail) {
-      userId = sessionEmail;
+    // Try JWT from Authorization header first (via getAuthIdentity)
+    const identity = await getAuthIdentity(req);
+    if (identity) {
+      userId = identity.email;
     } else if (!isAuthDisabled()) {
-      // Try bearer token from query string
+      // Try JWT from query string (for WebSocket clients that can't set headers)
       const query = req.query as { token?: string };
       if (query.token) {
-        const expectedSecret = getCachedSecret();
-        if (expectedSecret && compareSecrets(query.token, expectedSecret)) {
-          // Token valid but no user ID from bearer tokens
-          // Agent connections can set x-agent-name header
-          const agentName = req.headers['x-agent-name'];
-          if (typeof agentName === 'string') {
-            userId = `agent:${agentName}`;
-          }
-        } else {
+        try {
+          const payload = await verifyAccessToken(query.token);
+          userId = payload.sub;
+        } catch {
           socket.close(4001, 'Unauthorized');
           return;
         }
@@ -659,7 +518,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // SSE fallback endpoint (Issue #213)
   // For clients that can't use WebSockets
   app.get('/api/events', async (req, reply) => {
-    // Authenticate via session cookie
+    // Authenticate via JWT
     const sessionEmail = await getSessionEmail(req);
     if (!sessionEmail && !isAuthDisabled()) {
       return reply.code(401).send({ error: 'unauthorized' });
@@ -1858,33 +1717,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const { id, email } = link.rows[0] as { id: string; email: string };
 
+      // Issue JWT before committing to avoid burning the magic link if signing fails
+      const { signAccessToken } = await import('./auth/jwt.ts');
+      const accessToken = await signAccessToken(email);
+
       await client.query('UPDATE auth_magic_link SET used_at = now() WHERE id = $1', [id]);
 
-      const session = await client.query(
-        `INSERT INTO auth_session (email, expires_at)
-         VALUES ($1, now() + interval '7 days')
-         RETURNING id::text as id, expires_at`,
-        [email],
-      );
-
-      const sessionId = (session.rows[0] as { id: string }).id;
-
       await client.query('COMMIT');
-
-      reply.setCookie(sessionCookieName, sessionId, {
-        path: '/',
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7,
-      });
 
       const accept = req.headers.accept || '';
       if (accept.includes('text/html')) {
         return reply.redirect('/app/work-items');
       }
 
-      return reply.send({ ok: true });
+      return reply.send({ ok: true, accessToken });
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
@@ -1895,10 +1741,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.get('/api/me', async (req, reply) => {
-    // E2E browser test bypass (same guard as requireDashboardSession)
-    const e2eEmail = process.env.OPENCLAW_E2E_SESSION_EMAIL;
-    if (e2eEmail && isAuthDisabled()) return reply.send({ email: e2eEmail });
-
     const email = await getSessionEmail(req);
     if (!email) return reply.code(401).send({ error: 'unauthorized' });
     return reply.send({ email });
@@ -9519,13 +9361,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
-      // Require authentication for sending
+      // Require authentication for sending (JWT or E2E bypass)
       if (!isAuthDisabled()) {
-        const secret = getCachedSecret();
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '');
-
-        if (!secret || !compareSecrets(token, secret)) {
+        const identity = await getAuthIdentity(req);
+        if (!identity) {
           return reply.code(401).send({ error: 'Unauthorized' });
         }
       }
@@ -9661,13 +9500,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
-      // Require authentication
+      // Require authentication (JWT or E2E bypass)
       if (!isAuthDisabled()) {
-        const secret = getCachedSecret();
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '');
-
-        if (!secret || !compareSecrets(token, secret)) {
+        const identity = await getAuthIdentity(req);
+        if (!identity) {
           return reply.code(401).send({ error: 'Unauthorized' });
         }
       }
@@ -9704,13 +9540,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
-      // Require authentication
+      // Require authentication (JWT or E2E bypass)
       if (!isAuthDisabled()) {
-        const secret = getCachedSecret();
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '');
-
-        if (!secret || !compareSecrets(token, secret)) {
+        const identity = await getAuthIdentity(req);
+        if (!identity) {
           return reply.code(401).send({ error: 'Unauthorized' });
         }
       }
@@ -9762,13 +9595,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
-      // Require authentication
+      // Require authentication (JWT or E2E bypass)
       if (!isAuthDisabled()) {
-        const secret = getCachedSecret();
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '');
-
-        if (!secret || !compareSecrets(token, secret)) {
+        const identity = await getAuthIdentity(req);
+        if (!identity) {
           return reply.code(401).send({ error: 'Unauthorized' });
         }
       }
@@ -9901,13 +9731,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
-      // Require authentication for sending
+      // Require authentication for sending (JWT or E2E bypass)
       if (!isAuthDisabled()) {
-        const secret = getCachedSecret();
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '');
-
-        if (!secret || !compareSecrets(token, secret)) {
+        const identity = await getAuthIdentity(req);
+        if (!identity) {
           return reply.code(401).send({ error: 'Unauthorized' });
         }
       }
