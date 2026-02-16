@@ -20,6 +20,7 @@ import {
   generateMemoryEmbedding,
   generateWorkItemEmbedding,
   searchMemoriesSemantic,
+  triggerMessageEmbedding,
 } from './embeddings/index.ts';
 import {
   createFileShare,
@@ -9426,6 +9427,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         console.log(`[Twilio] SMS from ${payload.From}: contactId=${result.contactId}, ` + `messageId=${result.messageId}, isNew=${result.isNewContact}`);
 
+        // Enqueue embedding job for semantic search (#1343)
+        triggerMessageEmbedding(pool, result.messageId);
+
         // TODO: Queue webhook to notify OpenClaw of new inbound message (#201)
 
         // Return TwiML response (empty means no auto-reply)
@@ -9795,6 +9799,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`,
         );
 
+        // Enqueue embedding job for semantic search (#1343)
+        triggerMessageEmbedding(pool, result.messageId);
+
         // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
 
         // Return success
@@ -10019,6 +10026,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           `[Cloudflare Email] Email from ${payload.from}: subject="${payload.subject}", ` +
             `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`,
         );
+
+        // Enqueue embedding job for semantic search (#1343)
+        triggerMessageEmbedding(pool, result.messageId);
 
         // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
 

@@ -132,6 +132,94 @@ describe('Message embeddings (#295)', () => {
     });
   });
 
+  describe('enqueueMessageEmbedJob (#1343)', () => {
+    let testMessageId: string;
+
+    beforeEach(async () => {
+      // Create test message (trigger will auto-enqueue a job)
+      const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Enqueue Test') RETURNING id`);
+      const endpoint = await pool.query(
+        `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
+         VALUES ($1, 'email', 'enqueue-test@example.com') RETURNING id`,
+        [contact.rows[0].id],
+      );
+      const thread = await pool.query(
+        `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
+         VALUES ($1, 'email', 'email:enqueue-test') RETURNING id`,
+        [endpoint.rows[0].id],
+      );
+      const msg = await pool.query(
+        `INSERT INTO external_message (
+           thread_id, external_message_key, direction, body, subject
+         )
+         VALUES ($1, 'inbound:enqueue-test', 'inbound', 'Test enqueue message', 'Enqueue Subject')
+         RETURNING id::text as id`,
+        [thread.rows[0].id],
+      );
+      testMessageId = msg.rows[0].id;
+    });
+
+    it('enqueues a message.embed job with correct payload', async () => {
+      const { enqueueMessageEmbedJob } = await import('../src/api/embeddings/message-integration.js');
+
+      // Clear trigger-created jobs to test application-level enqueue
+      await pool.query(`DELETE FROM internal_job WHERE kind = 'message.embed'`);
+
+      await enqueueMessageEmbedJob(pool, testMessageId);
+
+      const jobs = await pool.query(
+        `SELECT kind, payload, idempotency_key
+         FROM internal_job
+         WHERE kind = 'message.embed'
+           AND completed_at IS NULL`,
+      );
+      expect(jobs.rows.length).toBe(1);
+      expect(jobs.rows[0].payload.message_id).toBe(testMessageId);
+      expect(jobs.rows[0].idempotency_key).toBe(`message.embed:${testMessageId}`);
+    });
+
+    it('is idempotent — duplicate calls do not create extra jobs', async () => {
+      const { enqueueMessageEmbedJob } = await import('../src/api/embeddings/message-integration.js');
+
+      // Clear trigger-created jobs
+      await pool.query(`DELETE FROM internal_job WHERE kind = 'message.embed'`);
+
+      await enqueueMessageEmbedJob(pool, testMessageId);
+      await enqueueMessageEmbedJob(pool, testMessageId);
+
+      const jobs = await pool.query(
+        `SELECT kind FROM internal_job
+         WHERE kind = 'message.embed'
+           AND payload->>'message_id' = $1
+           AND completed_at IS NULL`,
+        [testMessageId],
+      );
+      expect(jobs.rows.length).toBe(1);
+    });
+
+    it('triggerMessageEmbedding enqueues without throwing', async () => {
+      const { triggerMessageEmbedding } = await import('../src/api/embeddings/message-integration.js');
+
+      // Clear trigger-created jobs
+      await pool.query(`DELETE FROM internal_job WHERE kind = 'message.embed'`);
+
+      // Should not throw — fires and forgets
+      triggerMessageEmbedding(pool, testMessageId);
+
+      // Wait briefly for the async fire-and-forget
+      await new Promise((r) => setTimeout(r, 100));
+
+      const jobs = await pool.query(
+        `SELECT kind FROM internal_job
+         WHERE kind = 'message.embed'
+           AND payload->>'message_id' = $1
+           AND completed_at IS NULL`,
+        [testMessageId],
+      );
+      expect(jobs.rows.length).toBe(1);
+    });
+  });
+
   describe('Embedding job handler', () => {
     let testMessageId: string;
 

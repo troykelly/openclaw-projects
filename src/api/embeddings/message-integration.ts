@@ -151,6 +151,48 @@ export async function handleMessageEmbedJob(pool: Pool, job: InternalJob): Promi
 }
 
 /**
+ * Enqueue an embedding job for a message.
+ *
+ * Creates an internal_job entry with kind='message.embed'.
+ * Uses idempotency key to prevent duplicate jobs for the same message.
+ *
+ * Note: A database trigger (tr_message_queue_embedding from migration 039)
+ * also enqueues jobs on INSERT. This function provides an application-level
+ * path for explicit enqueue calls and backfill operations.
+ *
+ * @param pool Database pool
+ * @param messageId The message ID
+ */
+export async function enqueueMessageEmbedJob(pool: Pool, messageId: string): Promise<void> {
+  const idempotencyKey = `message.embed:${messageId}`;
+
+  await pool.query(
+    `INSERT INTO internal_job (kind, payload, idempotency_key)
+     VALUES ('message.embed', $1::jsonb, $2)
+     ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO NOTHING`,
+    [JSON.stringify({ message_id: messageId }), idempotencyKey],
+  );
+}
+
+/**
+ * Trigger embedding for a message asynchronously (non-blocking).
+ * Call this after storing an inbound message to ensure embedding is enqueued.
+ *
+ * Enqueues an internal_job rather than generating the embedding inline,
+ * to avoid blocking the inbound message webhook response.
+ *
+ * @param pool Database pool
+ * @param messageId The message ID
+ */
+export function triggerMessageEmbedding(pool: Pool, messageId: string): void {
+  enqueueMessageEmbedJob(pool, messageId).catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Cannot use a pool after calling end')) return;
+    console.error(`[Embeddings] Failed to enqueue message embed job for ${messageId}:`, msg);
+  });
+}
+
+/**
  * Search messages using semantic similarity.
  *
  * If embedding fails for the query, falls back to text search.
