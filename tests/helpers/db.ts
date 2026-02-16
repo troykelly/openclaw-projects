@@ -104,6 +104,7 @@ const APPLICATION_TABLES = [
   'work_item_memory',
   'work_item',
   'contact',
+  'auth_refresh_token',
   'auth_magic_link',
   'auth_session',
 ] as const;
