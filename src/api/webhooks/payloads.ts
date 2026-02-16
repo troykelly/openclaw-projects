@@ -153,44 +153,6 @@ export function buildDeadlineApproachingPayload(params: {
 }
 
 /**
- * Build payload for spawn agent event.
- */
-export function buildSpawnAgentPayload(params: {
-  agentType: string;
-  repository?: string;
-  epicNumber?: number;
-  workItemId?: string;
-  workItemTitle?: string;
-  instructions?: string;
-  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
-  agentId?: string;
-}): AgentHookPayload {
-  const config = getOpenClawConfig();
-
-  return {
-    message: `Spawn ${params.agentType} agent${params.repository ? ` for ${params.repository}` : ''}${params.epicNumber ? ` (Epic #${params.epicNumber})` : ''}\n\n${params.instructions || 'No specific instructions provided.'}`,
-    name: `${params.agentType} Spawner`,
-    sessionKey: params.workItemId ? `spawn:work_item:${params.workItemId}` : `spawn:${params.agentType}:${Date.now()}`,
-    wakeMode: 'now',
-    deliver: false,
-    channel: 'new',
-    model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
-    timeoutSeconds: config?.timeoutSeconds || 600,
-    ...(params.agentId ? { agentId: params.agentId } : {}),
-    context: {
-      event_type: 'spawn_agent',
-      agent_type: params.agentType,
-      repository: params.repository,
-      epic_number: params.epicNumber,
-      work_item_id: params.workItemId,
-      work_item_title: params.workItemTitle,
-      instructions: params.instructions,
-      ...(params.agentId ? { agent_id: params.agentId } : {}),
-    },
-  };
-}
-
-/**
  * Get the correct webhook destination for an event type.
  */
 export function getWebhookDestination(eventType: string): string {

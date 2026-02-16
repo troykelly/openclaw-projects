@@ -4,7 +4,6 @@ import {
   buildEmailReceivedPayload,
   buildReminderDuePayload,
   buildDeadlineApproachingPayload,
-  buildSpawnAgentPayload,
   getWebhookDestination,
 } from '../../src/api/webhooks/payloads.ts';
 import { clearConfigCache } from '../../src/api/webhooks/config.ts';
@@ -138,39 +137,6 @@ describe('Webhook Payloads', () => {
       expect(payload.text).toContain('24 hours');
       expect(payload.text).toContain('issue');
       expect(payload.mode).toBe('now');
-    });
-  });
-
-  describe('buildSpawnAgentPayload', () => {
-    it('builds correct payload structure', () => {
-      const payload = buildSpawnAgentPayload({
-        agentType: 'dev-major',
-        repository: 'troykelly/my-app',
-        epicNumber: 42,
-        workItemId: 'epic-123',
-        workItemTitle: 'Implement feature X',
-        instructions: 'Focus on the API endpoints first.',
-      });
-
-      expect(payload.name).toBe('dev-major Spawner');
-      expect(payload.deliver).toBe(false);
-      expect(payload.channel).toBe('new');
-      expect(payload.message).toContain('dev-major');
-      expect(payload.message).toContain('troykelly/my-app');
-      expect(payload.message).toContain('Epic #42');
-      expect(payload.context.event_type).toBe('spawn_agent');
-      expect(payload.context.agent_type).toBe('dev-major');
-      expect(payload.context.repository).toBe('troykelly/my-app');
-      expect(payload.context.epic_number).toBe(42);
-    });
-
-    it('handles missing optional fields', () => {
-      const payload = buildSpawnAgentPayload({
-        agentType: 'helper',
-      });
-
-      expect(payload.name).toBe('helper Spawner');
-      expect(payload.sessionKey).toMatch(/^spawn:helper:\d+$/);
     });
   });
 
