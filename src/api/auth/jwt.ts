@@ -145,7 +145,7 @@ export async function verifyAccessToken(token: string): Promise<JwtPayload> {
 }
 
 /**
- * Verifies a token against a specific secret.
+ * Verifies a token against a specific secret and validates required claims.
  */
 async function verifyWith(token: string, secret: string): Promise<JwtPayload> {
   const { payload, protectedHeader } = await jwtVerify(
@@ -154,17 +154,28 @@ async function verifyWith(token: string, secret: string): Promise<JwtPayload> {
     {
       algorithms: [ALG],
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
+      requiredClaims: ['sub', 'iat', 'exp', 'jti'],
     },
   );
 
+  const raw = payload as Record<string, unknown>;
+  const tokenType = raw.type;
+  if (tokenType !== 'user' && tokenType !== 'm2m') {
+    throw new Error(`[JWT] Invalid token type: ${String(tokenType)}`);
+  }
+
+  if (typeof protectedHeader.kid !== 'string') {
+    throw new Error('[JWT] Missing kid in token header');
+  }
+
   return {
-    sub: payload.sub as string,
-    type: (payload as Record<string, unknown>).type as 'user' | 'm2m',
-    iat: payload.iat as number,
-    exp: payload.exp as number,
-    jti: payload.jti as string,
-    kid: protectedHeader.kid as string,
-    ...(payload.scope ? { scope: payload.scope as string } : {}),
+    sub: payload.sub!,
+    type: tokenType,
+    iat: payload.iat!,
+    exp: payload.exp!,
+    jti: payload.jti!,
+    kid: protectedHeader.kid,
+    ...(typeof raw.scope === 'string' ? { scope: raw.scope } : {}),
   } satisfies JwtPayload;
 }
 
