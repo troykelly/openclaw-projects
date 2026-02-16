@@ -150,9 +150,9 @@ export async function consumeRefreshToken(
     // First consumption — set grace window
     await client.query(
       `UPDATE auth_refresh_token
-       SET grace_expires_at = now() + interval '${GRACE_WINDOW_SECONDS} seconds'
+       SET grace_expires_at = now() + make_interval(secs => $2)
        WHERE id = $1`,
-      [row.id],
+      [row.id, GRACE_WINDOW_SECONDS],
     );
 
     await client.query('COMMIT');
