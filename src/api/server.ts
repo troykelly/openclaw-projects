@@ -470,7 +470,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/openapi.json',
     // Webhook endpoints use signature verification instead of bearer tokens
     '/api/twilio/sms',
+    '/api/twilio/sms/status',
     '/api/postmark/inbound',
+    '/api/postmark/email/status',
     '/api/cloudflare/email',
     // WebSocket endpoint uses its own auth via query params or cookies
     '/api/ws',
