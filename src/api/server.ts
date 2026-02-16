@@ -14,7 +14,8 @@ import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { getAuthIdentity, getSessionEmail } from './auth/middleware.ts';
 import { isAuthDisabled } from './auth/secret.ts';
-import { verifyAccessToken } from './auth/jwt.ts';
+import { verifyAccessToken, signAccessToken } from './auth/jwt.ts';
+import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { type CloudflareEmailPayload, processCloudflareEmail } from './cloudflare-email/index.ts';
 import {
   backfillMemoryEmbeddings,
@@ -358,6 +359,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/health/ready',
     '/api/auth/request-link',
     '/api/auth/consume',
+    '/api/auth/refresh',
+    '/api/auth/revoke',
+    '/api/auth/exchange',
     '/api/capabilities',
     '/api/openapi.json',
     // Webhook endpoints use signature verification instead of bearer tokens
@@ -1679,7 +1683,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.end();
 
     const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
-    const loginUrl = `${baseUrl}/api/auth/consume?token=${token}`;
+    const loginUrl = `${baseUrl}/app/auth/consume?token=${token}`;
 
     const { delivered, error } = await sendMagicLinkEmail({ toEmail: email, loginUrl });
 
@@ -1694,9 +1698,37 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send({ ok: true, ...(shouldReturnUrl ? { loginUrl } : {}) });
   });
 
-  app.get('/api/auth/consume', async (req, reply) => {
-    const query = req.query as { token?: string };
-    const token = query.token;
+  /**
+   * Sets the HttpOnly refresh token cookie on a reply.
+   * Cookie is scoped to /api/auth, SameSite=Strict, Secure in production.
+   */
+  function setRefreshCookie(reply: any, token: string): void {
+    const isProduction = process.env.NODE_ENV === 'production';
+    reply.setCookie('projects_refresh', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/api/auth',
+      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+    });
+  }
+
+  /** Clears the refresh token cookie. */
+  function clearRefreshCookie(reply: any): void {
+    const isProduction = process.env.NODE_ENV === 'production';
+    reply.setCookie('projects_refresh', '', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/api/auth',
+      maxAge: 0,
+    });
+  }
+
+  // POST /api/auth/consume — validate magic link token, return JWT + refresh cookie
+  app.post('/api/auth/consume', async (req, reply) => {
+    const body = req.body as { token?: string };
+    const token = body?.token;
     if (!token) return reply.code(400).send({ error: 'token is required' });
 
     const tokenSha = createHash('sha256').update(token).digest('hex');
@@ -1725,19 +1757,121 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { id, email } = link.rows[0] as { id: string; email: string };
 
       // Issue JWT before committing to avoid burning the magic link if signing fails
-      const { signAccessToken } = await import('./auth/jwt.ts');
       const accessToken = await signAccessToken(email);
+
+      // Create refresh token family
+      const refresh = await createRefreshToken(pool, email);
 
       await client.query('UPDATE auth_magic_link SET used_at = now() WHERE id = $1', [id]);
 
       await client.query('COMMIT');
 
-      const accept = req.headers.accept || '';
-      if (accept.includes('text/html')) {
-        return reply.redirect('/app/work-items');
+      setRefreshCookie(reply, refresh.token);
+      return reply.send({ accessToken });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  });
+
+  // POST /api/auth/refresh — validate refresh cookie, rotate token, return new JWT
+  app.post('/api/auth/refresh', async (req, reply) => {
+    const cookies = req.cookies as Record<string, string | undefined>;
+    const refreshToken = cookies.projects_refresh;
+    if (!refreshToken) {
+      return reply.code(401).send({ error: 'no refresh token' });
+    }
+
+    const pool = createPool();
+    try {
+      // Consume the old refresh token (validates + detects reuse)
+      const { email, familyId } = await consumeRefreshToken(pool, refreshToken);
+
+      // Issue new access token
+      const accessToken = await signAccessToken(email);
+
+      // Rotate: create new refresh token in same family
+      const newRefresh = await createRefreshToken(pool, email, familyId);
+
+      setRefreshCookie(reply, newRefresh.token);
+      return reply.send({ accessToken });
+    } catch (err) {
+      // Token reuse, expired, revoked, or unknown — clear cookie and return 401
+      clearRefreshCookie(reply);
+      return reply.code(401).send({ error: 'invalid refresh token' });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/auth/revoke — revoke refresh family, clear cookie (logout)
+  app.post('/api/auth/revoke', async (req, reply) => {
+    const cookies = req.cookies as Record<string, string | undefined>;
+    const refreshToken = cookies.projects_refresh;
+
+    if (refreshToken) {
+      const pool = createPool();
+      try {
+        // Look up the token to find its family, then revoke
+        const { familyId } = await consumeRefreshToken(pool, refreshToken);
+        await revokeTokenFamily(pool, familyId);
+      } catch {
+        // Token already invalid — ignore, still clear cookie
+      } finally {
+        await pool.end();
+      }
+    }
+
+    clearRefreshCookie(reply);
+    return reply.send({ ok: true });
+  });
+
+  // POST /api/auth/exchange — validate one-time OAuth code, return JWT + refresh cookie
+  app.post('/api/auth/exchange', async (req, reply) => {
+    const body = req.body as { code?: string };
+    const code = body?.code;
+    if (!code) return reply.code(400).send({ error: 'code is required' });
+
+    const codeSha = createHash('sha256').update(code).digest('hex');
+
+    const pool = createPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(
+        `SELECT id::text as id, email
+           FROM auth_one_time_code
+          WHERE code_sha256 = $1
+            AND used_at IS NULL
+            AND expires_at > now()
+          LIMIT 1`,
+        [codeSha],
+      );
+
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(400).send({ error: 'invalid or expired code' });
       }
 
-      return reply.send({ ok: true, accessToken });
+      const { id, email } = result.rows[0] as { id: string; email: string };
+
+      // Issue JWT before committing to avoid burning the code if signing fails
+      const accessToken = await signAccessToken(email);
+
+      // Create refresh token family
+      const refresh = await createRefreshToken(pool, email);
+
+      await client.query('UPDATE auth_one_time_code SET used_at = now() WHERE id = $1', [id]);
+
+      await client.query('COMMIT');
+
+      setRefreshCookie(reply, refresh.token);
+      return reply.send({ accessToken });
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;

@@ -105,6 +105,7 @@ const APPLICATION_TABLES = [
   'work_item',
   'contact',
   'auth_refresh_token',
+  'auth_one_time_code',
   'auth_magic_link',
   'auth_session',
 ] as const;
