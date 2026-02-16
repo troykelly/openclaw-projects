@@ -427,6 +427,123 @@ describe('Shared secret authentication', () => {
     });
   });
 
+  describe('Webhook status endpoints skip bearer auth (Issue #1346)', () => {
+    const originalEnv = { ...process.env };
+
+    beforeEach(() => {
+      clearCachedSecret();
+      process.env.OPENCLAW_PROJECTS_AUTH_SECRET = 'some-secret';
+      delete process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
+    });
+
+    afterEach(async () => {
+      process.env.OPENCLAW_PROJECTS_AUTH_SECRET = originalEnv.OPENCLAW_PROJECTS_AUTH_SECRET;
+      process.env.OPENCLAW_PROJECTS_AUTH_DISABLED = originalEnv.OPENCLAW_PROJECTS_AUTH_DISABLED;
+      clearCachedSecret();
+      await resetRealtimeHub();
+    });
+
+    it('allows POST /api/twilio/sms/status without bearer auth', async () => {
+      const app = buildServer();
+      await app.ready();
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/twilio/sms/status',
+          payload: { MessageSid: 'SM123', MessageStatus: 'delivered' },
+        });
+
+        // Should not be 401 (bearer auth) — may be 503 (Twilio not configured)
+        // or 401 (Twilio signature invalid), but NOT the bearer-token 401
+        // The bearer auth hook returns { error: 'unauthorized' } while
+        // Twilio's own auth returns { error: 'Invalid signature' } or { error: 'Twilio webhook not configured' }
+        const body = response.json();
+        // If it is 401, it should be from Twilio's own auth, not bearer auth
+        if (response.statusCode === 401) {
+          expect(body.error).not.toBe('unauthorized');
+        }
+        expect([401, 503]).toContain(response.statusCode);
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('allows POST /api/postmark/email/status without bearer auth', async () => {
+      const app = buildServer();
+      await app.ready();
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/postmark/email/status',
+          payload: { RecordType: 'Delivery', MessageID: 'msg-123' },
+        });
+
+        // Should not be 401 (bearer auth) — may be 401 (Postmark Basic Auth invalid)
+        // but NOT the bearer-token 401 which returns { error: 'unauthorized' }
+        // Postmark's own auth returns { error: 'Unauthorized' } (capital U)
+        const body = response.json();
+        // If it is 401, it should be from Postmark's own auth, not bearer auth
+        if (response.statusCode === 401) {
+          expect(body.error).not.toBe('unauthorized');
+        }
+      } finally {
+        await app.close();
+      }
+    });
+
+    it('Twilio status webhook still enforces its own signature auth', async () => {
+      // Ensure Twilio signature verification is configured
+      process.env.TWILIO_AUTH_TOKEN = 'test-twilio-token';
+
+      const app = buildServer();
+      await app.ready();
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/twilio/sms/status',
+          payload: { MessageSid: 'SM123', MessageStatus: 'delivered' },
+          // No X-Twilio-Signature header — should be rejected by Twilio's own auth
+        });
+
+        // Twilio's own auth returns 401 with { error: 'Invalid signature' }
+        expect(response.statusCode).toBe(401);
+        expect(response.json().error).toBe('Invalid signature');
+      } finally {
+        delete process.env.TWILIO_AUTH_TOKEN;
+        await app.close();
+      }
+    });
+
+    it('Postmark status webhook still enforces its own Basic Auth', async () => {
+      // Ensure Postmark webhook auth is configured
+      process.env.POSTMARK_WEBHOOK_USERNAME = 'test-user';
+      process.env.POSTMARK_WEBHOOK_PASSWORD = 'test-pass';
+
+      const app = buildServer();
+      await app.ready();
+
+      try {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/postmark/email/status',
+          payload: { RecordType: 'Delivery', MessageID: 'msg-123' },
+          // No Authorization header — should be rejected by Postmark's own auth
+        });
+
+        // Postmark's own auth returns 401 with { error: 'Unauthorized' }
+        expect(response.statusCode).toBe(401);
+        expect(response.json().error).toBe('Unauthorized');
+      } finally {
+        delete process.env.POSTMARK_WEBHOOK_USERNAME;
+        delete process.env.POSTMARK_WEBHOOK_PASSWORD;
+        await app.close();
+      }
+    });
+  });
+
   describe('Development mode - auth disabled', () => {
     const originalEnv = { ...process.env };
 

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cookie from '@fastify/cookie';
 import formbody from '@fastify/formbody';
+import { registerCors } from './cors.ts';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -134,6 +135,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   const sessionCookieName = 'projects_session';
+
+  // CORS must be registered early, before routes (Issue #1327)
+  registerCors(app);
 
   app.register(cookie, {
     // In production, set COOKIE_SECRET to enable signed cookies.
@@ -470,7 +474,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/openapi.json',
     // Webhook endpoints use signature verification instead of bearer tokens
     '/api/twilio/sms',
+    '/api/twilio/sms/status',
     '/api/postmark/inbound',
+    '/api/postmark/email/status',
     '/api/cloudflare/email',
     // WebSocket endpoint uses its own auth via query params or cookies
     '/api/ws',
