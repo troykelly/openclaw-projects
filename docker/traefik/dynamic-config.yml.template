@@ -10,6 +10,10 @@
 #   Client -> Traefik (host network) -> [::1]:APP_HOST_PORT (App/frontend)
 #   Client -> Traefik (host network) -> [::1]:SEAWEEDFS_HOST_PORT (SeaweedFS S3)
 #   Client -> Traefik (host network) -> [::1]:GATEWAY_HOST_PORT (OpenClaw Gateway)
+#
+# API routing:
+#   Frontend calls api.DOMAIN directly (cross-origin with JWT auth).
+#   Requests to DOMAIN/api/* are 307-redirected to api.DOMAIN/api/* as a safety net.
 
 # TLS Options
 tls:
@@ -66,6 +70,15 @@ http:
         replacement: "/app"
         permanent: false
 
+    # Redirect /api/* on root/www domain to api.DOMAIN/api/*
+    # Uses 307 Temporary Redirect to preserve HTTP method and request body.
+    # This is a safety net — frontend should call api.DOMAIN directly.
+    api-redirect:
+      redirectRegex:
+        regex: "^https?://(?:www\\.)?([^/]+)(/api/.*)$"
+        replacement: "https://api.${1}${2}"
+        permanent: false
+
   # Routers
   routers:
     # API router - routes through ModSecurity WAF for full request/response inspection
@@ -82,19 +95,20 @@ http:
         certResolver: letsencrypt
         options: default
 
-    # API path router - routes /api/* on the app domain through ModSecurity WAF
-    # The web UI makes API calls to /api/* on the same origin (DOMAIN), so these
-    # must be forwarded to the API via ModSecurity rather than nginx.
+    # API redirect router - 307 redirects /api/* on the app domain to api.DOMAIN
+    # Frontend calls api.DOMAIN directly; this is a safety net for any requests
+    # that still hit DOMAIN/api/* (bookmarks, external links, etc.).
+    # Uses 307 Temporary Redirect to preserve HTTP method and request body.
     # Priority 100 ensures this matches before the catch-all app-router.
-    api-path-router:
+    api-redirect-router:
       rule: "(Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)) && PathPrefix(`/api`)"
-      service: modsecurity-service
+      service: app-service
       priority: 100
       entryPoints:
         - websecure
       middlewares:
+        - api-redirect
         - security-headers
-        - rate-limit
       tls:
         certResolver: letsencrypt
         options: default

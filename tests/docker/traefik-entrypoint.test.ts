@@ -102,3 +102,108 @@ describe('Traefik entrypoint sed substitution with IPv6', () => {
     expect(output).toContain('http://127.0.0.1:8080');
   });
 });
+
+describe('Traefik dynamic config: api-redirect-router', () => {
+  const defaultEnv = {
+    DOMAIN: 'test.example.com',
+    ACME_EMAIL: 'test@example.com',
+    TRUSTED_IPS: '',
+    DISABLE_HTTP: 'false',
+    SERVICE_HOST: '[::1]',
+    MODSEC_HOST_PORT: '8080',
+    API_HOST_PORT: '3001',
+    APP_HOST_PORT: '8081',
+    GATEWAY_HOST_PORT: '18789',
+    SEAWEEDFS_HOST_PORT: '8333',
+  };
+
+  function getParsedConfig(env = defaultEnv) {
+    const output = runSedSubstitution(env);
+    return parseYaml(output) as {
+      http: {
+        routers: Record<string, { rule: string; service: string; priority?: number; middlewares?: string[] }>;
+        middlewares: Record<string, { redirectRegex?: { regex: string; replacement: string; permanent: boolean } }>;
+      };
+    };
+  }
+
+  it('does NOT have the old api-path-router', () => {
+    const config = getParsedConfig();
+    expect(config.http.routers).not.toHaveProperty('api-path-router');
+  });
+
+  it('has api-redirect-router with priority 100', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-redirect-router'];
+    expect(router).toBeDefined();
+    expect(router.priority).toBe(100);
+  });
+
+  it('api-redirect-router matches DOMAIN and www.DOMAIN with /api prefix', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-redirect-router'];
+    expect(router.rule).toContain('Host(`test.example.com`)');
+    expect(router.rule).toContain('Host(`www.test.example.com`)');
+    expect(router.rule).toContain('PathPrefix(`/api`)');
+  });
+
+  it('api-redirect-router uses api-redirect middleware', () => {
+    const config = getParsedConfig();
+    const router = config.http.routers['api-redirect-router'];
+    expect(router.middlewares).toContain('api-redirect');
+  });
+
+  it('has api-redirect middleware with redirectRegex', () => {
+    const config = getParsedConfig();
+    const mw = config.http.middlewares['api-redirect'];
+    expect(mw).toBeDefined();
+    expect(mw.redirectRegex).toBeDefined();
+  });
+
+  it('api-redirect middleware uses non-permanent redirect (307)', () => {
+    const config = getParsedConfig();
+    const mw = config.http.middlewares['api-redirect'];
+    expect(mw.redirectRegex!.permanent).toBe(false);
+  });
+
+  it('api-redirect regex captures domain and path correctly', () => {
+    const config = getParsedConfig();
+    const { regex, replacement } = config.http.middlewares['api-redirect'].redirectRegex!;
+
+    // The regex should match URLs like https://test.example.com/api/foo
+    const re = new RegExp(regex);
+    const match = re.exec('https://test.example.com/api/work-items');
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe('test.example.com');
+    expect(match![2]).toBe('/api/work-items');
+
+    // Traefik uses Go regex ${N} syntax for capture groups; convert to JS $N for testing
+    const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
+    const redirectUrl = 'https://test.example.com/api/work-items'.replace(re, jsReplacement);
+    expect(redirectUrl).toBe('https://api.test.example.com/api/work-items');
+  });
+
+  it('api-redirect regex handles www prefix', () => {
+    const config = getParsedConfig();
+    const { regex, replacement } = config.http.middlewares['api-redirect'].redirectRegex!;
+
+    const re = new RegExp(regex);
+    const match = re.exec('https://www.test.example.com/api/auth/login');
+    expect(match).not.toBeNull();
+    // www. is consumed by the non-capturing group, so $1 is the base domain
+    expect(match![1]).toBe('test.example.com');
+    expect(match![2]).toBe('/api/auth/login');
+
+    // Traefik uses Go regex ${N} syntax for capture groups; convert to JS $N for testing
+    const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
+    const redirectUrl = 'https://www.test.example.com/api/auth/login'.replace(re, jsReplacement);
+    expect(redirectUrl).toBe('https://api.test.example.com/api/auth/login');
+  });
+
+  it('preserves root-redirect-router and app-router', () => {
+    const config = getParsedConfig();
+    expect(config.http.routers).toHaveProperty('root-redirect-router');
+    expect(config.http.routers).toHaveProperty('app-router');
+    expect(config.http.routers).toHaveProperty('api-router');
+  });
+});
