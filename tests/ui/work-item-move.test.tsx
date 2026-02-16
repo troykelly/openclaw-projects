@@ -7,9 +7,26 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MoveToDialog, useWorkItemMove, canMoveToParent, getValidParentKinds } from '@/ui/components/work-item-move';
 import type { TreeItemKind } from '@/ui/components/tree/types';
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Mock apiClient for API calls
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  ApiRequestError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+import { apiClient } from '@/ui/lib/api-client';
+const mockPatch = vi.mocked(apiClient.patch);
 
 describe('Hierarchy validation', () => {
   describe('getValidParentKinds', () => {
@@ -71,7 +88,7 @@ describe('Hierarchy validation', () => {
 
 describe('MoveToDialog', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockPatch.mockReset();
   });
 
   const mockPotentialParents = [
@@ -172,7 +189,7 @@ describe('MoveToDialog', () => {
 
 describe('useWorkItemMove hook', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockPatch.mockReset();
   });
 
   function TestComponent({ onMoved }: { onMoved?: () => void }) {
@@ -191,25 +208,19 @@ describe('useWorkItemMove hook', () => {
   }
 
   it('calls PATCH API to move item', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockPatch.mockResolvedValueOnce(undefined);
 
     render(<TestComponent />);
 
     fireEvent.click(screen.getByTestId('move-btn'));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/work-items/test-1',
-        expect.objectContaining({
-          method: 'PATCH',
-          body: expect.stringContaining('new-parent-id'),
-        }),
-      );
+      expect(mockPatch).toHaveBeenCalledWith('/api/work-items/test-1', { parent_id: 'new-parent-id' });
     });
   });
 
   it('sets isMoving while API call is in progress', async () => {
-    mockFetch.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 100)));
+    mockPatch.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(undefined), 100)));
 
     render(<TestComponent />);
 
@@ -224,7 +235,7 @@ describe('useWorkItemMove hook', () => {
 
   it('calls onMoved callback after successful move', async () => {
     const onMoved = vi.fn();
-    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockPatch.mockResolvedValueOnce(undefined);
 
     render(<TestComponent onMoved={onMoved} />);
 

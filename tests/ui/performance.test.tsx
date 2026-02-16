@@ -224,6 +224,13 @@ describe('useThrottle', () => {
 // ---------------------------------------------------------------------------
 // Routes use React.lazy
 // ---------------------------------------------------------------------------
+/** Find the root layout route (the one with children, i.e. the AppLayout). */
+function findLayoutRoute(routes: RouteObject[]): RouteObject {
+  const layout = routes.find((r) => r.children && r.children.length > 0);
+  if (!layout) throw new Error('No layout route with children found');
+  return layout;
+}
+
 describe('Routes use React.lazy for code splitting', () => {
   it('routes.tsx exports a route configuration array', async () => {
     const mod = await import('@/ui/routes.js');
@@ -233,7 +240,7 @@ describe('Routes use React.lazy for code splitting', () => {
 
   it('all child routes have element properties (lazy-wrapped)', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     expect(root).toBeDefined();
     expect(root.children).toBeDefined();
     expect(root.children!.length).toBeGreaterThan(0);
@@ -246,7 +253,7 @@ describe('Routes use React.lazy for code splitting', () => {
 
   it('page routes are wrapped in Suspense with a fallback', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     // Check a non-redirect child (e.g. activity route)
     const activityRoute = root.children!.find((r) => r.path === 'activity');
     expect(activityRoute).toBeDefined();
@@ -258,7 +265,7 @@ describe('Routes use React.lazy for code splitting', () => {
 
   it('Suspense fallback renders a page loader skeleton', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     const activityRoute = root.children!.find((r) => r.path === 'activity');
     const el = activityRoute!.element as React.ReactElement;
     // The fallback prop should be a JSX element
@@ -532,7 +539,7 @@ describe('RouterSidebar uses PrefetchLink for navigation', () => {
 describe('Code splitting verification', () => {
   it('routes are code-split with separate lazy imports', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     const childRoutes = root.children!.filter((r) => r.path && r.path !== '*');
     // There should be multiple code-split routes
     expect(childRoutes.length).toBeGreaterThanOrEqual(8);
@@ -540,7 +547,7 @@ describe('Code splitting verification', () => {
 
   it('each page route path has a Suspense-wrapped element', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     const pageRoutes = root.children!.filter((r) => r.path && r.path !== '*' && !r.index);
 
     for (const route of pageRoutes) {
@@ -569,7 +576,7 @@ describe('Code splitting verification', () => {
 describe('Suspense fallback rendering', () => {
   it('PageLoader displays a spinning indicator', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     // Get the root layout element (also Suspense-wrapped)
     const rootEl = root.element as React.ReactElement;
     const fallback = rootEl.props.fallback as React.ReactElement;
@@ -583,7 +590,7 @@ describe('Suspense fallback rendering', () => {
 
   it('PageLoader has proper accessible loading structure', async () => {
     const mod = await import('@/ui/routes.js');
-    const root = mod.routes[0];
+    const root = findLayoutRoute(mod.routes);
     const activityRoute = root.children!.find((r) => r.path === 'activity');
     const el = activityRoute!.element as React.ReactElement;
     const fallback = el.props.fallback as React.ReactElement;

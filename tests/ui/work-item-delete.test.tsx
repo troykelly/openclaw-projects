@@ -6,13 +6,32 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { DeleteConfirmDialog, UndoToast, useWorkItemDelete } from '@/ui/components/work-item-delete';
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Mock apiClient for API calls
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  ApiRequestError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+import { apiClient } from '@/ui/lib/api-client';
+const mockDelete = vi.mocked(apiClient.delete);
+const mockPost = vi.mocked(apiClient.post);
 
 describe('DeleteConfirmDialog', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockDelete.mockReset();
+    mockPost.mockReset();
   });
 
   const defaultProps = {
@@ -143,7 +162,8 @@ describe('UndoToast', () => {
 
 describe('useWorkItemDelete hook', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockDelete.mockReset();
+    mockPost.mockReset();
   });
 
   // Test component to use the hook
@@ -174,14 +194,14 @@ describe('useWorkItemDelete hook', () => {
   }
 
   it('calls delete API and shows undo state', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockDelete.mockResolvedValueOnce(undefined);
 
     render(<TestComponent />);
 
     fireEvent.click(screen.getByTestId('delete-btn'));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/work-items/test-1', expect.objectContaining({ method: 'DELETE' }));
+      expect(mockDelete).toHaveBeenCalledWith('/api/work-items/test-1');
     });
 
     await waitFor(() => {
@@ -190,12 +210,8 @@ describe('useWorkItemDelete hook', () => {
   });
 
   it('calls restore API on undo', async () => {
-    mockFetch
-      .mockResolvedValueOnce({ ok: true }) // delete
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ restored: true }),
-      }); // restore
+    mockDelete.mockResolvedValueOnce(undefined); // delete
+    mockPost.mockResolvedValueOnce({ restored: true }); // restore
 
     render(<TestComponent />);
 
@@ -208,12 +224,12 @@ describe('useWorkItemDelete hook', () => {
     fireEvent.click(screen.getByText('Undo'));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/work-items/test-1/restore', expect.objectContaining({ method: 'POST' }));
+      expect(mockPost).toHaveBeenCalledWith('/api/work-items/test-1/restore', {});
     });
   });
 
   it('sets isDeleting while API call is in progress', async () => {
-    mockFetch.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 100)));
+    mockDelete.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(undefined), 100)));
 
     render(<TestComponent />);
 
@@ -228,7 +244,7 @@ describe('useWorkItemDelete hook', () => {
 
   it('calls onDeleted callback after successful delete', async () => {
     const onDeleted = vi.fn();
-    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockDelete.mockResolvedValueOnce(undefined);
 
     render(<TestComponent onDeleted={onDeleted} />);
 
