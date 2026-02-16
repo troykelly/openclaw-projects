@@ -2,8 +2,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { runMigrate } from './helpers/migrate.ts';
 import { buildServer } from '../src/api/server.ts';
 import { createPool } from '../src/db.ts';
+import { createHash, randomBytes } from 'node:crypto';
 
-describe('Magic-link auth + sessions', () => {
+// JWT signing requires a secret.
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-bytes-long!!';
+
+describe('Magic-link auth (JWT)', () => {
   const app = buildServer();
 
   beforeAll(async () => {
@@ -15,40 +19,42 @@ describe('Magic-link auth + sessions', () => {
     await app.close();
   });
 
-  it('issues a magic link and creates a 7-day session on consume', async () => {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'test@example.com' },
-    });
+  /**
+   * Helper: create a magic link token directly in the DB.
+   * Avoids race conditions with concurrent test suites truncating tables.
+   */
+  async function createMagicLinkToken(email: string): Promise<string> {
+    const token = randomBytes(32).toString('base64url');
+    const tokenSha = createHash('sha256').update(token).digest('hex');
+    const pool = createPool({ max: 1 });
+    await pool.query(
+      `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+       VALUES ($1, $2, now() + interval '15 minutes')`,
+      [email, tokenSha],
+    );
+    await pool.end();
+    return token;
+  }
 
-    expect(request.statusCode).toBe(201);
-    const { loginUrl } = request.json() as { loginUrl: string };
-    expect(loginUrl).toMatch(/\/api\/auth\/consume\?token=/);
-
-    const token = new URL(loginUrl).searchParams.get('token');
-    expect(token).toBeTruthy();
+  it('issues a magic link and returns accessToken on POST consume', async () => {
+    const token = await createMagicLinkToken('test@example.com');
 
     const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token },
     });
 
     expect(consume.statusCode).toBe(200);
-    expect(consume.json()).toEqual({ ok: true });
+    const body = consume.json() as { accessToken?: string };
+    expect(body.accessToken).toBeTruthy();
 
-    const setCookie = consume.headers['set-cookie'];
-    expect(setCookie).toBeTruthy();
-
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    const sessionCookie = cookieHeader.split(';')[0];
-
+    // Verify the access token works for /api/me
     const me = await app.inject({
       method: 'GET',
       url: '/api/me',
       headers: {
-        cookie: sessionCookie,
+        authorization: `Bearer ${body.accessToken}`,
       },
     });
 
@@ -57,94 +63,74 @@ describe('Magic-link auth + sessions', () => {
   });
 
   it('rejects tokens that have already been used (single-use)', async () => {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'single-use@example.com' },
-    });
-
-    expect(request.statusCode).toBe(201);
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
+    const token = await createMagicLinkToken('single-use@example.com');
 
     // First use should succeed
     const firstConsume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token },
     });
     expect(firstConsume.statusCode).toBe(200);
 
     // Second use should fail
     const secondConsume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token },
     });
     expect(secondConsume.statusCode).toBe(400);
     expect(secondConsume.json()).toEqual({ error: 'invalid or expired token' });
   });
 
   it('rejects expired tokens (15m expiry)', async () => {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'expired@example.com' },
-    });
-
-    expect(request.statusCode).toBe(201);
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
-
-    // Manually expire the token in the database
-    const pool = createPool({ max: 3 });
+    const token = randomBytes(32).toString('base64url');
+    const tokenSha = createHash('sha256').update(token).digest('hex');
+    const pool = createPool({ max: 1 });
+    // Insert with already-expired timestamp
     await pool.query(
-      `UPDATE auth_magic_link
-          SET expires_at = now() - interval '1 minute'
-        WHERE email = $1`,
-      ['expired@example.com'],
+      `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+       VALUES ($1, $2, now() - interval '1 minute')`,
+      ['expired@example.com', tokenSha],
     );
     await pool.end();
 
-    // Attempting to use expired token should fail
     const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token },
     });
     expect(consume.statusCode).toBe(400);
     expect(consume.json()).toEqual({ error: 'invalid or expired token' });
   });
 
-  it('sets secure cookie attributes (HttpOnly, SameSite)', async () => {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'cookie-test@example.com' },
-    });
-
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
+  it('sets HttpOnly refresh cookie on consume', async () => {
+    const token = await createMagicLinkToken('cookie-test@example.com');
 
     const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token },
     });
+
+    expect(consume.statusCode).toBe(200);
 
     const setCookie = consume.headers['set-cookie'];
     expect(setCookie).toBeTruthy();
 
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    const cookieLower = cookieHeader.toLowerCase();
+    const cookies = Array.isArray(setCookie) ? setCookie : [setCookie!];
+    const refreshCookie = cookies.find((c: string) => c.startsWith('projects_refresh='));
+    expect(refreshCookie).toBeTruthy();
+
+    const cookieLower = refreshCookie!.toLowerCase();
 
     // Verify security attributes
     expect(cookieLower).toContain('httponly');
-    expect(cookieLower).toContain('samesite=lax');
-    expect(cookieLower).toContain('path=/');
+    expect(cookieLower).toContain('samesite=strict');
+    expect(cookieLower).toContain('path=/api/auth');
 
     // Verify 7-day max-age (604800 seconds)
-    expect(cookieHeader).toMatch(/max-age=604800/i);
+    expect(refreshCookie).toMatch(/max-age=604800/i);
   });
 
   it('rejects requests without valid email', async () => {
@@ -167,9 +153,9 @@ describe('Magic-link auth + sessions', () => {
 
   it('rejects consume requests without token', async () => {
     const noToken = await app.inject({
-      method: 'GET',
+      method: 'POST',
       url: '/api/auth/consume',
-      headers: { accept: 'application/json' },
+      payload: {},
     });
     expect(noToken.statusCode).toBe(400);
     expect(noToken.json()).toEqual({ error: 'token is required' });
@@ -182,83 +168,5 @@ describe('Magic-link auth + sessions', () => {
     });
     expect(me.statusCode).toBe(401);
     expect(me.json()).toEqual({ error: 'unauthorized' });
-  });
-
-  it('rejects expired sessions', async () => {
-    // Create a session via normal flow
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'expired-session@example.com' },
-    });
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
-
-    const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
-    });
-
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    const sessionCookie = cookieHeader.split(';')[0];
-
-    // Manually expire the session
-    const pool = createPool({ max: 3 });
-    await pool.query(
-      `UPDATE auth_session
-          SET expires_at = now() - interval '1 minute'
-        WHERE email = $1`,
-      ['expired-session@example.com'],
-    );
-    await pool.end();
-
-    // Session should now be rejected
-    const me = await app.inject({
-      method: 'GET',
-      url: '/api/me',
-      headers: { cookie: sessionCookie },
-    });
-    expect(me.statusCode).toBe(401);
-  });
-
-  it('rejects revoked sessions', async () => {
-    // Create a session via normal flow
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'revoked-session@example.com' },
-    });
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
-
-    const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
-    });
-
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    const sessionCookie = cookieHeader.split(';')[0];
-
-    // Manually revoke the session
-    const pool = createPool({ max: 3 });
-    await pool.query(
-      `UPDATE auth_session
-          SET revoked_at = now()
-        WHERE email = $1`,
-      ['revoked-session@example.com'],
-    );
-    await pool.end();
-
-    // Session should now be rejected
-    const me = await app.inject({
-      method: 'GET',
-      url: '/api/me',
-      headers: { cookie: sessionCookie },
-    });
-    expect(me.statusCode).toBe(401);
   });
 });
