@@ -126,6 +126,7 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       COOKIE_SECRET: ${COOKIE_SECRET:?Set COOKIE_SECRET in .env or run ./scripts/setup.sh}
       JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
       # Database
       PGHOST: db
       PGPORT: 5432
@@ -220,6 +221,9 @@ services:
       PGUSER: ${POSTGRES_USER:-openclaw}
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       PGDATABASE: ${POSTGRES_DB:-openclaw}
+      # JWT signing (required when worker verifies tokens)
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET_PREVIOUS: ${JWT_SECRET_PREVIOUS:-}
       # Optional — embedding (semantic search)
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
