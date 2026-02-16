@@ -160,9 +160,10 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     expect(mw.redirectRegex).toBeDefined();
   });
 
-  it('api-redirect middleware uses non-permanent redirect (307)', () => {
+  it('api-redirect middleware uses non-permanent redirect (302/307)', () => {
     const config = getParsedConfig();
     const mw = config.http.middlewares['api-redirect'];
+    // Traefik uses 302 for GET, 307 for non-GET when permanent=false
     expect(mw.redirectRegex!.permanent).toBe(false);
   });
 
@@ -198,6 +199,21 @@ describe('Traefik dynamic config: api-redirect-router', () => {
     const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
     const redirectUrl = 'https://www.test.example.com/api/auth/login'.replace(re, jsReplacement);
     expect(redirectUrl).toBe('https://api.test.example.com/api/auth/login');
+  });
+
+  it('api-redirect regex handles bare /api path without trailing slash', () => {
+    const config = getParsedConfig();
+    const { regex, replacement } = config.http.middlewares['api-redirect'].redirectRegex!;
+
+    const re = new RegExp(regex);
+    const match = re.exec('https://test.example.com/api');
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe('test.example.com');
+    expect(match![2]).toBe('/api');
+
+    const jsReplacement = replacement.replace(/\$\{(\d+)\}/g, '$$$1');
+    const redirectUrl = 'https://test.example.com/api'.replace(re, jsReplacement);
+    expect(redirectUrl).toBe('https://api.test.example.com/api');
   });
 
   it('preserves root-redirect-router and app-router', () => {

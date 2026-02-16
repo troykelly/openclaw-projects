@@ -13,7 +13,8 @@
 #
 # API routing:
 #   Frontend calls api.DOMAIN directly (cross-origin with JWT auth).
-#   Requests to DOMAIN/api/* are 307-redirected to api.DOMAIN/api/* as a safety net.
+#   Requests to DOMAIN/api/* are redirected to api.DOMAIN/api/* as a safety net
+#   (302 for GET, 307 for non-GET to preserve method and body).
 
 # TLS Options
 tls:
@@ -71,11 +72,11 @@ http:
         permanent: false
 
     # Redirect /api/* on root/www domain to api.DOMAIN/api/*
-    # Uses 307 Temporary Redirect to preserve HTTP method and request body.
+    # Traefik uses 302 for GET, 307 for non-GET methods (preserves method+body).
     # This is a safety net — frontend should call api.DOMAIN directly.
     api-redirect:
       redirectRegex:
-        regex: "^https?://(?:www\\.)?([^/]+)(/api/.*)$"
+        regex: "^https?://(?:www\\.)?([^/]+)(/api(?:/.*)?)$"
         replacement: "https://api.${1}${2}"
         permanent: false
 
@@ -95,10 +96,10 @@ http:
         certResolver: letsencrypt
         options: default
 
-    # API redirect router - 307 redirects /api/* on the app domain to api.DOMAIN
+    # API redirect router - redirects /api/* on the app domain to api.DOMAIN
     # Frontend calls api.DOMAIN directly; this is a safety net for any requests
     # that still hit DOMAIN/api/* (bookmarks, external links, etc.).
-    # Uses 307 Temporary Redirect to preserve HTTP method and request body.
+    # Traefik uses 302 for GET, 307 for non-GET (preserves method and body).
     # Priority 100 ensures this matches before the catch-all app-router.
     api-redirect-router:
       rule: "(Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)) && PathPrefix(`/api`)"
