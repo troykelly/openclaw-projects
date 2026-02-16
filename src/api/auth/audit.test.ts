@@ -66,35 +66,40 @@ describe('Auth audit logging', () => {
       };
     });
 
-    it('should insert a row into audit_log with hashed email', async () => {
+    it('should insert a row into audit_log using existing schema', async () => {
       await logAuthEvent(mockPool as unknown as import('pg').Pool, 'auth.magic_link_requested', '192.168.1.1', 'user@example.com');
 
       expect(mockPool.query).toHaveBeenCalledOnce();
       const [sql, params] = mockPool.query.mock.calls[0];
 
       expect(sql).toContain('INSERT INTO audit_log');
-      expect(params[0]).toBe('auth.magic_link_requested');
-      expect(params[1]).toBe('192.168.1.1');
-      // Email should be hashed (64-char hex)
-      expect(params[2]).toHaveLength(64);
-      expect(params[2]).toMatch(/^[0-9a-f]+$/);
-      // Metadata should contain masked email
-      const metadata = JSON.parse(params[3]);
+      expect(sql).toContain('actor_type');
+      expect(sql).toContain("'system'");
+      expect(sql).toContain("'auth'");
+      // $1 = actor_id (hashed email)
+      expect(params[0]).toHaveLength(64);
+      expect(params[0]).toMatch(/^[0-9a-f]+$/);
+      // $2 = entity_type (event name)
+      expect(params[1]).toBe('auth.magic_link_requested');
+      // $3 = metadata JSON
+      const metadata = JSON.parse(params[2]);
       expect(metadata.masked_email).toBe('u***@example.com');
+      expect(metadata.ip).toBe('192.168.1.1');
     });
 
     it('should handle null email', async () => {
       await logAuthEvent(mockPool as unknown as import('pg').Pool, 'auth.token_revoked', '10.0.0.1', null);
 
       const [, params] = mockPool.query.mock.calls[0];
-      expect(params[2]).toBeNull(); // actor_email_hash
+      expect(params[0]).toBeNull(); // actor_id
     });
 
     it('should handle null IP', async () => {
       await logAuthEvent(mockPool as unknown as import('pg').Pool, 'auth.token_refresh', null, 'user@example.com');
 
       const [, params] = mockPool.query.mock.calls[0];
-      expect(params[1]).toBeNull(); // actor_ip
+      const metadata = JSON.parse(params[2]);
+      expect(metadata.ip).toBeUndefined();
     });
 
     it('should include additional metadata', async () => {
@@ -104,7 +109,7 @@ describe('Auth audit logging', () => {
       });
 
       const [, params] = mockPool.query.mock.calls[0];
-      const metadata = JSON.parse(params[3]);
+      const metadata = JSON.parse(params[2]);
       expect(metadata.success).toBe(true);
       expect(metadata.family_id).toBe('abc-123');
       expect(metadata.masked_email).toBe('u***@example.com');
@@ -116,7 +121,7 @@ describe('Auth audit logging', () => {
       });
 
       const [, params] = mockPool.query.mock.calls[0];
-      const metadata = JSON.parse(params[3]);
+      const metadata = JSON.parse(params[2]);
       expect(metadata.masked_email).toBe('custom-mask');
     });
 
@@ -133,8 +138,14 @@ describe('Auth audit logging', () => {
         mockPool.query.mockClear();
         await logAuthEvent(mockPool as unknown as import('pg').Pool, event, '10.0.0.1', 'user@example.com');
         const [, params] = mockPool.query.mock.calls[0];
-        expect(params[0]).toBe(event);
+        expect(params[1]).toBe(event);
       }
+    });
+
+    it('should not throw when pool.query fails (best-effort)', async () => {
+      mockPool.query.mockRejectedValue(new Error('connection refused'));
+      // Should not throw
+      await logAuthEvent(mockPool as unknown as import('pg').Pool, 'auth.token_consumed', '10.0.0.1', 'user@example.com');
     });
   });
 });

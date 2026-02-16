@@ -2,7 +2,10 @@
  * Auth event audit logging.
  * Issue #1339, Epic #1322 (JWT Auth).
  *
- * Logs authentication events to the `audit_log` table.
+ * Logs authentication events to the existing `audit_log` table (migration 034).
+ * Uses actor_type='system', action='auth', entity_type for the event name,
+ * and metadata for IP/email/family_id.
+ *
  * Never stores raw tokens, secrets, or full email addresses — only
  * SHA-256 hashed emails and masked forms.
  *
@@ -48,26 +51,36 @@ export function maskEmail(email: string): string {
 }
 
 /**
- * Writes an auth audit event to the `audit_log` table.
+ * Writes an auth audit event to the existing `audit_log` table (migration 034).
+ *
+ * Best-effort: catches and logs errors to avoid breaking auth flows.
  *
  * @param pool - Postgres connection pool
  * @param event - The audit event type
  * @param ip - The client IP address (may be null for server-initiated events)
- * @param email - The user's email address (hashed for storage, masked in metadata)
+ * @param email - The user's email address (hashed for actor_id, masked in metadata)
  * @param metadata - Additional event-specific metadata
  */
 export async function logAuthEvent(pool: Pool, event: AuthAuditEvent, ip: string | null, email: string | null, metadata: AuditMetadata = {}): Promise<void> {
-  const emailHash = email ? hashEmail(email) : null;
+  const actorId = email ? hashEmail(email) : null;
 
-  // Include masked email in metadata for human readability
-  const fullMetadata: AuditMetadata = { ...metadata };
+  // Include masked email and IP in metadata
+  const fullMetadata: Record<string, unknown> = { ...metadata };
   if (email && !fullMetadata.masked_email) {
     fullMetadata.masked_email = maskEmail(email);
   }
+  if (ip) {
+    fullMetadata.ip = ip;
+  }
 
-  await pool.query(
-    `INSERT INTO audit_log (event_type, actor_ip, actor_email_hash, metadata)
-     VALUES ($1, $2, $3, $4)`,
-    [event, ip, emailHash, JSON.stringify(fullMetadata)],
-  );
+  try {
+    await pool.query(
+      `INSERT INTO audit_log (actor_type, actor_id, action, entity_type, metadata)
+       VALUES ('system', $1, 'auth', $2, $3)`,
+      [actorId, event, JSON.stringify(fullMetadata)],
+    );
+  } catch (err) {
+    // Best-effort: audit failures must not break auth flows
+    console.error('[Auth Audit] Failed to write audit event:', event, err instanceof Error ? err.message : err);
+  }
 }
