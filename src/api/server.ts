@@ -113,6 +113,25 @@ import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './we
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
 
+/**
+ * Derive the API server URL from PUBLIC_BASE_URL.
+ * For localhost/127.0.0.1, the API is same-origin (return as-is).
+ * For production domains, the API lives at api.{hostname}.
+ */
+function deriveApiUrl(publicBaseUrl: string): string {
+  try {
+    const parsed = new URL(publicBaseUrl);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      return publicBaseUrl;
+    }
+    parsed.hostname = `api.${parsed.hostname}`;
+    // Remove trailing slash for consistency
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return publicBaseUrl;
+  }
+}
+
 export type ProjectsApiOptions = {
   logger?: boolean;
 };
@@ -1058,7 +1077,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     },
     servers: [
       {
-        url: process.env.PUBLIC_BASE_URL || 'http://localhost:3000',
+        url: deriveApiUrl(process.env.PUBLIC_BASE_URL || 'http://localhost:3000'),
         description: 'API Server',
       },
     ],
