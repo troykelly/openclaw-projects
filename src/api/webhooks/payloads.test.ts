@@ -13,7 +13,7 @@ import {
 describe('webhook payloads — agentId', () => {
   beforeEach(() => {
     vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://gateway.test');
-    vi.stubEnv('OPENCLAW_HOOK_TOKEN', 'test-token');
+    vi.stubEnv('OPENCLAW_API_TOKEN', 'test-token');
   });
 
   afterEach(() => {

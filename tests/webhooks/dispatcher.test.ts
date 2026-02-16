@@ -219,7 +219,7 @@ describe('Webhook Dispatcher', () => {
   describe('dispatchWebhook', () => {
     it('returns error when OpenClaw not configured', async () => {
       delete process.env.OPENCLAW_GATEWAY_URL;
-      delete process.env.OPENCLAW_HOOK_TOKEN;
+      delete process.env.OPENCLAW_API_TOKEN;
 
       const entry: WebhookOutboxEntry = {
         id: 'test-id',
