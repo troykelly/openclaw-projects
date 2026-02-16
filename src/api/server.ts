@@ -1745,7 +1745,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE token_sha256 = $1
             AND used_at IS NULL
             AND expires_at > now()
-          LIMIT 1`,
+          LIMIT 1
+            FOR UPDATE SKIP LOCKED`,
         [tokenSha],
       );
 
@@ -1788,13 +1789,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Consume the old refresh token (validates + detects reuse)
-      const { email, familyId } = await consumeRefreshToken(pool, refreshToken);
+      const { email, familyId, tokenId: oldTokenId } = await consumeRefreshToken(pool, refreshToken);
 
       // Issue new access token
       const accessToken = await signAccessToken(email);
 
       // Rotate: create new refresh token in same family
       const newRefresh = await createRefreshToken(pool, email, familyId);
+
+      // Link old token to new one (prevents grace-window replay from minting multiple descendants)
+      await pool.query(
+        `UPDATE auth_refresh_token SET replaced_by = $1 WHERE id = $2`,
+        [newRefresh.id, oldTokenId],
+      );
 
       setRefreshCookie(reply, newRefresh.token);
       return reply.send({ accessToken });
@@ -1849,7 +1856,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE code_sha256 = $1
             AND used_at IS NULL
             AND expires_at > now()
-          LIMIT 1`,
+          LIMIT 1
+            FOR UPDATE SKIP LOCKED`,
         [codeSha],
       );
 
