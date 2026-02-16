@@ -514,6 +514,7 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       PGDATABASE: ${POSTGRES_DB:-openclaw}
       OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-}
+      OPENCLAW_HOOK_TOKEN: ${OPENCLAW_HOOK_TOKEN:-}   # Gateway hooks auth (separate from API M2M token)
       OPENCLAW_API_TOKEN: ${OPENCLAW_API_TOKEN:-}
       # JWT signing (required when worker verifies tokens)
       JWT_SECRET: ${JWT_SECRET:-}

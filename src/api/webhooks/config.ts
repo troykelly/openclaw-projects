@@ -1,6 +1,7 @@
 /**
  * Configuration for OpenClaw webhook dispatch.
  * Part of Issue #201. Updated in Issue #1349 to use OPENCLAW_API_TOKEN.
+ * Updated in Issue #1410 to prefer OPENCLAW_HOOK_TOKEN for gateway dispatch.
  */
 
 import type { OpenClawConfig } from './types.ts';
@@ -11,8 +12,8 @@ let cachedConfig: OpenClawConfig | null = null;
  * Load OpenClaw configuration from environment variables.
  * Returns null if required variables are not set.
  *
- * Uses OPENCLAW_API_TOKEN (the shared M2M JWT) for outbound hook authentication.
- * Falls back to legacy OPENCLAW_HOOK_TOKEN for backwards compatibility.
+ * Uses OPENCLAW_HOOK_TOKEN for outbound hook authentication to the gateway.
+ * Falls back to OPENCLAW_API_TOKEN for backwards compatibility.
  */
 export function getOpenClawConfig(): OpenClawConfig | null {
   if (cachedConfig) {
@@ -20,7 +21,7 @@ export function getOpenClawConfig(): OpenClawConfig | null {
   }
 
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
-  const apiToken = process.env.OPENCLAW_API_TOKEN || process.env.OPENCLAW_HOOK_TOKEN;
+  const apiToken = process.env.OPENCLAW_HOOK_TOKEN || process.env.OPENCLAW_API_TOKEN;
 
   if (!gatewayUrl || !apiToken) {
     return null;
@@ -55,7 +56,7 @@ export function clearConfigCache(): void {
  *
  * Checks:
  * - OPENCLAW_GATEWAY_URL is present and parseable as a URL
- * - OPENCLAW_API_TOKEN (or legacy OPENCLAW_HOOK_TOKEN) is present, non-empty, not a 1Password reference
+ * - OPENCLAW_HOOK_TOKEN (or OPENCLAW_API_TOKEN) is present, non-empty, not a 1Password reference
  *
  * Never logs actual token values — only presence/absence.
  */
@@ -73,15 +74,15 @@ export function validateOpenClawConfig(): { valid: boolean; errors: string[] } {
     }
   }
 
-  const apiToken = process.env.OPENCLAW_API_TOKEN || process.env.OPENCLAW_HOOK_TOKEN;
+  const apiToken = process.env.OPENCLAW_HOOK_TOKEN || process.env.OPENCLAW_API_TOKEN;
   if (!apiToken) {
-    errors.push('OPENCLAW_API_TOKEN is not set');
+    errors.push('OPENCLAW_HOOK_TOKEN (or OPENCLAW_API_TOKEN) is not set');
   } else if (apiToken.trim().length === 0) {
-    errors.push('OPENCLAW_API_TOKEN is empty or whitespace');
+    errors.push('OPENCLAW_HOOK_TOKEN is empty or whitespace');
   } else if (apiToken.startsWith('op://')) {
-    errors.push('OPENCLAW_API_TOKEN appears to be an unresolved 1Password reference (starts with op://)');
+    errors.push('OPENCLAW_HOOK_TOKEN appears to be an unresolved 1Password reference (starts with op://)');
   } else if (apiToken.includes("[use 'op item get")) {
-    errors.push('OPENCLAW_API_TOKEN contains unresolved 1Password CLI placeholder');
+    errors.push('OPENCLAW_HOOK_TOKEN contains unresolved 1Password CLI placeholder');
   }
 
   return { valid: errors.length === 0, errors };
