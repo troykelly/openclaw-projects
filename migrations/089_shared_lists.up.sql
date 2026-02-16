@@ -16,6 +16,7 @@ CREATE OR REPLACE FUNCTION update_list_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS list_updated_at_trigger ON list;
 CREATE TRIGGER list_updated_at_trigger
   BEFORE UPDATE ON list
   FOR EACH ROW EXECUTE FUNCTION update_list_updated_at();
@@ -45,6 +46,7 @@ CREATE OR REPLACE FUNCTION update_list_item_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS list_item_updated_at_trigger ON list_item;
 CREATE TRIGGER list_item_updated_at_trigger
   BEFORE UPDATE ON list_item
   FOR EACH ROW EXECUTE FUNCTION update_list_item_updated_at();
