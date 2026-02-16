@@ -248,15 +248,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   /**
    * Build the Content-Security-Policy header value for HTML responses.
    * The nonce authorises specific inline script and style tags.
+   *
+   * connect-src includes the API subdomain (api.{host}) when PUBLIC_BASE_URL
+   * is set to a non-localhost value, since Traefik redirects /api/* to
+   * api.{DOMAIN} via 307 (Issue #1329).
    */
   function buildCspHeader(nonce: string): string {
+    const connectSources = ["'self'"];
+    const publicBase = process.env.PUBLIC_BASE_URL;
+    if (publicBase) {
+      try {
+        const { hostname, protocol } = new URL(publicBase);
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+          connectSources.push(`${protocol}//api.${hostname}`);
+          connectSources.push(`wss://api.${hostname}`);
+        }
+      } catch { /* ignore malformed PUBLIC_BASE_URL */ }
+    }
     return [
       "default-src 'self'",
       `script-src 'self' 'nonce-${nonce}'`,
       `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
       "img-src 'self' data: https:",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self'",
+      `connect-src ${connectSources.join(' ')}`,
       "object-src 'none'",
       "frame-ancestors 'none'",
       "base-uri 'self'",

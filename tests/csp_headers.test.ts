@@ -117,6 +117,39 @@ describe('CSP headers', () => {
     });
   });
 
+  describe('connect-src includes API subdomain when PUBLIC_BASE_URL is set', () => {
+    const savedEnv: Record<string, string | undefined> = {};
+    let app: ReturnType<typeof buildServer>;
+
+    beforeAll(async () => {
+      savedEnv.PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL;
+      savedEnv.OPENCLAW_PROJECTS_AUTH_DISABLED = process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
+      process.env.PUBLIC_BASE_URL = 'https://myapp.example.com';
+      process.env.OPENCLAW_PROJECTS_AUTH_DISABLED = 'true';
+
+      app = buildServer();
+      await app.ready();
+    });
+
+    afterAll(async () => {
+      await app.close();
+      for (const key of Object.keys(savedEnv)) {
+        if (savedEnv[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = savedEnv[key];
+        }
+      }
+    });
+
+    it('adds https and wss API origins to connect-src', async () => {
+      const res = await app.inject({ method: 'GET', url: '/' });
+      const csp = getCsp(res.headers);
+      expect(csp).toContain('https://api.myapp.example.com');
+      expect(csp).toContain('wss://api.myapp.example.com');
+    });
+  });
+
   describe('authenticated pages (E2E bypass)', () => {
     const savedEnv: Record<string, string | undefined> = {};
     let app: ReturnType<typeof buildServer>;
