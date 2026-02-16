@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
+import { getAuthHeaders } from './helpers/auth.ts';
 
 /**
  * Issue #59: bootstrap /app/work-items list data into the HTML so server-side tests can assert on it.
@@ -26,27 +27,6 @@ describe('/app work items list', () => {
     await pool.end();
   });
 
-  async function getSessionCookie(): Promise<string> {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'app-list@example.com' },
-    });
-
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
-
-    const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
-    });
-
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    return cookieHeader.split(';')[0];
-  }
-
   it('shows login UI when not authenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/app/work-items' });
     expect(res.statusCode).toBe(200);
@@ -60,12 +40,10 @@ describe('/app work items list', () => {
       payload: { title: 'List Item' },
     });
 
-    const cookie = await getSessionCookie();
-
     const res = await app.inject({
       method: 'GET',
       url: '/app/work-items',
-      headers: { cookie },
+      headers: await getAuthHeaders('app-list@example.com'),
     });
 
     expect(res.statusCode).toBe(200);

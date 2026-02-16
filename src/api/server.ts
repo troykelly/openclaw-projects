@@ -420,7 +420,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   async function requireDashboardSession(req: any, reply: any): Promise<string | null> {
     const email = await getSessionEmail(req);
     if (email) return email;
-    reply.code(401).send({ error: 'unauthorized' });
+    // Browser-facing /app/* routes show a login page instead of 401 JSON
+    const nonce = generateCspNonce();
+    reply.code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .header('content-security-policy', buildCspHeader(nonce))
+      .send(renderLandingPage(null, nonce));
     return null;
   }
 

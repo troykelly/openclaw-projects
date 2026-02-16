@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
+import { getAuthHeaders } from './helpers/auth.ts';
 
 /**
  * Tests for sidebar navigation wiring (issue #129).
@@ -16,27 +17,7 @@ import { buildServer } from '../src/api/server.ts';
 describe('Sidebar Navigation', () => {
   const app = buildServer();
   let pool: Pool;
-  let sessionCookie: string;
-
-  async function getSessionCookie(): Promise<string> {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'nav-test@example.com' },
-    });
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
-
-    const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
-    });
-
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    return cookieHeader.split(';')[0];
-  }
+  let authHeaders: Record<string, string>;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -46,8 +27,7 @@ describe('Sidebar Navigation', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
-    // Get fresh session cookie after each truncate
-    sessionCookie = await getSessionCookie();
+    authHeaders = await getAuthHeaders('nav-test@example.com');
   });
 
   afterAll(async () => {
@@ -60,7 +40,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/activity',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);
@@ -72,7 +52,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/work-items',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);
@@ -84,7 +64,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/timeline',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);
@@ -96,7 +76,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/contacts',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);
@@ -110,7 +90,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/activity',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);
@@ -123,7 +103,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/timeline',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);
@@ -136,7 +116,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/contacts',
-        headers: { cookie: sessionCookie },
+        headers: authHeaders,
       });
 
       expect(res.statusCode).toBe(200);

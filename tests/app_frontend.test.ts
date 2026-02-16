@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildServer } from '../src/api/server.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
+import { getAuthHeaders } from './helpers/auth.ts';
 
 /**
  * New frontend entrypoints.
@@ -28,26 +29,6 @@ describe('/app frontend', () => {
     await pool.end();
   });
 
-  async function getSessionCookie(): Promise<string> {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'app@example.com' },
-    });
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
-
-    const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
-    });
-
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    return cookieHeader.split(';')[0];
-  }
-
   // Issue #1166: GET / serves a landing page (not a redirect)
   it('serves landing page at GET / with sign-in link when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/' });
@@ -58,11 +39,10 @@ describe('/app frontend', () => {
   });
 
   it('serves landing page at GET / with dashboard link when authenticated', async () => {
-    const sessionCookie = await getSessionCookie();
     const res = await app.inject({
       method: 'GET',
       url: '/',
-      headers: { cookie: sessionCookie },
+      headers: await getAuthHeaders('app@example.com'),
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
@@ -84,12 +64,12 @@ describe('/app frontend', () => {
   });
 
   it('serves the app shell for list + detail pages when authenticated', async () => {
-    const sessionCookie = await getSessionCookie();
+    const headers = await getAuthHeaders('app@example.com');
 
     const list = await app.inject({
       method: 'GET',
       url: '/app/work-items',
-      headers: { cookie: sessionCookie },
+      headers,
     });
 
     expect(list.statusCode).toBe(200);
@@ -100,7 +80,7 @@ describe('/app frontend', () => {
     const detail = await app.inject({
       method: 'GET',
       url: '/app/work-items/123',
-      headers: { cookie: sessionCookie },
+      headers,
     });
 
     expect(detail.statusCode).toBe(200);

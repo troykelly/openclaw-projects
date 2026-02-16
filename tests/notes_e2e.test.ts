@@ -16,6 +16,7 @@ import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { getAuthHeaders } from './helpers/auth.ts';
 
 // ---------------------------------------------------------------------------
 // Response Type Definitions for E2E Tests (Issue #707)
@@ -302,60 +303,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
     await truncateAllTables(pool);
   });
 
-  /**
-   * Helper to create a session cookie for authenticated requests.
-   * Includes validation and clear error messages for debugging test failures.
-   *
-   * @param email - The email address to authenticate
-   * @returns The session cookie string (e.g., "session=abc123")
-   * @throws Error if authentication request fails or response is malformed
-   */
-  async function getSessionCookie(email: string): Promise<string> {
-    // Step 1: Request the magic link
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email },
-    });
-
-    // Auth endpoint returns 200 (OK) or 201 (Created) depending on implementation
-    if (request.statusCode !== 200 && request.statusCode !== 201) {
-      throw new Error(`Auth request failed for ${email}: status ${request.statusCode}, body: ${request.body}`);
-    }
-
-    const requestJson = request.json() as { loginUrl?: string };
-    if (!requestJson.loginUrl) {
-      throw new Error(`Auth request for ${email} did not return loginUrl. Response: ${JSON.stringify(requestJson)}`);
-    }
-
-    const token = new URL(requestJson.loginUrl).searchParams.get('token');
-    if (!token) {
-      throw new Error(`Auth URL for ${email} did not contain token. URL: ${requestJson.loginUrl}`);
-    }
-
-    // Step 2: Consume the magic link to get a session
-    const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
-    });
-
-    if (consume.statusCode !== 200) {
-      throw new Error(`Auth consume failed for ${email}: status ${consume.statusCode}, body: ${consume.body}`);
-    }
-
-    const setCookie = consume.headers['set-cookie'];
-    if (!setCookie) {
-      throw new Error(`Auth consume for ${email} did not return set-cookie header. Headers: ${JSON.stringify(consume.headers)}`);
-    }
-
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    if (!cookieHeader) {
-      throw new Error(`Auth consume for ${email} returned empty set-cookie. Value: ${JSON.stringify(setCookie)}`);
-    }
-
-    return cookieHeader.split(';')[0];
-  }
+  // Auth helper removed — use getAuthHeaders() from helpers/auth.ts instead
 
   // ============================================
   // Navigation Tests
@@ -363,12 +311,10 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
   describe('Navigation', () => {
     it('serves app shell for /app/notes when authenticated', async () => {
-      const sessionCookie = await getSessionCookie(primaryUser);
-
       const res = await app.inject({
         method: 'GET',
         url: '/app/notes',
-        headers: { cookie: sessionCookie },
+        headers: await getAuthHeaders(primaryUser),
       });
 
       expect(res.statusCode).toBe(200);
@@ -378,8 +324,6 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
     });
 
     it('serves app shell for specific note URL when authenticated', async () => {
-      const sessionCookie = await getSessionCookie(primaryUser);
-
       // Create a note first
       const createRes = await app.inject({
         method: 'POST',
@@ -391,7 +335,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/app/notes/${noteId}`,
-        headers: { cookie: sessionCookie },
+        headers: await getAuthHeaders(primaryUser),
       });
 
       expect(res.statusCode).toBe(200);
@@ -409,8 +353,6 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
     });
 
     it('serves app shell for notebook-filtered view', async () => {
-      const sessionCookie = await getSessionCookie(primaryUser);
-
       // Create a notebook
       const nbRes = await app.inject({
         method: 'POST',
@@ -422,7 +364,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/app/notes?notebook=${notebookId}`,
-        headers: { cookie: sessionCookie },
+        headers: await getAuthHeaders(primaryUser),
       });
 
       expect(res.statusCode).toBe(200);

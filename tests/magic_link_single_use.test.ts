@@ -3,7 +3,7 @@
  * Part of Issue #781 - Documents and verifies the single-use token security behavior
  *
  * IMPORTANT: Magic link tokens are SINGLE-USE by design.
- * - Tokens are consumed on first use (via /api/auth/consume endpoint)
+ * - Tokens are consumed on first use (via POST /api/auth/consume endpoint)
  * - Attempting to reuse a consumed token returns 400 (invalid/expired token)
  * - This is a critical security feature - do not change without security review
  *
@@ -58,21 +58,22 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       const { loginUrl } = requestRes.json() as { loginUrl: string };
       const token = new URL(loginUrl).searchParams.get('token')!;
 
-      // Step 2: First use - should succeed
+      // Step 2: First use - should succeed (POST with token in body)
       const firstUse = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=${token}`,
-        headers: { accept: 'application/json' },
+        method: 'POST',
+        url: '/api/auth/consume',
+        payload: { token },
       });
 
       expect(firstUse.statusCode).toBe(200);
-      expect(firstUse.headers['set-cookie']).toBeDefined();
+      const firstBody = firstUse.json() as { accessToken?: string };
+      expect(firstBody.accessToken).toBeDefined();
 
       // Step 3: Second use - should fail (token already consumed)
       const secondUse = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=${token}`,
-        headers: { accept: 'application/json' },
+        method: 'POST',
+        url: '/api/auth/consume',
+        payload: { token },
       });
 
       // Token should be invalid after first use (API returns 400 for invalid tokens)
@@ -98,9 +99,9 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
 
       // Try to use expired token
       const res = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=${token}`,
-        headers: { accept: 'application/json' },
+        method: 'POST',
+        url: '/api/auth/consume',
+        payload: { token },
       });
 
       // API returns 400 for invalid/expired tokens
@@ -109,9 +110,9 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
 
     it('invalid tokens are rejected', async () => {
       const res = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=invalid-token-that-does-not-exist`,
-        headers: { accept: 'application/json' },
+        method: 'POST',
+        url: '/api/auth/consume',
+        payload: { token: 'invalid-token-that-does-not-exist' },
       });
 
       // API returns 400 for invalid tokens
@@ -121,9 +122,9 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
 
     it('missing token parameter returns error', async () => {
       const res = await app.inject({
-        method: 'GET',
+        method: 'POST',
         url: '/api/auth/consume',
-        headers: { accept: 'application/json' },
+        payload: {},
       });
 
       expect(res.statusCode).toBe(400);
@@ -131,32 +132,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
   });
 
   describe('User Experience', () => {
-    it('returns 302 redirect for browser requests (text/html)', async () => {
-      const testEmail = 'browser@example.com';
-
-      // Request a link
-      const requestRes = await app.inject({
-        method: 'POST',
-        url: '/api/auth/request-link',
-        payload: { email: testEmail },
-      });
-
-      const { loginUrl } = requestRes.json() as { loginUrl: string };
-      const token = new URL(loginUrl).searchParams.get('token')!;
-
-      // Browser-like request
-      const res = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=${token}`,
-        headers: { accept: 'text/html' },
-      });
-
-      // Should return 302 redirect for browser requests
-      expect(res.statusCode).toBe(302);
-      expect(res.headers['location']).toBeDefined();
-    });
-
-    it('returns JSON for API requests (application/json)', async () => {
+    it('returns JSON with accessToken for API requests', async () => {
       const testEmail = 'api@example.com';
 
       // Request a link
@@ -169,21 +145,20 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       const { loginUrl } = requestRes.json() as { loginUrl: string };
       const token = new URL(loginUrl).searchParams.get('token')!;
 
-      // API request
+      // Consume token
       const res = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=${token}`,
-        headers: { accept: 'application/json' },
+        method: 'POST',
+        url: '/api/auth/consume',
+        payload: { token },
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.headers['content-type']).toContain('application/json');
-      const body = res.json();
-      // Response contains success indicator
-      expect(body).toHaveProperty('ok', true);
+      const body = res.json() as { accessToken?: string };
+      expect(body.accessToken).toBeDefined();
+      expect(typeof body.accessToken).toBe('string');
     });
 
-    it('sets session cookie on successful authentication', async () => {
+    it('sets refresh cookie on successful authentication', async () => {
       const testEmail = 'session@example.com';
 
       // Request a link
@@ -198,19 +173,16 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
 
       // Consume token
       const res = await app.inject({
-        method: 'GET',
-        url: `/api/auth/consume?token=${token}`,
-        headers: { accept: 'application/json' },
+        method: 'POST',
+        url: '/api/auth/consume',
+        payload: { token },
       });
 
       expect(res.statusCode).toBe(200);
 
+      // Should set a refresh cookie
       const setCookie = res.headers['set-cookie'];
       expect(setCookie).toBeDefined();
-
-      // Verify cookie contains session identifier
-      const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-      expect(cookieHeader).toContain('session=');
     });
   });
 
