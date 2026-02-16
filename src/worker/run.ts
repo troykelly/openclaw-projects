@@ -251,15 +251,20 @@ async function tick(pool: Pool, breaker: CircuitBreaker): Promise<void> {
     }
 
     // ── Process geo workers ──
+    let geocoded = 0;
+    let embedded = 0;
     try {
-      const geocoded = await processGeoGeocode(pool);
-      const embedded = await processGeoEmbeddings(pool);
-
-      if (geocoded > 0 || embedded > 0) {
-        console.log(`[Worker] Geo: ${geocoded} geocoded, ${embedded} embedded`);
-      }
+      geocoded = await processGeoGeocode(pool);
     } catch (err) {
-      console.warn('[Worker] Geo processing error:', (err as Error).message);
+      console.warn('[Worker] Geo geocode error:', (err as Error).message);
+    }
+    try {
+      embedded = await processGeoEmbeddings(pool);
+    } catch (err) {
+      console.warn('[Worker] Geo embeddings error:', (err as Error).message);
+    }
+    if (geocoded > 0 || embedded > 0) {
+      console.log(`[Worker] Geo: ${geocoded} geocoded, ${embedded} embedded`);
     }
 
     // ── Update pending gauges ──
