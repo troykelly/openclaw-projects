@@ -5,7 +5,7 @@
 export { ConnectionStatusIndicator } from './connection-status-indicator';
 export type { ConnectionStatusIndicatorProps } from './connection-status-indicator';
 export { RealtimeProvider, useRealtime } from './realtime-context';
-export type { RealtimeProviderProps } from './realtime-context';
+export type { RealtimeProviderProps, OnTokenRefreshed } from './realtime-context';
 export { OfflineIndicator } from './offline-indicator';
 export type { OfflineIndicatorProps } from './offline-indicator';
 export { RealtimeEventHandler, useRealtimeEvent } from './realtime-event-handler';
