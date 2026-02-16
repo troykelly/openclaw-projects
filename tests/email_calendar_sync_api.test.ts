@@ -311,7 +311,7 @@ describe('Email & Calendar Sync API', () => {
 
   describe('Calendar Sync', () => {
     describe('POST /api/sync/calendar', () => {
-      it('triggers calendar sync for a user', async () => {
+      it('returns 501 not implemented', async () => {
         const connResult = await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
            VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')
@@ -327,9 +327,10 @@ describe('Email & Calendar Sync API', () => {
           },
         });
 
-        expect(response.statusCode).toBe(202);
+        expect(response.statusCode).toBe(501);
         const body = response.json();
-        expect(body.status).toBe('sync_initiated');
+        expect(body.error).toBe('Calendar sync is not yet implemented');
+        expect(body.status).toBe('not_implemented');
       });
     });
 
