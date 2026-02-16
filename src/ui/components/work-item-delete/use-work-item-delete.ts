@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { apiClient } from '@/ui/lib/api-client';
 import type { UseWorkItemDeleteOptions, UseWorkItemDeleteReturn, UndoState } from './types';
 
 export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWorkItemDeleteReturn {
@@ -13,14 +14,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
   const restoreItem = React.useCallback(
     async (id: string) => {
       try {
-        const response = await fetch(`/api/work-items/${id}/restore`, {
-          method: 'POST',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to restore item');
-        }
-
+        await apiClient.post(`/api/work-items/${id}/restore`, {});
         setUndoState(null);
         deletedItemsRef.current = [];
         onRestored?.();
@@ -43,13 +37,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
     async (item: { id: string; title: string }) => {
       setIsDeleting(true);
       try {
-        const response = await fetch(`/api/work-items/${item.id}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete item');
-        }
+        await apiClient.delete(`/api/work-items/${item.id}`);
 
         deletedItemsRef.current = [item.id];
 
@@ -74,13 +62,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
       setIsDeleting(true);
       try {
         // Delete items in parallel
-        await Promise.all(
-          items.map((item) =>
-            fetch(`/api/work-items/${item.id}`, {
-              method: 'DELETE',
-            }),
-          ),
-        );
+        await Promise.all(items.map((item) => apiClient.delete(`/api/work-items/${item.id}`)));
 
         deletedItemsRef.current = items.map((i) => i.id);
 

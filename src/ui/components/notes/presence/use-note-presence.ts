@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRealtimeOptional } from '@/ui/components/realtime/realtime-context';
+import { apiClient } from '@/ui/lib/api-client';
 import type { RealtimeEvent } from '@/ui/components/realtime/types';
 
 /**
@@ -40,8 +41,6 @@ interface UseNotePresenceOptions {
   userEmail: string;
   /** Whether to automatically join presence on mount */
   autoJoin?: boolean;
-  /** API base URL */
-  apiUrl?: string;
 }
 
 interface UseNotePresenceReturn {
@@ -77,7 +76,7 @@ interface UseNotePresenceReturn {
  * );
  * ```
  */
-export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '/api' }: UseNotePresenceOptions): UseNotePresenceReturn {
+export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNotePresenceOptions): UseNotePresenceReturn {
   const [viewers, setViewers] = useState<NotePresenceUser[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -95,17 +94,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '
     if (hasJoinedRef.current) return;
 
     try {
-      const response = await fetch(`${apiUrl}/notes/${noteId}/presence`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to join presence: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await apiClient.post<{ collaborators?: NotePresenceUser[] }>(`/api/notes/${noteId}/presence`, { userEmail });
       setViewers(data.collaborators || []);
       setIsConnected(true);
       hasJoinedRef.current = true;
@@ -114,7 +103,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '
       setError(err instanceof Error ? err : new Error('Unknown error'));
       setIsConnected(false);
     }
-  }, [noteId, userEmail, apiUrl]);
+  }, [noteId, userEmail]);
 
   /**
    * Leave note presence via API
@@ -124,10 +113,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '
     if (!hasJoinedRef.current) return;
 
     try {
-      await fetch(`${apiUrl}/notes/${noteId}/presence`, {
-        method: 'DELETE',
-        headers: { 'X-User-Email': userEmail },
-      });
+      await apiClient.delete(`/api/notes/${noteId}/presence`, { headers: { 'X-User-Email': userEmail } });
       hasJoinedRef.current = false;
       setIsConnected(false);
     } catch (err) {
@@ -138,7 +124,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '
         console.error('[NotePresence] Error leaving:', err);
       }
     }
-  }, [noteId, userEmail, apiUrl]);
+  }, [noteId, userEmail]);
 
   /**
    * Update cursor position via API
@@ -147,11 +133,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '
   const updateCursor = useCallback(
     async (position: { line: number; column: number }) => {
       try {
-        await fetch(`${apiUrl}/notes/${noteId}/presence/cursor`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userEmail, cursorPosition: position }),
-        });
+        await apiClient.put(`/api/notes/${noteId}/presence/cursor`, { userEmail, cursorPosition: position });
       } catch (err) {
         // Don't throw on cursor update errors - cursor updates are non-critical
         // Log in development only to avoid information leakage in production (#693)
@@ -161,7 +143,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true, apiUrl = '
         }
       }
     },
-    [noteId, userEmail, apiUrl],
+    [noteId, userEmail],
   );
 
   /**

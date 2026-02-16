@@ -2,6 +2,7 @@
  * Hook for managing milestones via API
  */
 import * as React from 'react';
+import { apiClient } from '@/ui/lib/api-client';
 import type { Milestone, CreateMilestoneData, UpdateMilestoneData, UseMilestonesReturn } from './types';
 
 export function useMilestones(projectId: string): UseMilestonesReturn {
@@ -13,11 +14,7 @@ export function useMilestones(projectId: string): UseMilestonesReturn {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/projects/${projectId}/milestones`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch milestones: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.get<Milestone[]>(`/api/projects/${projectId}/milestones`);
       setMilestones(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch milestones');
@@ -32,15 +29,7 @@ export function useMilestones(projectId: string): UseMilestonesReturn {
 
   const createMilestone = React.useCallback(
     async (data: CreateMilestoneData): Promise<Milestone> => {
-      const response = await fetch(`/api/projects/${projectId}/milestones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to create milestone: ${response.status}`);
-      }
-      const newMilestone = await response.json();
+      const newMilestone = await apiClient.post<Milestone>(`/api/projects/${projectId}/milestones`, data);
       setMilestones((prev) => [...prev, newMilestone]);
       return newMilestone;
     },
@@ -48,26 +37,13 @@ export function useMilestones(projectId: string): UseMilestonesReturn {
   );
 
   const updateMilestone = React.useCallback(async (id: string, data: UpdateMilestoneData): Promise<Milestone> => {
-    const response = await fetch(`/api/milestones/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to update milestone: ${response.status}`);
-    }
-    const updatedMilestone = await response.json();
+    const updatedMilestone = await apiClient.patch<Milestone>(`/api/milestones/${id}`, data);
     setMilestones((prev) => prev.map((m) => (m.id === id ? updatedMilestone : m)));
     return updatedMilestone;
   }, []);
 
   const deleteMilestone = React.useCallback(async (id: string): Promise<void> => {
-    const response = await fetch(`/api/milestones/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to delete milestone: ${response.status}`);
-    }
+    await apiClient.delete(`/api/milestones/${id}`);
     setMilestones((prev) => prev.filter((m) => m.id !== id));
   }, []);
 

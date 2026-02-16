@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient, ApiRequestError } from '@/ui/lib/api-client';
 import type { EmbeddingSettings, EmbeddingBudgetUpdate, EmbeddingTestResult } from './types';
 
 export type EmbeddingSettingsState = { kind: 'loading' } | { kind: 'error'; message: string; status?: number } | { kind: 'loaded'; data: EmbeddingSettings };
@@ -14,24 +15,16 @@ export function useEmbeddingSettings() {
 
     async function fetchSettings(): Promise<void> {
       try {
-        const res = await fetch('/api/settings/embeddings');
-        if (!res.ok) {
-          if (!alive) return;
-          setState({
-            kind: 'error',
-            message: res.status === 401 ? 'Please sign in to view embedding settings' : `Failed to load embedding settings: ${res.status}`,
-            status: res.status,
-          });
-          return;
-        }
-        const data = (await res.json()) as EmbeddingSettings;
+        const data = await apiClient.get<EmbeddingSettings>('/api/settings/embeddings');
         if (!alive) return;
         setState({ kind: 'loaded', data });
       } catch (error) {
         if (!alive) return;
+        const status = error instanceof ApiRequestError ? error.status : undefined;
         setState({
           kind: 'error',
-          message: error instanceof Error ? error.message : 'Failed to load embedding settings',
+          message: status === 401 ? 'Please sign in to view embedding settings' : `Failed to load embedding settings${status ? `: ${status}` : ''}`,
+          status,
         });
       }
     }
@@ -57,18 +50,7 @@ export function useEmbeddingSettings() {
       setIsSaving(true);
 
       try {
-        const res = await fetch('/api/settings/embeddings', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        });
-
-        if (!res.ok) {
-          setState({ kind: 'loaded', data: previousData });
-          return false;
-        }
-
-        const data = (await res.json()) as EmbeddingSettings;
+        const data = await apiClient.patch<EmbeddingSettings>('/api/settings/embeddings', updates);
         setState({ kind: 'loaded', data });
         return true;
       } catch {
@@ -86,28 +68,14 @@ export function useEmbeddingSettings() {
     setTestResult(null);
 
     try {
-      const res = await fetch('/api/settings/embeddings/test', {
-        method: 'POST',
-      });
-
-      if (!res.ok) {
-        const result: EmbeddingTestResult = {
-          success: false,
-          provider: null,
-          error: `Request failed: ${res.status}`,
-        };
-        setTestResult(result);
-        return result;
-      }
-
-      const result = (await res.json()) as EmbeddingTestResult;
+      const result = await apiClient.post<EmbeddingTestResult>('/api/settings/embeddings/test', {});
       setTestResult(result);
       return result;
     } catch (error) {
       const result: EmbeddingTestResult = {
         success: false,
         provider: null,
-        error: error instanceof Error ? error.message : 'Connection test failed',
+        error: error instanceof ApiRequestError ? `Request failed: ${error.status}` : error instanceof Error ? error.message : 'Connection test failed',
       };
       setTestResult(result);
       return result;

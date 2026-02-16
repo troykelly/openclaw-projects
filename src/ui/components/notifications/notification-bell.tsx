@@ -5,6 +5,7 @@ import { Button } from '@/ui/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/components/ui/popover';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
 import { cn } from '@/ui/lib/utils';
+import { apiClient } from '@/ui/lib/api-client';
 
 export interface Notification {
   id: string;
@@ -31,12 +32,9 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/notifications?userEmail=${encodeURIComponent(userEmail)}&limit=20`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
-      }
+      const data = await apiClient.get<{ notifications: Notification[]; unreadCount: number }>(`/api/notifications?userEmail=${encodeURIComponent(userEmail)}&limit=20`);
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -46,11 +44,8 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch(`/api/notifications/unread-count?userEmail=${encodeURIComponent(userEmail)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCount(data.unreadCount);
-      }
+      const data = await apiClient.get<{ unreadCount: number }>(`/api/notifications/unread-count?userEmail=${encodeURIComponent(userEmail)}`);
+      setUnreadCount(data.unreadCount);
     } catch (error) {
       console.error('Failed to fetch unread count:', error);
     }
@@ -71,9 +66,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`/api/notifications/${id}/read?userEmail=${encodeURIComponent(userEmail)}`, {
-        method: 'POST',
-      });
+      await apiClient.post(`/api/notifications/${id}/read?userEmail=${encodeURIComponent(userEmail)}`, {});
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
@@ -83,9 +76,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const markAllAsRead = async () => {
     try {
-      await fetch(`/api/notifications/read-all?userEmail=${encodeURIComponent(userEmail)}`, {
-        method: 'POST',
-      });
+      await apiClient.post(`/api/notifications/read-all?userEmail=${encodeURIComponent(userEmail)}`, {});
       setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
       setUnreadCount(0);
     } catch (error) {
@@ -95,9 +86,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const dismissNotification = async (id: string) => {
     try {
-      await fetch(`/api/notifications/${id}?userEmail=${encodeURIComponent(userEmail)}`, {
-        method: 'DELETE',
-      });
+      await apiClient.delete(`/api/notifications/${id}?userEmail=${encodeURIComponent(userEmail)}`);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       const notification = notifications.find((n) => n.id === id);
       if (notification && !notification.readAt) {

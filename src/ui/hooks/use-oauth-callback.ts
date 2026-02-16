@@ -6,6 +6,7 @@
  * On success, auto-redirects to settings after 3 seconds.
  */
 import { useState, useEffect, useRef } from 'react';
+import { apiClient, ApiRequestError } from '@/ui/lib/api-client';
 
 interface OAuthCallbackResult {
   status: 'loading' | 'success' | 'error';
@@ -75,20 +76,11 @@ export function useOAuthCallback(): OAuthCallbackResult {
     // Call the backend callback API
     const controller = new AbortController();
 
-    fetch(`/api/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = (await res.json()) as ErrorResponse;
-          setResult({
-            status: 'error',
-            errorMessage: getErrorMessage(body.error, body.code, body.details),
-          });
-          return;
-        }
-
-        const body = (await res.json()) as CallbackResponse;
+    apiClient
+      .get<CallbackResponse>(`/api/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
+        signal: controller.signal,
+      })
+      .then((body) => {
         setResult({
           status: 'success',
           provider: body.provider,
@@ -102,6 +94,14 @@ export function useOAuthCallback(): OAuthCallbackResult {
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (err instanceof ApiRequestError) {
+          const details = err.details as ErrorResponse | undefined;
+          setResult({
+            status: 'error',
+            errorMessage: getErrorMessage(details?.error, details?.code, details?.details),
+          });
+          return;
+        }
         setResult({
           status: 'error',
           errorMessage: 'Network error. Please check your connection and try again.',
