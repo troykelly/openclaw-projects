@@ -11,9 +11,27 @@ import { LabelManager } from '@/ui/components/labels/label-manager';
 import { useLabels } from '@/ui/components/labels/use-labels';
 import type { Label } from '@/ui/components/labels/types';
 
-// Mock fetch for API calls
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Mock apiClient for API calls
+vi.mock('@/ui/lib/api-client', () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  ApiRequestError: class extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+import { apiClient } from '@/ui/lib/api-client';
+const mockGet = vi.mocked(apiClient.get);
+const mockPost = vi.mocked(apiClient.post);
+const mockDelete = vi.mocked(apiClient.delete);
 
 describe('LabelBadge', () => {
   const mockLabel: Label = {
@@ -241,14 +259,13 @@ describe('LabelManager', () => {
 
 describe('useLabels hook', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
+    mockGet.mockReset();
+    mockPost.mockReset();
+    mockDelete.mockReset();
   });
 
   it('fetches labels on mount', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [{ id: 'label-1', name: 'bug', color: '#d73a4a' }],
-    });
+    mockGet.mockResolvedValueOnce([{ id: 'label-1', name: 'bug', color: '#d73a4a' }]);
 
     const { result } = renderHook(() => useLabels());
 
@@ -258,21 +275,14 @@ describe('useLabels hook', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/labels');
+    expect(mockGet).toHaveBeenCalledWith('/api/labels');
     expect(result.current.labels).toHaveLength(1);
     expect(result.current.loading).toBe(false);
   });
 
   it('creates a new label', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [],
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ id: 'new-label', name: 'test', color: '#000000' }),
-      });
+    mockGet.mockResolvedValueOnce([]);
+    mockPost.mockResolvedValueOnce({ id: 'new-label', name: 'test', color: '#000000' });
 
     const { result } = renderHook(() => useLabels());
 
@@ -284,22 +294,12 @@ describe('useLabels hook', () => {
       await result.current.createLabel({ name: 'test', color: '#000000' });
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/labels', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'test', color: '#000000' }),
-    });
+    expect(mockPost).toHaveBeenCalledWith('/api/labels', { name: 'test', color: '#000000' });
   });
 
   it('deletes a label', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ id: 'label-1', name: 'bug', color: '#d73a4a' }],
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-      });
+    mockGet.mockResolvedValueOnce([{ id: 'label-1', name: 'bug', color: '#d73a4a' }]);
+    mockDelete.mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() => useLabels());
 
@@ -311,9 +311,7 @@ describe('useLabels hook', () => {
       await result.current.deleteLabel('label-1');
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/labels/label-1', {
-      method: 'DELETE',
-    });
+    expect(mockDelete).toHaveBeenCalledWith('/api/labels/label-1');
   });
 });
 
