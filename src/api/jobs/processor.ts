@@ -13,6 +13,7 @@ import { handleEmailSendJob } from '../postmark/email-outbound.ts';
 import { handleMessageEmbedJob } from '../embeddings/message-integration.ts';
 import { handleSkillStoreEmbedJob } from '../embeddings/skill-store-integration.ts';
 import { handleContactSyncJob } from './sync-handler.ts';
+import { computeNextRunAt } from '../skill-store/schedule-next-run.ts';
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 5;
@@ -230,7 +231,8 @@ async function handleScheduledProcessJob(pool: Pool, job: InternalJob): Promise<
   // Verify schedule still exists and read current state from DB
   const scheduleResult = await pool.query(
     `SELECT id::text as id, skill_id, collection, webhook_url, webhook_headers,
-            payload_template, max_retries, enabled, consecutive_failures
+            payload_template, max_retries, enabled, consecutive_failures,
+            cron_expression, timezone
      FROM skill_store_schedule WHERE id = $1`,
     [payload.schedule_id],
   );
@@ -252,6 +254,8 @@ async function handleScheduledProcessJob(pool: Pool, job: InternalJob): Promise<
     max_retries: number;
     enabled: boolean;
     consecutive_failures: number;
+    cron_expression: string;
+    timezone: string;
   };
 
   // Read consecutive_failures from DB (Issue #825: was previously read from
@@ -294,25 +298,27 @@ async function handleScheduledProcessJob(pool: Pool, job: InternalJob): Promise<
       idempotencyKey,
     });
 
-    // Update schedule with success; reset consecutive_failures (Issue #825)
+    // Update schedule with success; reset consecutive_failures and advance next_run_at (Issue #825, #1356)
+    const nextRunAt = computeNextRunAt(schedule.cron_expression, schedule.timezone);
     await pool.query(
       `UPDATE skill_store_schedule
-       SET last_run_at = NOW(), last_run_status = 'success', consecutive_failures = 0
+       SET last_run_at = NOW(), last_run_status = 'success', consecutive_failures = 0, next_run_at = $2
        WHERE id = $1`,
-      [schedule.id],
+      [schedule.id, nextRunAt],
     );
 
     return { success: true };
   } catch (error) {
     const err = error as Error;
 
-    // Update schedule with failure; increment consecutive_failures (Issue #825)
+    // Update schedule with failure; increment consecutive_failures and advance next_run_at (Issue #825, #1356)
+    const failNextRunAt = computeNextRunAt(schedule.cron_expression, schedule.timezone);
     await pool.query(
       `UPDATE skill_store_schedule
        SET last_run_at = NOW(), last_run_status = 'failed',
-           consecutive_failures = consecutive_failures + 1
+           consecutive_failures = consecutive_failures + 1, next_run_at = $2
        WHERE id = $1`,
-      [schedule.id],
+      [schedule.id, failNextRunAt],
     );
 
     return {

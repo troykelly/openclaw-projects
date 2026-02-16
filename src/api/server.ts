@@ -107,6 +107,7 @@ import {
 } from './webhooks/index.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
+import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -16315,6 +16316,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
+    // Validate with cron-parser to catch invalid field values (Issue #1356)
+    try {
+      computeNextRunAt(expr.trim(), 'UTC');
+    } catch {
+      return 'cron_expression is not a valid cron expression';
+    }
+
     return null;
   }
 
@@ -16434,10 +16442,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
+      // Compute next_run_at from cron_expression + timezone (Issue #1356)
+      const enabled = body.enabled !== undefined ? body.enabled : true;
+      const nextRunAt = enabled ? computeNextRunAt(body.cron_expression.trim(), timezone) : null;
+
       const result = await pool.query(
         `INSERT INTO skill_store_schedule
-         (skill_id, collection, cron_expression, timezone, webhook_url, webhook_headers, payload_template, enabled, max_retries)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
+         (skill_id, collection, cron_expression, timezone, webhook_url, webhook_headers, payload_template, enabled, max_retries, next_run_at)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
          RETURNING
            id::text as id, skill_id, collection,
            cron_expression, timezone, webhook_url,
@@ -16453,8 +16465,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           body.webhook_url.trim(),
           JSON.stringify(body.webhook_headers || {}),
           JSON.stringify(body.payload_template || {}),
-          body.enabled !== undefined ? body.enabled : true,
+          enabled,
           body.max_retries !== undefined ? Math.min(Math.max(Math.floor(body.max_retries), 0), 20) : 5,
+          nextRunAt,
         ],
       );
 
@@ -16619,10 +16632,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'No valid fields to update' });
     }
 
-    params.push(id);
-
     const pool = createPool();
     try {
+      // Recompute next_run_at atomically when schedule-affecting fields change (Issue #1356)
+      const scheduleFieldsChanged = body.cron_expression !== undefined || body.timezone !== undefined || body.enabled !== undefined;
+      if (scheduleFieldsChanged) {
+        // Fetch current schedule to merge with incoming changes
+        const current = await pool.query(
+          `SELECT cron_expression, timezone, enabled FROM skill_store_schedule WHERE id = $1`,
+          [id],
+        );
+        if (current.rows.length > 0) {
+          const cur = current.rows[0] as { cron_expression: string; timezone: string; enabled: boolean };
+          const finalCron = body.cron_expression?.trim() ?? cur.cron_expression;
+          const finalTz = body.timezone ?? cur.timezone;
+          const finalEnabled = body.enabled ?? cur.enabled;
+          const nextRunAt = finalEnabled ? computeNextRunAt(finalCron, finalTz) : null;
+          setClauses.push(`next_run_at = $${paramIndex}`);
+          params.push(nextRunAt as unknown as string);
+          paramIndex++;
+        }
+      }
+
+      params.push(id);
+
       const result = await pool.query(
         `UPDATE skill_store_schedule
          SET ${setClauses.join(', ')}
@@ -16793,8 +16826,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
+      // Fetch current schedule to compute next_run_at (Issue #1356)
+      const current = await pool.query(
+        `SELECT cron_expression, timezone FROM skill_store_schedule WHERE id = $1`,
+        [id],
+      );
+      if (current.rows.length === 0) {
+        return reply.code(404).send({ error: 'Schedule not found' });
+      }
+      const cur = current.rows[0] as { cron_expression: string; timezone: string };
+      const nextRunAt = computeNextRunAt(cur.cron_expression, cur.timezone);
+
+      // Atomic update: set enabled + next_run_at in one query (Issue #1356)
       const result = await pool.query(
-        `UPDATE skill_store_schedule SET enabled = true
+        `UPDATE skill_store_schedule SET enabled = true, next_run_at = $2
          WHERE id = $1
          RETURNING
            id::text as id, skill_id, collection,
@@ -16803,7 +16848,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            enabled, max_retries,
            last_run_at, next_run_at, last_run_status,
            created_at, updated_at`,
-        [id],
+        [id, nextRunAt],
       );
 
       if (result.rows.length === 0) {
