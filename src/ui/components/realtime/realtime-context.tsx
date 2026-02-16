@@ -14,12 +14,30 @@ import {
   type WebSocketMessage,
 } from './types';
 
+/**
+ * Callback type for subscribing to token refresh events.
+ * The provider calls this with a callback that should be invoked when the
+ * access token is refreshed. Returns an unsubscribe function for cleanup.
+ */
+export type OnTokenRefreshed = (callback: () => void) => () => void;
+
 export interface RealtimeProviderProps {
   url: string;
   children: React.ReactNode;
   reconnectOptions?: Partial<ReconnectOptions>;
   onStatusChange?: (status: ConnectionStatus) => void;
   onError?: (error: Event) => void;
+  /**
+   * Returns the current access token for WebSocket authentication.
+   * The token is appended as a `?token=` query parameter to the WebSocket URL.
+   * Return null when no token is available (e.g. auth disabled).
+   */
+  getAccessToken?: () => string | null;
+  /**
+   * Subscribe to token refresh events. When the access token is refreshed,
+   * the provider closes the current WebSocket and reconnects with the new token.
+   */
+  onTokenRefreshed?: OnTokenRefreshed;
 }
 
 const RealtimeContext = React.createContext<RealtimeContextValue | null>(null);
@@ -47,12 +65,7 @@ interface EventHandler {
   entityId?: string;
 }
 
-export function RealtimeProvider({ url, children, reconnectOptions: userReconnectOptions, onStatusChange, onError }: RealtimeProviderProps) {
-  const reconnectOptions = {
-    ...DEFAULT_RECONNECT_OPTIONS,
-    ...userReconnectOptions,
-  };
-
+export function RealtimeProvider({ url, children, reconnectOptions: userReconnectOptions, onStatusChange, onError, getAccessToken, onTokenRefreshed }: RealtimeProviderProps) {
   const [status, setStatus] = React.useState<ConnectionStatus>('connecting');
   const wsRef = React.useRef<WebSocket | null>(null);
   const reconnectAttemptRef = React.useRef(0);
@@ -60,12 +73,43 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
   const subscriptionsRef = React.useRef<Set<string>>(new Set());
   const eventHandlersRef = React.useRef<EventHandler[]>([]);
 
+  // Use refs for callback props to keep the connect function stable
+  const getAccessTokenRef = React.useRef(getAccessToken);
+  getAccessTokenRef.current = getAccessToken;
+
+  const onErrorRef = React.useRef(onError);
+  onErrorRef.current = onError;
+
+  const onStatusChangeRef = React.useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
+
+  // Memoize reconnect options to avoid re-creating connect on every render
+  const reconnectOptionsRef = React.useRef({
+    ...DEFAULT_RECONNECT_OPTIONS,
+    ...userReconnectOptions,
+  });
+  reconnectOptionsRef.current = {
+    ...DEFAULT_RECONNECT_OPTIONS,
+    ...userReconnectOptions,
+  };
+
+  /**
+   * Build the WebSocket URL, appending the access token as a query parameter
+   * if one is available. Preserves any existing query parameters on the URL.
+   */
+  const buildWsUrl = React.useCallback((): string => {
+    const token = getAccessTokenRef.current?.();
+    if (!token) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}token=${token}`;
+  }, [url]);
+
   const updateStatus = React.useCallback(
     (newStatus: ConnectionStatus) => {
       setStatus(newStatus);
-      onStatusChange?.(newStatus);
+      onStatusChangeRef.current?.(newStatus);
     },
-    [onStatusChange],
+    [],
   );
 
   const connect = React.useCallback(() => {
@@ -74,7 +118,7 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
     }
 
     try {
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(buildWsUrl());
 
       ws.onopen = () => {
         reconnectAttemptRef.current = 0;
@@ -92,18 +136,20 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
       };
 
       ws.onclose = (event) => {
-        // Don't reconnect on normal closure
-        if (event.code === 1000) {
+        // Don't reconnect on normal closure or token-refresh closure
+        // (4000 = closed by token refresh handler, which reconnects itself)
+        if (event.code === 1000 || event.code === 4000) {
           updateStatus('disconnected');
           return;
         }
 
         // Attempt reconnect
-        if (reconnectAttemptRef.current < reconnectOptions.maxAttempts) {
+        const opts = reconnectOptionsRef.current;
+        if (reconnectAttemptRef.current < opts.maxAttempts) {
           updateStatus('reconnecting');
           const delay = Math.min(
-            reconnectOptions.initialDelay * Math.pow(reconnectOptions.backoffMultiplier, reconnectAttemptRef.current),
-            reconnectOptions.maxDelay,
+            opts.initialDelay * Math.pow(opts.backoffMultiplier, reconnectAttemptRef.current),
+            opts.maxDelay,
           );
           reconnectAttemptRef.current++;
           reconnectTimeoutRef.current = setTimeout(connect, delay);
@@ -136,7 +182,7 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
       };
 
       ws.onerror = (event) => {
-        onError?.(event);
+        onErrorRef.current?.(event);
       };
 
       wsRef.current = ws;
@@ -144,8 +190,9 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
       console.error('Failed to create WebSocket:', e);
       updateStatus('disconnected');
     }
-  }, [url, updateStatus, onError, reconnectOptions]);
+  }, [buildWsUrl, updateStatus]);
 
+  // Connect on mount and clean up on unmount
   React.useEffect(() => {
     connect();
 
@@ -159,6 +206,28 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
       }
     };
   }, [connect]);
+
+  // Keep connect ref stable for use in token refresh callback
+  const connectRef = React.useRef(connect);
+  connectRef.current = connect;
+
+  // Subscribe to token refresh events — reconnect with new token
+  React.useEffect(() => {
+    if (!onTokenRefreshed) return;
+
+    const unsubscribe = onTokenRefreshed(() => {
+      // Close existing connection with a custom code indicating token refresh
+      if (wsRef.current) {
+        wsRef.current.close(4000, 'Token refreshed');
+        wsRef.current = null;
+      }
+      // Reset reconnect counter and reconnect immediately with new token
+      reconnectAttemptRef.current = 0;
+      connectRef.current();
+    });
+
+    return unsubscribe;
+  }, [onTokenRefreshed]);
 
   const subscribe = React.useCallback((subscription: Subscription) => {
     const key = `${subscription.type}:${subscription.id || ''}`;
