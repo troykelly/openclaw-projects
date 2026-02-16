@@ -83,35 +83,8 @@ export async function enqueueSyncJob(
   return (result.rows[0] as { id: string }).id;
 }
 
-/**
- * Register the pgcron job that periodically enqueues contact sync jobs.
- * This is a single cron job that scans for all active connections with contacts enabled.
- * Idempotent — safe to call multiple times.
- */
-export async function registerSyncCronJob(pool: Pool): Promise<void> {
-  await pool.query(`
-    DO $do$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'oauth_contact_sync_enqueue') THEN
-        PERFORM cron.schedule(
-          'oauth_contact_sync_enqueue',
-          '*/5 * * * *',
-          $cmd$SELECT enqueue_oauth_contact_sync_jobs();$cmd$
-        );
-      END IF;
-    END $do$;
-  `);
-}
-
-/**
- * Unregister the sync pgcron job. Used during cleanup/teardown.
- */
-export async function unregisterSyncCronJob(pool: Pool): Promise<void> {
-  await pool.query(`
-    SELECT cron.unschedule('oauth_contact_sync_enqueue')
-    WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'oauth_contact_sync_enqueue');
-  `);
-}
+// Note: The oauth_contact_sync_enqueue pgcron job is managed by migration 058.
+// No application-level registration is needed — the migration handles creation.
 
 /**
  * Execute a contact sync for a single connection.
