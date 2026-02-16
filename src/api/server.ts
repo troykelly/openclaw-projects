@@ -12645,36 +12645,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // POST /api/sync/calendar - Trigger calendar sync
-  app.post('/api/sync/calendar', async (req, reply) => {
-    const body = req.body as { connectionId: string };
-    const pool = createPool();
-
-    if (!body.connectionId) {
-      await pool.end();
-      return reply.code(400).send({ error: 'connectionId is required' });
-    }
-
-    // Look up connection by ID and verify calendar scope
-    const connection = await getConnection(pool, body.connectionId);
-
-    if (!connection) {
-      await pool.end();
-      return reply.code(400).send({ error: 'No OAuth connection found' });
-    }
-
-    if (!connection.scopes.includes('calendar') && !connection.scopes.some((s) => s.includes('calendar') || s.includes('Calendar'))) {
-      await pool.end();
-      return reply.code(400).send({ error: 'No OAuth connection found with calendar scope' });
-    }
-
-    await pool.end();
-
-    return reply.code(202).send({
-      status: 'sync_initiated',
-      connectionId: connection.id,
-      userEmail: connection.userEmail,
-      provider: connection.provider,
+  // POST /api/sync/calendar - Calendar sync (stub — not yet implemented)
+  app.post('/api/sync/calendar', async (_req, reply) => {
+    return reply.code(501).send({
+      error: 'Calendar sync is not yet implemented',
+      status: 'not_implemented',
     });
   });
 
@@ -12768,8 +12743,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'No OAuth connection found' });
     }
 
-    // In production, this would create the event via the provider API first
-    // For now, create it locally with a generated external ID
+    // Local-only: events are stored in our DB but not synced to the external provider.
+    // See follow-up issue for actual calendar sync implementation.
     const externalEventId = `local-${Date.now()}-${randomBytes(8).toString('hex')}`;
 
     const result = await pool.query(
