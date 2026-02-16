@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { defaultConfig, waitForService, signTestJwt, type E2EConfig } from './setup.js';
+import { defaultConfig, waitForService, signTestJwt, signTestM2MJwt, type E2EConfig } from './setup.js';
 
 const RUN_E2E = process.env.RUN_E2E === 'true';
 
@@ -21,19 +21,22 @@ const USER_B = 'e2e-user-b@test.openclaw.local';
 /**
  * Minimal fetch wrapper that returns the raw Response so callers
  * can assert on status codes (404, 204, etc.) directly.
- * Automatically attaches a JWT Bearer token to every request.
+ *
+ * Uses M2M tokens so that user_email parameters are honored
+ * (user tokens are subject to principal binding and ignore
+ * user_email params — Issue #1353).
  */
 function createRawClient(baseUrl: string) {
   return {
     async get(path: string): Promise<Response> {
-      const token = await signTestJwt();
+      const token = await signTestM2MJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
       });
     },
     async post(path: string, body: unknown): Promise<Response> {
-      const token = await signTestJwt();
+      const token = await signTestM2MJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -41,7 +44,7 @@ function createRawClient(baseUrl: string) {
       });
     },
     async put(path: string, body: unknown): Promise<Response> {
-      const token = await signTestJwt();
+      const token = await signTestM2MJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -49,7 +52,7 @@ function createRawClient(baseUrl: string) {
       });
     },
     async patch(path: string, body: unknown): Promise<Response> {
-      const token = await signTestJwt();
+      const token = await signTestM2MJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -57,7 +60,46 @@ function createRawClient(baseUrl: string) {
       });
     },
     async delete(path: string): Promise<Response> {
-      const token = await signTestJwt();
+      const token = await signTestM2MJwt();
+      return fetch(`${baseUrl}${path}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    },
+  };
+}
+
+/**
+ * Client that uses per-user JWTs for testing principal binding.
+ * Each request is signed with a JWT for the specified user email.
+ */
+function createUserClient(baseUrl: string, userEmail: string) {
+  return {
+    async get(path: string): Promise<Response> {
+      const token = await signTestJwt(userEmail);
+      return fetch(`${baseUrl}${path}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    },
+    async post(path: string, body: unknown): Promise<Response> {
+      const token = await signTestJwt(userEmail);
+      return fetch(`${baseUrl}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+    },
+    async patch(path: string, body: unknown): Promise<Response> {
+      const token = await signTestJwt(userEmail);
+      return fetch(`${baseUrl}${path}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+    },
+    async delete(path: string): Promise<Response> {
+      const token = await signTestJwt(userEmail);
       return fetch(`${baseUrl}${path}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -397,6 +439,83 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
         expect(res.status).toBe(204);
         const idx = cleanupContacts.indexOf(protectedContactId);
         if (idx >= 0) cleanupContacts.splice(idx, 1);
+      });
+    });
+  });
+
+  // ── Principal Binding (Issue #1353) ───────────────────────────────
+  // User tokens are subject to principal binding: the server ignores
+  // user_email in query/body and always scopes to the JWT subject.
+
+  describe('Principal binding (Issue #1353)', () => {
+    const userAClient = createUserClient(config.apiUrl, USER_A);
+
+    describe('user token cannot access another user data via user_email param', () => {
+      let itemForB: string;
+
+      beforeAll(async () => {
+        // Use M2M client to create a work item owned by USER_B
+        const res = await postWithRetry(api, '/api/work-items', {
+          title: `E2E PB Item ${Date.now()}`,
+          kind: 'issue',
+          user_email: USER_B,
+        });
+        expect(res.status).toBe(201);
+        itemForB = ((await res.json()) as { id: string }).id;
+        cleanupWorkItems.push(itemForB);
+      });
+
+      it('user A token with user_email=USER_B still sees only own data', async () => {
+        // User A's JWT means the server overrides user_email to USER_A
+        const res = await userAClient.get(
+          `/api/work-items?user_email=${encodeURIComponent(USER_B)}`,
+        );
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { items: Array<{ id: string }> };
+        // Should NOT see USER_B's item — principal binding overrides the param
+        expect(body.items.some((i) => i.id === itemForB)).toBe(false);
+      });
+
+      it('user A token cannot GET user B item by id', async () => {
+        const res = await userAClient.get(
+          `/api/work-items/${itemForB}?user_email=${encodeURIComponent(USER_B)}`,
+        );
+        // Principal binding overrides user_email to USER_A, so scope check fails
+        expect(res.status).toBe(404);
+      });
+    });
+
+    describe('M2M token can access any user data', () => {
+      let itemForA: string;
+
+      beforeAll(async () => {
+        const res = await postWithRetry(api, '/api/work-items', {
+          title: `E2E M2M Item ${Date.now()}`,
+          kind: 'issue',
+          user_email: USER_A,
+        });
+        expect(res.status).toBe(201);
+        itemForA = ((await res.json()) as { id: string }).id;
+        cleanupWorkItems.push(itemForA);
+      });
+
+      it('M2M token can list user A items', async () => {
+        const res = await api.get(
+          `/api/work-items?user_email=${encodeURIComponent(USER_A)}`,
+        );
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { items: Array<{ id: string }> };
+        expect(body.items.some((i) => i.id === itemForA)).toBe(true);
+      });
+
+      it('M2M token can list user B items', async () => {
+        const res = await api.get(
+          `/api/work-items?user_email=${encodeURIComponent(USER_B)}`,
+        );
+        expect(res.status).toBe(200);
+        // This should succeed (even if empty), not error
+        const body = (await res.json()) as { items: Array<{ id: string }> };
+        expect(Array.isArray(body.items)).toBe(true);
       });
     });
   });
