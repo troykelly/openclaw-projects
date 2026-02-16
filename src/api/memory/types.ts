@@ -4,6 +4,7 @@
  * Tags added in Issue #492
  * Relationship scope added in Issue #493
  * Geolocation fields added in Epic #1204
+ * Project scope added in Issue #1273
  */
 
 /** Valid memory types */
@@ -19,6 +20,8 @@ export interface MemoryScope {
   contactId?: string;
   /** Relationship ID for relationship scope (e.g., anniversaries, interpersonal metadata) */
   relationshipId?: string;
+  /** Project ID for project scope (FK to work_item of kind 'project') */
+  projectId?: string;
 }
 
 /** Attribution metadata for a memory */
@@ -81,6 +84,8 @@ export interface MemoryEntry {
   contactId: string | null;
   /** Relationship this memory is scoped to (e.g., anniversaries, interpersonal metadata) */
   relationshipId: string | null;
+  /** Project this memory is scoped to (FK to work_item of kind 'project') */
+  projectId: string | null;
   title: string;
   content: string;
   memoryType: MemoryType;
@@ -104,6 +109,8 @@ export interface MemoryEntry {
   placeLabel: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Number of file attachments (Issue #1271), populated when joined */
+  attachmentCount?: number;
 }
 
 /** Query options for listing memories */
@@ -114,6 +121,10 @@ export interface ListMemoriesOptions extends MemoryScope {
   tags?: string[];
   includeExpired?: boolean;
   includeSuperseded?: boolean;
+  /** Only include memories created at or after this date (issue #1272) */
+  createdAfter?: Date;
+  /** Only include memories created before this date (issue #1272) */
+  createdBefore?: Date;
   limit?: number;
   offset?: number;
 }
@@ -136,6 +147,10 @@ export interface SearchMemoriesOptions extends MemoryScope {
   memoryType?: MemoryType;
   /** Filter to memories containing all of these tags */
   tags?: string[];
+  /** Only include memories created at or after this date (issue #1272) */
+  createdAfter?: Date;
+  /** Only include memories created before this date (issue #1272) */
+  createdBefore?: Date;
   limit?: number;
   offset?: number;
   minSimilarity?: number;

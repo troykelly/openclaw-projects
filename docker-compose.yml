@@ -306,6 +306,7 @@ services:
   # If Nominatim is unavailable, geo features silently degrade.
   nominatim:
     image: mediagis/nominatim:4.4
+    profiles: ["geo"]
     container_name: openclaw-nominatim
     restart: unless-stopped
     environment:

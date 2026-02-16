@@ -37,6 +37,10 @@ export function createTestPool(): Pool {
  */
 const APPLICATION_TABLES = [
   // FK children first
+  'list_item',
+  'list',
+  'context_link',
+  'context',
   'relationship',
   'work_item_label',
   'label',
@@ -73,6 +77,20 @@ const APPLICATION_TABLES = [
   'skill_store_activity',
   'skill_store_schedule',
   'skill_store_item',
+  // Agent identity (Issue #1287)
+  'agent_identity_history',
+  'agent_identity',
+  // Entity links (no FKs, polymorphic references)
+  'entity_link',
+  // Dev sessions (Issue #1285)
+  'dev_session',
+  // Recipes (Issue #1278)
+  'recipe_image',
+  'recipe_step',
+  'recipe_ingredient',
+  'recipe',
+  // Meal log (Issue #1279)
+  'meal_log',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',

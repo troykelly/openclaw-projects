@@ -130,17 +130,12 @@ export async function createFileShare(pool: Pool, storage: FileStorage, input: C
   const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
   if (mode === 'presigned') {
-    // Option B: Generate S3 presigned URL pointing directly to storage
-    // This requires SeaweedFS to be externally accessible
-    const presignedUrl = await storage.getSignedUrl(metadata.storageKey, expiresIn);
-
-    // Replace internal S3 endpoint with external URL if configured
-    const externalEndpoint = process.env.S3_EXTERNAL_ENDPOINT;
-    let url = presignedUrl;
-    if (externalEndpoint) {
-      const internalEndpoint = process.env.S3_ENDPOINT ?? '';
-      url = presignedUrl.replace(internalEndpoint, externalEndpoint);
-    }
+    // Generate S3 presigned URL for external access.
+    // getExternalSignedUrl uses a separate S3Client configured with the external
+    // endpoint (when set) so that the Signature V4 Host header matches the
+    // endpoint the browser actually hits. Falls back to the internal client
+    // when no external endpoint is configured.
+    const url = await storage.getExternalSignedUrl(metadata.storageKey, expiresIn);
 
     return {
       shareToken: '', // No token for presigned URLs

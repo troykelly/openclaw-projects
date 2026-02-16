@@ -7,8 +7,8 @@
  */
 
 import type { Pool } from 'pg';
-import { embeddingService } from './service.ts';
 import { EmbeddingError } from './errors.ts';
+import { embeddingService } from './service.ts';
 
 /** Embedding status for memory records. */
 export type MemoryEmbeddingStatus = 'complete' | 'pending' | 'failed';
@@ -92,11 +92,7 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
  * @param memoryId The memory ID
  * @param locationText The location text to embed (address + place_label)
  */
-export async function generateLocationEmbedding(
-  pool: Pool,
-  memoryId: string,
-  locationText: string,
-): Promise<void> {
+export async function generateLocationEmbedding(pool: Pool, memoryId: string, locationText: string): Promise<void> {
   if (!embeddingService.isConfigured() || !locationText.trim()) return;
 
   try {
@@ -113,10 +109,7 @@ export async function generateLocationEmbedding(
     // Non-fatal: location embedding is a bonus relevance signal
     const msg = error instanceof Error ? error.message : String(error);
     if (!msg.includes('Cannot use a pool after calling end')) {
-      console.error(
-        `[Embeddings] Failed to embed location for memory ${memoryId}:`,
-        error instanceof EmbeddingError ? error.toSafeString() : msg,
-      );
+      console.error(`[Embeddings] Failed to embed location for memory ${memoryId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
     }
   }
 }
@@ -141,15 +134,18 @@ export async function searchMemoriesSemantic(
     workItemId?: string;
     contactId?: string;
     relationshipId?: string;
+    projectId?: string;
     userEmail?: string;
     tags?: string[];
+    createdAfter?: Date;
+    createdBefore?: Date;
   } = {},
 ): Promise<{
   results: Array<MemoryWithEmbedding & { similarity: number }>;
   searchType: 'semantic' | 'text';
   queryEmbeddingProvider?: string;
 }> {
-  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, userEmail, tags } = options;
+  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, projectId, userEmail, tags, createdAfter, createdBefore } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -199,6 +195,12 @@ export async function searchMemoriesSemantic(
     paramIndex++;
   }
 
+  if (projectId) {
+    conditions.push(`m.project_id = $${paramIndex}`);
+    params.push(projectId);
+    paramIndex++;
+  }
+
   if (userEmail) {
     conditions.push(`m.user_email = $${paramIndex}`);
     params.push(userEmail);
@@ -208,6 +210,18 @@ export async function searchMemoriesSemantic(
   if (tags && tags.length > 0) {
     conditions.push(`m.tags @> $${paramIndex}`);
     params.push(tags);
+    paramIndex++;
+  }
+
+  // Temporal filters (issue #1272)
+  if (createdAfter) {
+    conditions.push(`m.created_at >= $${paramIndex}`);
+    params.push(createdAfter.toISOString());
+    paramIndex++;
+  }
+  if (createdBefore) {
+    conditions.push(`m.created_at < $${paramIndex}`);
+    params.push(createdBefore.toISOString());
     paramIndex++;
   }
 

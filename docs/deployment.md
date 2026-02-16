@@ -14,6 +14,7 @@ This guide covers deploying openclaw-projects using Docker Compose, from simple 
 - [Extending Traefik](#extending-traefik)
 - [ModSecurity WAF Configuration](#modsecurity-waf-configuration)
 - [SeaweedFS Configuration](#seaweedfs-configuration)
+- [Optional Services](#optional-services)
 - [Backup and Restore](#backup-and-restore)
 - [Upgrading Containers](#upgrading-containers)
 - [Troubleshooting](#troubleshooting)
@@ -1009,6 +1010,60 @@ To use external S3 instead of SeaweedFS:
    S3_SECRET_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
    S3_FORCE_PATH_STYLE=false  # Set to false for AWS S3
    ```
+
+---
+
+## Optional Services
+
+Some services are resource-intensive and not required for all deployments. These are controlled via [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) and only start when explicitly enabled.
+
+| Profile | Service | Purpose | Resource Impact |
+|---------|---------|---------|-----------------|
+| `geo` | Nominatim | Reverse geocoding for geo-contextual search | ~1GB download, 4-5GB disk after import |
+| `ml` | PromptGuard | ML-based prompt injection detection | ~500MB model download, 1.5GB RAM |
+
+### Enabling Optional Services
+
+```bash
+# Enable geocoding
+docker compose -f docker-compose.traefik.yml --profile geo up -d
+
+# Enable ML-based injection detection
+docker compose -f docker-compose.traefik.yml --profile ml up -d
+
+# Enable both
+docker compose -f docker-compose.traefik.yml --profile geo --profile ml up -d
+```
+
+### Nominatim (Reverse Geocoding)
+
+Nominatim provides reverse geocoding for geo-contextual memory search. When enabled, the plugin can enrich memories with location context. When disabled, geo features silently degrade — no errors, just no location enrichment.
+
+**First start** downloads and imports an OpenStreetMap PBF extract (10+ minutes depending on region size). Subsequent starts use the cached import.
+
+Configure the import region in `.env`:
+
+```bash
+# Default: Australia
+NOMINATIM_PBF_URL=https://download.geofabrik.de/australia-oceania/australia-latest.osm.pbf
+NOMINATIM_REPLICATION_URL=https://download.geofabrik.de/australia-oceania/australia-updates/
+
+# Example: Europe
+NOMINATIM_PBF_URL=https://download.geofabrik.de/europe-latest.osm.pbf
+NOMINATIM_REPLICATION_URL=https://download.geofabrik.de/europe-updates/
+```
+
+Find regional extracts at [download.geofabrik.de](https://download.geofabrik.de/).
+
+### PromptGuard (Injection Detection)
+
+PromptGuard uses Meta's Llama-Prompt-Guard-2-86M model for multilingual prompt injection and jailbreak detection. When disabled, injection detection falls back to regex patterns.
+
+Requires a HuggingFace token (`HF_TOKEN`) with access to the model. The model (~500MB) is downloaded on first start and cached in a persistent volume.
+
+```bash
+HF_TOKEN=hf_your_token_here
+```
 
 ---
 

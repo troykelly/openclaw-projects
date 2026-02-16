@@ -8,6 +8,7 @@
  */
 export interface S3Config {
   endpoint?: string;
+  externalEndpoint?: string;
   bucket: string;
   region: string;
   accessKeyId: string;
@@ -22,6 +23,8 @@ export interface FileStorage {
   upload(key: string, data: Buffer, contentType: string): Promise<string>;
   download(key: string): Promise<Buffer>;
   getSignedUrl(key: string, expiresIn: number): Promise<string>;
+  /** Get a signed URL using the external endpoint (for browser-facing presigned URLs). Falls back to internal client when no external endpoint is configured. */
+  getExternalSignedUrl(key: string, expiresIn: number): Promise<string>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
 }

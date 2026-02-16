@@ -120,11 +120,20 @@ export interface ContactEndpoint {
   value: string;
 }
 
+/** Valid communication channel types (issue #1269). */
+export type CommChannel = 'telegram' | 'email' | 'sms' | 'voice';
+
 /** Single contact from GET /api/contacts */
 export interface Contact {
   id: string;
   display_name: string;
   notes: string | null;
+  preferred_channel: CommChannel | null;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  quiet_hours_timezone: string | null;
+  urgency_override_channel: CommChannel | null;
+  notification_notes: string | null;
   created_at: string;
   updated_at?: string;
   endpoints: ContactEndpoint[];
@@ -140,6 +149,12 @@ export interface ContactsResponse {
 export interface ContactBody {
   displayName: string;
   notes?: string;
+  preferred_channel?: CommChannel | null;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  quiet_hours_timezone?: string | null;
+  urgency_override_channel?: CommChannel | null;
+  notification_notes?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +168,7 @@ export interface Memory {
   content: string;
   type?: string;
   work_item_id?: string | null;
+  project_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -354,6 +370,309 @@ export interface EmailsResponse {
 /** Response from GET /api/calendar/events */
 export interface CalendarEventsResponse {
   events: ApiCommunication[];
+}
+
+// ---------------------------------------------------------------------------
+// Contact Suggest-Match (Issue #1270)
+// ---------------------------------------------------------------------------
+
+/** Single match from GET /api/contacts/suggest-match */
+export interface ContactMatch {
+  contact_id: string;
+  display_name: string;
+  confidence: number;
+  match_reasons: string[];
+  endpoints: Array<{ type: string; value: string }>;
+}
+
+/** Response from GET /api/contacts/suggest-match */
+export interface ContactSuggestMatchResponse {
+  matches: ContactMatch[];
+}
+
+/** Response from POST /api/messages/:id/link-contact */
+export interface MessageLinkContactResponse {
+  message_id: string;
+  contact_id: string;
+  from_address: string | null;
+  linked: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Entity Links (Issue #1276)
+// ---------------------------------------------------------------------------
+
+/** Source entity type for entity links. */
+export type EntityLinkSourceType = 'message' | 'thread' | 'memory' | 'todo' | 'project_event';
+
+/** Target entity type for entity links. */
+export type EntityLinkTargetType = 'project' | 'contact' | 'todo' | 'memory';
+
+/** Relationship kind for entity links. */
+export type EntityLinkRelType = 'related' | 'caused_by' | 'resulted_in' | 'about';
+
+/** Single entity link from GET /api/entity-links. */
+export interface EntityLink {
+  id: string;
+  source_type: EntityLinkSourceType;
+  source_id: string;
+  target_type: EntityLinkTargetType;
+  target_id: string;
+  link_type: EntityLinkRelType;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Response from GET /api/entity-links. */
+export interface EntityLinksResponse {
+  links: EntityLink[];
+}
+
+/** Body for POST /api/entity-links. */
+export interface CreateEntityLinkBody {
+  source_type: EntityLinkSourceType;
+  source_id: string;
+  target_type: EntityLinkTargetType;
+  target_id: string;
+  link_type?: EntityLinkRelType;
+  created_by?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Memory Attachments (Issue #1271)
+// ---------------------------------------------------------------------------
+
+/** File attachment metadata */
+export interface MemoryAttachment {
+  id: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  attachedAt: string;
+  attachedBy?: string | null;
+}
+
+/** Response from GET /api/memories/:id/attachments */
+export interface MemoryAttachmentsResponse {
+  attachments: MemoryAttachment[];
+}
+
+// ---------------------------------------------------------------------------
+// Dev Sessions (Issue #1285)
+// ---------------------------------------------------------------------------
+
+/** A dev session tracking a long-running agent development session. */
+export interface DevSession {
+  id: string;
+  user_email: string;
+  project_id: string | null;
+  session_name: string;
+  node: string;
+  container: string | null;
+  container_user: string | null;
+  repo_org: string | null;
+  repo_name: string | null;
+  branch: string | null;
+  status: 'active' | 'stalled' | 'completed' | 'errored';
+  task_summary: string | null;
+  task_prompt: string | null;
+  linked_issues: string[];
+  linked_prs: string[];
+  context_pct: number | null;
+  last_capture: string | null;
+  last_capture_at: string | null;
+  webhook_id: string | null;
+  completion_summary: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Response from GET /api/dev-sessions */
+export interface DevSessionsResponse {
+  sessions: DevSession[];
+}
+
+/** Body for POST /api/dev-sessions */
+export interface CreateDevSessionBody {
+  session_name: string;
+  node: string;
+  project_id?: string;
+  container?: string;
+  container_user?: string;
+  repo_org?: string;
+  repo_name?: string;
+  branch?: string;
+  task_summary?: string;
+  task_prompt?: string;
+  linked_issues?: string[];
+  linked_prs?: string[];
+}
+
+/** Body for PATCH /api/dev-sessions/:id */
+export interface UpdateDevSessionBody {
+  status?: string;
+  task_summary?: string;
+  branch?: string;
+  context_pct?: number;
+  last_capture?: string;
+  linked_issues?: string[];
+  linked_prs?: string[];
+  completion_summary?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Recipes (Issue #1278)
+// ---------------------------------------------------------------------------
+
+export interface Recipe {
+  id: string;
+  user_email: string;
+  title: string;
+  description: string | null;
+  source_url: string | null;
+  source_name: string | null;
+  prep_time_min: number | null;
+  cook_time_min: number | null;
+  total_time_min: number | null;
+  servings: number | null;
+  difficulty: string | null;
+  cuisine: string | null;
+  meal_type: string[];
+  tags: string[];
+  rating: number | null;
+  notes: string | null;
+  is_favourite: boolean;
+  image_s3_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipe_id: string;
+  name: string;
+  quantity: string | null;
+  unit: string | null;
+  category: string | null;
+  is_optional: boolean;
+  notes: string | null;
+  sort_order: number;
+}
+
+export interface RecipeStep {
+  id: string;
+  recipe_id: string;
+  step_number: number;
+  instruction: string;
+  duration_min: number | null;
+  image_s3_key: string | null;
+}
+
+export interface RecipeWithDetails extends Recipe {
+  ingredients: RecipeIngredient[];
+  steps: RecipeStep[];
+}
+
+export interface RecipesResponse {
+  recipes: Recipe[];
+}
+
+export interface CreateRecipeBody {
+  title: string;
+  description?: string;
+  source_url?: string;
+  source_name?: string;
+  prep_time_min?: number;
+  cook_time_min?: number;
+  total_time_min?: number;
+  servings?: number;
+  difficulty?: string;
+  cuisine?: string;
+  meal_type?: string[];
+  tags?: string[];
+  ingredients?: Array<{
+    name: string;
+    quantity?: string;
+    unit?: string;
+    category?: string;
+    is_optional?: boolean;
+  }>;
+  steps?: Array<{
+    step_number: number;
+    instruction: string;
+    duration_min?: number;
+  }>;
+}
+
+export interface UpdateRecipeBody {
+  title?: string;
+  description?: string;
+  rating?: number;
+  is_favourite?: boolean;
+  notes?: string;
+  cuisine?: string;
+  meal_type?: string[];
+  tags?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Meal Log (Issue #1279)
+// ---------------------------------------------------------------------------
+
+export interface MealLogEntry {
+  id: string;
+  user_email: string;
+  meal_date: string;
+  meal_type: string;
+  title: string;
+  source: string;
+  recipe_id: string | null;
+  order_ref: string | null;
+  restaurant: string | null;
+  cuisine: string | null;
+  who_ate: string[];
+  who_cooked: string | null;
+  rating: number | null;
+  notes: string | null;
+  leftovers_stored: boolean;
+  image_s3_key: string | null;
+  created_at: string;
+}
+
+export interface MealLogResponse {
+  meals: MealLogEntry[];
+}
+
+export interface CreateMealLogBody {
+  meal_date: string;
+  meal_type: string;
+  title: string;
+  source: string;
+  recipe_id?: string;
+  restaurant?: string;
+  cuisine?: string;
+  who_ate?: string[];
+  who_cooked?: string;
+  rating?: number;
+  notes?: string;
+  leftovers_stored?: boolean;
+}
+
+export interface UpdateMealLogBody {
+  rating?: number;
+  notes?: string;
+  cuisine?: string;
+  leftovers_stored?: boolean;
+}
+
+export interface MealLogStats {
+  total: number;
+  days: number;
+  by_source: Array<{ source: string; count: number }>;
+  by_cuisine: Array<{ cuisine: string; count: number }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -867,6 +1186,68 @@ export interface SkillStoreSearchBody {
 export interface SkillStoreSearchResponse {
   items: SkillStoreItem[];
   total: number;
+}
+
+// ---------------------------------------------------------------------------
+// Agent Identity (Issue #1287)
+// ---------------------------------------------------------------------------
+
+/** The agent's core identity/persona. */
+export interface AgentIdentity {
+  id: string;
+  name: string;
+  display_name: string;
+  emoji: string | null;
+  avatar_s3_key: string | null;
+  persona: string;
+  principles: string[];
+  quirks: string[];
+  voice_config: Record<string, unknown> | null;
+  is_active: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A history entry tracking identity changes. */
+export interface AgentIdentityHistoryEntry {
+  id: string;
+  identity_id: string;
+  version: number;
+  changed_by: string;
+  change_type: 'create' | 'update' | 'propose' | 'approve' | 'reject' | 'rollback';
+  change_reason: string | null;
+  field_changed: string | null;
+  previous_value: string | null;
+  new_value: string | null;
+  full_snapshot: Record<string, unknown>;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+}
+
+/** Response from GET /api/identity/history */
+export interface AgentIdentityHistoryResponse {
+  history: AgentIdentityHistoryEntry[];
+}
+
+/** Body for PUT /api/identity */
+export interface CreateAgentIdentityBody {
+  name: string;
+  display_name?: string;
+  emoji?: string;
+  persona: string;
+  principles?: string[];
+  quirks?: string[];
+}
+
+/** Body for POST /api/identity/proposals */
+export interface ProposeIdentityChangeBody {
+  name: string;
+  field: string;
+  new_value: string;
+  reason?: string;
+  proposed_by: string;
 }
 
 // ---------------------------------------------------------------------------

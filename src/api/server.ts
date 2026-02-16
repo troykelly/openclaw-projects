@@ -1,108 +1,112 @@
-import Fastify, { type FastifyInstance } from 'fastify';
-import cookie from '@fastify/cookie';
-import formbody from '@fastify/formbody';
-import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
-import rateLimit from '@fastify/rate-limit';
-import websocket from '@fastify/websocket';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import cookie from '@fastify/cookie';
+import formbody from '@fastify/formbody';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
+import websocket from '@fastify/websocket';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
-import { getCachedSecret, compareSecrets, isAuthDisabled } from './auth/secret.ts';
-import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
-import { EmbeddingHealthChecker, generateMemoryEmbedding, searchMemoriesSemantic, backfillMemoryEmbeddings, generateWorkItemEmbedding, backfillWorkItemEmbeddings } from './embeddings/index.ts';
+import { compareSecrets, getCachedSecret, isAuthDisabled } from './auth/secret.ts';
+import { type CloudflareEmailPayload, processCloudflareEmail } from './cloudflare-email/index.ts';
 import {
-  WebhookHealthChecker,
-  verifyTwilioSignature,
-  verifyPostmarkAuth,
-  verifyCloudflareEmailSecret,
-  isWebhookVerificationConfigured,
-} from './webhooks/index.ts';
-import { twilioIPWhitelistMiddleware, postmarkIPWhitelistMiddleware, getClientIP } from './webhooks/ip-whitelist.ts';
-import { createRateLimitKeyGenerator, getEndpointRateLimitCategory, getRateLimitConfig, type GetSessionEmailFn } from './rate-limit/per-user.ts';
-import { geoAutoInjectHook } from './geolocation/auto-inject.ts';
+  backfillMemoryEmbeddings,
+  backfillWorkItemEmbeddings,
+  EmbeddingHealthChecker,
+  generateMemoryEmbedding,
+  generateWorkItemEmbedding,
+  searchMemoriesSemantic,
+} from './embeddings/index.ts';
 import {
-  processTwilioSms,
-  type TwilioSmsWebhookPayload,
-  enqueueSmsMessage,
-  isTwilioConfigured,
-  processDeliveryStatus,
-  type TwilioStatusCallback,
-  listPhoneNumbers,
-  getPhoneNumberDetails,
-  updatePhoneNumberWebhooks,
-} from './twilio/index.ts';
-import {
-  processPostmarkEmail,
-  type PostmarkInboundPayload,
-  enqueueEmailMessage,
-  isPostmarkConfigured,
-  processPostmarkDeliveryStatus,
-  type PostmarkWebhookPayload,
-} from './postmark/index.ts';
-import { processCloudflareEmail, type CloudflareEmailPayload } from './cloudflare-email/index.ts';
-import { RealtimeHub } from './realtime/index.ts';
-import {
-  S3Storage,
-  createS3StorageFromEnv,
-  uploadFile,
-  downloadFile,
-  getFileUrl,
-  deleteFile,
-  listFiles,
-  getFileMetadata,
-  FileTooLargeError,
-  FileNotFoundError,
-  DEFAULT_MAX_FILE_SIZE_BYTES,
   createFileShare,
+  createS3StorageFromEnv,
+  DEFAULT_MAX_FILE_SIZE_BYTES,
+  deleteFile,
+  downloadFile,
   downloadFileByShareToken,
+  FileNotFoundError,
+  FileTooLargeError,
+  getFileMetadata,
+  getFileUrl,
+  listFiles,
+  type S3Storage,
   ShareLinkError,
   sanitizeFilenameForHeader,
+  uploadFile,
 } from './file-storage/index.ts';
+import { geoAutoInjectHook } from './geolocation/auto-inject.ts';
+import { DatabaseHealthChecker, HealthCheckRegistry } from './health.ts';
 import {
-  getAuthorizationUrl,
-  exchangeCodeForTokens,
-  getUserEmail as getOAuthUserEmail,
-  saveConnection,
-  getConnection,
-  listConnections,
-  updateConnection,
-  validateFeatures,
-  getValidAccessToken,
-  isProviderConfigured,
-  getConfiguredProviders,
-  getRequiredScopes,
-  getMissingScopes,
-  syncContacts,
-  getContactSyncCursor,
-  validateState,
-  listFiles as listDriveFiles,
-  searchFiles as searchDriveFiles,
-  getFile as getDriveFile,
-  OAuthError,
-  ProviderNotConfiguredError,
-  NoConnectionError,
-  InvalidStateError,
-  ALLOWED_FEATURES,
-  type OAuthProvider,
-  type OAuthPermissionLevel,
-  type OAuthFeature,
-  emailService,
-  enqueueSyncJob,
-  removePendingSyncJobs,
-  getSyncStatus,
-  executeContactSync,
+  type EmailDraftParams,
   type EmailListParams,
   type EmailSendParams,
-  type EmailDraftParams,
   type EmailUpdateParams,
+  emailService,
+  enqueueSyncJob,
+  exchangeCodeForTokens,
+  getAuthorizationUrl,
+  getConfiguredProviders,
+  getConnection,
+  getContactSyncCursor,
+  getFile as getDriveFile,
+  getMissingScopes,
+  getUserEmail as getOAuthUserEmail,
+  getRequiredScopes,
+  getSyncStatus,
+  InvalidStateError,
+  isProviderConfigured,
+  listConnections,
+  listFiles as listDriveFiles,
+  NoConnectionError,
+  OAuthError,
+  type OAuthFeature,
+  type OAuthPermissionLevel,
+  type OAuthProvider,
+  ProviderNotConfiguredError,
+  removePendingSyncJobs,
+  saveConnection,
+  searchFiles as searchDriveFiles,
+  syncContacts,
+  updateConnection,
+  validateFeatures,
+  validateState,
 } from './oauth/index.ts';
 import { validateOAuthStartup } from './oauth/startup-validation.ts';
+import {
+  enqueueEmailMessage,
+  isPostmarkConfigured,
+  type PostmarkInboundPayload,
+  type PostmarkWebhookPayload,
+  processPostmarkDeliveryStatus,
+  processPostmarkEmail,
+} from './postmark/index.ts';
+import { createRateLimitKeyGenerator, type GetSessionEmailFn, getEndpointRateLimitCategory } from './rate-limit/per-user.ts';
+import { RealtimeHub } from './realtime/index.ts';
+import {
+  enqueueSmsMessage,
+  getPhoneNumberDetails,
+  isTwilioConfigured,
+  listPhoneNumbers,
+  processDeliveryStatus,
+  processTwilioSms,
+  type TwilioSmsWebhookPayload,
+  type TwilioStatusCallback,
+  updatePhoneNumberWebhooks,
+} from './twilio/index.ts';
 import { isValidUUID } from './utils/validation.ts';
+import {
+  isWebhookVerificationConfigured,
+  verifyCloudflareEmailSecret,
+  verifyPostmarkAuth,
+  verifyTwilioSignature,
+  WebhookHealthChecker,
+} from './webhooks/index.ts';
+import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
+import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -122,8 +126,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   if (!oauthValidation.ok) {
     throw new Error(
       'OAuth startup validation failed. ' +
-      'Set OAUTH_TOKEN_ENCRYPTION_KEY or remove OAuth provider credentials. ' +
-      `Details: ${oauthValidation.errors.join('; ')}`,
+        'Set OAUTH_TOKEN_ENCRYPTION_KEY or remove OAuth provider credentials. ' +
+        `Details: ${oauthValidation.errors.join('; ')}`,
     );
   }
 
@@ -138,7 +142,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.register(formbody);
 
   // Multipart support for file uploads (Issue #215)
-  const maxFileSize = parseInt(process.env.MAX_FILE_SIZE_BYTES || String(DEFAULT_MAX_FILE_SIZE_BYTES), 10);
+  const maxFileSize = Number.parseInt(process.env.MAX_FILE_SIZE_BYTES || String(DEFAULT_MAX_FILE_SIZE_BYTES), 10);
   app.register(multipart, {
     limits: {
       fileSize: maxFileSize,
@@ -185,8 +189,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     app.register(rateLimit, {
       // Default: 100 requests per minute (per user when authenticated, per IP otherwise)
-      max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
-      timeWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+      max: Number.parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      timeWindow: Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
 
       // Add standard rate limit headers
       addHeaders: {
@@ -209,7 +213,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
 
       // Custom error response
-      errorResponseBuilder: (req, context) => ({
+      errorResponseBuilder: (_req, context) => ({
         error: 'Too Many Requests',
         message: `Rate limit exceeded. Try again in ${Math.ceil((context.ttl ?? 60000) / 1000)} seconds.`,
         statusCode: 429,
@@ -553,7 +557,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/health/live', async () => ({ status: 'ok' }));
 
   // Readiness probe - checks critical dependencies
-  app.get('/api/health/ready', async (req, reply) => {
+  app.get('/api/health/ready', async (_req, reply) => {
     const ready = await healthRegistry.isReady();
     if (ready) {
       return { status: 'ok' };
@@ -562,7 +566,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Detailed health status for monitoring
-  app.get('/api/health', async (req, reply) => {
+  app.get('/api/health', async (_req, reply) => {
     const health = await healthRegistry.checkAll();
     const statusCode = health.status === 'unhealthy' ? 503 : 200;
     return reply.code(statusCode).send(health);
@@ -827,8 +831,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listThreads(pool, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         channel: query.channel,
         contactId: query.contact_id,
         userEmail: query.user_email,
@@ -864,7 +868,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await getThreadHistory(pool, params.id, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         before: query.before ? new Date(query.before) : undefined,
         after: query.after ? new Date(query.after) : undefined,
         includeWorkItems: query.include_work_items !== 'false',
@@ -876,6 +880,84 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/messages/:id/link-contact - Link a message sender to a contact (Issue #1270)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  app.post('/api/messages/:id/link-contact', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { contact_id?: string };
+
+    // Validate message id format
+    if (!UUID_RE.test(params.id)) {
+      return reply.code(400).send({ error: 'Invalid message id format' });
+    }
+
+    // Validate contact_id
+    if (!body.contact_id || typeof body.contact_id !== 'string') {
+      return reply.code(400).send({ error: 'contact_id is required' });
+    }
+    if (!UUID_RE.test(body.contact_id)) {
+      return reply.code(400).send({ error: 'Invalid contact_id format' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Look up the message
+      const msgResult = await pool.query(
+        `SELECT m.id, m.from_address, m.thread_id,
+                et.channel, et.endpoint_id
+         FROM external_message m
+         JOIN external_thread et ON et.id = m.thread_id
+         WHERE m.id = $1`,
+        [params.id],
+      );
+
+      if (msgResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Message not found' });
+      }
+
+      const message = msgResult.rows[0];
+
+      // Verify contact exists
+      const contactResult = await pool.query(
+        `SELECT id FROM contact WHERE id = $1 AND deleted_at IS NULL`,
+        [body.contact_id],
+      );
+
+      if (contactResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Contact not found' });
+      }
+
+      // Determine the sender address and channel
+      const senderAddress = message.from_address;
+      const channel = message.channel;
+
+      if (senderAddress && channel) {
+        // Create or get the contact endpoint for this sender
+        const endpointType = channel === 'phone' ? 'phone' : 'email';
+        await pool.query(
+          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
+           VALUES ($1, $2::contact_endpoint_type, $3)
+           ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
+          [body.contact_id, endpointType, senderAddress],
+        );
+      }
+
+      return reply.send({
+        message_id: params.id,
+        contact_id: body.contact_id,
+        from_address: senderAddress,
+        linked: true,
+      });
+    } catch (err) {
+      req.log.error(err, 'Failed to link message to contact');
+      return reply.code(500).send({ error: 'Internal server error' });
     } finally {
       await pool.end();
     }
@@ -999,6 +1081,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           { method: 'GET', path: '/api/analytics/project-health', description: 'Overall project health' },
           { method: 'GET', path: '/api/analytics/velocity', description: 'Completion velocity' },
           { method: 'GET', path: '/api/analytics/overdue', description: 'Overdue items' },
+        ],
+      },
+      {
+        name: 'webhooks',
+        description: 'Ad-hoc webhook ingestion for project events (CI, deployments, alerts)',
+        endpoints: [
+          { method: 'POST', path: '/api/projects/:id/webhooks', description: 'Create a webhook for a project' },
+          { method: 'GET', path: '/api/projects/:id/webhooks', description: 'List project webhooks' },
+          { method: 'DELETE', path: '/api/projects/:id/webhooks/:webhook_id', description: 'Delete a webhook' },
+          { method: 'POST', path: '/api/webhooks/:webhook_id', description: 'Ingest webhook payload (bearer token auth)' },
+          { method: 'GET', path: '/api/projects/:id/events', description: 'List project events (paginated)' },
         ],
       },
     ],
@@ -1757,7 +1850,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const { id, email } = link.rows[0] as { id: string; email: string };
 
-      await client.query(`UPDATE auth_magic_link SET used_at = now() WHERE id = $1`, [id]);
+      await client.query('UPDATE auth_magic_link SET used_at = now() WHERE id = $1', [id]);
 
       const session = await client.query(
         `INSERT INTO auth_session (email, expires_at)
@@ -1890,7 +1983,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Embedding Settings API (issue #231)
-  app.get('/api/settings/embeddings', async (req, reply) => {
+  app.get('/api/settings/embeddings', async (_req, reply) => {
     const pool = createPool();
     try {
       const { getEmbeddingSettings } = await import('./embeddings/settings.ts');
@@ -1936,7 +2029,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  app.post('/api/settings/embeddings/test', async (req, reply) => {
+  app.post('/api/settings/embeddings/test', async (_req, reply) => {
     const { testProviderConnection } = await import('./embeddings/settings.ts');
     const result = await testProviderConnection();
     return reply.send(result);
@@ -1955,9 +2048,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     // Support both page-based and offset-based pagination
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const page = query.page ? parseInt(query.page, 10) : null;
-    const offset = page ? (page - 1) * limit : parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const page = query.page ? Number.parseInt(query.page, 10) : null;
+    const offset = page ? (page - 1) * limit : Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
@@ -1987,7 +2080,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const countResult = await pool.query(`SELECT COUNT(*) as count FROM skill_store_activity sa ${whereClause}`, params);
-      const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+      const total = Number.parseInt((countResult.rows[0] as { count: string }).count, 10);
 
       params.push(limit);
       params.push(offset);
@@ -2053,7 +2146,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           SELECT w.id FROM work_item w
           JOIN project_tree pt ON w.parent_work_item_id = pt.id
         )`;
-      conditions.push(`w.id IN (SELECT id FROM project_tree)`);
+      conditions.push('w.id IN (SELECT id FROM project_tree)');
       params.push(query.projectId);
       paramIndex++;
     }
@@ -2081,7 +2174,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM skill_store_activity sa`
       : '';
 
-    const skillStoreCountUnion = includeSkillStore ? `UNION ALL SELECT sa.id FROM skill_store_activity sa` : '';
+    const skillStoreCountUnion = includeSkillStore ? 'UNION ALL SELECT sa.id FROM skill_store_activity sa' : '';
 
     // Get total count for pagination
     const countResult = await pool.query(
@@ -2095,7 +2188,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ) combined`,
       params,
     );
-    const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+    const total = Number.parseInt((countResult.rows[0] as { count: string }).count, 10);
 
     // Add limit and offset params
     params.push(limit);
@@ -2246,8 +2339,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/work-items/:id/activity', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; offset?: string; user_email?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
@@ -2336,7 +2429,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Work Items Tree API (issue #145)
   app.get('/api/work-items/tree', async (req, reply) => {
     const query = req.query as { root_id?: string; depth?: string; user_email?: string };
-    const maxDepth = Math.min(parseInt(query.depth || '10', 10), 20);
+    const maxDepth = Math.min(Number.parseInt(query.depth || '10', 10), 20);
 
     const pool = createPool();
 
@@ -2441,7 +2534,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         priority: r.priority,
         parent_id: r.parent_id,
         level: r.level,
-        children_count: parseInt(r.children_count, 10),
+        children_count: Number.parseInt(r.children_count, 10),
         children: [],
       };
 
@@ -2576,6 +2669,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   /** Valid contact_kind enum values (issue #489). */
   const VALID_CONTACT_KINDS = ['person', 'organisation', 'group', 'agent'] as const;
   type ContactKind = (typeof VALID_CONTACT_KINDS)[number];
+
+  /** Valid contact_channel enum values (issue #1269). */
+  const VALID_CONTACT_CHANNELS = ['telegram', 'email', 'sms', 'voice'] as const;
+  type ContactChannel = (typeof VALID_CONTACT_CHANNELS)[number];
+
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   // Bulk operations endpoints
@@ -2655,7 +2753,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
           // Handle labels via junction table if provided
           if (item.labels && item.labels.length > 0) {
-            await client.query(`SELECT set_work_item_labels($1, $2)`, [workItemId, item.labels]);
+            await client.query('SELECT set_work_item_labels($1, $2)', [workItemId, item.labels]);
           }
           results.push({ index: i, id: result.rows[0].id, status: 'created' });
           createdCount++;
@@ -2728,7 +2826,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         bulkDeleteParams.push(query.user_email);
         bulkDeleteUserEmailFilter = ` AND user_email = $${bulkDeleteParams.length}`;
       }
-      const result = await pool.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[])${bulkDeleteUserEmailFilter} RETURNING id::text as id`, bulkDeleteParams);
+      const result = await pool.query(
+        `DELETE FROM work_item WHERE id = ANY($1::uuid[])${bulkDeleteUserEmailFilter} RETURNING id::text as id`,
+        bulkDeleteParams,
+      );
 
       await pool.end();
 
@@ -2783,7 +2884,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const client = await pool.connect();
 
     // Issue #1172: optional user_email scoping for bulk operations
-    const bulkPatchUserEmailFilter = query.user_email ? ` AND user_email = $3` : '';
+    const bulkPatchUserEmailFilter = query.user_email ? ' AND user_email = $3' : '';
     const bulkPatchExtraParams = query.user_email ? [query.user_email] : [];
 
     try {
@@ -2834,7 +2935,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           );
           break;
 
-        case 'parent':
+        case 'parent': {
           // value is the new parent ID, or null to unparent
           const parentId = body.value || null;
           if (parentId && !uuidRegex.test(parentId)) {
@@ -2851,15 +2952,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             [parentId, ids, ...bulkPatchExtraParams],
           );
           break;
+        }
 
-        case 'delete':
+        case 'delete': {
           // First get titles for activity log
-          const itemsToDelete = await client.query(`SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''}`, query.user_email ? [ids, query.user_email] : [ids]);
+          const _itemsToDelete = await client.query(
+            `SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''}`,
+            query.user_email ? [ids, query.user_email] : [ids],
+          );
 
-          result = await client.query(`DELETE FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''} RETURNING id::text as id`, query.user_email ? [ids, query.user_email] : [ids]);
+          result = await client.query(
+            `DELETE FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''} RETURNING id::text as id`,
+            query.user_email ? [ids, query.user_email] : [ids],
+          );
 
           // Note: Activity entries will be cascade deleted along with work items
           break;
+        }
 
         default:
           await client.query('ROLLBACK');
@@ -2973,7 +3082,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parentId must be a UUID' });
       }
 
-      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3028,7 +3137,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (body.recurrence_end) {
       recurrenceEnd = new Date(body.recurrence_end);
-      if (isNaN(recurrenceEnd.getTime())) {
+      if (Number.isNaN(recurrenceEnd.getTime())) {
         await pool.end();
         return reply.code(400).send({ error: 'Invalid recurrence_end date format' });
       }
@@ -3066,7 +3175,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email, not_before, not_after)
        VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11, $12::timestamptz, $13::timestamptz)
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, not_before, not_after`,
-      [body.title.trim(), body.description ?? null, kind, parentId, kind, estimateMinutes, actualMinutes, recurrenceRule, recurrenceEnd, isRecurrenceTemplate, userEmail, notBefore, notAfter],
+      [
+        body.title.trim(),
+        body.description ?? null,
+        kind,
+        parentId,
+        kind,
+        estimateMinutes,
+        actualMinutes,
+        recurrenceRule,
+        recurrenceEnd,
+        isRecurrenceTemplate,
+        userEmail,
+        notBefore,
+        notAfter,
+      ],
     );
 
     const workItem = result.rows[0] as { id: string; title: string };
@@ -3121,7 +3244,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'parentId must be a UUID' });
       }
 
-      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3238,7 +3361,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     } else {
       // Check parent_work_item_id as fallback
-      const parentCheck = await pool.query(`SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1`, [params.id]);
+      const parentCheck = await pool.query('SELECT parent_work_item_id::text as parent_id FROM work_item WHERE id = $1', [params.id]);
       const altParentId = (parentCheck.rows[0] as { parent_id: string | null })?.parent_id;
       if (altParentId) {
         const parentResult = await pool.query(
@@ -3302,7 +3425,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.send({
       ...workItem,
-      children_count: parseInt(workItem.children_count, 10),
+      children_count: Number.parseInt(workItem.children_count, 10),
       parent,
       dependencies,
       attachments,
@@ -3330,8 +3453,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Validate estimate/actual constraints before hitting DB
-    const estimateMinutesSpecified = Object.prototype.hasOwnProperty.call(body, 'estimateMinutes');
-    const actualMinutesSpecified = Object.prototype.hasOwnProperty.call(body, 'actualMinutes');
+    const estimateMinutesSpecified = Object.hasOwn(body, 'estimateMinutes');
+    const actualMinutesSpecified = Object.hasOwn(body, 'actualMinutes');
 
     if (estimateMinutesSpecified && body.estimateMinutes !== null) {
       if (typeof body.estimateMinutes !== 'number' || body.estimateMinutes < 0 || body.estimateMinutes > 525600) {
@@ -3381,7 +3504,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     // If parentId is omitted, keep the current value.
-    const parentIdSpecified = Object.prototype.hasOwnProperty.call(body, 'parentId');
+    const parentIdSpecified = Object.hasOwn(body, 'parentId');
     const parentId = parentIdSpecified ? (body.parentId ?? null) : currentParentId;
 
     // If estimate/actual not specified, keep current values.
@@ -3400,7 +3523,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Validate parent relationship before update for a clearer 4xx than a DB exception.
     let parentKind: string | null = null;
     if (parentId) {
-      const parent = await pool.query(`SELECT kind FROM work_item WHERE id = $1`, [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3563,8 +3686,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     const retentionDays = 30;
-    const limit = Math.min(parseInt(query.limit || '50', 10), 500);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 500);
+    const offset = Number.parseInt(query.offset || '0', 10);
 
     const items: Array<{
       id: string;
@@ -3591,7 +3714,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [retentionDays, limit, offset],
       );
 
-      const wiCountResult = await pool.query(`SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`);
+      const wiCountResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL');
 
       for (const row of wiResult.rows) {
         items.push({
@@ -3603,7 +3726,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      total += parseInt(wiCountResult.rows[0].count, 10);
+      total += Number.parseInt(wiCountResult.rows[0].count, 10);
     }
 
     // Query contacts
@@ -3621,7 +3744,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [retentionDays, limit, offset],
       );
 
-      const cCountResult = await pool.query(`SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL`);
+      const cCountResult = await pool.query('SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL');
 
       for (const row of cResult.rows) {
         items.push({
@@ -3633,7 +3756,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      total += parseInt(cCountResult.rows[0].count, 10);
+      total += Number.parseInt(cCountResult.rows[0].count, 10);
     }
 
     await pool.end();
@@ -3663,13 +3786,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    const result = await pool.query(`SELECT * FROM purge_soft_deleted($1)`, [retentionDays]);
+    const result = await pool.query('SELECT * FROM purge_soft_deleted($1)', [retentionDays]);
 
     await pool.end();
 
     const row = result.rows[0];
-    const workItemsPurged = parseInt(row.work_items_purged || '0', 10);
-    const contactsPurged = parseInt(row.contacts_purged || '0', 10);
+    const workItemsPurged = Number.parseInt(row.work_items_purged || '0', 10);
+    const contactsPurged = Number.parseInt(row.contacts_purged || '0', 10);
 
     return reply.send({
       success: true,
@@ -3785,8 +3908,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const result = await listFiles(pool, {
-      limit: query.limit ? parseInt(query.limit, 10) : undefined,
-      offset: query.offset ? parseInt(query.offset, 10) : undefined,
+      limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+      offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       uploadedBy: query.uploadedBy,
     });
     await pool.end();
@@ -3795,7 +3918,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/files/share - Clarify that sharing uses /api/files/shared/:token (Issue #1141)
-  app.get('/api/files/share', async (req, reply) => {
+  app.get('/api/files/share', async (_req, reply) => {
     return reply.code(400).send({
       error: 'Invalid endpoint',
       message: 'To access a shared file, use GET /api/files/shared/:token. To create a share link, use POST /api/files/:id/share.',
@@ -3864,7 +3987,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const params = req.params as { id: string };
     const query = req.query as { expiresIn?: string };
-    const expiresIn = query.expiresIn ? parseInt(query.expiresIn, 10) : 3600;
+    const expiresIn = query.expiresIn ? Number.parseInt(query.expiresIn, 10) : 3600;
 
     if (expiresIn < 60 || expiresIn > 86400) {
       return reply.code(400).send({
@@ -4125,7 +4248,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: row.id,
         originalFilename: row.original_filename,
         contentType: row.content_type,
-        sizeBytes: parseInt(row.size_bytes, 10),
+        sizeBytes: Number.parseInt(row.size_bytes, 10),
         createdAt: row.created_at,
         attachedAt: row.attached_at,
         attachedBy: row.attached_by,
@@ -4190,7 +4313,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         isTemplate: info.isTemplate,
         nextOccurrence: info.nextOccurrence,
       });
-    } catch (error) {
+    } catch (_error) {
       await pool.end();
       return reply.code(500).send({ error: 'Failed to get recurrence info' });
     }
@@ -4237,7 +4360,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           recurrenceEnd = null;
         } else {
           recurrenceEnd = new Date(body.recurrence_end);
-          if (isNaN(recurrenceEnd.getTime())) {
+          if (Number.isNaN(recurrenceEnd.getTime())) {
             await pool.end();
             return reply.code(400).send({ error: 'Invalid recurrence_end date format' });
           }
@@ -4328,7 +4451,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { getInstances } = await import('./recurrence/index.ts');
 
       const instances = await getInstances(pool, params.id, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         includeCompleted: query.includeCompleted !== 'false',
       });
 
@@ -4357,8 +4480,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { getTemplates } = await import('./recurrence/index.ts');
 
       const templates = await getTemplates(pool, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       await pool.end();
@@ -4422,8 +4545,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         entityType: query.entityType,
         entityId: query.entityId,
         actorId: query.actorId,
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       };
 
       // Parse actor type
@@ -4449,7 +4572,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Parse dates
       if (query.startDate) {
         const date = new Date(query.startDate);
-        if (isNaN(date.getTime())) {
+        if (Number.isNaN(date.getTime())) {
           await pool.end();
           return reply.code(400).send({ error: 'Invalid startDate' });
         }
@@ -4458,7 +4581,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (query.endDate) {
         const date = new Date(query.endDate);
-        if (isNaN(date.getTime())) {
+        if (Number.isNaN(date.getTime())) {
           await pool.end();
           return reply.code(400).send({ error: 'Invalid endDate' });
         }
@@ -4492,8 +4615,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { getEntityAuditLog } = await import('./audit/index.ts');
 
       const entries = await getEntityAuditLog(pool, params.type, params.id, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       await pool.end();
@@ -4553,7 +4676,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // First check if the work item exists and get its kind
-    const item = await pool.query(`SELECT id, work_item_kind FROM work_item WHERE id = $1`, [params.id]);
+    const item = await pool.query('SELECT id, work_item_kind FROM work_item WHERE id = $1', [params.id]);
 
     if (item.rows.length === 0) {
       await pool.end();
@@ -4640,10 +4763,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-      const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+      const limit = Math.min(Number.parseInt(query.limit || '20', 10), 100);
+      const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
       const semantic = query.semantic !== 'false'; // Default true
-      const semanticWeight = Math.min(1, Math.max(0, parseFloat(query.semantic_weight || '0.5')));
+      const semanticWeight = Math.min(1, Math.max(0, Number.parseFloat(query.semantic_weight || '0.5')));
 
       // Parse entity types
       const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
@@ -4664,13 +4787,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       let dateTo: Date | undefined;
       if (query.date_from) {
         const parsed = new Date(query.date_from);
-        if (!isNaN(parsed.getTime())) {
+        if (!Number.isNaN(parsed.getTime())) {
           dateFrom = parsed;
         }
       }
       if (query.date_to) {
         const parsed = new Date(query.date_to);
-        if (!isNaN(parsed.getTime())) {
+        if (!Number.isNaN(parsed.getTime())) {
           dateTo = parsed;
         }
       }
@@ -4873,7 +4996,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if root item exists
-    const root = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
+    const root = await pool.query('SELECT id FROM work_item WHERE id = $1', [params.id]);
 
     if (root.rows.length === 0) {
       await pool.end();
@@ -4949,7 +5072,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if root item exists
-    const root = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [params.id]);
+    const root = await pool.query('SELECT id FROM work_item WHERE id = $1', [params.id]);
 
     if (root.rows.length === 0) {
       await pool.end();
@@ -5007,7 +5130,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (!dependencyMap.has(source)) {
         dependencyMap.set(source, []);
       }
-      dependencyMap.get(source)!.push(target);
+      dependencyMap.get(source)?.push(target);
     }
 
     // Mark items that are blocking other open items
@@ -5031,7 +5154,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Compute critical path using longest path through dependency graph
     // Critical path = longest chain of dependent items (by estimate sum or count)
-    const criticalPath: Array<{ id: string; title: string; estimate_minutes: number | null }> = [];
+    const _criticalPath: Array<{ id: string; title: string; estimate_minutes: number | null }> = [];
 
     // Build adjacency list for reverse traversal (target -> sources that depend on it)
     const reverseAdjacency = new Map<string, string[]>();
@@ -5040,12 +5163,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (!reverseAdjacency.has(target)) {
           reverseAdjacency.set(target, []);
         }
-        reverseAdjacency.get(target)!.push(source);
+        reverseAdjacency.get(target)?.push(source);
       }
     }
 
     // Find nodes with no dependencies (leaf nodes in dependency graph)
-    const leafNodes = itemIds.filter((id: string) => !dependencyMap.has(id) || dependencyMap.get(id)!.length === 0);
+    const leafNodes = itemIds.filter((id: string) => !dependencyMap.has(id) || dependencyMap.get(id)?.length === 0);
 
     // DFS to find longest path from each leaf, tracking by estimate sum
     function findLongestPath(nodeId: string, visited: Set<string>): Array<{ id: string; title: string; estimate_minutes: number | null }> {
@@ -5388,13 +5511,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Ensure both nodes exist so we can return a 4xx instead of relying on FK errors.
-    const a = await pool.query(`SELECT 1 FROM work_item WHERE id = $1`, [params.id]);
+    const a = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [params.id]);
     if (a.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const b = await pool.query(`SELECT 1 FROM work_item WHERE id = $1`, [dependsOnWorkItemId]);
+    const b = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [dependsOnWorkItemId]);
     if (b.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'dependsOn work item not found' });
@@ -5473,7 +5596,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   app.post('/api/contacts', async (req, reply) => {
-    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string; user_email?: string };
+    const body = req.body as {
+      displayName?: string; notes?: string | null; contactKind?: string; user_email?: string;
+      preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
+      quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
+    };
     if (!body?.displayName || body.displayName.trim().length === 0) {
       return reply.code(400).send({ error: 'displayName is required' });
     }
@@ -5484,13 +5611,41 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
     }
 
+    // Validate communication channel preferences (issue #1269)
+    if (body.preferred_channel !== undefined && body.preferred_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.preferred_channel as ContactChannel)) {
+        return reply.code(400).send({ error: `Invalid preferred_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
+    }
+    if (body.urgency_override_channel !== undefined && body.urgency_override_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.urgency_override_channel as ContactChannel)) {
+        return reply.code(400).send({ error: `Invalid urgency_override_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
+    }
+
+    // Quiet hours start and end must be provided together
+    const hasStart = body.quiet_hours_start !== undefined && body.quiet_hours_start !== null;
+    const hasEnd = body.quiet_hours_end !== undefined && body.quiet_hours_end !== null;
+    if (hasStart !== hasEnd) {
+      return reply.code(400).send({ error: 'quiet_hours_start and quiet_hours_end must be provided together' });
+    }
+
     const pool = createPool();
     const contactUserEmail = body.user_email?.trim() || null;
     const result = await pool.query(
-      `INSERT INTO contact (display_name, notes, contact_kind, user_email)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
-      [body.displayName.trim(), body.notes ?? null, contactKind, contactUserEmail],
+      `INSERT INTO contact (display_name, notes, contact_kind, user_email,
+        preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
+        urgency_override_channel, notification_notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+        urgency_override_channel::text, notification_notes,
+        created_at, updated_at`,
+      [
+        body.displayName.trim(), body.notes ?? null, contactKind, contactUserEmail,
+        body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
+        body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
+      ],
     );
     await pool.end();
 
@@ -5617,8 +5772,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
   app.get('/api/contacts', async (req, reply) => {
     const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string; user_email?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
     const includeDeleted = query.include_deleted === 'true';
     const contactKindFilter = query.contact_kind?.trim() || null;
@@ -5667,11 +5822,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get total count
     const countResult = await pool.query(`SELECT COUNT(DISTINCT c.id) as total FROM contact c ${whereClause}`, params);
-    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+    const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
     // Get contacts with endpoints
     const result = await pool.query(
-      `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind, c.created_at,
+      `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.preferred_channel::text, c.quiet_hours_start::text, c.quiet_hours_end::text,
+              c.quiet_hours_timezone, c.urgency_override_channel::text, c.notification_notes,
+              c.created_at,
               COALESCE(
                 json_agg(
                   json_build_object('type', ce.endpoint_type::text, 'value', ce.endpoint_value)
@@ -5706,6 +5864,214 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.redirect(`/api/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}${userEmailParam}`, 301);
   });
 
+  // GET /api/contacts/suggest-match - Fuzzy contact matching (Issue #1270)
+  app.get('/api/contacts/suggest-match', async (req, reply) => {
+    const query = req.query as {
+      phone?: string;
+      email?: string;
+      name?: string;
+      limit?: string;
+      user_email?: string;
+    };
+
+    const phone = query.phone?.trim() || '';
+    const email = query.email?.trim().toLowerCase() || '';
+    const name = query.name?.trim() || '';
+
+    if (!phone && !email && !name) {
+      return reply.code(400).send({ error: 'At least one of phone, email, or name is required' });
+    }
+
+    const limit = Math.min(Math.max(parseInt(query.limit || '10', 10) || 10, 1), 50);
+    const pool = createPool();
+
+    try {
+      // Build a scored union of matches from different signals
+      const matchScores = new Map<string, { confidence: number; reasons: string[] }>();
+
+      // --- Phone matching ---
+      if (phone) {
+        const normalizedPhone = phone.replace(/[^0-9+]/g, '');
+
+        if (normalizedPhone.length >= 4) {
+          // Exact normalized match
+          const exactPhoneResult = await pool.query(
+            `SELECT ce.contact_id::text, c.display_name
+             FROM contact_endpoint ce
+             JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+             WHERE ce.endpoint_type = 'phone'
+               AND ce.normalized_value = $1
+               ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}`,
+            query.user_email ? [normalizedPhone, query.user_email] : [normalizedPhone],
+          );
+
+          for (const row of exactPhoneResult.rows) {
+            const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+            existing.confidence = Math.max(existing.confidence, 1.0);
+            existing.reasons.push('phone_exact');
+            matchScores.set(row.contact_id, existing);
+          }
+
+          // Partial match - shared prefix (first N-2 digits are the same, at least 7 chars)
+          if (normalizedPhone.length >= 8) {
+            const prefix = normalizedPhone.slice(0, -2);
+            const partialPhoneResult = await pool.query(
+              `SELECT ce.contact_id::text, c.display_name
+               FROM contact_endpoint ce
+               JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+               WHERE ce.endpoint_type = 'phone'
+                 AND ce.normalized_value LIKE $1 || '%'
+                 AND ce.normalized_value != $2
+                 ${query.user_email ? 'AND (c.user_email = $3 OR c.user_email IS NULL)' : ''}
+               LIMIT 20`,
+              query.user_email ? [prefix, normalizedPhone, query.user_email] : [prefix, normalizedPhone],
+            );
+
+            for (const row of partialPhoneResult.rows) {
+              const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+              existing.confidence = Math.max(existing.confidence, 0.7);
+              existing.reasons.push('phone_partial');
+              matchScores.set(row.contact_id, existing);
+            }
+          }
+        }
+      }
+
+      // --- Email matching ---
+      if (email) {
+        // Exact normalized match
+        const exactEmailResult = await pool.query(
+          `SELECT ce.contact_id::text, c.display_name
+           FROM contact_endpoint ce
+           JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+           WHERE ce.endpoint_type = 'email'
+             AND ce.normalized_value = $1
+             ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}`,
+          query.user_email ? [email, query.user_email] : [email],
+        );
+
+        for (const row of exactEmailResult.rows) {
+          const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+          existing.confidence = Math.max(existing.confidence, 1.0);
+          existing.reasons.push('email_exact');
+          matchScores.set(row.contact_id, existing);
+        }
+
+        // Domain match (same domain, different local part)
+        const atIndex = email.indexOf('@');
+        if (atIndex > 0) {
+          const domain = email.slice(atIndex + 1);
+          const domainEmailResult = await pool.query(
+            `SELECT ce.contact_id::text, c.display_name
+             FROM contact_endpoint ce
+             JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
+             WHERE ce.endpoint_type = 'email'
+               AND ce.normalized_value LIKE '%@' || $1
+               AND ce.normalized_value != $2
+               ${query.user_email ? 'AND (c.user_email = $3 OR c.user_email IS NULL)' : ''}
+             LIMIT 20`,
+            query.user_email ? [domain, email, query.user_email] : [domain, email],
+          );
+
+          for (const row of domainEmailResult.rows) {
+            const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+            existing.confidence = Math.max(existing.confidence, 0.4);
+            existing.reasons.push('email_domain');
+            matchScores.set(row.contact_id, existing);
+          }
+        }
+      }
+
+      // --- Name matching ---
+      if (name) {
+        const nameResult = await pool.query(
+          `SELECT c.id::text AS contact_id, c.display_name,
+                  CASE
+                    WHEN lower(c.display_name) = lower($1) THEN 1.0
+                    WHEN lower(c.display_name) ILIKE '%' || lower($1) || '%' THEN 0.6
+                    ELSE 0.3
+                  END AS name_score
+           FROM contact c
+           WHERE c.deleted_at IS NULL
+             AND c.display_name ILIKE '%' || $1 || '%'
+             ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}
+           LIMIT 20`,
+          query.user_email ? [name, query.user_email] : [name],
+        );
+
+        for (const row of nameResult.rows) {
+          const existing = matchScores.get(row.contact_id) || { confidence: 0, reasons: [] };
+          const nameScore = parseFloat(row.name_score);
+          existing.confidence = Math.max(existing.confidence, nameScore);
+          existing.reasons.push('name');
+          matchScores.set(row.contact_id, existing);
+        }
+      }
+
+      // Boost confidence when multiple signals match the same contact
+      for (const [, entry] of matchScores) {
+        if (entry.reasons.length > 1) {
+          entry.confidence = Math.min(1.0, entry.confidence + 0.1 * (entry.reasons.length - 1));
+        }
+      }
+
+      // Sort by confidence descending, take top N
+      const sortedIds = [...matchScores.entries()]
+        .sort((a, b) => b[1].confidence - a[1].confidence)
+        .slice(0, limit)
+        .map(([id]) => id);
+
+      if (sortedIds.length === 0) {
+        return reply.send({ matches: [] });
+      }
+
+      // Fetch full contact details + endpoints for the matched contacts
+      const contactsResult = await pool.query(
+        `SELECT c.id::text AS contact_id, c.display_name,
+                json_agg(json_build_object(
+                  'type', ce.endpoint_type,
+                  'value', ce.endpoint_value
+                )) FILTER (WHERE ce.id IS NOT NULL) AS endpoints
+         FROM contact c
+         LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
+         WHERE c.id = ANY($1::uuid[])
+         GROUP BY c.id, c.display_name`,
+        [sortedIds],
+      );
+
+      const contactMap = new Map<string, { display_name: string; endpoints: Array<{ type: string; value: string }> }>();
+      for (const row of contactsResult.rows) {
+        contactMap.set(row.contact_id, {
+          display_name: row.display_name,
+          endpoints: row.endpoints || [],
+        });
+      }
+
+      const matches = sortedIds
+        .map((id) => {
+          const contact = contactMap.get(id);
+          const scores = matchScores.get(id)!;
+          return contact
+            ? {
+                contact_id: id,
+                display_name: contact.display_name,
+                confidence: Math.round(scores.confidence * 100) / 100,
+                match_reasons: scores.reasons,
+                endpoints: contact.endpoints,
+              }
+            : null;
+        })
+        .filter(Boolean);
+
+      return reply.send({ matches });
+    } catch (err) {
+      req.log.error(err, 'Failed to suggest contact matches');
+      return reply.code(500).send({ error: 'Internal server error' });
+    } finally {
+      await pool.end();
+    }
+  });
+
   // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
   app.get('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
@@ -5724,6 +6090,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
+              c.preferred_channel::text, c.quiet_hours_start::text, c.quiet_hours_end::text,
+              c.quiet_hours_timezone, c.urgency_override_channel::text, c.notification_notes,
               c.created_at, c.updated_at,
               c.deleted_at,
               COALESCE(
@@ -5752,7 +6120,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.patch('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { displayName?: string; notes?: string | null; contactKind?: string };
+    const body = req.body as {
+      displayName?: string; notes?: string | null; contactKind?: string;
+      preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
+      quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
+    };
 
     const pool = createPool();
 
@@ -5760,6 +6132,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (body.contactKind !== undefined && !VALID_CONTACT_KINDS.includes(body.contactKind as ContactKind)) {
       await pool.end();
       return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    }
+
+    // Validate communication channel preferences (issue #1269)
+    if (body.preferred_channel !== undefined && body.preferred_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.preferred_channel as ContactChannel)) {
+        await pool.end();
+        return reply.code(400).send({ error: `Invalid preferred_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
+    }
+    if (body.urgency_override_channel !== undefined && body.urgency_override_channel !== null) {
+      if (!VALID_CONTACT_CHANNELS.includes(body.urgency_override_channel as ContactChannel)) {
+        await pool.end();
+        return reply.code(400).send({ error: `Invalid urgency_override_channel. Must be one of: ${VALID_CONTACT_CHANNELS.join(', ')}` });
+      }
     }
 
     // Check if contact exists (Issue #1172: optional user_email scoping)
@@ -5786,7 +6172,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, 'notes')) {
+    if (Object.hasOwn(body, 'notes')) {
       updates.push(`notes = $${paramIndex}`);
       values.push(body.notes ?? null);
       paramIndex++;
@@ -5795,6 +6181,38 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (body.contactKind !== undefined) {
       updates.push(`contact_kind = $${paramIndex}`);
       values.push(body.contactKind);
+      paramIndex++;
+    }
+
+    // Communication preference fields (issue #1269)
+    if (Object.prototype.hasOwnProperty.call(body, 'preferred_channel')) {
+      updates.push(`preferred_channel = $${paramIndex}`);
+      values.push(body.preferred_channel ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'quiet_hours_start')) {
+      updates.push(`quiet_hours_start = $${paramIndex}`);
+      values.push(body.quiet_hours_start ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'quiet_hours_end')) {
+      updates.push(`quiet_hours_end = $${paramIndex}`);
+      values.push(body.quiet_hours_end ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'quiet_hours_timezone')) {
+      updates.push(`quiet_hours_timezone = $${paramIndex}`);
+      values.push(body.quiet_hours_timezone ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'urgency_override_channel')) {
+      updates.push(`urgency_override_channel = $${paramIndex}`);
+      values.push(body.urgency_override_channel ?? null);
+      paramIndex++;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'notification_notes')) {
+      updates.push(`notification_notes = $${paramIndex}`);
+      values.push(body.notification_notes ?? null);
       paramIndex++;
     }
 
@@ -5818,7 +6236,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const result = await pool.query(
       `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex} ${patchContactUserEmailFilter}
-       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind, created_at, updated_at`,
+       RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
+        preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
+        urgency_override_channel::text, notification_notes,
+        created_at, updated_at`,
       values,
     );
 
@@ -6111,8 +6532,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       tags?: string;
     };
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
     const typeFilter = query.type || null;
     const kindFilter = query.linkedItemKind || null;
@@ -6164,7 +6585,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ${whereClause}`,
       params,
     );
-    const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+    const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
     // Get paginated results
     params.push(limit);
@@ -6385,6 +6806,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       },
     },
     async (req, reply) => {
+      const { resolveRelativeTime, resolvePeriod, VALID_PERIODS } = await import('./memory/temporal.ts');
+
       const query = req.query as {
         q?: string;
         limit?: string;
@@ -6393,22 +6816,53 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         work_item_id?: string;
         contact_id?: string;
         relationship_id?: string;
+        project_id?: string;
         user_email?: string;
         tags?: string;
+        since?: string;
+        before?: string;
+        period?: string;
       };
 
       if (!query.q || query.q.trim().length === 0) {
         return reply.code(400).send({ error: 'q (query) parameter is required' });
       }
 
-      const limit = Math.min(Math.max(parseInt(query.limit || '20', 10), 1), 100);
-      const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+      const limit = Math.min(Math.max(Number.parseInt(query.limit || '20', 10), 1), 100);
+      const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
       const searchTags = query.tags
         ? query.tags
             .split(',')
             .map((t: string) => t.trim())
             .filter(Boolean)
         : undefined;
+
+      // Resolve temporal parameters (issue #1272)
+      let createdAfter: Date | undefined;
+      let createdBefore: Date | undefined;
+
+      if (query.period) {
+        const periodResult = resolvePeriod(query.period);
+        if (!periodResult) {
+          return reply.code(400).send({ error: `Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}` });
+        }
+        createdAfter = periodResult.since;
+        createdBefore = periodResult.before;
+      }
+      if (query.since) {
+        const resolved = resolveRelativeTime(query.since);
+        if (!resolved) {
+          return reply.code(400).send({ error: 'Invalid since parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+        }
+        createdAfter = resolved;
+      }
+      if (query.before) {
+        const resolved = resolveRelativeTime(query.before);
+        if (!resolved) {
+          return reply.code(400).send({ error: 'Invalid before parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+        }
+        createdBefore = resolved;
+      }
 
       const pool = createPool();
 
@@ -6420,8 +6874,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           workItemId: query.work_item_id,
           contactId: query.contact_id,
           relationshipId: query.relationship_id,
+          projectId: query.project_id,
           userEmail: query.user_email,
           tags: searchTags,
+          createdAfter,
+          createdBefore,
         });
 
         // Map results to include score (Issue #1145)
@@ -6500,7 +6957,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/admin/embeddings/status - Get embedding configuration status (issue #200)
-  app.get('/api/admin/embeddings/status', async (req, reply) => {
+  app.get('/api/admin/embeddings/status', async (_req, reply) => {
     const pool = createPool();
 
     try {
@@ -6552,17 +7009,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         dimensions: config.dimensions,
         configured_providers: config.configuredProviders,
         stats: {
-          total_memories: parseInt(row.total, 10),
-          with_embedding: parseInt(row.with_embedding, 10),
-          pending: parseInt(row.pending, 10),
-          failed: parseInt(row.failed, 10),
+          total_memories: Number.parseInt(row.total, 10),
+          with_embedding: Number.parseInt(row.with_embedding, 10),
+          pending: Number.parseInt(row.pending, 10),
+          failed: Number.parseInt(row.failed, 10),
         },
         work_item_stats: {
-          total: parseInt(wiRow.total, 10),
-          with_embedding: parseInt(wiRow.with_embedding, 10),
-          pending: parseInt(wiRow.pending, 10),
-          failed: parseInt(wiRow.failed, 10),
-          skipped: parseInt(wiRow.skipped, 10),
+          total: Number.parseInt(wiRow.total, 10),
+          with_embedding: Number.parseInt(wiRow.with_embedding, 10),
+          pending: Number.parseInt(wiRow.pending, 10),
+          failed: Number.parseInt(wiRow.failed, 10),
+          skipped: Number.parseInt(wiRow.skipped, 10),
         },
       });
     } finally {
@@ -6592,8 +7049,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await getGlobalMemories(pool, query.user_email, {
         memoryType: query.memory_type as any,
-        limit: parseInt(query.limit || '50', 10),
-        offset: parseInt(query.offset || '0', 10),
+        limit: Number.parseInt(query.limit || '50', 10),
+        offset: Number.parseInt(query.offset || '0', 10),
       });
 
       return reply.send({
@@ -6617,6 +7074,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       work_item_id?: string;
       contact_id?: string;
       relationship_id?: string;
+      project_id?: string;
       created_by_agent?: string;
       created_by_human?: boolean;
       source_url?: string;
@@ -6652,7 +7110,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const memoryType = body.memory_type ?? 'note';
     if (!isValidMemoryType(memoryType)) {
       return reply.code(400).send({
-        error: `Invalid memory_type. Valid types: preference, fact, note, decision, context, reference`,
+        error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
       });
     }
 
@@ -6667,6 +7125,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         workItemId: body.work_item_id,
         contactId: body.contact_id,
         relationshipId: body.relationship_id,
+        projectId: body.project_id,
         createdByAgent: body.created_by_agent,
         createdByHuman: body.created_by_human,
         sourceUrl: body.source_url,
@@ -6710,6 +7169,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         work_item_id?: string;
         contact_id?: string;
         relationship_id?: string;
+        project_id?: string;
         created_by_agent?: string;
         created_by_human?: boolean;
         source_url?: string;
@@ -6794,6 +7254,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             workItemId: mem.work_item_id,
             contactId: mem.contact_id,
             relationshipId: mem.relationship_id,
+            projectId: mem.project_id,
             createdByAgent: mem.created_by_agent,
             createdByHuman: mem.created_by_human,
             sourceUrl: mem.source_url,
@@ -6980,18 +7441,50 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/memories/unified - List memories with flexible filtering (issue #209)
   app.get('/api/memories/unified', async (req, reply) => {
     const { listMemories } = await import('./memory/index.ts');
+    const { resolveRelativeTime, resolvePeriod, VALID_PERIODS } = await import('./memory/temporal.ts');
 
     const query = req.query as {
       user_email?: string;
       work_item_id?: string;
       contact_id?: string;
       relationship_id?: string;
+      project_id?: string;
       memory_type?: string;
       include_expired?: string;
       include_superseded?: string;
+      since?: string;
+      before?: string;
+      period?: string;
       limit?: string;
       offset?: string;
     };
+
+    // Resolve temporal parameters (issue #1272)
+    let createdAfter: Date | undefined;
+    let createdBefore: Date | undefined;
+
+    if (query.period) {
+      const periodResult = resolvePeriod(query.period);
+      if (!periodResult) {
+        return reply.code(400).send({ error: `Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}` });
+      }
+      createdAfter = periodResult.since;
+      createdBefore = periodResult.before;
+    }
+    if (query.since) {
+      const resolved = resolveRelativeTime(query.since);
+      if (!resolved) {
+        return reply.code(400).send({ error: 'Invalid since parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+      }
+      createdAfter = resolved;
+    }
+    if (query.before) {
+      const resolved = resolveRelativeTime(query.before);
+      if (!resolved) {
+        return reply.code(400).send({ error: 'Invalid before parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
+      }
+      createdBefore = resolved;
+    }
 
     const pool = createPool();
 
@@ -7001,9 +7494,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         workItemId: query.work_item_id,
         contactId: query.contact_id,
         relationshipId: query.relationship_id,
+        projectId: query.project_id,
         memoryType: query.memory_type as any,
         includeExpired: query.include_expired === 'true',
         includeSuperseded: query.include_superseded === 'true',
+        createdAfter,
+        createdBefore,
         limit: parseInt(query.limit || '50', 10),
         offset: parseInt(query.offset || '0', 10),
       });
@@ -7050,7 +7546,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const memoryType = body.memory_type ?? oldMemory.memoryType;
       if (!isValidMemoryType(memoryType)) {
         return reply.code(400).send({
-          error: `Invalid memory_type. Valid types: preference, fact, note, decision, context, reference`,
+          error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
         });
       }
 
@@ -7062,6 +7558,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         workItemId: oldMemory.workItemId ?? undefined,
         contactId: oldMemory.contactId ?? undefined,
         relationshipId: oldMemory.relationshipId ?? undefined,
+        projectId: oldMemory.projectId ?? undefined,
         importance: body.importance ?? oldMemory.importance,
         confidence: body.confidence ?? oldMemory.confidence,
       });
@@ -7079,8 +7576,112 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // POST /api/memories/:id/attachments - Attach a file to a memory (Issue #1271)
+  app.post('/api/memories/:id/attachments', async (req, reply) => {
+    const params = req.params as { id: string };
+    const body = req.body as { fileId: string };
+
+    if (!body.fileId) {
+      return reply.code(400).send({ error: 'fileId is required' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Check memory exists
+      const memResult = await pool.query('SELECT id FROM memory WHERE id = $1', [params.id]);
+      if (memResult.rowCount === 0) {
+        return reply.code(404).send({ error: 'Memory not found' });
+      }
+
+      // Check file exists
+      const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.fileId]);
+      if (fileResult.rowCount === 0) {
+        return reply.code(404).send({ error: 'File not found' });
+      }
+
+      // Create attachment link
+      const email = await getSessionEmail(req);
+      await pool.query(
+        `INSERT INTO unified_memory_attachment (memory_id, file_attachment_id, attached_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [params.id, body.fileId, email],
+      );
+
+      return reply.code(201).send({
+        memoryId: params.id,
+        fileId: body.fileId,
+        attached: true,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/memories/:id/attachments - List memory attachments (Issue #1271)
+  app.get('/api/memories/:id/attachments', async (req, reply) => {
+    const params = req.params as { id: string };
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `SELECT
+          fa.id::text,
+          fa.original_filename,
+          fa.content_type,
+          fa.size_bytes,
+          fa.created_at,
+          uma.attached_at,
+          uma.attached_by
+        FROM unified_memory_attachment uma
+        JOIN file_attachment fa ON fa.id = uma.file_attachment_id
+        WHERE uma.memory_id = $1
+        ORDER BY uma.attached_at DESC`,
+        [params.id],
+      );
+
+      return reply.send({
+        attachments: result.rows.map((row) => ({
+          id: row.id,
+          originalFilename: row.original_filename,
+          contentType: row.content_type,
+          sizeBytes: Number.parseInt(row.size_bytes, 10),
+          createdAt: row.created_at,
+          attachedAt: row.attached_at,
+          attachedBy: row.attached_by,
+        })),
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/memories/:memoryId/attachments/:fileId - Remove attachment from memory (Issue #1271)
+  app.delete('/api/memories/:memoryId/attachments/:fileId', async (req, reply) => {
+    const params = req.params as { memoryId: string; fileId: string };
+    const pool = createPool();
+
+    try {
+      const result = await pool.query(
+        `DELETE FROM unified_memory_attachment
+         WHERE memory_id = $1 AND file_attachment_id = $2
+         RETURNING memory_id`,
+        [params.memoryId, params.fileId],
+      );
+
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Attachment not found' });
+      }
+
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // DELETE /api/memories/cleanup-expired - Cleanup expired memories (issue #209)
-  app.delete('/api/memories/cleanup-expired', async (req, reply) => {
+  app.delete('/api/memories/cleanup-expired', async (_req, reply) => {
     const { cleanupExpiredMemories } = await import('./memory/index.ts');
 
     const pool = createPool();
@@ -7107,8 +7708,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     const status = query.status as 'pending' | 'failed' | 'dispatched' | undefined;
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
 
     const pool = createPool();
 
@@ -7159,7 +7760,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // GET /api/webhooks/status - Get webhook configuration status
-  app.get('/api/webhooks/status', async (req, reply) => {
+  app.get('/api/webhooks/status', async (_req, reply) => {
     const { getConfigSummary, getWebhookOutbox } = await import('./webhooks/index.ts');
 
     const config = getConfigSummary();
@@ -7169,7 +7770,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get stats
       const pendingResult = await getWebhookOutbox(pool, { status: 'pending', limit: 0 });
       const failedResult = await getWebhookOutbox(pool, { status: 'failed', limit: 0 });
-      const dispatchedResult = await pool.query(`SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL`);
+      const dispatchedResult = await pool.query('SELECT COUNT(*) as count FROM webhook_outbox WHERE dispatched_at IS NOT NULL');
 
       return reply.send({
         configured: config.configured,
@@ -7180,7 +7781,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         stats: {
           pending: pendingResult.total,
           failed: failedResult.total,
-          dispatched: parseInt((dispatchedResult.rows[0] as { count: string }).count, 10),
+          dispatched: Number.parseInt((dispatchedResult.rows[0] as { count: string }).count, 10),
         },
       });
     } finally {
@@ -7206,6 +7807,46 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         succeeded: stats.succeeded,
         failed: stats.failed,
         skipped: stats.skipped,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/projects/:id/memories - List memories scoped to a project (Issue #1273)
+  app.get('/api/projects/:id/memories', async (req, reply) => {
+    const { listMemories } = await import('./memory/index.ts');
+
+    const params = req.params as { id: string };
+    const query = req.query as {
+      memory_type?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid project ID' });
+    }
+
+    const pool = createPool();
+
+    try {
+      // Verify project exists and is a project-kind work item
+      const projectCheck = await pool.query("SELECT 1 FROM work_item WHERE id = $1 AND kind = 'project'", [params.id]);
+      if (projectCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' });
+      }
+
+      const result = await listMemories(pool, {
+        projectId: params.id,
+        memoryType: query.memory_type as undefined,
+        limit: Number.parseInt(query.limit || '50', 10),
+        offset: Number.parseInt(query.offset || '0', 10),
+      });
+
+      return reply.send({
+        memories: result.memories,
+        total: result.total,
       });
     } finally {
       await pool.end();
@@ -7510,8 +8151,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { relationshipType?: string; limit?: string; offset?: string; user_email?: string };
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
@@ -7668,7 +8309,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const queryParams: string[] = [params.id];
 
       if (query.relationshipType) {
-        const typeCondition = ` AND mr.relationship_type = $2::memory_relationship_type`;
+        const typeCondition = ' AND mr.relationship_type = $2::memory_relationship_type';
         outgoingSql += typeCondition;
         incomingSql += typeCondition;
         queryParams.push(query.relationshipType);
@@ -7677,9 +8318,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Combine based on direction filter
       let results;
       if (query.direction === 'outgoing') {
-        results = await pool.query(outgoingSql + ' ORDER BY mr.created_at DESC', queryParams);
+        results = await pool.query(`${outgoingSql} ORDER BY mr.created_at DESC`, queryParams);
       } else if (query.direction === 'incoming') {
-        results = await pool.query(incomingSql + ' ORDER BY mr.created_at DESC', queryParams);
+        results = await pool.query(`${incomingSql} ORDER BY mr.created_at DESC`, queryParams);
       } else {
         // Get both directions
         const combinedSql = `(${outgoingSql}) UNION ALL (${incomingSql}) ORDER BY "linkedAt" DESC`;
@@ -7723,8 +8364,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string };
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
-    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.7')));
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.7')));
 
     const pool = createPool();
 
@@ -7790,8 +8431,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string; user_email?: string };
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
-    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.6')));
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.6')));
 
     const pool = createPool();
 
@@ -7836,7 +8477,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
 
         const contact = contactResult.rows[0] as { id: string; display_name: string; notes: string | null };
-        const contextText = `${contact.display_name}${contact.notes ? '\n' + contact.notes : ''}`;
+        const contextText = `${contact.display_name}${contact.notes ? `\n${contact.notes}` : ''}`;
 
         const embeddingResult = await embeddingService.embed(contextText);
         if (!embeddingResult) {
@@ -7914,8 +8555,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { limit?: string; threshold?: string; user_email?: string };
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
-    const threshold = Math.max(0, Math.min(1, parseFloat(query.threshold || '0.6')));
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
+    const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.6')));
 
     const pool = createPool();
 
@@ -8496,6 +9137,147 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'communication link not found' });
     }
 
+    return reply.code(204).send();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Entity Links (Issue #1276)
+  // ---------------------------------------------------------------------------
+
+  const VALID_ENTITY_SOURCE_TYPES = ['message', 'thread', 'memory', 'todo', 'project_event'] as const;
+  const VALID_ENTITY_TARGET_TYPES = ['project', 'contact', 'todo', 'memory'] as const;
+  const VALID_ENTITY_LINK_TYPES = ['related', 'caused_by', 'resulted_in', 'about'] as const;
+
+  // POST /api/entity-links - Create an entity link
+  app.post('/api/entity-links', async (req, reply) => {
+    const query = req.query as { user_email?: string };
+    const body = req.body as {
+      source_type?: string; source_id?: string;
+      target_type?: string; target_id?: string;
+      link_type?: string; created_by?: string;
+    };
+
+    if (!body?.source_type || !body?.source_id || !body?.target_type || !body?.target_id) {
+      return reply.code(400).send({ error: 'source_type, source_id, target_type, and target_id are required' });
+    }
+
+    if (!VALID_ENTITY_SOURCE_TYPES.includes(body.source_type as (typeof VALID_ENTITY_SOURCE_TYPES)[number])) {
+      return reply.code(400).send({ error: `Invalid source_type. Must be one of: ${VALID_ENTITY_SOURCE_TYPES.join(', ')}` });
+    }
+    if (!VALID_ENTITY_TARGET_TYPES.includes(body.target_type as (typeof VALID_ENTITY_TARGET_TYPES)[number])) {
+      return reply.code(400).send({ error: `Invalid target_type. Must be one of: ${VALID_ENTITY_TARGET_TYPES.join(', ')}` });
+    }
+    if (body.link_type !== undefined && !VALID_ENTITY_LINK_TYPES.includes(body.link_type as (typeof VALID_ENTITY_LINK_TYPES)[number])) {
+      return reply.code(400).send({ error: `Invalid link_type. Must be one of: ${VALID_ENTITY_LINK_TYPES.join(', ')}` });
+    }
+    if (!uuidRegex.test(body.source_id) || !uuidRegex.test(body.target_id)) {
+      return reply.code(400).send({ error: 'source_id and target_id must be valid UUID format' });
+    }
+
+    const pool = createPool();
+    const linkType = body.link_type ?? 'related';
+    const result = await pool.query(
+      `INSERT INTO entity_link (source_type, source_id, target_type, target_id, link_type, created_by, user_email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT ON CONSTRAINT uq_entity_link DO UPDATE SET created_by = EXCLUDED.created_by
+       RETURNING id::text, source_type, source_id::text, target_type, target_id::text, link_type, created_by, created_at`,
+      [body.source_type, body.source_id, body.target_type, body.target_id, linkType, body.created_by ?? null, query.user_email ?? null],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // GET /api/entity-links - Query links by source or target
+  app.get('/api/entity-links', async (req, reply) => {
+    const query = req.query as {
+      source_type?: string; source_id?: string;
+      target_type?: string; target_id?: string;
+      link_type?: string; user_email?: string;
+    };
+
+    const hasSource = query.source_type && query.source_id;
+    const hasTarget = query.target_type && query.target_id;
+    if (!hasSource && !hasTarget) {
+      return reply.code(400).send({ error: 'Must provide source_type+source_id or target_type+target_id' });
+    }
+
+    const conditions: string[] = [];
+    const params: string[] = [];
+    let paramIdx = 1;
+
+    if (hasSource) {
+      conditions.push(`source_type = $${paramIdx} AND source_id = $${paramIdx + 1}`);
+      params.push(query.source_type!, query.source_id!);
+      paramIdx += 2;
+    }
+    if (hasTarget) {
+      conditions.push(`target_type = $${paramIdx} AND target_id = $${paramIdx + 1}`);
+      params.push(query.target_type!, query.target_id!);
+      paramIdx += 2;
+    }
+    if (query.link_type) {
+      conditions.push(`link_type = $${paramIdx}`);
+      params.push(query.link_type);
+      paramIdx++;
+    }
+    if (query.user_email) {
+      conditions.push(`(user_email = $${paramIdx} OR user_email IS NULL)`);
+      params.push(query.user_email);
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, source_type, source_id::text, target_type, target_id::text,
+              link_type, created_by, created_at
+       FROM entity_link
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY created_at DESC`,
+      params,
+    );
+    await pool.end();
+    return reply.send({ links: result.rows });
+  });
+
+  // GET /api/entity-links/:id - Get single link
+  app.get('/api/entity-links/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!uuidRegex.test(params.id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, source_type, source_id::text, target_type, target_id::text,
+              link_type, created_by, created_at
+       FROM entity_link WHERE id = $1`,
+      [params.id],
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.send(result.rows[0]);
+  });
+
+  // DELETE /api/entity-links/:id - Remove a link
+  app.delete('/api/entity-links/:id', async (req, reply) => {
+    const params = req.params as { id: string };
+    if (!uuidRegex.test(params.id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    const result = await pool.query(
+      'DELETE FROM entity_link WHERE id = $1 RETURNING id::text',
+      [params.id],
+    );
+    await pool.end();
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
     return reply.code(204).send();
   });
 
@@ -9223,7 +10005,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const payloadTime = new Date(payload.timestamp).getTime();
       const now = Date.now();
       const fiveMinutes = 5 * 60 * 1000;
-      if (isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
+      if (Number.isNaN(payloadTime) || Math.abs(now - payloadTime) > fiveMinutes) {
         console.warn('[Cloudflare Email] Rejecting stale or invalid timestamp:', payload.timestamp);
         return reply.code(400).send({ error: 'Invalid or stale timestamp' });
       }
@@ -9310,7 +10092,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get new parent info if not null
       let newParentKind: string | null = null;
       if (newParentId) {
-        const parentResult = await client.query(`SELECT work_item_kind as kind FROM work_item WHERE id = $1`, [newParentId]);
+        const parentResult = await client.query('SELECT work_item_kind as kind FROM work_item WHERE id = $1', [newParentId]);
         if (parentResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -9358,7 +10140,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (afterId) {
         // Position after a specific sibling in new parent
-        const afterResult = await client.query(`SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1`, [afterId]);
+        const afterResult = await client.query('SELECT sort_order, parent_work_item_id FROM work_item WHERE id = $1', [afterId]);
         if (afterResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -9447,8 +10229,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as { afterId?: string | null; beforeId?: string | null };
 
     // Validate exactly one of afterId or beforeId is provided
-    const hasAfter = Object.prototype.hasOwnProperty.call(body, 'afterId');
-    const hasBefore = Object.prototype.hasOwnProperty.call(body, 'beforeId');
+    const hasAfter = Object.hasOwn(body, 'afterId');
+    const hasBefore = Object.hasOwn(body, 'beforeId');
 
     if (!hasAfter && !hasBefore) {
       return reply.code(400).send({ error: 'afterId or beforeId is required' });
@@ -9487,7 +10269,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       // Get the work item being reordered
-      const itemResult = await client.query(`SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE`, [params.id]);
+      const itemResult = await client.query('SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1 FOR UPDATE', [params.id]);
       if (itemResult.rows.length === 0) {
         await client.query('ROLLBACK');
         client.release();
@@ -9541,7 +10323,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       } else {
         // Move relative to a specific sibling
-        const targetResult = await client.query(`SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1`, [targetId]);
+        const targetResult = await client.query('SELECT id, parent_work_item_id, sort_order FROM work_item WHERE id = $1', [targetId]);
         if (targetResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -9586,7 +10368,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === target.sort_order || newSortOrder === nextOrder) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query(`SELECT sort_order FROM work_item WHERE id = $1`, [targetId]);
+              const refetch = await client.query('SELECT sort_order FROM work_item WHERE id = $1', [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder + 500;
             }
@@ -9614,7 +10396,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             if (newSortOrder === prevOrder || newSortOrder === target.sort_order) {
               await normalizeSort(target.parent_work_item_id);
               // Re-fetch target order after normalization
-              const refetch = await client.query(`SELECT sort_order FROM work_item WHERE id = $1`, [targetId]);
+              const refetch = await client.query('SELECT sort_order FROM work_item WHERE id = $1', [targetId]);
               const targetOrder = (refetch.rows[0] as { sort_order: number }).sort_order;
               newSortOrder = targetOrder - 500;
             }
@@ -9657,8 +10439,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as { startDate?: string | null; endDate?: string | null };
 
     // Check at least one field is provided
-    const hasStartDate = Object.prototype.hasOwnProperty.call(body, 'startDate');
-    const hasEndDate = Object.prototype.hasOwnProperty.call(body, 'endDate');
+    const hasStartDate = Object.hasOwn(body, 'startDate');
+    const hasEndDate = Object.hasOwn(body, 'endDate');
     if (!hasStartDate && !hasEndDate) {
       return reply.code(400).send({ error: 'at least one date field is required' });
     }
@@ -9668,8 +10450,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const parseDate = (str: string | null | undefined): Date | null => {
       if (str === null || str === undefined) return null;
       if (!dateRegex.test(str)) return new Date('invalid');
-      const d = new Date(str + 'T00:00:00Z');
-      return isNaN(d.getTime()) ? new Date('invalid') : d;
+      const d = new Date(`${str}T00:00:00Z`);
+      return Number.isNaN(d.getTime()) ? new Date('invalid') : d;
     };
 
     let newStartDate: Date | null | undefined;
@@ -9680,7 +10462,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         newStartDate = null;
       } else {
         newStartDate = parseDate(body.startDate);
-        if (newStartDate && isNaN(newStartDate.getTime())) {
+        if (newStartDate && Number.isNaN(newStartDate.getTime())) {
           return reply.code(400).send({ error: 'invalid date format' });
         }
       }
@@ -9691,7 +10473,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         newEndDate = null;
       } else {
         newEndDate = parseDate(body.endDate);
-        if (newEndDate && isNaN(newEndDate.getTime())) {
+        if (newEndDate && Number.isNaN(newEndDate.getTime())) {
           return reply.code(400).send({ error: 'invalid date format' });
         }
       }
@@ -9706,7 +10488,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if work item exists and get current dates
-    const existing = await pool.query(`SELECT id, not_before, not_after FROM work_item WHERE id = $1`, [params.id]);
+    const existing = await pool.query('SELECT id, not_before, not_after FROM work_item WHERE id = $1', [params.id]);
     if (existing.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9890,7 +10672,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (hasText) {
       updates.push(`text = $${paramIndex}`);
-      values.push(body.text!.trim());
+      values.push(body.text?.trim() ?? null);
       paramIndex++;
     }
 
@@ -9901,9 +10683,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Set or clear completed_at based on completed status
       if (body.completed) {
-        updates.push(`completed_at = now()`);
+        updates.push('completed_at = now()');
       } else {
-        updates.push(`completed_at = NULL`);
+        updates.push('completed_at = NULL');
       }
     }
 
@@ -9972,8 +10754,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'userEmail is required' });
     }
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const unreadOnly = query.unreadOnly === 'true';
 
     const pool = createPool();
@@ -10003,7 +10785,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       [...params, limit, offset],
     );
 
-    const countResult = await pool.query(`SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`, [
+    const countResult = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [
       query.userEmail,
     ]);
 
@@ -10011,7 +10793,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.send({
       notifications: result.rows,
-      unreadCount: parseInt(countResult.rows[0].count, 10),
+      unreadCount: Number.parseInt(countResult.rows[0].count, 10),
     });
   });
 
@@ -10024,10 +10806,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
-    const result = await pool.query(`SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL`, [query.userEmail]);
+    const result = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [query.userEmail]);
     await pool.end();
 
-    return reply.send({ unreadCount: parseInt(result.rows[0].count, 10) });
+    return reply.send({ unreadCount: Number.parseInt(result.rows[0].count, 10) });
   });
 
   // POST /api/notifications/:id/read - Mark a notification as read
@@ -10213,7 +10995,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get reactions for all comments
     const commentIds = comments.rows.map((c) => c.id);
-    let reactionsMap: Record<string, Record<string, number>> = {};
+    const reactionsMap: Record<string, Record<string, number>> = {};
 
     if (commentIds.length > 0) {
       const reactions = await pool.query(
@@ -10228,7 +11010,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (!reactionsMap[r.comment_id]) {
           reactionsMap[r.comment_id] = {};
         }
-        reactionsMap[r.comment_id][r.emoji] = parseInt(r.count, 10);
+        reactionsMap[r.comment_id][r.emoji] = Number.parseInt(r.count, 10);
       }
     }
 
@@ -10531,7 +11313,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'q query parameter is required' });
     }
 
-    const limit = Math.min(parseInt(query.limit || '10', 10), 50);
+    const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
     const pool = createPool();
 
     // Search for users based on email from various sources
@@ -10595,7 +11377,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/velocity - Get velocity data
   app.get('/api/analytics/velocity', async (req, reply) => {
     const query = req.query as { weeks?: string; projectId?: string };
-    const weeks = Math.min(parseInt(query.weeks || '12', 10), 52);
+    const weeks = Math.min(Number.parseInt(query.weeks || '12', 10), 52);
     const pool = createPool();
 
     const result = await pool.query(
@@ -10624,7 +11406,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/analytics/effort - Get effort summary
   app.get('/api/analytics/effort', async (req, reply) => {
-    const query = req.query as { projectId?: string };
+    const _query = req.query as { projectId?: string };
     const pool = createPool();
 
     // Get total effort
@@ -10700,7 +11482,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/overdue - Get overdue items
   app.get('/api/analytics/overdue', async (req, reply) => {
     const query = req.query as { limit?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
     const result = await pool.query(
@@ -10728,7 +11510,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/blocked - Get blocked items
   app.get('/api/analytics/blocked', async (req, reply) => {
     const query = req.query as { limit?: string };
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
     const result = await pool.query(
@@ -10760,7 +11542,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/analytics/activity-summary - Get activity summary by day
   app.get('/api/analytics/activity-summary', async (req, reply) => {
     const query = req.query as { days?: string };
-    const days = Math.min(parseInt(query.days || '30', 10), 90);
+    const days = Math.min(Number.parseInt(query.days || '30', 10), 90);
     const pool = createPool();
 
     const result = await pool.query(
@@ -11318,7 +12100,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params: EmailListParams = {
         folderId: query.folderId,
         query: query.q,
-        maxResults: query.maxResults ? parseInt(query.maxResults, 10) : undefined,
+        maxResults: query.maxResults ? Number.parseInt(query.maxResults, 10) : undefined,
         pageToken: query.pageToken,
         includeSpamTrash: query.includeSpamTrash === 'true',
         labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
@@ -11380,7 +12162,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params: EmailListParams = {
         folderId: query.folderId,
         query: query.q,
-        maxResults: query.maxResults ? parseInt(query.maxResults, 10) : undefined,
+        maxResults: query.maxResults ? Number.parseInt(query.maxResults, 10) : undefined,
         pageToken: query.pageToken,
         includeSpamTrash: query.includeSpamTrash === 'true',
         labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
@@ -11700,7 +12482,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const pool = createPool();
       try {
         const params: EmailListParams = {
-          maxResults: query.limit ? parseInt(query.limit, 10) : 50,
+          maxResults: query.limit ? Number.parseInt(query.limit, 10) : 50,
         };
         const result = await emailService.listMessages(pool, query.connectionId, params);
         return reply.send({ emails: result.messages });
@@ -11715,7 +12497,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Fallback to database query for locally stored emails
-    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const pool = createPool();
 
     let sql = `
@@ -11798,10 +12580,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'threadId and userEmail are required (or use connectionId + to for the new API)' });
     }
 
-    const thread = await pool.query(
-      `SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1`,
-      [body.threadId],
-    );
+    const thread = await pool.query('SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1', [body.threadId]);
 
     if (thread.rows.length === 0) {
       await pool.end();
@@ -11907,7 +12686,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       endBefore?: string;
       limit?: string;
     };
-    const limit = Math.min(parseInt(query.limit || '100', 10), 500);
+    const limit = Math.min(Number.parseInt(query.limit || '100', 10), 500);
     const pool = createPool();
 
     let sql = `
@@ -12222,8 +13001,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
         search: query.search,
         isPinned: query.is_pinned !== undefined ? query.is_pinned === 'true' : undefined,
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         sortBy: query.sort_by as 'createdAt' | 'updatedAt' | 'title' | undefined,
         sortOrder: query.sort_order as 'asc' | 'desc' | undefined,
       });
@@ -12487,8 +13266,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listVersions(pool, params.id, query.user_email, {
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       if (!result) {
@@ -12520,10 +13299,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'from and to version numbers are required' });
     }
 
-    const fromVersion = parseInt(query.from, 10);
-    const toVersion = parseInt(query.to, 10);
+    const fromVersion = Number.parseInt(query.from, 10);
+    const toVersion = Number.parseInt(query.to, 10);
 
-    if (isNaN(fromVersion) || isNaN(toVersion)) {
+    if (Number.isNaN(fromVersion) || Number.isNaN(toVersion)) {
       return reply.code(400).send({ error: 'from and to must be valid version numbers' });
     }
 
@@ -12555,8 +13334,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
-    const versionNumber = parseInt(params.versionNumber, 10);
-    if (isNaN(versionNumber)) {
+    const versionNumber = Number.parseInt(params.versionNumber, 10);
+    if (Number.isNaN(versionNumber)) {
       return reply.code(400).send({ error: 'versionNumber must be a valid number' });
     }
 
@@ -12588,8 +13367,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
-    const versionNumber = parseInt(params.versionNumber, 10);
-    if (isNaN(versionNumber)) {
+    const versionNumber = Number.parseInt(params.versionNumber, 10);
+    if (Number.isNaN(versionNumber)) {
       return reply.code(400).send({ error: 'versionNumber must be a valid number' });
     }
 
@@ -13108,8 +13887,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         includeArchived: query.include_archived === 'true',
         includeNoteCounts: query.include_note_counts !== 'false',
         includeChildCounts: query.include_child_counts !== 'false',
-        limit: query.limit ? parseInt(query.limit, 10) : undefined,
-        offset: query.offset ? parseInt(query.offset, 10) : undefined,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
 
       return reply.send(result);
@@ -13703,7 +14482,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/embeddings/status/notes - Get note embedding statistics
-  app.get('/api/admin/embeddings/status/notes', async (req, reply) => {
+  app.get('/api/admin/embeddings/status/notes', async (_req, reply) => {
     const noteEmbeddings = await import('./embeddings/note-integration.ts');
 
     const pool = createPool();
@@ -13909,7 +14688,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // GET /api/admin/skill-store/embeddings/status - Get skill store embedding statistics
-  app.get('/api/admin/skill-store/embeddings/status', async (req, reply) => {
+  app.get('/api/admin/skill-store/embeddings/status', async (_req, reply) => {
     const skillStoreEmbeddings = await import('./embeddings/skill-store-integration.ts');
 
     const pool = createPool();
@@ -13961,7 +14740,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Total items (excluding soft-deleted)
-      const totalResult = await pool.query(`SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL`);
+      const totalResult = await pool.query('SELECT count(*)::int AS total FROM skill_store_item WHERE deleted_at IS NULL');
       const totalItems = totalResult.rows[0].total;
 
       // Counts by status (excluding soft-deleted)
@@ -14050,13 +14829,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if skill exists
-      const existsResult = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`, [skill_id]);
+      const existsResult = await pool.query('SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL', [skill_id]);
       if (existsResult.rows[0].cnt === 0) {
         return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
       }
 
       // Total items
-      const totalResult = await pool.query(`SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL`, [skill_id]);
+      const totalResult = await pool.query('SELECT count(*)::int AS total FROM skill_store_item WHERE skill_id = $1 AND deleted_at IS NULL', [skill_id]);
 
       // By status
       const statusResult = await pool.query(
@@ -14153,16 +14932,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       // Check if skill has any data at all (including soft-deleted)
-      const existsResult = await pool.query(`SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1`, [skill_id]);
+      const existsResult = await pool.query('SELECT count(*)::int AS cnt FROM skill_store_item WHERE skill_id = $1', [skill_id]);
       if (existsResult.rows[0].cnt === 0) {
         return reply.code(404).send({ error: `Skill '${skill_id}' not found` });
       }
 
       // Hard delete all items for this skill (including soft-deleted)
-      const deleteResult = await pool.query(`DELETE FROM skill_store_item WHERE skill_id = $1`, [skill_id]);
+      const deleteResult = await pool.query('DELETE FROM skill_store_item WHERE skill_id = $1', [skill_id]);
 
       // Also delete schedules for this skill
-      const scheduleResult = await pool.query(`DELETE FROM skill_store_schedule WHERE skill_id = $1`, [skill_id]);
+      const scheduleResult = await pool.query('DELETE FROM skill_store_schedule WHERE skill_id = $1', [skill_id]);
 
       return reply.send({
         skill_id,
@@ -14252,9 +15031,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         notebookId: query.notebookId,
         tags: query.tags ? query.tags.split(',') : undefined,
         visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
-        limit: query.limit ? Math.min(parseInt(query.limit, 10), 50) : 20,
-        offset: query.offset ? parseInt(query.offset, 10) : 0,
-        minSimilarity: query.minSimilarity ? parseFloat(query.minSimilarity) : 0.3,
+        limit: query.limit ? Math.min(Number.parseInt(query.limit, 10), 50) : 20,
+        offset: query.offset ? Number.parseInt(query.offset, 10) : 0,
+        minSimilarity: query.minSimilarity ? Number.parseFloat(query.minSimilarity) : 0.3,
         isAgent,
       });
 
@@ -14286,8 +15065,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await noteSearch.findSimilarNotes(pool, params.id, query.user_email, {
-        limit: query.limit ? Math.min(parseInt(query.limit, 10), 20) : 5,
-        minSimilarity: query.minSimilarity ? parseFloat(query.minSimilarity) : 0.5,
+        limit: query.limit ? Math.min(Number.parseInt(query.limit, 10), 20) : 5,
+        minSimilarity: query.minSimilarity ? Number.parseFloat(query.minSimilarity) : 0.5,
         isAgent,
       });
 
@@ -14324,10 +15103,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         options.preSeededOnly = true;
       }
       if (query.limit !== undefined) {
-        options.limit = parseInt(query.limit, 10);
+        options.limit = Number.parseInt(query.limit, 10);
       }
       if (query.offset !== undefined) {
-        options.offset = parseInt(query.offset, 10);
+        options.offset = Number.parseInt(query.offset, 10);
       }
 
       const result = await listRelationshipTypes(pool, options);
@@ -14349,7 +15128,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Query parameter "q" is required' });
       }
 
-      const limit = query.limit ? parseInt(query.limit, 10) : undefined;
+      const limit = query.limit ? Number.parseInt(query.limit, 10) : undefined;
       const results = await findSemanticMatch(pool, query.q.trim(), { limit });
       return reply.send({ results });
     } finally {
@@ -14445,10 +15224,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         options.createdByAgent = query.created_by_agent;
       }
       if (query.limit !== undefined) {
-        options.limit = parseInt(query.limit, 10);
+        options.limit = Number.parseInt(query.limit, 10);
       }
       if (query.offset !== undefined) {
-        options.offset = parseInt(query.offset, 10);
+        options.offset = Number.parseInt(query.offset, 10);
       }
       // Issue #1172: optional user_email scoping
       if (query.user_email !== undefined) {
@@ -15186,8 +15965,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'skill_id query parameter is required' });
     }
 
-    const limit = Math.min(parseInt(query.limit || '50', 10), 200);
-    const offset = parseInt(query.offset || '0', 10);
+    const limit = Math.min(Number.parseInt(query.limit || '50', 10), 200);
+    const offset = Number.parseInt(query.offset || '0', 10);
     const collection = query.collection;
     const status = query.status;
     const tagsFilter = query.tags
@@ -15250,7 +16029,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       // Get total count
       const countResult = await pool.query(`SELECT COUNT(*) AS total FROM skill_store_item WHERE ${whereClause}`, params);
-      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+      const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
       // Get paginated results
       const dataParams = [...params, limit, offset];
@@ -15366,7 +16145,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Fetch item info for activity event before deletion (Issue #808)
-      const itemInfo = await pool.query(`SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1`, [params.id]);
+      const itemInfo = await pool.query('SELECT skill_id, collection, title FROM skill_store_item WHERE id = $1', [params.id]);
 
       let result;
       if (permanent) {
@@ -15530,7 +16309,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Check for step patterns like */N where N < 5
     const stepMatch = minuteField.match(/^\*\/(\d+)$/);
     if (stepMatch) {
-      const step = parseInt(stepMatch[1], 10);
+      const step = Number.parseInt(stepMatch[1], 10);
       if (step < 5) {
         return `cron_expression fires more frequently than every 5 minutes (every ${step} minutes). Minimum interval is 5 minutes.`;
       }
@@ -15708,8 +16487,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'skill_id is required' });
     }
 
-    const limit = Math.min(Math.max(parseInt(query.limit || '50', 10), 1), 100);
-    const offset = Math.max(parseInt(query.offset || '0', 10), 0);
+    const limit = Math.min(Math.max(Number.parseInt(query.limit || '50', 10), 1), 100);
+    const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
 
     const conditions: string[] = [];
     const params: (string | number | boolean)[] = [];
@@ -15730,7 +16509,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const countResult = await pool.query(`SELECT COUNT(*) as count FROM skill_store_schedule ${whereClause}`, params);
-      const total = parseInt((countResult.rows[0] as { count: string }).count, 10);
+      const total = Number.parseInt((countResult.rows[0] as { count: string }).count, 10);
 
       const selectParams = [...params, limit, offset];
       const result = await pool.query(
@@ -15884,7 +16663,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await pool.query(`DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id`, [id]);
+      const result = await pool.query('DELETE FROM skill_store_schedule WHERE id = $1 RETURNING id', [id]);
 
       if (result.rowCount === 0) {
         return reply.code(404).send({ error: 'Schedule not found' });
@@ -15950,7 +16729,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_triggered'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Manually triggered schedule`, JSON.stringify({ schedule_id: schedule.id })],
+        [schedule.skill_id, schedule.collection, 'Manually triggered schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.code(202).send({
@@ -15995,7 +16774,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_paused'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Paused schedule`, JSON.stringify({ schedule_id: schedule.id })],
+        [schedule.skill_id, schedule.collection, 'Paused schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -16037,7 +16816,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO skill_store_activity (activity_type, skill_id, collection, description, metadata)
          VALUES ('schedule_resumed'::skill_store_activity_type, $1, $2, $3, $4::jsonb)`,
-        [schedule.skill_id, schedule.collection, `Resumed schedule`, JSON.stringify({ schedule_id: schedule.id })],
+        [schedule.skill_id, schedule.collection, 'Resumed schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
       return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
@@ -16104,10 +16883,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       // Enforce provider limit (inside transaction for atomicity)
-      const countResult = await client.query(
-        `SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE`,
-        [email],
-      );
+      const countResult = await client.query('SELECT COUNT(*)::int AS cnt FROM geo_provider WHERE owner_email = $1 AND deleted_at IS NULL FOR UPDATE', [email]);
       if (countResult.rows[0].cnt >= GEO_MAX_PROVIDERS_PER_USER) {
         await client.query('ROLLBACK');
         return reply.code(429).send({ error: `Maximum of ${GEO_MAX_PROVIDERS_PER_USER} providers allowed` });
@@ -16201,10 +16977,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Check access: must be owner or subscriber
-      const subResult = await pool.query(
-        `SELECT 1 FROM geo_provider_user WHERE provider_id = $1 AND user_email = $2`,
-        [id, email],
-      );
+      const subResult = await pool.query('SELECT 1 FROM geo_provider_user WHERE provider_id = $1 AND user_email = $2', [id, email]);
       if (provider.ownerEmail !== email && subResult.rows.length === 0) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
@@ -16310,7 +17083,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const { getProvider: getGeoProvider, canDeleteProvider: canDeleteGeoProvider, deleteSubscriptionsByProvider: deleteGeoSubscriptions, softDeleteProvider: softDeleteGeoProvider } = await import('./geolocation/service.ts');
+      const {
+        getProvider: getGeoProvider,
+        canDeleteProvider: canDeleteGeoProvider,
+        deleteSubscriptionsByProvider: deleteGeoSubscriptions,
+        softDeleteProvider: softDeleteGeoProvider,
+      } = await import('./geolocation/service.ts');
       const existing = await getGeoProvider(pool, id);
       if (!existing) {
         return reply.code(404).send({ error: 'Provider not found' });
@@ -16456,10 +17234,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       // Verify subscription belongs to requesting user
-      const subResult = await pool.query(
-        `SELECT * FROM geo_provider_user WHERE id = $1`,
-        [id],
-      );
+      const subResult = await pool.query('SELECT * FROM geo_provider_user WHERE id = $1', [id]);
       if (subResult.rows.length === 0) {
         return reply.code(404).send({ error: 'Subscription not found' });
       }
@@ -16521,18 +17296,2264 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const from = query.from ? new Date(query.from) : new Date(Date.now() - 24 * 60 * 60 * 1000); // default: 24h ago
     const to = query.to ? new Date(query.to) : new Date();
 
-    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
       return reply.code(400).send({ error: 'Invalid date format for from/to parameters' });
     }
 
-    const requestedLimit = query.limit ? parseInt(query.limit, 10) : 100;
-    const limit = Math.min(Math.max(isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
+    const requestedLimit = query.limit ? Number.parseInt(query.limit, 10) : 100;
+    const limit = Math.min(Math.max(Number.isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
 
     const pool = createPool();
     try {
       const { getLocationHistory } = await import('./geolocation/service.ts');
       const history = await getLocationHistory(pool, email, from, to, limit);
       return reply.send({ locations: history, from, to, limit });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Context entities (Issue #1275) ──────────────────────────────────
+
+  // POST /api/contexts - Create a new context
+  app.post('/api/contexts', async (req, reply) => {
+    const body = req.body as { label?: string; content?: string; content_type?: string } | null;
+
+    if (!body?.label?.trim()) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+    if (!body.content) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO context (label, content, content_type)
+         VALUES ($1, $2, $3)
+         RETURNING id::text as id, label, content, content_type, is_active, created_at, updated_at`,
+        [body.label.trim(), body.content, body.content_type || 'text'],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contexts - List contexts with pagination and search
+  app.get('/api/contexts', async (req, reply) => {
+    const query = req.query as { search?: string; limit?: string; offset?: string; include_inactive?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    // By default only return active contexts
+    if (query.include_inactive !== 'true') {
+      conditions.push('is_active = true');
+    }
+
+    if (query.search) {
+      conditions.push(`(label ILIKE $${paramIndex} OR content ILIKE $${paramIndex})`);
+      params.push(`%${query.search}%`);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(`SELECT COUNT(*) as total FROM context ${whereClause}`, params);
+      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+      params.push(limit);
+      const limitIdx = paramIndex++;
+      params.push(offset);
+      const offsetIdx = paramIndex++;
+
+      const result = await pool.query(
+        `SELECT id::text as id, label, content, content_type, is_active, created_at, updated_at
+         FROM context ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+
+      return reply.send({ total, limit, offset, items: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contexts/:id - Get a single context
+  app.get('/api/contexts/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT id::text as id, label, content, content_type, is_active, created_at, updated_at
+         FROM context WHERE id = $1`,
+        [id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/contexts/:id - Update a context
+  app.patch('/api/contexts/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { label?: string; content?: string; content_type?: string; is_active?: boolean } | null;
+    const pool = createPool();
+    try {
+      const existing = await pool.query('SELECT id FROM context WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const updates: string[] = [];
+      const values: (string | boolean | null)[] = [];
+      let paramIndex = 1;
+
+      if (body?.label !== undefined) {
+        updates.push(`label = $${paramIndex}`);
+        values.push(body.label.trim());
+        paramIndex++;
+      }
+      if (body?.content !== undefined) {
+        updates.push(`content = $${paramIndex}`);
+        values.push(body.content);
+        paramIndex++;
+      }
+      if (body?.content_type !== undefined) {
+        updates.push(`content_type = $${paramIndex}`);
+        values.push(body.content_type);
+        paramIndex++;
+      }
+      if (body?.is_active !== undefined) {
+        updates.push(`is_active = $${paramIndex}`);
+        values.push(body.is_active);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ error: 'no fields to update' });
+      }
+
+      values.push(id);
+      const result = await pool.query(
+        `UPDATE context SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id, label, content, content_type, is_active, created_at, updated_at`,
+        values,
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/contexts/:id - Delete a context (cascade deletes links)
+  app.delete('/api/contexts/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query('DELETE FROM context WHERE id = $1 RETURNING id', [id]);
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/contexts/:id/links - Create a link from context to target entity
+  app.post('/api/contexts/:id/links', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { target_type?: string; target_id?: string; priority?: number } | null;
+
+    if (!body?.target_type?.trim()) {
+      return reply.code(400).send({ error: 'target_type is required' });
+    }
+    if (!body.target_id?.trim()) {
+      return reply.code(400).send({ error: 'target_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Check context exists
+      const ctxCheck = await pool.query('SELECT id FROM context WHERE id = $1', [id]);
+      if (ctxCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'context not found' });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO context_link (context_id, target_type, target_id, priority)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id::text as id, context_id::text as context_id, target_type, target_id::text as target_id, priority, created_at`,
+        [id, body.target_type.trim(), body.target_id.trim(), body.priority ?? 0],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('uq_context_link') || msg.includes('unique')) {
+        return reply.code(409).send({ error: 'link already exists' });
+      }
+      throw error;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/contexts/:id/links - List links for a context
+  app.get('/api/contexts/:id/links', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT id::text as id, context_id::text as context_id, target_type, target_id::text as target_id, priority, created_at
+         FROM context_link WHERE context_id = $1
+         ORDER BY priority DESC, created_at ASC`,
+        [id],
+      );
+      return reply.send({ links: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/contexts/:id/links/:linkId - Remove a specific link
+  app.delete('/api/contexts/:id/links/:linkId', async (req, reply) => {
+    const { id, linkId } = req.params as { id: string; linkId: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        'DELETE FROM context_link WHERE id = $1 AND context_id = $2 RETURNING id',
+        [linkId, id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/entity-contexts - Reverse lookup: find all contexts linked to a target entity
+  app.get('/api/entity-contexts', async (req, reply) => {
+    const query = req.query as { target_type?: string; target_id?: string };
+
+    if (!query.target_type?.trim()) {
+      return reply.code(400).send({ error: 'target_type is required' });
+    }
+    if (!query.target_id?.trim()) {
+      return reply.code(400).send({ error: 'target_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT c.id::text as id, c.label, c.content, c.content_type, c.is_active,
+                c.created_at, c.updated_at, cl.priority, cl.id::text as link_id
+         FROM context c
+         JOIN context_link cl ON cl.context_id = c.id
+         WHERE cl.target_type = $1 AND cl.target_id = $2 AND c.is_active = true
+         ORDER BY cl.priority DESC, c.created_at ASC`,
+        [query.target_type.trim(), query.target_id.trim()],
+      );
+      return reply.send({ contexts: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Project Webhooks (Issue #1274) ─────────────────────────────────
+
+  // POST /api/projects/:id/webhooks - Create a webhook for a project
+  app.post('/api/projects/:id/webhooks', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { label?: string; user_email?: string };
+
+    if (!body?.label || body.label.trim().length === 0) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+
+    const pool = createPool();
+
+    // Verify project exists
+    const projectCheck = await pool.query(`SELECT id FROM work_item WHERE id = $1`, [id]);
+    if (projectCheck.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'project not found' });
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const result = await pool.query(
+      `INSERT INTO project_webhook (project_id, user_email, label, token)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
+      [id, body.user_email ?? null, body.label.trim(), token],
+    );
+    await pool.end();
+    return reply.code(201).send(result.rows[0]);
+  });
+
+  // GET /api/projects/:id/webhooks - List webhooks for a project
+  app.get('/api/projects/:id/webhooks', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at
+       FROM project_webhook WHERE project_id = $1 ORDER BY created_at DESC`,
+      [id],
+    );
+    await pool.end();
+    return reply.send(result.rows);
+  });
+
+  // DELETE /api/projects/:id/webhooks/:webhook_id - Delete a webhook
+  app.delete('/api/projects/:id/webhooks/:webhook_id', async (req, reply) => {
+    const { id, webhook_id } = req.params as { id: string; webhook_id: string };
+    const pool = createPool();
+    const result = await pool.query(
+      `DELETE FROM project_webhook WHERE id = $1 AND project_id = $2 RETURNING id`,
+      [webhook_id, id],
+    );
+    await pool.end();
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.code(204).send();
+  });
+
+  // POST /api/webhooks/:webhook_id - Public ingestion endpoint (bearer token auth)
+  app.post('/api/webhooks/:webhook_id', async (req, reply) => {
+    const { webhook_id } = req.params as { webhook_id: string };
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.code(401).send({ error: 'Bearer token required' });
+    }
+    const bearerToken = authHeader.slice(7);
+
+    const pool = createPool();
+    const webhookResult = await pool.query(
+      `SELECT id::text, project_id::text, user_email, token, is_active
+       FROM project_webhook WHERE id = $1`,
+      [webhook_id],
+    );
+
+    if (webhookResult.rows.length === 0) {
+      await pool.end();
+      return reply.code(404).send({ error: 'webhook not found' });
+    }
+
+    const webhook = webhookResult.rows[0] as { id: string; project_id: string; user_email: string | null; token: string; is_active: boolean };
+    if (webhook.token !== bearerToken) {
+      await pool.end();
+      return reply.code(401).send({ error: 'invalid token' });
+    }
+
+    if (!webhook.is_active) {
+      await pool.end();
+      return reply.code(403).send({ error: 'webhook is inactive' });
+    }
+
+    const payload = req.body;
+    const summary = typeof payload === 'object' && payload !== null
+      ? (payload as Record<string, unknown>).summary as string ?? (payload as Record<string, unknown>).action as string ?? null
+      : null;
+
+    // Insert event
+    const eventResult = await pool.query(
+      `INSERT INTO project_event (project_id, webhook_id, user_email, event_type, summary, raw_payload)
+       VALUES ($1, $2, $3, 'webhook', $4, $5)
+       RETURNING id::text, project_id::text, webhook_id::text, user_email, event_type, summary, raw_payload, created_at`,
+      [webhook.project_id, webhook.id, webhook.user_email, summary, JSON.stringify(payload)],
+    );
+
+    // Update last_received
+    await pool.query(
+      `UPDATE project_webhook SET last_received = now(), updated_at = now() WHERE id = $1`,
+      [webhook.id],
+    );
+
+    await pool.end();
+    return reply.code(201).send(eventResult.rows[0]);
+  });
+
+  // GET /api/projects/:id/events - List project events (paginated)
+  app.get('/api/projects/:id/events', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const query = req.query as { limit?: string; offset?: string };
+    const limit = Math.min(Number(query.limit) || 50, 200);
+    const offset = Number(query.offset) || 0;
+
+    const pool = createPool();
+    const result = await pool.query(
+      `SELECT id::text, project_id::text, webhook_id::text, user_email, event_type, summary, raw_payload, created_at
+       FROM project_event WHERE project_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [id, limit, offset],
+    );
+    await pool.end();
+    return reply.send({ events: result.rows });
+  });
+
+  // ── Agent Identity (Issue #1287) ────────────────────────────────────
+
+  const IDENTITY_UPDATABLE_FIELDS = [
+    'display_name', 'emoji', 'avatar_s3_key', 'persona',
+    'principles', 'quirks', 'voice_config', 'is_active',
+  ] as const;
+
+  /** Build a JSON snapshot of the identity row for history. */
+  function identitySnapshot(row: Record<string, unknown>): Record<string, unknown> {
+    return {
+      name: row.name, display_name: row.display_name, emoji: row.emoji,
+      persona: row.persona, principles: row.principles, quirks: row.quirks,
+      voice_config: row.voice_config, is_active: row.is_active, version: row.version,
+    };
+  }
+
+  // GET /api/identity — Get current identity by name (query param) or first active
+  app.get('/api/identity', async (req, reply) => {
+    const query = req.query as Record<string, string | undefined>;
+    const pool = createPool();
+    try {
+      let result;
+      if (query.name) {
+        result = await pool.query(`SELECT * FROM agent_identity WHERE name = $1`, [query.name]);
+      } else {
+        result = await pool.query(`SELECT * FROM agent_identity WHERE is_active = true ORDER BY created_at LIMIT 1`);
+      }
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'No identity found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/identity — Create or fully replace an identity
+  app.put('/api/identity', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return reply.code(400).send({ error: 'name is required' });
+
+    const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : name;
+    const persona = typeof body.persona === 'string' ? body.persona : '';
+
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const changedBy = typeof hdr === 'string' ? `user:${hdr}` : 'system';
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO agent_identity (name, display_name, emoji, avatar_s3_key, persona, principles, quirks, voice_config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (name) DO UPDATE SET
+           display_name = EXCLUDED.display_name,
+           emoji = EXCLUDED.emoji,
+           avatar_s3_key = EXCLUDED.avatar_s3_key,
+           persona = EXCLUDED.persona,
+           principles = EXCLUDED.principles,
+           quirks = EXCLUDED.quirks,
+           voice_config = EXCLUDED.voice_config,
+           version = agent_identity.version + 1,
+           updated_at = now()
+         RETURNING *`,
+        [
+          name,
+          displayName,
+          body.emoji ?? null,
+          body.avatar_s3_key ?? null,
+          persona,
+          Array.isArray(body.principles) ? body.principles : [],
+          Array.isArray(body.quirks) ? body.quirks : [],
+          body.voice_config ?? null,
+        ],
+      );
+
+      const row = result.rows[0];
+      // Record history
+      await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, full_snapshot)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [row.id, row.version, changedBy, row.version === 1 ? 'create' : 'update', identitySnapshot(row)],
+      );
+
+      return reply.send(row);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/identity — Partially update an identity
+  app.patch('/api/identity', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return reply.code(400).send({ error: 'name is required to identify which identity to update' });
+
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const changedBy = typeof hdr === 'string' ? `user:${hdr}` : 'system';
+
+    const setClauses: string[] = ['version = version + 1', 'updated_at = now()'];
+    const params: unknown[] = [name];
+    let idx = 2;
+    const fieldsChanged: string[] = [];
+
+    for (const field of IDENTITY_UPDATABLE_FIELDS) {
+      if (field in body) {
+        setClauses.push(`${field} = $${idx}`);
+        params.push(body[field]);
+        fieldsChanged.push(field);
+        idx++;
+      }
+    }
+
+    if (fieldsChanged.length === 0) {
+      return reply.code(400).send({ error: 'No updatable fields provided' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE agent_identity SET ${setClauses.join(', ')}
+         WHERE name = $1
+         RETURNING *`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const row = result.rows[0];
+      await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, field_changed, full_snapshot)
+         VALUES ($1, $2, $3, 'update', $4, $5)`,
+        [row.id, row.version, changedBy, fieldsChanged.join(','), identitySnapshot(row)],
+      );
+
+      return reply.send(row);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/proposals — Agent proposes a change
+  app.post('/api/identity/proposals', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const field = typeof body.field === 'string' ? body.field : '';
+    const newValue = typeof body.new_value === 'string' ? body.new_value : '';
+    const proposedBy = typeof body.proposed_by === 'string' ? body.proposed_by : 'agent:unknown';
+    const reason = typeof body.reason === 'string' ? body.reason : null;
+
+    if (!name || !field) {
+      return reply.code(400).send({ error: 'name and field are required' });
+    }
+
+    const pool = createPool();
+    try {
+      const identity = await pool.query(`SELECT * FROM agent_identity WHERE name = $1`, [name]);
+      if (identity.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const row = identity.rows[0];
+      const previousValue = row[field] != null ? String(row[field]) : null;
+
+      const result = await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, change_reason, field_changed, previous_value, new_value, full_snapshot)
+         VALUES ($1, $2, $3, 'propose', $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [row.id, row.version, proposedBy, reason, field, previousValue, newValue, identitySnapshot(row)],
+      );
+
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/proposals/:id/approve — Approve a proposal
+  app.post('/api/identity/proposals/:id/approve', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const approvedBy = typeof hdr === 'string' ? hdr : 'system';
+
+    const pool = createPool();
+    try {
+      // Find the proposal
+      const proposal = await pool.query(
+        `SELECT * FROM agent_identity_history WHERE id = $1 AND change_type = 'propose'`,
+        [id],
+      );
+      if (proposal.rows.length === 0) {
+        return reply.code(404).send({ error: 'Proposal not found' });
+      }
+
+      const prop = proposal.rows[0];
+
+      // Apply the change to the identity if field is valid
+      if (prop.field_changed && prop.new_value != null) {
+        const field = prop.field_changed;
+        // For array fields (principles, quirks), append the value
+        if (field === 'principles' || field === 'quirks') {
+          await pool.query(
+            `UPDATE agent_identity SET ${field} = array_append(${field}, $2), version = version + 1, updated_at = now()
+             WHERE id = $1`,
+            [prop.identity_id, prop.new_value],
+          );
+        } else {
+          await pool.query(
+            `UPDATE agent_identity SET ${field} = $2, version = version + 1, updated_at = now()
+             WHERE id = $1`,
+            [prop.identity_id, prop.new_value],
+          );
+        }
+      }
+
+      // Mark proposal as approved
+      const result = await pool.query(
+        `UPDATE agent_identity_history
+         SET change_type = 'approve', approved_by = $2, approved_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [id, approvedBy],
+      );
+
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/proposals/:id/reject — Reject a proposal
+  app.post('/api/identity/proposals/:id/reject', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (req.body as Record<string, unknown>) ?? {};
+    const reason = typeof body.reason === 'string' ? body.reason : null;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE agent_identity_history
+         SET change_type = 'reject', change_reason = COALESCE($2, change_reason)
+         WHERE id = $1 AND change_type = 'propose'
+         RETURNING *`,
+        [id, reason],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Proposal not found' });
+      }
+
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/identity/history — Version history for an identity
+  app.get('/api/identity/history', async (req, reply) => {
+    const query = req.query as Record<string, string | undefined>;
+    const name = query.name;
+    if (!name) return reply.code(400).send({ error: 'name query parameter is required' });
+
+    const limit = Math.min(parseInt(query.limit || '50', 10) || 50, 200);
+
+    const pool = createPool();
+    try {
+      const identity = await pool.query(`SELECT id FROM agent_identity WHERE name = $1`, [name]);
+      if (identity.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const result = await pool.query(
+        `SELECT * FROM agent_identity_history
+         WHERE identity_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [identity.rows[0].id, limit],
+      );
+
+      return reply.send({ history: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/identity/rollback — Rollback to a previous version
+  app.post('/api/identity/rollback', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const version = typeof body.version === 'number' ? body.version : null;
+    if (!name || version == null) {
+      return reply.code(400).send({ error: 'name and version are required' });
+    }
+
+    const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
+    const changedBy = typeof hdr === 'string' ? `user:${hdr}` : 'system';
+
+    const pool = createPool();
+    try {
+      const identity = await pool.query(`SELECT id FROM agent_identity WHERE name = $1`, [name]);
+      if (identity.rows.length === 0) {
+        return reply.code(404).send({ error: 'Identity not found' });
+      }
+
+      const identityId = identity.rows[0].id;
+
+      // Find the snapshot at the requested version
+      const historyResult = await pool.query(
+        `SELECT full_snapshot FROM agent_identity_history
+         WHERE identity_id = $1 AND version = $2
+         ORDER BY created_at LIMIT 1`,
+        [identityId, version],
+      );
+      if (historyResult.rows.length === 0) {
+        return reply.code(404).send({ error: `Version ${version} not found in history` });
+      }
+
+      const snapshot = historyResult.rows[0].full_snapshot as Record<string, unknown>;
+
+      // Apply the snapshot
+      const result = await pool.query(
+        `UPDATE agent_identity SET
+           display_name = $2, emoji = $3, persona = $4,
+           principles = $5, quirks = $6, voice_config = $7,
+           is_active = $8, version = version + 1, updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [
+          identityId,
+          snapshot.display_name,
+          snapshot.emoji ?? null,
+          snapshot.persona,
+          snapshot.principles ?? [],
+          snapshot.quirks ?? [],
+          snapshot.voice_config ?? null,
+          snapshot.is_active ?? true,
+        ],
+      );
+
+      const row = result.rows[0];
+      await pool.query(
+        `INSERT INTO agent_identity_history
+         (identity_id, version, changed_by, change_type, change_reason, full_snapshot)
+         VALUES ($1, $2, $3, 'rollback', $4, $5)`,
+        [identityId, row.version, changedBy, `Rolled back to version ${version}`, identitySnapshot(row)],
+      );
+
+      return reply.send(row);
+    } finally {
+      await pool.end();
+    }
+  });
+
+
+  // ── Shared lists (Issue #1277) ──────────────────────────────────────
+
+  // POST /api/lists - Create a new list
+  app.post('/api/lists', async (req, reply) => {
+    const body = req.body as { name?: string; list_type?: string; is_shared?: boolean } | null;
+
+    if (!body?.name?.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO list (name, list_type, is_shared)
+         VALUES ($1, $2, $3)
+         RETURNING id::text as id, name, list_type, is_shared, created_at, updated_at`,
+        [body.name.trim(), body.list_type || 'shopping', body.is_shared !== false],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/lists - List all lists with optional filtering
+  app.get('/api/lists', async (req, reply) => {
+    const query = req.query as { list_type?: string; limit?: string; offset?: string };
+    const limit = Math.min(parseInt(query.limit || '50', 10), 100);
+    const offset = parseInt(query.offset || '0', 10);
+
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (query.list_type) {
+      conditions.push(`list_type = $${paramIndex}`);
+      params.push(query.list_type);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(`SELECT COUNT(*) as total FROM list ${whereClause}`, params);
+      const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+
+      params.push(limit);
+      const limitIdx = paramIndex++;
+      params.push(offset);
+      const offsetIdx = paramIndex++;
+
+      const result = await pool.query(
+        `SELECT id::text as id, name, list_type, is_shared, created_at, updated_at
+         FROM list ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        params,
+      );
+
+      return reply.send({ total, limit, offset, items: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/lists/:id - Get a list with all its items
+  app.get('/api/lists/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const listResult = await pool.query(
+        `SELECT id::text as id, name, list_type, is_shared, created_at, updated_at
+         FROM list WHERE id = $1`,
+        [id],
+      );
+      if (listResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const itemsResult = await pool.query(
+        `SELECT id::text as id, name, quantity, category, is_checked, is_recurring,
+                checked_at, checked_by, source_type, source_id::text as source_id,
+                sort_order, notes, created_at, updated_at
+         FROM list_item WHERE list_id = $1
+         ORDER BY sort_order ASC, created_at ASC`,
+        [id],
+      );
+
+      return reply.send({ ...listResult.rows[0], items: itemsResult.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/lists/:id - Update a list
+  app.patch('/api/lists/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { name?: string; list_type?: string; is_shared?: boolean } | null;
+    const pool = createPool();
+    try {
+      const existing = await pool.query('SELECT id FROM list WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const updates: string[] = [];
+      const values: (string | boolean)[] = [];
+      let paramIndex = 1;
+
+      if (body?.name !== undefined) {
+        updates.push(`name = $${paramIndex}`);
+        values.push(body.name.trim());
+        paramIndex++;
+      }
+      if (body?.list_type !== undefined) {
+        updates.push(`list_type = $${paramIndex}`);
+        values.push(body.list_type);
+        paramIndex++;
+      }
+      if (body?.is_shared !== undefined) {
+        updates.push(`is_shared = $${paramIndex}`);
+        values.push(body.is_shared);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ error: 'no fields to update' });
+      }
+
+      values.push(id);
+      const result = await pool.query(
+        `UPDATE list SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id, name, list_type, is_shared, created_at, updated_at`,
+        values,
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/lists/:id - Delete a list (cascade deletes items)
+  app.delete('/api/lists/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query('DELETE FROM list WHERE id = $1 RETURNING id', [id]);
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items - Add an item to a list
+  app.post('/api/lists/:id/items', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as {
+      name?: string; quantity?: string; category?: string;
+      is_recurring?: boolean; sort_order?: number; notes?: string;
+      source_type?: string; source_id?: string;
+    } | null;
+
+    if (!body?.name?.trim()) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const listCheck = await pool.query('SELECT id FROM list WHERE id = $1', [id]);
+      if (listCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'list not found' });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO list_item (list_id, name, quantity, category, is_recurring, sort_order, notes, source_type, source_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id::text as id, list_id::text as list_id, name, quantity, category,
+                   is_checked, is_recurring, checked_at, checked_by,
+                   source_type, source_id::text as source_id, sort_order, notes,
+                   created_at, updated_at`,
+        [id, body.name.trim(), body.quantity || null, body.category || null,
+         body.is_recurring === true, body.sort_order ?? 0, body.notes || null,
+         body.source_type || null, body.source_id || null],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/lists/:listId/items/:itemId - Update an item
+  app.patch('/api/lists/:listId/items/:itemId', async (req, reply) => {
+    const { listId, itemId } = req.params as { listId: string; itemId: string };
+    const body = req.body as {
+      name?: string; quantity?: string | null; category?: string | null;
+      is_recurring?: boolean; sort_order?: number; notes?: string | null;
+    } | null;
+
+    const pool = createPool();
+    try {
+      const existing = await pool.query(
+        'SELECT id FROM list_item WHERE id = $1 AND list_id = $2',
+        [itemId, listId],
+      );
+      if (existing.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
+      const updates: string[] = [];
+      const values: (string | boolean | number | null)[] = [];
+      let paramIndex = 1;
+
+      if (body?.name !== undefined) {
+        updates.push(`name = $${paramIndex}`);
+        values.push(body.name.trim());
+        paramIndex++;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'quantity')) {
+        updates.push(`quantity = $${paramIndex}`);
+        values.push(body!.quantity ?? null);
+        paramIndex++;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'category')) {
+        updates.push(`category = $${paramIndex}`);
+        values.push(body!.category ?? null);
+        paramIndex++;
+      }
+      if (body?.is_recurring !== undefined) {
+        updates.push(`is_recurring = $${paramIndex}`);
+        values.push(body.is_recurring);
+        paramIndex++;
+      }
+      if (body?.sort_order !== undefined) {
+        updates.push(`sort_order = $${paramIndex}`);
+        values.push(body.sort_order);
+        paramIndex++;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'notes')) {
+        updates.push(`notes = $${paramIndex}`);
+        values.push(body!.notes ?? null);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.code(400).send({ error: 'no fields to update' });
+      }
+
+      values.push(itemId);
+      const result = await pool.query(
+        `UPDATE list_item SET ${updates.join(', ')} WHERE id = $${paramIndex}
+         RETURNING id::text as id, list_id::text as list_id, name, quantity, category,
+                   is_checked, is_recurring, checked_at, checked_by,
+                   source_type, source_id::text as source_id, sort_order, notes,
+                   created_at, updated_at`,
+        values,
+      );
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/lists/:listId/items/:itemId - Remove an item
+  app.delete('/api/lists/:listId/items/:itemId', async (req, reply) => {
+    const { listId, itemId } = req.params as { listId: string; itemId: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        'DELETE FROM list_item WHERE id = $1 AND list_id = $2 RETURNING id',
+        [itemId, listId],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items/check - Check off items by ID
+  app.post('/api/lists/:id/items/check', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { item_ids?: string[]; checked_by?: string } | null;
+
+    if (!body?.item_ids?.length) {
+      return reply.code(400).send({ error: 'item_ids is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE list_item SET is_checked = true, checked_at = NOW(), checked_by = $3
+         WHERE list_id = $1 AND id = ANY($2::uuid[])
+         RETURNING id`,
+        [id, body.item_ids, body.checked_by || null],
+      );
+      return reply.send({ checked: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/items/uncheck - Uncheck items by ID
+  app.post('/api/lists/:id/items/uncheck', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { item_ids?: string[] } | null;
+
+    if (!body?.item_ids?.length) {
+      return reply.code(400).send({ error: 'item_ids is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE list_item SET is_checked = false, checked_at = NULL, checked_by = NULL
+         WHERE list_id = $1 AND id = ANY($2::uuid[])
+         RETURNING id`,
+        [id, body.item_ids],
+      );
+      return reply.send({ unchecked: result.rowCount });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/reset - Reset list after a shop
+  // Removes checked non-recurring items; unchecks checked recurring items
+  app.post('/api/lists/:id/reset', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      // Remove checked non-recurring items
+      const removeResult = await pool.query(
+        `DELETE FROM list_item WHERE list_id = $1 AND is_checked = true AND is_recurring = false
+         RETURNING id`,
+        [id],
+      );
+
+      // Uncheck checked recurring items
+      const uncheckResult = await pool.query(
+        `UPDATE list_item SET is_checked = false, checked_at = NULL, checked_by = NULL
+         WHERE list_id = $1 AND is_checked = true AND is_recurring = true
+         RETURNING id`,
+        [id],
+      );
+
+      return reply.send({
+        removed: removeResult.rowCount,
+        unchecked: uncheckResult.rowCount,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/lists/:id/merge - Merge items (add new, update existing by name match)
+  app.post('/api/lists/:id/merge', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { items?: Array<{ name: string; quantity?: string; category?: string }> } | null;
+
+    if (!body?.items?.length) {
+      return reply.code(400).send({ error: 'items array is required and must not be empty' });
+    }
+
+    const pool = createPool();
+    try {
+      // Get existing items by name (case-insensitive)
+      const existingResult = await pool.query(
+        `SELECT id, lower(name) as lower_name FROM list_item WHERE list_id = $1`,
+        [id],
+      );
+      const existingByName = new Map(
+        (existingResult.rows as Array<{ id: string; lower_name: string }>).map(r => [r.lower_name, r.id]),
+      );
+
+      let added = 0;
+      let updated = 0;
+
+      for (const item of body.items) {
+        if (!item.name?.trim()) continue;
+
+        const existingId = existingByName.get(item.name.toLowerCase());
+        if (existingId) {
+          // Update existing item's quantity and category
+          const updates: string[] = [];
+          const values: (string | null)[] = [];
+          let pi = 1;
+
+          if (item.quantity !== undefined) {
+            updates.push(`quantity = $${pi}`);
+            values.push(item.quantity);
+            pi++;
+          }
+          if (item.category !== undefined) {
+            updates.push(`category = $${pi}`);
+            values.push(item.category);
+            pi++;
+          }
+
+          if (updates.length > 0) {
+            values.push(existingId);
+            await pool.query(
+              `UPDATE list_item SET ${updates.join(', ')} WHERE id = $${pi}`,
+              values,
+            );
+          }
+          updated++;
+        } else {
+          // Add new item
+          await pool.query(
+            `INSERT INTO list_item (list_id, name, quantity, category)
+             VALUES ($1, $2, $3, $4)`,
+            [id, item.name.trim(), item.quantity || null, item.category || null],
+          );
+          added++;
+        }
+      }
+
+      return reply.send({ added, updated });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Pantry Inventory (Issue #1280) ────────────────────────────────
+
+  const PANTRY_COLUMNS = `id, user_email, name, location, quantity, category,
+    is_leftover, leftover_dish, leftover_portions, meal_log_id,
+    added_date, use_by_date, use_soon, notes, is_depleted, depleted_at,
+    created_at, updated_at`;
+
+  // POST /api/pantry — Add a pantry item
+  app.post('/api/pantry', async (req, reply) => {
+    const body = req.body as {
+      name?: string;
+      location?: string;
+      quantity?: string;
+      category?: string;
+      is_leftover?: boolean;
+      leftover_dish?: string;
+      leftover_portions?: number;
+      meal_log_id?: string;
+      use_by_date?: string;
+      use_soon?: boolean;
+      notes?: string;
+    } | null;
+
+    if (!body?.name || !body?.location) {
+      return reply.code(400).send({ error: 'name and location are required' });
+    }
+
+    const email = await getSessionEmail(req);
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO pantry_item (
+          user_email, name, location, quantity, category,
+          is_leftover, leftover_dish, leftover_portions, meal_log_id,
+          use_by_date, use_soon, notes
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        RETURNING ${PANTRY_COLUMNS}`,
+        [
+          email,
+          body.name,
+          body.location,
+          body.quantity ?? null,
+          body.category ?? null,
+          body.is_leftover ?? false,
+          body.leftover_dish ?? null,
+          body.leftover_portions ?? null,
+          body.meal_log_id ?? null,
+          body.use_by_date ?? null,
+          body.use_soon ?? false,
+          body.notes ?? null,
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry/expiring — Items expiring within N days
+  // NOTE: This route MUST be registered before GET /api/pantry/:id
+  app.get('/api/pantry/expiring', async (req, reply) => {
+    const query = req.query as { days?: string };
+    const days = query.days ? parseInt(query.days, 10) : 7;
+    const effectiveDays = isNaN(days) ? 7 : Math.max(1, days);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT ${PANTRY_COLUMNS} FROM pantry_item
+         WHERE NOT is_depleted
+           AND use_by_date IS NOT NULL
+           AND use_by_date <= CURRENT_DATE + $1 * INTERVAL '1 day'
+         ORDER BY use_by_date ASC`,
+        [effectiveDays],
+      );
+      return reply.send({ items: result.rows, total: result.rows.length });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry — List pantry items (with filters)
+  app.get('/api/pantry', async (req, reply) => {
+    const query = req.query as {
+      location?: string;
+      category?: string;
+      leftovers_only?: string;
+      use_soon_only?: string;
+      include_depleted?: string;
+      limit?: string;
+      offset?: string;
+    };
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    if (query.include_depleted !== 'true') {
+      conditions.push('NOT is_depleted');
+    }
+    if (query.location) {
+      conditions.push(`location = $${paramIdx++}`);
+      params.push(query.location);
+    }
+    if (query.category) {
+      conditions.push(`category = $${paramIdx++}`);
+      params.push(query.category);
+    }
+    if (query.leftovers_only === 'true') {
+      conditions.push('is_leftover = true');
+    }
+    if (query.use_soon_only === 'true') {
+      conditions.push('use_soon = true');
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const requestedLimit = query.limit ? parseInt(query.limit, 10) : 100;
+    const limit = Math.min(Math.max(isNaN(requestedLimit) ? 100 : requestedLimit, 1), 1000);
+    const offset = query.offset ? parseInt(query.offset, 10) || 0 : 0;
+
+    const pool = createPool();
+    try {
+      const countResult = await pool.query(`SELECT COUNT(*) FROM pantry_item ${where}`, params);
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      const result = await pool.query(
+        `SELECT ${PANTRY_COLUMNS} FROM pantry_item ${where}
+         ORDER BY created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+        [...params, limit, offset],
+      );
+      return reply.send({ items: result.rows, total });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/pantry/:id — Get a single pantry item
+  app.get('/api/pantry/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT ${PANTRY_COLUMNS} FROM pantry_item WHERE id = $1`,
+        [id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/pantry/:id — Update a pantry item
+  app.patch('/api/pantry/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null;
+
+    if (!body || Object.keys(body).length === 0) {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const allowedFields = [
+      'name', 'location', 'quantity', 'category',
+      'is_leftover', 'leftover_dish', 'leftover_portions', 'meal_log_id',
+      'use_by_date', 'use_soon', 'notes',
+    ];
+
+    const updates: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        updates.push(`${field} = $${paramIdx++}`);
+        params.push(body[field]);
+      }
+    }
+
+    if (updates.length === 0) {
+      return reply.code(400).send({ error: 'No valid fields to update' });
+    }
+
+    updates.push(`updated_at = now()`);
+    params.push(id);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE pantry_item SET ${updates.join(', ')} WHERE id = $${paramIdx}
+         RETURNING ${PANTRY_COLUMNS}`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/pantry/:id/deplete — Mark item as depleted
+  app.post('/api/pantry/:id/deplete', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE pantry_item SET is_depleted = true, depleted_at = now(), updated_at = now()
+         WHERE id = $1 RETURNING ${PANTRY_COLUMNS}`,
+        [id],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/pantry/:id — Hard-delete a pantry item
+  app.delete('/api/pantry/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query('DELETE FROM pantry_item WHERE id = $1', [id]);
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Pantry item not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Dev Sessions (Issue #1285) ─────────────────────────────────────
+
+  const DEV_SESSION_UPDATABLE = [
+    'status', 'task_summary', 'task_prompt', 'branch', 'container',
+    'container_user', 'repo_org', 'repo_name', 'context_pct',
+    'last_capture', 'last_capture_at', 'completion_summary',
+    'linked_issues', 'linked_prs', 'webhook_id',
+  ] as const;
+
+  /** Extract user_email from body, query, or x-user-email header. */
+  function getDevSessionEmail(req: { body?: unknown; query?: unknown; headers?: Record<string, string | string[] | undefined> }): string | null {
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (body && typeof body.user_email === 'string' && body.user_email) return body.user_email;
+    const query = req.query as Record<string, string | undefined> | undefined;
+    if (query && typeof query.user_email === 'string' && query.user_email) return query.user_email;
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  // POST /api/dev-sessions — Create a dev session
+  app.post('/api/dev-sessions', async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const sessionName = typeof body.session_name === 'string' ? body.session_name.trim() : '';
+    const node = typeof body.node === 'string' ? body.node.trim() : '';
+    if (!sessionName) return reply.code(400).send({ error: 'session_name is required' });
+    if (!node) return reply.code(400).send({ error: 'node is required' });
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO dev_session (
+          user_email, session_name, node, project_id, container,
+          container_user, repo_org, repo_name, branch, task_summary,
+          task_prompt, linked_issues, linked_prs
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        RETURNING *`,
+        [
+          email,
+          sessionName,
+          node,
+          body.project_id ?? null,
+          body.container ?? null,
+          body.container_user ?? null,
+          body.repo_org ?? null,
+          body.repo_name ?? null,
+          body.branch ?? null,
+          body.task_summary ?? null,
+          body.task_prompt ?? null,
+          Array.isArray(body.linked_issues) ? body.linked_issues : [],
+          Array.isArray(body.linked_prs) ? body.linked_prs : [],
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/dev-sessions — List sessions (filterable by status, node, project_id)
+  app.get('/api/dev-sessions', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1'];
+    const params: unknown[] = [email];
+    let idx = 2;
+
+    if (query.status) {
+      conditions.push(`status = $${idx}`);
+      params.push(query.status);
+      idx++;
+    }
+    if (query.node) {
+      conditions.push(`node = $${idx}`);
+      params.push(query.node);
+      idx++;
+    }
+    if (query.project_id) {
+      conditions.push(`project_id = $${idx}::uuid`);
+      params.push(query.project_id);
+      idx++;
+    }
+
+    const limit = Math.min(Math.max(parseInt(query.limit || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(query.offset || '0', 10) || 0, 0);
+    params.push(limit, offset);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM dev_session
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY created_at DESC
+         LIMIT $${idx} OFFSET $${idx + 1}`,
+        params,
+      );
+      return reply.send({ sessions: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/dev-sessions/:id — Get a specific session
+  app.get('/api/dev-sessions/:id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
+
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM dev_session WHERE id = $1 AND user_email = $2`,
+        [id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/dev-sessions/:id — Update session fields
+  app.patch('/api/dev-sessions/:id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null;
+    if (!body) return reply.code(400).send({ error: 'Body required' });
+
+    const setClauses: string[] = ['updated_at = now()'];
+    const params: unknown[] = [id, email];
+    let idx = 3;
+
+    for (const field of DEV_SESSION_UPDATABLE) {
+      if (field in body) {
+        setClauses.push(`${field} = $${idx}`);
+        params.push(body[field]);
+        idx++;
+      }
+    }
+
+    if (setClauses.length === 1) {
+      return reply.code(400).send({ error: 'No updatable fields provided' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE dev_session SET ${setClauses.join(', ')}
+         WHERE id = $1 AND user_email = $2
+         RETURNING *`,
+        params,
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/dev-sessions/:id/complete — Mark session as completed
+  app.post('/api/dev-sessions/:id/complete', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const body = (req.body as Record<string, unknown>) ?? {};
+    const completionSummary = typeof body.completion_summary === 'string' ? body.completion_summary : null;
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE dev_session
+         SET status = 'completed', completed_at = now(), updated_at = now(),
+             completion_summary = COALESCE($3, completion_summary)
+         WHERE id = $1 AND user_email = $2
+         RETURNING *`,
+        [id, email, completionSummary],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/dev-sessions/:id — Delete a session
+  app.delete('/api/dev-sessions/:id', async (req, reply) => {
+    const email = getDevSessionEmail(req);
+    if (!email) return reply.code(400).send({ error: 'user_email is required' });
+
+    const { id } = req.params as { id: string };
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM dev_session WHERE id = $1 AND user_email = $2 RETURNING id`,
+        [id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Dev session not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Recipes API (Issue #1278) ────────────────────────────────────────
+
+  function getRecipeUserEmail(req: { headers?: Record<string, string | string[] | undefined> }): string | null {
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  const RECIPE_UPDATABLE_FIELDS = [
+    'title', 'description', 'source_url', 'source_name',
+    'prep_time_min', 'cook_time_min', 'total_time_min',
+    'servings', 'difficulty', 'cuisine', 'notes', 'image_s3_key',
+  ] as const;
+
+  // POST /api/recipes — Create a recipe with ingredients and steps
+  app.post('/api/recipes', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body.title !== 'string' || !body.title.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Insert recipe
+      const recipeResult = await pool.query(
+        `INSERT INTO recipe (user_email, title, description, source_url, source_name,
+          prep_time_min, cook_time_min, total_time_min, servings, difficulty,
+          cuisine, meal_type, tags, rating, notes, is_favourite, image_s3_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+         RETURNING *`,
+        [
+          email,
+          body.title,
+          body.description ?? null,
+          body.source_url ?? null,
+          body.source_name ?? null,
+          body.prep_time_min ?? null,
+          body.cook_time_min ?? null,
+          body.total_time_min ?? null,
+          body.servings ?? null,
+          body.difficulty ?? null,
+          body.cuisine ?? null,
+          Array.isArray(body.meal_type) ? body.meal_type : [],
+          Array.isArray(body.tags) ? body.tags : [],
+          body.rating ?? null,
+          body.notes ?? null,
+          body.is_favourite === true,
+          body.image_s3_key ?? null,
+        ],
+      );
+      const recipe = recipeResult.rows[0] as Record<string, unknown>;
+      const recipeId = recipe.id;
+
+      // Insert ingredients
+      const ingredients: Record<string, unknown>[] = [];
+      if (Array.isArray(body.ingredients)) {
+        for (const ing of body.ingredients as Record<string, unknown>[]) {
+          const name = typeof ing.name === 'string' ? ing.name.trim() : '';
+          if (!name) continue;
+          const result = await pool.query(
+            `INSERT INTO recipe_ingredient (recipe_id, name, quantity, unit, category, is_optional, notes, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING *`,
+            [
+              recipeId, name,
+              ing.quantity ?? null, ing.unit ?? null, ing.category ?? null,
+              ing.is_optional === true, ing.notes ?? null,
+              typeof ing.sort_order === 'number' ? ing.sort_order : ingredients.length,
+            ],
+          );
+          ingredients.push(result.rows[0]);
+        }
+      }
+
+      // Insert steps
+      const steps: Record<string, unknown>[] = [];
+      if (Array.isArray(body.steps)) {
+        for (const step of body.steps as Record<string, unknown>[]) {
+          const instruction = typeof step.instruction === 'string' ? step.instruction.trim() : '';
+          if (!instruction) continue;
+          const result = await pool.query(
+            `INSERT INTO recipe_step (recipe_id, step_number, instruction, duration_min, image_s3_key)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *`,
+            [
+              recipeId,
+              typeof step.step_number === 'number' ? step.step_number : steps.length + 1,
+              instruction,
+              step.duration_min ?? null,
+              step.image_s3_key ?? null,
+            ],
+          );
+          steps.push(result.rows[0]);
+        }
+      }
+
+      return reply.code(201).send({ ...recipe, ingredients, steps });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/recipes — List recipes with optional filters
+  app.get('/api/recipes', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1'];
+    const params: unknown[] = [email];
+    let paramIdx = 2;
+
+    if (query.cuisine) {
+      conditions.push(`cuisine = $${paramIdx}`);
+      params.push(query.cuisine);
+      paramIdx++;
+    }
+    if (query.tag) {
+      conditions.push(`$${paramIdx} = ANY(tags)`);
+      params.push(query.tag);
+      paramIdx++;
+    }
+    if (query.meal_type) {
+      conditions.push(`$${paramIdx} = ANY(meal_type)`);
+      params.push(query.meal_type);
+      paramIdx++;
+    }
+    if (query.favourites === 'true') {
+      conditions.push('is_favourite = true');
+    }
+    if (query.difficulty) {
+      conditions.push(`difficulty = $${paramIdx}`);
+      params.push(query.difficulty);
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM recipe WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC`,
+        params,
+      );
+      return reply.send({ recipes: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/recipes/:id — Get recipe with ingredients and steps
+  app.get('/api/recipes/:id', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid recipe ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const recipeResult = await pool.query(
+        `SELECT * FROM recipe WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (recipeResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+
+      const ingredientsResult = await pool.query(
+        `SELECT * FROM recipe_ingredient WHERE recipe_id = $1 ORDER BY sort_order`,
+        [params.id],
+      );
+      const stepsResult = await pool.query(
+        `SELECT * FROM recipe_step WHERE recipe_id = $1 ORDER BY step_number`,
+        [params.id],
+      );
+
+      return reply.send({
+        ...recipeResult.rows[0],
+        ingredients: ingredientsResult.rows,
+        steps: stepsResult.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/recipes/:id — Update recipe fields
+  app.patch('/api/recipes/:id', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid recipe ID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body) return reply.code(400).send({ error: 'Body is required' });
+
+    const setClauses: string[] = [];
+    const queryParams: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of RECIPE_UPDATABLE_FIELDS) {
+      if (field in body) {
+        setClauses.push(`${field} = $${paramIdx}`);
+        queryParams.push(body[field]);
+        paramIdx++;
+      }
+    }
+    // Handle special fields
+    if ('rating' in body) {
+      setClauses.push(`rating = $${paramIdx}`);
+      queryParams.push(body.rating);
+      paramIdx++;
+    }
+    if ('is_favourite' in body) {
+      setClauses.push(`is_favourite = $${paramIdx}`);
+      queryParams.push(body.is_favourite);
+      paramIdx++;
+    }
+    if ('meal_type' in body && Array.isArray(body.meal_type)) {
+      setClauses.push(`meal_type = $${paramIdx}`);
+      queryParams.push(body.meal_type);
+      paramIdx++;
+    }
+    if ('tags' in body && Array.isArray(body.tags)) {
+      setClauses.push(`tags = $${paramIdx}`);
+      queryParams.push(body.tags);
+      paramIdx++;
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    setClauses.push(`updated_at = now()`);
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE recipe SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         RETURNING *`,
+        [...queryParams, routeParams.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/recipes/:id — Delete a recipe (cascade deletes ingredients/steps)
+  app.delete('/api/recipes/:id', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid recipe ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM recipe WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/recipes/:id/to-shopping-list — Push ingredients to a shopping list
+  app.post('/api/recipes/:id/to-shopping-list', async (req, reply) => {
+    const email = getRecipeUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const listId = typeof body?.list_id === 'string' ? body.list_id : null;
+
+    if (!listId || !isValidUUID(listId)) {
+      return reply.code(400).send({ error: 'list_id is required' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify recipe exists and belongs to user
+      const recipeCheck = await pool.query(
+        `SELECT id FROM recipe WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (recipeCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'Recipe not found' });
+      }
+
+      // Verify list exists and belongs to user
+      const listCheck = await pool.query(
+        `SELECT id FROM list WHERE id = $1 AND user_email = $2`,
+        [listId, email],
+      );
+      if (listCheck.rows.length === 0) {
+        return reply.code(404).send({ error: 'List not found' });
+      }
+
+      // Get recipe ingredients
+      const ingredients = await pool.query(
+        `SELECT name, quantity, unit, category FROM recipe_ingredient WHERE recipe_id = $1 ORDER BY sort_order`,
+        [routeParams.id],
+      );
+
+      // Add each ingredient as a list item
+      let added = 0;
+      for (const ing of ingredients.rows) {
+        const quantityStr = [ing.quantity, ing.unit].filter(Boolean).join(' ') || null;
+        await pool.query(
+          `INSERT INTO list_item (list_id, name, quantity, category)
+           VALUES ($1, $2, $3, $4)`,
+          [listId, ing.name, quantityStr, ing.category],
+        );
+        added++;
+      }
+
+      return reply.send({ added });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Meal Log API (Issue #1279) ───────────────────────────────────────
+
+  function getMealLogUserEmail(req: { headers?: Record<string, string | string[] | undefined> }): string | null {
+    const hdr = req.headers?.['x-user-email'];
+    if (typeof hdr === 'string' && hdr) return hdr;
+    return null;
+  }
+
+  const MEAL_LOG_UPDATABLE_FIELDS = [
+    'meal_date', 'meal_type', 'title', 'source', 'order_ref',
+    'restaurant', 'cuisine', 'who_cooked', 'notes', 'image_s3_key',
+  ] as const;
+
+  // POST /api/meal-log — Log a meal
+  app.post('/api/meal-log', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body || typeof body.title !== 'string' || !body.title.trim()) {
+      return reply.code(400).send({ error: 'title is required' });
+    }
+    if (typeof body.meal_date !== 'string' || typeof body.meal_type !== 'string' || typeof body.source !== 'string') {
+      return reply.code(400).send({ error: 'meal_date, meal_type, and source are required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `INSERT INTO meal_log (user_email, meal_date, meal_type, title, source, recipe_id,
+          order_ref, restaurant, cuisine, who_ate, who_cooked, rating, notes,
+          leftovers_stored, image_s3_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         RETURNING *`,
+        [
+          email,
+          body.meal_date,
+          body.meal_type,
+          body.title.trim(),
+          body.source,
+          body.recipe_id ?? null,
+          body.order_ref ?? null,
+          body.restaurant ?? null,
+          body.cuisine ?? null,
+          Array.isArray(body.who_ate) ? body.who_ate : [],
+          body.who_cooked ?? null,
+          body.rating ?? null,
+          body.notes ?? null,
+          body.leftovers_stored === true,
+          body.image_s3_key ?? null,
+        ],
+      );
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/meal-log/stats — Meal statistics (must be before :id route)
+  app.get('/api/meal-log/stats', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const days = query.days ? Number.parseInt(query.days, 10) : 30;
+
+    const pool = createPool();
+    try {
+      const totalResult = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM meal_log
+         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int`,
+        [email, days],
+      );
+
+      const bySourceResult = await pool.query(
+        `SELECT source, COUNT(*)::int AS count FROM meal_log
+         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int
+         GROUP BY source ORDER BY count DESC`,
+        [email, days],
+      );
+
+      const byCuisineResult = await pool.query(
+        `SELECT cuisine, COUNT(*)::int AS count FROM meal_log
+         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int AND cuisine IS NOT NULL
+         GROUP BY cuisine ORDER BY count DESC`,
+        [email, days],
+      );
+
+      return reply.send({
+        total: totalResult.rows[0].total,
+        days,
+        by_source: bySourceResult.rows,
+        by_cuisine: byCuisineResult.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/meal-log — List meals with optional filters
+  app.get('/api/meal-log', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const query = req.query as Record<string, string | undefined>;
+    const conditions: string[] = ['user_email = $1'];
+    const params: unknown[] = [email];
+    let paramIdx = 2;
+
+    if (query.cuisine) {
+      conditions.push(`cuisine = $${paramIdx}`);
+      params.push(query.cuisine);
+      paramIdx++;
+    }
+    if (query.source) {
+      conditions.push(`source = $${paramIdx}`);
+      params.push(query.source);
+      paramIdx++;
+    }
+    if (query.meal_type) {
+      conditions.push(`meal_type = $${paramIdx}`);
+      params.push(query.meal_type);
+      paramIdx++;
+    }
+    if (query.days) {
+      conditions.push(`meal_date >= CURRENT_DATE - $${paramIdx}::int`);
+      params.push(Number.parseInt(query.days, 10));
+      paramIdx++;
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM meal_log WHERE ${conditions.join(' AND ')} ORDER BY meal_date DESC, created_at DESC`,
+        params,
+      );
+      return reply.send({ meals: result.rows });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/meal-log/:id — Get a specific meal entry
+  app.get('/api/meal-log/:id', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const params = req.params as { id: string };
+    if (!isValidUUID(params.id)) {
+      return reply.code(400).send({ error: 'Invalid meal ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT * FROM meal_log WHERE id = $1 AND user_email = $2`,
+        [params.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Meal not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/meal-log/:id — Update a meal entry
+  app.patch('/api/meal-log/:id', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid meal ID format' });
+    }
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    if (!body) return reply.code(400).send({ error: 'Body is required' });
+
+    const setClauses: string[] = [];
+    const queryParams: unknown[] = [];
+    let paramIdx = 1;
+
+    for (const field of MEAL_LOG_UPDATABLE_FIELDS) {
+      if (field in body) {
+        setClauses.push(`${field} = $${paramIdx}`);
+        queryParams.push(body[field]);
+        paramIdx++;
+      }
+    }
+    if ('rating' in body) {
+      setClauses.push(`rating = $${paramIdx}`);
+      queryParams.push(body.rating);
+      paramIdx++;
+    }
+    if ('leftovers_stored' in body) {
+      setClauses.push(`leftovers_stored = $${paramIdx}`);
+      queryParams.push(body.leftovers_stored);
+      paramIdx++;
+    }
+    if ('who_ate' in body && Array.isArray(body.who_ate)) {
+      setClauses.push(`who_ate = $${paramIdx}`);
+      queryParams.push(body.who_ate);
+      paramIdx++;
+    }
+    if ('recipe_id' in body) {
+      setClauses.push(`recipe_id = $${paramIdx}`);
+      queryParams.push(body.recipe_id);
+      paramIdx++;
+    }
+
+    if (setClauses.length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `UPDATE meal_log SET ${setClauses.join(', ')}
+         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         RETURNING *`,
+        [...queryParams, routeParams.id, email],
+      );
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Meal not found' });
+      }
+      return reply.send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/meal-log/:id — Delete a meal entry
+  app.delete('/api/meal-log/:id', async (req, reply) => {
+    const email = getMealLogUserEmail(req);
+    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const routeParams = req.params as { id: string };
+    if (!isValidUUID(routeParams.id)) {
+      return reply.code(400).send({ error: 'Invalid meal ID format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `DELETE FROM meal_log WHERE id = $1 AND user_email = $2`,
+        [routeParams.id, email],
+      );
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Meal not found' });
+      }
+      return reply.code(204).send();
     } finally {
       await pool.end();
     }

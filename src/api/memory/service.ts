@@ -4,18 +4,19 @@
  * Tags support added in Issue #492
  * Relationship scope added in Issue #493
  * Geolocation fields added in Epic #1204
+ * Project scope added in Issue #1273
  */
 
 import type { Pool } from 'pg';
 import type {
-  MemoryEntry,
   CreateMemoryInput,
-  UpdateMemoryInput,
   ListMemoriesOptions,
   ListMemoriesResult,
-  SearchMemoriesOptions,
+  MemoryEntry,
   MemorySearchResult,
   MemoryType,
+  SearchMemoriesOptions,
+  UpdateMemoryInput,
 } from './types.ts';
 
 /** Valid memory types for validation */
@@ -31,6 +32,7 @@ function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
     workItemId: row.work_item_id as string | null,
     contactId: row.contact_id as string | null,
     relationshipId: row.relationship_id as string | null,
+    projectId: row.project_id as string | null,
     title: row.title as string,
     content: row.content as string,
     memoryType: row.memory_type as MemoryType,
@@ -125,10 +127,10 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   }
 
   // At least one scope should be set
-  if (!input.userEmail && !input.workItemId && !input.contactId && !input.relationshipId) {
+  if (!input.userEmail && !input.workItemId && !input.contactId && !input.relationshipId && !input.projectId) {
     // Default to requiring at least some scope for organization
     // For now, allow completely unscoped memories but log a warning
-    console.warn('[Memory] Creating memory without scope - consider adding userEmail, workItemId, contactId, or relationshipId');
+    console.warn('[Memory] Creating memory without scope - consider adding userEmail, workItemId, contactId, relationshipId, or projectId');
   }
 
   const tags = input.tags ?? [];
@@ -148,7 +150,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
     scopeParams.push(input.userEmail);
     paramIndex++;
   } else {
-    scopeConditions.push(`user_email IS NULL`);
+    scopeConditions.push('user_email IS NULL');
   }
 
   if (input.workItemId !== undefined) {
@@ -156,7 +158,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
     scopeParams.push(input.workItemId);
     paramIndex++;
   } else {
-    scopeConditions.push(`work_item_id IS NULL`);
+    scopeConditions.push('work_item_id IS NULL');
   }
 
   if (input.contactId !== undefined) {
@@ -164,7 +166,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
     scopeParams.push(input.contactId);
     paramIndex++;
   } else {
-    scopeConditions.push(`contact_id IS NULL`);
+    scopeConditions.push('contact_id IS NULL');
   }
 
   if (input.relationshipId !== undefined) {
@@ -172,14 +174,22 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
     scopeParams.push(input.relationshipId);
     paramIndex++;
   } else {
-    scopeConditions.push(`relationship_id IS NULL`);
+    scopeConditions.push('relationship_id IS NULL');
+  }
+
+  if (input.projectId !== undefined) {
+    scopeConditions.push(`project_id = $${paramIndex}`);
+    scopeParams.push(input.projectId);
+    paramIndex++;
+  } else {
+    scopeConditions.push('project_id IS NULL');
   }
 
   const scopeWhere = scopeConditions.join(' AND ');
 
   // Check for duplicate using normalized content comparison
   const duplicateCheck = await pool.query(
-    `SELECT id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+    `SELECT id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -197,7 +207,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       `UPDATE memory SET updated_at = NOW()
       WHERE id = $1
       RETURNING
-        id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+        id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
         title, content, memory_type::text, tags,
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
@@ -211,15 +221,15 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   // No duplicate - create new memory
   const result = await pool.query(
     `INSERT INTO memory (
-      user_email, work_item_id, contact_id, relationship_id,
+      user_email, work_item_id, contact_id, relationship_id, project_id,
       title, content, memory_type,
       tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at,
       lat, lng, address, place_label
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::memory_type, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     RETURNING
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -229,6 +239,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       input.workItemId ?? null,
       input.contactId ?? null,
       input.relationshipId ?? null,
+      input.projectId ?? null,
       input.title,
       input.content,
       memoryType,
@@ -255,7 +266,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
 export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | null> {
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -349,7 +360,7 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
     `UPDATE memory SET ${updates.join(', ')}, updated_at = NOW()
     WHERE id = $${paramIndex}
     RETURNING
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -405,6 +416,12 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
     paramIndex++;
   }
 
+  if (options.projectId !== undefined) {
+    conditions.push(`project_id = $${paramIndex}`);
+    params.push(options.projectId);
+    paramIndex++;
+  }
+
   // Type filter
   if (options.memoryType !== undefined) {
     conditions.push(`memory_type = $${paramIndex}::memory_type`);
@@ -421,19 +438,31 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
 
   // Exclude expired unless requested
   if (!options.includeExpired) {
-    conditions.push(`(expires_at IS NULL OR expires_at > NOW())`);
+    conditions.push('(expires_at IS NULL OR expires_at > NOW())');
   }
 
   // Exclude superseded unless requested
   if (!options.includeSuperseded) {
-    conditions.push(`superseded_by IS NULL`);
+    conditions.push('superseded_by IS NULL');
+  }
+
+  // Temporal filters (issue #1272)
+  if (options.createdAfter !== undefined) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(options.createdAfter.toISOString());
+    paramIndex++;
+  }
+  if (options.createdBefore !== undefined) {
+    conditions.push(`created_at < $${paramIndex}`);
+    params.push(options.createdBefore.toISOString());
+    paramIndex++;
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
   const countResult = await pool.query(`SELECT COUNT(*) as total FROM memory ${whereClause}`, params);
-  const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+  const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get paginated results
   const limit = Math.min(options.limit ?? 50, 100);
@@ -443,7 +472,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -474,6 +503,7 @@ export async function getGlobalMemories(
     'work_item_id IS NULL',
     'contact_id IS NULL',
     'relationship_id IS NULL',
+    'project_id IS NULL',
     '(expires_at IS NULL OR expires_at > NOW())',
     'superseded_by IS NULL',
   ];
@@ -490,7 +520,7 @@ export async function getGlobalMemories(
 
   // Get total count
   const countResult = await pool.query(`SELECT COUNT(*) as total FROM memory ${whereClause}`, params);
-  const total = parseInt((countResult.rows[0] as { total: string }).total, 10);
+  const total = Number.parseInt((countResult.rows[0] as { total: string }).total, 10);
 
   // Get paginated results
   const limit = Math.min(options.limit ?? 50, 100);
@@ -500,7 +530,7 @@ export async function getGlobalMemories(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -601,10 +631,7 @@ function calculateKeywordRatio(content: string, keywords: string[]): number {
  * Combines vector similarity (70%) with keyword ratio (30%).
  * Issue #1146
  */
-function applyKeywordBoost<T extends { similarity: number; content: string }>(
-  results: T[],
-  query: string,
-): T[] {
+function applyKeywordBoost<T extends { similarity: number; content: string }>(results: T[], query: string): T[] {
   const keywords = extractKeywords(query);
 
   if (keywords.length === 0) {
@@ -675,6 +702,11 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           semanticParams.push(options.relationshipId);
           semanticIdx++;
         }
+        if (options.projectId !== undefined) {
+          semanticConditions.push(`project_id = $${semanticIdx}`);
+          semanticParams.push(options.projectId);
+          semanticIdx++;
+        }
         if (options.memoryType !== undefined) {
           semanticConditions.push(`memory_type = $${semanticIdx}::memory_type`);
           semanticParams.push(options.memoryType);
@@ -685,6 +717,17 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           semanticParams.push(options.tags);
           semanticIdx++;
         }
+        // Temporal filters (issue #1272)
+        if (options.createdAfter !== undefined) {
+          semanticConditions.push(`created_at >= $${semanticIdx}`);
+          semanticParams.push(options.createdAfter.toISOString());
+          semanticIdx++;
+        }
+        if (options.createdBefore !== undefined) {
+          semanticConditions.push(`created_at < $${semanticIdx}`);
+          semanticParams.push(options.createdBefore.toISOString());
+          semanticIdx++;
+        }
 
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
         const allParams = [embeddingStr, minSimilarity, ...semanticParams, limit, offset];
@@ -692,7 +735,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
 
         const result = await pool.query(
           `SELECT
-            id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+            id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
@@ -710,7 +753,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
         // Map results with similarity scores
         const rawResults = result.rows.map((row) => ({
           ...mapRowToMemory(row as Record<string, unknown>),
-          similarity: parseFloat(row.similarity as string),
+          similarity: Number.parseFloat(row.similarity as string),
         }));
 
         // Apply keyword boosting to improve ranking
@@ -754,6 +797,11 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
     textParams.push(options.relationshipId);
     textIdx++;
   }
+  if (options.projectId !== undefined) {
+    textConditions.push(`project_id = $${textIdx}`);
+    textParams.push(options.projectId);
+    textIdx++;
+  }
   if (options.memoryType !== undefined) {
     textConditions.push(`memory_type = $${textIdx}::memory_type`);
     textParams.push(options.memoryType);
@@ -764,13 +812,24 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
     textParams.push(options.tags);
     textIdx++;
   }
+  // Temporal filters (issue #1272)
+  if (options.createdAfter !== undefined) {
+    textConditions.push(`created_at >= $${textIdx}`);
+    textParams.push(options.createdAfter.toISOString());
+    textIdx++;
+  }
+  if (options.createdBefore !== undefined) {
+    textConditions.push(`created_at < $${textIdx}`);
+    textParams.push(options.createdBefore.toISOString());
+    textIdx++;
+  }
 
   textParams.push(limit, offset);
   const whereClause = textConditions.length > 0 ? `AND ${textConditions.join(' AND ')}` : '';
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text,
+      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -787,7 +846,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
   return {
     results: result.rows.map((row) => ({
       ...mapRowToMemory(row as Record<string, unknown>),
-      similarity: parseFloat(row.similarity as string),
+      similarity: Number.parseFloat(row.similarity as string),
     })),
     searchType: 'text',
   };
