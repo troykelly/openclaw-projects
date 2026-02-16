@@ -384,7 +384,7 @@ services:
       # Port 3001 (not 3000) to avoid conflicts with Traefik service labels.
       # ModSecurity and nginx proxy both use this port.
       PORT: 3001
-      PUBLIC_BASE_URL: https://api.${DOMAIN:?DOMAIN is required}
+      PUBLIC_BASE_URL: https://${DOMAIN:?DOMAIN is required}
       COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
       # Database connection
       PGHOST: db
