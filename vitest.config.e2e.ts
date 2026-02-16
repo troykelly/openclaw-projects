@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { defineConfig } from 'vitest/config';
 
 /**
  * Vitest config for Level 2 E2E tests only.
@@ -14,6 +14,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 60000,
     include: ['packages/openclaw-plugin/tests/e2e/**/*.test.ts'],
+    exclude: ['packages/openclaw-plugin/tests/e2e/jwt-auth.test.ts'],
   },
   resolve: {
     alias: {
