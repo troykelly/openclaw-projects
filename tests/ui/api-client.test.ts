@@ -41,6 +41,7 @@ describe('apiClient', () => {
 
       expect(fetchMock).toHaveBeenCalledWith('/api/work-items', {
         method: 'GET',
+        credentials: 'include',
         headers: { accept: 'application/json' },
         signal: undefined,
       });
@@ -138,6 +139,7 @@ describe('apiClient', () => {
 
       expect(fetchMock).toHaveBeenCalledWith('/api/work-items', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           accept: 'application/json',
@@ -180,6 +182,7 @@ describe('apiClient', () => {
 
       expect(fetchMock).toHaveBeenCalledWith('/api/work-items/1', {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           accept: 'application/json',
@@ -203,6 +206,7 @@ describe('apiClient', () => {
 
       expect(fetchMock).toHaveBeenCalledWith('/api/memories/1', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'content-type': 'application/json',
           accept: 'application/json',
@@ -227,6 +231,7 @@ describe('apiClient', () => {
 
       expect(fetchMock).toHaveBeenCalledWith('/api/work-items/1', {
         method: 'DELETE',
+        credentials: 'include',
         headers: { accept: 'application/json' },
         signal: undefined,
       });
