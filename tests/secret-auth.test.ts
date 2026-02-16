@@ -6,6 +6,11 @@ import { resetRealtimeHub } from '../src/api/realtime/hub.ts';
 import { writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash, randomBytes } from 'node:crypto';
+import { createPool } from '../src/db.ts';
+
+// JWT signing requires a secret.
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-bytes-long!!';
 
 /**
  * Tests for shared secret authentication (Issue #220)
@@ -356,15 +361,15 @@ describe('Shared secret authentication', () => {
       }
     });
 
-    it('allows /api/auth/consume without bearer auth', async () => {
+    it('allows POST /api/auth/consume without bearer auth', async () => {
       const app = buildServer();
       await app.ready();
 
       try {
         const response = await app.inject({
-          method: 'GET',
-          url: '/api/auth/consume?token=invalid',
-          headers: { accept: 'application/json' },
+          method: 'POST',
+          url: '/api/auth/consume',
+          payload: { token: 'invalid' },
         });
 
         // Should not be 401 - might be 400 (invalid token)
@@ -578,7 +583,7 @@ describe('Shared secret authentication', () => {
     });
   });
 
-  describe('Session cookie auth still works alongside bearer', () => {
+  describe('JWT auth works alongside shared secret bearer', () => {
     const originalEnv = { ...process.env };
 
     beforeEach(() => {
@@ -594,42 +599,43 @@ describe('Shared secret authentication', () => {
       await resetRealtimeHub();
     });
 
-    it('allows /api/me with valid session cookie (no bearer required)', async () => {
+    it('allows /api/me with valid JWT Bearer token', async () => {
       const app = buildServer();
       await app.ready();
 
       try {
-        // First, get a session via magic link
-        const requestLink = await app.inject({
-          method: 'POST',
-          url: '/api/auth/request-link',
-          payload: { email: 'cookie-auth@example.com' },
-        });
+        // Create a magic link token directly in the DB to avoid race conditions
+        const rawToken = randomBytes(32).toString('base64url');
+        const tokenSha = createHash('sha256').update(rawToken).digest('hex');
+        const dbPool = createPool({ max: 1 });
+        await dbPool.query(
+          `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+           VALUES ($1, $2, now() + interval '15 minutes')`,
+          ['jwt-auth@example.com', tokenSha],
+        );
+        await dbPool.end();
 
-        const { loginUrl } = requestLink.json() as { loginUrl: string };
-        const token = new URL(loginUrl).searchParams.get('token');
-
+        // Consume the magic link via POST to get a JWT
         const consume = await app.inject({
-          method: 'GET',
-          url: `/api/auth/consume?token=${token}`,
-          headers: { accept: 'application/json' },
+          method: 'POST',
+          url: '/api/auth/consume',
+          payload: { token: rawToken },
         });
 
-        const setCookie = consume.headers['set-cookie'];
-        const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-        const sessionCookie = cookieHeader.split(';')[0];
+        expect(consume.statusCode).toBe(200);
+        const { accessToken } = consume.json() as { accessToken: string };
 
-        // Now access /api/me with cookie (no bearer)
+        // Now access /api/me with JWT Bearer token
         const me = await app.inject({
           method: 'GET',
           url: '/api/me',
           headers: {
-            cookie: sessionCookie,
+            authorization: `Bearer ${accessToken}`,
           },
         });
 
         expect(me.statusCode).toBe(200);
-        expect(me.json()).toEqual({ email: 'cookie-auth@example.com' });
+        expect(me.json()).toEqual({ email: 'jwt-auth@example.com' });
       } finally {
         await app.close();
       }

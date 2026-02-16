@@ -1,11 +1,17 @@
 /**
  * Tests that verify frontend assets are correctly served.
  * Part of Issue #779 - Catches stale index.html after rebuild.
+ * Updated for JWT auth migration (Issue #1325).
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { runMigrate } from './helpers/migrate.ts';
 import { buildServer } from '../src/api/server.ts';
+import { createHash, randomBytes } from 'node:crypto';
+import { createPool } from '../src/db.ts';
+
+// JWT signing requires a secret.
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-bytes-long!!';
 
 const frontendIndexPath = new URL('../src/api/static/app/index.html', import.meta.url).pathname;
 const hasFrontendBuild =
@@ -63,33 +69,30 @@ describe.skipIf(!hasFrontendBuild)('Frontend Assets (Issue #779)', () => {
   });
 
   it('app shell serves consistent index.html with same assets', async () => {
-    // Create a session for authenticated access
-    const requestLink = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'asset-test@example.com' },
-    });
-    expect(requestLink.statusCode).toBe(201);
-
-    const { loginUrl } = requestLink.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
+    // Get a JWT access token
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenSha = createHash('sha256').update(rawToken).digest('hex');
+    const pool = createPool({ max: 1 });
+    await pool.query(
+      `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+       VALUES ($1, $2, now() + interval '15 minutes')`,
+      ['asset-test@example.com', tokenSha],
+    );
+    await pool.end();
 
     const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token: rawToken },
     });
     expect(consume.statusCode).toBe(200);
-
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    const sessionCookie = cookieHeader.split(';')[0];
+    const { accessToken } = consume.json() as { accessToken: string };
 
     // Get app shell HTML
     const appResponse = await app.inject({
       method: 'GET',
       url: '/app/work-items',
-      headers: { cookie: sessionCookie },
+      headers: { authorization: `Bearer ${accessToken}` },
     });
 
     expect(appResponse.statusCode).toBe(200);
