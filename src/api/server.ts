@@ -11888,18 +11888,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const userEmail = await getOAuthUserEmail(provider, tokens.accessToken);
 
       // Save connection with provider account email for multi-account support
-      const connection = await saveConnection(pool, userEmail, provider, tokens, {
+      await saveConnection(pool, userEmail, provider, tokens, {
         providerAccountEmail: userEmail,
       });
 
-      // In a real app, you might redirect to a success page
-      return reply.send({
-        status: 'connected',
-        provider,
-        userEmail,
-        connectionId: connection.id,
-        scopes: tokens.scopes,
-      });
+      // Generate a one-time authorization code for the SPA to exchange for a JWT.
+      // This avoids putting JWTs in URL parameters during the cross-domain redirect.
+      // The code is stored as a SHA-256 hash and expires after 60 seconds.
+      const authCode = randomBytes(32).toString('base64url');
+      const authCodeSha = createHash('sha256').update(authCode).digest('hex');
+      await pool.query(
+        `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
+         VALUES ($1, $2, now() + interval '60 seconds')`,
+        [authCodeSha, userEmail],
+      );
+
+      // Redirect to the SPA auth consume page with the one-time code.
+      // The SPA will exchange this code for a JWT via POST /api/auth/exchange.
+      const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      const redirectUrl = `${baseUrl}/app/auth/consume?code=${encodeURIComponent(authCode)}`;
+
+      return reply.redirect(redirectUrl);
     } catch (error) {
       if (error instanceof OAuthError) {
         return reply.code(error.statusCode).send({
