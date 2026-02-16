@@ -3,7 +3,11 @@
 -- the processor disabling the schedule, the SQL enqueue function
 -- keeps firing because it doesn't check consecutive_failures.
 --
--- Fix: Add consecutive_failures < max_retries guard to WHERE clause.
+-- Fix: Two-phase approach:
+-- 1. Auto-disable any enabled schedules that have reached max_retries
+--    (handles max_retries=0 edge case and crash recovery)
+-- 2. Add consecutive_failures < max_retries guard to WHERE clause
+--    as defense-in-depth
 
 CREATE OR REPLACE FUNCTION enqueue_skill_store_scheduled_jobs()
 RETURNS integer
@@ -16,6 +20,17 @@ DECLARE
   v_idem_key text;
   v_job_id uuid;
 BEGIN
+  -- Phase 1: Auto-disable schedules that have reached max_retries (Issue #1360)
+  -- This handles the crash recovery case: if the processor crashed before
+  -- disabling the schedule, we clean it up here. Also handles max_retries=0.
+  UPDATE skill_store_schedule
+  SET enabled = false,
+      last_run_status = 'failed'
+  WHERE enabled = true
+    AND consecutive_failures >= max_retries
+    AND max_retries IS NOT NULL;
+
+  -- Phase 2: Enqueue due schedules (with guard as defense-in-depth)
   FOR v_schedule IN
     SELECT id, skill_id, collection, webhook_url, webhook_headers,
            payload_template, max_retries, consecutive_failures,
@@ -73,4 +88,4 @@ END;
 $$;
 
 COMMENT ON FUNCTION enqueue_skill_store_scheduled_jobs IS
-  'Finds due skill store schedules and enqueues processing jobs. Skips schedules at max_retries (Issue #1360). Uses FOR UPDATE SKIP LOCKED for concurrency safety.';
+  'Finds due skill store schedules and enqueues processing jobs. Auto-disables schedules at max_retries and skips them (Issue #1360). Uses FOR UPDATE SKIP LOCKED for concurrency safety.';
