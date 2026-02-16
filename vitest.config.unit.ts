@@ -62,6 +62,7 @@ export default defineProject({
       'tests/worker/**/*.test.ts',
 
       // ── Pure unit tests co-located in src/ ─────────────────────────
+      'src/api/auth/**/*.test.ts',
       'src/api/oauth/**/*.test.ts',
       'src/api/memory/keyword-boost-unit.test.ts',
       'src/api/webhooks/payloads.test.ts',
