@@ -2690,6 +2690,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         priority?: string;
         description?: string;
         labels?: string[];
+        not_before?: string | null; // Issue #1352: reminder date
+        not_after?: string | null; // Issue #1352: deadline date
       }>;
       user_email?: string; // Issue #1172: per-user scoping
     };
@@ -2710,13 +2712,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const client = await pool.connect();
+    const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
+    let createdCount = 0;
+    let failedCount = 0;
 
     try {
       await client.query('BEGIN');
-
-      const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
-      let createdCount = 0;
-      let failedCount = 0;
 
       for (let i = 0; i < body.items.length; i++) {
         const item = body.items[i];
@@ -2735,10 +2736,38 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           continue;
         }
 
+        // Issue #1352: Validate not_before / not_after dates
+        let notBefore: Date | null = null;
+        let notAfter: Date | null = null;
+
+        if (item.not_before) {
+          notBefore = new Date(item.not_before);
+          if (isNaN(notBefore.getTime())) {
+            results.push({ index: i, status: 'failed', error: 'Invalid not_before date format' });
+            failedCount++;
+            continue;
+          }
+        }
+
+        if (item.not_after) {
+          notAfter = new Date(item.not_after);
+          if (isNaN(notAfter.getTime())) {
+            results.push({ index: i, status: 'failed', error: 'Invalid not_after date format' });
+            failedCount++;
+            continue;
+          }
+        }
+
+        if (notBefore && notAfter && notBefore > notAfter) {
+          results.push({ index: i, status: 'failed', error: 'not_before must be before or equal to not_after' });
+          failedCount++;
+          continue;
+        }
+
         try {
           const result = await client.query(
-            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description, user_email)
-             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6, $7)
+            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description, user_email, not_before, not_after)
+             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6, $7, $8::timestamptz, $9::timestamptz)
              RETURNING id::text as id`,
             [
               item.title,
@@ -2748,6 +2777,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               item.priority || null,
               item.description || null,
               bulkUserEmail,
+              notBefore,
+              notAfter,
             ],
           );
           const workItemId = result.rows[0].id;
@@ -2756,7 +2787,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           if (item.labels && item.labels.length > 0) {
             await client.query('SELECT set_work_item_labels($1, $2)', [workItemId, item.labels]);
           }
-          results.push({ index: i, id: result.rows[0].id, status: 'created' });
+          results.push({ index: i, id: result.rows[0].id, status: 'created', _notBefore: notBefore, _notAfter: notAfter } as any);
           createdCount++;
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'unknown error';
@@ -2773,16 +2804,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       client.release();
-      await pool.end();
-
-      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
-        success: failedCount === 0,
-        created: createdCount,
-        failed: failedCount,
-        results,
-      });
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       client.release();
       await pool.end();
 
@@ -2791,6 +2814,36 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
       return reply.code(500).send({ error: 'internal server error' });
     }
+
+    // Issue #1352: Schedule reminder/nudge jobs for items with dates (after COMMIT, outside transaction try/catch)
+    if (createdCount > 0) {
+      for (const r of results) {
+        if (r.status === 'created' && r.id) {
+          const rAny = r as any;
+          const nb: Date | null = rAny._notBefore ?? null;
+          const na: Date | null = rAny._notAfter ?? null;
+          if (nb || na) {
+            try {
+              await scheduleWorkItemReminders(pool, r.id, nb, na);
+            } catch {
+              // Best-effort: items are already committed; scheduling failure is non-fatal
+            }
+          }
+          // Clean up internal fields before sending response
+          delete rAny._notBefore;
+          delete rAny._notAfter;
+        }
+      }
+    }
+
+    await pool.end();
+
+    return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+      success: failedCount === 0,
+      created: createdCount,
+      failed: failedCount,
+      results,
+    });
   });
 
   // DELETE /api/work-items/bulk - Delete multiple work items (Issue #218)
