@@ -13,8 +13,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { getAuthIdentity, getSessionEmail } from './auth/middleware.ts';
-import { isAuthDisabled } from './auth/secret.ts';
-import { verifyAccessToken, signAccessToken } from './auth/jwt.ts';
+import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { type CloudflareEmailPayload, processCloudflareEmail } from './cloudflare-email/index.ts';
 import {
@@ -851,7 +850,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       type: 'bearer',
       header: 'Authorization',
       format: 'Bearer <token>',
-      envVars: ['OPENCLAW_PROJECTS_AUTH_SECRET', 'OPENCLAW_PROJECTS_AUTH_SECRET_FILE', 'OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND'],
+      envVars: ['OPENCLAW_API_TOKEN'],
     },
     capabilities: [
       {

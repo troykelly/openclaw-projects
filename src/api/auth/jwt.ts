@@ -1,7 +1,17 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { SignJWT, jwtVerify, errors as joseErrors } from 'jose';
 
-import { isAuthDisabled } from './secret.ts';
+/**
+ * Checks if authentication is disabled via environment variable.
+ * This should only be used in development/testing.
+ */
+export function isAuthDisabled(): boolean {
+  const disabled = process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
+  if (disabled === 'true' || disabled === '1') {
+    return true;
+  }
+  return false;
+}
 
 /** JWT payload returned by verifyAccessToken. */
 export interface JwtPayload {
@@ -19,6 +29,8 @@ export interface JwtPayload {
   kid: string;
   /** Space-delimited scopes (optional, mainly for M2M tokens). */
   scope?: string;
+  /** Issuer claim (present on M2M tokens). */
+  iss?: string;
 }
 
 /** Options for signAccessToken. */
@@ -31,8 +43,10 @@ export interface SignOptions {
 
 const ALG = 'HS256' as const;
 const TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes
+const M2M_TOKEN_TTL_SECONDS = 100 * 365.25 * 24 * 60 * 60; // ~100 years
 const CLOCK_TOLERANCE_SECONDS = 30;
 const MIN_SECRET_BYTES = 32;
+const M2M_ISSUER = 'openclaw-projects';
 
 /**
  * Derives a short, deterministic key ID from a secret.
@@ -100,6 +114,41 @@ export async function signAccessToken(
     .setSubject(email)
     .setIssuedAt()
     .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
+    .setJti(randomUUID())
+    .sign(encodeSecret(secret));
+}
+
+/**
+ * Signs a long-lived M2M (machine-to-machine) JWT.
+ *
+ * These tokens are used by services like the OpenClaw gateway to authenticate
+ * API requests. They have a ~100 year TTL (effectively non-expiring) and include
+ * an issuer claim of 'openclaw-projects'.
+ *
+ * @param serviceId - Identifier for the M2M client (e.g. 'openclaw-gateway').
+ * @param scopes - OAuth-style scopes (e.g. ['api:full']).
+ * @returns Compact JWS string.
+ */
+export async function signM2MToken(
+  serviceId: string,
+  scopes: string[],
+): Promise<string> {
+  const secret = process.env.JWT_SECRET;
+  requireSecret(secret);
+
+  const kid = deriveKid(secret);
+
+  const claims: Record<string, unknown> = { type: 'm2m' as const };
+  if (scopes.length > 0) {
+    claims.scope = scopes.join(' ');
+  }
+
+  return new SignJWT(claims)
+    .setProtectedHeader({ alg: ALG, kid })
+    .setSubject(serviceId)
+    .setIssuer(M2M_ISSUER)
+    .setIssuedAt()
+    .setExpirationTime(`${Math.floor(M2M_TOKEN_TTL_SECONDS)}s`)
     .setJti(randomUUID())
     .sign(encodeSecret(secret));
 }
@@ -176,6 +225,7 @@ async function verifyWith(token: string, secret: string): Promise<JwtPayload> {
     jti: payload.jti!,
     kid: protectedHeader.kid,
     ...(typeof raw.scope === 'string' ? { scope: raw.scope } : {}),
+    ...(typeof payload.iss === 'string' ? { iss: payload.iss } : {}),
   } satisfies JwtPayload;
 }
 

@@ -137,8 +137,8 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-openclaw}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_FORCE_PATH_STYLE: "true"
-      # Auth — disabled by default for quickstart; set AUTH_SECRET in .env for production
-      OPENCLAW_PROJECTS_AUTH_SECRET: ${OPENCLAW_PROJECTS_AUTH_SECRET:-}
+      # Auth — disabled by default for quickstart; set OPENCLAW_API_TOKEN in .env for production
+      OPENCLAW_API_TOKEN: ${OPENCLAW_API_TOKEN:-}
       OPENCLAW_PROJECTS_AUTH_DISABLED: ${OPENCLAW_PROJECTS_AUTH_DISABLED:-true}
       # Disable rate limiting and webhook IP whitelist for local dev
       RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-true}

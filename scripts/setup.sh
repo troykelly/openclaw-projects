@@ -13,7 +13,7 @@
 #
 # Environment variable overrides (for --non-interactive mode):
 #   PUBLIC_BASE_URL, POSTGRES_PASSWORD, COOKIE_SECRET, S3_SECRET_KEY,
-#   OPENCLAW_PROJECTS_AUTH_SECRET, EMBEDDING_PROVIDER, OPENAI_API_KEY,
+#   OPENCLAW_API_TOKEN, EMBEDDING_PROVIDER, OPENAI_API_KEY,
 #   VOYAGERAI_API_KEY, GEMINI_API_KEY, and all other .env variables.
 #
 # The script is idempotent: re-running preserves existing .env values
@@ -327,12 +327,12 @@ if [ -z "$COOKIE_SECRET" ]; then
 fi
 set_env COOKIE_SECRET "$COOKIE_SECRET"
 
-AUTH_SECRET="$(resolve OPENCLAW_PROJECTS_AUTH_SECRET "")"
-if [ -z "$AUTH_SECRET" ]; then
-  AUTH_SECRET="$(generate_secret 32)"
-  info "Generated OPENCLAW_PROJECTS_AUTH_SECRET"
+OPENCLAW_API_TOKEN="$(resolve OPENCLAW_API_TOKEN "")"
+if [ -z "$OPENCLAW_API_TOKEN" ]; then
+  info "OPENCLAW_API_TOKEN not set. Generate one after setup with:"
+  info "  JWT_SECRET=<your-jwt-secret> pnpm run generate-api-token"
 fi
-set_env OPENCLAW_PROJECTS_AUTH_SECRET "$AUTH_SECRET"
+set_env OPENCLAW_API_TOKEN "$OPENCLAW_API_TOKEN"
 
 NODE_ENV="$(prompt_value NODE_ENV "Node environment" "production")"
 set_env NODE_ENV "$NODE_ENV"
@@ -593,7 +593,7 @@ HEADER
   printf "# Core Application Settings\n"
   printf "# =============================================================================\n\n"
 
-  for key in PUBLIC_BASE_URL NODE_ENV COOKIE_SECRET OPENCLAW_PROJECTS_AUTH_SECRET; do
+  for key in PUBLIC_BASE_URL NODE_ENV COOKIE_SECRET OPENCLAW_API_TOKEN; do
     if [ -n "${ENV_VALUES[$key]:-}" ]; then
       printf '%s=%s\n' "$key" "${ENV_VALUES[$key]}"
     fi
@@ -683,7 +683,7 @@ section "Setup Complete"
 
 printf "  ${BOLD}Generated secrets:${RESET}\n"
 # Check which secrets were auto-generated (not from existing env)
-for key in COOKIE_SECRET OPENCLAW_PROJECTS_AUTH_SECRET POSTGRES_PASSWORD S3_SECRET_KEY OAUTH_TOKEN_ENCRYPTION_KEY; do
+for key in COOKIE_SECRET OPENCLAW_API_TOKEN POSTGRES_PASSWORD S3_SECRET_KEY OAUTH_TOKEN_ENCRYPTION_KEY; do
   if [ -n "${ENV_VALUES[$key]:-}" ]; then
     printf "    - %s\n" "$key"
   fi

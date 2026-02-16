@@ -1,7 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 
-import { isAuthDisabled } from './secret.ts';
-import { verifyAccessToken, type JwtPayload } from './jwt.ts';
+import { isAuthDisabled, verifyAccessToken, type JwtPayload } from './jwt.ts';
 
 /** Represents an authenticated identity extracted from a JWT. */
 export interface AuthIdentity {

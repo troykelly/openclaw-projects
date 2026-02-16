@@ -64,7 +64,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
     process.env = { ...originalEnv };
     // Enable authentication for these tests
     delete process.env.OPENCLAW_PROJECTS_AUTH_DISABLED;
-    process.env.OPENCLAW_PROJECTS_AUTH_SECRET = 'test-secret-for-bearer-auth';
+    process.env.JWT_SECRET = 'test-jwt-secret-for-bearer-auth-minimum-32-bytes!';
     // Set mock S3 env vars
     process.env.S3_BUCKET = 'test-bucket';
     process.env.S3_REGION = 'us-east-1';

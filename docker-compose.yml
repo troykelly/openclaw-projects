@@ -170,12 +170,10 @@ services:
       POSTMARK_REPLY_TO: ${POSTMARK_REPLY_TO:-}
       POSTMARK_MESSAGE_STREAM: ${POSTMARK_MESSAGE_STREAM:-outbound}
       POSTMARK_TRANSACTIONAL_TOKEN: ${POSTMARK_TRANSACTIONAL_TOKEN:-}
-      # Authentication for OpenClaw plugin requests
-      # At least one of: OPENCLAW_PROJECTS_AUTH_SECRET, _FILE, or _COMMAND must be set
+      # M2M API token for OpenClaw plugin/gateway requests (long-lived JWT)
+      # Generate with: JWT_SECRET=<secret> pnpm run generate-api-token
       # OR set OPENCLAW_PROJECTS_AUTH_DISABLED=true (not recommended for production)
-      OPENCLAW_PROJECTS_AUTH_SECRET: ${OPENCLAW_PROJECTS_AUTH_SECRET:-}
-      OPENCLAW_PROJECTS_AUTH_SECRET_FILE: ${OPENCLAW_PROJECTS_AUTH_SECRET_FILE:-}
-      OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND: ${OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND:-}
+      OPENCLAW_API_TOKEN: ${OPENCLAW_API_TOKEN:-}
       OPENCLAW_PROJECTS_AUTH_DISABLED: ${OPENCLAW_PROJECTS_AUTH_DISABLED:-false}
       # Embedding provider
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
