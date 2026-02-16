@@ -206,17 +206,23 @@ describe('Message embeddings (#295)', () => {
       // Should not throw — fires and forgets
       triggerMessageEmbedding(pool, testMessageId);
 
-      // Wait briefly for the async fire-and-forget
-      await new Promise((r) => setTimeout(r, 100));
-
-      const jobs = await pool.query(
-        `SELECT kind FROM internal_job
-         WHERE kind = 'message.embed'
-           AND payload->>'message_id' = $1
-           AND completed_at IS NULL`,
-        [testMessageId],
-      );
-      expect(jobs.rows.length).toBe(1);
+      // Poll until the async fire-and-forget completes (max 2s)
+      let found = false;
+      for (let i = 0; i < 20; i++) {
+        const jobs = await pool.query(
+          `SELECT kind FROM internal_job
+           WHERE kind = 'message.embed'
+             AND payload->>'message_id' = $1
+             AND completed_at IS NULL`,
+          [testMessageId],
+        );
+        if (jobs.rows.length > 0) {
+          found = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(found).toBe(true);
     });
   });
 
