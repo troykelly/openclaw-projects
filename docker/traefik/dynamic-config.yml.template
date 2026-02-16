@@ -50,6 +50,10 @@ http:
           X-Content-Type-Options: "nosniff"
           Referrer-Policy: "strict-origin-when-cross-origin"
           Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+          # Note: CSP is NOT set here because this middleware is shared across
+          # API and app routers. Traefik customResponseHeaders would overwrite
+          # the per-request nonce-based CSP set by the backend on HTML responses.
+          # Each backend (API server, nginx) sets its own appropriate CSP.
 
     # Rate limiting middleware
     rate-limit:
