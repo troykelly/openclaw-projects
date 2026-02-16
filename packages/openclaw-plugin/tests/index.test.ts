@@ -22,8 +22,6 @@ import {
   createStatusCommand,
   createUsersCommand,
   createRecallCommand,
-  createStatsCommand,
-  createExportCommand,
   MemoryRecallParamsSchema,
   MemoryStoreParamsSchema,
   MemoryForgetParamsSchema,
@@ -255,8 +253,6 @@ describe('Plugin Entry Point', () => {
       expect(typeof result.cli.status).toBe('function');
       expect(typeof result.cli.users).toBe('function');
       expect(typeof result.cli.recall).toBe('function');
-      expect(typeof result.cli.stats).toBe('function');
-      expect(typeof result.cli.export).toBe('function');
     });
   });
 
@@ -393,12 +389,5 @@ describe('Plugin Entry Point', () => {
       expect(typeof createRecallCommand).toBe('function');
     });
 
-    it('should export createStatsCommand', () => {
-      expect(typeof createStatsCommand).toBe('function');
-    });
-
-    it('should export createExportCommand', () => {
-      expect(typeof createExportCommand).toBe('function');
-    });
   });
 });
