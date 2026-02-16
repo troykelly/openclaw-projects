@@ -107,6 +107,7 @@ import {
 } from './webhooks/index.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
+import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
 
 export type ProjectsApiOptions = {
   logger?: boolean;
@@ -16434,10 +16435,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
+      // Compute next_run_at from cron_expression + timezone (Issue #1356)
+      const enabled = body.enabled !== undefined ? body.enabled : true;
+      const nextRunAt = enabled ? computeNextRunAt(body.cron_expression.trim(), timezone) : null;
+
       const result = await pool.query(
         `INSERT INTO skill_store_schedule
-         (skill_id, collection, cron_expression, timezone, webhook_url, webhook_headers, payload_template, enabled, max_retries)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
+         (skill_id, collection, cron_expression, timezone, webhook_url, webhook_headers, payload_template, enabled, max_retries, next_run_at)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
          RETURNING
            id::text as id, skill_id, collection,
            cron_expression, timezone, webhook_url,
@@ -16453,8 +16458,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           body.webhook_url.trim(),
           JSON.stringify(body.webhook_headers || {}),
           JSON.stringify(body.payload_template || {}),
-          body.enabled !== undefined ? body.enabled : true,
+          enabled,
           body.max_retries !== undefined ? Math.min(Math.max(Math.floor(body.max_retries), 0), 20) : 5,
+          nextRunAt,
         ],
       );
 
@@ -16619,6 +16625,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'No valid fields to update' });
     }
 
+    // Recompute next_run_at when schedule-affecting fields change (Issue #1356)
+    const scheduleFieldsChanged = body.cron_expression !== undefined || body.timezone !== undefined || body.enabled !== undefined;
+
     params.push(id);
 
     const pool = createPool();
@@ -16641,7 +16650,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Schedule not found' });
       }
 
-      return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
+      const row = result.rows[0] as Record<string, unknown>;
+
+      // Update next_run_at if schedule-affecting fields changed (Issue #1356)
+      if (scheduleFieldsChanged) {
+        const updatedEnabled = row.enabled as boolean;
+        const nextRunAt = updatedEnabled
+          ? computeNextRunAt(row.cron_expression as string, row.timezone as string)
+          : null;
+
+        await pool.query(
+          `UPDATE skill_store_schedule SET next_run_at = $1 WHERE id = $2`,
+          [nextRunAt, id],
+        );
+        row.next_run_at = nextRunAt;
+      }
+
+      return reply.send(redactScheduleRow(row));
     } catch (err) {
       const error = err as Error;
       if (error.message?.includes('fires more frequently') || error.message?.includes('fires every minute')) {
@@ -16810,7 +16835,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Schedule not found' });
       }
 
-      const schedule = result.rows[0] as { id: string; skill_id: string; collection: string | null };
+      const row = result.rows[0] as Record<string, unknown>;
+      const schedule = row as { id: string; skill_id: string; collection: string | null; cron_expression: string; timezone: string };
+
+      // Recompute next_run_at on resume (Issue #1356)
+      const nextRunAt = computeNextRunAt(schedule.cron_expression, schedule.timezone);
+      await pool.query(
+        `UPDATE skill_store_schedule SET next_run_at = $1 WHERE id = $2`,
+        [nextRunAt, id],
+      );
+      row.next_run_at = nextRunAt;
 
       // Emit activity event (Issue #808)
       await pool.query(
@@ -16819,7 +16853,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         [schedule.skill_id, schedule.collection, 'Resumed schedule', JSON.stringify({ schedule_id: schedule.id })],
       );
 
-      return reply.send(redactScheduleRow(result.rows[0] as Record<string, unknown>));
+      return reply.send(redactScheduleRow(row));
     } finally {
       await pool.end();
     }
