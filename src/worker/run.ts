@@ -9,9 +9,11 @@ import { existsSync } from 'fs';
 import { createPool } from '../db.ts';
 import { processJobs, getPendingJobCounts } from '../api/jobs/processor.ts';
 import { processPendingWebhooks } from '../api/webhooks/dispatcher.ts';
+import { processGeoGeocode, processGeoEmbeddings } from '../api/geolocation/workers.ts';
 import { validateOpenClawConfig, getConfigSummary } from '../api/webhooks/config.ts';
 import { CircuitBreaker } from './circuit-breaker.ts';
 import { NotifyListener } from './listener.ts';
+import { WORKER_CHANNELS } from './channels.ts';
 import { startHealthServer } from './health.ts';
 import type { HealthStatus } from './health.ts';
 import {
@@ -86,7 +88,7 @@ async function main(): Promise<void> {
       password: process.env.PGPASSWORD || 'openclaw',
       database: process.env.PGDATABASE || 'openclaw',
     },
-    channels: ['internal_job_ready', 'webhook_outbox_ready'],
+    channels: [...WORKER_CHANNELS],
     onNotification: () => {
       // Immediate tick on NOTIFY (debounced inside listener)
       scheduleTick(pool, breaker);
@@ -246,6 +248,18 @@ async function tick(pool: Pool, breaker: CircuitBreaker): Promise<void> {
       console.log(
         `[Worker] Webhooks: ${whStats.succeeded} ok, ${whStats.failed} failed, ${whStats.skipped} skipped`,
       );
+    }
+
+    // ── Process geo workers ──
+    try {
+      const geocoded = await processGeoGeocode(pool);
+      const embedded = await processGeoEmbeddings(pool);
+
+      if (geocoded > 0 || embedded > 0) {
+        console.log(`[Worker] Geo: ${geocoded} geocoded, ${embedded} embedded`);
+      }
+    } catch (err) {
+      console.warn('[Worker] Geo processing error:', (err as Error).message);
     }
 
     // ── Update pending gauges ──
