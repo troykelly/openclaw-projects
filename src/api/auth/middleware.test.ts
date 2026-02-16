@@ -216,4 +216,114 @@ describe('JWT auth middleware', () => {
       expect(email).toBe('service@example.com');
     });
   });
+
+  describe('resolveUserEmail', () => {
+    it('should return the authenticated user email for user tokens, ignoring requested email', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('alice@example.com');
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+        'bob@example.com', // attacker tries to access bob's data
+      );
+
+      expect(result).toBe('alice@example.com');
+    });
+
+    it('should return the authenticated user email even when no requested email is provided', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('alice@example.com');
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+        undefined,
+      );
+
+      expect(result).toBe('alice@example.com');
+    });
+
+    it('should allow M2M tokens to pass through any requested email', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+        'bob@example.com',
+      );
+
+      expect(result).toBe('bob@example.com');
+    });
+
+    it('should return null for M2M tokens when no requested email is provided', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+        undefined,
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no authentication is present', async () => {
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(fakeRequest(), 'bob@example.com');
+
+      expect(result).toBeNull();
+    });
+
+    it('should passthrough requested email when auth is disabled', async () => {
+      vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
+      vi.resetModules();
+
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(fakeRequest(), 'bob@example.com');
+
+      expect(result).toBe('bob@example.com');
+    });
+
+    it('should return null when auth is disabled and no email is provided', async () => {
+      vi.stubEnv('OPENCLAW_PROJECTS_AUTH_DISABLED', 'true');
+      vi.resetModules();
+
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(fakeRequest(), undefined);
+
+      expect(result).toBeNull();
+    });
+
+    it('should trim whitespace from requested email for M2M tokens', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('gateway-service', { type: 'm2m' });
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+        '  bob@example.com  ',
+      );
+
+      expect(result).toBe('bob@example.com');
+    });
+
+    it('should return user email when user token sends empty string as requested email', async () => {
+      const { signAccessToken } = await loadJwt();
+      const token = await signAccessToken('alice@example.com');
+      const { resolveUserEmail } = await loadMiddleware();
+
+      const result = await resolveUserEmail(
+        fakeRequest({ authorization: `Bearer ${token}` }),
+        '',
+      );
+
+      expect(result).toBe('alice@example.com');
+    });
+  });
 });

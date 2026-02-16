@@ -64,3 +64,36 @@ export async function getSessionEmail(req: FastifyRequest): Promise<string | nul
   const identity = await getAuthIdentity(req);
   return identity?.email ?? null;
 }
+
+/**
+ * Resolves the effective user_email for a request, enforcing principal binding.
+ *
+ * - **M2M tokens**: returns `requestedEmail` (agents may operate on any user's data).
+ * - **User tokens**: always returns the authenticated user's own email, ignoring
+ *   whatever `requestedEmail` was supplied in query/body/header.
+ * - **Auth disabled** (dev/test): returns `requestedEmail` as-is (no identity to bind).
+ *
+ * @param req - The Fastify request (used to extract the JWT identity).
+ * @param requestedEmail - The `user_email` value from query, body, or header.
+ * @returns The effective user email to use for data access.
+ */
+export async function resolveUserEmail(
+  req: FastifyRequest,
+  requestedEmail: string | undefined | null,
+): Promise<string | null> {
+  if (isAuthDisabled()) {
+    return requestedEmail?.trim() || null;
+  }
+
+  const identity = await getAuthIdentity(req);
+  if (!identity) {
+    return null;
+  }
+
+  if (identity.type === 'm2m') {
+    return requestedEmail?.trim() || null;
+  }
+
+  // User tokens: always use the authenticated identity's email
+  return identity.email;
+}
