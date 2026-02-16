@@ -1940,6 +1940,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/auth/exchange', {
     config: { rateLimit: exchangeRateLimit() },
   }, async (req, reply) => {
+    // CSRF mitigation: enforce JSON content type to prevent cross-site form POSTs.
+    // Browsers will not send application/json from a plain <form> submission,
+    // so this rejects forged cross-origin requests that lack a preflight.
+    const ct = (req.headers['content-type'] ?? '').toLowerCase();
+    if (!ct.includes('application/json')) {
+      return reply.code(415).send({ error: 'Content-Type must be application/json' });
+    }
+
+    // CSRF mitigation: validate Origin header when present.
+    // Browsers always attach Origin on cross-origin POSTs. If the header is
+    // present and does not match our expected app domain, reject the request.
+    const origin = req.headers.origin;
+    if (origin) {
+      const expectedBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      let expectedOrigin: string;
+      try {
+        expectedOrigin = new URL(expectedBase).origin;
+      } catch {
+        expectedOrigin = 'http://localhost:3000';
+      }
+      if (origin !== expectedOrigin) {
+        return reply.code(403).send({ error: 'Origin not allowed' });
+      }
+    }
+
     const body = req.body as { code?: string };
     const code = body?.code;
     if (!code) return reply.code(400).send({ error: 'code is required' });
@@ -11905,8 +11930,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Redirect to the SPA auth consume page with the one-time code.
       // The SPA will exchange this code for a JWT via POST /api/auth/exchange.
-      const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
-      const redirectUrl = `${baseUrl}/app/auth/consume?code=${encodeURIComponent(authCode)}`;
+      // Validate PUBLIC_BASE_URL to ensure it is a well-formed http(s) URL.
+      const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      let parsedBase: URL;
+      try {
+        parsedBase = new URL(rawBase);
+      } catch {
+        return reply.code(500).send({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
+      }
+      if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
+        return reply.code(500).send({ error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' });
+      }
+      const redirectUrl = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/auth/consume?code=${encodeURIComponent(authCode)}`;
 
       return reply.redirect(redirectUrl);
     } catch (error) {

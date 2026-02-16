@@ -126,6 +126,15 @@ export function AuthConsumePage(): React.JSX.Element {
   useEffect(() => {
     if (!token && !code) return;
 
+    // Immediately scrub the one-time code/token from the URL bar so it is not
+    // visible in the address bar, browser history, or referrer headers while
+    // the async exchange is in progress.
+    try {
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch {
+      // history.replaceState may be unavailable in some environments
+    }
+
     const controller = new AbortController();
 
     (async () => {

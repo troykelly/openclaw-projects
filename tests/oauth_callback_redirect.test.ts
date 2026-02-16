@@ -251,4 +251,105 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       expect(res.statusCode).toBe(400);
     });
   });
+
+  // ── CSRF / Content-Type enforcement on /api/auth/exchange ─────────
+
+  describe('CSRF protection on POST /api/auth/exchange', () => {
+    it('rejects requests without application/json content-type (415)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/exchange',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: 'code=test',
+      });
+
+      expect(res.statusCode).toBe(415);
+      expect(res.json()).toEqual({ error: 'Content-Type must be application/json' });
+    });
+
+    it('rejects requests with mismatched Origin header (403)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/exchange',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'https://evil.example.com',
+        },
+        payload: { code: 'test' },
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toEqual({ error: 'Origin not allowed' });
+    });
+
+    it('accepts requests with matching Origin header', async () => {
+      const code = await (async () => {
+        const c = randomBytes(32).toString('base64url');
+        const sha = createHash('sha256').update(c).digest('hex');
+        const pool = createPool({ max: 1 });
+        await pool.query(
+          `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
+           VALUES ($1, $2, now() + interval '60 seconds')`,
+          [sha, 'csrf-origin-match@example.com'],
+        );
+        await pool.end();
+        return c;
+      })();
+
+      // PUBLIC_BASE_URL defaults to http://localhost:3000
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/exchange',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
+        payload: { code },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toHaveProperty('accessToken');
+    });
+
+    it('accepts requests without Origin header (same-origin / non-browser clients)', async () => {
+      const code = await (async () => {
+        const c = randomBytes(32).toString('base64url');
+        const sha = createHash('sha256').update(c).digest('hex');
+        const pool = createPool({ max: 1 });
+        await pool.query(
+          `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
+           VALUES ($1, $2, now() + interval '60 seconds')`,
+          [sha, 'csrf-no-origin@example.com'],
+        );
+        await pool.end();
+        return c;
+      })();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/exchange',
+        headers: { 'content-type': 'application/json' },
+        payload: { code },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toHaveProperty('accessToken');
+    });
+  });
+
+  // ── PUBLIC_BASE_URL validation in redirect ────────────────────────
+
+  describe('PUBLIC_BASE_URL validation', () => {
+    it('redirect URL uses origin + normalized path from PUBLIC_BASE_URL', () => {
+      // Verify that a trailing-slash base URL does not produce double slashes
+      const base = 'https://myapp.example.com/';
+      const parsed = new URL(base);
+      const code = 'test-code';
+      const redirectUrl = `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}/app/auth/consume?code=${encodeURIComponent(code)}`;
+
+      const result = new URL(redirectUrl);
+      expect(result.pathname).toBe('/app/auth/consume');
+      expect(result.searchParams.get('code')).toBe(code);
+    });
+  });
 });

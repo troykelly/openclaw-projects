@@ -177,6 +177,25 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     expect(sessionStorageMock.auth_return_to).toBeUndefined();
   });
 
+  it('scrubs credentials from URL bar via history.replaceState', async () => {
+    fetchSpy.mockReturnValue(new Promise(() => {})); // Keep pending
+
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+    await renderConsumePage('?code=secret-oauth-code');
+
+    // The component calls replaceState with the current pathname to remove
+    // the query string. In jsdom with MemoryRouter the actual window.location
+    // pathname is '/', but the important thing is that replaceState is called
+    // with the pathname (no query string containing the secret code).
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+    const [, , url] = replaceStateSpy.mock.calls[0];
+    expect(typeof url).toBe('string');
+    expect((url as string)).not.toContain('code=');
+    expect((url as string)).not.toContain('token=');
+    replaceStateSpy.mockRestore();
+  });
+
   it('shows error when neither token nor code is in URL', async () => {
     await renderConsumePage('');
 
