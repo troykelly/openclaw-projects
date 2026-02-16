@@ -126,17 +126,17 @@ export async function consumeRefreshToken(
       throw new Error('Refresh token has expired');
     }
 
-    // Check if this token was already consumed (has grace_expires_at set)
-    if (row.grace_expires_at) {
-      const graceExpiry = new Date(row.grace_expires_at);
+    // Check if this token was already consumed (has grace_expires_at or replaced_by set)
+    if (row.grace_expires_at || row.replaced_by) {
+      const graceExpiry = row.grace_expires_at ? new Date(row.grace_expires_at) : null;
 
-      if (graceExpiry > new Date()) {
+      if (graceExpiry && graceExpiry > new Date()) {
         // Within grace window — allow the reuse
         await client.query('COMMIT');
         return { email: row.email, familyId: row.family_id, tokenId: row.id };
       }
 
-      // Outside grace window — reuse detected! Revoke the entire family.
+      // Outside grace window (or no grace window set) — reuse detected! Revoke the entire family.
       await client.query(
         `UPDATE auth_refresh_token
          SET revoked_at = now()
