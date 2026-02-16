@@ -351,7 +351,7 @@ services:
       NODE_ENV: production
       HOST: "::"
       PORT: 3001
-      PUBLIC_BASE_URL: https://api.${DOMAIN:?DOMAIN is required}
+      PUBLIC_BASE_URL: https://${DOMAIN:?DOMAIN is required}
       COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required}
       PGHOST: db
       PGPORT: 5432
