@@ -32,6 +32,7 @@ export default defineConfig({
     env: {
       OPENCLAW_PROJECTS_AUTH_DISABLED: 'true',
       OPENCLAW_E2E_SESSION_EMAIL: 'e2e-test@example.com',
+      JWT_SECRET: 'e2e-test-jwt-secret-at-least-32-bytes-long!!',
       RATE_LIMIT_DISABLED: 'true',
       PORT: '3000',
     },

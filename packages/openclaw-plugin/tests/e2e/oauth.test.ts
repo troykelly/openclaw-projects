@@ -10,16 +10,22 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createE2EContext, areE2EServicesAvailable, cleanupResources, type E2ETestContext } from './setup.js';
+import { createE2EContext, areE2EServicesAvailable, cleanupResources, signTestJwt, type E2ETestContext } from './setup.js';
 
 const RUN_E2E = process.env.RUN_E2E === 'true';
 
 /**
  * Raw fetch helper that returns the Response (not parsed JSON) so tests
  * can assert on status codes and error payloads.
+ * Automatically attaches a JWT Bearer token.
  */
 async function rawFetch(baseUrl: string, path: string, options?: RequestInit): Promise<Response> {
-  return fetch(`${baseUrl}${path}`, options);
+  const token = await signTestJwt();
+  const headers = new Headers(options?.headers);
+  if (!headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(`${baseUrl}${path}`, { ...options, headers });
 }
 
 // ────────────────────────────────────────────────────────────────────────────

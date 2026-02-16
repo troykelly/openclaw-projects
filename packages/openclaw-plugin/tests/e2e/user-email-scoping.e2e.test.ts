@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { defaultConfig, waitForService, type E2EConfig } from './setup.js';
+import { defaultConfig, waitForService, signTestJwt, type E2EConfig } from './setup.js';
 
 const RUN_E2E = process.env.RUN_E2E === 'true';
 
@@ -21,35 +21,47 @@ const USER_B = 'e2e-user-b@test.openclaw.local';
 /**
  * Minimal fetch wrapper that returns the raw Response so callers
  * can assert on status codes (404, 204, etc.) directly.
+ * Automatically attaches a JWT Bearer token to every request.
  */
 function createRawClient(baseUrl: string) {
   return {
     async get(path: string): Promise<Response> {
-      return fetch(`${baseUrl}${path}`, { method: 'GET' });
+      const token = await signTestJwt();
+      return fetch(`${baseUrl}${path}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
     },
     async post(path: string, body: unknown): Promise<Response> {
+      const token = await signTestJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body),
       });
     },
     async put(path: string, body: unknown): Promise<Response> {
+      const token = await signTestJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body),
       });
     },
     async patch(path: string, body: unknown): Promise<Response> {
+      const token = await signTestJwt();
       return fetch(`${baseUrl}${path}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body),
       });
     },
     async delete(path: string): Promise<Response> {
-      return fetch(`${baseUrl}${path}`, { method: 'DELETE' });
+      const token = await signTestJwt();
+      return fetch(`${baseUrl}${path}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
     },
   };
 }
