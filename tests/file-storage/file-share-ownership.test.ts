@@ -74,7 +74,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
     process.env.S3_ENDPOINT = 'http://localhost:8333';
     // Use proxy mode for share tokens (so we use database-backed tokens)
     process.env.FILE_SHARE_MODE = 'proxy';
-    process.env.APP_BASE_URL = 'http://localhost:3001';
+    process.env.PUBLIC_BASE_URL = 'http://localhost:3001';
 
     pool = createTestPool();
     await truncateAllTables(pool);

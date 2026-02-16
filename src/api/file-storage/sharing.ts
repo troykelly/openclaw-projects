@@ -166,7 +166,7 @@ export async function createFileShare(pool: Pool, storage: FileStorage, input: C
   );
 
   // Build the share URL
-  const baseUrl = process.env.APP_BASE_URL ?? 'http://localhost:3001';
+  const baseUrl = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
   const url = `${baseUrl}/api/files/shared/${shareToken}`;
 
   return {
