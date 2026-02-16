@@ -12,6 +12,7 @@
     "test:changed": "vitest run --changed",
     "test:watch": "vitest",
     "test:e2e": "RUN_E2E=true vitest run --config vitest.config.e2e.ts",
+    "test:e2e:auth": "RUN_E2E=true vitest run --config vitest.config.e2e-auth.ts",
     "test:gateway": "vitest run packages/openclaw-plugin/tests/gateway",
     "test:playwright": "pnpm run css:build && pnpm run app:build && playwright test",
     "test:full": "bash scripts/test-full.sh",

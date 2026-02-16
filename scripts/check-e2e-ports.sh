@@ -10,6 +10,7 @@ set -e
 # Allow port configuration via env vars (optional enhancement)
 E2E_POSTGRES_PORT="${E2E_POSTGRES_PORT:-5433}"
 E2E_BACKEND_PORT="${E2E_BACKEND_PORT:-3001}"
+E2E_BACKEND_AUTH_PORT="${E2E_BACKEND_AUTH_PORT:-3002}"
 
 check_port() {
   local port=$1
@@ -37,6 +38,11 @@ fi
 
 # Check backend port
 if ! check_port "$E2E_BACKEND_PORT" "backend"; then
+  conflict=1
+fi
+
+# Check auth backend port
+if ! check_port "$E2E_BACKEND_AUTH_PORT" "backend_auth"; then
   conflict=1
 fi
 

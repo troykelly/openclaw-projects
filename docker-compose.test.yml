@@ -87,6 +87,39 @@ services:
       timeout: 5s
       retries: 10
 
+  # Auth-enabled backend for JWT E2E tests (Issue #1351)
+  # Shares the same database as backend-test but runs with auth enabled.
+  backend-auth-test:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: openclaw-backend-auth-test
+    environment:
+      PGHOST: postgres-test
+      PGPORT: "5432"
+      PGUSER: openclaw
+      PGPASSWORD: openclaw_test
+      PGDATABASE: openclaw_test
+      # Auth ENABLED — JWT_SECRET is required
+      JWT_SECRET: "e2e-test-jwt-secret-that-is-at-least-32-bytes-long"
+      NODE_ENV: test
+      PORT: 3002
+      # Disable rate limiting for E2E tests
+      RATE_LIMIT_DISABLED: "true"
+    ports:
+      - "[::1]:3002:3002"       # IPv6 (preferred)
+      - "127.0.0.1:3002:3002"  # IPv4 fallback
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      migrate-test:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   worker-test:
     build:
       context: .
