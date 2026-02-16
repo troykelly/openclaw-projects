@@ -95,11 +95,11 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
 
   if (isExternal) {
     // External webhooks: use ONLY the entry's headers (user-supplied credentials).
-    // Never send our internal hookToken to external URLs.
+    // Never send our internal apiToken to external URLs.
     Object.assign(headers, entry.headers);
   } else {
-    // Internal gateway webhooks: use hookToken, then overlay entry headers.
-    headers.Authorization = `Bearer ${config.hookToken}`;
+    // Internal gateway webhooks: use apiToken (shared M2M JWT), then overlay entry headers.
+    headers.Authorization = `Bearer ${config.apiToken}`;
     Object.assign(headers, entry.headers);
   }
 

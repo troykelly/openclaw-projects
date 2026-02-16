@@ -205,8 +205,8 @@ describe('.env.example comprehensive documentation (Issue #536)', () => {
       expect(envContent).toContain('OPENCLAW_GATEWAY_URL');
     });
 
-    it('documents OPENCLAW_HOOK_TOKEN', () => {
-      expect(envContent).toContain('OPENCLAW_HOOK_TOKEN');
+    it('documents that outbound hooks use OPENCLAW_API_TOKEN', () => {
+      expect(envContent).toContain('OPENCLAW_API_TOKEN');
     });
   });
 
