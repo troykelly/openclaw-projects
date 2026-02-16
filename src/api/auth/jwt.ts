@@ -109,13 +109,19 @@ export async function signAccessToken(
     claims.scope = options.scopes.join(' '); // space-delimited per RFC 8693
   }
 
-  return new SignJWT(claims)
+  const builder = new SignJWT(claims)
     .setProtectedHeader({ alg: ALG, kid })
     .setSubject(email)
     .setIssuedAt()
     .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
-    .setJti(randomUUID())
-    .sign(encodeSecret(secret));
+    .setJti(randomUUID());
+
+  // M2M tokens must always include the issuer claim
+  if (type === 'm2m') {
+    builder.setIssuer(M2M_ISSUER);
+  }
+
+  return builder.sign(encodeSecret(secret));
 }
 
 /**
@@ -215,6 +221,11 @@ async function verifyWith(token: string, secret: string): Promise<JwtPayload> {
 
   if (typeof protectedHeader.kid !== 'string') {
     throw new Error('[JWT] Missing kid in token header');
+  }
+
+  // Enforce issuer on M2M tokens
+  if (tokenType === 'm2m' && payload.iss !== M2M_ISSUER) {
+    throw new Error(`[JWT] M2M token has invalid issuer: ${String(payload.iss)}`);
   }
 
   return {

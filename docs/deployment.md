@@ -181,13 +181,16 @@ The basic deployment uses `docker-compose.yml` for localhost or behind-proxy dep
    POSTGRES_PASSWORD=$(openssl rand -base64 32)
    COOKIE_SECRET=$(openssl rand -base64 48)
    S3_SECRET_KEY=$(openssl rand -hex 32)
-   AUTH_SECRET=$(openssl rand -base64 32)
+   JWT_SECRET=$(openssl rand -base64 48)
 
    # Update .env file
    sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
    sed -i "s/^COOKIE_SECRET=.*/COOKIE_SECRET=${COOKIE_SECRET}/" .env
    sed -i "s/^S3_SECRET_KEY=.*/S3_SECRET_KEY=${S3_SECRET_KEY}/" .env
-   sed -i "s/^OPENCLAW_API_TOKEN=.*/OPENCLAW_API_TOKEN=${AUTH_SECRET}/" .env
+   sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
+   # Generate M2M API token (requires pnpm and the project installed)
+   # OPENCLAW_API_TOKEN=$(JWT_SECRET=${JWT_SECRET} pnpm run generate-api-token 2>/dev/null)
+   # sed -i "s/^OPENCLAW_API_TOKEN=.*/OPENCLAW_API_TOKEN=${OPENCLAW_API_TOKEN}/" .env
    ```
 
 4. **(Recommended) Configure embedding provider for semantic search:**
@@ -269,7 +272,7 @@ The production deployment uses `docker-compose.traefik.yml` which includes:
    POSTGRES_PASSWORD=<strong-password>
    COOKIE_SECRET=<base64-string>
    S3_SECRET_KEY=<hex-string>
-   OPENCLAW_API_TOKEN=<base64-string>
+   OPENCLAW_API_TOKEN=<jwt-string>  # Generate with: JWT_SECRET=<secret> pnpm run generate-api-token
 
    # Required for TLS
    DOMAIN=example.com
@@ -429,7 +432,7 @@ The full deployment (`docker-compose.full.yml`) extends the Traefik configuratio
 The OpenClaw gateway automatically connects to the openclaw-projects API using:
 
 - `OPENCLAW_PROJECTS_API_URL`: Internal Docker network URL (`http://api:3001`)
-- `OPENCLAW_API_TOKEN`: Shared authentication secret
+- `OPENCLAW_API_TOKEN`: Long-lived M2M JWT for API authentication
 
 To use the plugin with an external OpenClaw gateway, see the [OpenClaw Integration Guide](./guides/openclaw-integration.md).
 
@@ -461,7 +464,7 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 | `POSTGRES_PASSWORD` | PostgreSQL password | `openssl rand -base64 32` |
 | `COOKIE_SECRET` | Session cookie signing key | `openssl rand -base64 48` |
 | `S3_SECRET_KEY` | SeaweedFS S3 secret key | `openssl rand -hex 32` |
-| `OPENCLAW_API_TOKEN` | Auth secret for OpenClaw plugin | `openssl rand -base64 32` |
+| `OPENCLAW_API_TOKEN` | M2M JWT for OpenClaw plugin auth | `JWT_SECRET=<secret> pnpm run generate-api-token` |
 
 ### Required for Production (Traefik)
 
@@ -550,12 +553,12 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCLAW_API_TOKEN` | (empty) | Auth secret for OpenClaw plugin requests |
-| `OPENCLAW_API_TOKEN_FILE` | (empty) | Load auth secret from file (Docker secrets) |
-| `OPENCLAW_API_TOKEN_COMMAND` | (empty) | Load auth secret from command (1Password, etc.) |
+| `JWT_SECRET` | (empty) | HS256 signing key for JWT tokens (min 32 bytes) |
+| `JWT_SECRET_PREVIOUS` | (empty) | Previous JWT secret for key rotation |
+| `OPENCLAW_API_TOKEN` | (empty) | Long-lived M2M JWT for plugin/gateway auth |
 | `OPENCLAW_PROJECTS_AUTH_DISABLED` | `false` | Disable auth (NOT RECOMMENDED for production) |
 
-At least one of `OPENCLAW_API_TOKEN`, `_FILE`, or `_COMMAND` must be set for production deployments. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=true` only for local development.
+`JWT_SECRET` must be set for production. Generate `OPENCLAW_API_TOKEN` with: `JWT_SECRET=<secret> pnpm run generate-api-token`. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=true` only for local development.
 
 ### Embedding Providers (for Semantic Search)
 

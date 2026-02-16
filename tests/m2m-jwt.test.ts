@@ -131,4 +131,36 @@ describe('M2M JWT token generation', () => {
     expect(payload.sub).toBe('svc');
     expect(payload.type).toBe('m2m');
   });
+
+  it('rejects M2M tokens with wrong issuer', async () => {
+    // Manually craft a token with type m2m but wrong issuer
+    const { SignJWT } = await import('jose');
+
+    const secret = new TextEncoder().encode(TEST_SECRET);
+    const token = await new SignJWT({ type: 'm2m', scope: 'api:full' })
+      .setProtectedHeader({ alg: 'HS256', kid: 'testkey1' })
+      .setSubject('bad-service')
+      .setIssuer('wrong-issuer')
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .setJti('test-jti-123')
+      .sign(secret);
+
+    await expect(verifyAccessToken(token)).rejects.toThrow('invalid issuer');
+  });
+
+  it('rejects M2M tokens with no issuer', async () => {
+    const { SignJWT } = await import('jose');
+
+    const secret = new TextEncoder().encode(TEST_SECRET);
+    const token = await new SignJWT({ type: 'm2m', scope: 'api:full' })
+      .setProtectedHeader({ alg: 'HS256', kid: 'testkey1' })
+      .setSubject('no-iss-service')
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .setJti('test-jti-456')
+      .sign(secret);
+
+    await expect(verifyAccessToken(token)).rejects.toThrow('invalid issuer');
+  });
 });
