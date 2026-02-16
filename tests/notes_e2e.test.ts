@@ -16,6 +16,11 @@ import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createHash, randomBytes } from 'node:crypto';
+import { createPool } from '../src/db.ts';
+
+// JWT signing requires a secret.
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-bytes-long!!';
 
 // ---------------------------------------------------------------------------
 // Response Type Definitions for E2E Tests (Issue #707)
@@ -303,58 +308,37 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
   });
 
   /**
-   * Helper to create a session cookie for authenticated requests.
-   * Includes validation and clear error messages for debugging test failures.
+   * Helper to get a JWT access token for authenticated requests.
+   * Creates a magic link token directly in the DB and consumes it.
+   * Updated for JWT auth migration (Issue #1325).
    *
    * @param email - The email address to authenticate
-   * @returns The session cookie string (e.g., "session=abc123")
-   * @throws Error if authentication request fails or response is malformed
+   * @returns The JWT access token string
+   * @throws Error if authentication fails
    */
-  async function getSessionCookie(email: string): Promise<string> {
-    // Step 1: Request the magic link
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email },
-    });
+  async function getAccessToken(email: string): Promise<string> {
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenSha = createHash('sha256').update(rawToken).digest('hex');
+    const dbPool = createPool({ max: 1 });
+    await dbPool.query(
+      `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+       VALUES ($1, $2, now() + interval '15 minutes')`,
+      [email, tokenSha],
+    );
+    await dbPool.end();
 
-    // Auth endpoint returns 200 (OK) or 201 (Created) depending on implementation
-    if (request.statusCode !== 200 && request.statusCode !== 201) {
-      throw new Error(`Auth request failed for ${email}: status ${request.statusCode}, body: ${request.body}`);
-    }
-
-    const requestJson = request.json() as { loginUrl?: string };
-    if (!requestJson.loginUrl) {
-      throw new Error(`Auth request for ${email} did not return loginUrl. Response: ${JSON.stringify(requestJson)}`);
-    }
-
-    const token = new URL(requestJson.loginUrl).searchParams.get('token');
-    if (!token) {
-      throw new Error(`Auth URL for ${email} did not contain token. URL: ${requestJson.loginUrl}`);
-    }
-
-    // Step 2: Consume the magic link to get a session
     const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token: rawToken },
     });
 
     if (consume.statusCode !== 200) {
       throw new Error(`Auth consume failed for ${email}: status ${consume.statusCode}, body: ${consume.body}`);
     }
 
-    const setCookie = consume.headers['set-cookie'];
-    if (!setCookie) {
-      throw new Error(`Auth consume for ${email} did not return set-cookie header. Headers: ${JSON.stringify(consume.headers)}`);
-    }
-
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    if (!cookieHeader) {
-      throw new Error(`Auth consume for ${email} returned empty set-cookie. Value: ${JSON.stringify(setCookie)}`);
-    }
-
-    return cookieHeader.split(';')[0];
+    const { accessToken } = consume.json() as { accessToken: string };
+    return accessToken;
   }
 
   // ============================================
@@ -363,12 +347,12 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
   describe('Navigation', () => {
     it('serves app shell for /app/notes when authenticated', async () => {
-      const sessionCookie = await getSessionCookie(primaryUser);
+      const accessToken = await getAccessToken(primaryUser);
 
       const res = await app.inject({
         method: 'GET',
         url: '/app/notes',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -378,7 +362,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
     });
 
     it('serves app shell for specific note URL when authenticated', async () => {
-      const sessionCookie = await getSessionCookie(primaryUser);
+      const accessToken = await getAccessToken(primaryUser);
 
       // Create a note first
       const createRes = await app.inject({
@@ -391,25 +375,24 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/app/notes/${noteId}`,
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
       expect(res.body).toContain('data-testid="app-frontend-shell"');
     });
 
-    it('redirects to login when not authenticated', async () => {
+    it('returns 401 when not authenticated', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/notes',
       });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toContain('Sign in');
+      expect(res.statusCode).toBe(401);
     });
 
     it('serves app shell for notebook-filtered view', async () => {
-      const sessionCookie = await getSessionCookie(primaryUser);
+      const accessToken = await getAccessToken(primaryUser);
 
       // Create a notebook
       const nbRes = await app.inject({
@@ -422,7 +405,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const res = await app.inject({
         method: 'GET',
         url: `/app/notes?notebook=${notebookId}`,
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);

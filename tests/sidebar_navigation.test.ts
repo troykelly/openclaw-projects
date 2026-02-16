@@ -3,9 +3,15 @@ import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
+import { createHash, randomBytes } from 'node:crypto';
+import { createPool } from '../src/db.ts';
+
+// JWT signing requires a secret.
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-bytes-long!!';
 
 /**
  * Tests for sidebar navigation wiring (issue #129).
+ * Updated for JWT auth migration (Issue #1325).
  *
  * Acceptance criteria:
  * - Clicking sidebar items navigates to the correct route
@@ -16,26 +22,28 @@ import { buildServer } from '../src/api/server.ts';
 describe('Sidebar Navigation', () => {
   const app = buildServer();
   let pool: Pool;
-  let sessionCookie: string;
+  let accessToken: string;
 
-  async function getSessionCookie(): Promise<string> {
-    const request = await app.inject({
-      method: 'POST',
-      url: '/api/auth/request-link',
-      payload: { email: 'nav-test@example.com' },
-    });
-    const { loginUrl } = request.json() as { loginUrl: string };
-    const token = new URL(loginUrl).searchParams.get('token');
+  /** Get a JWT access token by creating and consuming a magic link directly in the DB. */
+  async function getAccessToken(): Promise<string> {
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenSha = createHash('sha256').update(rawToken).digest('hex');
+    const dbPool = createPool({ max: 1 });
+    await dbPool.query(
+      `INSERT INTO auth_magic_link (email, token_sha256, expires_at)
+       VALUES ($1, $2, now() + interval '15 minutes')`,
+      ['nav-test@example.com', tokenSha],
+    );
+    await dbPool.end();
 
     const consume = await app.inject({
-      method: 'GET',
-      url: `/api/auth/consume?token=${token}`,
-      headers: { accept: 'application/json' },
+      method: 'POST',
+      url: '/api/auth/consume',
+      payload: { token: rawToken },
     });
 
-    const setCookie = consume.headers['set-cookie'];
-    const cookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-    return cookieHeader.split(';')[0];
+    const { accessToken } = consume.json() as { accessToken: string };
+    return accessToken;
   }
 
   beforeAll(async () => {
@@ -46,8 +54,8 @@ describe('Sidebar Navigation', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
-    // Get fresh session cookie after each truncate
-    sessionCookie = await getSessionCookie();
+    // Get fresh access token after each truncate
+    accessToken = await getAccessToken();
   });
 
   afterAll(async () => {
@@ -60,7 +68,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/activity',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -72,7 +80,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/work-items',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -84,7 +92,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/timeline',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -96,7 +104,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/contacts',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -110,7 +118,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/activity',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -123,7 +131,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/timeline',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
@@ -136,7 +144,7 @@ describe('Sidebar Navigation', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/app/contacts',
-        headers: { cookie: sessionCookie },
+        headers: { authorization: `Bearer ${accessToken}` },
       });
 
       expect(res.statusCode).toBe(200);
