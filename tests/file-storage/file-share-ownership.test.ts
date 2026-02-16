@@ -10,6 +10,7 @@ import type { Pool } from 'pg';
 import { buildServer } from '../../src/api/server.ts';
 import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 import { runMigrate } from '../helpers/migrate.ts';
+import { signAccessToken } from '../../src/api/auth/jwt.ts';
 
 // Mock the file storage module
 vi.mock('../../src/api/file-storage/index.ts', async () => {
@@ -87,17 +88,11 @@ describe('File Share Ownership Check (Issue #615)', () => {
   });
 
   /**
-   * Helper to create a session for a user.
-   * Returns the session cookie value (which is the UUID id).
+   * Helper to create a JWT token for a user.
+   * Returns the signed JWT string for use in Authorization header.
    */
-  async function createSession(email: string): Promise<string> {
-    const result = await pool.query(
-      `INSERT INTO auth_session (email, expires_at)
-       VALUES ($1, NOW() + INTERVAL '1 hour')
-       RETURNING id::text`,
-      [email],
-    );
-    return result.rows[0].id;
+  async function createAuthToken(email: string): Promise<string> {
+    return signAccessToken(email);
   }
 
   /**
@@ -116,14 +111,14 @@ describe('File Share Ownership Check (Issue #615)', () => {
       const ownerEmail = 'owner@example.com';
       const fileId = '11111111-1111-1111-1111-111111111111';
 
-      // Create session and file owned by this user
-      const sessionId = await createSession(ownerEmail);
+      // Create JWT token and file owned by this user
+      const token = await createAuthToken(ownerEmail);
       await createFileInDb(fileId, ownerEmail);
 
       const response = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        cookies: { projects_session: sessionId },
+        headers: { authorization: `Bearer ${token}` },
         payload: { expiresIn: 3600 },
       });
 
@@ -141,13 +136,13 @@ describe('File Share Ownership Check (Issue #615)', () => {
       // Create file owned by owner
       await createFileInDb(fileId, ownerEmail);
 
-      // Create session for attacker
-      const attackerSessionId = await createSession(attackerEmail);
+      // Create JWT token for attacker
+      const attackerToken = await createAuthToken(attackerEmail);
 
       const response = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        cookies: { projects_session: attackerSessionId },
+        headers: { authorization: `Bearer ${attackerToken}` },
         payload: { expiresIn: 3600 },
       });
 
@@ -159,12 +154,12 @@ describe('File Share Ownership Check (Issue #615)', () => {
       const userEmail = 'user@example.com';
       const nonExistentFileId = '00000000-0000-0000-0000-000000000000';
 
-      const sessionId = await createSession(userEmail);
+      const token = await createAuthToken(userEmail);
 
       const response = await app.inject({
         method: 'POST',
         url: `/api/files/${nonExistentFileId}/share`,
-        cookies: { projects_session: sessionId },
+        headers: { authorization: `Bearer ${token}` },
         payload: { expiresIn: 3600 },
       });
 

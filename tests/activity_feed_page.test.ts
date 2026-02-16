@@ -43,27 +43,21 @@ describe('Activity Feed Page', () => {
     });
 
     it('returns bootstrap data with activity route', async () => {
-      // Create a session cookie for authentication
-      const pool2 = createTestPool();
-      const session = await pool2.query(
-        `INSERT INTO auth_session (email, expires_at)
-         VALUES ('test@example.com', now() + interval '1 hour')
-         RETURNING id::text as id`,
-      );
-      const sessionId = (session.rows[0] as { id: string }).id;
-      await pool2.end();
+      // Use E2E bypass for authentication (JWT replaced session cookies)
+      process.env.OPENCLAW_E2E_SESSION_EMAIL = 'test@example.com';
 
-      const res = await app.inject({
-        method: 'GET',
-        url: '/app/activity',
-        cookies: {
-          projects_session: sessionId,
-        },
-      });
+      try {
+        const res = await app.inject({
+          method: 'GET',
+          url: '/app/activity',
+        });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.payload).toContain('app-bootstrap');
-      expect(res.payload).toContain('"activity"');
+        expect(res.statusCode).toBe(200);
+        expect(res.payload).toContain('app-bootstrap');
+        expect(res.payload).toContain('"activity"');
+      } finally {
+        delete process.env.OPENCLAW_E2E_SESSION_EMAIL;
+      }
     });
   });
 

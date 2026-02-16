@@ -1075,13 +1075,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         bearerAuth: {
           type: 'http',
           scheme: 'bearer',
-          description: 'Bearer token authentication using shared secret',
-        },
-        cookieAuth: {
-          type: 'apiKey',
-          in: 'cookie',
-          name: 'projects_session',
-          description: 'Session cookie from magic link authentication',
+          bearerFormat: 'JWT',
+          description: 'JWT Bearer token authentication',
         },
       },
       schemas: {
@@ -1134,7 +1129,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         },
       },
     },
-    security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+    security: [{ bearerAuth: [] }],
     paths: {
       '/api/work-items': {
         get: {
@@ -1519,7 +1514,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.redirect('/app');
   });
 
-  // New frontend (issue #52). These routes are protected by the existing dashboard session cookie.
+  // New frontend (issue #52). These routes are protected by JWT authentication.
 
   // Issue #129: New navigation routes
   app.get('/app/activity', async (req, reply) => {
@@ -11466,8 +11461,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          SELECT user_email as email FROM work_item_comment
          UNION
          SELECT user_email as email FROM notification
-         UNION
-         SELECT email FROM auth_session
        ) users
        WHERE email ILIKE $1
        ORDER BY email

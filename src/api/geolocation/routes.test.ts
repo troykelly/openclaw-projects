@@ -97,7 +97,6 @@ function mockRequest(overrides: {
 }): FastifyRequest {
   return {
     session: overrides.email !== undefined ? { email: overrides.email } : { email: OWNER_EMAIL },
-    cookies: { projects_session: overrides.email !== null ? 'valid-session' : undefined },
     body: overrides.body ?? null,
     params: overrides.params ?? {},
     query: overrides.query ?? {},
