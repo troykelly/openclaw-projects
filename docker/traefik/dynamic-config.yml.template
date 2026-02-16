@@ -45,6 +45,10 @@ http:
           X-Content-Type-Options: "nosniff"
           Referrer-Policy: "strict-origin-when-cross-origin"
           Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+          # CSP for API responses (no nonce — HTML pages set their own CSP
+          # with per-request nonces via the application server).
+          # API routes serve JSON only, so a restrictive default policy suffices.
+          Content-Security-Policy: "default-src 'none'; frame-ancestors 'none'"
 
     # Rate limiting middleware
     rate-limit:

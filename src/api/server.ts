@@ -240,20 +240,52 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '<title>OpenClaw Projects</title></head>' +
     '<body><div data-testid="app-frontend-shell"><div id="root"></div></div></body></html>';
 
-  function renderAppFrontendHtml(bootstrap: unknown | null): string {
+  /** Generate a cryptographically random nonce for CSP inline scripts/styles. */
+  function generateCspNonce(): string {
+    return randomBytes(16).toString('base64');
+  }
+
+  /**
+   * Build the Content-Security-Policy header value for HTML responses.
+   * The nonce authorises specific inline script and style tags.
+   */
+  function buildCspHeader(nonce: string): string {
+    return [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}'`,
+      `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+      "img-src 'self' data: https:",
+      "font-src 'self' https://fonts.gstatic.com",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ');
+  }
+
+  function renderAppFrontendHtml(bootstrap: unknown | null, nonce: string): string {
     const html = getAppFrontendIndexHtml() ?? fallbackAppShellHtml;
     if (!bootstrap) return html;
 
     // Embed bootstrap JSON in the HTML response so Fastify inject tests can assert on data
     // without needing to execute client-side JS.
     const json = JSON.stringify(bootstrap).replace(/<\//g, '<\\/');
-    const injection = `\n<script id="app-bootstrap" type="application/json">${json}</script>\n`;
+    const injection = `\n<script id="app-bootstrap" type="application/json" nonce="${nonce}">${json}</script>\n`;
 
     if (html.includes('</body>')) {
       return html.replace('</body>', `${injection}</body>`);
     }
 
     return `${html}${injection}`;
+  }
+
+  /** Send an HTML response with the app frontend shell, bootstrap data, and CSP headers. */
+  function sendAppHtml(reply: any, bootstrap: unknown | null): any {
+    const nonce = generateCspNonce();
+    return reply.code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .header('content-security-policy', buildCspHeader(nonce))
+      .send(renderAppFrontendHtml(bootstrap, nonce));
   }
 
   /**
@@ -1295,7 +1327,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }));
 
   // Issue #1166: Landing page at root URL
-  function renderLandingPage(email: string | null): string {
+  function renderLandingPage(email: string | null, nonce: string): string {
     const ctaHref = '/app';
     const ctaLabel = email ? 'Dashboard' : 'Sign in';
     return `<!doctype html>
@@ -1307,7 +1339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <style>
+  <style nonce="${nonce}">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #fafafa; --surface: #fff; --border: #e5e5e5; --fg: #171717;
@@ -1452,7 +1484,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Issue #1166: Root landing page
   app.get('/', async (req, reply) => {
     const email = await getSessionEmail(req);
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderLandingPage(email));
+    const nonce = generateCspNonce();
+    return reply.code(200)
+      .header('content-type', 'text/html; charset=utf-8')
+      .header('content-security-policy', buildCspHeader(nonce))
+      .send(renderLandingPage(email, nonce));
   });
 
   // Issue #1166: Redirect /auth to /app (which shows login if unauthenticated)
@@ -1472,7 +1508,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/timeline', async (req, reply) => {
@@ -1484,7 +1520,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/contacts', async (req, reply) => {
@@ -1496,7 +1532,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/settings', async (req, reply) => {
@@ -1508,7 +1544,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/kanban', async (req, reply) => {
@@ -1520,7 +1556,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/work-items', async (req, reply) => {
@@ -1542,16 +1578,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     );
     await pool.end();
 
-    return reply
-      .code(200)
-      .header('content-type', 'text/html; charset=utf-8')
-      .send(
-        renderAppFrontendHtml({
-          route: { kind: 'work-items-list' },
-          me: { email },
-          workItems: result.rows,
-        }),
-      );
+    return sendAppHtml(reply, {
+      route: { kind: 'work-items-list' },
+      me: { email },
+      workItems: result.rows,
+    });
   });
 
   app.get('/app/work-items/:id/timeline', async (req, reply) => {
@@ -1566,7 +1597,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/work-items/:id/graph', async (req, reply) => {
@@ -1581,7 +1612,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.get('/app/work-items/:id', async (req, reply) => {
@@ -1601,7 +1632,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         participants: [],
       };
 
-      return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+      return sendAppHtml(reply, bootstrap);
     }
 
     const pool = createPool();
@@ -1630,7 +1661,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       participants: participants.rows,
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   // Root /app route - serves the SPA which will redirect to /dashboard
@@ -1643,7 +1674,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   // Catch-all for /app/* routes not explicitly defined above.
@@ -1661,7 +1692,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       me: { email },
     };
 
-    return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+    return sendAppHtml(reply, bootstrap);
   });
 
   app.post('/api/auth/request-link', async (req, reply) => {
@@ -19651,7 +19682,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         route: { path: url.replace('/static/app', '').replace('/index.html', '') || '/' },
       };
 
-      return reply.code(200).header('content-type', 'text/html; charset=utf-8').send(renderAppFrontendHtml(bootstrap));
+      return sendAppHtml(reply, bootstrap);
     }
 
     return reply.code(404).send({ error: 'Not Found' });
