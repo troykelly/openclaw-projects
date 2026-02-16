@@ -2,12 +2,13 @@
  * Typed API client for openclaw-projects.
  *
  * Wraps fetch() with consistent error handling, base URL resolution,
- * and typed request/response methods. Base URL is derived from the
- * hostname via {@link getApiBaseUrl} — same-origin for localhost,
- * cross-origin (`api.{domain}`) for production.
+ * Bearer token injection, and automatic 401 retry with token refresh.
+ * Base URL is derived from the hostname via {@link getApiBaseUrl} —
+ * same-origin for localhost, cross-origin (`api.{domain}`) for production.
  */
 
 import { getApiBaseUrl } from './api-config.ts';
+import { clearAccessToken, getAccessToken, refreshAccessToken } from './auth-manager.ts';
 
 /** Standard error shape returned by the API. */
 export interface ApiError {
@@ -43,6 +44,22 @@ function resolveUrl(path: string): string {
 }
 
 /**
+ * Build the headers for a request, injecting the Authorization header
+ * when an access token is available.
+ */
+function buildHeaders(base: Record<string, string>, extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...base, ...extra };
+  const token = getAccessToken();
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+/** Auth endpoint prefix — 401s on these paths are NOT retried to prevent loops. */
+const AUTH_PATH_PREFIX = '/api/auth/';
+
+/**
  * Parse an API error response body into a structured error.
  * Falls back to a generic message if the body is not JSON.
  */
@@ -67,11 +84,75 @@ async function parseErrorResponse(res: Response): Promise<ApiRequestError> {
 }
 
 /**
+ * Core request function with auth header injection and 401 retry.
+ *
+ * On a 401 response (except for auth endpoints), attempts to refresh
+ * the access token and retries the original request once. If refresh
+ * fails, clears the token and redirects to the login page.
+ */
+async function request<T>(path: string, init: RequestInit, baseHeaders: Record<string, string>, opts?: RequestOptions): Promise<{ res: Response; parsed: T }> {
+  const headers = buildHeaders(baseHeaders, opts?.headers);
+  const url = resolveUrl(path);
+
+  const res = await fetch(url, {
+    ...init,
+    credentials: 'include',
+    headers,
+    signal: opts?.signal,
+  });
+
+  // Handle 401: attempt token refresh and retry (once)
+  if (res.status === 401 && !path.startsWith(AUTH_PATH_PREFIX)) {
+    try {
+      await refreshAccessToken();
+    } catch {
+      // Refresh failed — clear auth state and redirect to login
+      clearAccessToken();
+      window.location.href = '/app/login';
+      throw await parseErrorResponse(res);
+    }
+
+    // Retry with the new token
+    const retryHeaders = buildHeaders(baseHeaders, opts?.headers);
+    const retryRes = await fetch(url, {
+      ...init,
+      credentials: 'include',
+      headers: retryHeaders,
+      signal: opts?.signal,
+    });
+
+    if (!retryRes.ok) {
+      throw await parseErrorResponse(retryRes);
+    }
+
+    return { res: retryRes, parsed: await parseBody<T>(retryRes) };
+  }
+
+  if (!res.ok) {
+    throw await parseErrorResponse(res);
+  }
+
+  return { res, parsed: await parseBody<T>(res) };
+}
+
+/** Parse response body as JSON, returning undefined for 204 No Content. */
+async function parseBody<T>(res: Response): Promise<T> {
+  if (res.status === 204) {
+    return undefined as T;
+  }
+  return (await res.json()) as T;
+}
+
+/**
  * Typed API client singleton.
  *
  * All methods use the browser's built-in fetch with `credentials: 'include'`
  * for cross-origin cookie support. The base URL is resolved via
  * {@link getApiBaseUrl} — same-origin for localhost, `api.{domain}` in production.
+ *
+ * When an access token is available (via auth-manager), it is automatically
+ * injected as an `Authorization: Bearer` header. On 401 responses, the client
+ * transparently refreshes the token and retries the request once.
  */
 export const apiClient = {
   /**
@@ -84,21 +165,8 @@ export const apiClient = {
    * @throws {ApiRequestError} on non-2xx responses
    */
   async get<T>(path: string, opts?: RequestOptions): Promise<T> {
-    const res = await fetch(resolveUrl(path), {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        accept: 'application/json',
-        ...opts?.headers,
-      },
-      signal: opts?.signal,
-    });
-
-    if (!res.ok) {
-      throw await parseErrorResponse(res);
-    }
-
-    return (await res.json()) as T;
+    const { parsed } = await request<T>(path, { method: 'GET' }, { accept: 'application/json' }, opts);
+    return parsed;
   },
 
   /**
@@ -112,23 +180,13 @@ export const apiClient = {
    * @throws {ApiRequestError} on non-2xx responses
    */
   async post<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
-    const res = await fetch(resolveUrl(path), {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
-        ...opts?.headers,
-      },
-      body: JSON.stringify(body),
-      signal: opts?.signal,
-    });
-
-    if (!res.ok) {
-      throw await parseErrorResponse(res);
-    }
-
-    return (await res.json()) as T;
+    const { parsed } = await request<T>(
+      path,
+      { method: 'POST', body: JSON.stringify(body) },
+      { 'content-type': 'application/json', accept: 'application/json' },
+      opts,
+    );
+    return parsed;
   },
 
   /**
@@ -142,23 +200,13 @@ export const apiClient = {
    * @throws {ApiRequestError} on non-2xx responses
    */
   async put<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
-    const res = await fetch(resolveUrl(path), {
-      method: 'PUT',
-      credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
-        ...opts?.headers,
-      },
-      body: JSON.stringify(body),
-      signal: opts?.signal,
-    });
-
-    if (!res.ok) {
-      throw await parseErrorResponse(res);
-    }
-
-    return (await res.json()) as T;
+    const { parsed } = await request<T>(
+      path,
+      { method: 'PUT', body: JSON.stringify(body) },
+      { 'content-type': 'application/json', accept: 'application/json' },
+      opts,
+    );
+    return parsed;
   },
 
   /**
@@ -172,23 +220,13 @@ export const apiClient = {
    * @throws {ApiRequestError} on non-2xx responses
    */
   async patch<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
-    const res = await fetch(resolveUrl(path), {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
-        ...opts?.headers,
-      },
-      body: JSON.stringify(body),
-      signal: opts?.signal,
-    });
-
-    if (!res.ok) {
-      throw await parseErrorResponse(res);
-    }
-
-    return (await res.json()) as T;
+    const { parsed } = await request<T>(
+      path,
+      { method: 'PATCH', body: JSON.stringify(body) },
+      { 'content-type': 'application/json', accept: 'application/json' },
+      opts,
+    );
+    return parsed;
   },
 
   /**
@@ -201,25 +239,7 @@ export const apiClient = {
    * @throws {ApiRequestError} on non-2xx responses
    */
   async delete<T = void>(path: string, opts?: RequestOptions): Promise<T> {
-    const res = await fetch(resolveUrl(path), {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        accept: 'application/json',
-        ...opts?.headers,
-      },
-      signal: opts?.signal,
-    });
-
-    if (!res.ok) {
-      throw await parseErrorResponse(res);
-    }
-
-    // 204 No Content has no body
-    if (res.status === 204) {
-      return undefined as T;
-    }
-
-    return (await res.json()) as T;
+    const { parsed } = await request<T>(path, { method: 'DELETE' }, { accept: 'application/json' }, opts);
+    return parsed;
   },
 };
