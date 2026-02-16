@@ -524,11 +524,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(401).send({ error: 'unauthorized' });
     }
 
+    // Merge headers set by @fastify/cors (on the Fastify reply) into the raw
+    // writeHead call so CORS headers are not lost when bypassing Fastify's
+    // response pipeline for SSE streaming.
+    const corsHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(reply.getHeaders())) {
+      if (value !== undefined) corsHeaders[key] = String(value);
+    }
     reply.raw.writeHead(200, {
+      ...corsHeaders,
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
     });
 
     // Send initial connection event
@@ -2102,8 +2109,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/activity/stream', async (req, reply) => {
     const query = req.query as { projectId?: string };
 
-    // Set SSE headers
+    // Merge headers set by @fastify/cors into the raw writeHead call
+    // so CORS headers are not lost when bypassing Fastify's response pipeline.
+    const corsHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(reply.getHeaders())) {
+      if (value !== undefined) corsHeaders[key] = String(value);
+    }
     reply.raw.writeHead(200, {
+      ...corsHeaders,
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
