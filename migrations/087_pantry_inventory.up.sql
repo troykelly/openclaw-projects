@@ -1,6 +1,6 @@
 -- Issue #1280: Pantry/fridge/freezer inventory and leftovers tracking
 
-CREATE TABLE pantry_item (
+CREATE TABLE IF NOT EXISTS pantry_item (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_email      text REFERENCES user_setting(email) ON DELETE CASCADE,
   name            text NOT NULL,
@@ -21,6 +21,6 @@ CREATE TABLE pantry_item (
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_pantry_location ON pantry_item (location) WHERE NOT is_depleted;
-CREATE INDEX idx_pantry_use_by ON pantry_item (use_by_date) WHERE NOT is_depleted AND use_by_date IS NOT NULL;
-CREATE INDEX idx_pantry_leftover ON pantry_item (is_leftover) WHERE NOT is_depleted AND is_leftover;
+CREATE INDEX IF NOT EXISTS idx_pantry_location ON pantry_item (location) WHERE NOT is_depleted;
+CREATE INDEX IF NOT EXISTS idx_pantry_use_by ON pantry_item (use_by_date) WHERE NOT is_depleted AND use_by_date IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pantry_leftover ON pantry_item (is_leftover) WHERE NOT is_depleted AND is_leftover;

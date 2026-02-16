@@ -19,6 +19,7 @@ CREATE OR REPLACE FUNCTION update_context_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS context_updated_at_trigger ON context;
 CREATE TRIGGER context_updated_at_trigger
   BEFORE UPDATE ON context
   FOR EACH ROW EXECUTE FUNCTION update_context_updated_at();
