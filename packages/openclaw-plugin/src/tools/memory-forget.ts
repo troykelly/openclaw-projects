@@ -7,7 +7,6 @@ import { z } from 'zod';
 import type { ApiClient } from '../api-client.js';
 import type { Logger } from '../logger.js';
 import type { PluginConfig } from '../config.js';
-import type { Memory } from './memory-recall.js';
 import { sanitizeErrorMessage } from '../utils/sanitize.js';
 
 /** Parameters for memory_forget tool — matches OpenClaw gateway schema */
