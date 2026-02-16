@@ -14,7 +14,7 @@ WorkingDirectory=/home/openclaw/openclaw-projects
 
 Environment=HOST=::
 Environment=PORT=3000
-Environment=PUBLIC_BASE_URL=https://projects.example.com
+Environment=PUBLIC_BASE_URL=https://example.com
 
 # DB defaults are fine for local VM usage (localhost:5432, openclaw/openclaw).
 # Override via Environment=PGHOST=..., etc if needed.
