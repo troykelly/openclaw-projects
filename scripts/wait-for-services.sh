@@ -12,31 +12,40 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.test.yml}"
 TIMEOUT="${E2E_TIMEOUT:-180}"
 INTERVAL=2
 
-echo "Waiting for backend-test service to be healthy..."
+wait_for_service() {
+  local service_name="$1"
+  echo "Waiting for ${service_name} to be healthy..."
 
-start_time=$(date +%s)
-while true; do
-  current_time=$(date +%s)
-  elapsed=$((current_time - start_time))
+  local start_time
+  start_time=$(date +%s)
+  while true; do
+    local current_time
+    current_time=$(date +%s)
+    local elapsed=$((current_time - start_time))
 
-  if [ $elapsed -ge $TIMEOUT ]; then
-    echo "Timeout waiting for services after ${TIMEOUT}s"
-    echo "Showing container logs:"
-    docker compose -f "$COMPOSE_FILE" logs backend-test | tail -50
-    exit 1
-  fi
+    if [ $elapsed -ge $TIMEOUT ]; then
+      echo "Timeout waiting for ${service_name} after ${TIMEOUT}s"
+      echo "Showing container logs:"
+      docker compose -f "$COMPOSE_FILE" logs "$service_name" | tail -50
+      exit 1
+    fi
 
-  # Check if backend-test container is healthy via docker compose
-  health_status=$(docker compose -f "$COMPOSE_FILE" ps backend-test --format json | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "")
+    # Check if container is healthy via docker compose
+    local health_status
+    health_status=$(docker compose -f "$COMPOSE_FILE" ps "$service_name" --format json | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "")
 
-  if [ "$health_status" = "healthy" ]; then
-    echo "Backend is healthy!"
-    break
-  fi
+    if [ "$health_status" = "healthy" ]; then
+      echo "${service_name} is healthy!"
+      break
+    fi
 
-  echo "Services not ready yet (status: ${health_status:-starting}), waiting... (${elapsed}s elapsed)"
-  sleep $INTERVAL
-done
+    echo "${service_name} not ready yet (status: ${health_status:-starting}), waiting... (${elapsed}s elapsed)"
+    sleep $INTERVAL
+  done
+}
+
+wait_for_service "backend-test"
+wait_for_service "backend-auth-test"
 
 echo "All services are ready!"
 exit 0

@@ -58,9 +58,14 @@ if is_dood; then
   docker network connect openclaw-test-network "$(hostname)" 2>/dev/null || true
   E2E_NETWORK_JOINED=1
   export E2E_API_URL="http://openclaw-backend-test:3001"
+  export E2E_AUTH_API_URL="http://openclaw-backend-auth-test:3002"
 fi
 
 pnpm run test:e2e
+
+echo ""
+echo "=== Level 2b: JWT Auth E2E Tests ==="
+pnpm run test:e2e:auth
 
 echo ""
 echo "=== All tests passed! ==="
