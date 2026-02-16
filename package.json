@@ -109,6 +109,7 @@
     "dompurify": "^3.3.1",
     "fastify": "^5.7.2",
     "highlight.js": "^11.11.1",
+    "jose": "^6.1.3",
     "katex": "^0.16.28",
     "lexical": "^0.40.0",
     "lucide-react": "^0.563.0",
