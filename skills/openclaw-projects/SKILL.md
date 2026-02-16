@@ -7,7 +7,7 @@ metadata:
     requires:
       env:
         - OPENCLAW_PROJECTS_URL
-        - OPENCLAW_PROJECTS_AUTH_SECRET
+        - OPENCLAW_API_TOKEN
 ---
 
 # openclaw-projects
@@ -21,20 +21,20 @@ A backend service for managing projects, tasks, memories, and communications. De
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `OPENCLAW_PROJECTS_URL` | Base URL of the openclaw-projects instance | `https://projects.example.com` |
-| `OPENCLAW_PROJECTS_AUTH_SECRET` | Shared secret for API authentication | (from 1Password or file) |
+| `OPENCLAW_API_TOKEN` | Shared secret for API authentication | (from 1Password or file) |
 
 ### Authentication
 
 All API requests require a Bearer token:
 
 ```bash
-curl -H "Authorization: Bearer $OPENCLAW_PROJECTS_AUTH_SECRET" \
+curl -H "Authorization: Bearer $OPENCLAW_API_TOKEN" \
      "$OPENCLAW_PROJECTS_URL/api/work-items"
 ```
 
 Alternative secret sources:
-- `OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND` - Execute command (e.g., `op read 'op://Vault/secret'`)
-- `OPENCLAW_PROJECTS_AUTH_SECRET_FILE` - Read from file
+- `OPENCLAW_API_TOKEN_COMMAND` - Execute command (e.g., `op read 'op://Vault/secret'`)
+- `OPENCLAW_API_TOKEN_FILE` - Read from file
 
 ---
 
@@ -45,7 +45,7 @@ Alternative secret sources:
 ```bash
 POST $OPENCLAW_PROJECTS_URL/api/work-items
 Content-Type: application/json
-Authorization: Bearer $OPENCLAW_PROJECTS_AUTH_SECRET
+Authorization: Bearer $OPENCLAW_API_TOKEN
 
 {
   "title": "Asparagus",
@@ -837,7 +837,7 @@ Add to your shell profile or `.env`:
 
 ```bash
 export OPENCLAW_PROJECTS_URL="https://your-instance.example.com"
-export OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND="op read 'op://Vault/openclaw-projects/secret'"
+export OPENCLAW_API_TOKEN_COMMAND="op read 'op://Vault/openclaw-projects/secret'"
 ```
 
 ---

@@ -38,9 +38,9 @@ Set the required environment variables:
 
 ```bash
 export OPENCLAW_PROJECTS_URL="https://your-instance.example.com"
-export OPENCLAW_PROJECTS_AUTH_SECRET="your-secret"
+export OPENCLAW_API_TOKEN="your-secret"
 # Or use command-based secret:
-export OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND="op read 'op://Vault/openclaw-projects/secret'"
+export OPENCLAW_API_TOKEN_COMMAND="op read 'op://Vault/openclaw-projects/secret'"
 ```
 
 ## References

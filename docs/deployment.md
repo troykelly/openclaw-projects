@@ -187,7 +187,7 @@ The basic deployment uses `docker-compose.yml` for localhost or behind-proxy dep
    sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
    sed -i "s/^COOKIE_SECRET=.*/COOKIE_SECRET=${COOKIE_SECRET}/" .env
    sed -i "s/^S3_SECRET_KEY=.*/S3_SECRET_KEY=${S3_SECRET_KEY}/" .env
-   sed -i "s/^OPENCLAW_PROJECTS_AUTH_SECRET=.*/OPENCLAW_PROJECTS_AUTH_SECRET=${AUTH_SECRET}/" .env
+   sed -i "s/^OPENCLAW_API_TOKEN=.*/OPENCLAW_API_TOKEN=${AUTH_SECRET}/" .env
    ```
 
 4. **(Recommended) Configure embedding provider for semantic search:**
@@ -269,7 +269,7 @@ The production deployment uses `docker-compose.traefik.yml` which includes:
    POSTGRES_PASSWORD=<strong-password>
    COOKIE_SECRET=<base64-string>
    S3_SECRET_KEY=<hex-string>
-   OPENCLAW_PROJECTS_AUTH_SECRET=<base64-string>
+   OPENCLAW_API_TOKEN=<base64-string>
 
    # Required for TLS
    DOMAIN=example.com
@@ -429,7 +429,7 @@ The full deployment (`docker-compose.full.yml`) extends the Traefik configuratio
 The OpenClaw gateway automatically connects to the openclaw-projects API using:
 
 - `OPENCLAW_PROJECTS_API_URL`: Internal Docker network URL (`http://api:3001`)
-- `OPENCLAW_PROJECTS_AUTH_SECRET`: Shared authentication secret
+- `OPENCLAW_API_TOKEN`: Shared authentication secret
 
 To use the plugin with an external OpenClaw gateway, see the [OpenClaw Integration Guide](./guides/openclaw-integration.md).
 
@@ -461,7 +461,7 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 | `POSTGRES_PASSWORD` | PostgreSQL password | `openssl rand -base64 32` |
 | `COOKIE_SECRET` | Session cookie signing key | `openssl rand -base64 48` |
 | `S3_SECRET_KEY` | SeaweedFS S3 secret key | `openssl rand -hex 32` |
-| `OPENCLAW_PROJECTS_AUTH_SECRET` | Auth secret for OpenClaw plugin | `openssl rand -base64 32` |
+| `OPENCLAW_API_TOKEN` | Auth secret for OpenClaw plugin | `openssl rand -base64 32` |
 
 ### Required for Production (Traefik)
 
@@ -550,12 +550,12 @@ docker exec openclaw-gateway wget -q -O - http://api:3001/health
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCLAW_PROJECTS_AUTH_SECRET` | (empty) | Auth secret for OpenClaw plugin requests |
-| `OPENCLAW_PROJECTS_AUTH_SECRET_FILE` | (empty) | Load auth secret from file (Docker secrets) |
-| `OPENCLAW_PROJECTS_AUTH_SECRET_COMMAND` | (empty) | Load auth secret from command (1Password, etc.) |
+| `OPENCLAW_API_TOKEN` | (empty) | Auth secret for OpenClaw plugin requests |
+| `OPENCLAW_API_TOKEN_FILE` | (empty) | Load auth secret from file (Docker secrets) |
+| `OPENCLAW_API_TOKEN_COMMAND` | (empty) | Load auth secret from command (1Password, etc.) |
 | `OPENCLAW_PROJECTS_AUTH_DISABLED` | `false` | Disable auth (NOT RECOMMENDED for production) |
 
-At least one of `OPENCLAW_PROJECTS_AUTH_SECRET`, `_FILE`, or `_COMMAND` must be set for production deployments. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=true` only for local development.
+At least one of `OPENCLAW_API_TOKEN`, `_FILE`, or `_COMMAND` must be set for production deployments. Set `OPENCLAW_PROJECTS_AUTH_DISABLED=true` only for local development.
 
 ### Embedding Providers (for Semantic Search)
 

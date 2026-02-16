@@ -123,7 +123,7 @@ openclaw plugins install @troykelly/openclaw-projects
 
 The plugin is automatically configured via environment variables:
 - `OPENCLAW_PROJECTS_API_URL`: Set to `http://api:3000` (internal Docker network)
-- `OPENCLAW_PROJECTS_AUTH_SECRET`: Shared with the API container
+- `OPENCLAW_API_TOKEN`: Shared with the API container
 
 ### External Gateway
 
@@ -228,7 +228,7 @@ docker logs openclaw-api | grep -i embedding
 
 ```bash
 # Verify the API key matches
-docker exec openclaw-api env | grep OPENCLAW_PROJECTS_AUTH_SECRET
+docker exec openclaw-api env | grep OPENCLAW_API_TOKEN
 # Compare with your gateway config
 ```
 
