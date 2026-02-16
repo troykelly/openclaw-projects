@@ -141,7 +141,7 @@ export async function processGeoEmbeddings(pool: Pool, batchSize: number = DEFAU
         await pool.query(
           `UPDATE geo_location
            SET location_embedding = $1, embedding_status = 'complete'
-           WHERE time = $2 AND user_email = $3 AND provider_id = $4 AND entity_id = $5`,
+           WHERE time = $2 AND user_email = $3 AND provider_id = $4 AND entity_id IS NOT DISTINCT FROM $5`,
           [JSON.stringify(embResult.embedding), row.time, row.user_email, row.provider_id, row.entity_id],
         );
       } else {
