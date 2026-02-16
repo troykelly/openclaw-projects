@@ -1,10 +1,11 @@
 /**
  * @vitest-environment jsdom
  *
- * Tests for the magic link consumption page (issue #1333).
+ * Tests for the auth consumption page (issues #1333, #1335).
  *
  * Covers: loading state, success flow with redirect, error flow,
- * missing token, and deep link preservation via sessionStorage.
+ * missing credentials, deep link preservation via sessionStorage,
+ * and OAuth code exchange via POST /api/auth/exchange.
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -69,7 +70,7 @@ async function renderConsumePage(search = '') {
   return render(<RouterProvider router={router} />);
 }
 
-describe('AuthConsumePage (issue #1333)', () => {
+describe('AuthConsumePage (issues #1333, #1335)', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -84,10 +85,18 @@ describe('AuthConsumePage (issue #1333)', () => {
     Object.defineProperty(window, 'sessionStorage', {
       value: {
         getItem: (key: string) => sessionStorageMock[key] ?? null,
-        setItem: (key: string, value: string) => { sessionStorageMock[key] = value; },
-        removeItem: (key: string) => { delete sessionStorageMock[key]; },
-        clear: () => { for (const k of Object.keys(sessionStorageMock)) delete sessionStorageMock[k]; },
-        get length() { return Object.keys(sessionStorageMock).length; },
+        setItem: (key: string, value: string) => {
+          sessionStorageMock[key] = value;
+        },
+        removeItem: (key: string) => {
+          delete sessionStorageMock[key];
+        },
+        clear: () => {
+          for (const k of Object.keys(sessionStorageMock)) delete sessionStorageMock[k];
+        },
+        get length() {
+          return Object.keys(sessionStorageMock).length;
+        },
         key: (i: number) => Object.keys(sessionStorageMock)[i] ?? null,
       },
       configurable: true,
@@ -108,15 +117,12 @@ describe('AuthConsumePage (issue #1333)', () => {
 
     expect(screen.getByTestId('page-auth-consume')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /signing you in/i })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument(); // <output> element
   });
 
   it('calls POST /api/auth/consume with the token', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(
-        JSON.stringify({ accessToken: 'jwt.token.here' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      new Response(JSON.stringify({ accessToken: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=magic-token-123');
@@ -135,10 +141,7 @@ describe('AuthConsumePage (issue #1333)', () => {
 
   it('stores access token and redirects to /work-items on success', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(
-        JSON.stringify({ accessToken: 'jwt.access.token' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      new Response(JSON.stringify({ accessToken: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=valid-token');
@@ -154,13 +157,10 @@ describe('AuthConsumePage (issue #1333)', () => {
 
   it('redirects to preserved deep link after success', async () => {
     // Simulate a preserved deep link
-    sessionStorageMock['auth_return_to'] = '/contacts';
+    sessionStorageMock.auth_return_to = '/contacts';
 
     fetchSpy.mockResolvedValue(
-      new Response(
-        JSON.stringify({ accessToken: 'jwt.access.token' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      new Response(JSON.stringify({ accessToken: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=valid-token');
@@ -174,10 +174,29 @@ describe('AuthConsumePage (issue #1333)', () => {
     }, WAIT_OPTS);
 
     // Deep link should be cleared after use
-    expect(sessionStorageMock['auth_return_to']).toBeUndefined();
+    expect(sessionStorageMock.auth_return_to).toBeUndefined();
   });
 
-  it('shows error when token is missing from URL', async () => {
+  it('scrubs credentials from URL bar via history.replaceState', async () => {
+    fetchSpy.mockReturnValue(new Promise(() => {})); // Keep pending
+
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+    await renderConsumePage('?code=secret-oauth-code');
+
+    // The component calls replaceState with the current pathname to remove
+    // the query string. In jsdom with MemoryRouter the actual window.location
+    // pathname is '/', but the important thing is that replaceState is called
+    // with the pathname (no query string containing the secret code).
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+    const [, , url] = replaceStateSpy.mock.calls[0];
+    expect(typeof url).toBe('string');
+    expect((url as string)).not.toContain('code=');
+    expect((url as string)).not.toContain('token=');
+    replaceStateSpy.mockRestore();
+  });
+
+  it('shows error when neither token nor code is in URL', async () => {
     await renderConsumePage('');
 
     expect(screen.getByTestId('page-auth-consume')).toBeInTheDocument();
@@ -186,12 +205,75 @@ describe('AuthConsumePage (issue #1333)', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  // ── OAuth code exchange flow (issue #1335) ───────────────────────
+
+  it('calls POST /api/auth/exchange with the code parameter', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ accessToken: 'jwt.oauth.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await renderConsumePage('?code=oauth-code-123');
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/auth/exchange',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({ code: 'oauth-code-123' }),
+        }),
+      );
+    }, WAIT_OPTS);
+  });
+
+  it('stores access token and redirects on OAuth code exchange success', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ accessToken: 'jwt.oauth.access' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await renderConsumePage('?code=valid-oauth-code');
+
+    await waitFor(() => {
+      expect(mockSetAccessToken).toHaveBeenCalledWith('jwt.oauth.access');
+    }, WAIT_OPTS);
+
+    await waitFor(() => {
+      expect(navigatedTo).toBe('/work-items');
+    }, WAIT_OPTS);
+  });
+
+  it('shows error when OAuth code exchange fails', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'invalid or expired code' }), { status: 400, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await renderConsumePage('?code=bad-code');
+
+    await waitFor(() => {
+      expect(screen.getByText(/invalid or expired/i)).toBeInTheDocument();
+    }, WAIT_OPTS);
+  });
+
+  it('prefers token over code when both are present', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ accessToken: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await renderConsumePage('?token=magic-token&code=oauth-code');
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/auth/consume',
+        expect.objectContaining({
+          body: JSON.stringify({ token: 'magic-token' }),
+        }),
+      );
+    }, WAIT_OPTS);
+  });
+
   it('shows error when API returns failure', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: 'invalid or expired token' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      ),
+      new Response(JSON.stringify({ error: 'invalid or expired token' }), { status: 400, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=expired-token');
@@ -216,10 +298,7 @@ describe('AuthConsumePage (issue #1333)', () => {
 
   it('does not store token on API error', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: 'invalid or expired token' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      ),
+      new Response(JSON.stringify({ error: 'invalid or expired token' }), { status: 400, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=bad-token');
@@ -233,13 +312,10 @@ describe('AuthConsumePage (issue #1333)', () => {
 
   it('ignores deep links to auth paths for redirect', async () => {
     // Prevent redirect loops: don't redirect back to auth pages
-    sessionStorageMock['auth_return_to'] = '/auth/consume';
+    sessionStorageMock.auth_return_to = '/auth/consume';
 
     fetchSpy.mockResolvedValue(
-      new Response(
-        JSON.stringify({ accessToken: 'jwt.access.token' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      new Response(JSON.stringify({ accessToken: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=valid-token');

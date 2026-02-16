@@ -1940,6 +1940,31 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/auth/exchange', {
     config: { rateLimit: exchangeRateLimit() },
   }, async (req, reply) => {
+    // CSRF mitigation: enforce JSON content type to prevent cross-site form POSTs.
+    // Browsers will not send application/json from a plain <form> submission,
+    // so this rejects forged cross-origin requests that lack a preflight.
+    const ct = (req.headers['content-type'] ?? '').toLowerCase();
+    if (!ct.includes('application/json')) {
+      return reply.code(415).send({ error: 'Content-Type must be application/json' });
+    }
+
+    // CSRF mitigation: validate Origin header when present.
+    // Browsers always attach Origin on cross-origin POSTs. If the header is
+    // present and does not match our expected app domain, reject the request.
+    const origin = req.headers.origin;
+    if (origin) {
+      const expectedBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      let expectedOrigin: string;
+      try {
+        expectedOrigin = new URL(expectedBase).origin;
+      } catch {
+        expectedOrigin = 'http://localhost:3000';
+      }
+      if (origin !== expectedOrigin) {
+        return reply.code(403).send({ error: 'Origin not allowed' });
+      }
+    }
+
     const body = req.body as { code?: string };
     const code = body?.code;
     if (!code) return reply.code(400).send({ error: 'code is required' });
@@ -11888,18 +11913,37 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const userEmail = await getOAuthUserEmail(provider, tokens.accessToken);
 
       // Save connection with provider account email for multi-account support
-      const connection = await saveConnection(pool, userEmail, provider, tokens, {
+      await saveConnection(pool, userEmail, provider, tokens, {
         providerAccountEmail: userEmail,
       });
 
-      // In a real app, you might redirect to a success page
-      return reply.send({
-        status: 'connected',
-        provider,
-        userEmail,
-        connectionId: connection.id,
-        scopes: tokens.scopes,
-      });
+      // Generate a one-time authorization code for the SPA to exchange for a JWT.
+      // This avoids putting JWTs in URL parameters during the cross-domain redirect.
+      // The code is stored as a SHA-256 hash and expires after 60 seconds.
+      const authCode = randomBytes(32).toString('base64url');
+      const authCodeSha = createHash('sha256').update(authCode).digest('hex');
+      await pool.query(
+        `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
+         VALUES ($1, $2, now() + interval '60 seconds')`,
+        [authCodeSha, userEmail],
+      );
+
+      // Redirect to the SPA auth consume page with the one-time code.
+      // The SPA will exchange this code for a JWT via POST /api/auth/exchange.
+      // Validate PUBLIC_BASE_URL to ensure it is a well-formed http(s) URL.
+      const rawBase = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+      let parsedBase: URL;
+      try {
+        parsedBase = new URL(rawBase);
+      } catch {
+        return reply.code(500).send({ error: 'Server misconfiguration: invalid PUBLIC_BASE_URL' });
+      }
+      if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
+        return reply.code(500).send({ error: 'Server misconfiguration: PUBLIC_BASE_URL must use http or https' });
+      }
+      const redirectUrl = `${parsedBase.origin}${parsedBase.pathname.replace(/\/+$/, '')}/app/auth/consume?code=${encodeURIComponent(authCode)}`;
+
+      return reply.redirect(redirectUrl);
     } catch (error) {
       if (error instanceof OAuthError) {
         return reply.code(error.statusCode).send({
