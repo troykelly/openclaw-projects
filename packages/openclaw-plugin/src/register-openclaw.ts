@@ -2320,7 +2320,7 @@ function createToolHandlers(state: PluginState) {
     },
 
     async thread_get(params: Record<string, unknown>): Promise<ToolResult> {
-      const { thread_id, messageLimit = 50 } = params as {
+      const { thread_id, message_limit = 50 } = params as {
         thread_id: string;
         message_limit?: number;
       };
@@ -2336,12 +2336,12 @@ function createToolHandlers(state: PluginState) {
       logger.info('thread_get invoked', {
         user_id,
         thread_id,
-        messageLimit,
+        message_limit,
       });
 
       try {
         const queryParams = new URLSearchParams();
-        queryParams.set('limit', String(messageLimit));
+        queryParams.set('limit', String(message_limit));
 
         const response = await apiClient.get<{
           thread: {
