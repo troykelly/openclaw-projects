@@ -165,7 +165,7 @@ describe('SPA fallback (/static/app/*)', () => {
     // Should return a success status with loginUrl (not the SPA HTML)
     expect([200, 201]).toContain(res.statusCode);
     const body = res.json();
-    expect(body).toHaveProperty('loginUrl');
+    expect(body).toHaveProperty('login_url');
     expect(res.body).not.toContain('data-testid="app-frontend-shell"');
   });
 

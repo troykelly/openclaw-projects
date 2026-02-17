@@ -23,10 +23,10 @@ import type { FileStorage } from '../../src/api/file-storage/index.ts';
 
 // Mock file storage for tests
 class MockFileStorage implements FileStorage {
-  private files: Map<string, { data: Buffer; contentType: string }> = new Map();
+  private files: Map<string, { data: Buffer; content_type: string }> = new Map();
 
-  async upload(key: string, data: Buffer, contentType: string): Promise<string> {
-    this.files.set(key, { data, contentType });
+  async upload(key: string, data: Buffer, content_type: string): Promise<string> {
+    this.files.set(key, { data, content_type });
     return key;
   }
 
@@ -114,18 +114,18 @@ describe('File Storage Service', () => {
       const data = Buffer.from('test file content');
       const result = await uploadFile(pool, mockStorage, {
         filename: 'test.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data,
-        uploadedBy: 'test@example.com',
+        uploaded_by: 'test@example.com',
       });
 
       expect(result.id).toBeDefined();
-      expect(result.storageKey).toMatch(/^\d{4}\/\d{2}\/\d{2}\/[\w-]+\.txt$/);
-      expect(result.originalFilename).toBe('test.txt');
-      expect(result.contentType).toBe('text/plain');
-      expect(result.sizeBytes).toBe(data.length);
-      expect(result.checksumSha256).toBeDefined();
-      expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.storage_key).toMatch(/^\d{4}\/\d{2}\/\d{2}\/[\w-]+\.txt$/);
+      expect(result.original_filename).toBe('test.txt');
+      expect(result.content_type).toBe('text/plain');
+      expect(result.size_bytes).toBe(data.length);
+      expect(result.checksum_sha256).toBeDefined();
+      expect(result.created_at).toBeInstanceOf(Date);
     });
 
     it('throws FileTooLargeError for oversized files', async () => {
@@ -136,7 +136,7 @@ describe('File Storage Service', () => {
           mockStorage,
           {
             filename: 'large.txt',
-            contentType: 'text/plain',
+            content_type: 'text/plain',
             data,
           },
           50,
@@ -148,11 +148,11 @@ describe('File Storage Service', () => {
       const data = Buffer.from('content');
       const result = await uploadFile(pool, mockStorage, {
         filename: 'stored.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data,
       });
 
-      expect(await mockStorage.exists(result.storageKey)).toBe(true);
+      expect(await mockStorage.exists(result.storage_key)).toBe(true);
     });
   });
 
@@ -161,18 +161,18 @@ describe('File Storage Service', () => {
       const data = Buffer.from('test');
       const uploaded = await uploadFile(pool, mockStorage, {
         filename: 'meta.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data,
-        uploadedBy: 'user@test.com',
+        uploaded_by: 'user@test.com',
       });
 
       const metadata = await getFileMetadata(pool, uploaded.id);
       expect(metadata).not.toBeNull();
       expect(metadata?.id).toBe(uploaded.id);
-      expect(metadata?.originalFilename).toBe('meta.txt');
-      expect(metadata?.contentType).toBe('text/plain');
-      expect(metadata?.sizeBytes).toBe(data.length);
-      expect(metadata?.uploadedBy).toBe('user@test.com');
+      expect(metadata?.original_filename).toBe('meta.txt');
+      expect(metadata?.content_type).toBe('text/plain');
+      expect(metadata?.size_bytes).toBe(data.length);
+      expect(metadata?.uploaded_by).toBe('user@test.com');
     });
 
     it('returns null for non-existent file', async () => {
@@ -186,13 +186,13 @@ describe('File Storage Service', () => {
       const data = Buffer.from('download test');
       const uploaded = await uploadFile(pool, mockStorage, {
         filename: 'download.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data,
       });
 
       const result = await downloadFile(pool, mockStorage, uploaded.id);
       expect(result.data.toString()).toBe('download test');
-      expect(result.metadata.originalFilename).toBe('download.txt');
+      expect(result.metadata.original_filename).toBe('download.txt');
     });
 
     it('throws FileNotFoundError for non-existent file', async () => {
@@ -205,14 +205,14 @@ describe('File Storage Service', () => {
       const data = Buffer.from('url test');
       const uploaded = await uploadFile(pool, mockStorage, {
         filename: 'url.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data,
       });
 
       const result = await getFileUrl(pool, mockStorage, uploaded.id, 3600);
       expect(result.url).toContain('mock-storage.example.com');
       expect(result.url).toContain('expires=3600');
-      expect(result.metadata.originalFilename).toBe('url.txt');
+      expect(result.metadata.original_filename).toBe('url.txt');
     });
 
     it('throws FileNotFoundError for non-existent file', async () => {
@@ -225,7 +225,7 @@ describe('File Storage Service', () => {
       const data = Buffer.from('delete test');
       const uploaded = await uploadFile(pool, mockStorage, {
         filename: 'delete.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data,
       });
 
@@ -237,7 +237,7 @@ describe('File Storage Service', () => {
       expect(metadata).toBeNull();
 
       // Verify deleted from storage
-      expect(await mockStorage.exists(uploaded.storageKey)).toBe(false);
+      expect(await mockStorage.exists(uploaded.storage_key)).toBe(false);
     });
 
     it('returns false for non-existent file', async () => {
@@ -251,17 +251,17 @@ describe('File Storage Service', () => {
       // Upload several files
       await uploadFile(pool, mockStorage, {
         filename: 'file1.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data: Buffer.from('1'),
       });
       await uploadFile(pool, mockStorage, {
         filename: 'file2.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data: Buffer.from('2'),
       });
       await uploadFile(pool, mockStorage, {
         filename: 'file3.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data: Buffer.from('3'),
       });
 
@@ -274,7 +274,7 @@ describe('File Storage Service', () => {
       for (let i = 0; i < 5; i++) {
         await uploadFile(pool, mockStorage, {
           filename: `file${i}.txt`,
-          contentType: 'text/plain',
+          content_type: 'text/plain',
           data: Buffer.from(`${i}`),
         });
       }
@@ -284,23 +284,23 @@ describe('File Storage Service', () => {
       expect(result.total).toBe(5);
     });
 
-    it('filters by uploadedBy', async () => {
+    it('filters by uploaded_by', async () => {
       await uploadFile(pool, mockStorage, {
         filename: 'user1.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data: Buffer.from('1'),
-        uploadedBy: 'user1@test.com',
+        uploaded_by: 'user1@test.com',
       });
       await uploadFile(pool, mockStorage, {
         filename: 'user2.txt',
-        contentType: 'text/plain',
+        content_type: 'text/plain',
         data: Buffer.from('2'),
-        uploadedBy: 'user2@test.com',
+        uploaded_by: 'user2@test.com',
       });
 
-      const result = await listFiles(pool, { uploadedBy: 'user1@test.com' });
+      const result = await listFiles(pool, { uploaded_by: 'user1@test.com' });
       expect(result.files.length).toBe(1);
-      expect(result.files[0].uploadedBy).toBe('user1@test.com');
+      expect(result.files[0].uploaded_by).toBe('user1@test.com');
     });
   });
 });

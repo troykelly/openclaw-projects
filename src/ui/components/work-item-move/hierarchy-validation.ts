@@ -64,15 +64,15 @@ export function canMoveToParent(item: { id: string; kind: TreeItemKind }, target
  * Check if moving an item would create a circular dependency.
  * This happens when the target parent is a descendant of the item being moved.
  *
- * @param itemId - The ID of the item being moved
+ * @param item_id - The ID of the item being moved
  * @param targetParentId - The ID of the target parent
  * @param getChildren - Function to get children of an item
  * @returns true if the move would create a cycle
  */
-export function wouldCreateCycle(itemId: string, targetParentId: string, getChildren: (id: string) => string[]): boolean {
-  // Check if targetParentId is a descendant of itemId
+export function wouldCreateCycle(item_id: string, targetParentId: string, getChildren: (id: string) => string[]): boolean {
+  // Check if targetParentId is a descendant of item_id
   const visited = new Set<string>();
-  const queue = [itemId];
+  const queue = [item_id];
 
   while (queue.length > 0) {
     const current = queue.shift()!;

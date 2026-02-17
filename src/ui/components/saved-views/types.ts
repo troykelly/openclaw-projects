@@ -21,8 +21,8 @@ export interface SavedView {
   name: string;
   description?: string;
   config: ViewConfig;
-  createdAt: string;
-  updatedAt?: string;
+  created_at: string;
+  updated_at?: string;
   isShared?: boolean;
   sharedWith?: string[];
   ownerId?: string;

@@ -569,7 +569,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
   // ── PATCH /api/skill-store/items/:id ─────────────────────────────────
 
   describe('PATCH /api/skill-store/items/:id', () => {
-    let itemId: string;
+    let item_id: string;
 
     beforeEach(async () => {
       const created = await app.inject({
@@ -582,13 +582,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
           tags: ['old'],
         },
       });
-      itemId = created.json().id;
+      item_id = created.json().id;
     });
 
     it('partially updates title', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { title: 'Updated' },
       });
       expect(res.statusCode).toBe(200);
@@ -599,7 +599,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('partially updates data', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { data: { v: 2 } },
       });
       expect(res.statusCode).toBe(200);
@@ -610,7 +610,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('partially updates tags', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { tags: ['new', 'tags'] },
       });
       expect(res.statusCode).toBe(200);
@@ -638,7 +638,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('rejects data exceeding 1MB (framework 413 or validation 400)', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { data: { big: 'x'.repeat(1048577) } },
       });
       expect([400, 413]).toContain(res.statusCode);
@@ -647,7 +647,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
     it('updates pinned status', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { pinned: true },
       });
       expect(res.statusCode).toBe(200);
@@ -1029,13 +1029,13 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         payload: { skill_id: 'skill-a', title: 'Owned by A' },
       });
       expect(create.statusCode).toBe(201);
-      const itemId = create.json().id;
+      const item_id = create.json().id;
 
       // PATCH using the same UUID — should succeed since there's no skill_id
       // scoping on PATCH by UUID. This test DOCUMENTS the current behavior.
       const patch = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { title: 'Changed by anyone' },
       });
       // Current behavior: PATCH by UUID succeeds regardless of skill_id
@@ -1051,12 +1051,12 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         payload: { skill_id: 'skill-b', title: 'Owned by B' },
       });
       expect(create.statusCode).toBe(201);
-      const itemId = create.json().id;
+      const item_id = create.json().id;
 
       // DELETE using UUID — no skill_id scoping
       const del = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
       });
       expect([200, 204]).toContain(del.statusCode);
     });
@@ -1154,12 +1154,12 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         },
       });
       expect(create.statusCode).toBe(201);
-      const itemId = create.json().id;
+      const item_id = create.json().id;
 
       // PATCH with ONLY title change — other fields should be preserved
       const patch = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { title: 'Updated Title' },
       });
       expect(patch.statusCode).toBe(200);

@@ -9,33 +9,33 @@ export type AuditActionType = 'create' | 'update' | 'delete' | 'auth' | 'webhook
 export interface AuditLogEntry {
   id: string;
   timestamp: Date;
-  actorType: AuditActorType;
-  actorId: string | null;
+  actor_type: AuditActorType;
+  actor_id: string | null;
   action: AuditActionType;
-  entityType: string;
-  entityId: string | null;
+  entity_type: string;
+  entity_id: string | null;
   changes: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
 }
 
 export interface AuditLogQueryOptions {
-  entityType?: string;
-  entityId?: string;
-  actorType?: AuditActorType;
-  actorId?: string;
+  entity_type?: string;
+  entity_id?: string;
+  actor_type?: AuditActorType;
+  actor_id?: string;
   action?: AuditActionType;
-  startDate?: Date;
-  endDate?: Date;
+  start_date?: Date;
+  end_date?: Date;
   limit?: number;
   offset?: number;
 }
 
 export interface AuditLogCreateParams {
-  actorType: AuditActorType;
-  actorId?: string | null;
+  actor_type: AuditActorType;
+  actor_id?: string | null;
   action: AuditActionType;
-  entityType: string;
-  entityId?: string | null;
+  entity_type: string;
+  entity_id?: string | null;
   changes?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
 }

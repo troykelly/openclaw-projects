@@ -55,7 +55,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
     client: mockApiClient,
     logger: mockLogger,
     config: mockConfig,
-    userId: 'agent-1',
+    user_id: 'agent-1',
   };
 
   beforeEach(() => {
@@ -211,7 +211,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
             skill_id: 'test',
             query: 'roadmap',
           }),
-          { userId: 'agent-1' },
+          { user_id: 'agent-1' },
         );
 
         if (result.success) {
@@ -246,7 +246,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
             limit: 5,
             user_email: 'user@example.com',
           }),
-          { userId: 'agent-1' },
+          { user_id: 'agent-1' },
         );
       });
     });
@@ -293,7 +293,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
             skill_id: 'test',
             query: 'system architecture',
           }),
-          { userId: 'agent-1' },
+          { user_id: 'agent-1' },
         );
 
         if (result.success) {
@@ -320,7 +320,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
           expect.objectContaining({
             min_similarity: 0.8,
           }),
-          { userId: 'agent-1' },
+          { user_id: 'agent-1' },
         );
       });
 
@@ -468,7 +468,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
         const result = await tool.execute({ skill_id: 'my-skill' });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('skill_id=my-skill'), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('skill_id=my-skill'), { user_id: 'agent-1' });
 
         if (result.success) {
           expect(result.data.content).toContain('notes');
@@ -490,7 +490,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
           user_email: 'user@example.com',
         });
 
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('user_email=user%40example.com'), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('user_email=user%40example.com'), { user_id: 'agent-1' });
       });
 
       it('handles empty collections', async () => {
@@ -598,8 +598,8 @@ describe('Skill Store Search Tools (Issue #801)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('skill_id=test'), { userId: 'agent-1' });
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('operation=count'), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('skill_id=test'), { user_id: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('operation=count'), { user_id: 'agent-1' });
 
         if (result.success) {
           expect(result.data.content).toContain('42');
@@ -619,7 +619,7 @@ describe('Skill Store Search Tools (Issue #801)', () => {
           collection: 'notes',
         });
 
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('collection=notes'), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('collection=notes'), { user_id: 'agent-1' });
       });
     });
 
@@ -778,8 +778,8 @@ describe('Skill Store Search Tools (Issue #801)', () => {
           until: '2026-02-01T00:00:00Z',
         });
 
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('since='), { userId: 'agent-1' });
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('until='), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('since='), { user_id: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('until='), { user_id: 'agent-1' });
       });
     });
 

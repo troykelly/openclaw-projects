@@ -26,11 +26,11 @@ export type FileShareParams = z.infer<typeof FileShareParamsSchema>;
 interface FileShareApiResponse {
   shareToken: string;
   url: string;
-  expiresAt: string;
+  expires_at: string;
   expiresIn: number;
   filename: string;
-  contentType: string;
-  sizeBytes: number;
+  content_type: string;
+  size_bytes: number;
 }
 
 /** Successful tool result */
@@ -41,11 +41,11 @@ export interface FileShareSuccess {
     details: {
       url: string;
       shareToken: string;
-      expiresAt: string;
+      expires_at: string;
       expiresIn: number;
       filename: string;
-      contentType: string;
-      sizeBytes: number;
+      content_type: string;
+      size_bytes: number;
     };
   };
 }
@@ -63,7 +63,7 @@ export type FileShareResult = FileShareSuccess | FileShareFailure;
 export interface FileShareToolOptions {
   client: ApiClient;
   logger: Logger;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -98,7 +98,7 @@ function formatDuration(seconds: number): string {
  * Creates the file_share tool.
  */
 export function createFileShareTool(options: FileShareToolOptions): FileShareTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'file_share',
@@ -119,7 +119,7 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
 
       // Log invocation
       logger.info('file_share invoked', {
-        userId,
+        user_id,
         fileId,
         expiresIn,
         maxDownloads,
@@ -133,12 +133,12 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
             expiresIn,
             maxDownloads,
           },
-          { userId },
+          { user_id },
         );
 
         if (!response.success) {
           logger.error('file_share API error', {
-            userId,
+            user_id,
             fileId,
             status: response.error.status,
             code: response.error.code,
@@ -149,17 +149,17 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
           };
         }
 
-        const { url, shareToken, expiresAt, filename, contentType, sizeBytes } = response.data;
+        const { url, shareToken, expires_at, filename, content_type, size_bytes } = response.data;
 
         logger.debug('file_share completed', {
-          userId,
+          user_id,
           fileId,
           shareToken,
-          expiresAt,
+          expires_at,
         });
 
         const expiryText = formatDuration(expiresIn);
-        const sizeText = formatFileSize(sizeBytes);
+        const sizeText = formatFileSize(size_bytes);
         const downloadLimit = maxDownloads ? ` (max ${maxDownloads} downloads)` : '';
 
         return {
@@ -169,17 +169,17 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
             details: {
               url,
               shareToken,
-              expiresAt,
+              expires_at,
               expiresIn,
               filename,
-              contentType,
-              sizeBytes,
+              content_type,
+              size_bytes,
             },
           },
         };
       } catch (error) {
         logger.error('file_share failed', {
-          userId,
+          user_id,
           fileId,
           error: error instanceof Error ? error.message : String(error),
         });

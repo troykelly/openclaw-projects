@@ -42,7 +42,7 @@ export interface StoredMemory {
   category?: string;
   importance?: number;
   tags?: string[];
-  createdAt?: string;
+  created_at?: string;
 }
 
 /** Successful tool result */
@@ -55,7 +55,7 @@ export interface MemoryStoreSuccess {
       category: string;
       importance: number;
       tags: string[];
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -74,7 +74,7 @@ export interface MemoryStoreToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -105,7 +105,7 @@ function mayContainCredentials(text: string): boolean {
  * Creates the memory_store tool.
  */
 export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemoryStoreTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'memory_store',
@@ -138,14 +138,14 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
       // Check for potential credentials (warn but don't block)
       if (mayContainCredentials(sanitizedText)) {
         logger.warn('Potential credential detected in memory_store', {
-          userId,
+          user_id,
           contentLength: sanitizedText.length,
         });
       }
 
       // Log invocation (without content for privacy)
       logger.info('memory_store invoked', {
-        userId,
+        user_id,
         category,
         importance,
         tags,
@@ -155,11 +155,11 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
       try {
         // Store memory via API
         // Map plugin category to API memory_type ('other' has no API equivalent, use 'note')
-        const memoryType = category === 'other' ? 'note' : category;
+        const memory_type = category === 'other' ? 'note' : category;
 
         const payload: Record<string, unknown> = {
           content: sanitizedText,
-          memory_type: memoryType,
+          memory_type: memory_type,
           importance,
           tags,
         };
@@ -175,8 +175,8 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
             const geocoded = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
             if (geocoded) {
               payload.address = geocoded.address;
-              if (!location.place_label && geocoded.placeLabel) {
-                payload.place_label = geocoded.placeLabel;
+              if (!location.place_label && geocoded.place_label) {
+                payload.place_label = geocoded.place_label;
               }
             }
           }
@@ -185,11 +185,11 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
           if (location.place_label) payload.place_label = location.place_label;
         }
 
-        const response = await client.post<StoredMemory>('/api/memories/unified', payload, { userId });
+        const response = await client.post<StoredMemory>('/api/memories/unified', payload, { user_id });
 
         if (!response.success) {
           logger.error('memory_store API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -207,8 +207,8 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
         const content = `Stored memory [${category}]: "${preview}"${tagSuffix}`;
 
         logger.debug('memory_store completed', {
-          userId,
-          memoryId: stored.id,
+          user_id,
+          memory_id: stored.id,
         });
 
         return {
@@ -220,13 +220,13 @@ export function createMemoryStoreTool(options: MemoryStoreToolOptions): MemorySt
               category,
               importance,
               tags,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('memory_store failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 

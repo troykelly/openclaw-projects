@@ -50,7 +50,7 @@ function providerLabel(provider: string): string {
 }
 
 export function OAuthCallbackPage(): React.JSX.Element {
-  const { status, provider, userEmail, errorMessage } = useOAuthCallback();
+  const { status, provider, user_email, errorMessage } = useOAuthCallback();
 
   return (
     <div data-testid="page-oauth-callback" className="flex min-h-[60vh] items-center justify-center p-8">
@@ -75,7 +75,7 @@ export function OAuthCallbackPage(): React.JSX.Element {
               {provider && (
                 <>
                   Your {providerLabel(provider)} account
-                  {userEmail && <> ({userEmail})</>} has been connected.
+                  {user_email && <> ({user_email})</>} has been connected.
                 </>
               )}
             </p>

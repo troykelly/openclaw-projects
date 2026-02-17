@@ -55,20 +55,20 @@ describe('Note Embeddings API', () => {
       title: string;
       content: string;
       visibility: string;
-      hideFromAgents: boolean;
+      hide_from_agents: boolean;
       tags: string[];
-      userEmail: string;
+      user_email: string;
     }> = {},
   ) {
     const response = await app.inject({
       method: 'POST',
       url: '/api/notes',
       payload: {
-        user_email: overrides.userEmail ?? testUserEmail,
+        user_email: overrides.user_email ?? testUserEmail,
         title: overrides.title ?? 'Test Note',
         content: overrides.content ?? 'Test content for embedding',
         visibility: overrides.visibility ?? 'private',
-        hide_from_agents: overrides.hideFromAgents ?? false,
+        hide_from_agents: overrides.hide_from_agents ?? false,
         tags: overrides.tags ?? [],
       },
     });
@@ -76,10 +76,10 @@ describe('Note Embeddings API', () => {
     return JSON.parse(response.payload);
   }
 
-  async function getNote(noteId: string, userEmail: string = testUserEmail) {
+  async function getNote(noteId: string, user_email: string = testUserEmail) {
     const response = await app.inject({
       method: 'GET',
-      url: `/api/notes/${noteId}?user_email=${userEmail}`,
+      url: `/api/notes/${noteId}?user_email=${user_email}`,
     });
     if (response.statusCode === 200) {
       return JSON.parse(response.payload);
@@ -104,7 +104,7 @@ describe('Note Embeddings API', () => {
         title: 'Hidden Note',
         content: 'This note should not be embedded',
         visibility: 'private',
-        hideFromAgents: true,
+        hide_from_agents: true,
       });
 
       // Wait a bit for async embedding to process
@@ -155,11 +155,11 @@ describe('Note Embeddings API', () => {
 
       const stats = JSON.parse(response.payload);
       expect(stats).toHaveProperty('total');
-      expect(stats).toHaveProperty('byStatus');
-      expect(stats.byStatus).toHaveProperty('complete');
-      expect(stats.byStatus).toHaveProperty('pending');
-      expect(stats.byStatus).toHaveProperty('failed');
-      expect(stats.byStatus).toHaveProperty('skipped');
+      expect(stats).toHaveProperty('by_status');
+      expect(stats.by_status).toHaveProperty('complete');
+      expect(stats.by_status).toHaveProperty('pending');
+      expect(stats.by_status).toHaveProperty('failed');
+      expect(stats.by_status).toHaveProperty('skipped');
       expect(stats).toHaveProperty('provider');
       expect(stats).toHaveProperty('model');
     });
@@ -176,8 +176,8 @@ describe('Note Embeddings API', () => {
         url: '/api/admin/embeddings/backfill/notes',
         payload: {
           limit: 10,
-          onlyPending: true,
-          batchSize: 5,
+          only_pending: true,
+          batch_size: 5,
         },
       });
 
@@ -267,8 +267,8 @@ describe('Note Embeddings API', () => {
 
       const result = JSON.parse(response.payload);
       expect(result).toHaveProperty('results');
-      expect(result).toHaveProperty('searchType');
-      expect(['semantic', 'text']).toContain(result.searchType);
+      expect(result).toHaveProperty('search_type');
+      expect(['semantic', 'text']).toContain(result.search_type);
       expect(Array.isArray(result.results)).toBe(true);
     });
 
@@ -295,7 +295,7 @@ describe('Note Embeddings API', () => {
       }
     });
 
-    it('should filter by notebookId', async () => {
+    it('should filter by notebook_id', async () => {
       // Create a notebook and note in it
       const notebookResponse = await app.inject({
         method: 'POST',
@@ -319,7 +319,7 @@ describe('Note Embeddings API', () => {
         payload: {
           user_email: testUserEmail,
           query: 'notebook',
-          notebookId: notebook.id,
+          notebook_id: notebook.id,
         },
       });
 
@@ -417,7 +417,7 @@ describe('Note Embeddings API', () => {
         title: 'Test',
         content: 'Test',
         visibility: 'private',
-        hideFromAgents: true,
+        hide_from_agents: true,
       });
 
       expect(result).toBe(false);
@@ -431,7 +431,7 @@ describe('Note Embeddings API', () => {
         title: 'Test',
         content: 'Test',
         visibility: 'private',
-        hideFromAgents: false,
+        hide_from_agents: false,
       });
 
       expect(result).toBe(true);
@@ -445,7 +445,7 @@ describe('Note Embeddings API', () => {
         title: 'Test',
         content: 'Test',
         visibility: 'public',
-        hideFromAgents: false,
+        hide_from_agents: false,
       });
 
       expect(result).toBe(true);
@@ -459,7 +459,7 @@ describe('Note Embeddings API', () => {
         title: 'Test',
         content: 'Test',
         visibility: 'shared',
-        hideFromAgents: false,
+        hide_from_agents: false,
       });
 
       expect(result).toBe(true);
@@ -475,7 +475,7 @@ describe('Note Embeddings API', () => {
         title: 'Test',
         content: 'Test',
         visibility: 'public',
-        hideFromAgents: true,
+        hide_from_agents: true,
       });
 
       expect(result).toBe(true);
@@ -546,7 +546,7 @@ describe('Note Embeddings API', () => {
       const note = await createNote({
         title: 'HideFromAgents Update Test',
         content: 'Content',
-        hideFromAgents: false,
+        hide_from_agents: false,
       });
 
       const updateResponse = await app.inject({
@@ -560,7 +560,7 @@ describe('Note Embeddings API', () => {
 
       expect(updateResponse.statusCode).toBe(200);
       const updatedNote = JSON.parse(updateResponse.payload);
-      expect(updatedNote.hideFromAgents).toBe(true);
+      expect(updatedNote.hide_from_agents).toBe(true);
     });
   });
 });

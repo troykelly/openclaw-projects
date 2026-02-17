@@ -16,7 +16,7 @@ describe('CustomFieldInput', () => {
     id: 'field-1',
     name: 'Sprint',
     type: 'text',
-    projectId: 'proj-1',
+    project_id: 'proj-1',
     order: 0,
   };
 
@@ -120,13 +120,13 @@ describe('CustomFieldInput', () => {
 
 describe('CustomFieldList', () => {
   const mockFields: CustomFieldDefinition[] = [
-    { id: 'f1', name: 'Sprint', type: 'text', projectId: 'p1', order: 0 },
-    { id: 'f2', name: 'Points', type: 'number', projectId: 'p1', order: 1 },
+    { id: 'f1', name: 'Sprint', type: 'text', project_id: 'p1', order: 0 },
+    { id: 'f2', name: 'Points', type: 'number', project_id: 'p1', order: 1 },
     {
       id: 'f3',
       name: 'Environment',
       type: 'select',
-      projectId: 'p1',
+      project_id: 'p1',
       order: 2,
       options: ['Dev', 'Staging', 'Prod'],
     },
@@ -173,12 +173,12 @@ describe('CustomFieldList', () => {
 
 describe('CustomFieldManager', () => {
   const mockFields: CustomFieldDefinition[] = [
-    { id: 'f1', name: 'Sprint', type: 'text', projectId: 'p1', order: 0 },
-    { id: 'f2', name: 'Points', type: 'number', projectId: 'p1', order: 1 },
+    { id: 'f1', name: 'Sprint', type: 'text', project_id: 'p1', order: 0 },
+    { id: 'f2', name: 'Points', type: 'number', project_id: 'p1', order: 1 },
   ];
 
   const defaultProps = {
-    projectId: 'p1',
+    project_id: 'p1',
     fields: mockFields,
     onCreate: vi.fn(),
     onUpdate: vi.fn(),
@@ -280,7 +280,7 @@ describe('Field Type Validation', () => {
       id: 'url-field',
       name: 'Website',
       type: 'url',
-      projectId: 'p1',
+      project_id: 'p1',
       order: 0,
     };
 
@@ -293,7 +293,7 @@ describe('Field Type Validation', () => {
       id: 'req-field',
       name: 'Required',
       type: 'text',
-      projectId: 'p1',
+      project_id: 'p1',
       order: 0,
       required: true,
     };
@@ -307,7 +307,7 @@ describe('Field Type Validation', () => {
       id: 'num-field',
       name: 'Score',
       type: 'number',
-      projectId: 'p1',
+      project_id: 'p1',
       order: 0,
       validation: { min: 0, max: 10 },
     };

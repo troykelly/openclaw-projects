@@ -11,7 +11,7 @@ import type { NotificationsResponse, UnreadCountResponse } from '@/ui/lib/api-ty
 export const notificationKeys = {
   all: ['notifications'] as const,
   list: () => [...notificationKeys.all, 'list'] as const,
-  unreadCount: () => [...notificationKeys.all, 'unread-count'] as const,
+  unread_count: () => [...notificationKeys.all, 'unread-count'] as const,
 };
 
 /**
@@ -35,7 +35,7 @@ export function useNotifications() {
  */
 export function useUnreadNotificationCount() {
   return useQuery({
-    queryKey: notificationKeys.unreadCount(),
+    queryKey: notificationKeys.unread_count(),
     queryFn: ({ signal }) => apiClient.get<UnreadCountResponse>('/api/notifications/unread-count', { signal }),
     refetchInterval: 30_000,
   });

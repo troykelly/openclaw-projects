@@ -12,8 +12,8 @@
  * URL structure:
  * - /notes - All notes
  * - /notes/:noteId - Direct link to specific note
- * - /notebooks/:notebookId - Notes in specific notebook
- * - /notebooks/:notebookId/notes/:noteId - Note in context of notebook
+ * - /notebooks/:notebook_id - Notes in specific notebook
+ * - /notebooks/:notebook_id/notes/:noteId - Note in context of notebook
  */
 import { useState, useCallback, useMemo, useEffect, useRef, type ErrorInfo } from 'react';
 import { useParams, useNavigate } from 'react-router';
@@ -72,9 +72,9 @@ export function NotesPage(): React.JSX.Element {
 
 function NotesPageContent(): React.JSX.Element {
   // URL params for deep linking - validate to prevent malformed URLs
-  const { noteId: rawNoteId, notebookId: rawNotebookId } = useParams<{
+  const { noteId: rawNoteId, notebook_id: rawNotebookId } = useParams<{
     noteId?: string;
-    notebookId?: string;
+    notebook_id?: string;
   }>();
   const navigate = useNavigate();
 
@@ -151,7 +151,7 @@ function NotesPageContent(): React.JSX.Element {
     isError: notesError,
     error: notesErrorObj,
     refetch: refetchNotes,
-  } = useNotes({ notebookId: selectedNotebookId });
+  } = useNotes({ notebook_id: selectedNotebookId });
 
   const {
     data: notebooksData,
@@ -208,11 +208,11 @@ function NotesPageContent(): React.JSX.Element {
   // Build URL path based on current state
   const buildNotePath = useCallback(
     (noteId?: string, nbId?: string) => {
-      const notebookId = nbId ?? selectedNotebookId;
-      if (notebookId && noteId) {
-        return `/notebooks/${notebookId}/notes/${noteId}`;
-      } else if (notebookId) {
-        return `/notebooks/${notebookId}`;
+      const notebook_id = nbId ?? selectedNotebookId;
+      if (notebook_id && noteId) {
+        return `/notebooks/${notebook_id}/notes/${noteId}`;
+      } else if (notebook_id) {
+        return `/notebooks/${notebook_id}`;
       } else if (noteId) {
         return `/notes/${noteId}`;
       }
@@ -240,7 +240,7 @@ function NotesPageContent(): React.JSX.Element {
     (note: UINote) => {
       setView({ type: 'detail', noteId: note.id });
       // Update URL
-      navigateInternal(buildNotePath(note.id, note.notebookId));
+      navigateInternal(buildNotePath(note.id, note.notebook_id));
     },
     [navigateInternal, buildNotePath],
   );
@@ -256,12 +256,12 @@ function NotesPageContent(): React.JSX.Element {
   }, [navigateInternal, buildNotePath]);
 
   const handleSaveNote = useCallback(
-    async (data: { title: string; content: string; notebookId?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => {
+    async (data: { title: string; content: string; notebook_id?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => {
       // Client-side validation before API call (#656)
       const validation = validateNote({
         title: data.title,
         content: data.content,
-        notebookId: data.notebookId,
+        notebook_id: data.notebook_id,
       });
 
       if (!validation.valid) {
@@ -273,19 +273,19 @@ function NotesPageContent(): React.JSX.Element {
         const body: CreateNoteBody = {
           title: data.title,
           content: data.content,
-          notebookId: data.notebookId ?? selectedNotebookId,
+          notebook_id: data.notebook_id ?? selectedNotebookId,
           visibility: data.visibility,
           hideFromAgents: data.hideFromAgents,
         };
         const newNote = await createNoteMutation.mutateAsync(body);
         setView({ type: 'detail', noteId: newNote.id });
         // Update URL to include the new note ID
-        navigateInternal(buildNotePath(newNote.id, newNote.notebookId ?? undefined));
+        navigateInternal(buildNotePath(newNote.id, newNote.notebook_id ?? undefined));
       } else if (view.type === 'detail' && currentApiNote) {
         const body: UpdateNoteBody = {
           title: data.title,
           content: data.content,
-          notebookId: data.notebookId,
+          notebook_id: data.notebook_id,
           visibility: data.visibility,
           hideFromAgents: data.hideFromAgents,
         };

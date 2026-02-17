@@ -8,7 +8,7 @@
  * - Notes (contact notes with inline editing)
  * - Activity (recent activity for this contact)
  *
- * Navigated to via /people/:contactId.
+ * Navigated to via /people/:contact_id.
  */
 
 import { ArrowLeft, Bell, Calendar, Clock, Globe, Link2, Mail, MessageSquare, Pencil, Phone, Trash2 } from 'lucide-react';
@@ -36,14 +36,14 @@ const CHANNEL_LABELS: Record<string, string> = {
 };
 
 export function ContactDetailPage(): React.JSX.Element {
-  const { contactId } = useParams<{ contactId: string }>();
+  const { contact_id } = useParams<{ contact_id: string }>();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [prefsEditOpen, setPrefsEditOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const { data: contact, isLoading, isError, error, refetch } = useContactDetail(contactId ?? '');
+  const { data: contact, isLoading, isError, error, refetch } = useContactDetail(contact_id ?? '');
 
   const handleBack = useCallback(() => {
     navigate('/contacts');
@@ -51,10 +51,10 @@ export function ContactDetailPage(): React.JSX.Element {
 
   const handleUpdate = useCallback(
     async (body: ContactBody) => {
-      if (!contactId) return;
+      if (!contact_id) return;
       setIsSubmitting(true);
       try {
-        await apiClient.patch(`/api/contacts/${contactId}`, body);
+        await apiClient.patch(`/api/contacts/${contact_id}`, body);
         setEditOpen(false);
         setPrefsEditOpen(false);
         refetch();
@@ -64,18 +64,18 @@ export function ContactDetailPage(): React.JSX.Element {
         setIsSubmitting(false);
       }
     },
-    [contactId, refetch],
+    [contact_id, refetch],
   );
 
   const handleDelete = useCallback(async () => {
-    if (!contactId) return;
+    if (!contact_id) return;
     try {
-      await apiClient.delete(`/api/contacts/${contactId}`);
+      await apiClient.delete(`/api/contacts/${contact_id}`);
       navigate('/contacts');
     } catch (err) {
       console.error('Failed to delete contact:', err);
     }
-  }, [contactId, navigate]);
+  }, [contact_id, navigate]);
 
   // Loading state
   if (isLoading) {
@@ -368,7 +368,7 @@ interface ContactEditDialogProps {
 }
 
 function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: ContactEditDialogProps) {
-  const [displayName, setDisplayName] = useState('');
+  const [display_name, setDisplayName] = useState('');
   const [notes, setNotes] = useState('');
 
   React.useEffect(() => {
@@ -381,12 +381,12 @@ function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      displayName: displayName.trim(),
+      display_name: display_name.trim(),
       notes: notes.trim() || undefined,
     });
   };
 
-  const isValid = displayName.trim().length > 0;
+  const isValid = display_name.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -401,7 +401,7 @@ function ContactEditDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
             <label htmlFor="edit-contact-name" className="text-sm font-medium">
               Name <span className="text-destructive">*</span>
             </label>
-            <Input id="edit-contact-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+            <Input id="edit-contact-name" value={display_name} onChange={(e) => setDisplayName(e.target.value)} required />
           </div>
 
           <div className="space-y-2">
@@ -466,7 +466,7 @@ function CommPrefsEditDialog({ open, onOpenChange, contact, isSubmitting, onSubm
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      displayName: contact.display_name,
+      display_name: contact.display_name,
       preferred_channel: (preferredChannel as CommChannel) || null,
       quiet_hours_start: quietStart || null,
       quiet_hours_end: quietEnd || null,

@@ -122,18 +122,18 @@ export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearch
                   key={item.id}
                   to={item.to}
                   prefetchPath={item.to}
-                  className={({ isActive }) =>
+                  className={({ is_active }) =>
                     cn(
                       'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                       collapsed && 'justify-center px-0',
-                      isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      is_active ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )
                   }
                   end={item.to === '/activity'}
                 >
-                  {({ isActive }) => (
+                  {({ is_active }) => (
                     <>
-                      <Icon className={cn('size-[18px] shrink-0 transition-transform duration-150', !isActive && 'group-hover:scale-110')} />
+                      <Icon className={cn('size-[18px] shrink-0 transition-transform duration-150', !is_active && 'group-hover:scale-110')} />
                       {!collapsed && <span>{item.label}</span>}
                     </>
                   )}
@@ -190,11 +190,11 @@ export function RouterSidebar({ items = defaultNavItems, onCreateClick, onSearch
               <PrefetchLink
                 to="/settings"
                 prefetchPath="/settings"
-                className={({ isActive }) =>
+                className={({ is_active }) =>
                   cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                     collapsed && 'justify-center px-0',
-                    isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    is_active ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )
                 }
               >

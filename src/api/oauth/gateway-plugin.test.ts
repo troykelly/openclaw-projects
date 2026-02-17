@@ -113,14 +113,14 @@ describe('OAuth Gateway Plugin', () => {
               id: 'conn-1',
               provider: 'microsoft',
               label: 'Work M365',
-              providerAccountEmail: 'user@example.com',
-              permissionLevel: 'read',
-              enabledFeatures: ['email', 'contacts'],
-              isActive: true,
-              lastSyncAt: '2026-01-01T00:00:00Z',
-              syncStatus: {},
-              createdAt: '2026-01-01T00:00:00Z',
-              updatedAt: '2026-01-01T00:00:00Z',
+              provider_account_email: 'user@example.com',
+              permission_level: 'read',
+              enabled_features: ['email', 'contacts'],
+              is_active: true,
+              last_sync_at: '2026-01-01T00:00:00Z',
+              sync_status: {},
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
             },
           ],
         }),
@@ -132,10 +132,10 @@ describe('OAuth Gateway Plugin', () => {
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         accounts: expect.arrayContaining([
           expect.objectContaining({
-            connectionId: 'conn-1',
+            connection_id: 'conn-1',
             provider: 'microsoft',
             connectionLabel: 'Work M365',
-            enabledFeatures: ['email', 'contacts'],
+            enabled_features: ['email', 'contacts'],
             availableActions: expect.arrayContaining(['list_emails', 'list_contacts']),
           }),
         ]),
@@ -193,9 +193,9 @@ describe('OAuth Gateway Plugin', () => {
               id: 'conn-1',
               provider: 'microsoft',
               label: 'Work',
-              enabledFeatures: ['contacts'],
-              isActive: true,
-              permissionLevel: 'read',
+              enabled_features: ['contacts'],
+              is_active: true,
+              permission_level: 'read',
             },
           ],
         }),
@@ -208,28 +208,28 @@ describe('OAuth Gateway Plugin', () => {
           contacts: [
             {
               id: 'c-1',
-              displayName: 'Alice',
-              emailAddresses: ['alice@example.com'],
-              phoneNumbers: ['+1555000'],
+              display_name: 'Alice',
+              email_addresses: ['alice@example.com'],
+              phone_numbers: ['+1555000'],
             },
           ],
         }),
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         connectionLabel: 'Work',
         contacts: expect.arrayContaining([
           expect.objectContaining({
-            displayName: 'Alice',
+            display_name: 'Alice',
           }),
         ]),
       }));
     });
 
-    it('rejects when connectionId is missing', async () => {
+    it('rejects when connection_id is missing', async () => {
       const { methods } = await setupPlugin({ backendUrl: 'http://localhost:3001' });
       const handler = methods.get('oauth.contacts.list')!;
 
@@ -237,7 +237,7 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: {}, respond });
 
       expect(respond).toHaveBeenCalledWith(false, expect.objectContaining({
-        error: expect.stringContaining('connectionId'),
+        error: expect.stringContaining('connection_id'),
       }));
     });
   });
@@ -257,9 +257,9 @@ describe('OAuth Gateway Plugin', () => {
           connections: [{
             id: 'conn-1',
             label: 'Work Gmail',
-            enabledFeatures: ['email'],
-            isActive: true,
-            permissionLevel: 'read_write',
+            enabled_features: ['email'],
+            is_active: true,
+            permission_level: 'read_write',
             provider: 'google',
           }],
         }),
@@ -277,21 +277,21 @@ describe('OAuth Gateway Plugin', () => {
               cc: [],
               bcc: [],
               snippet: 'Hi there',
-              receivedAt: '2026-01-01T00:00:00Z',
-              isRead: false,
-              isStarred: false,
-              isDraft: false,
+              received_at: '2026-01-01T00:00:00Z',
+              is_read: false,
+              is_starred: false,
+              is_draft: false,
               labels: ['INBOX'],
               attachments: [],
               provider: 'google',
             },
           ],
-          nextPageToken: 'page2',
+          next_page_token: 'page2',
         }),
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1', maxResults: 10 }, respond });
+      await handler({ params: { connection_id: 'conn-1', max_results: 10 }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         connectionLabel: 'Work Gmail',
@@ -301,7 +301,7 @@ describe('OAuth Gateway Plugin', () => {
             subject: 'Hello',
           }),
         ]),
-        nextPageToken: 'page2',
+        next_page_token: 'page2',
         availableActions: expect.arrayContaining(['send_email', 'create_draft']),
       }));
     });
@@ -316,9 +316,9 @@ describe('OAuth Gateway Plugin', () => {
           connections: [{
             id: 'conn-1',
             label: 'Read Only',
-            enabledFeatures: ['email'],
-            isActive: true,
-            permissionLevel: 'read',
+            enabled_features: ['email'],
+            is_active: true,
+            permission_level: 'read',
             provider: 'google',
           }],
         }),
@@ -326,11 +326,11 @@ describe('OAuth Gateway Plugin', () => {
 
       fetchSpy.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ messages: [], nextPageToken: undefined }),
+        json: async () => ({ messages: [], next_page_token: undefined }),
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1' }, respond });
 
       const payload = respond.mock.calls[0][1];
       expect(payload.availableActions).not.toContain('send_email');
@@ -354,9 +354,9 @@ describe('OAuth Gateway Plugin', () => {
           connections: [{
             id: 'conn-1',
             label: 'Work',
-            enabledFeatures: ['email'],
-            isActive: true,
-            permissionLevel: 'read',
+            enabled_features: ['email'],
+            is_active: true,
+            permission_level: 'read',
             provider: 'microsoft',
           }],
         }),
@@ -371,11 +371,11 @@ describe('OAuth Gateway Plugin', () => {
           to: [],
           cc: [],
           bcc: [],
-          bodyText: 'Hello world',
-          receivedAt: '2026-01-01T00:00:00Z',
-          isRead: true,
-          isStarred: false,
-          isDraft: false,
+          body_text: 'Hello world',
+          received_at: '2026-01-01T00:00:00Z',
+          is_read: true,
+          is_starred: false,
+          is_draft: false,
           labels: [],
           attachments: [],
           provider: 'microsoft',
@@ -383,27 +383,27 @@ describe('OAuth Gateway Plugin', () => {
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1', messageId: 'msg-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1', message_id: 'msg-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         connectionLabel: 'Work',
         message: expect.objectContaining({
           id: 'msg-1',
           subject: 'Test',
-          bodyText: 'Hello world',
+          body_text: 'Hello world',
         }),
       }));
     });
 
-    it('rejects when messageId is missing', async () => {
+    it('rejects when message_id is missing', async () => {
       const { methods } = await setupPlugin({ backendUrl: 'http://localhost:3001' });
       const handler = methods.get('oauth.email.get')!;
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(false, expect.objectContaining({
-        error: expect.stringContaining('messageId'),
+        error: expect.stringContaining('message_id'),
       }));
     });
   });
@@ -423,9 +423,9 @@ describe('OAuth Gateway Plugin', () => {
           connections: [{
             id: 'conn-1',
             label: 'Work Drive',
-            enabledFeatures: ['files'],
-            isActive: true,
-            permissionLevel: 'read',
+            enabled_features: ['files'],
+            is_active: true,
+            permission_level: 'read',
             provider: 'google',
           }],
         }),
@@ -440,18 +440,18 @@ describe('OAuth Gateway Plugin', () => {
               name: 'document.pdf',
               mimeType: 'application/pdf',
               size: 1024,
-              isFolder: false,
+              is_folder: false,
               provider: 'google',
-              connectionId: 'conn-1',
+              connection_id: 'conn-1',
               metadata: {},
             },
           ],
-          nextPageToken: 'next',
+          next_page_token: 'next',
         }),
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         connectionLabel: 'Work Drive',
@@ -461,7 +461,7 @@ describe('OAuth Gateway Plugin', () => {
             name: 'document.pdf',
           }),
         ]),
-        nextPageToken: 'next',
+        next_page_token: 'next',
         availableActions: expect.arrayContaining(['list_files', 'search_files', 'get_file']),
       }));
     });
@@ -482,9 +482,9 @@ describe('OAuth Gateway Plugin', () => {
           connections: [{
             id: 'conn-1',
             label: 'Drive',
-            enabledFeatures: ['files'],
-            isActive: true,
-            permissionLevel: 'read',
+            enabled_features: ['files'],
+            is_active: true,
+            permission_level: 'read',
             provider: 'microsoft',
           }],
         }),
@@ -498,9 +498,9 @@ describe('OAuth Gateway Plugin', () => {
               id: 'f-2',
               name: 'budget.xlsx',
               mimeType: 'application/vnd.ms-excel',
-              isFolder: false,
+              is_folder: false,
               provider: 'microsoft',
-              connectionId: 'conn-1',
+              connection_id: 'conn-1',
               metadata: {},
             },
           ],
@@ -508,7 +508,7 @@ describe('OAuth Gateway Plugin', () => {
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1', query: 'budget' }, respond });
+      await handler({ params: { connection_id: 'conn-1', query: 'budget' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         files: expect.arrayContaining([
@@ -522,7 +522,7 @@ describe('OAuth Gateway Plugin', () => {
       const handler = methods.get('oauth.files.search')!;
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(false, expect.objectContaining({
         error: expect.stringContaining('query'),
@@ -545,9 +545,9 @@ describe('OAuth Gateway Plugin', () => {
           connections: [{
             id: 'conn-1',
             label: 'Drive',
-            enabledFeatures: ['files'],
-            isActive: true,
-            permissionLevel: 'read',
+            enabled_features: ['files'],
+            is_active: true,
+            permission_level: 'read',
             provider: 'google',
           }],
         }),
@@ -560,24 +560,24 @@ describe('OAuth Gateway Plugin', () => {
           name: 'photo.jpg',
           mimeType: 'image/jpeg',
           size: 2048,
-          isFolder: false,
-          webUrl: 'https://drive.google.com/file/f-1',
-          downloadUrl: 'https://drive.google.com/file/f-1/download',
+          is_folder: false,
+          web_url: 'https://drive.google.com/file/f-1',
+          download_url: 'https://drive.google.com/file/f-1/download',
           provider: 'google',
-          connectionId: 'conn-1',
+          connection_id: 'conn-1',
           metadata: {},
         }),
       });
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1', fileId: 'f-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1', fileId: 'f-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
         connectionLabel: 'Drive',
         file: expect.objectContaining({
           id: 'f-1',
           name: 'photo.jpg',
-          downloadUrl: 'https://drive.google.com/file/f-1/download',
+          download_url: 'https://drive.google.com/file/f-1/download',
         }),
       }));
     });
@@ -587,7 +587,7 @@ describe('OAuth Gateway Plugin', () => {
       const handler = methods.get('oauth.files.get')!;
 
       const respond = vi.fn();
-      await handler({ params: { connectionId: 'conn-1' }, respond });
+      await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(false, expect.objectContaining({
         error: expect.stringContaining('fileId'),

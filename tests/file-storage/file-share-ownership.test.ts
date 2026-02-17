@@ -17,11 +17,11 @@ vi.mock('../../src/api/file-storage/index.ts', async () => {
   const actual = await vi.importActual('../../src/api/file-storage/index.ts');
 
   // Mock storage implementation
-  const mockFiles = new Map<string, { data: Buffer; contentType: string }>();
+  const mockFiles = new Map<string, { data: Buffer; content_type: string }>();
 
   const MockS3Storage = class {
-    async upload(key: string, data: Buffer, contentType: string): Promise<string> {
-      mockFiles.set(key, { data, contentType });
+    async upload(key: string, data: Buffer, content_type: string): Promise<string> {
+      mockFiles.set(key, { data, content_type });
       return key;
     }
 
@@ -98,11 +98,11 @@ describe('File Share Ownership Check (Issue #615)', () => {
   /**
    * Helper to create a file attachment in the database.
    */
-  async function createFileInDb(fileId: string, uploadedBy: string | null): Promise<void> {
+  async function createFileInDb(fileId: string, uploaded_by: string | null): Promise<void> {
     await pool.query(
       `INSERT INTO file_attachment (id, storage_key, original_filename, content_type, size_bytes, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [fileId, `test/${fileId}.txt`, 'test.txt', 'text/plain', 100, uploadedBy],
+      [fileId, `test/${fileId}.txt`, 'test.txt', 'text/plain', 100, uploaded_by],
     );
   }
 
@@ -125,7 +125,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body).toHaveProperty('url');
-      expect(body).toHaveProperty('expiresAt');
+      expect(body).toHaveProperty('expires_at');
     });
 
     it("returns 403 when trying to share another user's file", async () => {
@@ -151,10 +151,10 @@ describe('File Share Ownership Check (Issue #615)', () => {
     });
 
     it('returns 404 when file does not exist', async () => {
-      const userEmail = 'user@example.com';
+      const user_email = 'user@example.com';
       const nonExistentFileId = '00000000-0000-0000-0000-000000000000';
 
-      const token = await createAuthToken(userEmail);
+      const token = await createAuthToken(user_email);
 
       const response = await app.inject({
         method: 'POST',

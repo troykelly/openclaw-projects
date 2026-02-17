@@ -112,7 +112,7 @@ describe('Bulk Operations API', () => {
          VALUES ($1, 'epic', 'backlog') RETURNING id::text as id`,
         ['bulk-test-parent'],
       );
-      const parentId = parentResult.rows[0].id;
+      const parent_id = parentResult.rows[0].id;
 
       const idsToReparent = testItemIds.slice(0, 3);
 
@@ -120,7 +120,7 @@ describe('Bulk Operations API', () => {
         `UPDATE work_item
          SET parent_work_item_id = $1, updated_at = now()
          WHERE id = ANY($2::uuid[])`,
-        [parentId, idsToReparent],
+        [parent_id, idsToReparent],
       );
 
       // Verify reparenting
@@ -131,7 +131,7 @@ describe('Bulk Operations API', () => {
       );
 
       result.rows.forEach((row: { id: string; parent_id: string }) => {
-        expect(row.parent_id).toBe(parentId);
+        expect(row.parent_id).toBe(parent_id);
       });
     });
 
@@ -142,13 +142,13 @@ describe('Bulk Operations API', () => {
          VALUES ($1, 'epic', 'backlog') RETURNING id::text as id`,
         ['bulk-test-parent-2'],
       );
-      const parentId = parentResult.rows[0].id;
+      const parent_id = parentResult.rows[0].id;
 
       await pool.query(
         `UPDATE work_item
          SET parent_work_item_id = $1
          WHERE id = ANY($2::uuid[])`,
-        [parentId, testItemIds.slice(0, 3)],
+        [parent_id, testItemIds.slice(0, 3)],
       );
 
       // Now unparent

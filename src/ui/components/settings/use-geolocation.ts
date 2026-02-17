@@ -29,9 +29,9 @@ export interface GeoProvider {
   maxAgeSeconds: number;
   isShared: boolean;
   lastSeenAt: string | null;
-  deletedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GeoLocation {
@@ -39,10 +39,10 @@ export interface GeoLocation {
   lng: number;
   accuracyM: number | null;
   address: string | null;
-  placeLabel: string | null;
+  place_label: string | null;
   time: string;
   providerId: string;
-  entityId: string | null;
+  entity_id: string | null;
 }
 
 export interface VerifyResult {

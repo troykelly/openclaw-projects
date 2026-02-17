@@ -61,8 +61,8 @@ describe('OAuthCallbackPage', () => {
         JSON.stringify({
           status: 'connected',
           provider: 'microsoft',
-          userEmail: 'user@example.com',
-          connectionId: 'test-id',
+          user_email: 'user@example.com',
+          connection_id: 'test-id',
           scopes: ['contacts'],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -149,8 +149,8 @@ describe('OAuthCallbackPage', () => {
         JSON.stringify({
           status: 'connected',
           provider: 'google',
-          userEmail: 'user@gmail.com',
-          connectionId: 'test-id',
+          user_email: 'user@gmail.com',
+          connection_id: 'test-id',
           scopes: ['contacts'],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -174,8 +174,8 @@ describe('OAuthCallbackPage', () => {
         JSON.stringify({
           status: 'connected',
           provider: 'microsoft',
-          userEmail: 'test@test.com',
-          connectionId: 'id',
+          user_email: 'test@test.com',
+          connection_id: 'id',
           scopes: [],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },

@@ -147,7 +147,7 @@ export interface ContactsResponse {
 
 /** Body for POST /api/contacts and PATCH /api/contacts/:id */
 export interface ContactBody {
-  displayName: string;
+  display_name: string;
   notes?: string;
   preferred_channel?: CommChannel | null;
   quiet_hours_start?: string | null;
@@ -445,10 +445,10 @@ export interface CreateEntityLinkBody {
 /** File attachment metadata */
 export interface MemoryAttachment {
   id: string;
-  originalFilename: string;
-  contentType: string;
-  sizeBytes: number;
-  createdAt: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
   attachedAt: string;
   attachedBy?: string | null;
 }
@@ -688,8 +688,8 @@ export type NoteEmbeddingStatus = 'pending' | 'complete' | 'failed' | 'skipped';
 /** Single note from GET /api/notes or GET /api/notes/:id */
 export interface Note {
   id: string;
-  notebookId: string | null;
-  userEmail: string;
+  notebook_id: string | null;
+  user_email: string;
   title: string;
   content: string;
   summary: string | null;
@@ -698,10 +698,10 @@ export interface Note {
   sortOrder: number;
   visibility: NoteVisibility;
   hideFromAgents: boolean;
-  embeddingStatus: NoteEmbeddingStatus;
-  deletedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  embedding_status: NoteEmbeddingStatus;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
   notebook?: { id: string; name: string } | null;
   versionCount?: number;
 }
@@ -716,7 +716,7 @@ export interface NotesResponse {
 
 /** Query params for GET /api/notes */
 export interface ListNotesParams {
-  notebookId?: string;
+  notebook_id?: string;
   tags?: string[];
   visibility?: NoteVisibility;
   search?: string;
@@ -724,7 +724,7 @@ export interface ListNotesParams {
   includeDeleted?: boolean;
   limit?: number;
   offset?: number;
-  sortBy?: 'createdAt' | 'updatedAt' | 'title';
+  sortBy?: 'created_at' | 'updated_at' | 'title';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -732,7 +732,7 @@ export interface ListNotesParams {
 export interface CreateNoteBody {
   title: string;
   content?: string;
-  notebookId?: string;
+  notebook_id?: string;
   tags?: string[];
   visibility?: NoteVisibility;
   hideFromAgents?: boolean;
@@ -744,7 +744,7 @@ export interface CreateNoteBody {
 export interface UpdateNoteBody {
   title?: string;
   content?: string;
-  notebookId?: string | null;
+  notebook_id?: string | null;
   tags?: string[];
   visibility?: NoteVisibility;
   hideFromAgents?: boolean;
@@ -765,7 +765,7 @@ export interface NoteVersionSummary {
   changedByEmail: string | null;
   changeType: string;
   contentLength: number;
-  createdAt: string;
+  created_at: string;
 }
 
 /** Full note version with content */
@@ -779,7 +779,7 @@ export interface NoteVersion {
   changedByEmail: string | null;
   changeType: string;
   contentLength: number;
-  createdAt: string;
+  created_at: string;
 }
 
 /** Response from GET /api/notes/:id/versions */
@@ -812,12 +812,12 @@ export interface CompareVersionsResponse {
   from: {
     versionNumber: number;
     title: string;
-    createdAt: string;
+    created_at: string;
   };
   to: {
     versionNumber: number;
     title: string;
-    createdAt: string;
+    created_at: string;
   };
   diff: DiffResult;
 }
@@ -843,9 +843,9 @@ interface BaseNoteShare {
   id: string;
   noteId: string;
   permission: SharePermission;
-  expiresAt: string | null;
+  expires_at: string | null;
   createdByEmail: string;
-  createdAt: string;
+  created_at: string;
   lastAccessedAt: string | null;
 }
 
@@ -877,7 +877,7 @@ export interface NoteSharesResponse {
 export interface CreateUserShareBody {
   email: string;
   permission?: SharePermission;
-  expiresAt?: string | null;
+  expires_at?: string | null;
 }
 
 /** Body for POST /api/notes/:id/share/link */
@@ -885,7 +885,7 @@ export interface CreateLinkShareBody {
   permission?: SharePermission;
   isSingleView?: boolean;
   maxViews?: number | null;
-  expiresAt?: string | null;
+  expires_at?: string | null;
 }
 
 /** Response from POST /api/notes/:id/share/link */
@@ -896,7 +896,7 @@ export interface CreateLinkShareResponse extends NoteLinkShare {
 /** Body for PUT /api/notes/:id/shares/:shareId */
 export interface UpdateShareBody {
   permission?: SharePermission;
-  expiresAt?: string | null;
+  expires_at?: string | null;
 }
 
 /** Entry in shared-with-me list */
@@ -921,13 +921,13 @@ export interface SharedWithMeResponse {
 export interface NotebookNote {
   id: string;
   title: string;
-  updatedAt: string;
+  updated_at: string;
 }
 
 /** Notebook from GET /api/notebooks or GET /api/notebooks/:id */
 export interface Notebook {
   id: string;
-  userEmail: string;
+  user_email: string;
   name: string;
   description: string | null;
   icon: string | null;
@@ -935,9 +935,9 @@ export interface Notebook {
   parentNotebookId: string | null;
   sortOrder: number;
   isArchived: boolean;
-  deletedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
   noteCount?: number;
   childCount?: number;
   parent?: { id: string; name: string } | null;
@@ -953,7 +953,7 @@ export interface NotebooksResponse {
 
 /** Query params for GET /api/notebooks */
 export interface ListNotebooksParams {
-  parentId?: string | null;
+  parent_id?: string | null;
   includeArchived?: boolean;
   includeNoteCounts?: boolean;
   includeChildCounts?: boolean;
@@ -1014,11 +1014,11 @@ export interface MoveNotesResponse {
 /** Base notebook share record */
 interface BaseNotebookShare {
   id: string;
-  notebookId: string;
+  notebook_id: string;
   permission: SharePermission;
-  expiresAt: string | null;
+  expires_at: string | null;
   createdByEmail: string;
-  createdAt: string;
+  created_at: string;
   lastAccessedAt: string | null;
 }
 
@@ -1039,7 +1039,7 @@ export type NotebookShare = NotebookUserShare | NotebookLinkShare;
 
 /** Response from GET /api/notebooks/:id/shares */
 export interface NotebookSharesResponse {
-  notebookId: string;
+  notebook_id: string;
   shares: NotebookShare[];
 }
 
@@ -1047,13 +1047,13 @@ export interface NotebookSharesResponse {
 export interface CreateNotebookUserShareBody {
   email: string;
   permission?: SharePermission;
-  expiresAt?: string | null;
+  expires_at?: string | null;
 }
 
 /** Body for POST /api/notebooks/:id/share/link */
 export interface CreateNotebookLinkShareBody {
   permission?: SharePermission;
-  expiresAt?: string | null;
+  expires_at?: string | null;
 }
 
 /** Response from POST /api/notebooks/:id/share/link */
@@ -1064,7 +1064,7 @@ export interface CreateNotebookLinkShareResponse extends NotebookLinkShare {
 /** Body for PUT /api/notebooks/:id/shares/:shareId */
 export interface UpdateNotebookShareBody {
   permission?: SharePermission;
-  expiresAt?: string | null;
+  expires_at?: string | null;
 }
 
 /** Entry in shared-with-me notebooks list */

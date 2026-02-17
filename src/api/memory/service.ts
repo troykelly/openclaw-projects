@@ -28,29 +28,29 @@ const VALID_MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'note', 'decisio
 function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
   return {
     id: row.id as string,
-    userEmail: row.user_email as string | null,
-    workItemId: row.work_item_id as string | null,
-    contactId: row.contact_id as string | null,
-    relationshipId: row.relationship_id as string | null,
-    projectId: row.project_id as string | null,
+    user_email: row.user_email as string | null,
+    work_item_id: row.work_item_id as string | null,
+    contact_id: row.contact_id as string | null,
+    relationship_id: row.relationship_id as string | null,
+    project_id: row.project_id as string | null,
     title: row.title as string,
     content: row.content as string,
-    memoryType: row.memory_type as MemoryType,
+    memory_type: row.memory_type as MemoryType,
     tags: (row.tags as string[]) ?? [],
-    createdByAgent: row.created_by_agent as string | null,
-    createdByHuman: (row.created_by_human as boolean) ?? false,
-    sourceUrl: row.source_url as string | null,
+    created_by_agent: row.created_by_agent as string | null,
+    created_by_human: (row.created_by_human as boolean) ?? false,
+    source_url: row.source_url as string | null,
     importance: row.importance as number,
     confidence: row.confidence as number,
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
-    supersededBy: row.superseded_by as string | null,
-    embeddingStatus: row.embedding_status as 'pending' | 'complete' | 'failed',
+    expires_at: row.expires_at ? new Date(row.expires_at as string) : null,
+    superseded_by: row.superseded_by as string | null,
+    embedding_status: row.embedding_status as 'pending' | 'complete' | 'failed',
     lat: (row.lat as number) ?? null,
     lng: (row.lng as number) ?? null,
     address: (row.address as string) ?? null,
-    placeLabel: (row.place_label as string) ?? null,
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    place_label: (row.place_label as string) ?? null,
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
   };
 }
 
@@ -120,17 +120,17 @@ function normalizeImportance(value: number | undefined): number {
  * Issue #1143
  */
 export async function createMemory(pool: Pool, input: CreateMemoryInput): Promise<MemoryEntry> {
-  const memoryType = input.memoryType ?? 'note';
+  const memory_type = input.memory_type ?? 'note';
 
-  if (!isValidMemoryType(memoryType)) {
-    throw new Error(`Invalid memory type: ${memoryType}. Valid types are: ${VALID_MEMORY_TYPES.join(', ')}`);
+  if (!isValidMemoryType(memory_type)) {
+    throw new Error(`Invalid memory type: ${memory_type}. Valid types are: ${VALID_MEMORY_TYPES.join(', ')}`);
   }
 
   // At least one scope should be set
-  if (!input.userEmail && !input.workItemId && !input.contactId && !input.relationshipId && !input.projectId) {
+  if (!input.user_email && !input.work_item_id && !input.contact_id && !input.relationship_id && !input.project_id) {
     // Default to requiring at least some scope for organization
     // For now, allow completely unscoped memories but log a warning
-    console.warn('[Memory] Creating memory without scope - consider adding userEmail, workItemId, contactId, relationshipId, or projectId');
+    console.warn('[Memory] Creating memory without scope - consider adding user_email, work_item_id, contact_id, relationship_id, or project_id');
   }
 
   const tags = input.tags ?? [];
@@ -145,41 +145,41 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   let paramIndex = 2;
 
   // Only check within the same scope (same user_email, work_item_id, contact_id, relationship_id)
-  if (input.userEmail !== undefined) {
+  if (input.user_email !== undefined) {
     scopeConditions.push(`user_email = $${paramIndex}`);
-    scopeParams.push(input.userEmail);
+    scopeParams.push(input.user_email);
     paramIndex++;
   } else {
     scopeConditions.push('user_email IS NULL');
   }
 
-  if (input.workItemId !== undefined) {
+  if (input.work_item_id !== undefined) {
     scopeConditions.push(`work_item_id = $${paramIndex}`);
-    scopeParams.push(input.workItemId);
+    scopeParams.push(input.work_item_id);
     paramIndex++;
   } else {
     scopeConditions.push('work_item_id IS NULL');
   }
 
-  if (input.contactId !== undefined) {
+  if (input.contact_id !== undefined) {
     scopeConditions.push(`contact_id = $${paramIndex}`);
-    scopeParams.push(input.contactId);
+    scopeParams.push(input.contact_id);
     paramIndex++;
   } else {
     scopeConditions.push('contact_id IS NULL');
   }
 
-  if (input.relationshipId !== undefined) {
+  if (input.relationship_id !== undefined) {
     scopeConditions.push(`relationship_id = $${paramIndex}`);
-    scopeParams.push(input.relationshipId);
+    scopeParams.push(input.relationship_id);
     paramIndex++;
   } else {
     scopeConditions.push('relationship_id IS NULL');
   }
 
-  if (input.projectId !== undefined) {
+  if (input.project_id !== undefined) {
     scopeConditions.push(`project_id = $${paramIndex}`);
-    scopeParams.push(input.projectId);
+    scopeParams.push(input.project_id);
     paramIndex++;
   } else {
     scopeConditions.push('project_id IS NULL');
@@ -235,25 +235,25 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, lat, lng, address, place_label, created_at, updated_at`,
     [
-      input.userEmail ?? null,
-      input.workItemId ?? null,
-      input.contactId ?? null,
-      input.relationshipId ?? null,
-      input.projectId ?? null,
+      input.user_email ?? null,
+      input.work_item_id ?? null,
+      input.contact_id ?? null,
+      input.relationship_id ?? null,
+      input.project_id ?? null,
       input.title,
       input.content,
-      memoryType,
+      memory_type,
       tags,
-      input.createdByAgent ?? null,
-      input.createdByHuman ?? false,
-      input.sourceUrl ?? null,
+      input.created_by_agent ?? null,
+      input.created_by_human ?? false,
+      input.source_url ?? null,
       normalizeImportance(input.importance),
       input.confidence ?? 1.0,
-      input.expiresAt ?? null,
+      input.expires_at ?? null,
       input.lat ?? null,
       input.lng ?? null,
       input.address ?? null,
-      input.placeLabel ?? null,
+      input.place_label ?? null,
     ],
   );
 
@@ -305,12 +305,12 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
     updates.push(`embedding_status = 'pending'`);
   }
 
-  if (input.memoryType !== undefined) {
-    if (!isValidMemoryType(input.memoryType)) {
-      throw new Error(`Invalid memory type: ${input.memoryType}`);
+  if (input.memory_type !== undefined) {
+    if (!isValidMemoryType(input.memory_type)) {
+      throw new Error(`Invalid memory type: ${input.memory_type}`);
     }
     updates.push(`memory_type = $${paramIndex}::memory_type`);
-    params.push(input.memoryType);
+    params.push(input.memory_type);
     paramIndex++;
   }
 
@@ -338,15 +338,15 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
     paramIndex++;
   }
 
-  if (input.expiresAt !== undefined) {
+  if (input.expires_at !== undefined) {
     updates.push(`expires_at = $${paramIndex}`);
-    params.push(input.expiresAt);
+    params.push(input.expires_at);
     paramIndex++;
   }
 
-  if (input.supersededBy !== undefined) {
+  if (input.superseded_by !== undefined) {
     updates.push(`superseded_by = $${paramIndex}`);
-    params.push(input.supersededBy);
+    params.push(input.superseded_by);
     paramIndex++;
   }
 
@@ -392,40 +392,40 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
   let paramIndex = 1;
 
   // Scope filters
-  if (options.userEmail !== undefined) {
+  if (options.user_email !== undefined) {
     conditions.push(`user_email = $${paramIndex}`);
-    params.push(options.userEmail);
+    params.push(options.user_email);
     paramIndex++;
   }
 
-  if (options.workItemId !== undefined) {
+  if (options.work_item_id !== undefined) {
     conditions.push(`work_item_id = $${paramIndex}`);
-    params.push(options.workItemId);
+    params.push(options.work_item_id);
     paramIndex++;
   }
 
-  if (options.contactId !== undefined) {
+  if (options.contact_id !== undefined) {
     conditions.push(`contact_id = $${paramIndex}`);
-    params.push(options.contactId);
+    params.push(options.contact_id);
     paramIndex++;
   }
 
-  if (options.relationshipId !== undefined) {
+  if (options.relationship_id !== undefined) {
     conditions.push(`relationship_id = $${paramIndex}`);
-    params.push(options.relationshipId);
+    params.push(options.relationship_id);
     paramIndex++;
   }
 
-  if (options.projectId !== undefined) {
+  if (options.project_id !== undefined) {
     conditions.push(`project_id = $${paramIndex}`);
-    params.push(options.projectId);
+    params.push(options.project_id);
     paramIndex++;
   }
 
   // Type filter
-  if (options.memoryType !== undefined) {
+  if (options.memory_type !== undefined) {
     conditions.push(`memory_type = $${paramIndex}::memory_type`);
-    params.push(options.memoryType);
+    params.push(options.memory_type);
     paramIndex++;
   }
 
@@ -437,24 +437,24 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
   }
 
   // Exclude expired unless requested
-  if (!options.includeExpired) {
+  if (!options.include_expired) {
     conditions.push('(expires_at IS NULL OR expires_at > NOW())');
   }
 
   // Exclude superseded unless requested
-  if (!options.includeSuperseded) {
+  if (!options.include_superseded) {
     conditions.push('superseded_by IS NULL');
   }
 
   // Temporal filters (issue #1272)
-  if (options.createdAfter !== undefined) {
+  if (options.created_after !== undefined) {
     conditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.createdAfter.toISOString());
+    params.push(options.created_after.toISOString());
     paramIndex++;
   }
-  if (options.createdBefore !== undefined) {
+  if (options.created_before !== undefined) {
     conditions.push(`created_at < $${paramIndex}`);
-    params.push(options.createdBefore.toISOString());
+    params.push(options.created_before.toISOString());
     paramIndex++;
   }
 
@@ -495,8 +495,8 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
  */
 export async function getGlobalMemories(
   pool: Pool,
-  userEmail: string,
-  options: { memoryType?: MemoryType; limit?: number; offset?: number } = {},
+  user_email: string,
+  options: { memory_type?: MemoryType; limit?: number; offset?: number } = {},
 ): Promise<ListMemoriesResult> {
   const conditions: string[] = [
     'user_email = $1',
@@ -507,12 +507,12 @@ export async function getGlobalMemories(
     '(expires_at IS NULL OR expires_at > NOW())',
     'superseded_by IS NULL',
   ];
-  const params: unknown[] = [userEmail];
+  const params: unknown[] = [user_email];
   let paramIndex = 2;
 
-  if (options.memoryType !== undefined) {
+  if (options.memory_type !== undefined) {
     conditions.push(`memory_type = $${paramIndex}::memory_type`);
-    params.push(options.memoryType);
+    params.push(options.memory_type);
     paramIndex++;
   }
 
@@ -665,7 +665,7 @@ function applyKeywordBoost<T extends { similarity: number; content: string }>(re
 export async function searchMemories(pool: Pool, query: string, options: SearchMemoriesOptions = {}): Promise<MemorySearchResult> {
   const limit = Math.min(options.limit ?? 20, 100);
   const offset = options.offset ?? 0;
-  const minSimilarity = options.minSimilarity ?? 0.3;
+  const min_similarity = options.min_similarity ?? 0.3;
 
   // Try semantic search first
   try {
@@ -677,39 +677,39 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
       if (embeddingResult) {
         const queryEmbedding = embeddingResult.embedding;
         // Build semantic search conditions with proper indexing
-        // $1 = embedding, $2 = minSimilarity, then filter params, then limit/offset
+        // $1 = embedding, $2 = min_similarity, then filter params, then limit/offset
         const semanticConditions: string[] = ['(expires_at IS NULL OR expires_at > NOW())', 'superseded_by IS NULL'];
         const semanticParams: unknown[] = [];
-        let semanticIdx = 3; // Start after embedding and minSimilarity
+        let semanticIdx = 3; // Start after embedding and min_similarity
 
-        if (options.userEmail !== undefined) {
+        if (options.user_email !== undefined) {
           semanticConditions.push(`user_email = $${semanticIdx}`);
-          semanticParams.push(options.userEmail);
+          semanticParams.push(options.user_email);
           semanticIdx++;
         }
-        if (options.workItemId !== undefined) {
+        if (options.work_item_id !== undefined) {
           semanticConditions.push(`work_item_id = $${semanticIdx}`);
-          semanticParams.push(options.workItemId);
+          semanticParams.push(options.work_item_id);
           semanticIdx++;
         }
-        if (options.contactId !== undefined) {
+        if (options.contact_id !== undefined) {
           semanticConditions.push(`contact_id = $${semanticIdx}`);
-          semanticParams.push(options.contactId);
+          semanticParams.push(options.contact_id);
           semanticIdx++;
         }
-        if (options.relationshipId !== undefined) {
+        if (options.relationship_id !== undefined) {
           semanticConditions.push(`relationship_id = $${semanticIdx}`);
-          semanticParams.push(options.relationshipId);
+          semanticParams.push(options.relationship_id);
           semanticIdx++;
         }
-        if (options.projectId !== undefined) {
+        if (options.project_id !== undefined) {
           semanticConditions.push(`project_id = $${semanticIdx}`);
-          semanticParams.push(options.projectId);
+          semanticParams.push(options.project_id);
           semanticIdx++;
         }
-        if (options.memoryType !== undefined) {
+        if (options.memory_type !== undefined) {
           semanticConditions.push(`memory_type = $${semanticIdx}::memory_type`);
-          semanticParams.push(options.memoryType);
+          semanticParams.push(options.memory_type);
           semanticIdx++;
         }
         if (options.tags !== undefined && options.tags.length > 0) {
@@ -718,19 +718,19 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
           semanticIdx++;
         }
         // Temporal filters (issue #1272)
-        if (options.createdAfter !== undefined) {
+        if (options.created_after !== undefined) {
           semanticConditions.push(`created_at >= $${semanticIdx}`);
-          semanticParams.push(options.createdAfter.toISOString());
+          semanticParams.push(options.created_after.toISOString());
           semanticIdx++;
         }
-        if (options.createdBefore !== undefined) {
+        if (options.created_before !== undefined) {
           semanticConditions.push(`created_at < $${semanticIdx}`);
-          semanticParams.push(options.createdBefore.toISOString());
+          semanticParams.push(options.created_before.toISOString());
           semanticIdx++;
         }
 
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
-        const allParams = [embeddingStr, minSimilarity, ...semanticParams, limit, offset];
+        const allParams = [embeddingStr, min_similarity, ...semanticParams, limit, offset];
         const whereClause = semanticConditions.length > 0 ? `AND ${semanticConditions.join(' AND ')}` : '';
 
         const result = await pool.query(
@@ -761,8 +761,8 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
 
         return {
           results: boostedResults,
-          searchType: 'semantic',
-          queryEmbeddingProvider: embeddingResult.provider,
+          search_type: 'semantic',
+          query_embedding_provider: embeddingResult.provider,
         };
       }
     }
@@ -777,34 +777,34 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
   const textParams: unknown[] = [query];
   let textIdx = 2; // Start after query
 
-  if (options.userEmail !== undefined) {
+  if (options.user_email !== undefined) {
     textConditions.push(`user_email = $${textIdx}`);
-    textParams.push(options.userEmail);
+    textParams.push(options.user_email);
     textIdx++;
   }
-  if (options.workItemId !== undefined) {
+  if (options.work_item_id !== undefined) {
     textConditions.push(`work_item_id = $${textIdx}`);
-    textParams.push(options.workItemId);
+    textParams.push(options.work_item_id);
     textIdx++;
   }
-  if (options.contactId !== undefined) {
+  if (options.contact_id !== undefined) {
     textConditions.push(`contact_id = $${textIdx}`);
-    textParams.push(options.contactId);
+    textParams.push(options.contact_id);
     textIdx++;
   }
-  if (options.relationshipId !== undefined) {
+  if (options.relationship_id !== undefined) {
     textConditions.push(`relationship_id = $${textIdx}`);
-    textParams.push(options.relationshipId);
+    textParams.push(options.relationship_id);
     textIdx++;
   }
-  if (options.projectId !== undefined) {
+  if (options.project_id !== undefined) {
     textConditions.push(`project_id = $${textIdx}`);
-    textParams.push(options.projectId);
+    textParams.push(options.project_id);
     textIdx++;
   }
-  if (options.memoryType !== undefined) {
+  if (options.memory_type !== undefined) {
     textConditions.push(`memory_type = $${textIdx}::memory_type`);
-    textParams.push(options.memoryType);
+    textParams.push(options.memory_type);
     textIdx++;
   }
   if (options.tags !== undefined && options.tags.length > 0) {
@@ -813,14 +813,14 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
     textIdx++;
   }
   // Temporal filters (issue #1272)
-  if (options.createdAfter !== undefined) {
+  if (options.created_after !== undefined) {
     textConditions.push(`created_at >= $${textIdx}`);
-    textParams.push(options.createdAfter.toISOString());
+    textParams.push(options.created_after.toISOString());
     textIdx++;
   }
-  if (options.createdBefore !== undefined) {
+  if (options.created_before !== undefined) {
     textConditions.push(`created_at < $${textIdx}`);
-    textParams.push(options.createdBefore.toISOString());
+    textParams.push(options.created_before.toISOString());
     textIdx++;
   }
 
@@ -848,6 +848,6 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
       ...mapRowToMemory(row as Record<string, unknown>),
       similarity: Number.parseFloat(row.similarity as string),
     })),
-    searchType: 'text',
+    search_type: 'text',
   };
 }

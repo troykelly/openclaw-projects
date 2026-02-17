@@ -19,16 +19,16 @@ export const EmailSendParamsSchema = z.object({
   to: z.string().regex(EMAIL_REGEX, 'Invalid email address format'),
   subject: z.string().min(1, 'Subject cannot be empty').max(MAX_SUBJECT_LENGTH, `Subject must be ${MAX_SUBJECT_LENGTH} characters or less`),
   body: z.string().min(1, 'Email body cannot be empty'),
-  htmlBody: z.string().optional(),
-  threadId: z.string().optional(),
-  idempotencyKey: z.string().optional(),
+  html_body: z.string().optional(),
+  thread_id: z.string().optional(),
+  idempotency_key: z.string().optional(),
 });
 export type EmailSendParams = z.infer<typeof EmailSendParamsSchema>;
 
 /** Email send response from API */
 interface EmailSendApiResponse {
-  messageId: string;
-  threadId?: string;
+  message_id: string;
+  thread_id?: string;
   status: 'queued' | 'sending' | 'sent' | 'failed' | 'delivered';
 }
 
@@ -38,10 +38,10 @@ export interface EmailSendSuccess {
   data: {
     content: string;
     details: {
-      messageId: string;
-      threadId?: string;
+      message_id: string;
+      thread_id?: string;
       status: string;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -60,7 +60,7 @@ export interface EmailSendToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -87,7 +87,7 @@ function sanitizeErrorMessage(error: unknown): string {
  * Creates the email_send tool.
  */
 export function createEmailSendTool(options: EmailSendToolOptions): EmailSendTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'email_send',
@@ -102,16 +102,16 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
         return { success: false, error: errorMessage };
       }
 
-      const { to, subject, body, htmlBody, threadId, idempotencyKey } = parseResult.data;
+      const { to, subject, body, html_body, thread_id, idempotency_key } = parseResult.data;
 
       // Log invocation (without email address for privacy)
       logger.info('email_send invoked', {
-        userId,
+        user_id,
         subjectLength: subject.length,
         bodyLength: body.length,
-        hasHtmlBody: !!htmlBody,
-        hasThreadId: !!threadId,
-        hasIdempotencyKey: !!idempotencyKey,
+        hasHtmlBody: !!html_body,
+        hasThreadId: !!thread_id,
+        hasIdempotencyKey: !!idempotency_key,
       });
 
       try {
@@ -122,16 +122,16 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
             to,
             subject,
             body,
-            htmlBody,
-            threadId,
-            idempotencyKey,
+            html_body,
+            thread_id,
+            idempotency_key,
           },
-          { userId },
+          { user_id },
         );
 
         if (!response.success) {
           logger.error('email_send API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -141,29 +141,29 @@ export function createEmailSendTool(options: EmailSendToolOptions): EmailSendToo
           };
         }
 
-        const { messageId, threadId: responseThreadId, status } = response.data;
+        const { message_id, thread_id: responseThreadId, status } = response.data;
 
         logger.debug('email_send completed', {
-          userId,
-          messageId,
+          user_id,
+          message_id,
           status,
         });
 
         return {
           success: true,
           data: {
-            content: `Email sent successfully (ID: ${messageId}, Status: ${status})`,
+            content: `Email sent successfully (ID: ${message_id}, Status: ${status})`,
             details: {
-              messageId,
-              threadId: responseThreadId,
+              message_id,
+              thread_id: responseThreadId,
               status,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('email_send failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 

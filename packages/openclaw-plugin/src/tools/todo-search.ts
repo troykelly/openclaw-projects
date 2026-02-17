@@ -45,8 +45,8 @@ export interface TodoSearchSuccess {
     details: {
       count: number;
       results: TodoSearchItem[];
-      searchType: string;
-      userId: string;
+      search_type: string;
+      user_id: string;
     };
   };
 }
@@ -64,7 +64,7 @@ export interface TodoSearchToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -86,7 +86,7 @@ function sanitizeQuery(query: string): string {
  * Creates the todo_search tool.
  */
 export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearchTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'todo_search',
@@ -111,7 +111,7 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
       }
 
       logger.info('todo_search invoked', {
-        userId,
+        user_id,
         queryLength: sanitizedQuery.length,
         limit,
         kind: kind ?? 'all',
@@ -125,14 +125,14 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
         if (location && config.nominatimUrl) {
           try {
             const geo = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
-            if (geo?.placeLabel) {
-              const augmented = `${sanitizedQuery} near ${geo.placeLabel}`;
+            if (geo?.place_label) {
+              const augmented = `${sanitizedQuery} near ${geo.place_label}`;
               if (augmented.length <= 1000) {
                 searchQuery = augmented;
               }
             }
           } catch {
-            logger.warn('Reverse geocode failed, proceeding without location augmentation', { userId });
+            logger.warn('Reverse geocode failed, proceeding without location augmentation', { user_id });
           }
         }
 
@@ -144,7 +144,7 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
           types: 'work_item',
           limit: String(fetchLimit),
           semantic: 'true',
-          user_email: userId, // Issue #1216: scope results to current user
+          user_email: user_id, // Issue #1216: scope results to current user
         });
 
         const response = await client.get<{
@@ -158,11 +158,11 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
           }>;
           search_type: string;
           total: number;
-        }>(`/api/search?${queryParams.toString()}`, { userId });
+        }>(`/api/search?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('todo_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -200,8 +200,8 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
               details: {
                 count: 0,
                 results: [],
-                searchType: response.data.search_type,
-                userId,
+                search_type: response.data.search_type,
+                user_id,
               },
             },
           };
@@ -217,9 +217,9 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
           .join('\n');
 
         logger.debug('todo_search completed', {
-          userId,
+          user_id,
           resultCount: items.length,
-          searchType: response.data.search_type,
+          search_type: response.data.search_type,
         });
 
         return {
@@ -229,14 +229,14 @@ export function createTodoSearchTool(options: TodoSearchToolOptions): TodoSearch
             details: {
               count: items.length,
               results: items,
-              searchType: response.data.search_type,
-              userId,
+              search_type: response.data.search_type,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('todo_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

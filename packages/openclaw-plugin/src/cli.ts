@@ -15,7 +15,7 @@ export interface CliContext {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Result from a CLI command */
@@ -75,7 +75,7 @@ export function createStatusCommand(ctx: CliContext): () => Promise<CommandResul
   const { client, logger, config } = ctx;
 
   return async (): Promise<CommandResult<StatusData>> => {
-    logger.info('CLI status command invoked', { userId: ctx.userId });
+    logger.info('CLI status command invoked', { user_id: ctx.user_id });
 
     try {
       const response = await client.healthCheck();
@@ -119,10 +119,10 @@ export function createStatusCommand(ctx: CliContext): () => Promise<CommandResul
  * Displays current user scoping configuration.
  */
 export function createUsersCommand(ctx: CliContext): () => Promise<CommandResult<UsersData>> {
-  const { logger, config, userId } = ctx;
+  const { logger, config, user_id } = ctx;
 
   return async (): Promise<CommandResult<UsersData>> => {
-    logger.info('CLI users command invoked', { userId });
+    logger.info('CLI users command invoked', { user_id });
 
     const scopingMode = config.userScoping;
     const description = SCOPING_DESCRIPTIONS[scopingMode] ?? 'Unknown scoping mode';
@@ -133,7 +133,7 @@ export function createUsersCommand(ctx: CliContext): () => Promise<CommandResult
       data: {
         scopingMode,
         description,
-        currentUserId: userId,
+        currentUserId: user_id,
       },
     };
   };
@@ -144,14 +144,14 @@ export function createUsersCommand(ctx: CliContext): () => Promise<CommandResult
  * Searches memories using the /api/memories/search endpoint.
  */
 export function createRecallCommand(ctx: CliContext): (options: RecallOptions) => Promise<CommandResult<RecallData>> {
-  const { client, logger, config, userId } = ctx;
+  const { client, logger, config, user_id } = ctx;
 
   return async (options: RecallOptions): Promise<CommandResult<RecallData>> => {
     const { query, limit = config.maxRecallMemories ?? DEFAULT_RECALL_LIMIT } = options;
 
     // Log without query content for privacy
     logger.info('CLI recall command invoked', {
-      userId,
+      user_id,
       queryLength: query?.length ?? 0,
       limit,
     });
@@ -169,11 +169,11 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
         limit: String(limit),
       });
 
-      const response = await client.get<{ memories: MemoryItem[] }>(`/api/memories/search?${queryParams.toString()}`, { userId });
+      const response = await client.get<{ memories: MemoryItem[] }>(`/api/memories/search?${queryParams.toString()}`, { user_id });
 
       if (!response.success) {
         logger.error('CLI recall command API error', {
-          userId,
+          user_id,
           status: response.error.status,
           code: response.error.code,
         });
@@ -197,7 +197,7 @@ export function createRecallCommand(ctx: CliContext): (options: RecallOptions) =
       };
     } catch (error) {
       logger.error('CLI recall command error', {
-        userId,
+        user_id,
         error: error instanceof Error ? error.message : String(error),
       });
 

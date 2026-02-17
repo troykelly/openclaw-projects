@@ -21,7 +21,7 @@ export interface ThemeProviderProps {
   /** Default theme when no stored preference exists. Defaults to 'system'. */
   defaultTheme?: Theme;
   /** localStorage key for theme persistence. Defaults to 'openclaw-theme'. */
-  storageKey?: string;
+  storage_key?: string;
   /** Enable 200ms CSS transitions when switching themes. Defaults to true. */
   enableTransitions?: boolean;
 }
@@ -56,10 +56,10 @@ function resolveTheme(theme: Theme, systemIsDark: boolean): ResolvedTheme {
  * Read the initial theme from localStorage, falling back to defaultTheme.
  * Validates that the stored value is a valid Theme.
  */
-function getInitialTheme(storageKey: string, defaultTheme: Theme): Theme {
+function getInitialTheme(storage_key: string, defaultTheme: Theme): Theme {
   if (typeof window === 'undefined') return defaultTheme;
   try {
-    const stored = localStorage.getItem(storageKey);
+    const stored = localStorage.getItem(storage_key);
     if (stored === 'light' || stored === 'dark' || stored === 'oled' || stored === 'system') {
       return stored;
     }
@@ -86,8 +86,8 @@ function applyThemeClasses(theme: Theme, systemIsDark: boolean): void {
   // light: no classes needed
 }
 
-export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 'openclaw-theme', enableTransitions = true }: ThemeProviderProps) {
-  const [theme, setThemeState] = React.useState<Theme>(() => getInitialTheme(storageKey, defaultTheme));
+export function ThemeProvider({ children, defaultTheme = 'system', storage_key = 'openclaw-theme', enableTransitions = true }: ThemeProviderProps) {
+  const [theme, setThemeState] = React.useState<Theme>(() => getInitialTheme(storage_key, defaultTheme));
 
   const [systemIsDark, setSystemIsDark] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -126,12 +126,12 @@ export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 
     (newTheme: Theme) => {
       setThemeState(newTheme);
       try {
-        localStorage.setItem(storageKey, newTheme);
+        localStorage.setItem(storage_key, newTheme);
       } catch {
         // localStorage may be unavailable
       }
     },
-    [storageKey],
+    [storage_key],
   );
 
   const toggleTheme = React.useCallback(() => {

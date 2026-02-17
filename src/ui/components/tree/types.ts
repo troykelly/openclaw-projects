@@ -7,7 +7,7 @@ export interface TreeItem {
   title: string;
   kind: TreeItemKind;
   status: TreeItemStatus;
-  parentId: string | null;
+  parent_id: string | null;
   childCount?: number;
   children?: TreeItem[];
 }
@@ -18,12 +18,12 @@ export interface TreeState {
 }
 
 export interface TreeDragData {
-  itemId: string;
+  item_id: string;
   kind: TreeItemKind;
-  parentId: string | null;
+  parent_id: string | null;
 }
 
 export interface TreeDropTarget {
-  itemId: string;
+  item_id: string;
   position: 'before' | 'after' | 'inside';
 }

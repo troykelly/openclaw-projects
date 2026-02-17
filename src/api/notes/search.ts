@@ -18,28 +18,28 @@ export interface SearchResult {
   title: string;
   snippet: string;
   score: number;
-  notebookId: string | null;
-  notebookName: string | null;
+  notebook_id: string | null;
+  notebook_name: string | null;
   tags: string[];
   visibility: NoteVisibility;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface SearchOptions {
-  searchType?: 'hybrid' | 'text' | 'semantic';
-  notebookId?: string;
+  search_type?: 'hybrid' | 'text' | 'semantic';
+  notebook_id?: string;
   tags?: string[];
   visibility?: NoteVisibility;
   limit?: number;
   offset?: number;
-  minSimilarity?: number;
-  isAgent?: boolean;
+  min_similarity?: number;
+  is_agent?: boolean;
 }
 
 export interface SearchResponse {
   query: string;
-  searchType: 'hybrid' | 'text' | 'semantic';
+  search_type: 'hybrid' | 'text' | 'semantic';
   results: SearchResult[];
   total: number;
   limit: number;
@@ -63,7 +63,7 @@ export interface SimilarNotesResponse {
  * Handles owner, shared, public visibility and agent filtering.
  */
 function buildAccessConditions(
-  userEmail: string,
+  user_email: string,
   isAgent: boolean,
   paramIndex: number,
 ): { conditions: string[]; params: (string | boolean)[]; nextIndex: number } {
@@ -90,7 +90,7 @@ function buildAccessConditions(
         AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
     ))
   )`);
-  params.push(userEmail);
+  params.push(user_email);
   paramIndex++;
 
   // Agent filtering: agents cannot see private notes or notes with hideFromAgents
@@ -107,12 +107,12 @@ function buildAccessConditions(
 export async function textSearch(
   pool: Pool,
   query: string,
-  userEmail: string,
+  user_email: string,
   options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
-  const { notebookId, tags, visibility, limit = 20, offset = 0, isAgent = false } = options;
+  const { notebook_id, tags, visibility, limit = 20, offset = 0, is_agent = false } = options;
 
-  const { conditions, params, nextIndex } = buildAccessConditions(userEmail, isAgent, 1);
+  const { conditions, params, nextIndex } = buildAccessConditions(user_email, is_agent, 1);
   let paramIndex = nextIndex;
 
   // Add query parameter
@@ -120,9 +120,9 @@ export async function textSearch(
   const queryParamIndex = paramIndex++;
 
   // Add optional filters
-  if (notebookId) {
+  if (notebook_id) {
     conditions.push(`n.notebook_id = $${paramIndex}`);
-    params.push(notebookId);
+    params.push(notebook_id);
     paramIndex++;
   }
 
@@ -164,12 +164,12 @@ export async function textSearch(
       n.id::text,
       n.title,
       n.content,
-      n.notebook_id::text as "notebookId",
-      nb.name as "notebookName",
+      n.notebook_id::text as "notebook_id",
+      nb.name as "notebook_name",
       n.tags,
       n.visibility,
-      n.created_at as "createdAt",
-      n.updated_at as "updatedAt",
+      n.created_at as "created_at",
+      n.updated_at as "updated_at",
       ts_rank_cd(n.search_vector, websearch_to_tsquery('english', $${queryParamIndex}), 32) as score,
       ts_headline('english', n.content, websearch_to_tsquery('english', $${queryParamIndex}),
         'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=25, MaxFragments=2'
@@ -188,12 +188,12 @@ export async function textSearch(
       title: row.title,
       snippet: row.snippet || row.content?.substring(0, 200) || '',
       score: parseFloat(row.score) || 0,
-      notebookId: row.notebookId,
-      notebookName: row.notebookName,
+      notebook_id: row.notebook_id,
+      notebook_name: row.notebook_name,
       tags: row.tags || [],
       visibility: row.visibility,
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt),
+      created_at: new Date(row.created_at),
+      updated_at: new Date(row.updated_at),
     })),
     total,
   };
@@ -205,10 +205,10 @@ export async function textSearch(
 export async function semanticSearch(
   pool: Pool,
   query: string,
-  userEmail: string,
+  user_email: string,
   options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
-  const { notebookId, tags, visibility, limit = 20, offset = 0, minSimilarity = 0.3, isAgent = false } = options;
+  const { notebook_id, tags, visibility, limit = 20, offset = 0, min_similarity = 0.3, is_agent = false } = options;
 
   // Import embedding service lazily
   const { embeddingService } = await import('../embeddings/service.ts');
@@ -216,7 +216,7 @@ export async function semanticSearch(
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Fall back to text search
-    return textSearch(pool, query, userEmail, options);
+    return textSearch(pool, query, user_email, options);
   }
 
   // Generate embedding for query
@@ -228,23 +228,23 @@ export async function semanticSearch(
     }
   } catch (error) {
     console.warn('[Search] Query embedding failed, falling back to text search');
-    return textSearch(pool, query, userEmail, options);
+    return textSearch(pool, query, user_email, options);
   }
 
   if (!queryEmbedding) {
-    return textSearch(pool, query, userEmail, options);
+    return textSearch(pool, query, user_email, options);
   }
 
-  const { conditions, params, nextIndex } = buildAccessConditions(userEmail, isAgent, 1);
+  const { conditions, params, nextIndex } = buildAccessConditions(user_email, is_agent, 1);
   let paramIndex = nextIndex;
 
   // Add embedding condition
   conditions.push(`n.embedding IS NOT NULL AND n.embedding_status = 'complete'`);
 
   // Add optional filters
-  if (notebookId) {
+  if (notebook_id) {
     conditions.push(`n.notebook_id = $${paramIndex}`);
-    params.push(notebookId);
+    params.push(notebook_id);
     paramIndex++;
   }
 
@@ -266,7 +266,7 @@ export async function semanticSearch(
   const embeddingParamIndex = paramIndex++;
 
   // Add similarity threshold
-  params.push(minSimilarity as unknown as string);
+  params.push(min_similarity as unknown as string);
   const minSimParamIndex = paramIndex++;
 
   const whereClause = conditions.join(' AND ');
@@ -293,12 +293,12 @@ export async function semanticSearch(
       n.id::text,
       n.title,
       n.content,
-      n.notebook_id::text as "notebookId",
-      nb.name as "notebookName",
+      n.notebook_id::text as "notebook_id",
+      nb.name as "notebook_name",
       n.tags,
       n.visibility,
-      n.created_at as "createdAt",
-      n.updated_at as "updatedAt",
+      n.created_at as "created_at",
+      n.updated_at as "updated_at",
       1 - (n.embedding <=> $${embeddingParamIndex}::vector) as score,
       LEFT(n.content, 200) as snippet
     FROM note n
@@ -315,12 +315,12 @@ export async function semanticSearch(
       title: row.title,
       snippet: row.snippet || '',
       score: parseFloat(row.score) || 0,
-      notebookId: row.notebookId,
-      notebookName: row.notebookName,
+      notebook_id: row.notebook_id,
+      notebook_name: row.notebook_name,
       tags: row.tags || [],
       visibility: row.visibility,
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt),
+      created_at: new Date(row.created_at),
+      updated_at: new Date(row.updated_at),
     })),
     total,
   };
@@ -364,7 +364,7 @@ function reciprocalRankFusion(textResults: SearchResult[], semanticResults: Sear
 export async function hybridSearch(
   pool: Pool,
   query: string,
-  userEmail: string,
+  user_email: string,
   options: SearchOptions = {},
 ): Promise<{ results: SearchResult[]; total: number }> {
   const { limit = 20, offset = 0 } = options;
@@ -372,8 +372,8 @@ export async function hybridSearch(
   // Run both searches in parallel, fetching more results for fusion
   const fetchLimit = Math.max(limit * 2, 40);
   const [textResult, semanticResult] = await Promise.all([
-    textSearch(pool, query, userEmail, { ...options, limit: fetchLimit, offset: 0 }),
-    semanticSearch(pool, query, userEmail, { ...options, limit: fetchLimit, offset: 0 }),
+    textSearch(pool, query, user_email, { ...options, limit: fetchLimit, offset: 0 }),
+    semanticSearch(pool, query, user_email, { ...options, limit: fetchLimit, offset: 0 }),
   ]);
 
   // Combine with RRF
@@ -394,27 +394,27 @@ export async function hybridSearch(
 /**
  * Main search function that routes to appropriate search method.
  */
-export async function searchNotes(pool: Pool, query: string, userEmail: string, options: SearchOptions = {}): Promise<SearchResponse> {
-  const { searchType = 'hybrid', limit = 20, offset = 0 } = options;
+export async function searchNotes(pool: Pool, query: string, user_email: string, options: SearchOptions = {}): Promise<SearchResponse> {
+  const { search_type = 'hybrid', limit = 20, offset = 0 } = options;
 
   let result: { results: SearchResult[]; total: number };
 
-  switch (searchType) {
+  switch (search_type) {
     case 'text':
-      result = await textSearch(pool, query, userEmail, options);
+      result = await textSearch(pool, query, user_email, options);
       break;
     case 'semantic':
-      result = await semanticSearch(pool, query, userEmail, options);
+      result = await semanticSearch(pool, query, user_email, options);
       break;
     case 'hybrid':
     default:
-      result = await hybridSearch(pool, query, userEmail, options);
+      result = await hybridSearch(pool, query, user_email, options);
       break;
   }
 
   return {
     query,
-    searchType,
+    search_type,
     results: result.results,
     total: result.total,
     limit,
@@ -428,10 +428,10 @@ export async function searchNotes(pool: Pool, query: string, userEmail: string, 
 export async function findSimilarNotes(
   pool: Pool,
   noteId: string,
-  userEmail: string,
-  options: { limit?: number; minSimilarity?: number; isAgent?: boolean } = {},
+  user_email: string,
+  options: { limit?: number; min_similarity?: number; is_agent?: boolean } = {},
 ): Promise<SimilarNotesResponse | null> {
-  const { limit = 5, minSimilarity = 0.5, isAgent = false } = options;
+  const { limit = 5, min_similarity = 0.5, is_agent = false } = options;
 
   // First, get the source note and verify access
   const noteResult = await pool.query(
@@ -449,7 +449,7 @@ export async function findSimilarNotes(
   const sourceNote = noteResult.rows[0];
 
   // Check if user can access the note
-  const canAccess = sourceNote.user_email === userEmail || sourceNote.visibility === 'public' || sourceNote.visibility === 'shared';
+  const canAccess = sourceNote.user_email === user_email || sourceNote.visibility === 'public' || sourceNote.visibility === 'shared';
 
   if (!canAccess) {
     // Check for shares
@@ -458,7 +458,7 @@ export async function findSimilarNotes(
        WHERE note_id = $1 AND shared_with_email = $2
          AND (expires_at IS NULL OR expires_at > NOW())
        LIMIT 1`,
-      [noteId, userEmail],
+      [noteId, user_email],
     );
     if (shareResult.rows.length === 0) {
       return null;
@@ -474,7 +474,7 @@ export async function findSimilarNotes(
   }
 
   // Build access conditions for similar notes
-  const { conditions, params, nextIndex } = buildAccessConditions(userEmail, isAgent, 1);
+  const { conditions, params, nextIndex } = buildAccessConditions(user_email, is_agent, 1);
   let paramIndex = nextIndex;
 
   // Exclude the source note
@@ -486,7 +486,7 @@ export async function findSimilarNotes(
   conditions.push(`n.embedding IS NOT NULL AND n.embedding_status = 'complete'`);
 
   // Add similarity threshold
-  params.push(minSimilarity as unknown as string);
+  params.push(min_similarity as unknown as string);
   const minSimParamIndex = paramIndex++;
 
   params.push(limit as unknown as string);

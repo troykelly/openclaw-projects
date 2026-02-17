@@ -69,7 +69,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.messageId).toBe(testMessageId);
+      expect(result.message_id).toBe(testMessageId);
 
       // Verify status updated
       const msg = await pool.query(
@@ -152,7 +152,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.notFound).toBe(true);
+      expect(result.not_found).toBe(true);
     });
 
     it('stores full webhook payload in provider_status_raw', async () => {
@@ -206,7 +206,7 @@ describe('Postmark delivery status webhooks (#294)', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.statusUnchanged).toBe(true);
+      expect(result.status_unchanged).toBe(true);
 
       // Verify status still delivered
       const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [testMessageId]);

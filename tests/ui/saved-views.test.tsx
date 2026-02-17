@@ -54,7 +54,7 @@ describe('SaveViewButton', () => {
 describe('SaveViewDialog', () => {
   const mockConfig: ViewConfig = {
     filters: { status: 'open' },
-    sort: { field: 'createdAt', direction: 'desc' },
+    sort: { field: 'created_at', direction: 'desc' },
     viewType: 'list',
   };
 
@@ -145,13 +145,13 @@ describe('SavedViewsList', () => {
       name: 'Open Issues',
       description: 'All open issues',
       config: { filters: { status: 'open' }, viewType: 'list' },
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     },
     {
       id: 'view-2',
       name: 'My Tasks',
       config: { filters: { assignee: 'me' }, viewType: 'kanban' },
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     },
   ];
 
@@ -242,13 +242,13 @@ describe('ViewSwitcher', () => {
       id: 'view-1',
       name: 'Open Issues',
       config: { viewType: 'list' },
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     },
     {
       id: 'view-2',
       name: 'My Tasks',
       config: { viewType: 'kanban' },
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     },
   ];
 
@@ -303,7 +303,7 @@ describe('EditViewDialog', () => {
     name: 'Open Issues',
     description: 'All open issues',
     config: { filters: { status: 'open' }, viewType: 'list' },
-    createdAt: new Date().toISOString(),
+    created_at: new Date().toISOString(),
   };
 
   const defaultProps: EditViewDialogProps = {

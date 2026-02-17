@@ -31,8 +31,8 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
       );
     }
 
-    if (filter.linkedItemKind) {
-      result = result.filter((m) => m.linkedItemKind === filter.linkedItemKind);
+    if (filter.linked_item_kind) {
+      result = result.filter((m) => m.linked_item_kind === filter.linked_item_kind);
     }
 
     return result;
@@ -63,11 +63,11 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
           />
         </div>
         <Select
-          value={filter.linkedItemKind ?? 'all'}
+          value={filter.linked_item_kind ?? 'all'}
           onValueChange={(v) =>
             setFilter((prev) => ({
               ...prev,
-              linkedItemKind: v === 'all' ? undefined : (v as MemoryFilter['linkedItemKind']),
+              linked_item_kind: v === 'all' ? undefined : (v as MemoryFilter['linked_item_kind']),
             }))
           }
         >
@@ -94,8 +94,8 @@ export function MemoryList({ memories, onMemoryClick, onAddMemory, onEditMemory,
           {filteredMemories.length === 0 && (
             <div className="col-span-full py-12 text-center">
               <FileText className="mx-auto size-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">{filter.search || filter.linkedItemKind ? 'No memories found' : 'No memories yet'}</p>
-              {!filter.search && !filter.linkedItemKind && onAddMemory && (
+              <p className="mt-4 text-muted-foreground">{filter.search || filter.linked_item_kind ? 'No memories found' : 'No memories yet'}</p>
+              {!filter.search && !filter.linked_item_kind && onAddMemory && (
                 <Button variant="outline" size="sm" className="mt-4" onClick={onAddMemory}>
                   Create your first memory
                 </Button>

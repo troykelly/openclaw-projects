@@ -79,7 +79,7 @@ describe('Embedding Settings Service', () => {
       expect(status).not.toBeNull();
       expect(status?.name).toBe('openai');
       expect(status?.status).toBe('active');
-      expect(status?.keySource).toBe('environment');
+      expect(status?.key_source).toBe('environment');
     });
   });
 
@@ -108,11 +108,11 @@ describe('Embedding Settings Service', () => {
   describe('getBudgetSettings', () => {
     it('returns default budget settings', async () => {
       const budget = await getBudgetSettings(pool);
-      expect(budget.dailyLimitUsd).toBe(10.0);
-      expect(budget.monthlyLimitUsd).toBe(100.0);
-      expect(budget.pauseOnLimit).toBe(true);
-      expect(budget.todaySpendUsd).toBe(0);
-      expect(budget.monthSpendUsd).toBe(0);
+      expect(budget.daily_limit_usd).toBe(10.0);
+      expect(budget.monthly_limit_usd).toBe(100.0);
+      expect(budget.pause_on_limit).toBe(true);
+      expect(budget.today_spend_usd).toBe(0);
+      expect(budget.month_spend_usd).toBe(0);
     });
 
     it('calculates spend from usage data', async () => {
@@ -123,36 +123,36 @@ describe('Embedding Settings Service', () => {
       `);
 
       const budget = await getBudgetSettings(pool);
-      expect(budget.todaySpendUsd).toBe(1.5);
-      expect(budget.monthSpendUsd).toBe(1.5);
+      expect(budget.today_spend_usd).toBe(1.5);
+      expect(budget.month_spend_usd).toBe(1.5);
     });
   });
 
   describe('updateBudgetSettings', () => {
     it('updates daily limit', async () => {
-      const updated = await updateBudgetSettings(pool, { dailyLimitUsd: 25.0 });
-      expect(updated.dailyLimitUsd).toBe(25.0);
+      const updated = await updateBudgetSettings(pool, { daily_limit_usd: 25.0 });
+      expect(updated.daily_limit_usd).toBe(25.0);
     });
 
     it('updates monthly limit', async () => {
-      const updated = await updateBudgetSettings(pool, { monthlyLimitUsd: 250.0 });
-      expect(updated.monthlyLimitUsd).toBe(250.0);
+      const updated = await updateBudgetSettings(pool, { monthly_limit_usd: 250.0 });
+      expect(updated.monthly_limit_usd).toBe(250.0);
     });
 
     it('updates pause on limit', async () => {
-      const updated = await updateBudgetSettings(pool, { pauseOnLimit: false });
-      expect(updated.pauseOnLimit).toBe(false);
+      const updated = await updateBudgetSettings(pool, { pause_on_limit: false });
+      expect(updated.pause_on_limit).toBe(false);
     });
 
     it('updates multiple fields at once', async () => {
       const updated = await updateBudgetSettings(pool, {
-        dailyLimitUsd: 50.0,
-        monthlyLimitUsd: 500.0,
-        pauseOnLimit: false,
+        daily_limit_usd: 50.0,
+        monthly_limit_usd: 500.0,
+        pause_on_limit: false,
       });
-      expect(updated.dailyLimitUsd).toBe(50.0);
-      expect(updated.monthlyLimitUsd).toBe(500.0);
-      expect(updated.pauseOnLimit).toBe(false);
+      expect(updated.daily_limit_usd).toBe(50.0);
+      expect(updated.monthly_limit_usd).toBe(500.0);
+      expect(updated.pause_on_limit).toBe(false);
     });
   });
 
@@ -205,14 +205,14 @@ describe('Embedding Settings Service', () => {
   describe('isOverBudget', () => {
     it('returns false when under budget', async () => {
       const status = await isOverBudget(pool);
-      expect(status.overDaily).toBe(false);
-      expect(status.overMonthly).toBe(false);
-      expect(status.shouldPause).toBe(false);
+      expect(status.over_daily).toBe(false);
+      expect(status.over_monthly).toBe(false);
+      expect(status.should_pause).toBe(false);
     });
 
     it('returns true when over daily limit', async () => {
       // Set low daily limit
-      await updateBudgetSettings(pool, { dailyLimitUsd: 1.0 });
+      await updateBudgetSettings(pool, { daily_limit_usd: 1.0 });
 
       // Add usage exceeding limit
       await pool.query(`
@@ -221,13 +221,13 @@ describe('Embedding Settings Service', () => {
       `);
 
       const status = await isOverBudget(pool);
-      expect(status.overDaily).toBe(true);
-      expect(status.shouldPause).toBe(true);
+      expect(status.over_daily).toBe(true);
+      expect(status.should_pause).toBe(true);
     });
 
-    it('respects pauseOnLimit setting', async () => {
+    it('respects pause_on_limit setting', async () => {
       // Disable pause on limit
-      await updateBudgetSettings(pool, { dailyLimitUsd: 1.0, pauseOnLimit: false });
+      await updateBudgetSettings(pool, { daily_limit_usd: 1.0, pause_on_limit: false });
 
       // Add usage exceeding limit
       await pool.query(`
@@ -236,8 +236,8 @@ describe('Embedding Settings Service', () => {
       `);
 
       const status = await isOverBudget(pool);
-      expect(status.overDaily).toBe(true);
-      expect(status.shouldPause).toBe(false);
+      expect(status.over_daily).toBe(true);
+      expect(status.should_pause).toBe(false);
     });
   });
 
@@ -251,9 +251,9 @@ describe('Embedding Settings Service', () => {
       const settings = await getEmbeddingSettings(pool);
 
       expect(settings.provider).not.toBeNull();
-      expect(settings.availableProviders).toHaveLength(3);
-      expect(settings.budget).toHaveProperty('dailyLimitUsd');
-      expect(settings.budget).toHaveProperty('monthlyLimitUsd');
+      expect(settings.available_providers).toHaveLength(3);
+      expect(settings.budget).toHaveProperty('daily_limit_usd');
+      expect(settings.budget).toHaveProperty('monthly_limit_usd');
       expect(settings.usage).toHaveProperty('today');
       expect(settings.usage).toHaveProperty('month');
       expect(settings.usage).toHaveProperty('total');

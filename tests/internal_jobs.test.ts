@@ -38,7 +38,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
        RETURNING id::text as id`,
       ['Due soon'],
     );
-    const workItemId = wi.rows[0].id as string;
+    const work_item_id = wi.rows[0].id as string;
 
     // Act: run the DB-side enqueue function twice.
     await pool.query(`SELECT enqueue_due_nudges()`);
@@ -54,7 +54,7 @@ describe('Internal job queue + pg_cron nudge enqueuer', () => {
     expect(jobs.rows).toEqual([
       {
         kind: 'nudge.work_item.not_after',
-        work_item_id: workItemId,
+        work_item_id: work_item_id,
       },
     ]);
   });

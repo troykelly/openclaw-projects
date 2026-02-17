@@ -17,7 +17,7 @@ describe('Nominatim reverse geocoding', () => {
     vi.restoreAllMocks();
   });
 
-  it('should return address and placeLabel from Nominatim response', async () => {
+  it('should return address and place_label from Nominatim response', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -38,10 +38,10 @@ describe('Nominatim reverse geocoding', () => {
 
     expect(result).not.toBeNull();
     expect(result!.address).toBe('123 George St, Sydney NSW 2000, Australia');
-    expect(result!.placeLabel).toBe('Sydney Opera House');
+    expect(result!.place_label).toBe('Sydney Opera House');
   });
 
-  it('should use suburb as placeLabel when name is empty', async () => {
+  it('should use suburb as place_label when name is empty', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -61,10 +61,10 @@ describe('Nominatim reverse geocoding', () => {
     const result = await reverseGeocode(40.7218, -73.998, 'http://nominatim:8080');
 
     expect(result).not.toBeNull();
-    expect(result!.placeLabel).toBe('SoHo');
+    expect(result!.place_label).toBe('SoHo');
   });
 
-  it('should use city as placeLabel when name and suburb are empty', async () => {
+  it('should use city as place_label when name and suburb are empty', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -81,7 +81,7 @@ describe('Nominatim reverse geocoding', () => {
     const result = await reverseGeocode(-37.8136, 144.9631, 'http://nominatim:8080');
 
     expect(result).not.toBeNull();
-    expect(result!.placeLabel).toBe('Melbourne');
+    expect(result!.place_label).toBe('Melbourne');
   });
 
   it('should call the correct URL', async () => {
@@ -191,6 +191,6 @@ describe('Nominatim reverse geocoding', () => {
 
     expect(result).not.toBeNull();
     expect(result!.address).toBe('');
-    expect(result!.placeLabel).toBe('');
+    expect(result!.place_label).toBe('');
   });
 });

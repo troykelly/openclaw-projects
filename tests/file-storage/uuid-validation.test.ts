@@ -17,11 +17,11 @@ vi.mock('../../src/api/file-storage/index.ts', async () => {
   const actual = await vi.importActual('../../src/api/file-storage/index.ts');
 
   // Mock storage implementation
-  const mockFiles = new Map<string, { data: Buffer; contentType: string }>();
+  const mockFiles = new Map<string, { data: Buffer; content_type: string }>();
 
   const MockS3Storage = class {
-    async upload(key: string, data: Buffer, contentType: string): Promise<string> {
-      mockFiles.set(key, { data, contentType });
+    async upload(key: string, data: Buffer, content_type: string): Promise<string> {
+      mockFiles.set(key, { data, content_type });
       return key;
     }
 

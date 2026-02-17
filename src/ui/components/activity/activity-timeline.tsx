@@ -13,13 +13,13 @@ import { groupActivitiesByDate } from './activity-utils';
 export interface ActivityTimelineProps {
   activities: Activity[];
   onActivityClick?: (activityId: string, sourceType: ActivitySourceType, sourceId: string) => void;
-  hasMore?: boolean;
+  has_more?: boolean;
   onLoadMore?: () => void;
   loading?: boolean;
   className?: string;
 }
 
-export function ActivityTimeline({ activities, onActivityClick, hasMore, onLoadMore, loading, className }: ActivityTimelineProps) {
+export function ActivityTimeline({ activities, onActivityClick, has_more, onLoadMore, loading, className }: ActivityTimelineProps) {
   const groups = React.useMemo(() => groupActivitiesByDate(activities), [activities]);
 
   if (activities.length === 0 && !loading) {
@@ -58,7 +58,7 @@ export function ActivityTimeline({ activities, onActivityClick, hasMore, onLoadM
       ))}
 
       {/* Load more */}
-      {hasMore && (
+      {has_more && (
         <div className="text-center pt-2">
           <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loading}>
             {loading ? 'Loading...' : 'Load More'}

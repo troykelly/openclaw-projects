@@ -104,15 +104,15 @@ describe('Bulk API Endpoints', () => {
     it('creates items with parent_work_item_id', async () => {
       // Create a parent first
       const parentResult = await pool.query("INSERT INTO work_item (title, work_item_kind) VALUES ('Parent Epic', 'epic') RETURNING id::text as id");
-      const parentId = parentResult.rows[0].id;
+      const parent_id = parentResult.rows[0].id;
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/work-items/bulk',
         payload: {
           items: [
-            { title: 'Child 1', parent_work_item_id: parentId },
-            { title: 'Child 2', parent_work_item_id: parentId },
+            { title: 'Child 1', parent_work_item_id: parent_id },
+            { title: 'Child 2', parent_work_item_id: parent_id },
           ],
         },
       });
@@ -121,7 +121,7 @@ describe('Bulk API Endpoints', () => {
       expect(response.json().created).toBe(2);
 
       // Verify parent relationship
-      const childResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE parent_work_item_id = $1', [parentId]);
+      const childResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE parent_work_item_id = $1', [parent_id]);
       expect(parseInt(childResult.rows[0].count, 10)).toBe(2);
     });
   });
@@ -246,7 +246,7 @@ describe('Bulk API Endpoints', () => {
         method: 'POST',
         url: '/api/contacts/bulk',
         payload: {
-          contacts: [{ displayName: 'Contact 1' }, { displayName: 'Contact 2', notes: 'Some notes' }, { displayName: 'Contact 3' }],
+          contacts: [{ display_name: 'Contact 1' }, { display_name: 'Contact 2', notes: 'Some notes' }, { display_name: 'Contact 3' }],
         },
       });
 
@@ -268,7 +268,7 @@ describe('Bulk API Endpoints', () => {
         payload: {
           contacts: [
             {
-              displayName: 'Contact With Email',
+              display_name: 'Contact With Email',
               endpoints: [{ endpoint_type: 'email', endpoint_value: 'test@example.com' }],
             },
           ],
@@ -283,15 +283,15 @@ describe('Bulk API Endpoints', () => {
       expect(parseInt(epResult.rows[0].count, 10)).toBe(1);
     });
 
-    it('handles validation errors for empty displayName', async () => {
+    it('handles validation errors for empty display_name', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/contacts/bulk',
         payload: {
           contacts: [
-            { displayName: 'Valid Contact' },
-            { displayName: '' }, // Invalid
-            { displayName: '   ' }, // Also invalid (whitespace only)
+            { display_name: 'Valid Contact' },
+            { display_name: '' }, // Invalid
+            { display_name: '   ' }, // Also invalid (whitespace only)
           ],
         },
       });
@@ -304,7 +304,7 @@ describe('Bulk API Endpoints', () => {
     });
 
     it('returns 413 when exceeding limit', async () => {
-      const contacts = Array.from({ length: 101 }, (_, i) => ({ displayName: `Contact ${i}` }));
+      const contacts = Array.from({ length: 101 }, (_, i) => ({ display_name: `Contact ${i}` }));
 
       const response = await app.inject({
         method: 'POST',

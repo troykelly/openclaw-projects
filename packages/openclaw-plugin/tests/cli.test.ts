@@ -50,7 +50,7 @@ describe('CLI Commands', () => {
     client: mockApiClient,
     logger: mockLogger,
     config: mockConfig,
-    userId: 'agent-1',
+    user_id: 'agent-1',
   };
 
   beforeEach(() => {
@@ -200,7 +200,7 @@ describe('CLI Commands', () => {
       expect(result.data?.description).toContain('session');
     });
 
-    it('should include current userId', async () => {
+    it('should include current user_id', async () => {
       const command = createUsersCommand(mockContext);
       const result = await command();
 

@@ -41,14 +41,14 @@ describe('Soft Delete Service', () => {
     it('soft deletes a work item', async () => {
       // Create a work item
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
       // Soft delete
-      const deleted = await softDeleteWorkItem(pool, workItemId);
+      const deleted = await softDeleteWorkItem(pool, work_item_id);
       expect(deleted).toBe(true);
 
       // Verify it's deleted
-      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [workItemId]);
+      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [work_item_id]);
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
@@ -60,9 +60,9 @@ describe('Soft Delete Service', () => {
     it('returns false if already deleted', async () => {
       // Create and soft delete
       const result = await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Deleted Task', now()) RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      const deleted = await softDeleteWorkItem(pool, workItemId);
+      const deleted = await softDeleteWorkItem(pool, work_item_id);
       expect(deleted).toBe(false);
     });
   });
@@ -70,12 +70,12 @@ describe('Soft Delete Service', () => {
   describe('softDeleteContact', () => {
     it('soft deletes a contact', async () => {
       const result = await pool.query(`INSERT INTO contact (display_name) VALUES ('John Doe') RETURNING id::text`);
-      const contactId = result.rows[0].id;
+      const contact_id = result.rows[0].id;
 
-      const deleted = await softDeleteContact(pool, contactId);
+      const deleted = await softDeleteContact(pool, contact_id);
       expect(deleted).toBe(true);
 
-      const check = await pool.query(`SELECT deleted_at FROM contact WHERE id = $1`, [contactId]);
+      const check = await pool.query(`SELECT deleted_at FROM contact WHERE id = $1`, [contact_id]);
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
   });
@@ -83,12 +83,12 @@ describe('Soft Delete Service', () => {
   describe('hardDeleteWorkItem', () => {
     it('permanently deletes a work item', async () => {
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      const deleted = await hardDeleteWorkItem(pool, workItemId);
+      const deleted = await hardDeleteWorkItem(pool, work_item_id);
       expect(deleted).toBe(true);
 
-      const check = await pool.query(`SELECT * FROM work_item WHERE id = $1`, [workItemId]);
+      const check = await pool.query(`SELECT * FROM work_item WHERE id = $1`, [work_item_id]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -96,12 +96,12 @@ describe('Soft Delete Service', () => {
   describe('hardDeleteContact', () => {
     it('permanently deletes a contact', async () => {
       const result = await pool.query(`INSERT INTO contact (display_name) VALUES ('Jane Doe') RETURNING id::text`);
-      const contactId = result.rows[0].id;
+      const contact_id = result.rows[0].id;
 
-      const deleted = await hardDeleteContact(pool, contactId);
+      const deleted = await hardDeleteContact(pool, contact_id);
       expect(deleted).toBe(true);
 
-      const check = await pool.query(`SELECT * FROM contact WHERE id = $1`, [contactId]);
+      const check = await pool.query(`SELECT * FROM contact WHERE id = $1`, [contact_id]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -110,24 +110,24 @@ describe('Soft Delete Service', () => {
     it('restores a soft-deleted work item', async () => {
       // Create and soft delete
       const result = await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Deleted Task', now()) RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      const restored = await restoreWorkItem(pool, workItemId);
+      const restored = await restoreWorkItem(pool, work_item_id);
       expect(restored).not.toBeNull();
       expect(restored?.success).toBe(true);
-      expect(restored?.entityType).toBe('work_item');
-      expect(restored?.entityId).toBe(workItemId);
+      expect(restored?.entity_type).toBe('work_item');
+      expect(restored?.entity_id).toBe(work_item_id);
 
       // Verify it's restored
-      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [workItemId]);
+      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [work_item_id]);
       expect(check.rows[0].deleted_at).toBeNull();
     });
 
     it('returns null for non-deleted work item', async () => {
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Active Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      const restored = await restoreWorkItem(pool, workItemId);
+      const restored = await restoreWorkItem(pool, work_item_id);
       expect(restored).toBeNull();
     });
   });
@@ -135,30 +135,30 @@ describe('Soft Delete Service', () => {
   describe('restoreContact', () => {
     it('restores a soft-deleted contact', async () => {
       const result = await pool.query(`INSERT INTO contact (display_name, deleted_at) VALUES ('Deleted Contact', now()) RETURNING id::text`);
-      const contactId = result.rows[0].id;
+      const contact_id = result.rows[0].id;
 
-      const restored = await restoreContact(pool, contactId);
+      const restored = await restoreContact(pool, contact_id);
       expect(restored).not.toBeNull();
       expect(restored?.success).toBe(true);
-      expect(restored?.entityType).toBe('contact');
+      expect(restored?.entity_type).toBe('contact');
     });
   });
 
   describe('restore', () => {
     it('restores work_item by type', async () => {
       const result = await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Deleted', now()) RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      const restored = await restore(pool, 'work_item', workItemId);
-      expect(restored?.entityType).toBe('work_item');
+      const restored = await restore(pool, 'work_item', work_item_id);
+      expect(restored?.entity_type).toBe('work_item');
     });
 
     it('restores contact by type', async () => {
       const result = await pool.query(`INSERT INTO contact (display_name, deleted_at) VALUES ('Deleted', now()) RETURNING id::text`);
-      const contactId = result.rows[0].id;
+      const contact_id = result.rows[0].id;
 
-      const restored = await restore(pool, 'contact', contactId);
-      expect(restored?.entityType).toBe('contact');
+      const restored = await restore(pool, 'contact', contact_id);
+      expect(restored?.entity_type).toBe('contact');
     });
   });
 
@@ -178,11 +178,11 @@ describe('Soft Delete Service', () => {
       await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Deleted Task', now())`);
       await pool.query(`INSERT INTO contact (display_name, deleted_at) VALUES ('Deleted Contact', now())`);
 
-      const workItemsResult = await listTrash(pool, { entityType: 'work_item' });
-      expect(workItemsResult.items.every((i) => i.entityType === 'work_item')).toBe(true);
+      const workItemsResult = await listTrash(pool, { entity_type: 'work_item' });
+      expect(workItemsResult.items.every((i) => i.entity_type === 'work_item')).toBe(true);
 
-      const contactsResult = await listTrash(pool, { entityType: 'contact' });
-      expect(contactsResult.items.every((i) => i.entityType === 'contact')).toBe(true);
+      const contactsResult = await listTrash(pool, { entity_type: 'contact' });
+      expect(contactsResult.items.every((i) => i.entity_type === 'contact')).toBe(true);
     });
 
     it('supports pagination', async () => {
@@ -238,9 +238,9 @@ describe('Soft Delete Service', () => {
       await pool.query(`INSERT INTO work_item (title, deleted_at) VALUES ('Recent Task', now())`);
 
       const result = await purgeOldItems(pool, 30);
-      expect(result.workItemsPurged).toBe(1);
-      expect(result.contactsPurged).toBe(1);
-      expect(result.totalPurged).toBe(2);
+      expect(result.work_items_purged).toBe(1);
+      expect(result.contacts_purged).toBe(1);
+      expect(result.total_purged).toBe(2);
 
       // Verify recent item still exists
       const check = await pool.query(`SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL`);

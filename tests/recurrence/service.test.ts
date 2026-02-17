@@ -139,7 +139,7 @@ describe('Recurrence Service', () => {
         recurrenceNatural: 'every day at 9am',
       });
 
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=DAILY');
       expect(result.rrule).toContain('BYHOUR=9');
     });
@@ -150,7 +150,7 @@ describe('Recurrence Service', () => {
         recurrenceNatural: 'tomorrow',
       });
 
-      expect(result.isRecurring).toBe(false);
+      expect(result.is_recurring).toBe(false);
       expect(result.rrule).toBeNull();
 
       // Verify it's not a template
@@ -164,7 +164,7 @@ describe('Recurrence Service', () => {
         recurrenceNatural: 'every weekday morning',
       });
 
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('BYDAY=MO,TU,WE,TH,FR');
     });
   });
@@ -190,8 +190,8 @@ describe('Recurrence Service', () => {
       const info = await getRecurrenceInfo(pool, template.id);
       expect(info).not.toBeNull();
       expect(info!.rule).toBe('RRULE:FREQ=DAILY');
-      expect(info!.isTemplate).toBe(true);
-      expect(info!.nextOccurrence).not.toBeNull();
+      expect(info!.is_template).toBe(true);
+      expect(info!.next_occurrence).not.toBeNull();
     });
   });
 
@@ -271,10 +271,10 @@ describe('Recurrence Service', () => {
         priority: 'P1',
       });
 
-      const scheduledDate = new Date();
-      scheduledDate.setDate(scheduledDate.getDate() + 1);
+      const scheduled_date = new Date();
+      scheduled_date.setDate(scheduled_date.getDate() + 1);
 
-      const instanceId = await createInstance(pool, template.id, scheduledDate);
+      const instanceId = await createInstance(pool, template.id, scheduled_date);
       expect(instanceId).not.toBeNull();
 
       // Verify instance properties
@@ -411,7 +411,7 @@ describe('Recurrence Service', () => {
 
       const templates = await getTemplates(pool);
       const found = templates.find((t) => t.id === template.id);
-      expect(found?.instanceCount).toBe(2);
+      expect(found?.instance_count).toBe(2);
     });
 
     it('supports pagination', async () => {

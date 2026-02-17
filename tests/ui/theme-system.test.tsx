@@ -394,7 +394,7 @@ describe('ThemeProvider — localStorage persistence', () => {
 
   it('uses custom storage key', () => {
     render(
-      <ThemeProvider storageKey="custom-theme-key">
+      <ThemeProvider storage_key="custom-theme-key">
         <ThemeActions />
       </ThemeProvider>,
     );
@@ -408,7 +408,7 @@ describe('ThemeProvider — localStorage persistence', () => {
     localStorageMock.setItem('my-app-theme', 'oled');
 
     render(
-      <ThemeProvider storageKey="my-app-theme">
+      <ThemeProvider storage_key="my-app-theme">
         <ThemeConsumer />
       </ThemeProvider>,
     );

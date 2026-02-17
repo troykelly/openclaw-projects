@@ -486,7 +486,7 @@ interface ContactFormDialogProps {
 }
 
 function ContactFormDialog({ open, onOpenChange, contact, isSubmitting, onSubmit }: ContactFormDialogProps) {
-  const [displayName, setDisplayName] = useState('');
+  const [display_name, setDisplayName] = useState('');
   const [notes, setNotes] = useState('');
 
   // Reset form when dialog opens/closes or contact changes
@@ -500,12 +500,12 @@ function ContactFormDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      displayName: displayName.trim(),
+      display_name: display_name.trim(),
       notes: notes.trim() || undefined,
     });
   };
 
-  const isValid = displayName.trim().length > 0;
+  const isValid = display_name.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -522,7 +522,7 @@ function ContactFormDialog({ open, onOpenChange, contact, isSubmitting, onSubmit
             </label>
             <Input
               id="contact-name"
-              value={displayName}
+              value={display_name}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="John Doe"
               required

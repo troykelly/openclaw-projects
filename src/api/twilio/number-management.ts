@@ -189,14 +189,14 @@ function formatPhoneNumberDetails(num: IncomingPhoneNumberInstance): PhoneNumber
  * @param phoneNumber - Phone number in E.164 format or SID
  * @param options - Webhook URLs and methods to update
  * @param pool - Optional database pool for audit logging
- * @param actorId - Optional actor ID for audit logging
+ * @param actor_id - Optional actor ID for audit logging
  * @throws Error if Twilio not configured, number not found, or invalid URLs
  */
 export async function updatePhoneNumberWebhooks(
   phoneNumber: string,
   options: WebhookUpdateOptions,
   pool?: Pool,
-  actorId?: string,
+  actor_id?: string,
 ): Promise<PhoneNumberDetails> {
   if (!isTwilioConfigured()) {
     throw new Error('Twilio not configured');
@@ -285,8 +285,8 @@ export async function updatePhoneNumberWebhooks(
           $4::jsonb
         )`,
         [
-          actorId ? 'agent' : 'system',
-          actorId || null,
+          actor_id ? 'agent' : 'system',
+          actor_id || null,
           JSON.stringify({
             old: {
               smsUrl: currentConfig.smsUrl,

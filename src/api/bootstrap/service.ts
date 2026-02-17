@@ -46,19 +46,19 @@ function getSectionsToFetch(options: BootstrapOptions): Set<BootstrapSection> {
 /**
  * Fetches user settings.
  */
-async function fetchUser(pool: Pool, userEmail: string): Promise<BootstrapUser | null> {
+async function fetchUser(pool: Pool, user_email: string): Promise<BootstrapUser | null> {
   const result = await pool.query(
     `SELECT theme, default_view, default_project_id::text,
             sidebar_collapsed, show_completed_items, items_per_page,
             email_notifications, email_digest_frequency, timezone
      FROM user_setting
      WHERE email = $1`,
-    [userEmail],
+    [user_email],
   );
 
   if (result.rows.length === 0) {
     return {
-      email: userEmail,
+      email: user_email,
       settings: {},
     };
   }
@@ -74,7 +74,7 @@ async function fetchUser(pool: Pool, userEmail: string): Promise<BootstrapUser |
   }
 
   return {
-    email: userEmail,
+    email: user_email,
     timezone: row.timezone as string | undefined,
     settings,
   };
@@ -83,7 +83,7 @@ async function fetchUser(pool: Pool, userEmail: string): Promise<BootstrapUser |
 /**
  * Fetches user preferences (preference-type memories).
  */
-async function fetchPreferences(pool: Pool, userEmail: string, limit: number): Promise<BootstrapPreference[]> {
+async function fetchPreferences(pool: Pool, user_email: string, limit: number): Promise<BootstrapPreference[]> {
   const result = await pool.query(
     `SELECT id::text, memory_type as type, title, content, importance, created_at
      FROM memory
@@ -93,7 +93,7 @@ async function fetchPreferences(pool: Pool, userEmail: string, limit: number): P
        AND superseded_by IS NULL
      ORDER BY importance DESC, created_at DESC
      LIMIT $2`,
-    [userEmail, limit],
+    [user_email, limit],
   );
 
   return result.rows.map((row) => {
@@ -111,7 +111,7 @@ async function fetchPreferences(pool: Pool, userEmail: string, limit: number): P
       title: r.title,
       content: r.content,
       importance: r.importance,
-      createdAt: new Date(r.created_at),
+      created_at: new Date(r.created_at),
     };
   });
 }
@@ -143,7 +143,7 @@ async function fetchActiveProjects(pool: Pool, limit: number): Promise<Bootstrap
       title: r.title,
       status: r.status,
       kind: r.kind,
-      updatedAt: new Date(r.updated_at),
+      updated_at: new Date(r.updated_at),
     };
   });
 }
@@ -175,7 +175,7 @@ async function fetchPendingReminders(pool: Pool, limit: number): Promise<Bootstr
       id: r.id,
       title: r.title,
       description: r.description ?? undefined,
-      notBefore: new Date(r.not_before),
+      not_before: new Date(r.not_before),
       kind: r.kind,
     };
   });
@@ -209,8 +209,8 @@ async function fetchRecentActivity(pool: Pool, limit: number): Promise<Bootstrap
     };
     return {
       type: r.type,
-      entityId: r.entity_id,
-      entityTitle: r.entity_title,
+      entity_id: r.entity_id,
+      entity_title: r.entity_title,
       timestamp: new Date(r.timestamp),
     };
   });
@@ -269,9 +269,9 @@ async function fetchKeyContacts(pool: Pool, limit: number): Promise<BootstrapCon
     };
     return {
       id: r.id,
-      displayName: r.display_name,
-      lastContact: r.last_contact ? new Date(r.last_contact) : undefined,
-      endpointCount: parseInt(r.endpoint_count, 10),
+      display_name: r.display_name,
+      last_contact: r.last_contact ? new Date(r.last_contact) : undefined,
+      endpoint_count: parseInt(r.endpoint_count, 10),
     };
   });
 }
@@ -306,12 +306,12 @@ async function fetchStats(pool: Pool): Promise<BootstrapStats> {
   };
 
   return {
-    openItems: parseInt(row.open_items, 10),
-    dueToday: parseInt(row.due_today, 10),
+    open_items: parseInt(row.open_items, 10),
+    due_today: parseInt(row.due_today, 10),
     overdue: parseInt(row.overdue, 10),
-    totalProjects: parseInt(row.total_projects, 10),
-    totalMemories: parseInt(row.total_memories, 10),
-    totalContacts: parseInt(row.total_contacts, 10),
+    total_projects: parseInt(row.total_projects, 10),
+    total_memories: parseInt(row.total_memories, 10),
+    total_contacts: parseInt(row.total_contacts, 10),
   };
 }
 
@@ -328,12 +328,12 @@ export async function getBootstrapContext(pool: Pool, options: BootstrapOptions 
     contacts: options.limit?.contacts ?? 10,
   };
 
-  const userEmail = options.userEmail ?? '';
+  const user_email = options.user_email ?? '';
 
   // Execute queries in parallel for performance
-  const [user, preferences, activeProjects, pendingReminders, recentActivity, unreadMessages, keyContacts, stats] = await Promise.all([
-    sections.has('user') && userEmail ? fetchUser(pool, userEmail) : Promise.resolve(null),
-    sections.has('preferences') && userEmail ? fetchPreferences(pool, userEmail, limits.preferences) : Promise.resolve([]),
+  const [user, preferences, active_projects, pending_reminders, recent_activity, unread_messages, key_contacts, stats] = await Promise.all([
+    sections.has('user') && user_email ? fetchUser(pool, user_email) : Promise.resolve(null),
+    sections.has('preferences') && user_email ? fetchPreferences(pool, user_email, limits.preferences) : Promise.resolve([]),
     sections.has('projects') ? fetchActiveProjects(pool, limits.projects) : Promise.resolve([]),
     sections.has('reminders') ? fetchPendingReminders(pool, limits.reminders) : Promise.resolve([]),
     sections.has('activity') ? fetchRecentActivity(pool, limits.activity) : Promise.resolve([]),
@@ -342,29 +342,29 @@ export async function getBootstrapContext(pool: Pool, options: BootstrapOptions 
     sections.has('stats')
       ? fetchStats(pool)
       : Promise.resolve({
-          openItems: 0,
-          dueToday: 0,
+          open_items: 0,
+          due_today: 0,
           overdue: 0,
-          totalProjects: 0,
-          totalMemories: 0,
-          totalContacts: 0,
+          total_projects: 0,
+          total_memories: 0,
+          total_contacts: 0,
         }),
   ]);
 
-  const generatedAt = new Date();
+  const generated_at = new Date();
   // Suggest refresh in 5 minutes
-  const nextRefreshHint = new Date(generatedAt.getTime() + 5 * 60 * 1000);
+  const next_refresh_hint = new Date(generated_at.getTime() + 5 * 60 * 1000);
 
   return {
     user,
     preferences,
-    activeProjects,
-    pendingReminders,
-    recentActivity,
-    unreadMessages,
-    keyContacts,
+    active_projects,
+    pending_reminders,
+    recent_activity,
+    unread_messages,
+    key_contacts,
     stats,
-    generatedAt,
-    nextRefreshHint,
+    generated_at,
+    next_refresh_hint,
   };
 }

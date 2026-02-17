@@ -54,42 +54,42 @@ describe('Note Search API', () => {
         title: 'TypeScript Programming Guide',
         content: 'A comprehensive guide to TypeScript programming language with examples',
         visibility: 'public',
-        hideFromAgents: false,
+        hide_from_agents: false,
         tags: ['programming', 'typescript'],
       },
       {
         title: 'Python Data Science',
         content: 'Learn Python for data science and machine learning applications',
         visibility: 'public',
-        hideFromAgents: false,
+        hide_from_agents: false,
         tags: ['programming', 'python', 'data-science'],
       },
       {
         title: 'Private Shopping List',
         content: 'Milk, bread, eggs, and vegetables',
         visibility: 'private',
-        hideFromAgents: false,
+        hide_from_agents: false,
         tags: ['personal'],
       },
       {
         title: 'Hidden Agent Note',
         content: 'This note contains private information hidden from agents',
         visibility: 'private',
-        hideFromAgents: true,
+        hide_from_agents: true,
         tags: ['private'],
       },
       {
         title: 'Shared Team Notes',
         content: 'Meeting notes and action items for the team',
         visibility: 'shared',
-        hideFromAgents: false,
+        hide_from_agents: false,
         tags: ['work', 'meetings'],
       },
       {
         title: 'React Components',
         content: 'Building reusable React components with TypeScript',
         visibility: 'public',
-        hideFromAgents: false,
+        hide_from_agents: false,
         tags: ['programming', 'react', 'typescript'],
       },
     ];
@@ -100,7 +100,7 @@ describe('Note Search API', () => {
           user_email, title, content, visibility, hide_from_agents, tags, notebook_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id::text`,
-        [ownerEmail, note.title, note.content, note.visibility, note.hideFromAgents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
+        [ownerEmail, note.title, note.content, note.visibility, note.hide_from_agents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
       );
       createdNoteIds.push(result.rows[0].id);
     }
@@ -150,14 +150,14 @@ describe('Note Search API', () => {
     it('should search notes with text search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
 
       const result = JSON.parse(response.payload);
       expect(result.query).toBe('TypeScript');
-      expect(result.searchType).toBe('text');
+      expect(result.search_type).toBe('text');
       expect(result.results.length).toBeGreaterThan(0);
 
       // Should find TypeScript related notes
@@ -168,13 +168,13 @@ describe('Note Search API', () => {
     it('should search notes with semantic search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming%20languages&searchType=semantic`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=programming%20languages&search_type=semantic`,
       });
 
       expect(response.statusCode).toBe(200);
 
       const result = JSON.parse(response.payload);
-      expect(result.searchType).toBe('semantic');
+      expect(result.search_type).toBe('semantic');
       expect(Array.isArray(result.results)).toBe(true);
     });
 
@@ -187,21 +187,21 @@ describe('Note Search API', () => {
       expect(response.statusCode).toBe(200);
 
       const result = JSON.parse(response.payload);
-      expect(result.searchType).toBe('hybrid');
+      expect(result.search_type).toBe('hybrid');
       expect(result.results.length).toBeGreaterThan(0);
     });
 
     it('should return search result fields', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
 
       const result = JSON.parse(response.payload);
       expect(result).toHaveProperty('query');
-      expect(result).toHaveProperty('searchType');
+      expect(result).toHaveProperty('search_type');
       expect(result).toHaveProperty('results');
       expect(result).toHaveProperty('total');
       expect(result).toHaveProperty('limit');
@@ -221,7 +221,7 @@ describe('Note Search API', () => {
     it('should filter by notebook', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=programming&notebookId=${createdNotebookIds[0]}`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=programming&notebook_id=${createdNotebookIds[0]}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -229,7 +229,7 @@ describe('Note Search API', () => {
       const result = JSON.parse(response.payload);
       // All results should be in the specified notebook
       for (const r of result.results) {
-        expect(r.notebookId).toBe(createdNotebookIds[0]);
+        expect(r.notebook_id).toBe(createdNotebookIds[0]);
       }
     });
 
@@ -251,7 +251,7 @@ describe('Note Search API', () => {
     it('should filter by visibility', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=*&visibility=public&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=*&visibility=public&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -294,7 +294,7 @@ describe('Note Search API', () => {
     it('should allow owner to see their private notes', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -307,7 +307,7 @@ describe('Note Search API', () => {
     it('should not show private notes to other users', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${otherUserEmail}&q=shopping&searchType=text`,
+        url: `/api/notes/search?user_email=${otherUserEmail}&q=shopping&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -320,7 +320,7 @@ describe('Note Search API', () => {
     it('should show public notes to any user', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${otherUserEmail}&q=TypeScript&searchType=text`,
+        url: `/api/notes/search?user_email=${otherUserEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -333,7 +333,7 @@ describe('Note Search API', () => {
     it('should show shared notes to users with share access', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${sharedUserEmail}&q=team&searchType=text`,
+        url: `/api/notes/search?user_email=${sharedUserEmail}&q=team&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -346,7 +346,7 @@ describe('Note Search API', () => {
     it('should not show shared notes to users without share access', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${otherUserEmail}&q=team&searchType=text`,
+        url: `/api/notes/search?user_email=${otherUserEmail}&q=team&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -361,7 +361,7 @@ describe('Note Search API', () => {
     it('should hide private notes from agents', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -378,7 +378,7 @@ describe('Note Search API', () => {
     it('should hide notes with hideFromAgents flag from agents', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=private&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=private&search_type=text`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -394,7 +394,7 @@ describe('Note Search API', () => {
     it('should show public notes to agents', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
         headers: {
           'X-OpenClaw-Agent': 'test-agent-123',
         },
@@ -410,7 +410,7 @@ describe('Note Search API', () => {
     it('should detect agent via authorization header', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=shopping&search_type=text`,
         headers: {
           Authorization: 'Bearer agent:test-token',
         },
@@ -497,11 +497,11 @@ describe('Note Search API', () => {
       // The limit should be capped at 20
     });
 
-    it('should respect minSimilarity parameter', async () => {
+    it('should respect min_similarity parameter', async () => {
       const publicNoteId = createdNoteIds[0];
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}&minSimilarity=0.9`,
+        url: `/api/notes/${publicNoteId}/similar?user_email=${ownerEmail}&min_similarity=0.9`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -537,7 +537,7 @@ describe('Note Search API', () => {
     it('should include highlighted snippets in text search', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&searchType=text`,
+        url: `/api/notes/search?user_email=${ownerEmail}&q=TypeScript&search_type=text`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -565,7 +565,7 @@ describe('Note Search API', () => {
       expect(response.statusCode).toBe(200);
 
       const result = JSON.parse(response.payload);
-      expect(result.searchType).toBe('hybrid');
+      expect(result.search_type).toBe('hybrid');
       // RRF should produce results even if one search type fails
       expect(result.results).toBeDefined();
     });

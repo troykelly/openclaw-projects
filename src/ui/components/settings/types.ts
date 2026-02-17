@@ -50,7 +50,7 @@ export interface EmbeddingProvider {
   model: string;
   dimensions: number;
   status: EmbeddingProviderStatus;
-  keySource: EmbeddingKeySource | null;
+  key_source: EmbeddingKeySource | null;
 }
 
 export interface AvailableProvider {
@@ -60,11 +60,11 @@ export interface AvailableProvider {
 }
 
 export interface EmbeddingBudget {
-  dailyLimitUsd: number;
-  monthlyLimitUsd: number;
-  todaySpendUsd: number;
-  monthSpendUsd: number;
-  pauseOnLimit: boolean;
+  daily_limit_usd: number;
+  monthly_limit_usd: number;
+  today_spend_usd: number;
+  month_spend_usd: number;
+  pause_on_limit: boolean;
 }
 
 export interface EmbeddingUsageStats {
@@ -80,22 +80,22 @@ export interface EmbeddingUsage {
 
 export interface EmbeddingSettings {
   provider: EmbeddingProvider | null;
-  availableProviders: AvailableProvider[];
+  available_providers: AvailableProvider[];
   budget: EmbeddingBudget;
   usage: EmbeddingUsage;
 }
 
 export interface EmbeddingBudgetUpdate {
-  dailyLimitUsd?: number;
-  monthlyLimitUsd?: number;
-  pauseOnLimit?: boolean;
+  daily_limit_usd?: number;
+  monthly_limit_usd?: number;
+  pause_on_limit?: boolean;
 }
 
 export interface EmbeddingTestResult {
   success: boolean;
   provider: EmbeddingProviderName | null;
   error?: string;
-  latencyMs?: number;
+  latency_ms?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,27 +108,27 @@ export type OAuthFeature = 'contacts' | 'email' | 'files' | 'calendar';
 
 export interface OAuthConnectionSummary {
   id: string;
-  userEmail: string;
+  user_email: string;
   provider: OAuthProvider;
   scopes: string[];
-  expiresAt: string | null;
+  expires_at: string | null;
   label: string;
-  providerAccountId: string | null;
-  providerAccountEmail: string | null;
-  permissionLevel: OAuthPermissionLevel;
-  enabledFeatures: OAuthFeature[];
-  isActive: boolean;
-  lastSyncAt: string | null;
-  syncStatus: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
+  provider_account_id: string | null;
+  provider_account_email: string | null;
+  permission_level: OAuthPermissionLevel;
+  enabled_features: OAuthFeature[];
+  is_active: boolean;
+  last_sync_at: string | null;
+  sync_status: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OAuthConnectionUpdate {
   label?: string;
-  permissionLevel?: OAuthPermissionLevel;
-  enabledFeatures?: OAuthFeature[];
-  isActive?: boolean;
+  permission_level?: OAuthPermissionLevel;
+  enabled_features?: OAuthFeature[];
+  is_active?: boolean;
 }
 
 export interface OAuthProviderInfo {

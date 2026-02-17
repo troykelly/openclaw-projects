@@ -24,7 +24,7 @@ const mockItems: TimelineItem[] = [
     status: 'in_progress',
     startDate: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000),
     endDate: new Date(today.getTime() + 20 * 24 * 60 * 60 * 1000),
-    parentId: '1',
+    parent_id: '1',
     progress: 50,
   },
   {
@@ -34,7 +34,7 @@ const mockItems: TimelineItem[] = [
     status: 'not_started',
     startDate: new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000),
     endDate: new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000),
-    parentId: '2',
+    parent_id: '2',
   },
   {
     id: '4',

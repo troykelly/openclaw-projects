@@ -95,7 +95,7 @@ function deriveBreadcrumbs(pathname: string, bootstrap: AppBootstrap | null, not
         {
           id: 'notebook',
           label: notesContext?.notebookName ?? 'Notebook',
-          href: `/notebooks/${notesMatch.notebookId}`,
+          href: `/notebooks/${notesMatch.notebook_id}`,
         },
         { id: 'note', label: notesContext?.noteName ?? 'Note' },
       );
@@ -186,36 +186,36 @@ function AuthenticatedLayout(): React.JSX.Element {
   const [createContextParentId, setCreateContextParentId] = useState<string | undefined>(undefined);
 
   // Extract note/notebook IDs from URL for breadcrumb labels (#671) using shared patterns (#673)
-  const { noteId, notebookId } = useMemo(() => {
+  const { noteId, notebook_id } = useMemo(() => {
     const notesMatch = matchNotesRoute(location.pathname);
     if (notesMatch) {
       if (notesMatch.type === 'notebookNote') {
-        return { notebookId: notesMatch.notebookId, noteId: notesMatch.noteId };
+        return { notebook_id: notesMatch.notebook_id, noteId: notesMatch.noteId };
       }
       if (notesMatch.type === 'notebook') {
-        return { notebookId: notesMatch.notebookId, noteId: undefined };
+        return { notebook_id: notesMatch.notebook_id, noteId: undefined };
       }
       if (notesMatch.type === 'note') {
-        return { notebookId: undefined, noteId: notesMatch.noteId };
+        return { notebook_id: undefined, noteId: notesMatch.noteId };
       }
     }
-    return { notebookId: undefined, noteId: undefined };
+    return { notebook_id: undefined, noteId: undefined };
   }, [location.pathname]);
 
   // Fetch notes data only when on notes routes (for breadcrumb names)
   const isNotesRoute = location.pathname.startsWith('/notes') || location.pathname.startsWith('/notebooks');
-  const { data: notesData } = useNotes({ notebookId }, { enabled: isNotesRoute && Boolean(noteId) });
-  const { data: notebooksData } = useNotebooks({ includeNoteCounts: false }, { enabled: isNotesRoute && Boolean(notebookId) });
+  const { data: notesData } = useNotes({ notebook_id }, { enabled: isNotesRoute && Boolean(noteId) });
+  const { data: notebooksData } = useNotebooks({ includeNoteCounts: false }, { enabled: isNotesRoute && Boolean(notebook_id) });
 
   // Build notes context for breadcrumbs
   const notesContext = useMemo<NotesBreadcrumbContext | undefined>(() => {
     if (!isNotesRoute) return undefined;
 
     const noteName = noteId ? notesData?.notes.find((n: Note) => n.id === noteId)?.title : undefined;
-    const notebookName = notebookId ? notebooksData?.notebooks.find((nb: Notebook) => nb.id === notebookId)?.name : undefined;
+    const notebookName = notebook_id ? notebooksData?.notebooks.find((nb: Notebook) => nb.id === notebook_id)?.name : undefined;
 
     return { noteName, notebookName };
-  }, [isNotesRoute, noteId, notebookId, notesData?.notes, notebooksData?.notebooks]);
+  }, [isNotesRoute, noteId, notebook_id, notesData?.notes, notebooksData?.notebooks]);
 
   const activeSection = useMemo(() => pathToSection(location.pathname), [location.pathname]);
 

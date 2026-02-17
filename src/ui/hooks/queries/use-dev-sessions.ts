@@ -16,7 +16,7 @@ import type {
 /** Query key factory for dev sessions. */
 export const devSessionKeys = {
   all: ['dev-sessions'] as const,
-  list: (filters?: { status?: string; node?: string; projectId?: string }) =>
+  list: (filters?: { status?: string; node?: string; project_id?: string }) =>
     [...devSessionKeys.all, 'list', filters] as const,
   detail: (id: string) => [...devSessionKeys.all, 'detail', id] as const,
 };
@@ -24,11 +24,11 @@ export const devSessionKeys = {
 /**
  * Fetch dev sessions with optional filters.
  */
-export function useDevSessions(filters?: { status?: string; node?: string; projectId?: string }) {
+export function useDevSessions(filters?: { status?: string; node?: string; project_id?: string }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
   if (filters?.node) params.set('node', filters.node);
-  if (filters?.projectId) params.set('project_id', filters.projectId);
+  if (filters?.project_id) params.set('project_id', filters.project_id);
   const qs = params.toString();
   const url = `/api/dev-sessions${qs ? `?${qs}` : ''}`;
 

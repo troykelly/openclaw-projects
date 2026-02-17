@@ -13,8 +13,8 @@ const mockContact: Contact = {
   company: 'Acme Corp',
   role: 'Product Manager',
   linkedItemCount: 5,
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  created_at: new Date(),
+  updated_at: new Date(),
 };
 
 const mockContacts: Contact[] = [
@@ -26,8 +26,8 @@ const mockContacts: Contact[] = [
     company: 'Tech Inc',
     role: 'Engineer',
     linkedItemCount: 3,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    created_at: new Date(),
+    updated_at: new Date(),
   },
 ];
 

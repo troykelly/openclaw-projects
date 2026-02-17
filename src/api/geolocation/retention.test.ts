@@ -20,9 +20,9 @@ describe('runRetentionCleanup', () => {
     const result = await runRetentionCleanup(pool);
 
     expect(result).toEqual({
-      usersProcessed: 3,
-      recordsDownsampled: 42,
-      recordsExpired: 100,
+      users_processed: 3,
+      records_downsampled: 42,
+      records_expired: 100,
     });
     expect(pool.query).toHaveBeenCalledWith('SELECT * FROM geo_retention_cleanup()');
   });
@@ -33,9 +33,9 @@ describe('runRetentionCleanup', () => {
     const result = await runRetentionCleanup(pool);
 
     expect(result).toEqual({
-      usersProcessed: 0,
-      recordsDownsampled: 0,
-      recordsExpired: 0,
+      users_processed: 0,
+      records_downsampled: 0,
+      records_expired: 0,
     });
   });
 
@@ -45,9 +45,9 @@ describe('runRetentionCleanup', () => {
     const result = await runRetentionCleanup(pool);
 
     expect(result).toEqual({
-      usersProcessed: 0,
-      recordsDownsampled: 0,
-      recordsExpired: 0,
+      users_processed: 0,
+      records_downsampled: 0,
+      records_expired: 0,
     });
   });
 
@@ -62,8 +62,8 @@ describe('runRetentionCleanup', () => {
 
     const result = await runRetentionCleanup(pool);
 
-    expect(result.recordsDownsampled).toBe(9999999999);
-    expect(result.recordsExpired).toBe(1234567890);
+    expect(result.records_downsampled).toBe(9999999999);
+    expect(result.records_expired).toBe(1234567890);
   });
 
   it('propagates database errors', async () => {

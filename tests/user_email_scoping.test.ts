@@ -46,7 +46,7 @@ describe('User email scoping (Issue #1172)', () => {
         payload: { title: 'Alice task', user_email: USER_A },
       });
       expect(createRes.statusCode).toBe(201);
-      const { id: itemId } = createRes.json() as { id: string };
+      const { id: item_id } = createRes.json() as { id: string };
 
       // User A can see it
       const listA = await app.inject({
@@ -55,7 +55,7 @@ describe('User email scoping (Issue #1172)', () => {
       });
       expect(listA.statusCode).toBe(200);
       const itemsA = (listA.json() as { items: Array<{ id: string }> }).items;
-      expect(itemsA.some((i) => i.id === itemId)).toBe(true);
+      expect(itemsA.some((i) => i.id === item_id)).toBe(true);
 
       // User B cannot see it
       const listB = await app.inject({
@@ -64,7 +64,7 @@ describe('User email scoping (Issue #1172)', () => {
       });
       expect(listB.statusCode).toBe(200);
       const itemsB = (listB.json() as { items: Array<{ id: string }> }).items;
-      expect(itemsB.some((i) => i.id === itemId)).toBe(false);
+      expect(itemsB.some((i) => i.id === item_id)).toBe(false);
     });
 
     it('items without user_email are visible to all (backwards compat)', async () => {
@@ -75,7 +75,7 @@ describe('User email scoping (Issue #1172)', () => {
         payload: { title: 'Global task' },
       });
       expect(createRes.statusCode).toBe(201);
-      const { id: itemId } = createRes.json() as { id: string };
+      const { id: item_id } = createRes.json() as { id: string };
 
       // Without user_email filter, item is visible
       const listAll = await app.inject({
@@ -84,7 +84,7 @@ describe('User email scoping (Issue #1172)', () => {
       });
       expect(listAll.statusCode).toBe(200);
       const itemsAll = (listAll.json() as { items: Array<{ id: string }> }).items;
-      expect(itemsAll.some((i) => i.id === itemId)).toBe(true);
+      expect(itemsAll.some((i) => i.id === item_id)).toBe(true);
     });
 
     it('GET /api/work-items/:id respects user_email scoping', async () => {
@@ -168,10 +168,10 @@ describe('User email scoping (Issue #1172)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Alice Contact', user_email: USER_A },
+        payload: { display_name: 'Alice Contact', user_email: USER_A },
       });
       expect(createRes.statusCode).toBe(201);
-      const { id: contactId } = createRes.json() as { id: string };
+      const { id: contact_id } = createRes.json() as { id: string };
 
       // User A can see it
       const listA = await app.inject({
@@ -180,7 +180,7 @@ describe('User email scoping (Issue #1172)', () => {
       });
       expect(listA.statusCode).toBe(200);
       const contactsA = (listA.json() as { contacts: Array<{ id: string }> }).contacts;
-      expect(contactsA.some((c) => c.id === contactId)).toBe(true);
+      expect(contactsA.some((c) => c.id === contact_id)).toBe(true);
 
       // User B cannot see it
       const listB = await app.inject({
@@ -189,14 +189,14 @@ describe('User email scoping (Issue #1172)', () => {
       });
       expect(listB.statusCode).toBe(200);
       const contactsB = (listB.json() as { contacts: Array<{ id: string }> }).contacts;
-      expect(contactsB.some((c) => c.id === contactId)).toBe(false);
+      expect(contactsB.some((c) => c.id === contact_id)).toBe(false);
     });
 
     it('GET /api/contacts/:id respects user_email scoping', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Scoped Contact', user_email: USER_A },
+        payload: { display_name: 'Scoped Contact', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
 
@@ -219,7 +219,7 @@ describe('User email scoping (Issue #1172)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Delete Contact', user_email: USER_A },
+        payload: { display_name: 'Delete Contact', user_email: USER_A },
       });
       const { id } = createRes.json() as { id: string };
 
@@ -242,10 +242,10 @@ describe('User email scoping (Issue #1172)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Global Contact' },
+        payload: { display_name: 'Global Contact' },
       });
       expect(createRes.statusCode).toBe(201);
-      const { id: contactId } = createRes.json() as { id: string };
+      const { id: contact_id } = createRes.json() as { id: string };
 
       // Without filter, visible
       const listAll = await app.inject({
@@ -254,7 +254,7 @@ describe('User email scoping (Issue #1172)', () => {
       });
       expect(listAll.statusCode).toBe(200);
       const contactsAll = (listAll.json() as { contacts: Array<{ id: string }> }).contacts;
-      expect(contactsAll.some((c) => c.id === contactId)).toBe(true);
+      expect(contactsAll.some((c) => c.id === contact_id)).toBe(true);
     });
   });
 
@@ -266,15 +266,15 @@ describe('User email scoping (Issue #1172)', () => {
       const contactARes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Rel Contact A', user_email: USER_A },
+        payload: { display_name: 'Rel Contact A', user_email: USER_A },
       });
       const contactBRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Rel Contact B', user_email: USER_A },
+        payload: { display_name: 'Rel Contact B', user_email: USER_A },
       });
-      const contactAId = (contactARes.json() as { id: string }).id;
-      const contactBId = (contactBRes.json() as { id: string }).id;
+      const contact_a_id = (contactARes.json() as { id: string }).id;
+      const contact_b_id = (contactBRes.json() as { id: string }).id;
 
       // Ensure relationship type exists (use "knows" which is seeded)
       // First get the relationship type
@@ -296,15 +296,15 @@ describe('User email scoping (Issue #1172)', () => {
         method: 'POST',
         url: '/api/relationships',
         payload: {
-          contact_a_id: contactAId,
-          contact_b_id: contactBId,
+          contact_a_id: contact_a_id,
+          contact_b_id: contact_b_id,
           relationship_type_id: relTypeId,
         },
       });
 
       // Relationship created (may not have user_email directly via this route,
       // but we can verify the listRelationships endpoint respects user_email filter)
-      if (relRes.statusCode === 201) {
+      if (relRes.status_code === 201) {
         // Insert user_email directly for test
         const relId = (relRes.json() as { id: string }).id;
         await pool.query('UPDATE relationship SET user_email = $1 WHERE id = $2', [USER_A, relId]);
@@ -334,12 +334,12 @@ describe('User email scoping (Issue #1172)', () => {
       const contactARes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'SetRelA', user_email: USER_A },
+        payload: { display_name: 'SetRelA', user_email: USER_A },
       });
       const contactBRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'SetRelB', user_email: USER_A },
+        payload: { display_name: 'SetRelB', user_email: USER_A },
       });
       expect(contactARes.statusCode).toBe(201);
       expect(contactBRes.statusCode).toBe(201);
@@ -358,7 +358,7 @@ describe('User email scoping (Issue #1172)', () => {
 
       // The relationship set may fail if 'knows' type doesn't exist,
       // that's expected in test environments without seed data
-      if (setRes.statusCode === 200) {
+      if (setRes.status_code === 200) {
         const relData = setRes.json() as { relationship: { id: string } };
 
         // Verify user_email was stored

@@ -65,13 +65,13 @@ describe('Embedding Settings API Endpoints', () => {
       const body = response.json();
 
       expect(body).toHaveProperty('provider');
-      expect(body).toHaveProperty('availableProviders');
+      expect(body).toHaveProperty('available_providers');
       expect(body).toHaveProperty('budget');
       expect(body).toHaveProperty('usage');
 
-      expect(body.availableProviders).toHaveLength(3);
-      expect(body.budget.dailyLimitUsd).toBe(10);
-      expect(body.budget.monthlyLimitUsd).toBe(100);
+      expect(body.available_providers).toHaveLength(3);
+      expect(body.budget.daily_limit_usd).toBe(10);
+      expect(body.budget.monthly_limit_usd).toBe(100);
     });
 
     it('includes current provider status', async () => {
@@ -84,7 +84,7 @@ describe('Embedding Settings API Endpoints', () => {
       expect(body.provider).not.toBeNull();
       expect(body.provider.name).toBe('openai');
       expect(body.provider.status).toBe('active');
-      expect(body.provider.keySource).toBe('environment');
+      expect(body.provider.key_source).toBe('environment');
     });
 
     it('includes usage statistics', async () => {
@@ -102,7 +102,7 @@ describe('Embedding Settings API Endpoints', () => {
       const body = response.json();
       expect(body.usage.today.count).toBe(10);
       expect(body.usage.today.tokens).toBe(50000);
-      expect(body.budget.todaySpendUsd).toBe(1.5);
+      expect(body.budget.today_spend_usd).toBe(1.5);
     });
   });
 
@@ -111,36 +111,36 @@ describe('Embedding Settings API Endpoints', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/settings/embeddings',
-        payload: { dailyLimitUsd: 25 },
+        payload: { daily_limit_usd: 25 },
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.budget.dailyLimitUsd).toBe(25);
+      expect(body.budget.daily_limit_usd).toBe(25);
     });
 
     it('updates monthly limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/settings/embeddings',
-        payload: { monthlyLimitUsd: 250 },
+        payload: { monthly_limit_usd: 250 },
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.budget.monthlyLimitUsd).toBe(250);
+      expect(body.budget.monthly_limit_usd).toBe(250);
     });
 
     it('updates pause on limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/settings/embeddings',
-        payload: { pauseOnLimit: false },
+        payload: { pause_on_limit: false },
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.budget.pauseOnLimit).toBe(false);
+      expect(body.budget.pause_on_limit).toBe(false);
     });
 
     it('updates multiple fields', async () => {
@@ -148,24 +148,24 @@ describe('Embedding Settings API Endpoints', () => {
         method: 'PATCH',
         url: '/api/settings/embeddings',
         payload: {
-          dailyLimitUsd: 50,
-          monthlyLimitUsd: 500,
-          pauseOnLimit: false,
+          daily_limit_usd: 50,
+          monthly_limit_usd: 500,
+          pause_on_limit: false,
         },
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.budget.dailyLimitUsd).toBe(50);
-      expect(body.budget.monthlyLimitUsd).toBe(500);
-      expect(body.budget.pauseOnLimit).toBe(false);
+      expect(body.budget.daily_limit_usd).toBe(50);
+      expect(body.budget.monthly_limit_usd).toBe(500);
+      expect(body.budget.pause_on_limit).toBe(false);
     });
 
     it('rejects invalid daily limit', async () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/settings/embeddings',
-        payload: { dailyLimitUsd: -5 },
+        payload: { daily_limit_usd: -5 },
       });
 
       expect(response.statusCode).toBe(400);
@@ -175,7 +175,7 @@ describe('Embedding Settings API Endpoints', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/settings/embeddings',
-        payload: { dailyLimitUsd: 50000 },
+        payload: { daily_limit_usd: 50000 },
       });
 
       expect(response.statusCode).toBe(400);
@@ -185,7 +185,7 @@ describe('Embedding Settings API Endpoints', () => {
       const response = await app.inject({
         method: 'PATCH',
         url: '/api/settings/embeddings',
-        payload: { monthlyLimitUsd: -10 },
+        payload: { monthly_limit_usd: -10 },
       });
 
       expect(response.statusCode).toBe(400);

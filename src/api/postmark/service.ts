@@ -31,7 +31,7 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
     const senderName = payload.FromFull.Name || null;
 
     // Extract threading info from headers
-    const messageId = getMessageId(payload.Headers) || payload.MessageID;
+    const message_id = getMessageId(payload.Headers) || payload.MessageID;
     const inReplyTo = getInReplyTo(payload.Headers);
     const references = getReferences(payload.Headers);
 
@@ -45,13 +45,13 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
       [senderEmail],
     );
 
-    let contactId: string;
+    let contact_id: string;
     let endpointId: string;
     let isNewContact = false;
 
     if (existingEndpoint.rows.length > 0) {
       endpointId = existingEndpoint.rows[0].id;
-      contactId = existingEndpoint.rows[0].contact_id;
+      contact_id = existingEndpoint.rows[0].contact_id;
 
       // Update contact name if we have one and it's better than what we have
       if (senderName) {
@@ -61,28 +61,28 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
                   updated_at = now()
             WHERE id = $1
               AND (display_name IS NULL OR display_name = '' OR display_name LIKE '%@%')`,
-          [contactId, senderName],
+          [contact_id, senderName],
         );
       }
     } else {
       // Create new contact
       isNewContact = true;
-      const displayName = senderName || senderEmail;
+      const display_name = senderName || senderEmail;
 
       const contact = await client.query(
         `INSERT INTO contact (display_name)
          VALUES ($1)
          RETURNING id::text as id`,
-        [displayName],
+        [display_name],
       );
-      contactId = contact.rows[0].id;
+      contact_id = contact.rows[0].id;
 
       const endpoint = await client.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
          VALUES ($1, 'email', $2, $3::jsonb)
          RETURNING id::text as id`,
         [
-          contactId,
+          contact_id,
           senderEmail,
           JSON.stringify({
             source: 'postmark',
@@ -94,7 +94,7 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
     }
 
     // Create or find thread
-    const threadKey = createEmailThreadKey(messageId, inReplyTo, references);
+    const threadKey = createEmailThreadKey(message_id, inReplyTo, references);
 
     // Check if thread exists
     const existingThread = await client.query(
@@ -104,18 +104,18 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
       [threadKey],
     );
 
-    let threadId: string;
+    let thread_id: string;
     let isNewThread = false;
 
     if (existingThread.rows.length > 0) {
-      threadId = existingThread.rows[0].id;
+      thread_id = existingThread.rows[0].id;
 
       // Update thread's endpoint to the latest sender
       await client.query(
         `UPDATE external_thread
             SET endpoint_id = $1, updated_at = now()
           WHERE id = $2`,
-        [endpointId, threadId],
+        [endpointId, thread_id],
       );
     } else {
       isNewThread = true;
@@ -130,13 +130,13 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
           JSON.stringify({
             source: 'postmark',
             subject: payload.Subject,
-            messageId,
+            message_id,
             inReplyTo,
             references,
           }),
         ],
       );
-      threadId = thread.rows[0].id;
+      thread_id = thread.rows[0].id;
     }
 
     // Extract recipients
@@ -146,7 +146,7 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
     // Extract attachment metadata
     const attachments: AttachmentMetadata[] = (payload.Attachments || []).map((a) => ({
       name: a.Name,
-      contentType: a.ContentType,
+      content_type: a.ContentType,
       size: a.ContentLength,
       contentId: a.ContentID,
     }));
@@ -172,17 +172,17 @@ export async function processPostmarkEmail(pool: Pool, payload: PostmarkInboundP
          cc_addresses = EXCLUDED.cc_addresses,
          attachments = EXCLUDED.attachments
        RETURNING id::text as id`,
-      [threadId, messageId, body, JSON.stringify(payload), payload.Date, payload.Subject, senderEmail, toAddresses, ccAddresses, JSON.stringify(attachments)],
+      [thread_id, message_id, body, JSON.stringify(payload), payload.Date, payload.Subject, senderEmail, toAddresses, ccAddresses, JSON.stringify(attachments)],
     );
     const messageDBId = message.rows[0].id;
 
     await client.query('COMMIT');
 
     return {
-      contactId,
+      contact_id,
       endpointId,
-      threadId,
-      messageId: messageDBId,
+      thread_id,
+      message_id: messageDBId,
       isNewContact,
       isNewThread,
     };
@@ -209,13 +209,13 @@ export async function getRecentEmails(
 ): Promise<
   Array<{
     id: string;
-    threadId: string;
+    thread_id: string;
     direction: 'inbound' | 'outbound';
     subject: string | null;
     body: string | null;
     fromAddress: string | null;
     toAddresses: string[];
-    receivedAt: Date;
+    received_at: Date;
   }>
 > {
   const result = await pool.query(
@@ -239,13 +239,13 @@ export async function getRecentEmails(
 
   return result.rows.map((row) => ({
     id: row.id,
-    threadId: row.thread_id,
+    thread_id: row.thread_id,
     direction: row.direction,
     subject: row.subject,
     body: row.body,
     fromAddress: row.from_address,
     toAddresses: row.to_addresses || [],
-    receivedAt: row.received_at,
+    received_at: row.received_at,
   }));
 }
 
@@ -256,7 +256,7 @@ export async function getRecentEmails(
  * @param email - Email address
  * @returns Contact info or null if not found
  */
-export async function findContactByEmail(pool: Pool, email: string): Promise<{ contactId: string; endpointId: string; displayName: string } | null> {
+export async function findContactByEmail(pool: Pool, email: string): Promise<{ contact_id: string; endpointId: string; display_name: string } | null> {
   const result = await pool.query(
     `SELECT ce.id::text as endpoint_id,
             c.id::text as contact_id,
@@ -274,8 +274,8 @@ export async function findContactByEmail(pool: Pool, email: string): Promise<{ c
   }
 
   return {
-    contactId: result.rows[0].contact_id,
+    contact_id: result.rows[0].contact_id,
     endpointId: result.rows[0].endpoint_id,
-    displayName: result.rows[0].display_name,
+    display_name: result.rows[0].display_name,
   };
 }

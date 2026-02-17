@@ -2,17 +2,17 @@ export interface MemoryItem {
   id: string;
   title: string;
   content: string;
-  linkedItemId?: string;
-  linkedItemTitle?: string;
-  linkedItemKind?: 'project' | 'initiative' | 'epic' | 'issue';
+  linked_item_id?: string;
+  linked_item_title?: string;
+  linked_item_kind?: 'project' | 'initiative' | 'epic' | 'issue';
   tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface MemoryFilter {
   search?: string;
-  linkedItemKind?: 'project' | 'initiative' | 'epic' | 'issue';
+  linked_item_kind?: 'project' | 'initiative' | 'epic' | 'issue';
   tags?: string[];
 }
 

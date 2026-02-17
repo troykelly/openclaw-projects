@@ -27,13 +27,13 @@ function mapRowToRelationshipType(row: Record<string, unknown>): RelationshipTyp
     id: row.id as string,
     name: row.name as string,
     label: row.label as string,
-    isDirectional: row.is_directional as boolean,
-    inverseTypeId: (row.inverse_type_id as string) ?? null,
+    is_directional: row.is_directional as boolean,
+    inverse_type_id: (row.inverse_type_id as string) ?? null,
     description: (row.description as string) ?? null,
-    createdByAgent: (row.created_by_agent as string) ?? null,
-    embeddingStatus: row.embedding_status as RelationshipTypeEmbeddingStatus,
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    created_by_agent: (row.created_by_agent as string) ?? null,
+    embedding_status: row.embedding_status as RelationshipTypeEmbeddingStatus,
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
   };
 }
 
@@ -42,7 +42,7 @@ function mapRowToRelationshipType(row: Record<string, unknown>): RelationshipTyp
  */
 function mapRowToRelationshipTypeWithInverse(row: Record<string, unknown>): RelationshipTypeWithInverse {
   const base = mapRowToRelationshipType(row);
-  const inverseType = row.inverse_name
+  const inverse_type = row.inverse_name
     ? {
         id: row.inverse_id as string,
         name: row.inverse_name as string,
@@ -50,7 +50,7 @@ function mapRowToRelationshipTypeWithInverse(row: Record<string, unknown>): Rela
       }
     : null;
 
-  return { ...base, inverseType };
+  return { ...base, inverse_type };
 }
 
 /** SQL fragment to select all relationship type columns with inverse join */
@@ -97,19 +97,19 @@ export async function listRelationshipTypes(pool: Pool, options: ListRelationshi
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  if (options.isDirectional !== undefined) {
+  if (options.is_directional !== undefined) {
     conditions.push(`rt.is_directional = $${paramIndex}`);
-    params.push(options.isDirectional);
+    params.push(options.is_directional);
     paramIndex++;
   }
 
-  if (options.createdByAgent !== undefined) {
+  if (options.created_by_agent !== undefined) {
     conditions.push(`rt.created_by_agent = $${paramIndex}`);
-    params.push(options.createdByAgent);
+    params.push(options.created_by_agent);
     paramIndex++;
   }
 
-  if (options.preSeededOnly) {
+  if (options.pre_seeded_only) {
     conditions.push('rt.created_by_agent IS NULL');
   }
 
@@ -168,7 +168,7 @@ export async function getRelationshipTypeByName(pool: Pool, name: string): Promi
 /**
  * Creates a new relationship type.
  *
- * If inverseTypeName is provided:
+ * If inverse_type_name is provided:
  * 1. Looks up the inverse type by name
  * 2. Sets inverse_type_id on the new type
  * 3. Updates the inverse type to point back to the new type
@@ -185,15 +185,15 @@ export async function createRelationshipType(pool: Pool, input: CreateRelationsh
     throw new Error('Label is required');
   }
 
-  let inverseTypeId: string | null = null;
+  let inverse_type_id: string | null = null;
 
   // Look up inverse type if specified
-  if (input.inverseTypeName) {
-    const inverseType = await getRelationshipTypeByName(pool, input.inverseTypeName);
-    if (!inverseType) {
-      throw new Error(`Inverse type '${input.inverseTypeName}' not found`);
+  if (input.inverse_type_name) {
+    const inverse_type = await getRelationshipTypeByName(pool, input.inverse_type_name);
+    if (!inverse_type) {
+      throw new Error(`Inverse type '${input.inverse_type_name}' not found`);
     }
-    inverseTypeId = inverseType.id;
+    inverse_type_id = inverse_type.id;
   }
 
   const result = await pool.query(
@@ -205,14 +205,14 @@ export async function createRelationshipType(pool: Pool, input: CreateRelationsh
       id::text as id, name, label, is_directional,
       inverse_type_id::text as inverse_type_id, description,
       created_by_agent, embedding_status, created_at, updated_at`,
-    [input.name.trim(), input.label.trim(), input.isDirectional ?? false, inverseTypeId, input.description ?? null, input.createdByAgent ?? null],
+    [input.name.trim(), input.label.trim(), input.is_directional ?? false, inverse_type_id, input.description ?? null, input.created_by_agent ?? null],
   );
 
   const newType = mapRowToRelationshipType(result.rows[0] as Record<string, unknown>);
 
   // If we have an inverse type, update it to point back to us
-  if (inverseTypeId) {
-    await pool.query('UPDATE relationship_type SET inverse_type_id = $1 WHERE id = $2', [newType.id, inverseTypeId]);
+  if (inverse_type_id) {
+    await pool.query('UPDATE relationship_type SET inverse_type_id = $1 WHERE id = $2', [newType.id, inverse_type_id]);
   }
 
   // Trigger embedding asynchronously
@@ -311,9 +311,9 @@ async function textSearch(pool: Pool, query: string, limit: number): Promise<Sem
  *
  * This is used to prevent duplicate types (e.g., "spouse_of" when "partner_of" exists).
  */
-export async function findSemanticMatch(pool: Pool, query: string, options: { limit?: number; minSimilarity?: number } = {}): Promise<SemanticMatchResult[]> {
+export async function findSemanticMatch(pool: Pool, query: string, options: { limit?: number; min_similarity?: number } = {}): Promise<SemanticMatchResult[]> {
   const limit = Math.min(options.limit ?? 10, 50);
-  const minSimilarity = options.minSimilarity ?? 0.1;
+  const min_similarity = options.min_similarity ?? 0.1;
 
   // Try semantic search first if embeddings service is available
   try {
@@ -336,7 +336,7 @@ export async function findSemanticMatch(pool: Pool, query: string, options: { li
             AND 1 - (embedding <=> $1::vector) >= $2
           ORDER BY similarity DESC
           LIMIT $3`,
-          [embeddingStr, minSimilarity, limit],
+          [embeddingStr, min_similarity, limit],
         );
 
         // If semantic search found results, return them

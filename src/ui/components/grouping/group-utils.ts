@@ -119,7 +119,7 @@ export function groupItems<T extends Record<string, unknown>>(items: T[], field:
         key = (item.assigneeId as string) || 'unassigned';
         break;
       case 'parent':
-        key = (item.parentId as string) || 'no_parent';
+        key = (item.parent_id as string) || 'no_parent';
         break;
       case 'dueDate':
         key = getDueDateGroup(item.dueDate as string | undefined);

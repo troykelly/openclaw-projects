@@ -39,7 +39,7 @@ export interface NotificationServiceOptions {
   /** API client for backend communication */
   apiClient: ApiClient;
   /** User ID for scoping */
-  userId: string;
+  user_id: string;
   /** Event emitter for notifications */
   events: NotificationServiceEvents;
   /** Service configuration */
@@ -80,7 +80,7 @@ const EVENT_MAP: Record<NotificationEvent, string> = {
  * @returns Service definition for registration
  */
 export function createNotificationService(options: NotificationServiceOptions): NotificationService {
-  const { logger, apiClient, userId, events, config: userConfig } = options;
+  const { logger, apiClient, user_id, events, config: userConfig } = options;
   const config = { ...DEFAULT_CONFIG, ...userConfig };
 
   // Service state
@@ -96,14 +96,14 @@ export function createNotificationService(options: NotificationServiceOptions): 
     const eventName = EVENT_MAP[notification.event];
     if (!eventName) {
       logger.warn('Unknown notification event type', {
-        userId,
+        user_id,
         event: notification.event,
       });
       return;
     }
 
     logger.debug('Emitting notification event', {
-      userId,
+      user_id,
       event: notification.event,
       notificationId: notification.id,
     });
@@ -127,11 +127,11 @@ export function createNotificationService(options: NotificationServiceOptions): 
       const response = await apiClient.get<{
         notifications: Notification[];
         total: number;
-      }>(`/api/notifications?${queryParams}`, { userId });
+      }>(`/api/notifications?${queryParams}`, { user_id });
 
       if (!response.success) {
         logger.error('Notification poll failed', {
-          userId,
+          user_id,
           error: response.error.message,
         });
         return;
@@ -148,12 +148,12 @@ export function createNotificationService(options: NotificationServiceOptions): 
       lastPollTime = new Date();
 
       logger.debug('Notification poll completed', {
-        userId,
+        user_id,
         count: notifications.length,
       });
     } catch (error) {
       logger.error('Notification poll failed', {
-        userId,
+        user_id,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -167,19 +167,19 @@ export function createNotificationService(options: NotificationServiceOptions): 
      */
     async start(): Promise<void> {
       if (!config.enabled) {
-        logger.debug('Notification service disabled', { userId });
+        logger.debug('Notification service disabled', { user_id });
         return;
       }
 
       if (running) {
-        logger.debug('Notification service already running', { userId });
+        logger.debug('Notification service already running', { user_id });
         return;
       }
 
       running = true;
 
       logger.info('Starting notification service', {
-        userId,
+        user_id,
         pollIntervalMs: config.pollIntervalMs,
       });
 
@@ -201,7 +201,7 @@ export function createNotificationService(options: NotificationServiceOptions): 
 
       running = false;
 
-      logger.info('Notification service stopped', { userId });
+      logger.info('Notification service stopped', { user_id });
     },
 
     /**

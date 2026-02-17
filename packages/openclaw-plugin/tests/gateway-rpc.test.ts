@@ -47,7 +47,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const params: SubscribeParams = {
@@ -64,7 +64,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const params: SubscribeParams = {
@@ -80,7 +80,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const params: SubscribeParams = {
@@ -99,7 +99,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       // First subscribe
@@ -116,7 +116,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await methods.unsubscribe({});
@@ -134,8 +134,8 @@ describe('Gateway RPC Methods', () => {
             {
               id: 'notif-1',
               event: 'message.new',
-              payload: { messageId: 'msg-1', channel: 'sms' },
-              createdAt: '2025-01-01T00:00:00Z',
+              payload: { message_id: 'msg-1', channel: 'sms' },
+              created_at: '2025-01-01T00:00:00Z',
             },
           ],
           total: 1,
@@ -145,7 +145,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const params: GetNotificationsParams = {};
@@ -154,7 +154,7 @@ describe('Gateway RPC Methods', () => {
 
       expect(result.notifications).toHaveLength(1);
       expect(result.notifications[0].event).toBe('message.new');
-      expect(result.hasMore).toBe(false);
+      expect(result.has_more).toBe(false);
       expect(mockApiClient.get).toHaveBeenCalled();
     });
 
@@ -166,7 +166,7 @@ describe('Gateway RPC Methods', () => {
             id: 'notif-1',
             event: 'message.new',
             payload: {},
-            createdAt: '2025-01-01T00:00:00Z',
+            created_at: '2025-01-01T00:00:00Z',
           }),
           total: 10,
         },
@@ -175,7 +175,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const params: GetNotificationsParams = { limit: 5 };
@@ -183,7 +183,7 @@ describe('Gateway RPC Methods', () => {
       const result = await methods.getNotifications(params);
 
       expect(result.notifications).toHaveLength(5);
-      expect(result.hasMore).toBe(true);
+      expect(result.has_more).toBe(true);
     });
 
     it('should filter by since timestamp', async () => {
@@ -198,7 +198,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const since = '2025-01-01T00:00:00Z';
@@ -218,13 +218,13 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await methods.getNotifications({});
 
       expect(result.notifications).toEqual([]);
-      expect(result.hasMore).toBe(false);
+      expect(result.has_more).toBe(false);
       expect(mockLogger.error).toHaveBeenCalled();
     });
   });
@@ -236,7 +236,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await methods.subscribe({ events: validEvents });
@@ -250,7 +250,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       // Subscribe to events
@@ -267,7 +267,7 @@ describe('Gateway RPC Methods', () => {
       const methods = createGatewayMethods({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       // Subscribe

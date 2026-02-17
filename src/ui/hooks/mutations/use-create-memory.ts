@@ -12,7 +12,7 @@ import { memoryKeys } from '@/ui/hooks/queries/use-memories.ts';
 /** Variables for the create memory mutation. */
 export interface CreateMemoryVariables {
   /** The work item ID to attach the memory to. */
-  workItemId: string;
+  work_item_id: string;
   /** Memory data. */
   body: CreateMemoryBody;
 }
@@ -25,18 +25,18 @@ export interface CreateMemoryVariables {
  * @example
  * ```ts
  * const { mutate } = useCreateMemory();
- * mutate({ workItemId: 'abc', body: { title: 'Note', content: 'Details' } });
+ * mutate({ work_item_id: 'abc', body: { title: 'Note', content: 'Details' } });
  * ```
  */
 export function useCreateMemory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ workItemId, body }: CreateMemoryVariables) => apiClient.post<Memory>(`/api/work-items/${workItemId}/memories`, body),
+    mutationFn: ({ work_item_id, body }: CreateMemoryVariables) => apiClient.post<Memory>(`/api/work-items/${work_item_id}/memories`, body),
 
-    onSuccess: (_data, { workItemId }) => {
+    onSuccess: (_data, { work_item_id }) => {
       // Invalidate the work item's memories list and global memories
-      queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(workItemId) });
+      queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(work_item_id) });
       queryClient.invalidateQueries({ queryKey: memoryKeys.lists() });
     },
   });

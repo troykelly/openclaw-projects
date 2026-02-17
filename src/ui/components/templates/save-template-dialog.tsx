@@ -50,7 +50,7 @@ export function SaveTemplateDialog({ open, item, onSave, onCancel }: SaveTemplat
           : undefined,
     };
 
-    const template: Omit<WorkItemTemplate, 'id' | 'createdAt'> = {
+    const template: Omit<WorkItemTemplate, 'id' | 'created_at'> = {
       name: name.trim(),
       description: description.trim(),
       category,

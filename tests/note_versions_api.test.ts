@@ -33,12 +33,12 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   /**
    * Helper to create a note via API and return its ID
    */
-  async function createNote(userEmail: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
+  async function createNote(user_email: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notes',
       payload: {
-        user_email: userEmail,
+        user_email: user_email,
         title,
         content,
         visibility,
@@ -51,12 +51,12 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
   /**
    * Helper to update a note via API (which creates a new version via trigger)
    */
-  async function updateNote(noteId: string, title: string, content: string, userEmail: string): Promise<void> {
+  async function updateNote(noteId: string, title: string, content: string, user_email: string): Promise<void> {
     const res = await app.inject({
       method: 'PUT',
       url: `/api/notes/${noteId}`,
       payload: {
-        user_email: userEmail,
+        user_email: user_email,
         title,
         content,
       },
@@ -107,24 +107,24 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.noteId).toBe(noteId);
+      expect(body.note_id).toBe(noteId);
       expect(body.versions).toBeInstanceOf(Array);
       expect(body.versions.length).toBeGreaterThanOrEqual(2);
       expect(body.total).toBeGreaterThanOrEqual(2);
-      expect(body.currentVersion).toBeGreaterThanOrEqual(2);
+      expect(body.current_version).toBeGreaterThanOrEqual(2);
 
       // Versions should be ordered by version number descending
-      const versionNumbers = body.versions.map((v: { versionNumber: number }) => v.versionNumber);
+      const versionNumbers = body.versions.map((v: { version_number: number }) => v.version_number);
       expect(versionNumbers).toEqual([...versionNumbers].sort((a, b) => b - a));
 
       // Each version should have expected fields
       const version = body.versions[0];
       expect(version).toHaveProperty('id');
-      expect(version).toHaveProperty('versionNumber');
+      expect(version).toHaveProperty('version_number');
       expect(version).toHaveProperty('title');
-      expect(version).toHaveProperty('changeType');
-      expect(version).toHaveProperty('contentLength');
-      expect(version).toHaveProperty('createdAt');
+      expect(version).toHaveProperty('change_type');
+      expect(version).toHaveProperty('content_length');
+      expect(version).toHaveProperty('created_at');
       // Summary versions should NOT include full content
       expect(version).not.toHaveProperty('content');
     });
@@ -230,12 +230,12 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       expect(response.statusCode).toBe(200);
       const version = response.json();
-      expect(version.noteId).toBe(noteId);
-      expect(version.versionNumber).toBe(1);
+      expect(version.note_id).toBe(noteId);
+      expect(version.version_number).toBe(1);
       expect(version.title).toBe('Original Title');
       expect(version.content).toBe('Original content');
-      expect(version).toHaveProperty('createdAt');
-      expect(version).toHaveProperty('changeType');
+      expect(version).toHaveProperty('created_at');
+      expect(version).toHaveProperty('change_type');
     });
 
     it('should return 404 for non-existent version', async () => {
@@ -307,16 +307,16 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       expect(response.statusCode).toBe(200);
       const result = response.json();
 
-      expect(result.noteId).toBe(noteId);
-      expect(result.from.versionNumber).toBe(1);
-      expect(result.to.versionNumber).toBe(2);
-      expect(result.diff).toHaveProperty('titleChanged');
-      expect(result.diff).toHaveProperty('contentChanged');
-      expect(result.diff).toHaveProperty('contentDiff');
+      expect(result.note_id).toBe(noteId);
+      expect(result.from.version_number).toBe(1);
+      expect(result.to.version_number).toBe(2);
+      expect(result.diff).toHaveProperty('title_changed');
+      expect(result.diff).toHaveProperty('content_changed');
+      expect(result.diff).toHaveProperty('content_diff');
       expect(result.diff).toHaveProperty('stats');
       // Version 1: "Original Title", Version 2: "Updated Title"
-      expect(result.diff.titleChanged).toBe(true);
-      expect(result.diff.contentChanged).toBe(true);
+      expect(result.diff.title_changed).toBe(true);
+      expect(result.diff.content_changed).toBe(true);
       expect(result.diff.stats).toHaveProperty('additions');
       expect(result.diff.stats).toHaveProperty('deletions');
       expect(result.diff.stats).toHaveProperty('changes');
@@ -343,8 +343,8 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       expect(response.statusCode).toBe(200);
       const result = response.json();
       // Versions 1 and 2 have different content (Original vs Changed)
-      expect(result.diff.titleChanged).toBe(true);
-      expect(result.diff.contentChanged).toBe(true);
+      expect(result.diff.title_changed).toBe(true);
+      expect(result.diff.content_changed).toBe(true);
     });
 
     it('should return 404 when one version does not exist', async () => {
@@ -435,10 +435,10 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
       expect(response.statusCode).toBe(200);
       const result = response.json();
-      expect(result.noteId).toBe(noteId);
-      expect(result.restoredFromVersion).toBe(1);
+      expect(result.note_id).toBe(noteId);
+      expect(result.restored_from_version).toBe(1);
       // After restore: version 1 existed (original), now version 2 is created (capture of "New")
-      expect(result.newVersion).toBeGreaterThanOrEqual(2);
+      expect(result.new_version).toBeGreaterThanOrEqual(2);
       expect(result.title).toBe('Original Title');
       expect(result.message).toContain('restored');
 
@@ -581,7 +581,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const body = response.json();
       // Newly created note has no version history until first edit
       expect(body.versions.length).toBe(0);
-      expect(body.currentVersion).toBe(0);
+      expect(body.current_version).toBe(0);
     });
 
     it('should have one version after first edit', async () => {
@@ -598,7 +598,7 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       const body = response.json();
       // After first edit, we have 1 version (the original content)
       expect(body.versions.length).toBe(1);
-      expect(body.currentVersion).toBe(1);
+      expect(body.current_version).toBe(1);
       // Version 1 should have the ORIGINAL content (captured before the edit)
       expect(body.versions[0].title).toBe('Original');
     });
@@ -625,12 +625,12 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Should have 2 versions after 2 updates
       expect(body.versions.length).toBe(2);
 
-      // Note: changedByEmail might not be set correctly through the API
+      // Note: changed_by_email might not be set correctly through the API
       // because the session setting is transaction-scoped and the trigger
       // might not always pick it up. This is a known limitation.
       // We just verify that versions were created.
-      const v1 = body.versions.find((v: { versionNumber: number }) => v.versionNumber === 1);
-      const v2 = body.versions.find((v: { versionNumber: number }) => v.versionNumber === 2);
+      const v1 = body.versions.find((v: { version_number: number }) => v.version_number === 1);
+      const v2 = body.versions.find((v: { version_number: number }) => v.version_number === 2);
       expect(v1).toBeDefined();
       expect(v2).toBeDefined();
       expect(v1.title).toBe('Title'); // Original title captured
@@ -656,15 +656,15 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
       // Should have 2 versions
       expect(body.versions.length).toBe(2);
 
-      const v1 = body.versions.find((v: { versionNumber: number }) => v.versionNumber === 1);
-      const v2 = body.versions.find((v: { versionNumber: number }) => v.versionNumber === 2);
+      const v1 = body.versions.find((v: { version_number: number }) => v.version_number === 1);
+      const v2 = body.versions.find((v: { version_number: number }) => v.version_number === 2);
 
       expect(v1).toBeDefined();
       expect(v2).toBeDefined();
 
       // Version 1 has "Short" content (5 chars)
       // Version 2 has "Much longer content..." content
-      expect(v2.contentLength).toBeGreaterThan(v1.contentLength);
+      expect(v2.content_length).toBeGreaterThan(v1.content_length);
     });
   });
 });

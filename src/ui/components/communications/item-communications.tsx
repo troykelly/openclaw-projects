@@ -34,7 +34,7 @@ export function ItemCommunications({
 }: ItemCommunicationsProps) {
   const [activeTab, setActiveTab] = useState<'emails' | 'calendar'>('emails');
 
-  const totalCount = emails.length + calendarEvents.length;
+  const total_count = emails.length + calendarEvents.length;
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -43,7 +43,7 @@ export function ItemCommunications({
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-medium">Communications</h3>
           <Badge variant="secondary" className="text-xs">
-            {totalCount}
+            {total_count}
           </Badge>
         </div>
       </div>

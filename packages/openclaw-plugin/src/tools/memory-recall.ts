@@ -39,8 +39,8 @@ export interface Memory {
   category: string;
   tags?: string[];
   score?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
   lat?: number | null;
   lng?: number | null;
   address?: string | null;
@@ -55,7 +55,7 @@ export interface MemoryRecallSuccess {
     details: {
       count: number;
       memories: Memory[];
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -74,7 +74,7 @@ export interface MemoryRecallToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -115,7 +115,7 @@ function formatMemoriesAsText(memories: Memory[]): string {
  * Creates the memory_recall tool.
  */
 export function createMemoryRecallTool(options: MemoryRecallToolOptions): MemoryRecallTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'memory_recall',
@@ -141,7 +141,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
 
       // Log invocation (without query content for privacy)
       logger.info('memory_recall invoked', {
-        userId,
+        user_id,
         limit,
         category: category ?? 'all',
         tags: tags ?? [],
@@ -171,11 +171,11 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         const path = `/api/memories/search?${queryParams.toString()}`;
 
         // Call API
-        const response = await client.get<{ results: Array<{ id: string; content: string; type: string; tags?: string[]; similarity?: number; createdAt?: string; updatedAt?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { userId });
+        const response = await client.get<{ results: Array<{ id: string; content: string; type: string; tags?: string[]; similarity?: number; created_at?: string; updated_at?: string; lat?: number | null; lng?: number | null; address?: string | null; place_label?: string | null }>; search_type: string }>(path, { user_id });
 
         if (!response.success) {
           logger.error('memory_recall API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -195,8 +195,8 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
           category: m.type === 'note' ? 'other' : m.type,
           tags: m.tags,
           score: m.similarity,
-          createdAt: m.createdAt,
-          updatedAt: m.updatedAt,
+          created_at: m.created_at,
+          updated_at: m.updated_at,
           lat: m.lat,
           lng: m.lng,
           address: m.address,
@@ -234,7 +234,7 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
         const content = formatMemoriesAsText(memories);
 
         logger.debug('memory_recall completed', {
-          userId,
+          user_id,
           resultCount: memories.length,
         });
 
@@ -245,13 +245,13 @@ export function createMemoryRecallTool(options: MemoryRecallToolOptions): Memory
             details: {
               count: memories.length,
               memories,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('memory_recall failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 

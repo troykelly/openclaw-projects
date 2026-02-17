@@ -6,9 +6,9 @@
 /** User identity information */
 export interface UserContext {
   /** Unique user identifier */
-  userId: string;
+  user_id: string;
   /** User display name (if available) */
-  displayName?: string;
+  display_name?: string;
   /** User email (if available) */
   email?: string;
 }
@@ -30,7 +30,7 @@ export interface SessionContext {
   /** Session start timestamp */
   startedAt: Date;
   /** Conversation thread ID (if part of a thread) */
-  threadId?: string;
+  thread_id?: string;
 }
 
 /** Combined context from all sources */
@@ -57,8 +57,8 @@ export function extractUserContext(runtimeContext: unknown): UserContext | undef
   }
 
   return {
-    userId: user.id,
-    displayName: typeof user.displayName === 'string' ? user.displayName : undefined,
+    user_id: user.id,
+    display_name: typeof user.display_name === 'string' ? user.display_name : undefined,
     email: typeof user.email === 'string' ? user.email : undefined,
   };
 }
@@ -113,7 +113,7 @@ export function extractSessionContext(runtimeContext: unknown): SessionContext {
   return {
     sessionId: typeof session.id === 'string' ? session.id : crypto.randomUUID(),
     startedAt: session.startedAt instanceof Date ? session.startedAt : typeof session.startedAt === 'string' ? new Date(session.startedAt) : new Date(),
-    threadId: typeof session.threadId === 'string' ? session.threadId : undefined,
+    thread_id: typeof session.thread_id === 'string' ? session.thread_id : undefined,
   };
 }
 

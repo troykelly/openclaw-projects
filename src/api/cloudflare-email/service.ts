@@ -49,7 +49,7 @@ export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmai
     const senderEmail = normalizeEmail(payload.from);
 
     // Extract threading info from headers
-    const messageId = parseMessageId(payload.headers['message-id']) || `cf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const message_id = parseMessageId(payload.headers['message-id']) || `cf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const inReplyTo = parseMessageId(payload.headers['in-reply-to']);
     const references = parseReferences(payload.headers.references);
 
@@ -63,32 +63,32 @@ export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmai
       [senderEmail],
     );
 
-    let contactId: string;
+    let contact_id: string;
     let endpointId: string;
     let isNewContact = false;
 
     if (existingEndpoint.rows.length > 0) {
       endpointId = existingEndpoint.rows[0].id;
-      contactId = existingEndpoint.rows[0].contact_id;
+      contact_id = existingEndpoint.rows[0].contact_id;
     } else {
       // Create new contact
       isNewContact = true;
-      const displayName = senderEmail;
+      const display_name = senderEmail;
 
       const contact = await client.query(
         `INSERT INTO contact (display_name)
          VALUES ($1)
          RETURNING id::text as id`,
-        [displayName],
+        [display_name],
       );
-      contactId = contact.rows[0].id;
+      contact_id = contact.rows[0].id;
 
       const endpoint = await client.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
          VALUES ($1, 'email', $2, $3::jsonb)
          RETURNING id::text as id`,
         [
-          contactId,
+          contact_id,
           senderEmail,
           JSON.stringify({
             source: 'cloudflare-email',
@@ -99,7 +99,7 @@ export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmai
     }
 
     // Create or find thread
-    const threadKey = createEmailThreadKey(messageId, inReplyTo, references);
+    const threadKey = createEmailThreadKey(message_id, inReplyTo, references);
 
     // Check if thread exists
     const existingThread = await client.query(
@@ -109,18 +109,18 @@ export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmai
       [threadKey],
     );
 
-    let threadId: string;
+    let thread_id: string;
     let isNewThread = false;
 
     if (existingThread.rows.length > 0) {
-      threadId = existingThread.rows[0].id;
+      thread_id = existingThread.rows[0].id;
 
       // Update thread's endpoint to the latest sender
       await client.query(
         `UPDATE external_thread
             SET endpoint_id = $1, updated_at = now()
           WHERE id = $2`,
-        [endpointId, threadId],
+        [endpointId, thread_id],
       );
     } else {
       isNewThread = true;
@@ -135,13 +135,13 @@ export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmai
           JSON.stringify({
             source: 'cloudflare-email',
             subject: payload.subject,
-            messageId,
+            message_id,
             inReplyTo,
             references,
           }),
         ],
       );
-      threadId = thread.rows[0].id;
+      thread_id = thread.rows[0].id;
     }
 
     // Get best plain text content
@@ -166,17 +166,17 @@ export async function processCloudflareEmail(pool: Pool, payload: CloudflareEmai
          from_address = EXCLUDED.from_address,
          to_addresses = EXCLUDED.to_addresses
        RETURNING id::text as id`,
-      [threadId, messageId, body, JSON.stringify(payload), payload.timestamp || new Date().toISOString(), payload.subject, senderEmail, [toAddress]],
+      [thread_id, message_id, body, JSON.stringify(payload), payload.timestamp || new Date().toISOString(), payload.subject, senderEmail, [toAddress]],
     );
     const messageDBId = message.rows[0].id;
 
     await client.query('COMMIT');
 
     return {
-      contactId,
+      contact_id,
       endpointId,
-      threadId,
-      messageId: messageDBId,
+      thread_id,
+      message_id: messageDBId,
       isNewContact,
       isNewThread,
     };

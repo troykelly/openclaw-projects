@@ -54,10 +54,10 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       expect(type.id).toBeDefined();
       expect(type.name).toBeDefined();
       expect(type.label).toBeDefined();
-      expect(typeof type.isDirectional).toBe('boolean');
-      expect(type.embeddingStatus).toBeDefined();
-      expect(type.createdAt).toBeDefined();
-      expect(type.updatedAt).toBeDefined();
+      expect(typeof type.is_directional).toBe('boolean');
+      expect(type.embedding_status).toBeDefined();
+      expect(type.created_at).toBeDefined();
+      expect(type.updated_at).toBeDefined();
     });
 
     it('filters by is_directional=true', async () => {
@@ -72,7 +72,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       expect(body.total).toBe(26);
 
       for (const type of body.types) {
-        expect(type.isDirectional).toBe(true);
+        expect(type.is_directional).toBe(true);
       }
     });
 
@@ -88,7 +88,7 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       expect(body.total).toBe(6);
 
       for (const type of body.types) {
-        expect(type.isDirectional).toBe(false);
+        expect(type.is_directional).toBe(false);
       }
     });
 
@@ -116,11 +116,11 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       const body = res.json();
 
       for (const type of body.types) {
-        expect(type.inverseType).toBeDefined();
-        expect(type.inverseType).not.toBeNull();
-        expect(type.inverseType.id).toBeDefined();
-        expect(type.inverseType.name).toBeDefined();
-        expect(type.inverseType.label).toBeDefined();
+        expect(type.inverse_type).toBeDefined();
+        expect(type.inverse_type).not.toBeNull();
+        expect(type.inverse_type.id).toBeDefined();
+        expect(type.inverse_type.name).toBeDefined();
+        expect(type.inverse_type.label).toBeDefined();
       }
     });
   });
@@ -176,10 +176,10 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
       expect(body.id).toBeDefined();
       expect(body.name).toBe('api_test_neighbor_of');
       expect(body.label).toBe('Neighbor of');
-      expect(body.isDirectional).toBe(false);
+      expect(body.is_directional).toBe(false);
       expect(body.description).toBe('Lives nearby');
-      expect(body.createdByAgent).toBe('test-agent');
-      expect(body.embeddingStatus).toBe('pending');
+      expect(body.created_by_agent).toBe('test-agent');
+      expect(body.embedding_status).toBe('pending');
 
       // Clean up
       await pool.query('DELETE FROM relationship_type WHERE id = $1', [body.id]);
@@ -216,14 +216,14 @@ describe('Relationship Types API (Epic #486, Issue #490)', () => {
 
       expect(res2.statusCode).toBe(201);
       const type2 = res2.json();
-      expect(type2.inverseTypeId).toBe(type1.id);
+      expect(type2.inverse_type_id).toBe(type1.id);
 
       // Verify first type now points back
       const verifyRes = await app.inject({
         method: 'GET',
         url: `/api/relationship-types/${type1.id}`,
       });
-      expect(verifyRes.json().inverseTypeId).toBe(type2.id);
+      expect(verifyRes.json().inverse_type_id).toBe(type2.id);
 
       // Clean up
       await pool.query('DELETE FROM relationship_type WHERE id = ANY($1)', [[type1.id, type2.id]]);

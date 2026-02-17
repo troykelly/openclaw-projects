@@ -47,10 +47,10 @@ function groupByTime(items: ActivityItem[]): TimeGroup[] {
 
 function filterItems(items: ActivityItem[], filter: ActivityFilter): ActivityItem[] {
   return items.filter((item) => {
-    if (filter.actorType && item.actorType !== filter.actorType) return false;
+    if (filter.actor_type && item.actor_type !== filter.actor_type) return false;
     if (filter.actionType && item.action !== filter.actionType) return false;
-    if (filter.entityType && item.entityType !== filter.entityType) return false;
-    if (filter.projectId && item.parentEntityId !== filter.projectId) return false;
+    if (filter.entity_type && item.entity_type !== filter.entity_type) return false;
+    if (filter.project_id && item.parentEntityId !== filter.project_id) return false;
 
     if (filter.timeRange && filter.timeRange !== 'all') {
       const now = new Date();
@@ -83,25 +83,25 @@ function filterItems(items: ActivityItem[], filter: ActivityFilter): ActivityIte
 export interface ActivityFeedProps {
   items: ActivityItem[];
   loading?: boolean;
-  hasMore?: boolean;
+  has_more?: boolean;
   onLoadMore?: () => void;
   onItemClick?: (item: ActivityItem) => void;
   onMarkAllRead?: () => void;
   className?: string;
 }
 
-export function ActivityFeed({ items, loading = false, hasMore = false, onLoadMore, onItemClick, onMarkAllRead, className }: ActivityFeedProps) {
+export function ActivityFeed({ items, loading = false, has_more = false, onLoadMore, onItemClick, onMarkAllRead, className }: ActivityFeedProps) {
   const [filter, setFilter] = useState<ActivityFilter>({});
 
   const filteredItems = useMemo(() => filterItems(items, filter), [items, filter]);
   const groupedItems = useMemo(() => groupByTime(filteredItems), [filteredItems]);
-  const unreadCount = useMemo(() => items.filter((item) => !item.read).length, [items]);
+  const unread_count = useMemo(() => items.filter((item) => !item.read).length, [items]);
 
   const handleLoadMore = useCallback(() => {
-    if (!loading && hasMore) {
+    if (!loading && has_more) {
       onLoadMore?.();
     }
-  }, [loading, hasMore, onLoadMore]);
+  }, [loading, has_more, onLoadMore]);
 
   return (
     <div className={cn('flex h-full flex-col', className)}>
@@ -110,9 +110,9 @@ export function ActivityFeed({ items, loading = false, hasMore = false, onLoadMo
         <div className="flex items-center gap-2">
           <Bell className="size-5" />
           <h2 className="text-lg font-semibold">Activity</h2>
-          {unreadCount > 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">{unreadCount}</span>}
+          {unread_count > 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">{unread_count}</span>}
         </div>
-        {unreadCount > 0 && onMarkAllRead && (
+        {unread_count > 0 && onMarkAllRead && (
           <Button variant="ghost" size="sm" onClick={onMarkAllRead}>
             Mark all read
           </Button>
@@ -147,7 +147,7 @@ export function ActivityFeed({ items, loading = false, hasMore = false, onLoadMo
 
           {loading && <div className="py-8 text-center text-muted-foreground">Loading...</div>}
 
-          {hasMore && !loading && (
+          {has_more && !loading && (
             <div className="py-4 text-center">
               <Button variant="outline" onClick={handleLoadMore}>
                 Load more

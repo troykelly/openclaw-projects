@@ -42,7 +42,7 @@ function getProvider(connection: OAuthConnection): EmailProvider {
 
 /** Validate that a connection has the email feature enabled. */
 function requireEmailFeature(connection: OAuthConnection): void {
-  if (!connection.enabledFeatures.includes('email')) {
+  if (!connection.enabled_features.includes('email')) {
     throw new OAuthError(
       'Email feature is not enabled on this connection',
       'FEATURE_NOT_ENABLED',
@@ -54,7 +54,7 @@ function requireEmailFeature(connection: OAuthConnection): void {
 
 /** Validate that a connection has write permission. */
 function requireWritePermission(connection: OAuthConnection): void {
-  if (connection.permissionLevel !== 'read_write') {
+  if (connection.permission_level !== 'read_write') {
     throw new OAuthError(
       'Write permission is required for this operation. Connection is read-only.',
       'PERMISSION_DENIED',
@@ -66,7 +66,7 @@ function requireWritePermission(connection: OAuthConnection): void {
 
 /** Validate that a connection is active. */
 function requireActiveConnection(connection: OAuthConnection): void {
-  if (!connection.isActive) {
+  if (!connection.is_active) {
     throw new OAuthError(
       'This connection is currently disabled',
       'CONNECTION_DISABLED',
@@ -77,15 +77,15 @@ function requireActiveConnection(connection: OAuthConnection): void {
 }
 
 /** Look up and validate a connection for email operations. */
-async function resolveConnection(pool: Pool, connectionId: string): Promise<{ connection: OAuthConnection; accessToken: string }> {
-  const connection = await getConnection(pool, connectionId);
+async function resolveConnection(pool: Pool, connection_id: string): Promise<{ connection: OAuthConnection; access_token: string }> {
+  const connection = await getConnection(pool, connection_id);
   if (!connection) {
-    throw new NoConnectionError(connectionId);
+    throw new NoConnectionError(connection_id);
   }
   requireActiveConnection(connection);
   requireEmailFeature(connection);
-  const accessToken = await getValidAccessToken(pool, connectionId);
-  return { connection, accessToken };
+  const access_token = await getValidAccessToken(pool, connection_id);
+  return { connection, access_token };
 }
 
 /**
@@ -94,12 +94,12 @@ async function resolveConnection(pool: Pool, connectionId: string): Promise<{ co
  */
 export async function listMessages(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   params: EmailListParams = {},
 ): Promise<EmailListResult> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   const provider = getProvider(connection);
-  return provider.listMessages(accessToken, params);
+  return provider.listMessages(access_token, params);
 }
 
 /**
@@ -108,12 +108,12 @@ export async function listMessages(
  */
 export async function getMessage(
   pool: Pool,
-  connectionId: string,
-  messageId: string,
+  connection_id: string,
+  message_id: string,
 ): Promise<EmailMessage> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   const provider = getProvider(connection);
-  return provider.getMessage(accessToken, messageId);
+  return provider.getMessage(access_token, message_id);
 }
 
 /**
@@ -122,12 +122,12 @@ export async function getMessage(
  */
 export async function listThreads(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   params: EmailListParams = {},
 ): Promise<EmailThreadListResult> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   const provider = getProvider(connection);
-  return provider.listThreads(accessToken, params);
+  return provider.listThreads(access_token, params);
 }
 
 /**
@@ -136,12 +136,12 @@ export async function listThreads(
  */
 export async function getThread(
   pool: Pool,
-  connectionId: string,
-  threadId: string,
+  connection_id: string,
+  thread_id: string,
 ): Promise<EmailThread & { messages: EmailMessage[] }> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   const provider = getProvider(connection);
-  return provider.getThread(accessToken, threadId);
+  return provider.getThread(access_token, thread_id);
 }
 
 /**
@@ -150,11 +150,11 @@ export async function getThread(
  */
 export async function listFolders(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
 ): Promise<EmailFolder[]> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   const provider = getProvider(connection);
-  return provider.listFolders(accessToken);
+  return provider.listFolders(access_token);
 }
 
 /**
@@ -163,13 +163,13 @@ export async function listFolders(
  */
 export async function sendMessage(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   params: EmailSendParams,
 ): Promise<EmailSendResult> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   requireWritePermission(connection);
   const provider = getProvider(connection);
-  return provider.sendMessage(accessToken, params);
+  return provider.sendMessage(access_token, params);
 }
 
 /**
@@ -178,13 +178,13 @@ export async function sendMessage(
  */
 export async function createDraft(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   params: EmailDraftParams,
 ): Promise<EmailMessage> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   requireWritePermission(connection);
   const provider = getProvider(connection);
-  return provider.createDraft(accessToken, params);
+  return provider.createDraft(access_token, params);
 }
 
 /**
@@ -193,14 +193,14 @@ export async function createDraft(
  */
 export async function updateDraft(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   draftId: string,
   params: EmailDraftParams,
 ): Promise<EmailMessage> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   requireWritePermission(connection);
   const provider = getProvider(connection);
-  return provider.updateDraft(accessToken, draftId, params);
+  return provider.updateDraft(access_token, draftId, params);
 }
 
 /**
@@ -209,14 +209,14 @@ export async function updateDraft(
  */
 export async function updateMessage(
   pool: Pool,
-  connectionId: string,
-  messageId: string,
+  connection_id: string,
+  message_id: string,
   params: EmailUpdateParams,
 ): Promise<void> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   requireWritePermission(connection);
   const provider = getProvider(connection);
-  return provider.updateMessage(accessToken, messageId, params);
+  return provider.updateMessage(access_token, message_id, params);
 }
 
 /**
@@ -225,14 +225,14 @@ export async function updateMessage(
  */
 export async function deleteMessage(
   pool: Pool,
-  connectionId: string,
-  messageId: string,
+  connection_id: string,
+  message_id: string,
   permanent = false,
 ): Promise<void> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   requireWritePermission(connection);
   const provider = getProvider(connection);
-  return provider.deleteMessage(accessToken, messageId, permanent);
+  return provider.deleteMessage(access_token, message_id, permanent);
 }
 
 /**
@@ -241,11 +241,11 @@ export async function deleteMessage(
  */
 export async function getAttachment(
   pool: Pool,
-  connectionId: string,
-  messageId: string,
+  connection_id: string,
+  message_id: string,
   attachmentId: string,
 ): Promise<EmailAttachmentContent> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
   const provider = getProvider(connection);
-  return provider.getAttachment(accessToken, messageId, attachmentId);
+  return provider.getAttachment(access_token, message_id, attachmentId);
 }

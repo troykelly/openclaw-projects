@@ -21,7 +21,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
   let endpointAliceEmail: string;
   let endpointBobPhone: string;
   let endpointCharlieEmail: string;
-  let threadId: string;
+  let thread_id: string;
   let unlinkedMessageId: string;
 
   beforeAll(async () => {
@@ -101,13 +101,13 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
        RETURNING id::text as id`,
       [endpointAlicePhone],
     );
-    threadId = threadResult.rows[0].id;
+    thread_id = threadResult.rows[0].id;
 
     const msgResult = await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, from_address, received_at)
        VALUES ($1, 'fuzzy-test-msg-01', 'inbound', 'Hello from unknown', '+61400999888', NOW())
        RETURNING id::text as id`,
-      [threadId],
+      [thread_id],
     );
     unlinkedMessageId = msgResult.rows[0].id;
   });
@@ -346,13 +346,13 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, from_address, received_at)
          VALUES ($1, 'fuzzy-test-msg-link', 'inbound', 'Link me', '+61400999777', NOW())
          RETURNING id::text as id`,
-        [threadId],
+        [thread_id],
       );
-      const messageId = msgResult.rows[0].id;
+      const message_id = msgResult.rows[0].id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/messages/${messageId}/link-contact`,
+        url: `/api/messages/${message_id}/link-contact`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
         payload: { contact_id: contactBobId },
       });
@@ -360,7 +360,7 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.contact_id).toBe(contactBobId);
-      expect(body.message_id).toBe(messageId);
+      expect(body.message_id).toBe(message_id);
     });
 
     it('returns 400 for invalid message id format', async () => {

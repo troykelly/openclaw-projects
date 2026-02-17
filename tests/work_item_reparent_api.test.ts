@@ -23,11 +23,11 @@ describe('Work Item Reparent API (issue #105)', () => {
     await pool.end();
   });
 
-  async function createItem(title: string, kind: string, parentId?: string): Promise<string> {
+  async function createItem(title: string, kind: string, parent_id?: string): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/work-items',
-      payload: { title, kind, parentId },
+      payload: { title, kind, parent_id },
     });
     return (res.json() as { id: string }).id;
   }
@@ -36,15 +36,15 @@ describe('Work Item Reparent API (issue #105)', () => {
     it('moves epic to different initiative', async () => {
       // Create project -> initiative1 -> epic
       //                -> initiative2 (target)
-      const projectId = await createItem('Project', 'project');
-      const init1Id = await createItem('Initiative 1', 'initiative', projectId);
-      const init2Id = await createItem('Initiative 2', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const init1Id = await createItem('Initiative 1', 'initiative', project_id);
+      const init2Id = await createItem('Initiative 2', 'initiative', project_id);
       const epicId = await createItem('Epic', 'epic', init1Id);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${epicId}/reparent`,
-        payload: { newParentId: init2Id },
+        payload: { new_parent_id: init2Id },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().ok).toBe(true);
@@ -55,8 +55,8 @@ describe('Work Item Reparent API (issue #105)', () => {
     });
 
     it('moves issue to different epic', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
       const epic1Id = await createItem('Epic 1', 'epic', initId);
       const epic2Id = await createItem('Epic 2', 'epic', initId);
       const issueId = await createItem('Issue', 'issue', epic1Id);
@@ -64,7 +64,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${issueId}/reparent`,
-        payload: { newParentId: epic2Id },
+        payload: { new_parent_id: epic2Id },
       });
       expect(res.statusCode).toBe(200);
 
@@ -80,7 +80,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${initId}/reparent`,
-        payload: { newParentId: project2Id },
+        payload: { new_parent_id: project2Id },
       });
       expect(res.statusCode).toBe(200);
 
@@ -89,13 +89,13 @@ describe('Work Item Reparent API (issue #105)', () => {
     });
 
     it('moves initiative to root (null parent)', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${initId}/reparent`,
-        payload: { newParentId: null },
+        payload: { new_parent_id: null },
       });
       expect(res.statusCode).toBe(200);
 
@@ -104,9 +104,9 @@ describe('Work Item Reparent API (issue #105)', () => {
     });
 
     it('respects afterId for positioning among new siblings', async () => {
-      const projectId = await createItem('Project', 'project');
-      const init1Id = await createItem('Initiative 1', 'initiative', projectId);
-      const init2Id = await createItem('Initiative 2', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const init1Id = await createItem('Initiative 1', 'initiative', project_id);
+      const init2Id = await createItem('Initiative 2', 'initiative', project_id);
       const epic1Id = await createItem('Epic A', 'epic', init1Id);
       const epic2Id = await createItem('Epic B', 'epic', init2Id);
       const epic3Id = await createItem('Epic C', 'epic', init2Id);
@@ -119,7 +119,7 @@ describe('Work Item Reparent API (issue #105)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${epic1Id}/reparent`,
-        payload: { newParentId: init2Id, afterId: epic2Id },
+        payload: { new_parent_id: init2Id, after_id: epic2Id },
       });
       expect(res.statusCode).toBe(200);
 
@@ -137,43 +137,43 @@ describe('Work Item Reparent API (issue #105)', () => {
     });
 
     it('returns 400 when epic is moved to project (wrong hierarchy)', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
       const epicId = await createItem('Epic', 'epic', initId);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${epicId}/reparent`,
-        payload: { newParentId: projectId },
+        payload: { new_parent_id: project_id },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('epic parent must be initiative');
     });
 
     it('returns 400 when issue is moved to initiative (wrong hierarchy)', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
       const epicId = await createItem('Epic', 'epic', initId);
       const issueId = await createItem('Issue', 'issue', epicId);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${issueId}/reparent`,
-        payload: { newParentId: initId },
+        payload: { new_parent_id: initId },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('issue parent must be epic');
     });
 
     it('returns 400 when initiative is moved to initiative (wrong hierarchy)', async () => {
-      const projectId = await createItem('Project', 'project');
-      const init1Id = await createItem('Initiative 1', 'initiative', projectId);
-      const init2Id = await createItem('Initiative 2', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const init1Id = await createItem('Initiative 1', 'initiative', project_id);
+      const init2Id = await createItem('Initiative 2', 'initiative', project_id);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${init1Id}/reparent`,
-        payload: { newParentId: init2Id },
+        payload: { new_parent_id: init2Id },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('initiative parent must be project');
@@ -186,22 +186,22 @@ describe('Work Item Reparent API (issue #105)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${project1Id}/reparent`,
-        payload: { newParentId: project2Id },
+        payload: { new_parent_id: project2Id },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('project cannot have parent');
     });
 
     it('returns 400 when trying to create circular reference', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
       const epicId = await createItem('Epic', 'epic', initId);
 
       // Try to make initiative a child of epic (circular through hierarchy)
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${initId}/reparent`,
-        payload: { newParentId: epicId },
+        payload: { new_parent_id: epicId },
       });
       expect(res.statusCode).toBe(400);
       // Either hierarchy error or circular error is acceptable
@@ -212,33 +212,33 @@ describe('Work Item Reparent API (issue #105)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/work-items/00000000-0000-0000-0000-000000000000/reparent',
-        payload: { newParentId: null },
+        payload: { new_parent_id: null },
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
     });
 
     it('returns 400 for non-existent new parent', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${initId}/reparent`,
-        payload: { newParentId: '00000000-0000-0000-0000-000000000000' },
+        payload: { new_parent_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json()).toEqual({ error: 'parent not found' });
     });
 
     it('returns 400 when reparenting to self', async () => {
-      const projectId = await createItem('Project', 'project');
-      const initId = await createItem('Initiative', 'initiative', projectId);
+      const project_id = await createItem('Project', 'project');
+      const initId = await createItem('Initiative', 'initiative', project_id);
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${initId}/reparent`,
-        payload: { newParentId: initId },
+        payload: { new_parent_id: initId },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('cannot be its own parent');

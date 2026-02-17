@@ -40,10 +40,10 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       const body = res.json();
       expect(body.id).toBeDefined();
       expect(body.name).toBe('My Notebook');
-      expect(body.userEmail).toBe(testUserEmail);
-      expect(body.isArchived).toBe(false);
-      expect(body.parentNotebookId).toBeNull();
-      expect(body.noteCount).toBe(0);
+      expect(body.user_email).toBe(testUserEmail);
+      expect(body.is_archived).toBe(false);
+      expect(body.parent_notebook_id).toBeNull();
+      expect(body.note_count).toBe(0);
     });
 
     it('creates a notebook with all optional fields', async () => {
@@ -76,7 +76,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
           name: 'Parent',
         },
       });
-      const parentId = parentRes.json().id;
+      const parent_id = parentRes.json().id;
 
       const res = await app.inject({
         method: 'POST',
@@ -84,12 +84,12 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
         payload: {
           user_email: testUserEmail,
           name: 'Child',
-          parent_notebook_id: parentId,
+          parent_notebook_id: parent_id,
         },
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().parentNotebookId).toBe(parentId);
+      expect(res.json().parent_notebook_id).toBe(parent_id);
     });
 
     it('returns 400 when user_email is missing', async () => {
@@ -197,9 +197,9 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('filters by parent_id=null for root notebooks', async () => {
       // Create a child notebook
       const parentResult = await pool.query(`SELECT id::text FROM notebook WHERE name = 'Notebook 1'`);
-      const parentId = (parentResult.rows[0] as { id: string }).id;
+      const parent_id = (parentResult.rows[0] as { id: string }).id;
 
-      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`, [testUserEmail, parentId]);
+      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`, [testUserEmail, parent_id]);
 
       const res = await app.inject({
         method: 'GET',
@@ -209,7 +209,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.notebooks.every((n: { parentNotebookId: string | null }) => n.parentNotebookId === null)).toBe(true);
+      expect(body.notebooks.every((n: { parent_notebook_id: string | null }) => n.parent_notebook_id === null)).toBe(true);
     });
 
     it('includes note counts', async () => {
@@ -229,7 +229,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       expect(res.statusCode).toBe(200);
       const notebooks = res.json().notebooks;
       const nb1 = notebooks.find((n: { name: string }) => n.name === 'Notebook 1');
-      expect(nb1.noteCount).toBe(2);
+      expect(nb1.note_count).toBe(2);
     });
   });
 
@@ -335,13 +335,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
     it('includes children when requested', async () => {
       const parentResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Parent') RETURNING id::text as id`, [testUserEmail]);
-      const parentId = (parentResult.rows[0] as { id: string }).id;
+      const parent_id = (parentResult.rows[0] as { id: string }).id;
 
-      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`, [testUserEmail, parentId]);
+      await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2)`, [testUserEmail, parent_id]);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/notebooks/${parentId}`,
+        url: `/api/notebooks/${parent_id}`,
         query: { user_email: testUserEmail, include_children: 'true' },
       });
 
@@ -351,17 +351,17 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
   });
 
   describe('PUT /api/notebooks/:id', () => {
-    let notebookId: string;
+    let notebook_id: string;
 
     beforeEach(async () => {
       const result = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Original') RETURNING id::text as id`, [testUserEmail]);
-      notebookId = (result.rows[0] as { id: string }).id;
+      notebook_id = (result.rows[0] as { id: string }).id;
     });
 
     it('updates notebook fields', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebookId}`,
+        url: `/api/notebooks/${notebook_id}`,
         payload: {
           user_email: testUserEmail,
           name: 'Updated',
@@ -382,7 +382,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebookId}`,
+        url: `/api/notebooks/${notebook_id}`,
         payload: { name: 'New' },
       });
 
@@ -416,14 +416,14 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       // Create child notebook
       const childResult = await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2) RETURNING id::text as id`, [
         testUserEmail,
-        notebookId,
+        notebook_id,
       ]);
       const childId = (childResult.rows[0] as { id: string }).id;
 
       // Try to set parent's parent to child
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebookId}`,
+        url: `/api/notebooks/${notebook_id}`,
         payload: {
           user_email: testUserEmail,
           parent_notebook_id: childId,
@@ -440,7 +440,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/notebooks/${notebookId}`,
+        url: `/api/notebooks/${notebook_id}`,
         payload: {
           user_email: testUserEmail,
           parent_notebook_id: newParentId,
@@ -448,7 +448,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().parentNotebookId).toBe(newParentId);
+      expect(res.json().parent_notebook_id).toBe(newParentId);
     });
   });
 
@@ -464,7 +464,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().isArchived).toBe(true);
+      expect(res.json().is_archived).toBe(true);
     });
 
     it('returns 400 when user_email is missing', async () => {
@@ -505,7 +505,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().isArchived).toBe(false);
+      expect(res.json().is_archived).toBe(false);
     });
   });
 
@@ -588,11 +588,11 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('moves child notebooks to parent when deleted', async () => {
       // Create parent -> child structure
       const parentResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Parent') RETURNING id::text as id`, [testUserEmail]);
-      const parentId = (parentResult.rows[0] as { id: string }).id;
+      const parent_id = (parentResult.rows[0] as { id: string }).id;
 
       const childResult = await pool.query(`INSERT INTO notebook (user_email, name, parent_notebook_id) VALUES ($1, 'Child', $2) RETURNING id::text as id`, [
         testUserEmail,
-        parentId,
+        parent_id,
       ]);
       const childId = (childResult.rows[0] as { id: string }).id;
 
@@ -607,17 +607,17 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       // Verify grandchild is now under parent
       const gcCheck = await pool.query(`SELECT parent_notebook_id FROM notebook WHERE name = 'Grandchild'`);
-      expect(gcCheck.rows[0].parent_notebook_id).toBe(parentId);
+      expect(gcCheck.rows[0].parent_notebook_id).toBe(parent_id);
     });
   });
 
   describe('POST /api/notebooks/:id/notes', () => {
-    let notebookId: string;
+    let notebook_id: string;
     let noteId: string;
 
     beforeEach(async () => {
       const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Target') RETURNING id::text as id`, [testUserEmail]);
-      notebookId = (nbResult.rows[0] as { id: string }).id;
+      notebook_id = (nbResult.rows[0] as { id: string }).id;
 
       const noteResult = await pool.query(`INSERT INTO note (user_email, title, content) VALUES ($1, 'Note', 'Content') RETURNING id::text as id`, [
         testUserEmail,
@@ -628,7 +628,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('moves notes to notebook', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/notes`,
+        url: `/api/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -642,13 +642,13 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       // Verify note is in notebook
       const check = await pool.query('SELECT notebook_id FROM note WHERE id = $1', [noteId]);
-      expect(check.rows[0].notebook_id).toBe(notebookId);
+      expect(check.rows[0].notebook_id).toBe(notebook_id);
     });
 
     it('copies notes to notebook', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/notes`,
+        url: `/api/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -668,7 +668,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/notes`,
+        url: `/api/notebooks/${notebook_id}/notes`,
         payload: { note_ids: [noteId], action: 'move' },
       });
 
@@ -678,7 +678,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 when note_ids is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/notes`,
+        url: `/api/notebooks/${notebook_id}/notes`,
         payload: { user_email: testUserEmail, action: 'move' },
       });
 
@@ -688,7 +688,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
     it('returns 400 for invalid action', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/notes`,
+        url: `/api/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [noteId],
@@ -722,7 +722,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/notes`,
+        url: `/api/notebooks/${notebook_id}/notes`,
         payload: {
           user_email: testUserEmail,
           note_ids: [otherNoteId],

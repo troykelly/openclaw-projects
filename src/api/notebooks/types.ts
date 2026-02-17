@@ -1,25 +1,27 @@
 /**
  * Notebook types for the notebooks API.
  * Part of Epic #337, Issue #345
+ *
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
 /** A notebook from the database */
 export interface Notebook {
   id: string;
-  userEmail: string;
+  user_email: string;
   name: string;
   description: string | null;
   icon: string | null;
   color: string | null;
-  parentNotebookId: string | null;
-  sortOrder: number;
-  isArchived: boolean;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  parent_notebook_id: string | null;
+  sort_order: number;
+  is_archived: boolean;
+  deleted_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
   // Optional computed/expanded fields
-  noteCount?: number;
-  childCount?: number;
+  note_count?: number;
+  child_count?: number;
   parent?: { id: string; name: string } | null;
   children?: Notebook[];
   notes?: NotebookNote[];
@@ -29,7 +31,7 @@ export interface Notebook {
 export interface NotebookNote {
   id: string;
   title: string;
-  updatedAt: Date;
+  updated_at: Date;
 }
 
 /** Input for creating a new notebook */
@@ -38,7 +40,7 @@ export interface CreateNotebookInput {
   description?: string;
   icon?: string;
   color?: string;
-  parentNotebookId?: string;
+  parent_notebook_id?: string;
 }
 
 /** Input for updating a notebook */
@@ -47,16 +49,16 @@ export interface UpdateNotebookInput {
   description?: string | null;
   icon?: string | null;
   color?: string | null;
-  parentNotebookId?: string | null;
-  sortOrder?: number;
+  parent_notebook_id?: string | null;
+  sort_order?: number;
 }
 
 /** Query options for listing notebooks */
 export interface ListNotebooksOptions {
-  parentId?: string | null;
-  includeArchived?: boolean;
-  includeNoteCounts?: boolean;
-  includeChildCounts?: boolean;
+  parent_id?: string | null;
+  include_archived?: boolean;
+  include_note_counts?: boolean;
+  include_child_counts?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -69,9 +71,9 @@ export interface ListNotebooksResult {
 
 /** Options for getting a single notebook */
 export interface GetNotebookOptions {
-  includeNotes?: boolean;
-  includeChildren?: boolean;
-  includeNoteCounts?: boolean;
+  include_notes?: boolean;
+  include_children?: boolean;
+  include_note_counts?: boolean;
 }
 
 /** Tree node for notebook hierarchy */
@@ -80,13 +82,13 @@ export interface NotebookTreeNode {
   name: string;
   icon: string | null;
   color: string | null;
-  noteCount?: number;
+  note_count?: number;
   children: NotebookTreeNode[];
 }
 
 /** Input for moving notes between notebooks */
 export interface MoveNotesInput {
-  noteIds: string[];
+  note_ids: string[];
   action: 'move' | 'copy';
 }
 

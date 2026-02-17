@@ -40,9 +40,9 @@ interface GoogleUserResponse {
 }
 
 interface GooglePersonName {
-  displayName?: string;
-  givenName?: string;
-  familyName?: string;
+  display_name?: string;
+  given_name?: string;
+  family_name?: string;
 }
 
 interface GoogleEmailAddress {
@@ -63,14 +63,14 @@ interface GoogleOrganization {
 interface GooglePerson {
   resourceName: string;
   names?: GooglePersonName[];
-  emailAddresses?: GoogleEmailAddress[];
-  phoneNumbers?: GooglePhoneNumber[];
+  email_addresses?: GoogleEmailAddress[];
+  phone_numbers?: GooglePhoneNumber[];
   organizations?: GoogleOrganization[];
 }
 
 interface GoogleConnectionsResponse {
   connections?: GooglePerson[];
-  nextPageToken?: string;
+  next_page_token?: string;
   nextSyncToken?: string;
   totalPeople?: number;
 }
@@ -82,12 +82,12 @@ export function buildAuthorizationUrl(
   opts?: { includeGrantedScopes?: boolean },
 ): OAuthAuthorizationUrl {
   const effectiveScopes = scopes || config.scopes;
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const code_verifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(code_verifier);
 
   const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
+    client_id: config.client_id,
+    redirect_uri: config.redirect_uri,
     response_type: 'code',
     scope: effectiveScopes.join(' '),
     state,
@@ -108,24 +108,24 @@ export function buildAuthorizationUrl(
     state,
     provider: 'google',
     scopes: effectiveScopes,
-    codeVerifier,
+    code_verifier,
   };
 }
 
-export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, codeVerifier?: string): Promise<OAuthTokens> {
+export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, code_verifier?: string): Promise<OAuthTokens> {
   const effectiveConfig = config || requireProviderConfig('google');
 
   const params = new URLSearchParams({
-    client_id: effectiveConfig.clientId,
-    client_secret: effectiveConfig.clientSecret,
+    client_id: effectiveConfig.client_id,
+    client_secret: effectiveConfig.client_secret,
     code,
-    redirect_uri: effectiveConfig.redirectUri,
+    redirect_uri: effectiveConfig.redirect_uri,
     grant_type: 'authorization_code',
   });
 
   // Include PKCE code_verifier if provided
-  if (codeVerifier) {
-    params.set('code_verifier', codeVerifier);
+  if (code_verifier) {
+    params.set('code_verifier', code_verifier);
   }
 
   const response = await fetch(TOKEN_URL, {
@@ -149,21 +149,21 @@ export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, 
   const data = (await response.json()) as GoogleTokenResponse;
 
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: new Date(Date.now() + data.expires_in * 1000),
-    tokenType: data.token_type,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: new Date(Date.now() + data.expires_in * 1000),
+    token_type: data.token_type,
     scopes: data.scope.split(' '),
   };
 }
 
-export async function refreshAccessToken(refreshToken: string, config?: OAuthConfig): Promise<OAuthTokens> {
+export async function refreshAccessToken(refresh_token: string, config?: OAuthConfig): Promise<OAuthTokens> {
   const effectiveConfig = config || requireProviderConfig('google');
 
   const params = new URLSearchParams({
-    client_id: effectiveConfig.clientId,
-    client_secret: effectiveConfig.clientSecret,
-    refresh_token: refreshToken,
+    client_id: effectiveConfig.client_id,
+    client_secret: effectiveConfig.client_secret,
+    refresh_token: refresh_token,
     grant_type: 'refresh_token',
   });
 
@@ -188,18 +188,18 @@ export async function refreshAccessToken(refreshToken: string, config?: OAuthCon
   const data = (await response.json()) as GoogleTokenResponse;
 
   return {
-    accessToken: data.access_token,
-    refreshToken: refreshToken, // Google doesn't return a new refresh token
-    expiresAt: new Date(Date.now() + data.expires_in * 1000),
-    tokenType: data.token_type,
+    access_token: data.access_token,
+    refresh_token: refresh_token, // Google doesn't return a new refresh token
+    expires_at: new Date(Date.now() + data.expires_in * 1000),
+    token_type: data.token_type,
     scopes: data.scope.split(' '),
   };
 }
 
-export async function getUserEmail(accessToken: string): Promise<string> {
+export async function getUserEmail(access_token: string): Promise<string> {
   const response = await fetch(USERINFO_URL, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${access_token}`,
     },
   });
 
@@ -213,8 +213,8 @@ export async function getUserEmail(accessToken: string): Promise<string> {
 
 function mapGoogleContact(person: GooglePerson): ProviderContact {
   const name = person.names?.[0];
-  const emails = person.emailAddresses?.map((e) => e.value) || [];
-  const phones = person.phoneNumbers?.map((p) => p.value) || [];
+  const emails = person.email_addresses?.map((e) => e.value) || [];
+  const phones = person.phone_numbers?.map((p) => p.value) || [];
   const org = person.organizations?.[0];
 
   // Extract ID from resourceName (e.g., "people/c12345" -> "c12345")
@@ -222,13 +222,13 @@ function mapGoogleContact(person: GooglePerson): ProviderContact {
 
   return {
     id,
-    displayName: name?.displayName,
-    givenName: name?.givenName,
-    familyName: name?.familyName,
-    emailAddresses: emails,
-    phoneNumbers: phones,
+    display_name: name?.display_name,
+    given_name: name?.given_name,
+    family_name: name?.family_name,
+    email_addresses: emails,
+    phone_numbers: phones,
     company: org?.name,
-    jobTitle: org?.title,
+    job_title: org?.title,
     metadata: {
       provider: 'google',
       resourceName: person.resourceName,
@@ -237,11 +237,11 @@ function mapGoogleContact(person: GooglePerson): ProviderContact {
 }
 
 export async function fetchContacts(
-  accessToken: string,
-  options?: { syncToken?: string; pageToken?: string; pageSize?: number },
-): Promise<{ contacts: ProviderContact[]; nextPageToken?: string; syncToken?: string }> {
+  access_token: string,
+  options?: { syncToken?: string; page_token?: string; pageSize?: number },
+): Promise<{ contacts: ProviderContact[]; next_page_token?: string; syncToken?: string }> {
   const params = new URLSearchParams({
-    personFields: 'names,emailAddresses,phoneNumbers,organizations',
+    personFields: 'names,email_addresses,phone_numbers,organizations',
     pageSize: String(options?.pageSize || 100),
   });
 
@@ -252,15 +252,15 @@ export async function fetchContacts(
     params.set('requestSyncToken', 'true');
   }
 
-  if (options?.pageToken) {
-    params.set('pageToken', options.pageToken);
+  if (options?.page_token) {
+    params.set('page_token', options.page_token);
   }
 
   const url = `${PEOPLE_API_BASE}/people/me/connections?${params.toString()}`;
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${access_token}`,
     },
   });
 
@@ -278,41 +278,41 @@ export async function fetchContacts(
 
   return {
     contacts: (data.connections || []).map(mapGoogleContact),
-    nextPageToken: data.nextPageToken,
+    next_page_token: data.next_page_token,
     syncToken: data.nextSyncToken,
   };
 }
 
-export async function fetchAllContacts(accessToken: string, syncCursor?: string): Promise<{ contacts: ProviderContact[]; syncCursor?: string }> {
+export async function fetchAllContacts(access_token: string, sync_cursor?: string): Promise<{ contacts: ProviderContact[]; sync_cursor?: string }> {
   const allContacts: ProviderContact[] = [];
-  let pageToken: string | undefined;
+  let page_token: string | undefined;
   let syncToken: string | undefined;
 
   try {
     // First request
-    const firstResult = await fetchContacts(accessToken, { syncToken: syncCursor });
+    const firstResult = await fetchContacts(access_token, { syncToken: sync_cursor });
     allContacts.push(...firstResult.contacts);
-    pageToken = firstResult.nextPageToken;
+    page_token = firstResult.next_page_token;
     syncToken = firstResult.syncToken;
 
     // Follow pagination
-    while (pageToken) {
-      const result = await fetchContacts(accessToken, { pageToken, syncToken: syncCursor });
+    while (page_token) {
+      const result = await fetchContacts(access_token, { page_token, syncToken: sync_cursor });
       allContacts.push(...result.contacts);
-      pageToken = result.nextPageToken;
+      page_token = result.next_page_token;
       syncToken = result.syncToken || syncToken;
     }
   } catch (error) {
     // If sync token expired, do full sync without token
     if (error instanceof OAuthError && error.code === 'SYNC_TOKEN_EXPIRED') {
-      return fetchAllContacts(accessToken, undefined);
+      return fetchAllContacts(access_token, undefined);
     }
     throw error;
   }
 
   return {
     contacts: allContacts,
-    syncCursor: syncToken,
+    sync_cursor: syncToken,
   };
 }
 
@@ -342,26 +342,26 @@ interface GoogleDriveFileResource {
 
 interface GoogleDriveListResponse {
   files: GoogleDriveFileResource[];
-  nextPageToken?: string;
+  next_page_token?: string;
   incompleteSearch?: boolean;
 }
 
 /** Map a Google Drive file resource to the normalized DriveFile interface. */
-function mapGoogleDriveFile(file: GoogleDriveFileResource, connectionId: string): DriveFile {
+function mapGoogleDriveFile(file: GoogleDriveFileResource, connection_id: string): DriveFile {
   return {
     id: file.id,
     name: file.name,
-    mimeType: file.mimeType,
+    mime_type: file.mimeType,
     size: file.size ? parseInt(file.size, 10) : undefined,
-    createdAt: file.createdTime ? new Date(file.createdTime) : undefined,
-    modifiedAt: file.modifiedTime ? new Date(file.modifiedTime) : undefined,
-    parentId: file.parents?.[0],
-    webUrl: file.webViewLink,
-    downloadUrl: file.webContentLink,
-    thumbnailUrl: file.thumbnailLink,
-    isFolder: file.mimeType === GOOGLE_FOLDER_MIME,
+    created_at: file.createdTime ? new Date(file.createdTime) : undefined,
+    modified_at: file.modifiedTime ? new Date(file.modifiedTime) : undefined,
+    parent_id: file.parents?.[0],
+    web_url: file.webViewLink,
+    download_url: file.webContentLink,
+    thumbnail_url: file.thumbnailLink,
+    is_folder: file.mimeType === GOOGLE_FOLDER_MIME,
     provider: 'google',
-    connectionId,
+    connection_id,
     metadata: {},
   };
 }
@@ -371,31 +371,31 @@ function mapGoogleDriveFile(file: GoogleDriveFileResource, connectionId: string)
  * Uses the Drive API v3 `/files` endpoint with a `parents` query filter.
  */
 export async function listDriveFiles(
-  accessToken: string,
-  connectionId: string,
-  folderId?: string,
-  pageToken?: string,
+  access_token: string,
+  connection_id: string,
+  folder_id?: string,
+  page_token?: string,
 ): Promise<DriveListResult> {
-  const parentId = folderId || 'root';
+  const parent_id = folder_id || 'root';
   // Escape single quotes in folder ID to prevent query injection
-  const safeParentId = parentId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const safeParentId = parent_id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const q = `'${safeParentId}' in parents and trashed=false`;
 
   const params = new URLSearchParams({
     q,
-    fields: `nextPageToken,files(${DRIVE_FILE_FIELDS})`,
+    fields: `next_page_token,files(${DRIVE_FILE_FIELDS})`,
     pageSize: '100',
     orderBy: 'folder,name',
   });
 
-  if (pageToken) {
-    params.set('pageToken', pageToken);
+  if (page_token) {
+    params.set('page_token', page_token);
   }
 
   const url = `${DRIVE_API_BASE}/files?${params.toString()}`;
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${access_token}` },
   });
 
   if (!response.ok) {
@@ -407,8 +407,8 @@ export async function listDriveFiles(
   const data = (await response.json()) as GoogleDriveListResponse;
 
   return {
-    files: data.files.map((f) => mapGoogleDriveFile(f, connectionId)),
-    nextPageToken: data.nextPageToken,
+    files: data.files.map((f) => mapGoogleDriveFile(f, connection_id)),
+    next_page_token: data.next_page_token,
   };
 }
 
@@ -417,10 +417,10 @@ export async function listDriveFiles(
  * Uses the Drive API v3 `/files` endpoint with a `fullText contains` query.
  */
 export async function searchDriveFiles(
-  accessToken: string,
-  connectionId: string,
+  access_token: string,
+  connection_id: string,
   query: string,
-  pageToken?: string,
+  page_token?: string,
 ): Promise<DriveListResult> {
   // Escape single quotes in the query to prevent query injection
   const safeQuery = query.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -428,18 +428,18 @@ export async function searchDriveFiles(
 
   const params = new URLSearchParams({
     q,
-    fields: `nextPageToken,files(${DRIVE_FILE_FIELDS})`,
+    fields: `next_page_token,files(${DRIVE_FILE_FIELDS})`,
     pageSize: '50',
   });
 
-  if (pageToken) {
-    params.set('pageToken', pageToken);
+  if (page_token) {
+    params.set('page_token', page_token);
   }
 
   const url = `${DRIVE_API_BASE}/files?${params.toString()}`;
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${access_token}` },
   });
 
   if (!response.ok) {
@@ -451,8 +451,8 @@ export async function searchDriveFiles(
   const data = (await response.json()) as GoogleDriveListResponse;
 
   return {
-    files: data.files.map((f) => mapGoogleDriveFile(f, connectionId)),
-    nextPageToken: data.nextPageToken,
+    files: data.files.map((f) => mapGoogleDriveFile(f, connection_id)),
+    next_page_token: data.next_page_token,
   };
 }
 
@@ -461,8 +461,8 @@ export async function searchDriveFiles(
  * Uses the Drive API v3 `/files/{fileId}` endpoint.
  */
 export async function getDriveFile(
-  accessToken: string,
-  connectionId: string,
+  access_token: string,
+  connection_id: string,
   fileId: string,
 ): Promise<DriveFile> {
   const params = new URLSearchParams({
@@ -472,7 +472,7 @@ export async function getDriveFile(
   const url = `${DRIVE_API_BASE}/files/${fileId}?${params.toString()}`;
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${access_token}` },
   });
 
   if (!response.ok) {
@@ -487,5 +487,5 @@ export async function getDriveFile(
   }
 
   const data = (await response.json()) as GoogleDriveFileResource;
-  return mapGoogleDriveFile(data, connectionId);
+  return mapGoogleDriveFile(data, connection_id);
 }

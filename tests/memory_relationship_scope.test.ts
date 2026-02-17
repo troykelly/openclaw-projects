@@ -34,32 +34,32 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   /** Creates two contacts and a relationship between them. Returns the relationship ID. */
   async function createTestRelationship(): Promise<{
-    relationshipId: string;
-    contactAId: string;
-    contactBId: string;
-    relationshipTypeId: string;
+    relationship_id: string;
+    contact_a_id: string;
+    contact_b_id: string;
+    relationship_type_id: string;
   }> {
     // Create contacts
-    const contactA = await pool.query(`INSERT INTO contact (display_name) VALUES ('Troy') RETURNING id::text as id`);
-    const contactAId = (contactA.rows[0] as { id: string }).id;
+    const contact_a = await pool.query(`INSERT INTO contact (display_name) VALUES ('Troy') RETURNING id::text as id`);
+    const contact_a_id = (contact_a.rows[0] as { id: string }).id;
 
-    const contactB = await pool.query(`INSERT INTO contact (display_name) VALUES ('Alex') RETURNING id::text as id`);
-    const contactBId = (contactB.rows[0] as { id: string }).id;
+    const contact_b = await pool.query(`INSERT INTO contact (display_name) VALUES ('Alex') RETURNING id::text as id`);
+    const contact_b_id = (contact_b.rows[0] as { id: string }).id;
 
     // Get partner_of type (pre-seeded)
     const typeResult = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = 'partner_of' LIMIT 1`);
-    const relationshipTypeId = (typeResult.rows[0] as { id: string }).id;
+    const relationship_type_id = (typeResult.rows[0] as { id: string }).id;
 
     // Create relationship
     const relResult = await pool.query(
       `INSERT INTO relationship (contact_a_id, contact_b_id, relationship_type_id)
        VALUES ($1, $2, $3)
        RETURNING id::text as id`,
-      [contactAId, contactBId, relationshipTypeId],
+      [contact_a_id, contact_b_id, relationship_type_id],
     );
-    const relationshipId = (relResult.rows[0] as { id: string }).id;
+    const relationship_id = (relResult.rows[0] as { id: string }).id;
 
-    return { relationshipId, contactAId, contactBId, relationshipTypeId };
+    return { relationship_id, contact_a_id, contact_b_id, relationship_type_id };
   }
 
   // ── Schema ──────────────────────────────────────────────
@@ -111,44 +111,44 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('createMemory with relationship_id', () => {
     it('creates a memory scoped to a relationship', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       const memory = await createMemory(pool, {
-        userEmail: 'test@example.com',
+        user_email: 'test@example.com',
         title: 'Anniversary date',
         content: 'Troy and Alex anniversary is March 15',
-        memoryType: 'fact',
-        relationshipId,
+        memory_type: 'fact',
+        relationship_id,
       });
 
-      expect(memory.relationshipId).toBe(relationshipId);
-      expect(memory.userEmail).toBe('test@example.com');
+      expect(memory.relationship_id).toBe(relationship_id);
+      expect(memory.user_email).toBe('test@example.com');
     });
 
     it('creates a memory with only relationship_id scope (no other scopes)', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       const memory = await createMemory(pool, {
         title: 'Communication preference',
         content: 'They prefer to meet on Tuesdays',
-        memoryType: 'preference',
-        relationshipId,
+        memory_type: 'preference',
+        relationship_id,
       });
 
-      expect(memory.relationshipId).toBe(relationshipId);
-      expect(memory.userEmail).toBeNull();
-      expect(memory.workItemId).toBeNull();
-      expect(memory.contactId).toBeNull();
+      expect(memory.relationship_id).toBe(relationship_id);
+      expect(memory.user_email).toBeNull();
+      expect(memory.work_item_id).toBeNull();
+      expect(memory.contact_id).toBeNull();
     });
 
     it('creates a memory without relationship_id (backward compatible)', async () => {
       const memory = await createMemory(pool, {
-        userEmail: 'test@example.com',
+        user_email: 'test@example.com',
         title: 'Simple note',
         content: 'No relationship scope',
       });
 
-      expect(memory.relationshipId).toBeNull();
+      expect(memory.relationship_id).toBeNull();
     });
   });
 
@@ -156,18 +156,18 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('getMemory returns relationship_id', () => {
     it('returns relationship_id when retrieving a memory', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       const created = await createMemory(pool, {
         title: 'Relationship memory',
         content: 'They share a love of jazz',
-        memoryType: 'fact',
-        relationshipId,
+        memory_type: 'fact',
+        relationship_id,
       });
 
       const retrieved = await getMemory(pool, created.id);
       expect(retrieved).not.toBeNull();
-      expect(retrieved!.relationshipId).toBe(relationshipId);
+      expect(retrieved!.relationship_id).toBe(relationship_id);
     });
   });
 
@@ -186,54 +186,54 @@ describe('Memory Relationship Scope (Issue #493)', () => {
         `INSERT INTO relationship (contact_a_id, contact_b_id, relationship_type_id)
          VALUES ($1, $2, $3)
          RETURNING id::text as id`,
-        [rel1.contactAId, contactCId, friendTypeId],
+        [rel1.contact_a_id, contactCId, friendTypeId],
       );
       const rel2Id = (rel2Result.rows[0] as { id: string }).id;
 
       await createMemory(pool, {
         title: 'Troy-Alex anniversary',
         content: 'March 15',
-        memoryType: 'fact',
-        relationshipId: rel1.relationshipId,
+        memory_type: 'fact',
+        relationship_id: rel1.relationship_id,
       });
       await createMemory(pool, {
         title: 'Troy-Jordan friendship',
         content: 'Met at a conference',
-        memoryType: 'fact',
-        relationshipId: rel2Id,
+        memory_type: 'fact',
+        relationship_id: rel2Id,
       });
 
-      const result = await listMemories(pool, { relationshipId: rel1.relationshipId });
+      const result = await listMemories(pool, { relationship_id: rel1.relationship_id });
 
       expect(result.total).toBe(1);
       expect(result.memories[0].title).toBe('Troy-Alex anniversary');
     });
 
     it('combines relationship_id filter with other filters', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       await createMemory(pool, {
-        userEmail: 'user1@example.com',
+        user_email: 'user1@example.com',
         title: 'Preference about relationship',
         content: 'Prefers weekly catch-ups',
-        memoryType: 'preference',
-        relationshipId,
+        memory_type: 'preference',
+        relationship_id,
       });
       await createMemory(pool, {
-        userEmail: 'user1@example.com',
+        user_email: 'user1@example.com',
         title: 'Fact about relationship',
         content: 'Met in 2020',
-        memoryType: 'fact',
-        relationshipId,
+        memory_type: 'fact',
+        relationship_id,
       });
 
       const result = await listMemories(pool, {
-        relationshipId,
-        memoryType: 'preference',
+        relationship_id,
+        memory_type: 'preference',
       });
 
       expect(result.total).toBe(1);
-      expect(result.memories[0].memoryType).toBe('preference');
+      expect(result.memories[0].memory_type).toBe('preference');
     });
   });
 
@@ -241,25 +241,25 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('searchMemories with relationship_id filtering', () => {
     it('combines relationship_id filter with text search', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       await createMemory(pool, {
         title: 'Anniversary date',
         content: 'Their wedding anniversary is March 15',
-        memoryType: 'fact',
-        relationshipId,
+        memory_type: 'fact',
+        relationship_id,
       });
       await createMemory(pool, {
         title: 'Another anniversary',
         content: 'Different anniversary for someone else March 20',
-        memoryType: 'fact',
+        memory_type: 'fact',
       });
 
-      const result = await searchMemories(pool, 'anniversary', { relationshipId });
+      const result = await searchMemories(pool, 'anniversary', { relationship_id });
 
       // Should filter results to only the relationship-scoped memory
       if (result.results.length > 0) {
-        expect(result.results.every((r) => r.relationshipId === relationshipId)).toBe(true);
+        expect(result.results.every((r) => r.relationship_id === relationship_id)).toBe(true);
       }
     });
   });
@@ -268,17 +268,17 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('scope validation', () => {
     it('relationship_id counts as a valid scope (no warning logged)', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       // This should not produce a "without scope" warning because relationship_id is set
       const memory = await createMemory(pool, {
         title: 'Scoped by relationship',
         content: 'Has at least one scope',
-        relationshipId,
+        relationship_id,
       });
 
       expect(memory.id).toBeDefined();
-      expect(memory.relationshipId).toBe(relationshipId);
+      expect(memory.relationship_id).toBe(relationship_id);
     });
   });
 
@@ -286,22 +286,22 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('foreign key behavior', () => {
     it('sets relationship_id to null when relationship is deleted', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       const memory = await createMemory(pool, {
         title: 'Will lose relationship ref',
         content: 'FK should SET NULL',
-        memoryType: 'fact',
-        relationshipId,
+        memory_type: 'fact',
+        relationship_id,
       });
 
       // Delete the relationship
-      await pool.query('DELETE FROM relationship WHERE id = $1', [relationshipId]);
+      await pool.query('DELETE FROM relationship WHERE id = $1', [relationship_id]);
 
       // Memory should still exist but with null relationship_id
       const retrieved = await getMemory(pool, memory.id);
       expect(retrieved).not.toBeNull();
-      expect(retrieved!.relationshipId).toBeNull();
+      expect(retrieved!.relationship_id).toBeNull();
     });
   });
 
@@ -309,7 +309,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('POST /api/memories/unified with relationship_id', () => {
     it('accepts relationship_id in request body', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       const res = await app.inject({
         method: 'POST',
@@ -319,13 +319,13 @@ describe('Memory Relationship Scope (Issue #493)', () => {
           content: 'Created via API with relationship scope',
           memory_type: 'fact',
           user_email: 'test@example.com',
-          relationship_id: relationshipId,
+          relationship_id: relationship_id,
         },
       });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.relationshipId).toBe(relationshipId);
+      expect(body.relationship_id).toBe(relationship_id);
     });
 
     it('creates memory without relationship_id (backward compatible)', async () => {
@@ -342,7 +342,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.relationshipId).toBeNull();
+      expect(body.relationship_id).toBeNull();
     });
   });
 
@@ -350,29 +350,29 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('GET /api/memories/unified with relationship_id filter', () => {
     it('filters memories by relationship_id query parameter', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       await createMemory(pool, {
         title: 'With relationship',
         content: 'Scoped to relationship',
-        memoryType: 'fact',
-        relationshipId,
+        memory_type: 'fact',
+        relationship_id,
       });
       await createMemory(pool, {
         title: 'Without relationship',
         content: 'No relationship scope',
-        memoryType: 'fact',
+        memory_type: 'fact',
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/unified?relationship_id=${relationshipId}`,
+        url: `/api/memories/unified?relationship_id=${relationship_id}`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.memories.length).toBe(1);
-      expect(body.memories[0].relationshipId).toBe(relationshipId);
+      expect(body.memories[0].relationship_id).toBe(relationship_id);
     });
   });
 
@@ -380,12 +380,12 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('GET /api/memories/search with relationship_id filter', () => {
     it('accepts relationship_id query parameter for filtered search', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, relationship_id)
          VALUES ('Anniversary', 'Their anniversary is March 15', 'fact', $1)`,
-        [relationshipId],
+        [relationship_id],
       );
       await pool.query(
         `INSERT INTO memory (title, content, memory_type)
@@ -394,7 +394,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/search?q=anniversary&relationship_id=${relationshipId}`,
+        url: `/api/memories/search?q=anniversary&relationship_id=${relationship_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -411,14 +411,14 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   describe('POST /api/memories/:id/supersede', () => {
     it('inherits relationship_id from superseded memory', async () => {
-      const { relationshipId } = await createTestRelationship();
+      const { relationship_id } = await createTestRelationship();
 
       // Create original memory with relationship scope
       const original = await pool.query(
         `INSERT INTO memory (title, content, memory_type, relationship_id)
          VALUES ('Old anniversary', 'March 15', 'fact', $1)
          RETURNING id::text as id`,
-        [relationshipId],
+        [relationship_id],
       );
       const oldId = (original.rows[0] as { id: string }).id;
 
@@ -433,7 +433,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.newMemory.relationshipId).toBe(relationshipId);
+      expect(body.new_memory.relationship_id).toBe(relationship_id);
     });
   });
 

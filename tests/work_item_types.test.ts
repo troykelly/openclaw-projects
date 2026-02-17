@@ -84,7 +84,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
         payload: {
           title: 'Parent Initiative',
           type: 'initiative',
-          parentId: project.id,
+          parent_id: project.id,
         },
       });
       const initiative = initiativeResponse.json() as { id: string };
@@ -96,7 +96,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
         payload: {
           title: 'Test Epic',
           type: 'epic',
-          parentId: initiative.id,
+          parent_id: initiative.id,
         },
       });
 
@@ -123,7 +123,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
   });
 
   describe('LIST endpoint with item_type filter', () => {
-    let projectId: string;
+    let project_id: string;
     let taskId: string;
     let issueId: string;
 
@@ -138,7 +138,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
         },
       });
       const project = projectResponse.json() as { id: string };
-      projectId = project.id;
+      project_id = project.id;
 
       // Create a task
       const taskResponse = await app.inject({
@@ -182,7 +182,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
       }
 
       // Should include our test project
-      const hasTestProject = data.items.some((item) => item.id === projectId);
+      const hasTestProject = data.items.some((item) => item.id === project_id);
       expect(hasTestProject).toBe(true);
     });
 
@@ -244,7 +244,7 @@ describe('Work Item Type Handling (Issue #1135)', () => {
 
       // Should include all our test items
       const ids = data.items.map((item) => item.id);
-      expect(ids).toContain(projectId);
+      expect(ids).toContain(project_id);
       expect(ids).toContain(taskId);
       expect(ids).toContain(issueId);
     });

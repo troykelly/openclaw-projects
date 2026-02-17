@@ -111,12 +111,12 @@ describe('oauth_state database storage', () => {
     const data = await validateState(pool, 'validate-me');
 
     expect(data.provider).toBe('microsoft');
-    expect(data.codeVerifier).toBe('pkce-verifier');
+    expect(data.code_verifier).toBe('pkce-verifier');
     expect(data.scopes).toEqual(['contacts', 'email']);
-    expect(data.userEmail).toBe('alice@test.com');
-    expect(data.redirectPath).toBe('/callback');
-    expect(data.createdAt).toBeInstanceOf(Date);
-    expect(data.expiresAt).toBeInstanceOf(Date);
+    expect(data.user_email).toBe('alice@test.com');
+    expect(data.redirect_path).toBe('/callback');
+    expect(data.created_at).toBeInstanceOf(Date);
+    expect(data.expires_at).toBeInstanceOf(Date);
 
     // State should be deleted (single-use)
     const remaining = await pool.query('SELECT 1 FROM oauth_state WHERE state = $1', ['validate-me']);

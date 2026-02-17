@@ -37,23 +37,23 @@ function rowToConnection(row: Record<string, unknown>): OAuthConnection {
   const rowId = row.id as string;
   return {
     id: rowId,
-    userEmail: row.user_email as string,
+    user_email: row.user_email as string,
     provider: row.provider as OAuthProvider,
-    accessToken: decryptToken(row.access_token as string, rowId),
-    refreshToken: row.refresh_token ? decryptToken(row.refresh_token as string, rowId) : undefined,
+    access_token: decryptToken(row.access_token as string, rowId),
+    refresh_token: row.refresh_token ? decryptToken(row.refresh_token as string, rowId) : undefined,
     scopes: row.scopes as string[],
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : undefined,
-    tokenMetadata: (row.token_metadata as Record<string, unknown>) || {},
+    expires_at: row.expires_at ? new Date(row.expires_at as string) : undefined,
+    token_metadata: (row.token_metadata as Record<string, unknown>) || {},
     label: row.label as string,
-    providerAccountId: (row.provider_account_id as string) || undefined,
-    providerAccountEmail: (row.provider_account_email as string) || undefined,
-    permissionLevel: (row.permission_level as 'read' | 'read_write') || 'read',
-    enabledFeatures: (row.enabled_features as OAuthFeature[]) || [],
-    isActive: row.is_active as boolean,
-    lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at as string) : undefined,
-    syncStatus: (row.sync_status as Record<string, unknown>) || {},
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    provider_account_id: (row.provider_account_id as string) || undefined,
+    provider_account_email: (row.provider_account_email as string) || undefined,
+    permission_level: (row.permission_level as 'read' | 'read_write') || 'read',
+    enabled_features: (row.enabled_features as OAuthFeature[]) || [],
+    is_active: row.is_active as boolean,
+    last_sync_at: row.last_sync_at ? new Date(row.last_sync_at as string) : undefined,
+    sync_status: (row.sync_status as Record<string, unknown>) || {},
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
   };
 }
 
@@ -62,7 +62,7 @@ function rowToConnection(row: Record<string, unknown>): OAuthConnection {
  *
  * The state row expires after 10 minutes (set by the DB default).
  *
- * When `features` and `permissionLevel` are provided, scopes are computed
+ * When `features` and `permission_level` are provided, scopes are computed
  * from the feature-to-scope map instead of using the raw `scopes` parameter.
  * For Google, incremental auth (`include_granted_scopes=true`) is enabled
  * so existing grants are preserved and only new scopes trigger consent.
@@ -74,17 +74,17 @@ export async function getAuthorizationUrl(
   state: string,
   scopes?: string[],
   opts?: {
-    userEmail?: string;
-    redirectPath?: string;
+    user_email?: string;
+    redirect_path?: string;
     features?: OAuthFeature[];
-    permissionLevel?: OAuthPermissionLevel;
+    permission_level?: OAuthPermissionLevel;
   },
 ): Promise<OAuthAuthorizationUrl> {
   const config = requireProviderConfig(provider);
 
   // If features are provided, compute scopes from the feature map
   const effectiveScopes = opts?.features && opts.features.length > 0
-    ? getRequiredScopes(provider, opts.features, opts.permissionLevel ?? 'read')
+    ? getRequiredScopes(provider, opts.features, opts.permission_level ?? 'read')
     : scopes;
 
   // Incremental auth: when features are specified, we're adding scopes to an existing connection
@@ -108,7 +108,7 @@ export async function getAuthorizationUrl(
   await pool.query(
     `INSERT INTO oauth_state (state, provider, code_verifier, scopes, user_email, redirect_path)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [state, provider, result.codeVerifier, result.scopes, opts?.userEmail ?? null, opts?.redirectPath ?? null],
+    [state, provider, result.code_verifier, result.scopes, opts?.user_email ?? null, opts?.redirect_path ?? null],
   );
 
   return result;
@@ -138,12 +138,12 @@ export async function validateState(pool: Pool, state: string): Promise<OAuthSta
   const row = result.rows[0];
   return {
     provider: row.provider,
-    codeVerifier: row.code_verifier,
+    code_verifier: row.code_verifier,
     scopes: row.scopes ?? [],
-    userEmail: row.user_email ?? undefined,
-    redirectPath: row.redirect_path ?? undefined,
-    createdAt: new Date(row.created_at),
-    expiresAt: new Date(row.expires_at),
+    user_email: row.user_email ?? undefined,
+    redirect_path: row.redirect_path ?? undefined,
+    created_at: new Date(row.created_at),
+    expires_at: new Date(row.expires_at),
   };
 }
 
@@ -158,38 +158,38 @@ export async function cleanExpiredStates(pool: Pool): Promise<number> {
   return result.rowCount ?? 0;
 }
 
-export async function exchangeCodeForTokens(provider: OAuthProvider, code: string, codeVerifier?: string): Promise<OAuthTokens> {
+export async function exchangeCodeForTokens(provider: OAuthProvider, code: string, code_verifier?: string): Promise<OAuthTokens> {
   const config = requireProviderConfig(provider);
 
   switch (provider) {
     case 'microsoft':
-      return microsoft.exchangeCodeForTokens(code, config, codeVerifier);
+      return microsoft.exchangeCodeForTokens(code, config, code_verifier);
     case 'google':
-      return google.exchangeCodeForTokens(code, config, codeVerifier);
+      return google.exchangeCodeForTokens(code, config, code_verifier);
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
 }
 
-export async function getUserEmail(provider: OAuthProvider, accessToken: string): Promise<string> {
+export async function getUserEmail(provider: OAuthProvider, access_token: string): Promise<string> {
   switch (provider) {
     case 'microsoft':
-      return microsoft.getUserEmail(accessToken);
+      return microsoft.getUserEmail(access_token);
     case 'google':
-      return google.getUserEmail(accessToken);
+      return google.getUserEmail(access_token);
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
 }
 
-export async function refreshTokens(provider: OAuthProvider, refreshToken: string): Promise<OAuthTokens> {
+export async function refreshTokens(provider: OAuthProvider, refresh_token: string): Promise<OAuthTokens> {
   const config = requireProviderConfig(provider);
 
   switch (provider) {
     case 'microsoft':
-      return microsoft.refreshAccessToken(refreshToken, config);
+      return microsoft.refreshAccessToken(refresh_token, config);
     case 'google':
-      return google.refreshAccessToken(refreshToken, config);
+      return google.refreshAccessToken(refresh_token, config);
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
@@ -197,22 +197,22 @@ export async function refreshTokens(provider: OAuthProvider, refreshToken: strin
 
 export async function fetchProviderContacts(
   provider: OAuthProvider,
-  accessToken: string,
-  syncCursor?: string,
-): Promise<{ contacts: ProviderContact[]; syncCursor?: string }> {
+  access_token: string,
+  sync_cursor?: string,
+): Promise<{ contacts: ProviderContact[]; sync_cursor?: string }> {
   switch (provider) {
     case 'microsoft':
-      return microsoft.fetchAllContacts(accessToken, syncCursor);
+      return microsoft.fetchAllContacts(access_token, sync_cursor);
     case 'google':
-      return google.fetchAllContacts(accessToken, syncCursor);
+      return google.fetchAllContacts(access_token, sync_cursor);
     default:
       throw new OAuthError(`Unknown provider: ${provider}`, 'UNKNOWN_PROVIDER', provider);
   }
 }
 
-function isTokenExpired(expiresAt?: Date): boolean {
-  if (!expiresAt) return false;
-  return expiresAt.getTime() - TOKEN_EXPIRY_BUFFER_MS <= Date.now();
+function isTokenExpired(expires_at?: Date): boolean {
+  if (!expires_at) return false;
+  return expires_at.getTime() - TOKEN_EXPIRY_BUFFER_MS <= Date.now();
 }
 
 /**
@@ -234,20 +234,20 @@ export function validateFeatures(features: string[]): OAuthFeature[] {
  */
 export async function saveConnection(
   pool: Pool,
-  userEmail: string,
+  user_email: string,
   provider: OAuthProvider,
   tokens: OAuthTokens,
   options?: {
-    providerAccountEmail?: string;
+    provider_account_email?: string;
     label?: string;
-    permissionLevel?: 'read' | 'read_write';
-    enabledFeatures?: OAuthFeature[];
+    permission_level?: 'read' | 'read_write';
+    enabled_features?: OAuthFeature[];
   },
 ): Promise<OAuthConnection> {
   const label = options?.label || 'Default';
-  const permissionLevel = options?.permissionLevel || 'read';
-  const enabledFeatures = options?.enabledFeatures || [];
-  const providerAccountEmail = options?.providerAccountEmail ?? null;
+  const permission_level = options?.permission_level || 'read';
+  const enabled_features = options?.enabled_features || [];
+  const provider_account_email = options?.provider_account_email ?? null;
 
   // Insert first to get the row ID, then encrypt tokens using that ID as HKDF salt.
   const result = await pool.query(
@@ -267,17 +267,17 @@ export async function saveConnection(
        updated_at = now()
      RETURNING ${CONNECTION_COLUMNS}`,
     [
-      userEmail,
+      user_email,
       provider,
-      tokens.accessToken,
-      tokens.refreshToken || null,
+      tokens.access_token,
+      tokens.refresh_token || null,
       tokens.scopes,
-      tokens.expiresAt || null,
-      JSON.stringify({ tokenType: tokens.tokenType }),
-      providerAccountEmail,
+      tokens.expires_at || null,
+      JSON.stringify({ token_type: tokens.token_type }),
+      provider_account_email,
       label,
-      permissionLevel,
-      enabledFeatures,
+      permission_level,
+      enabled_features,
     ],
   );
 
@@ -285,8 +285,8 @@ export async function saveConnection(
   const rowId = row.id as string;
 
   // Encrypt tokens using the row ID for per-row key derivation, then persist
-  const encryptedAccess = encryptToken(tokens.accessToken, rowId);
-  const encryptedRefresh = tokens.refreshToken ? encryptToken(tokens.refreshToken, rowId) : null;
+  const encryptedAccess = encryptToken(tokens.access_token, rowId);
+  const encryptedRefresh = tokens.refresh_token ? encryptToken(tokens.refresh_token, rowId) : null;
 
   await pool.query(
     `UPDATE oauth_connection SET access_token = $1, refresh_token = COALESCE($2, refresh_token) WHERE id = $3`,
@@ -297,31 +297,31 @@ export async function saveConnection(
   // plaintext tokens from the RETURNING clause, causing "Invalid ciphertext" errors.
   return {
     id: rowId,
-    userEmail: row.user_email as string,
+    user_email: row.user_email as string,
     provider: row.provider as OAuthProvider,
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
     scopes: row.scopes as string[],
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : undefined,
-    tokenMetadata: (row.token_metadata as Record<string, unknown>) || {},
+    expires_at: row.expires_at ? new Date(row.expires_at as string) : undefined,
+    token_metadata: (row.token_metadata as Record<string, unknown>) || {},
     label: row.label as string,
-    providerAccountId: (row.provider_account_id as string) || undefined,
-    providerAccountEmail: (row.provider_account_email as string) || undefined,
-    permissionLevel: (row.permission_level as 'read' | 'read_write') || 'read',
-    enabledFeatures: (row.enabled_features as OAuthFeature[]) || [],
-    isActive: row.is_active as boolean,
-    lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at as string) : undefined,
-    syncStatus: (row.sync_status as Record<string, unknown>) || {},
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    provider_account_id: (row.provider_account_id as string) || undefined,
+    provider_account_email: (row.provider_account_email as string) || undefined,
+    permission_level: (row.permission_level as 'read' | 'read_write') || 'read',
+    enabled_features: (row.enabled_features as OAuthFeature[]) || [],
+    is_active: row.is_active as boolean,
+    last_sync_at: row.last_sync_at ? new Date(row.last_sync_at as string) : undefined,
+    sync_status: (row.sync_status as Record<string, unknown>) || {},
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
   };
 }
 
 /** Look up a single connection by its UUID. */
-export async function getConnection(pool: Pool, connectionId: string): Promise<OAuthConnection | null> {
+export async function getConnection(pool: Pool, connection_id: string): Promise<OAuthConnection | null> {
   const result = await pool.query(
     `SELECT ${CONNECTION_COLUMNS} FROM oauth_connection WHERE id = $1`,
-    [connectionId],
+    [connection_id],
   );
 
   if (result.rows.length === 0) {
@@ -332,14 +332,14 @@ export async function getConnection(pool: Pool, connectionId: string): Promise<O
 }
 
 /**
- * List connections, optionally filtered by userEmail and/or provider.
+ * List connections, optionally filtered by user_email and/or provider.
  */
-export async function listConnections(pool: Pool, userEmail?: string, provider?: OAuthProvider): Promise<OAuthConnection[]> {
+export async function listConnections(pool: Pool, user_email?: string, provider?: OAuthProvider): Promise<OAuthConnection[]> {
   const conditions: string[] = [];
   const params: string[] = [];
 
-  if (userEmail) {
-    params.push(userEmail);
+  if (user_email) {
+    params.push(user_email);
     conditions.push(`user_email = $${params.length}`);
   }
 
@@ -362,27 +362,27 @@ export async function listConnections(pool: Pool, userEmail?: string, provider?:
  * Update mutable fields on an existing connection.
  * Returns the updated connection or null if not found.
  */
-export async function updateConnection(pool: Pool, connectionId: string, updates: OAuthConnectionUpdate): Promise<OAuthConnection | null> {
+export async function updateConnection(pool: Pool, connection_id: string, updates: OAuthConnectionUpdate): Promise<OAuthConnection | null> {
   const setClauses: string[] = ['updated_at = now()'];
-  const params: unknown[] = [connectionId];
+  const params: unknown[] = [connection_id];
 
   if (updates.label !== undefined) {
     params.push(updates.label);
     setClauses.push(`label = $${params.length}`);
   }
 
-  if (updates.permissionLevel !== undefined) {
-    params.push(updates.permissionLevel);
+  if (updates.permission_level !== undefined) {
+    params.push(updates.permission_level);
     setClauses.push(`permission_level = $${params.length}`);
   }
 
-  if (updates.enabledFeatures !== undefined) {
-    params.push(updates.enabledFeatures);
+  if (updates.enabled_features !== undefined) {
+    params.push(updates.enabled_features);
     setClauses.push(`enabled_features = $${params.length}`);
   }
 
-  if (updates.isActive !== undefined) {
-    params.push(updates.isActive);
+  if (updates.is_active !== undefined) {
+    params.push(updates.is_active);
     setClauses.push(`is_active = $${params.length}`);
   }
 
@@ -402,35 +402,35 @@ export async function updateConnection(pool: Pool, connectionId: string, updates
  * Get a valid (non-expired) access token for a connection by its UUID.
  * Automatically refreshes the token if expired.
  */
-export async function getValidAccessToken(pool: Pool, connectionId: string): Promise<string> {
-  const connection = await getConnection(pool, connectionId);
+export async function getValidAccessToken(pool: Pool, connection_id: string): Promise<string> {
+  const connection = await getConnection(pool, connection_id);
 
   if (!connection) {
-    throw new NoConnectionError(connectionId);
+    throw new NoConnectionError(connection_id);
   }
 
   // Check if token is expired or about to expire
-  if (isTokenExpired(connection.expiresAt)) {
-    if (!connection.refreshToken) {
+  if (isTokenExpired(connection.expires_at)) {
+    if (!connection.refresh_token) {
       throw new TokenExpiredError(connection.provider);
     }
 
     // Refresh the token
-    const newTokens = await refreshTokens(connection.provider, connection.refreshToken);
+    const newTokens = await refreshTokens(connection.provider, connection.refresh_token);
 
     // Save the refreshed tokens
-    await saveConnection(pool, connection.userEmail, connection.provider, newTokens, {
-      providerAccountEmail: connection.providerAccountEmail,
+    await saveConnection(pool, connection.user_email, connection.provider, newTokens, {
+      provider_account_email: connection.provider_account_email,
     });
 
-    return newTokens.accessToken;
+    return newTokens.access_token;
   }
 
-  return connection.accessToken;
+  return connection.access_token;
 }
 
-export async function deleteConnection(pool: Pool, connectionId: string): Promise<boolean> {
-  const result = await pool.query('DELETE FROM oauth_connection WHERE id = $1', [connectionId]);
+export async function deleteConnection(pool: Pool, connection_id: string): Promise<boolean> {
+  const result = await pool.query('DELETE FROM oauth_connection WHERE id = $1', [connection_id]);
   return (result.rowCount ?? 0) > 0;
 }
 

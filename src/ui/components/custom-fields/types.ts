@@ -22,7 +22,7 @@ export interface CustomFieldValidation {
  */
 export interface CustomFieldDefinition {
   id: string;
-  projectId: string;
+  project_id: string;
   name: string;
   type: CustomFieldType;
   description?: string;
@@ -32,8 +32,8 @@ export interface CustomFieldDefinition {
   validation?: CustomFieldValidation;
   order: number;
   archived?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
@@ -96,7 +96,7 @@ export interface CustomFieldListProps {
  * Props for CustomFieldManager component
  */
 export interface CustomFieldManagerProps {
-  projectId: string;
+  project_id: string;
   fields: CustomFieldDefinition[];
   onCreate: (data: CreateCustomFieldData) => void;
   onUpdate: (id: string, data: UpdateCustomFieldData) => void;

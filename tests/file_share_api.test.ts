@@ -37,7 +37,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
    * Helper to create a file attachment directly in the database.
    * This bypasses the file upload which requires S3 storage.
    */
-  async function createFileAttachment(filename: string = 'test-file.txt', contentType: string = 'text/plain', sizeBytes: number = 1024): Promise<string> {
+  async function createFileAttachment(filename: string = 'test-file.txt', content_type: string = 'text/plain', size_bytes: number = 1024): Promise<string> {
     const result = await pool.query(
       `INSERT INTO file_attachment (
         storage_key,
@@ -48,7 +48,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         uploaded_by
       ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id::text`,
-      [`test/${Date.now()}/${filename}`, filename, contentType, sizeBytes, 'abc123', 'test@example.com'],
+      [`test/${Date.now()}/${filename}`, filename, content_type, size_bytes, 'abc123', 'test@example.com'],
     );
     return result.rows[0].id;
   }
@@ -64,8 +64,8 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       downloadCount?: number;
     } = {},
   ): Promise<string> {
-    const expiresIn = options.expiresIn ?? 3600;
-    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+    const expiresIn = options.expires_in ?? 3600;
+    const expires_at = new Date(Date.now() + expiresIn * 1000);
 
     const tokenResult = await pool.query('SELECT generate_share_token() as token');
     const shareToken = tokenResult.rows[0].token as string;
@@ -79,7 +79,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         download_count,
         created_by
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [fileId, shareToken, expiresAt, options.maxDownloads ?? null, options.downloadCount ?? 0, 'test@example.com'],
+      [fileId, shareToken, expires_at, options.max_downloads ?? null, options.downloadCount ?? 0, 'test@example.com'],
     );
 
     return shareToken;
@@ -89,7 +89,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
    * Helper to create an expired file share.
    */
   async function createExpiredFileShare(fileId: string): Promise<string> {
-    const expiresAt = new Date(Date.now() - 1000); // Expired 1 second ago
+    const expires_at = new Date(Date.now() - 1000); // Expired 1 second ago
 
     const tokenResult = await pool.query('SELECT generate_share_token() as token');
     const shareToken = tokenResult.rows[0].token as string;
@@ -101,7 +101,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         expires_at,
         created_by
       ) VALUES ($1, $2, $3, $4)`,
-      [fileId, shareToken, expiresAt, 'test@example.com'],
+      [fileId, shareToken, expires_at, 'test@example.com'],
     );
 
     return shareToken;
@@ -171,7 +171,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/files/00000000-0000-0000-0000-000000000001/share',
-          payload: { expiresIn: 30 },
+          payload: { expires_in: 30 },
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -182,7 +182,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 30 },
+        payload: { expires_in: 30 },
       });
 
       expect(res.statusCode).toBe(400);
@@ -194,7 +194,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/files/00000000-0000-0000-0000-000000000001/share',
-          payload: { expiresIn: 700000 },
+          payload: { expires_in: 700000 },
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -205,7 +205,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 700000 },
+        payload: { expires_in: 700000 },
       });
 
       expect(res.statusCode).toBe(400);
@@ -234,11 +234,11 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.url).toBeDefined();
-      expect(body.expiresAt).toBeDefined();
-      expect(body.expiresIn).toBe(3600); // Default 1 hour
+      expect(body.expires_at).toBeDefined();
+      expect(body.expires_in).toBe(3600); // Default 1 hour
       expect(body.filename).toBe('document.pdf');
-      expect(body.contentType).toBe('application/pdf');
-      expect(body.sizeBytes).toBe(2048);
+      expect(body.content_type).toBe('application/pdf');
+      expect(body.size_bytes).toBe(2048);
     });
 
     it('creates share link with custom expiration', async function () {
@@ -246,7 +246,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/files/00000000-0000-0000-0000-000000000001/share',
-          payload: { expiresIn: 7200 },
+          payload: { expires_in: 7200 },
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -257,12 +257,12 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 7200 },
+        payload: { expires_in: 7200 },
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.expiresIn).toBe(7200);
+      expect(body.expires_in).toBe(7200);
     });
 
     it('accepts optional maxDownloads parameter', async function () {
@@ -270,7 +270,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/files/00000000-0000-0000-0000-000000000001/share',
-          payload: { maxDownloads: 5 },
+          payload: { max_downloads: 5 },
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -281,7 +281,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { maxDownloads: 5 },
+        payload: { max_downloads: 5 },
       });
 
       // maxDownloads is stored in proxy mode, but presigned URLs don't enforce it
@@ -293,7 +293,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/files/00000000-0000-0000-0000-000000000001/share',
-          payload: { expiresIn: 60 },
+          payload: { expires_in: 60 },
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -304,11 +304,11 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 60 },
+        payload: { expires_in: 60 },
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().expiresIn).toBe(60);
+      expect(res.json().expires_in).toBe(60);
     });
 
     it('validates expiresIn at boundary value 604800 seconds (7 days)', async function () {
@@ -316,7 +316,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/files/00000000-0000-0000-0000-000000000001/share',
-          payload: { expiresIn: 604800 },
+          payload: { expires_in: 604800 },
         });
         expect(res.statusCode).toBe(503);
         return;
@@ -327,11 +327,11 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 604800 },
+        payload: { expires_in: 604800 },
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().expiresIn).toBe(604800);
+      expect(res.json().expires_in).toBe(604800);
     });
   });
 
@@ -408,7 +408,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
 
       const fileId = await createFileAttachment();
       const token = await createFileShare(fileId, {
-        maxDownloads: 3,
+        max_downloads: 3,
         downloadCount: 3, // Already at max
       });
 
@@ -466,7 +466,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
       }
 
       const fileId = await createFileAttachment();
-      const token = await createFileShare(fileId, { maxDownloads: 10 });
+      const token = await createFileShare(fileId, { max_downloads: 10 });
 
       // First request (will fail at download stage since no actual file, but token validates)
       const res = await app.inject({
@@ -509,7 +509,7 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
     it('returns invalid when max downloads reached', async () => {
       const fileId = await createFileAttachment();
       const token = await createFileShare(fileId, {
-        maxDownloads: 1,
+        max_downloads: 1,
         downloadCount: 1,
       });
 
@@ -605,8 +605,8 @@ describe('File Sharing API (Epic #574, Issue #614)', () => {
     it('creates share, validates token, enforces limits', async () => {
       const fileId = await createFileAttachment('report.pdf', 'application/pdf', 5000);
       const token = await createFileShare(fileId, {
-        expiresIn: 3600,
-        maxDownloads: 2,
+        expires_in: 3600,
+        max_downloads: 2,
       });
 
       // First validation (simulates first download)

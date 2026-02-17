@@ -20,15 +20,15 @@ const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
  * 5xx (server errors), and network errors (no status code).
  * Non-retryable: all other 4xx client errors.
  */
-export function isRetryable(statusCode?: number): boolean {
-  if (statusCode === undefined) {
+export function isRetryable(status_code?: number): boolean {
+  if (status_code === undefined) {
     // Network error / timeout — no HTTP response received
     return true;
   }
-  if (statusCode >= 500) {
+  if (status_code >= 500) {
     return true;
   }
-  if (statusCode === 408 || statusCode === 409 || statusCode === 425 || statusCode === 429) {
+  if (status_code === 408 || status_code === 409 || status_code === 425 || status_code === 429) {
     return true;
   }
   return false;
@@ -104,7 +104,7 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), (config.timeoutSeconds || 120) * 1000);
+  const timeout = setTimeout(() => controller.abort(), (config.timeout_seconds || 120) * 1000);
 
   try {
     const response = await fetch(url, {
@@ -118,17 +118,17 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
     clearTimeout(timeout);
 
     if (response.ok) {
-      let responseBody: unknown;
+      let response_body: unknown;
       try {
-        responseBody = await response.json();
+        response_body = await response.json();
       } catch {
-        responseBody = await response.text();
+        response_body = await response.text();
       }
 
       return {
         success: true,
-        statusCode: response.status,
-        responseBody,
+        status_code: response.status,
+        response_body,
       };
     }
 
@@ -142,7 +142,7 @@ export async function dispatchWebhook(entry: WebhookOutboxEntry): Promise<Webhoo
 
     return {
       success: false,
-      statusCode: response.status,
+      status_code: response.status,
       error: `HTTP ${response.status}: ${errorBody}`,
     };
   } catch (error) {
@@ -233,9 +233,9 @@ export async function getPendingWebhooks(pool: Pool, limit: number = 100): Promi
        locked_at as "lockedAt",
        locked_by as "lockedBy",
        dispatched_at as "dispatchedAt",
-       idempotency_key as "idempotencyKey",
-       created_at as "createdAt",
-       updated_at as "updatedAt"
+       idempotency_key as "idempotency_key",
+       created_at as "created_at",
+       updated_at as "updated_at"
      FROM webhook_outbox
      WHERE dispatched_at IS NULL
        AND run_at <= NOW()
@@ -309,7 +309,7 @@ export async function processPendingWebhooks(pool: Pool, limit: number = 100): P
       stats.succeeded++;
       console.log(`[Webhooks] Dispatched ${entry.kind} to ${sanitizeDestination(entry.destination)}`);
     } else {
-      if (!isRetryable(result.statusCode)) {
+      if (!isRetryable(result.status_code)) {
         // Non-retryable failure: dead-letter immediately
         await pool.query(
           `UPDATE webhook_outbox
@@ -322,7 +322,7 @@ export async function processPendingWebhooks(pool: Pool, limit: number = 100): P
           [entry.id, MAX_RETRIES, truncateForLog(result.error || 'Unknown error'), workerId],
         );
         stats.failed++;
-        console.warn(`[Webhooks] Non-retryable failure for ${entry.kind} (HTTP ${result.statusCode}), dead-lettered`);
+        console.warn(`[Webhooks] Non-retryable failure for ${entry.kind} (HTTP ${result.status_code}), dead-lettered`);
       } else {
         await recordFailure(pool, entry.id, result.error || 'Unknown error', workerId);
         stats.failed++;
@@ -355,7 +355,7 @@ export async function enqueueWebhook(
   options: {
     headers?: Record<string, string>;
     runAt?: Date;
-    idempotencyKey?: string;
+    idempotency_key?: string;
   } = {},
 ): Promise<string> {
   const result = await pool.query(
@@ -364,12 +364,12 @@ export async function enqueueWebhook(
      ON CONFLICT (kind, idempotency_key) WHERE idempotency_key IS NOT NULL
      DO NOTHING
      RETURNING id::text as id`,
-    [kind, destination, JSON.stringify(body), JSON.stringify(options.headers || {}), options.runAt || null, options.idempotencyKey || null],
+    [kind, destination, JSON.stringify(body), JSON.stringify(options.headers || {}), options.runAt || null, options.idempotency_key || null],
   );
 
   if (result.rows.length === 0) {
     // Idempotency key collision - return existing entry ID
-    const existing = await pool.query(`SELECT id::text as id FROM webhook_outbox WHERE kind = $1 AND idempotency_key = $2`, [kind, options.idempotencyKey]);
+    const existing = await pool.query(`SELECT id::text as id FROM webhook_outbox WHERE kind = $1 AND idempotency_key = $2`, [kind, options.idempotency_key]);
     return (existing.rows[0] as { id: string }).id;
   }
 
@@ -450,9 +450,9 @@ export async function getWebhookOutbox(
        locked_at as "lockedAt",
        locked_by as "lockedBy",
        dispatched_at as "dispatchedAt",
-       idempotency_key as "idempotencyKey",
-       created_at as "createdAt",
-       updated_at as "updatedAt"
+       idempotency_key as "idempotency_key",
+       created_at as "created_at",
+       updated_at as "updated_at"
      FROM webhook_outbox
      ${whereClause}
      ORDER BY created_at DESC

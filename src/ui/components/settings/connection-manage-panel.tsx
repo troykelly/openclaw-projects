@@ -70,11 +70,11 @@ export function ConnectionManagePanel({
   onConnectionUpdated,
 }: ConnectionManagePanelProps) {
   const [label, setLabel] = useState(connection.label);
-  const [isActive, setIsActive] = useState(connection.isActive);
-  const [permissionLevel, setPermissionLevel] = useState<OAuthPermissionLevel>(connection.permissionLevel);
-  const [enabledFeatures, setEnabledFeatures] = useState<OAuthFeature[]>([...connection.enabledFeatures]);
-  const [syncStatus, setSyncStatus] = useState<Record<string, FeatureSyncInfo | undefined>>(
-    connection.syncStatus as Record<string, FeatureSyncInfo | undefined>,
+  const [is_active, setIsActive] = useState(connection.is_active);
+  const [permission_level, setPermissionLevel] = useState<OAuthPermissionLevel>(connection.permission_level);
+  const [enabled_features, setEnabledFeatures] = useState<OAuthFeature[]>([...connection.enabled_features]);
+  const [sync_status, setSyncStatus] = useState<Record<string, FeatureSyncInfo | undefined>>(
+    connection.sync_status as Record<string, FeatureSyncInfo | undefined>,
   );
   const [isSaving, setIsSaving] = useState(false);
   const [reAuthUrl, setReAuthUrl] = useState<string | null>(null);
@@ -99,9 +99,9 @@ export function ConnectionManagePanel({
       } catch {
         // Revert optimistic state on error
         setLabel(connection.label);
-        setIsActive(connection.isActive);
-        setPermissionLevel(connection.permissionLevel);
-        setEnabledFeatures([...connection.enabledFeatures]);
+        setIsActive(connection.is_active);
+        setPermissionLevel(connection.permission_level);
+        setEnabledFeatures([...connection.enabled_features]);
         return null;
       } finally {
         setIsSaving(false);
@@ -120,7 +120,7 @@ export function ConnectionManagePanel({
   const handleActiveToggle = useCallback(
     (checked: boolean) => {
       setIsActive(checked);
-      saveUpdate({ isActive: checked });
+      saveUpdate({ is_active: checked });
     },
     [saveUpdate],
   );
@@ -128,7 +128,7 @@ export function ConnectionManagePanel({
   const handlePermissionChange = useCallback(
     (level: OAuthPermissionLevel) => {
       setPermissionLevel(level);
-      saveUpdate({ permissionLevel: level });
+      saveUpdate({ permission_level: level });
     },
     [saveUpdate],
   );
@@ -136,30 +136,30 @@ export function ConnectionManagePanel({
   const handleFeatureToggle = useCallback(
     (feature: OAuthFeature, enabled: boolean) => {
       const updated = enabled
-        ? [...enabledFeatures, feature]
-        : enabledFeatures.filter((f) => f !== feature);
+        ? [...enabled_features, feature]
+        : enabled_features.filter((f) => f !== feature);
       setEnabledFeatures(updated);
-      saveUpdate({ enabledFeatures: updated });
+      saveUpdate({ enabled_features: updated });
     },
-    [enabledFeatures, saveUpdate],
+    [enabled_features, saveUpdate],
   );
 
   const handleSyncNow = useCallback(
     async (feature: OAuthFeature) => {
       setSyncStatus((prev) => ({
         ...prev,
-        [feature]: { lastSyncAt: prev[feature]?.lastSyncAt ?? null, status: 'syncing' as const },
+        [feature]: { last_sync_at: prev[feature]?.last_sync_at ?? null, status: 'syncing' as const },
       }));
       try {
-        await apiClient.post(`/api/sync/${feature}`, { connectionId: connection.id });
+        await apiClient.post(`/api/sync/${feature}`, { connection_id: connection.id });
         setSyncStatus((prev) => ({
           ...prev,
-          [feature]: { lastSyncAt: new Date().toISOString(), status: 'idle' as const },
+          [feature]: { last_sync_at: new Date().toISOString(), status: 'idle' as const },
         }));
       } catch {
         setSyncStatus((prev) => ({
           ...prev,
-          [feature]: { lastSyncAt: prev[feature]?.lastSyncAt ?? null, status: 'error' as const, error: 'Sync failed' },
+          [feature]: { last_sync_at: prev[feature]?.last_sync_at ?? null, status: 'error' as const, error: 'Sync failed' },
         }));
       }
     },
@@ -187,11 +187,11 @@ export function ConnectionManagePanel({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{providerName}</span>
                 <Badge variant="outline" className="text-xs">
-                  {isActive ? 'Active' : 'Inactive'}
+                  {is_active ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
-              {connection.providerAccountEmail && (
-                <p className="text-sm text-muted-foreground">{connection.providerAccountEmail}</p>
+              {connection.provider_account_email && (
+                <p className="text-sm text-muted-foreground">{connection.provider_account_email}</p>
               )}
             </div>
           </div>
@@ -222,7 +222,7 @@ export function ConnectionManagePanel({
               </p>
             </div>
             <Switch
-              checked={isActive}
+              checked={is_active}
               onCheckedChange={handleActiveToggle}
               disabled={isSaving}
               data-testid="active-toggle"
@@ -235,9 +235,9 @@ export function ConnectionManagePanel({
           <div className="space-y-2">
             <label className="text-sm font-medium">Permission Level</label>
             <PermissionLevelSelector
-              value={permissionLevel}
+              value={permission_level}
               onChange={handlePermissionChange}
-              enabledFeatures={enabledFeatures}
+              enabled_features={enabled_features}
               isDisabled={isSaving}
             />
           </div>
@@ -251,10 +251,10 @@ export function ConnectionManagePanel({
               <FeatureToggle
                 key={feature}
                 feature={feature}
-                enabled={enabledFeatures.includes(feature)}
+                enabled={enabled_features.includes(feature)}
                 currentScopes={connection.scopes}
                 provider={connection.provider}
-                permissionLevel={permissionLevel}
+                permission_level={permission_level}
                 onToggle={handleFeatureToggle}
                 isDisabled={isSaving}
               />
@@ -282,11 +282,11 @@ export function ConnectionManagePanel({
           <div className="space-y-3" data-testid="sync-status-section">
             <label className="text-sm font-medium">Sync Status</label>
             <SyncStatusDisplay
-              enabledFeatures={enabledFeatures}
-              syncStatus={syncStatus}
+              enabled_features={enabled_features}
+              sync_status={sync_status}
               onSyncNow={handleSyncNow}
             />
-            {enabledFeatures.length === 0 && (
+            {enabled_features.length === 0 && (
               <p className="text-xs text-muted-foreground italic">
                 Enable features above to see sync status
               </p>

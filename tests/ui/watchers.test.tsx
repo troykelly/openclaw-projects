@@ -76,7 +76,7 @@ describe('WatcherList', () => {
   const mockWatchers: Watcher[] = [
     {
       id: 'watcher-1',
-      userId: 'user-1',
+      user_id: 'user-1',
       name: 'Alice Smith',
       avatar: 'https://example.com/alice.png',
       notificationLevel: 'all',
@@ -84,7 +84,7 @@ describe('WatcherList', () => {
     },
     {
       id: 'watcher-2',
-      userId: 'user-2',
+      user_id: 'user-2',
       name: 'Bob Jones',
       notificationLevel: 'mentions',
       addedAt: new Date().toISOString(),
@@ -240,7 +240,7 @@ describe('WatchedItemsList', () => {
       status: 'in_progress',
       notificationLevel: 'all',
       lastActivity: new Date().toISOString(),
-      unreadCount: 2,
+      unread_count: 2,
     },
     {
       id: 'wi-2',
@@ -249,7 +249,7 @@ describe('WatchedItemsList', () => {
       status: 'open',
       notificationLevel: 'mentions',
       lastActivity: new Date(Date.now() - 86400000).toISOString(),
-      unreadCount: 0,
+      unread_count: 0,
     },
   ];
 

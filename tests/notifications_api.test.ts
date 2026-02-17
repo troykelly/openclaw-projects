@@ -10,8 +10,8 @@ import { buildServer } from '../src/api/server.ts';
 describe('Notifications API', () => {
   const app = buildServer();
   let pool: Pool;
-  let userEmail: string;
-  let workItemId: string;
+  let user_email: string;
+  let work_item_id: string;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -23,7 +23,7 @@ describe('Notifications API', () => {
     await truncateAllTables(pool);
 
     // Set up test user email
-    userEmail = `test-${Date.now()}@example.com`;
+    user_email = `test-${Date.now()}@example.com`;
 
     // Create a test work item for notifications
     const workItemRes = await pool.query(
@@ -31,7 +31,7 @@ describe('Notifications API', () => {
        VALUES ('Test Item', 'Test description', 'open')
        RETURNING id`,
     );
-    workItemId = workItemRes.rows[0].id;
+    work_item_id = workItemRes.rows[0].id;
   });
 
   afterAll(async () => {
@@ -45,11 +45,11 @@ describe('Notifications API', () => {
         `INSERT INTO notification (user_email, notification_type, title, message)
          VALUES ($1, 'assigned', 'Assigned to you', 'Test Item was assigned to you')
          RETURNING *`,
-        [userEmail],
+        [user_email],
       );
 
       expect(result.rows[0]).toMatchObject({
-        user_email: userEmail,
+        user_email: user_email,
         notification_type: 'assigned',
         title: 'Assigned to you',
         message: 'Test Item was assigned to you',
@@ -63,10 +63,10 @@ describe('Notifications API', () => {
         `INSERT INTO notification (user_email, notification_type, title, message, work_item_id)
          VALUES ($1, 'assigned', 'Assigned to you', 'Message', $2)
          RETURNING *`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
-      expect(result.rows[0].work_item_id).toBe(workItemId);
+      expect(result.rows[0].work_item_id).toBe(work_item_id);
     });
 
     it('stores metadata as JSONB', async () => {
@@ -75,7 +75,7 @@ describe('Notifications API', () => {
         `INSERT INTO notification (user_email, notification_type, title, message, metadata)
          VALUES ($1, 'status_change', 'Status changed', 'Message', $2)
          RETURNING *`,
-        [userEmail, JSON.stringify(metadata)],
+        [user_email, JSON.stringify(metadata)],
       );
 
       expect(result.rows[0].metadata).toEqual(metadata);
@@ -86,7 +86,7 @@ describe('Notifications API', () => {
         pool.query(
           `INSERT INTO notification (user_email, notification_type, title, message)
            VALUES ($1, 'invalid_type', 'Title', 'Message')`,
-          [userEmail],
+          [user_email],
         ),
       ).rejects.toThrow(/invalid input value for enum notification_type/);
     });
@@ -95,12 +95,12 @@ describe('Notifications API', () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message, work_item_id)
          VALUES ($1, 'assigned', 'Title', 'Message', $2)`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
-      await pool.query(`DELETE FROM work_item WHERE id = $1`, [workItemId]);
+      await pool.query(`DELETE FROM work_item WHERE id = $1`, [work_item_id]);
 
-      const result = await pool.query(`SELECT COUNT(*) FROM notification WHERE work_item_id = $1`, [workItemId]);
+      const result = await pool.query(`SELECT COUNT(*) FROM notification WHERE work_item_id = $1`, [work_item_id]);
       expect(parseInt(result.rows[0].count)).toBe(0);
     });
   });
@@ -111,11 +111,11 @@ describe('Notifications API', () => {
         `INSERT INTO notification_preference (user_email, notification_type)
          VALUES ($1, 'assigned')
          RETURNING *`,
-        [userEmail],
+        [user_email],
       );
 
       expect(result.rows[0]).toMatchObject({
-        user_email: userEmail,
+        user_email: user_email,
         notification_type: 'assigned',
         in_app_enabled: true,
         email_enabled: false,
@@ -126,14 +126,14 @@ describe('Notifications API', () => {
       await pool.query(
         `INSERT INTO notification_preference (user_email, notification_type)
          VALUES ($1, 'assigned')`,
-        [userEmail],
+        [user_email],
       );
 
       await expect(
         pool.query(
           `INSERT INTO notification_preference (user_email, notification_type)
            VALUES ($1, 'assigned')`,
-          [userEmail],
+          [user_email],
         ),
       ).rejects.toThrow(/duplicate key/);
     });
@@ -143,7 +143,7 @@ describe('Notifications API', () => {
         `INSERT INTO notification_preference (user_email, notification_type, in_app_enabled)
          VALUES ($1, 'mentioned', true)
          ON CONFLICT (user_email, notification_type) DO UPDATE SET in_app_enabled = EXCLUDED.in_app_enabled`,
-        [userEmail],
+        [user_email],
       );
 
       const result = await pool.query(
@@ -153,7 +153,7 @@ describe('Notifications API', () => {
            in_app_enabled = EXCLUDED.in_app_enabled,
            email_enabled = EXCLUDED.email_enabled
          RETURNING *`,
-        [userEmail],
+        [user_email],
       );
 
       expect(result.rows[0].in_app_enabled).toBe(false);
@@ -165,50 +165,50 @@ describe('Notifications API', () => {
     it('returns empty array when no notifications', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.notifications).toEqual([]);
-      expect(body.unreadCount).toBe(0);
+      expect(body.unread_count).toBe(0);
     });
 
     it('returns notifications for the user', async () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message, work_item_id, actor_email)
          VALUES ($1, 'assigned', 'Assigned to you', 'Test Item was assigned to you', $2, 'someone@example.com')`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.notifications).toHaveLength(1);
       expect(body.notifications[0].title).toBe('Assigned to you');
-      expect(body.notifications[0].notificationType).toBe('assigned');
-      expect(body.unreadCount).toBe(1);
+      expect(body.notifications[0].notification_type).toBe('assigned');
+      expect(body.unread_count).toBe(1);
     });
 
     it('filters by unread only', async () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message, read_at)
          VALUES ($1, 'assigned', 'Read notification', 'Already read', now())`,
-        [userEmail],
+        [user_email],
       );
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message)
          VALUES ($1, 'mentioned', 'Unread notification', 'Not yet read')`,
-        [userEmail],
+        [user_email],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?userEmail=${encodeURIComponent(userEmail)}&unreadOnly=true`,
+        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&unreadOnly=true`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -222,13 +222,13 @@ describe('Notifications API', () => {
         await pool.query(
           `INSERT INTO notification (user_email, notification_type, title, message, created_at)
            VALUES ($1, 'comment', $2, 'Message', now() - interval '${6 - i} minutes')`,
-          [userEmail, `Notification ${i}`],
+          [user_email, `Notification ${i}`],
         );
       }
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?userEmail=${encodeURIComponent(userEmail)}&limit=2&offset=1`,
+        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&limit=2&offset=1`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -242,17 +242,17 @@ describe('Notifications API', () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message, dismissed_at)
          VALUES ($1, 'assigned', 'Dismissed notification', 'Dismissed', now())`,
-        [userEmail],
+        [user_email],
       );
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message)
          VALUES ($1, 'mentioned', 'Active notification', 'Active')`,
-        [userEmail],
+        [user_email],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -268,13 +268,13 @@ describe('Notifications API', () => {
         `INSERT INTO notification (user_email, notification_type, title, message)
          VALUES ($1, 'assigned', 'Test', 'Test message')
          RETURNING id`,
-        [userEmail],
+        [user_email],
       );
       const notificationId = insertRes.rows[0].id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/${notificationId}/read?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/${notificationId}/read?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -286,7 +286,7 @@ describe('Notifications API', () => {
     it('returns 404 for non-existent notification', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/00000000-0000-0000-0000-000000000000/read?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/00000000-0000-0000-0000-000000000000/read?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -305,7 +305,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/${notificationId}/read?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/${notificationId}/read?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -319,19 +319,19 @@ describe('Notifications API', () => {
          VALUES ($1, 'assigned', 'Test 1', 'Message 1'),
                 ($1, 'mentioned', 'Test 2', 'Message 2'),
                 ($1, 'comment', 'Test 3', 'Message 3')`,
-        [userEmail],
+        [user_email],
       );
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/notifications/read-all?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/read-all?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.markedCount).toBe(3);
+      expect(body.marked_count).toBe(3);
 
-      const checkRes = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL', [userEmail]);
+      const checkRes = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL', [user_email]);
       expect(parseInt(checkRes.rows[0].count)).toBe(0);
     });
   });
@@ -342,13 +342,13 @@ describe('Notifications API', () => {
         `INSERT INTO notification (user_email, notification_type, title, message)
          VALUES ($1, 'assigned', 'Test', 'Test message')
          RETURNING id`,
-        [userEmail],
+        [user_email],
       );
       const notificationId = insertRes.rows[0].id;
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/notifications/${notificationId}?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/${notificationId}?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -362,31 +362,31 @@ describe('Notifications API', () => {
     it('returns default preferences when none set', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/preferences?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.preferences).toBeDefined();
-      expect(body.preferences.assigned).toEqual({ inApp: true, email: false });
-      expect(body.preferences.mentioned).toEqual({ inApp: true, email: false });
+      expect(body.preferences.assigned).toEqual({ in_app: true, email: false });
+      expect(body.preferences.mentioned).toEqual({ in_app: true, email: false });
     });
 
     it('returns user-specific preferences', async () => {
       await pool.query(
         `INSERT INTO notification_preference (user_email, notification_type, in_app_enabled, email_enabled)
          VALUES ($1, 'assigned', false, true)`,
-        [userEmail],
+        [user_email],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/preferences?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.preferences.assigned).toEqual({ inApp: false, email: true });
+      expect(body.preferences.assigned).toEqual({ in_app: false, email: true });
     });
   });
 
@@ -394,10 +394,10 @@ describe('Notifications API', () => {
     it('updates notification preferences', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: `/api/notifications/preferences?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
         payload: {
-          assigned: { inApp: false, email: true },
-          mentioned: { inApp: true, email: true },
+          assigned: { in_app: false, email: true },
+          mentioned: { in_app: true, email: true },
         },
       });
 
@@ -408,24 +408,24 @@ describe('Notifications API', () => {
          FROM notification_preference
          WHERE user_email = $1
          ORDER BY notification_type`,
-        [userEmail],
+        [user_email],
       );
 
-      const prefs = checkRes.rows.reduce((acc: Record<string, { inApp: boolean; email: boolean }>, row) => {
-        acc[row.notification_type] = { inApp: row.in_app_enabled, email: row.email_enabled };
+      const prefs = checkRes.rows.reduce((acc: Record<string, { in_app: boolean; email: boolean }>, row) => {
+        acc[row.notification_type] = { in_app: row.in_app_enabled, email: row.email_enabled };
         return acc;
       }, {});
 
-      expect(prefs.assigned).toEqual({ inApp: false, email: true });
-      expect(prefs.mentioned).toEqual({ inApp: true, email: true });
+      expect(prefs.assigned).toEqual({ in_app: false, email: true });
+      expect(prefs.mentioned).toEqual({ in_app: true, email: true });
     });
 
     it('validates notification type', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: `/api/notifications/preferences?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/preferences?user_email=${encodeURIComponent(user_email)}`,
         payload: {
-          invalid_type: { inApp: false, email: true },
+          invalid_type: { in_app: false, email: true },
         },
       });
 
@@ -438,23 +438,23 @@ describe('Notifications API', () => {
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message, read_at)
          VALUES ($1, 'assigned', 'Read', 'Read message', now())`,
-        [userEmail],
+        [user_email],
       );
       await pool.query(
         `INSERT INTO notification (user_email, notification_type, title, message)
          VALUES ($1, 'mentioned', 'Unread 1', 'Unread message 1'),
                 ($1, 'comment', 'Unread 2', 'Unread message 2')`,
-        [userEmail],
+        [user_email],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications/unread-count?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/notifications/unread-count?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.unreadCount).toBe(2);
+      expect(body.unread_count).toBe(2);
     });
   });
 });

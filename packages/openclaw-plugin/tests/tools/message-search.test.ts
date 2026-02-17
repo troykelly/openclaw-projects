@@ -8,7 +8,7 @@ describe('message_search tool', () => {
   let mockClient: ApiClient;
   let mockLogger: Logger;
   let mockConfig: PluginConfig;
-  const userId = 'test-user-id';
+  const user_id = 'test-user-id';
 
   beforeEach(() => {
     mockClient = {
@@ -57,7 +57,7 @@ describe('message_search tool', () => {
       const result = MessageSearchParamsSchema.safeParse({
         query: 'invoice discussion',
         channel: 'email',
-        contactId: '123e4567-e89b-12d3-a456-426614174000',
+        contact_id: '123e4567-e89b-12d3-a456-426614174000',
         limit: 20,
         includeThread: true,
       });
@@ -140,7 +140,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.name).toBe('message_search');
     });
@@ -150,7 +150,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -161,7 +161,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -199,7 +199,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -222,22 +222,22 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
         query: 'meeting notes',
         channel: 'sms',
-        contactId: '123e4567-e89b-12d3-a456-426614174000',
+        contact_id: '123e4567-e89b-12d3-a456-426614174000',
         limit: 15,
       });
 
-      expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { userId });
+      expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { user_id });
       const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(callUrl).toContain('q=meeting+notes');
       expect(callUrl).toContain('types=message');
       expect(callUrl).toContain('channel=sms');
-      expect(callUrl).toContain('contactId=123e4567-e89b-12d3-a456-426614174000');
+      expect(callUrl).toContain('contact_id=123e4567-e89b-12d3-a456-426614174000');
       expect(callUrl).toContain('limit=15');
     });
 
@@ -251,7 +251,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
@@ -277,7 +277,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -295,7 +295,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -311,7 +311,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -333,7 +333,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -355,14 +355,14 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
         query: 'test search',
       });
 
-      expect(mockLogger.info).toHaveBeenCalledWith('message_search invoked', expect.objectContaining({ userId }));
+      expect(mockLogger.info).toHaveBeenCalledWith('message_search invoked', expect.objectContaining({ user_id }));
     });
 
     it('should format results with similarity scores', async () => {
@@ -389,7 +389,7 @@ describe('message_search tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({

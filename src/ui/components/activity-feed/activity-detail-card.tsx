@@ -43,8 +43,8 @@ function getActionLabel(action: string): string {
   return action.replace(/_/g, ' ');
 }
 
-function getEntityUrl(entityType: string, entityId: string): string {
-  return `/${entityType}s/${entityId}`;
+function getEntityUrl(entity_type: string, entity_id: string): string {
+  return `/${entity_type}s/${entity_id}`;
 }
 
 export function ActivityDetailCard({ activity, expanded = false, onToggle, className }: ActivityDetailCardProps) {
@@ -68,7 +68,7 @@ export function ActivityDetailCard({ activity, expanded = false, onToggle, class
           <div className="flex items-center gap-1.5 flex-wrap text-sm">
             <span className="font-medium">{activity.actorName}</span>
             <span className="text-muted-foreground">{getActionLabel(activity.action)}</span>
-            <a href={getEntityUrl(activity.entityType, activity.entityId)} className="font-medium text-primary hover:underline truncate">
+            <a href={getEntityUrl(activity.entity_type, activity.entity_id)} className="font-medium text-primary hover:underline truncate">
               {activity.entityTitle}
             </a>
           </div>
@@ -76,7 +76,7 @@ export function ActivityDetailCard({ activity, expanded = false, onToggle, class
           {/* Entity type badge and timestamp */}
           <div className="flex items-center gap-2 mt-1">
             <Badge variant="outline" className="text-xs">
-              {activity.entityType}
+              {activity.entity_type}
             </Badge>
             <span data-testid="activity-timestamp" className="text-xs text-muted-foreground">
               {formatRelativeTime(activity.timestamp)}

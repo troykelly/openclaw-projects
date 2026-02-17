@@ -93,7 +93,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
   describe('Magic Link -> Consume -> JWT', () => {
     let magicLinkToken: string;
-    let accessToken: string;
+    let access_token: string;
     let refreshCookie: string;
     const testEmail = testData.uniqueEmail();
 
@@ -125,9 +125,9 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body.accessToken).toBeDefined();
-      expect(typeof body.accessToken).toBe('string');
-      accessToken = body.accessToken;
+      expect(body.access_token).toBeDefined();
+      expect(typeof body.access_token).toBe('string');
+      access_token = body.access_token;
 
       // Should set a refresh token cookie
       const cookie = extractRefreshCookie(response);
@@ -149,7 +149,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
     it('should make authenticated API calls with the JWT', async () => {
       const response = await authFetch('/api/work-items', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${access_token}` },
       });
 
       expect(response.ok).toBe(true);
@@ -159,7 +159,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
     it('should return user identity via /api/me', async () => {
       const response = await authFetch('/api/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${access_token}` },
       });
 
       expect(response.ok).toBe(true);
@@ -169,7 +169,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
   });
 
   describe('Token Refresh Flow', () => {
-    let accessToken: string;
+    let access_token: string;
     let refreshCookie: string;
     const testEmail = testData.uniqueEmail();
 
@@ -189,7 +189,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
         body: JSON.stringify({ token }),
       });
       const consumeBody = await consumeRes.json();
-      accessToken = consumeBody.accessToken;
+      access_token = consumeBody.access_token;
       refreshCookie = extractRefreshCookie(consumeRes)!;
     });
 
@@ -203,10 +203,10 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
       expect(response.status).toBe(200);
       const body = await response.json();
-      expect(body.accessToken).toBeDefined();
-      expect(typeof body.accessToken).toBe('string');
+      expect(body.access_token).toBeDefined();
+      expect(typeof body.access_token).toBe('string');
       // New access token should be different from the old one
-      expect(body.accessToken).not.toBe(accessToken);
+      expect(body.access_token).not.toBe(access_token);
 
       // Should set a new refresh cookie (rotation)
       const newCookie = extractRefreshCookie(response);
@@ -215,7 +215,7 @@ describe.skipIf(!RUN_E2E)('JWT Auth E2E', () => {
 
       // New access token should work
       const apiRes = await authFetch('/api/work-items', {
-        headers: { Authorization: `Bearer ${body.accessToken}` },
+        headers: { Authorization: `Bearer ${body.access_token}` },
       });
       expect(apiRes.ok).toBe(true);
     });

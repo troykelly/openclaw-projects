@@ -8,8 +8,8 @@ export interface Contact {
   phone?: string;
   notes?: string;
   linkedItemCount: number;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface LinkedWorkItem {

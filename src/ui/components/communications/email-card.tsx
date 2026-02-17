@@ -19,7 +19,7 @@ export function EmailCard({ email, onClick, onUnlink, className }: EmailCardProp
       className={cn(
         'group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50',
         onClick && 'cursor-pointer',
-        !email.isRead && 'border-l-2 border-l-primary',
+        !email.is_read && 'border-l-2 border-l-primary',
         className,
       )}
       onClick={() => onClick?.(email)}
@@ -33,7 +33,7 @@ export function EmailCard({ email, onClick, onUnlink, className }: EmailCardProp
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className={cn('truncate text-sm', !email.isRead && 'font-semibold')}>{email.subject}</p>
+            <p className={cn('truncate text-sm', !email.is_read && 'font-semibold')}>{email.subject}</p>
             <p className="text-xs text-muted-foreground">{email.from.name || email.from.email}</p>
           </div>
 

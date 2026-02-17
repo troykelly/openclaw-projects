@@ -1,5 +1,6 @@
 /**
  * Types for webhook dispatch to OpenClaw gateway.
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  * Part of Issue #201.
  */
 
@@ -9,37 +10,37 @@ export interface OpenClawConfig {
   gatewayUrl: string;
   apiToken: string;
   defaultModel?: string;
-  timeoutSeconds?: number;
+  timeout_seconds?: number;
 }
 
 export interface WebhookOutboxEntry {
   id: string;
   kind: string;
   destination: string;
-  runAt: Date;
+  run_at: Date;
   headers: Record<string, string>;
   body: Record<string, unknown>;
   attempts: number;
-  lastError: string | null;
-  lockedAt: Date | null;
-  lockedBy: string | null;
-  dispatchedAt: Date | null;
-  idempotencyKey: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  last_error: string | null;
+  locked_at: Date | null;
+  locked_by: string | null;
+  dispatched_at: Date | null;
+  idempotency_key: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface AgentHookPayload {
   message: string;
   name: string;
-  sessionKey?: string;
-  wakeMode?: 'now' | 'schedule';
+  session_key?: string;
+  wake_mode?: 'now' | 'schedule';
   deliver?: boolean;
   channel?: 'last' | 'new';
   model?: string;
-  timeoutSeconds?: number;
+  timeout_seconds?: number;
   /** Agent identifier for multi-agent routing in OpenClaw gateway. Maps to user_email scope. */
-  agentId?: string;
+  agent_id?: string;
   context: Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -48,15 +49,15 @@ export interface WakeHookPayload {
   text: string;
   mode?: 'now' | 'schedule';
   /** Agent identifier for multi-agent routing in OpenClaw gateway. Maps to user_email scope. */
-  agentId?: string;
+  agent_id?: string;
   [key: string]: unknown;
 }
 
 export interface WebhookDispatchResult {
   success: boolean;
-  statusCode?: number;
+  status_code?: number;
   error?: string;
-  responseBody?: unknown;
+  response_body?: unknown;
 }
 
 export interface DispatchStats {

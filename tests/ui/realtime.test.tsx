@@ -282,7 +282,7 @@ describe('RealtimeEventHandler', () => {
   it('should filter events by type', () => {
     const onEvent = vi.fn();
     render(
-      <RealtimeEventHandler eventType="item:updated" onEvent={onEvent} entityId="item-1">
+      <RealtimeEventHandler eventType="item:updated" onEvent={onEvent} entity_id="item-1">
         <div>Content</div>
       </RealtimeEventHandler>,
     );

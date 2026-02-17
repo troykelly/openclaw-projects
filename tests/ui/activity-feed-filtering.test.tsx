@@ -95,7 +95,7 @@ describe('ActivityFeedFilters', () => {
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorType: 'human',
+        actor_type: 'human',
       }),
     );
   });
@@ -119,13 +119,13 @@ describe('ActivityFeedFilters', () => {
   });
 
   it('should show clear filters button when filters active', () => {
-    render(<ActivityFeedFilters {...defaultProps} filters={{ actorType: 'human' }} />);
+    render(<ActivityFeedFilters {...defaultProps} filters={{ actor_type: 'human' }} />);
     expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
   });
 
   it('should call onChange with empty filters on clear', () => {
     const onChange = vi.fn();
-    render(<ActivityFeedFilters {...defaultProps} filters={{ actorType: 'human' }} onChange={onChange} />);
+    render(<ActivityFeedFilters {...defaultProps} filters={{ actor_type: 'human' }} onChange={onChange} />);
 
     fireEvent.click(screen.getByRole('button', { name: /clear/i }));
 
@@ -133,7 +133,7 @@ describe('ActivityFeedFilters', () => {
   });
 
   it('should show active filter count', () => {
-    render(<ActivityFeedFilters {...defaultProps} filters={{ actorType: 'human', actionType: ['created'] }} />);
+    render(<ActivityFeedFilters {...defaultProps} filters={{ actor_type: 'human', actionType: ['created'] }} />);
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 });
@@ -142,12 +142,12 @@ describe('ActivityDetailCard', () => {
   const mockActivity: ActivityItem = {
     id: 'activity-1',
     action: 'updated',
-    entityType: 'issue',
-    entityId: 'issue-1',
+    entity_type: 'issue',
+    entity_id: 'issue-1',
     entityTitle: 'Fix login bug',
-    actorId: 'user-1',
+    actor_id: 'user-1',
     actorName: 'Alice Smith',
-    actorType: 'human',
+    actor_type: 'human',
     timestamp: new Date().toISOString(),
     changes: [
       { field: 'status', from: 'open', to: 'in_progress' },
@@ -224,34 +224,34 @@ describe('CollapsedActivityGroup', () => {
     {
       id: 'activity-1',
       action: 'updated',
-      entityType: 'issue',
-      entityId: 'issue-1',
+      entity_type: 'issue',
+      entity_id: 'issue-1',
       entityTitle: 'Issue 1',
-      actorId: 'user-1',
+      actor_id: 'user-1',
       actorName: 'Alice',
-      actorType: 'human',
+      actor_type: 'human',
       timestamp: new Date().toISOString(),
     },
     {
       id: 'activity-2',
       action: 'updated',
-      entityType: 'issue',
-      entityId: 'issue-2',
+      entity_type: 'issue',
+      entity_id: 'issue-2',
       entityTitle: 'Issue 2',
-      actorId: 'user-1',
+      actor_id: 'user-1',
       actorName: 'Alice',
-      actorType: 'human',
+      actor_type: 'human',
       timestamp: new Date().toISOString(),
     },
     {
       id: 'activity-3',
       action: 'updated',
-      entityType: 'issue',
-      entityId: 'issue-3',
+      entity_type: 'issue',
+      entity_id: 'issue-3',
       entityTitle: 'Issue 3',
-      actorId: 'user-1',
+      actor_id: 'user-1',
       actorName: 'Alice',
-      actorType: 'human',
+      actor_type: 'human',
       timestamp: new Date().toISOString(),
     },
   ];
@@ -309,7 +309,7 @@ describe('ActivityQuickFilters', () => {
     {
       id: 'preset-1',
       name: 'My Team',
-      filters: { actorType: 'human' },
+      filters: { actor_type: 'human' },
     },
     {
       id: 'preset-2',
@@ -367,7 +367,7 @@ describe('ActivityQuickFilters', () => {
 describe('ActivityFeedPersonalization', () => {
   const mockSettings: ActivityPersonalizationSettings = {
     defaultFilters: {
-      actorType: 'human',
+      actor_type: 'human',
     },
     showMyActivityFirst: true,
     collapseThreshold: 5,

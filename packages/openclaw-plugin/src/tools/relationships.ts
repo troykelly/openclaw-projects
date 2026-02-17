@@ -41,9 +41,9 @@ export type RelationshipSetParams = z.infer<typeof RelationshipSetParamsSchema>;
 /** API response shape for relationship set */
 interface RelationshipSetApiResponse {
   relationship: { id: string };
-  contactA: { id: string; displayName: string };
-  contactB: { id: string; displayName: string };
-  relationshipType: { id: string; name: string; label: string };
+  contact_a: { id: string; display_name: string };
+  contact_b: { id: string; display_name: string };
+  relationship_type: { id: string; name: string; label: string };
   created: boolean;
 }
 
@@ -53,12 +53,12 @@ export interface RelationshipSetSuccess {
   data: {
     content: string;
     details: {
-      relationshipId: string;
+      relationship_id: string;
       created: boolean;
-      contactA: { id: string; displayName: string };
-      contactB: { id: string; displayName: string };
-      relationshipType: { id: string; name: string; label: string };
-      userId: string;
+      contact_a: { id: string; display_name: string };
+      contact_b: { id: string; display_name: string };
+      relationship_type: { id: string; name: string; label: string };
+      user_id: string;
     };
   };
 }
@@ -76,7 +76,7 @@ export interface RelationshipToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -93,7 +93,7 @@ export interface RelationshipSetTool {
  * The system handles directionality and type matching automatically.
  */
 export function createRelationshipSetTool(options: RelationshipToolOptions): RelationshipSetTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'relationship_set',
@@ -129,7 +129,7 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
 
       // Log without PII
       logger.info('relationship_set invoked', {
-        userId,
+        user_id,
         contactALength: sanitizedContactA.length,
         contactBLength: sanitizedContactB.length,
         relationshipLength: sanitizedRelationship.length,
@@ -146,11 +146,11 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
           body.notes = sanitizedNotes;
         }
 
-        const response = await client.post<RelationshipSetApiResponse>('/api/relationships/set', body, { userId });
+        const response = await client.post<RelationshipSetApiResponse>('/api/relationships/set', body, { user_id });
 
         if (!response.success) {
           logger.error('relationship_set API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -160,15 +160,15 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
           };
         }
 
-        const { relationship: rel, contactA: resolvedA, contactB: resolvedB, relationshipType, created } = response.data;
+        const { relationship: rel, contact_a: resolvedA, contact_b: resolvedB, relationship_type, created } = response.data;
 
         const content = created
-          ? `Recorded: ${resolvedA.displayName} [${relationshipType.label}] ${resolvedB.displayName}`
-          : `Relationship already exists: ${resolvedA.displayName} [${relationshipType.label}] ${resolvedB.displayName}`;
+          ? `Recorded: ${resolvedA.display_name} [${relationship_type.label}] ${resolvedB.display_name}`
+          : `Relationship already exists: ${resolvedA.display_name} [${relationship_type.label}] ${resolvedB.display_name}`;
 
         logger.debug('relationship_set completed', {
-          userId,
-          relationshipId: rel.id,
+          user_id,
+          relationship_id: rel.id,
           created,
         });
 
@@ -177,18 +177,18 @@ export function createRelationshipSetTool(options: RelationshipToolOptions): Rel
           data: {
             content,
             details: {
-              relationshipId: rel.id,
+              relationship_id: rel.id,
               created,
-              contactA: resolvedA,
-              contactB: resolvedB,
-              relationshipType,
-              userId,
+              contact_a: resolvedA,
+              contact_b: resolvedB,
+              relationship_type,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('relationship_set failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -208,21 +208,21 @@ export type RelationshipQueryParams = z.infer<typeof RelationshipQueryParamsSche
 
 /** Related contact entry from API */
 export interface RelatedContact {
-  contactId: string;
-  contactName: string;
-  contactKind: string;
-  relationshipId: string;
-  relationshipTypeName: string;
-  relationshipTypeLabel: string;
-  isDirectional: boolean;
+  contact_id: string;
+  contact_name: string;
+  contact_kind: string;
+  relationship_id: string;
+  relationship_type_name: string;
+  relationship_type_label: string;
+  is_directional: boolean;
   notes: string | null;
 }
 
 /** API response shape for relationship query */
 interface RelationshipQueryApiResponse {
-  contactId: string;
-  contactName: string;
-  relatedContacts: RelatedContact[];
+  contact_id: string;
+  contact_name: string;
+  related_contacts: RelatedContact[];
 }
 
 /** Successful query result */
@@ -231,10 +231,10 @@ export interface RelationshipQuerySuccess {
   data: {
     content: string;
     details: {
-      contactId: string;
-      contactName: string;
-      relatedContacts: RelatedContact[];
-      userId: string;
+      contact_id: string;
+      contact_name: string;
+      related_contacts: RelatedContact[];
+      user_id: string;
     };
   };
 }
@@ -256,7 +256,7 @@ export interface RelationshipQueryTool {
  * Handles directional relationships automatically.
  */
 export function createRelationshipQueryTool(options: RelationshipToolOptions): RelationshipQueryTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'relationship_query',
@@ -283,7 +283,7 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
 
       // Log without PII
       logger.info('relationship_query invoked', {
-        userId,
+        user_id,
         contactLength: sanitizedContact.length,
         hasTypeFilter: !!type_filter,
       });
@@ -296,14 +296,14 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
           queryParams.set('type_filter', type_filter);
         }
 
-        const response = await client.get<RelationshipQueryApiResponse>(`/api/relationships?${queryParams.toString()}`, { userId });
+        const response = await client.get<RelationshipQueryApiResponse>(`/api/relationships?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
             return { success: false, error: 'Contact not found.' };
           }
           logger.error('relationship_query API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -313,37 +313,37 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
           };
         }
 
-        const { contactId, contactName, relatedContacts } = response.data;
+        const { contact_id, contact_name, related_contacts } = response.data;
 
-        if (relatedContacts.length === 0) {
+        if (related_contacts.length === 0) {
           return {
             success: true,
             data: {
-              content: `No relationships found for ${contactName}.`,
+              content: `No relationships found for ${contact_name}.`,
               details: {
-                contactId,
-                contactName,
-                relatedContacts: [],
-                userId,
+                contact_id,
+                contact_name,
+                related_contacts: [],
+                user_id,
               },
             },
           };
         }
 
         // Format relationships as a readable list
-        const lines = [`Relationships for ${contactName}:`];
-        for (const rel of relatedContacts) {
-          const kindTag = rel.contactKind !== 'person' ? ` [${rel.contactKind}]` : '';
+        const lines = [`Relationships for ${contact_name}:`];
+        for (const rel of related_contacts) {
+          const kindTag = rel.contact_kind !== 'person' ? ` [${rel.contact_kind}]` : '';
           const notesTag = rel.notes ? ` -- ${rel.notes}` : '';
-          lines.push(`- ${rel.relationshipTypeLabel}: ${rel.contactName}${kindTag}${notesTag}`);
+          lines.push(`- ${rel.relationship_type_label}: ${rel.contact_name}${kindTag}${notesTag}`);
         }
 
         const content = lines.join('\n');
 
         logger.debug('relationship_query completed', {
-          userId,
-          contactId,
-          relatedCount: relatedContacts.length,
+          user_id,
+          contact_id,
+          relatedCount: related_contacts.length,
         });
 
         return {
@@ -351,16 +351,16 @@ export function createRelationshipQueryTool(options: RelationshipToolOptions): R
           data: {
             content,
             details: {
-              contactId,
-              contactName,
-              relatedContacts,
-              userId,
+              contact_id,
+              contact_name,
+              related_contacts,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('relationship_query failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

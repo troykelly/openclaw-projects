@@ -84,11 +84,11 @@ export interface ProjectTreeProps {
   items: TreeItem[];
   onItemsChange?: (items: TreeItem[]) => void;
   onSelect?: (id: string) => void;
-  onAddChild?: (parentId: string, kind: TreeItemKind) => void;
+  onAddChild?: (parent_id: string, kind: TreeItemKind) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   /** Called when an item is moved to a new parent via drag-drop */
-  onMove?: (itemId: string, newParentId: string | null) => void;
+  onMove?: (item_id: string, newParentId: string | null) => void;
   /** Called when user requests to move an item via the "Move to..." menu */
   onMoveRequest?: (item: TreeItem) => void;
   /** Called when a title is changed via inline edit */

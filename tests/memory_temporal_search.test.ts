@@ -127,12 +127,12 @@ describe('Memory temporal search API (Issue #1272)', () => {
   });
 
   /** Insert a memory directly with a specific created_at timestamp */
-  async function insertMemory(title: string, content: string, createdAt: string) {
+  async function insertMemory(title: string, content: string, created_at: string) {
     const result = await pool.query(
       `INSERT INTO memory (title, content, memory_type, created_at, updated_at)
        VALUES ($1, $2, 'note', $3::timestamptz, $3::timestamptz)
        RETURNING id::text`,
-      [title, content, createdAt],
+      [title, content, created_at],
     );
     return (result.rows[0] as { id: string }).id;
   }

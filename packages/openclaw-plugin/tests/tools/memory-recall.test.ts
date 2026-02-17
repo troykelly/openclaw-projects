@@ -50,7 +50,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.name).toBe('memory_recall');
     });
@@ -60,7 +60,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -71,7 +71,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -83,7 +83,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({} as MemoryRecallParams);
@@ -98,7 +98,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: '' });
@@ -110,7 +110,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const longQuery = 'a'.repeat(1001);
@@ -129,7 +129,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', limit: 10 });
@@ -141,7 +141,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', limit: 21 });
@@ -153,7 +153,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', limit: 0 });
@@ -171,7 +171,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', category: 'preference' });
@@ -183,7 +183,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -206,12 +206,12 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'coffee preferences', limit: 5 });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.objectContaining({ userId: 'agent-1' }));
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/api/memories/search'), expect.objectContaining({ user_id: 'agent-1' }));
     });
 
     it('should include memory_type in API call when category provided', async () => {
@@ -225,7 +225,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'coffee', category: 'preference' });
@@ -244,7 +244,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test' });
@@ -271,7 +271,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'user info' });
@@ -299,7 +299,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -308,7 +308,7 @@ describe('memory_recall tool', () => {
       if (result.success) {
         expect(result.data.details.count).toBe(1);
         expect(result.data.details.memories).toHaveLength(1);
-        expect(result.data.details.userId).toBe('agent-1');
+        expect(result.data.details.user_id).toBe('agent-1');
       }
     });
 
@@ -326,7 +326,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -349,7 +349,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'nonexistent' });
@@ -374,7 +374,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -393,7 +393,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -409,7 +409,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -435,7 +435,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // Query with control characters
@@ -459,7 +459,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: '  test query  ' });
@@ -482,12 +482,12 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test' });
 
-      expect(mockLogger.info).toHaveBeenCalledWith('memory_recall invoked', expect.objectContaining({ userId: 'agent-1' }));
+      expect(mockLogger.info).toHaveBeenCalledWith('memory_recall invoked', expect.objectContaining({ user_id: 'agent-1' }));
     });
 
     it('should NOT log query content at info level', async () => {
@@ -501,7 +501,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'sensitive query about medical info' });
@@ -523,7 +523,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test' });
@@ -533,7 +533,7 @@ describe('memory_recall tool', () => {
   });
 
   describe('user scoping', () => {
-    it('should use provided userId for API calls', async () => {
+    it('should use provided user_id for API calls', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { results: [], search_type: 'text' },
@@ -544,15 +544,15 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'custom-user-123',
+        user_id: 'custom-user-123',
       });
 
       await tool.execute({ query: 'test' });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ userId: 'custom-user-123' }));
+      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ user_id: 'custom-user-123' }));
     });
 
-    it('should include userId in response details', async () => {
+    it('should include user_id in response details', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { results: [], search_type: 'text' },
@@ -563,14 +563,14 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'my-agent',
+        user_id: 'my-agent',
       });
 
       const result = await tool.execute({ query: 'test' });
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.details.userId).toBe('my-agent');
+        expect(result.data.details.user_id).toBe('my-agent');
       }
     });
   });
@@ -587,7 +587,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -604,7 +604,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -619,7 +619,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -634,7 +634,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -649,7 +649,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -664,7 +664,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -679,7 +679,7 @@ describe('memory_recall tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -702,7 +702,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({
@@ -733,7 +733,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // Search from Sydney with high geo weight
@@ -767,7 +767,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // Search from Sydney with a 10km radius - should exclude New York
@@ -801,7 +801,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -835,7 +835,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // Without radius filtering, memories without location still appear
@@ -868,7 +868,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // With default weight 0.3, content still dominates
@@ -904,7 +904,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -944,7 +944,7 @@ describe('memory_recall tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });

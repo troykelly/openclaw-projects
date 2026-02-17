@@ -424,7 +424,7 @@ describe('OpenClaw 2026 API Registration', () => {
       expect(memoryRecall?.parameters.required).toContain('query');
 
       const projectGet = registeredTools.find((t) => t.name === 'project_get');
-      expect(projectGet?.parameters.required).toContain('projectId');
+      expect(projectGet?.parameters.required).toContain('project_id');
 
       const contactCreate = registeredTools.find((t) => t.name === 'contact_create');
       expect(contactCreate?.parameters.required).toContain('name');
@@ -861,8 +861,8 @@ describe('OpenClaw 2026 API Registration', () => {
           ok: true,
           status: 202,
           json: async () => ({
-            messageId: 'MSG-TEST-1177',
-            threadId: 'TH-TEST-1177',
+            message_id: 'MSG-TEST-1177',
+            thread_id: 'TH-TEST-1177',
             status: 'queued',
           }),
         };
@@ -1000,9 +1000,9 @@ describe('OpenClaw 2026 API Registration', () => {
             ok: true,
             status: 200,
             json: async () => ({
-              contactId: testUuid,
-              contactName: 'Test Contact',
-              relatedContacts: [],
+              contact_id: testUuid,
+              contact_name: 'Test Contact',
+              related_contacts: [],
             }),
           };
         }
@@ -1051,17 +1051,17 @@ describe('OpenClaw 2026 API Registration', () => {
             ok: true,
             status: 200,
             json: async () => ({
-              contactId: 'resolved-uuid-456',
-              contactName: 'John Doe',
-              relatedContacts: [
+              contact_id: 'resolved-uuid-456',
+              contact_name: 'John Doe',
+              related_contacts: [
                 {
-                  contactId: 'other-789',
-                  contactName: 'Jane Doe',
-                  contactKind: 'person',
-                  relationshipId: 'rel-1',
-                  relationshipTypeName: 'partner',
-                  relationshipTypeLabel: 'Partner',
-                  isDirectional: false,
+                  contact_id: 'other-789',
+                  contact_name: 'Jane Doe',
+                  contact_kind: 'person',
+                  relationship_id: 'rel-1',
+                  relationship_type_name: 'partner',
+                  relationship_type_label: 'Partner',
+                  is_directional: false,
                   notes: null,
                 },
               ],

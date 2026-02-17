@@ -35,7 +35,7 @@ export function ShareDialogWrapper({ noteId, onClose, onShare, onRevoke, isShari
         noteId: s.noteId,
         sharedWithEmail: s.sharedWithEmail,
         permission: s.permission === 'read_write' ? ('edit' as const) : ('view' as const),
-        createdAt: new Date(s.createdAt),
+        created_at: new Date(s.created_at),
         createdBy: s.createdByEmail,
       }));
   }, [sharesData?.shares]);
@@ -49,8 +49,8 @@ export function ShareDialogWrapper({ noteId, onClose, onShare, onRevoke, isShari
       visibility: noteData?.visibility ?? 'private',
       hideFromAgents: noteData?.hideFromAgents ?? false,
       isPinned: noteData?.isPinned ?? false,
-      createdAt: noteData?.createdAt ? new Date(noteData.createdAt) : new Date(),
-      updatedAt: noteData?.updatedAt ? new Date(noteData.updatedAt) : new Date(),
+      created_at: noteData?.created_at ? new Date(noteData.created_at) : new Date(),
+      updated_at: noteData?.updated_at ? new Date(noteData.updated_at) : new Date(),
     }),
     [noteId, noteData],
   );

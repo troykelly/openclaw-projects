@@ -10,55 +10,55 @@ import type { GeoProviderType, GeoAuthType, GeoProviderStatus } from './types.ts
 /** Queryable database connection — either a Pool or a PoolClient (for transactions). */
 type Queryable = Pool | PoolClient;
 
-// ─── Row types (camelCase) ───────────────────────────────────────────────────
+// ─── Row types (snake_case) ──────────────────────────────────────────────────
 
 export interface GeoProvider {
   id: string;
-  ownerEmail: string;
-  providerType: GeoProviderType;
-  authType: GeoAuthType;
+  owner_email: string;
+  provider_type: GeoProviderType;
+  auth_type: GeoAuthType;
   label: string;
   status: GeoProviderStatus;
-  statusMessage: string | null;
+  status_message: string | null;
   config: Record<string, unknown>;
   credentials: string | null;
-  pollIntervalSeconds: number | null;
-  maxAgeSeconds: number;
-  isShared: boolean;
-  lastSeenAt: Date | null;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  poll_interval_seconds: number | null;
+  max_age_seconds: number;
+  is_shared: boolean;
+  last_seen_at: Date | null;
+  deleted_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface GeoProviderUser {
   id: string;
-  providerId: string;
-  userEmail: string;
+  provider_id: string;
+  user_email: string;
   priority: number;
-  isActive: boolean;
+  is_active: boolean;
   entities: Array<{ id: string; subPriority?: number }>;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface GeoLocation {
   time: Date;
-  userEmail: string;
-  providerId: string;
-  entityId: string | null;
+  user_email: string;
+  provider_id: string;
+  entity_id: string | null;
   lat: number;
   lng: number;
-  accuracyM: number | null;
-  altitudeM: number | null;
-  speedMps: number | null;
+  accuracy_m: number | null;
+  altitude_m: number | null;
+  speed_mps: number | null;
   bearing: number | null;
-  indoorZone: string | null;
+  indoor_zone: string | null;
   address: string | null;
-  placeLabel: string | null;
-  rawPayload: unknown;
-  locationEmbedding: number[] | null;
-  embeddingStatus: string;
+  place_label: string | null;
+  raw_payload: unknown;
+  location_embedding: number[] | null;
+  embedding_status: string;
 }
 
 // ─── Row mappers ─────────────────────────────────────────────────────────────
@@ -68,55 +68,55 @@ export interface GeoLocation {
 export function rowToProvider(row: any): GeoProvider {
   return {
     id: row.id,
-    ownerEmail: row.owner_email,
-    providerType: row.provider_type,
-    authType: row.auth_type,
+    owner_email: row.owner_email,
+    provider_type: row.provider_type,
+    auth_type: row.auth_type,
     label: row.label,
     status: row.status,
-    statusMessage: row.status_message,
+    status_message: row.status_message,
     config: row.config,
     credentials: row.credentials,
-    pollIntervalSeconds: row.poll_interval_seconds,
-    maxAgeSeconds: row.max_age_seconds,
-    isShared: row.is_shared,
-    lastSeenAt: row.last_seen_at,
-    deletedAt: row.deleted_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    poll_interval_seconds: row.poll_interval_seconds,
+    max_age_seconds: row.max_age_seconds,
+    is_shared: row.is_shared,
+    last_seen_at: row.last_seen_at,
+    deleted_at: row.deleted_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   };
 }
 
 export function rowToProviderUser(row: any): GeoProviderUser {
   return {
     id: row.id,
-    providerId: row.provider_id,
-    userEmail: row.user_email,
+    provider_id: row.provider_id,
+    user_email: row.user_email,
     priority: row.priority,
-    isActive: row.is_active,
+    is_active: row.is_active,
     entities: row.entities,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   };
 }
 
 export function rowToLocation(row: any): GeoLocation {
   return {
     time: row.time,
-    userEmail: row.user_email,
-    providerId: row.provider_id,
-    entityId: row.entity_id,
+    user_email: row.user_email,
+    provider_id: row.provider_id,
+    entity_id: row.entity_id,
     lat: row.lat,
     lng: row.lng,
-    accuracyM: row.accuracy_m,
-    altitudeM: row.altitude_m,
-    speedMps: row.speed_mps,
+    accuracy_m: row.accuracy_m,
+    altitude_m: row.altitude_m,
+    speed_mps: row.speed_mps,
     bearing: row.bearing,
-    indoorZone: row.indoor_zone,
+    indoor_zone: row.indoor_zone,
     address: row.address,
-    placeLabel: row.place_label,
-    rawPayload: row.raw_payload,
-    locationEmbedding: row.location_embedding,
-    embeddingStatus: row.embedding_status,
+    place_label: row.place_label,
+    raw_payload: row.raw_payload,
+    location_embedding: row.location_embedding,
+    embedding_status: row.embedding_status,
   };
 }
 
@@ -125,40 +125,40 @@ export function rowToLocation(row: any): GeoLocation {
 // ─── Input types ─────────────────────────────────────────────────────────────
 
 export interface CreateProviderInput {
-  ownerEmail: string;
-  providerType: GeoProviderType;
-  authType: GeoAuthType;
+  owner_email: string;
+  provider_type: GeoProviderType;
+  auth_type: GeoAuthType;
   label: string;
   config: Record<string, unknown>;
   credentials?: string | null;
-  pollIntervalSeconds?: number | null;
-  maxAgeSeconds?: number;
-  isShared?: boolean;
+  poll_interval_seconds?: number | null;
+  max_age_seconds?: number;
+  is_shared?: boolean;
 }
 
 export interface CreateSubscriptionInput {
-  providerId: string;
-  userEmail: string;
+  provider_id: string;
+  user_email: string;
   priority?: number;
-  isActive?: boolean;
+  is_active?: boolean;
   entities?: Array<{ id: string; subPriority?: number }>;
 }
 
 export interface InsertLocationInput {
   time: Date;
-  userEmail: string;
-  providerId: string;
-  entityId: string | null;
+  user_email: string;
+  provider_id: string;
+  entity_id: string | null;
   lat: number;
   lng: number;
-  accuracyM?: number | null;
-  altitudeM?: number | null;
-  speedMps?: number | null;
+  accuracy_m?: number | null;
+  altitude_m?: number | null;
+  speed_mps?: number | null;
   bearing?: number | null;
-  indoorZone?: string | null;
+  indoor_zone?: string | null;
   address?: string | null;
-  placeLabel?: string | null;
-  rawPayload?: unknown;
+  place_label?: string | null;
+  raw_payload?: unknown;
 }
 
 // ─── Provider CRUD ───────────────────────────────────────────────────────────
@@ -171,15 +171,15 @@ export async function createProvider(pool: Queryable, input: CreateProviderInput
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *`,
     [
-      input.ownerEmail,
-      input.providerType,
-      input.authType,
+      input.owner_email,
+      input.provider_type,
+      input.auth_type,
       input.label,
       JSON.stringify(input.config),
       input.credentials ?? null,
-      input.pollIntervalSeconds ?? null,
-      input.maxAgeSeconds ?? 300,
-      input.isShared ?? false,
+      input.poll_interval_seconds ?? null,
+      input.max_age_seconds ?? 300,
+      input.is_shared ?? false,
     ],
   );
   return rowToProvider(result.rows[0]);
@@ -193,14 +193,14 @@ export async function getProvider(pool: Queryable, id: string): Promise<GeoProvi
   return result.rows.length > 0 ? rowToProvider(result.rows[0]) : null;
 }
 
-export async function listProviders(pool: Queryable, userEmail: string): Promise<GeoProvider[]> {
+export async function listProviders(pool: Queryable, user_email: string): Promise<GeoProvider[]> {
   const result = await pool.query(
     `SELECT DISTINCT gp.* FROM geo_provider gp
      LEFT JOIN geo_provider_user gpu ON gp.id = gpu.provider_id
      WHERE gp.deleted_at IS NULL
        AND (gp.owner_email = $1 OR gpu.user_email = $1)
      ORDER BY gp.created_at DESC`,
-    [userEmail],
+    [user_email],
   );
   return result.rows.map(rowToProvider);
 }
@@ -211,10 +211,10 @@ interface UpdateProviderFields {
   config?: Record<string, unknown>;
   credentials?: string | null;
   status?: GeoProviderStatus;
-  statusMessage?: string | null;
-  pollIntervalSeconds?: number | null;
-  maxAgeSeconds?: number;
-  isShared?: boolean;
+  status_message?: string | null;
+  poll_interval_seconds?: number | null;
+  max_age_seconds?: number;
+  is_shared?: boolean;
 }
 
 const PROVIDER_FIELD_MAP: Record<string, string> = {
@@ -222,10 +222,10 @@ const PROVIDER_FIELD_MAP: Record<string, string> = {
   config: 'config',
   credentials: 'credentials',
   status: 'status',
-  statusMessage: 'status_message',
-  pollIntervalSeconds: 'poll_interval_seconds',
-  maxAgeSeconds: 'max_age_seconds',
-  isShared: 'is_shared',
+  status_message: 'status_message',
+  poll_interval_seconds: 'poll_interval_seconds',
+  max_age_seconds: 'max_age_seconds',
+  is_shared: 'is_shared',
 };
 
 export async function updateProvider(
@@ -267,9 +267,9 @@ export async function softDeleteProvider(pool: Queryable, id: string): Promise<v
 
 /** Result of checking whether a provider can be deleted. */
 export interface CanDeleteProviderResult {
-  canDelete: boolean;
+  can_delete: boolean;
   reason?: string;
-  subscriberCount?: number;
+  subscriber_count?: number;
 }
 
 /**
@@ -284,13 +284,13 @@ export async function canDeleteProvider(pool: Queryable, providerId: string): Pr
   );
 
   if (providerResult.rows.length === 0) {
-    return { canDelete: false, reason: 'Provider not found' };
+    return { can_delete: false, reason: 'Provider not found' };
   }
 
   const { owner_email, is_shared } = providerResult.rows[0];
 
   if (!is_shared) {
-    return { canDelete: true };
+    return { can_delete: true };
   }
 
   // Count subscribers that are not the owner
@@ -303,13 +303,13 @@ export async function canDeleteProvider(pool: Queryable, providerId: string): Pr
 
   if (subscriberCount > 0) {
     return {
-      canDelete: false,
+      can_delete: false,
       reason: 'Cannot delete shared provider with active subscribers',
-      subscriberCount,
+      subscriber_count: subscriberCount,
     };
   }
 
-  return { canDelete: true };
+  return { can_delete: true };
 }
 
 /** Delete all subscriptions for a provider. Used during provider cleanup. */
@@ -328,33 +328,33 @@ export async function createSubscription(pool: Queryable, input: CreateSubscript
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
     [
-      input.providerId,
-      input.userEmail,
+      input.provider_id,
+      input.user_email,
       input.priority ?? 0,
-      input.isActive ?? true,
+      input.is_active ?? true,
       JSON.stringify(input.entities ?? []),
     ],
   );
   return rowToProviderUser(result.rows[0]);
 }
 
-export async function listSubscriptions(pool: Queryable, userEmail: string): Promise<GeoProviderUser[]> {
+export async function listSubscriptions(pool: Queryable, user_email: string): Promise<GeoProviderUser[]> {
   const result = await pool.query(
     `SELECT * FROM geo_provider_user WHERE user_email = $1 ORDER BY priority ASC`,
-    [userEmail],
+    [user_email],
   );
   return result.rows.map(rowToProviderUser);
 }
 
 interface UpdateSubscriptionFields {
   priority?: number;
-  isActive?: boolean;
+  is_active?: boolean;
   entities?: Array<{ id: string; subPriority?: number }>;
 }
 
 const SUBSCRIPTION_FIELD_MAP: Record<string, string> = {
   priority: 'priority',
-  isActive: 'is_active',
+  is_active: 'is_active',
   entities: 'entities',
 };
 
@@ -390,7 +390,7 @@ export async function updateSubscription(
 
 // ─── Location queries ────────────────────────────────────────────────────────
 
-export async function getCurrentLocation(pool: Queryable, userEmail: string): Promise<GeoLocation | null> {
+export async function getCurrentLocation(pool: Queryable, user_email: string): Promise<GeoLocation | null> {
   const result = await pool.query(
     `SELECT gl.* FROM geo_location gl
      JOIN geo_provider_user gpu ON gl.provider_id = gpu.provider_id
@@ -401,14 +401,14 @@ export async function getCurrentLocation(pool: Queryable, userEmail: string): Pr
        AND gl.time > now() - (gp.max_age_seconds || ' seconds')::interval
      ORDER BY gpu.priority ASC, gl.accuracy_m ASC NULLS LAST, gl.time DESC
      LIMIT 1`,
-    [userEmail],
+    [user_email],
   );
   return result.rows.length > 0 ? rowToLocation(result.rows[0]) : null;
 }
 
 export async function getLocationHistory(
   pool: Queryable,
-  userEmail: string,
+  user_email: string,
   from: Date,
   to: Date,
   limit: number,
@@ -420,7 +420,7 @@ export async function getLocationHistory(
        AND gl.time <= $3
      ORDER BY gl.time DESC
      LIMIT $4`,
-    [userEmail, from, to, limit],
+    [user_email, from, to, limit],
   );
   return result.rows.map(rowToLocation);
 }
@@ -435,19 +435,19 @@ export async function insertLocation(pool: Queryable, input: InsertLocationInput
     RETURNING *`,
     [
       input.time,
-      input.userEmail,
-      input.providerId,
-      input.entityId,
+      input.user_email,
+      input.provider_id,
+      input.entity_id,
       input.lat,
       input.lng,
-      input.accuracyM ?? null,
-      input.altitudeM ?? null,
-      input.speedMps ?? null,
+      input.accuracy_m ?? null,
+      input.altitude_m ?? null,
+      input.speed_mps ?? null,
       input.bearing ?? null,
-      input.indoorZone ?? null,
+      input.indoor_zone ?? null,
       input.address ?? null,
-      input.placeLabel ?? null,
-      input.rawPayload ? JSON.stringify(input.rawPayload) : null,
+      input.place_label ?? null,
+      input.raw_payload ? JSON.stringify(input.raw_payload) : null,
     ],
   );
   return rowToLocation(result.rows[0]);

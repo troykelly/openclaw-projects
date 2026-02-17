@@ -15,7 +15,7 @@ export interface UpdateMemoryVariables {
   /** Partial update body. */
   body: UpdateMemoryBody;
   /** Optional work item ID for targeted cache invalidation. */
-  workItemId?: string;
+  work_item_id?: string;
 }
 
 /**
@@ -26,7 +26,7 @@ export interface UpdateMemoryVariables {
  * @example
  * ```ts
  * const { mutate } = useUpdateMemory();
- * mutate({ id: 'mem-1', body: { title: 'Updated' }, workItemId: 'wi-1' });
+ * mutate({ id: 'mem-1', body: { title: 'Updated' }, work_item_id: 'wi-1' });
  * ```
  */
 export function useUpdateMemory() {
@@ -35,12 +35,12 @@ export function useUpdateMemory() {
   return useMutation({
     mutationFn: ({ id, body }: UpdateMemoryVariables) => apiClient.patch<Memory>(`/api/memories/${id}`, body),
 
-    onSuccess: (_data, { workItemId }) => {
+    onSuccess: (_data, { work_item_id }) => {
       // Invalidate global memories list
       queryClient.invalidateQueries({ queryKey: memoryKeys.lists() });
       // If we know the work item, invalidate its specific memory list
-      if (workItemId) {
-        queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(workItemId) });
+      if (work_item_id) {
+        queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(work_item_id) });
       }
     },
   });

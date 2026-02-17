@@ -47,7 +47,7 @@ export interface ContextSearchSuccess {
       count: number;
       results: ContextSearchResultItem[];
       warnings?: string[];
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -66,7 +66,7 @@ export interface ContextSearchToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -167,7 +167,7 @@ function formatResultsAsText(results: ContextSearchResultItem[]): string {
  * Creates the context_search tool.
  */
 export function createContextSearchTool(options: ContextSearchToolOptions): ContextSearchTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'context_search',
@@ -198,7 +198,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       const searchMessages = !entity_types || entity_types.includes('message');
 
       logger.info('context_search invoked', {
-        userId,
+        user_id,
         queryLength: sanitizedQuery.length,
         limit,
         entity_types: entity_types ?? 'all',
@@ -212,11 +212,11 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         const memoryParams = new URLSearchParams({
           q: sanitizedQuery,
           limit: String(limit),
-          user_email: userId,
+          user_email: user_id,
         });
         taggedPromises.push({
           tag: 'memory',
-          promise: client.get<{ results: MemoryApiResult[]; search_type: string }>(`/api/memories/search?${memoryParams.toString()}`, { userId }),
+          promise: client.get<{ results: MemoryApiResult[]; search_type: string }>(`/api/memories/search?${memoryParams.toString()}`, { user_id }),
         });
       }
 
@@ -226,11 +226,11 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
           types: 'work_item',
           limit: String(Math.min(limit * 3, 50)), // Over-fetch for client-side filtering
           semantic: 'true',
-          user_email: userId,
+          user_email: user_id,
         });
         taggedPromises.push({
           tag: 'work_item',
-          promise: client.get<{ results: WorkItemApiResult[]; search_type: string; total: number }>(`/api/search?${searchParams.toString()}`, { userId }),
+          promise: client.get<{ results: WorkItemApiResult[]; search_type: string; total: number }>(`/api/search?${searchParams.toString()}`, { user_id }),
         });
       }
 
@@ -240,11 +240,11 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
           types: 'message',
           limit: String(Math.min(limit * 2, 50)),
           semantic: 'true',
-          user_email: userId,
+          user_email: user_id,
         });
         taggedPromises.push({
           tag: 'message',
-          promise: client.get<{ results: MessageApiResult[]; search_type: string; total: number }>(`/api/search?${messageParams.toString()}`, { userId }),
+          promise: client.get<{ results: MessageApiResult[]; search_type: string; total: number }>(`/api/search?${messageParams.toString()}`, { user_id }),
         });
       }
 
@@ -263,7 +263,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         if (entry.status === 'rejected') {
           const safeMsg = sanitizeErrorMessage(entry.reason);
           warnings.push(`${tag} search failed: ${safeMsg}`);
-          logger.error(`context_search ${tag} search failed`, { userId, error: safeMsg });
+          logger.error(`context_search ${tag} search failed`, { user_id, error: safeMsg });
           continue;
         }
 
@@ -272,7 +272,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
         if (!response.success) {
           const safeMsg = sanitizeErrorMessage(response.error?.message ?? 'Unknown error');
           warnings.push(`${tag} search failed: ${safeMsg}`);
-          logger.error(`context_search ${tag} API error`, { userId, error: safeMsg });
+          logger.error(`context_search ${tag} API error`, { user_id, error: safeMsg });
           continue;
         }
 
@@ -315,10 +315,10 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
           const data = response.data as { results: WorkItemApiResult[] };
           const rawResults = data.results ?? [];
           for (const w of rawResults) {
-            const entityType = classifyWorkItem(w.metadata?.kind);
+            const entity_type = classifyWorkItem(w.metadata?.kind);
             workItemResults.push({
               id: w.id,
-              entity_type: entityType,
+              entity_type: entity_type,
               title: w.title,
               snippet: w.snippet,
               score: w.score ?? 0,
@@ -358,7 +358,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
       const content = formatResultsAsText(allResults);
 
       logger.debug('context_search completed', {
-        userId,
+        user_id,
         resultCount: allResults.length,
         warningCount: warnings.length,
       });
@@ -371,7 +371,7 @@ export function createContextSearchTool(options: ContextSearchToolOptions): Cont
             count: allResults.length,
             results: allResults,
             warnings: warnings.length > 0 ? warnings : undefined,
-            userId,
+            user_id,
           },
         },
       };

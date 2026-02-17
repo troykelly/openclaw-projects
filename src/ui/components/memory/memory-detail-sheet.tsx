@@ -8,7 +8,7 @@ import { Separator } from '@/ui/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/ui/components/ui/sheet';
 import type { MemoryItem } from './types';
 
-function getLinkedItemIcon(kind: MemoryItem['linkedItemKind']) {
+function getLinkedItemIcon(kind: MemoryItem['linked_item_kind']) {
   switch (kind) {
     case 'project':
       return <Folder className="size-4" />;
@@ -128,21 +128,21 @@ export function MemoryDetailSheet({ memory, open, onOpenChange, onEdit, onDelete
 
             {/* Meta info */}
             <div className="space-y-3 text-sm">
-              {memory.linkedItemKind && memory.linkedItemTitle && (
+              {memory.linked_item_kind && memory.linked_item_title && (
                 <button className="flex items-center gap-2 text-left hover:text-primary" onClick={() => onLinkedItemClick?.(memory)}>
-                  <span className="text-muted-foreground">{getLinkedItemIcon(memory.linkedItemKind)}</span>
-                  <span>Linked to: {memory.linkedItemTitle}</span>
+                  <span className="text-muted-foreground">{getLinkedItemIcon(memory.linked_item_kind)}</span>
+                  <span>Linked to: {memory.linked_item_title}</span>
                 </button>
               )}
 
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="size-4" />
-                <span>Created: {memory.createdAt.toLocaleDateString()}</span>
+                <span>Created: {memory.created_at.toLocaleDateString()}</span>
               </div>
 
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="size-4" />
-                <span>Updated: {memory.updatedAt.toLocaleDateString()}</span>
+                <span>Updated: {memory.updated_at.toLocaleDateString()}</span>
               </div>
             </div>
 

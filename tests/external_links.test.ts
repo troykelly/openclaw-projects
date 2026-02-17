@@ -21,14 +21,14 @@ describe('Work item external links', () => {
 
   it('creates a link for a work item', async () => {
     const wi = await pool.query(`INSERT INTO work_item (title) VALUES ('External link') RETURNING id`);
-    const workItemId = wi.rows[0].id as string;
+    const work_item_id = wi.rows[0].id as string;
 
     const inserted = await pool.query(
       `INSERT INTO work_item_external_link
         (work_item_id, provider, url, external_id, github_owner, github_repo, github_kind, github_number, github_node_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id::text as id, provider, url, external_id, github_owner, github_repo, github_kind, github_number`,
-      [workItemId, 'github', 'https://github.com/acme/tools/issues/123', 'github:acme/tools:issue:123', 'acme', 'tools', 'issue', 123, 'MDU6SXNzdWUxMjM='],
+      [work_item_id, 'github', 'https://github.com/acme/tools/issues/123', 'github:acme/tools:issue:123', 'acme', 'tools', 'issue', 123, 'MDU6SXNzdWUxMjM='],
     );
 
     expect(inserted.rows[0].provider).toBe('github');

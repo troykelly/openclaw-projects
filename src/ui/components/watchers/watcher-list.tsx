@@ -51,7 +51,7 @@ export function WatcherList({ watchers, currentUserId, isOwner = false, onRemove
       {/* Watcher list */}
       <div className="space-y-2">
         {watchers.map((watcher) => {
-          const canRemove = isOwner || watcher.userId === currentUserId;
+          const canRemove = isOwner || watcher.user_id === currentUserId;
 
           return (
             <div key={watcher.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">

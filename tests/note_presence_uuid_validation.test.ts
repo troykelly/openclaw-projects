@@ -48,7 +48,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
         const res = await app.inject({
           method: 'POST',
           url: `/api/notes/${encodeURIComponent(invalidId)}/presence`,
-          payload: { userEmail: testUserEmail },
+          payload: { user_email: testUserEmail },
         });
 
         expect(res.statusCode).toBe(400);
@@ -69,7 +69,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: testUserEmail },
+        payload: { user_email: testUserEmail },
       });
 
       expect(res.statusCode).toBe(200);
@@ -151,8 +151,8 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
           method: 'PUT',
           url: `/api/notes/${encodeURIComponent(invalidId)}/presence/cursor`,
           payload: {
-            userEmail: testUserEmail,
-            cursorPosition: { line: 1, column: 1 },
+            user_email: testUserEmail,
+            cursor_position: { line: 1, column: 1 },
           },
         });
 
@@ -175,15 +175,15 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
       await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: testUserEmail },
+        payload: { user_email: testUserEmail },
       });
 
       const res = await app.inject({
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 1, column: 1 },
+          user_email: testUserEmail,
+          cursor_position: { line: 1, column: 1 },
         },
       });
 

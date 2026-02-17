@@ -22,7 +22,7 @@ export interface RealtimeEvent<T = unknown> {
   type: RealtimeEventType;
   payload: T;
   timestamp: string;
-  userId?: string;
+  user_id?: string;
 }
 
 export interface Subscription {
@@ -40,7 +40,7 @@ export interface RealtimeContextValue {
   status: ConnectionStatus;
   subscribe: (subscription: Subscription) => void;
   unsubscribe: (subscription: Subscription) => void;
-  addEventHandler: (eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entityId?: string) => () => void;
+  addEventHandler: (eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entity_id?: string) => () => void;
   sendEvent: (event: RealtimeEvent) => void;
 }
 

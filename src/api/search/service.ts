@@ -28,27 +28,27 @@ function generateSnippet(text: string, maxLength: number = SNIPPET_LENGTH): stri
 async function searchWorkItemsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date; userEmail?: string },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
-  if (options.userEmail) {
+  if (options.user_email) {
     conditions.push(`user_email = $${paramIndex}`);
-    params.push(options.userEmail);
+    params.push(options.user_email);
     paramIndex++;
   }
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`created_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -73,7 +73,7 @@ async function searchWorkItemsText(
     id: row.id,
     title: row.title,
     snippet: generateSnippet(row.description || ''),
-    textScore: parseFloat(row.rank) || 0,
+    text_score: parseFloat(row.rank) || 0,
     metadata: { kind: row.kind, status: row.status },
   }));
 }
@@ -84,28 +84,28 @@ async function searchWorkItemsText(
 async function searchWorkItemsSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date; userEmail?: string },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'", 'deleted_at IS NULL'];
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
 
-  if (options.userEmail) {
+  if (options.user_email) {
     conditions.push(`user_email = $${paramIndex}`);
-    params.push(options.userEmail);
+    params.push(options.user_email);
     paramIndex++;
   }
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`created_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -130,8 +130,8 @@ async function searchWorkItemsSemantic(
     id: row.id,
     title: row.title,
     snippet: generateSnippet(row.description || ''),
-    textScore: 0,
-    semanticScore: Number.parseFloat(row.similarity) || 0,
+    text_score: 0,
+    semantic_score: Number.parseFloat(row.similarity) || 0,
     metadata: { kind: row.kind, status: row.status },
   }));
 }
@@ -142,21 +142,21 @@ async function searchWorkItemsSemantic(
 async function searchContactsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`created_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -179,7 +179,7 @@ async function searchContactsText(
     id: row.id,
     title: row.display_name,
     snippet: generateSnippet(row.notes || ''),
-    textScore: parseFloat(row.rank) || 0,
+    text_score: parseFloat(row.rank) || 0,
   }));
 }
 
@@ -189,21 +189,21 @@ async function searchContactsText(
 async function searchMemoriesText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`created_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -228,7 +228,7 @@ async function searchMemoriesText(
     id: row.id,
     title: row.title,
     snippet: generateSnippet(row.content || ''),
-    textScore: parseFloat(row.rank) || 0,
+    text_score: parseFloat(row.rank) || 0,
     metadata: { memory_type: row.memory_type, work_item_id: row.work_item_id },
   }));
 }
@@ -239,21 +239,21 @@ async function searchMemoriesText(
 async function searchMessagesText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["m.search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`m.received_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`m.received_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -279,7 +279,7 @@ async function searchMessagesText(
     id: row.id,
     title: `${row.channel} message (${row.direction})`,
     snippet: generateSnippet(row.body || ''),
-    textScore: parseFloat(row.rank) || 0,
+    text_score: parseFloat(row.rank) || 0,
     metadata: { channel: row.channel, direction: row.direction, received_at: row.received_at },
   }));
 }
@@ -290,22 +290,22 @@ async function searchMessagesText(
 async function searchMessagesSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['m.embedding IS NOT NULL', "m.embedding_status = 'complete'"];
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`m.received_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`m.received_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -332,8 +332,8 @@ async function searchMessagesSemantic(
     id: row.id,
     title: row.subject || `${row.channel} message (${row.direction})`,
     snippet: generateSnippet(row.body || ''),
-    textScore: 0,
-    semanticScore: parseFloat(row.similarity) || 0,
+    text_score: 0,
+    semantic_score: parseFloat(row.similarity) || 0,
     metadata: { channel: row.channel, direction: row.direction, received_at: row.received_at },
   }));
 }
@@ -344,22 +344,22 @@ async function searchMessagesSemantic(
 async function searchMemoriesSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; dateFrom?: Date; dateTo?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'"];
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     conditions.push(`created_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -384,8 +384,8 @@ async function searchMemoriesSemantic(
     id: row.id,
     title: row.title,
     snippet: generateSnippet(row.content || ''),
-    textScore: 0,
-    semanticScore: parseFloat(row.similarity) || 0,
+    text_score: 0,
+    semantic_score: parseFloat(row.similarity) || 0,
     metadata: { memory_type: row.memory_type, work_item_id: row.work_item_id },
   }));
 }
@@ -393,15 +393,15 @@ async function searchMemoriesSemantic(
 /**
  * Combine and rank text and semantic results.
  */
-function combineResults(textResults: EntitySearchResult[], semanticResults: EntitySearchResult[], semanticWeight: number): EntitySearchResult[] {
+function combineResults(textResults: EntitySearchResult[], semanticResults: EntitySearchResult[], semantic_weight: number): EntitySearchResult[] {
   const combined = new Map<string, EntitySearchResult>();
-  const textWeight = 1 - semanticWeight;
+  const textWeight = 1 - semantic_weight;
 
   // Add text results
   for (const result of textResults) {
     combined.set(result.id, {
       ...result,
-      textScore: result.textScore * textWeight,
+      text_score: result.text_score * textWeight,
     });
   }
 
@@ -409,20 +409,20 @@ function combineResults(textResults: EntitySearchResult[], semanticResults: Enti
   for (const result of semanticResults) {
     const existing = combined.get(result.id);
     if (existing) {
-      existing.semanticScore = (result.semanticScore || 0) * semanticWeight;
+      existing.semantic_score = (result.semantic_score || 0) * semantic_weight;
     } else {
       combined.set(result.id, {
         ...result,
-        textScore: 0,
-        semanticScore: (result.semanticScore || 0) * semanticWeight,
+        text_score: 0,
+        semantic_score: (result.semantic_score || 0) * semantic_weight,
       });
     }
   }
 
   // Sort by combined score
   return Array.from(combined.values()).sort((a, b) => {
-    const scoreA = a.textScore + (a.semanticScore || 0);
-    const scoreB = b.textScore + (b.semanticScore || 0);
+    const scoreA = a.text_score + (a.semantic_score || 0);
+    const scoreB = b.text_score + (b.semantic_score || 0);
     return scoreB - scoreA;
   });
 }
@@ -437,18 +437,18 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     limit = DEFAULT_LIMIT,
     offset = 0,
     semantic = true,
-    dateFrom,
-    dateTo,
-    semanticWeight = DEFAULT_SEMANTIC_WEIGHT,
-    userEmail,
+    date_from,
+    date_to,
+    semantic_weight = DEFAULT_SEMANTIC_WEIGHT,
+    user_email,
   } = options;
 
   const effectiveLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
-  const searchOpts = { limit: effectiveLimit, offset, dateFrom, dateTo };
-  const workItemSearchOpts = { ...searchOpts, userEmail };
+  const searchOpts = { limit: effectiveLimit, offset, date_from, date_to };
+  const workItemSearchOpts = { ...searchOpts, user_email };
 
   // Determine search type based on capabilities
-  let searchType: SearchType = 'text';
+  let search_type: SearchType = 'text';
   let queryEmbedding: number[] | null = null;
   let embeddingProvider: string | undefined;
 
@@ -458,7 +458,7 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
       if (embeddingResult) {
         queryEmbedding = embeddingResult.embedding;
         embeddingProvider = embeddingResult.provider;
-        searchType = 'hybrid';
+        search_type = 'hybrid';
       }
     } catch (error) {
       console.warn('[Search] Embedding failed, falling back to text search:', (error as Error).message);
@@ -466,8 +466,8 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
   }
 
   // If only semantic search is possible (no text search configured), use semantic only
-  if (searchType === 'hybrid' && types.every((t) => t === 'memory')) {
-    searchType = 'hybrid';
+  if (search_type === 'hybrid' && types.every((t) => t === 'memory')) {
+    search_type = 'hybrid';
   }
 
   // Collect results from each entity type
@@ -484,16 +484,16 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     const textResults = await searchWorkItemsText(pool, query, workItemSearchOpts);
     let workItemResults: EntitySearchResult[];
 
-    if (searchType === 'hybrid' && queryEmbedding) {
+    if (search_type === 'hybrid' && queryEmbedding) {
       const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, workItemSearchOpts);
-      workItemResults = combineResults(textResults, semanticResults, semanticWeight);
+      workItemResults = combineResults(textResults, semanticResults, semantic_weight);
     } else {
       workItemResults = textResults;
     }
 
     facets.work_item = workItemResults.length;
     for (const result of workItemResults) {
-      const combinedScore = result.textScore + (result.semanticScore || 0);
+      const combinedScore = result.text_score + (result.semantic_score || 0);
       allResults.push({
         type: 'work_item',
         id: result.id,
@@ -516,7 +516,7 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
         id: result.id,
         title: result.title,
         snippet: result.snippet,
-        score: result.textScore,
+        score: result.text_score,
         url: `/app/contacts/${result.id}`,
         metadata: result.metadata,
       });
@@ -528,16 +528,16 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     const textResults = await searchMemoriesText(pool, query, searchOpts);
     let memoryResults: EntitySearchResult[];
 
-    if (searchType === 'hybrid' && queryEmbedding) {
+    if (search_type === 'hybrid' && queryEmbedding) {
       const semanticResults = await searchMemoriesSemantic(pool, queryEmbedding, searchOpts);
-      memoryResults = combineResults(textResults, semanticResults, semanticWeight);
+      memoryResults = combineResults(textResults, semanticResults, semantic_weight);
     } else {
       memoryResults = textResults;
     }
 
     facets.memory = memoryResults.length;
     for (const result of memoryResults) {
-      const combinedScore = result.textScore + (result.semanticScore || 0);
+      const combinedScore = result.text_score + (result.semantic_score || 0);
       allResults.push({
         type: 'memory',
         id: result.id,
@@ -554,16 +554,16 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     const textResults = await searchMessagesText(pool, query, searchOpts);
     let messageResults: EntitySearchResult[];
 
-    if (searchType === 'hybrid' && queryEmbedding) {
+    if (search_type === 'hybrid' && queryEmbedding) {
       const semanticResults = await searchMessagesSemantic(pool, queryEmbedding, searchOpts);
-      messageResults = combineResults(textResults, semanticResults, semanticWeight);
+      messageResults = combineResults(textResults, semanticResults, semantic_weight);
     } else {
       messageResults = textResults;
     }
 
     facets.message = messageResults.length;
     for (const result of messageResults) {
-      const combinedScore = result.textScore + (result.semanticScore || 0);
+      const combinedScore = result.text_score + (result.semantic_score || 0);
       allResults.push({
         type: 'message',
         id: result.id,
@@ -583,7 +583,7 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
 
   return {
     query,
-    search_type: searchType,
+    search_type: search_type,
     embedding_provider: embeddingProvider,
     results: limitedResults,
     facets,
@@ -597,7 +597,7 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
 export async function countSearchResults(
   pool: Pool,
   query: string,
-  options: { dateFrom?: Date; dateTo?: Date } = {},
+  options: { date_from?: Date; date_to?: Date } = {},
 ): Promise<Record<SearchEntityType, number>> {
   const counts: Record<SearchEntityType, number> = {
     work_item: 0,
@@ -611,17 +611,17 @@ export async function countSearchResults(
   const params: (string | Date)[] = [query];
   let paramIndex = 2;
 
-  if (options.dateFrom) {
+  if (options.date_from) {
     dateConditions.push(`received_at >= $${paramIndex}`);
     workItemDateConditions.push(`created_at >= $${paramIndex}`);
-    params.push(options.dateFrom);
+    params.push(options.date_from);
     paramIndex++;
   }
 
-  if (options.dateTo) {
+  if (options.date_to) {
     dateConditions.push(`received_at <= $${paramIndex}`);
     workItemDateConditions.push(`created_at <= $${paramIndex}`);
-    params.push(options.dateTo);
+    params.push(options.date_to);
     paramIndex++;
   }
 
@@ -653,12 +653,12 @@ export async function countSearchResults(
   counts.memory = parseInt((memoryCount.rows[0] as { count: string }).count, 10);
 
   // Count messages
-  const messageCount = await pool.query(
+  const message_count = await pool.query(
     `SELECT COUNT(*) FROM external_message
      WHERE search_vector @@ plainto_tsquery('english', $1) ${messageWhere}`,
     params,
   );
-  counts.message = parseInt((messageCount.rows[0] as { count: string }).count, 10);
+  counts.message = parseInt((message_count.rows[0] as { count: string }).count, 10);
 
   return counts;
 }

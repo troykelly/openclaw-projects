@@ -41,11 +41,11 @@ describe('auth/refresh-tokens', () => {
 
       expect(result).toHaveProperty('token');
       expect(result).toHaveProperty('id');
-      expect(result).toHaveProperty('familyId');
+      expect(result).toHaveProperty('family_id');
       expect(typeof result.token).toBe('string');
       expect(result.token.length).toBeGreaterThan(0);
       expect(typeof result.id).toBe('string');
-      expect(typeof result.familyId).toBe('string');
+      expect(typeof result.family_id).toBe('string');
     });
 
     it('stores only the SHA-256 hash, not the raw token', async () => {
@@ -74,14 +74,14 @@ describe('auth/refresh-tokens', () => {
       const familyId = '550e8400-e29b-41d4-a716-446655440000';
       const result = await createRefreshToken(pool, 'user@example.com', familyId);
 
-      expect(result.familyId).toBe(familyId);
+      expect(result.family_id).toBe(familyId);
     });
 
     it('generates a new familyId when none is provided', async () => {
       const result = await createRefreshToken(pool, 'user@example.com');
 
       // Should be a valid UUID
-      expect(result.familyId).toMatch(
+      expect(result.family_id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
     });
@@ -105,13 +105,13 @@ describe('auth/refresh-tokens', () => {
 
   describe('consumeRefreshToken', () => {
     it('consumes a valid token and returns email + familyId', async () => {
-      const { token, familyId } = await createRefreshToken(pool, 'user@example.com');
+      const { token, family_id: familyId } = await createRefreshToken(pool, 'user@example.com');
 
       const result = await consumeRefreshToken(pool, token);
 
       expect(result.email).toBe('user@example.com');
-      expect(result.familyId).toBe(familyId);
-      expect(typeof result.tokenId).toBe('string');
+      expect(result.family_id).toBe(familyId);
+      expect(typeof result.token_id).toBe('string');
     });
 
     it('rejects an unknown token', async () => {
@@ -145,7 +145,7 @@ describe('auth/refresh-tokens', () => {
 
   describe('token rotation', () => {
     it('consume marks token as consumed (sets replaced_by after new token created)', async () => {
-      const { token, id, familyId } = await createRefreshToken(pool, 'user@example.com');
+      const { token, id, family_id: familyId } = await createRefreshToken(pool, 'user@example.com');
 
       // Consume the old token
       await consumeRefreshToken(pool, token);
@@ -169,7 +169,7 @@ describe('auth/refresh-tokens', () => {
 
   describe('grace window', () => {
     it('allows previous token within 10s grace window', async () => {
-      const { token: oldToken, id: oldId, familyId } = await createRefreshToken(
+      const { token: oldToken, id: oldId, family_id: familyId } = await createRefreshToken(
         pool,
         'user@example.com',
       );
@@ -189,11 +189,11 @@ describe('auth/refresh-tokens', () => {
       // The old token should still be consumable within grace window
       const graceResult = await consumeRefreshToken(pool, oldToken);
       expect(graceResult.email).toBe('user@example.com');
-      expect(graceResult.familyId).toBe(familyId);
+      expect(graceResult.family_id).toBe(familyId);
     });
 
     it('rejects previous token after grace window expires', async () => {
-      const { token: oldToken, id: oldId, familyId } = await createRefreshToken(
+      const { token: oldToken, id: oldId, family_id: familyId } = await createRefreshToken(
         pool,
         'user@example.com',
       );
@@ -223,7 +223,7 @@ describe('auth/refresh-tokens', () => {
 
   describe('reuse detection', () => {
     it('revokes entire family when consumed token is reused outside grace', async () => {
-      const { token: oldToken, id: oldId, familyId } = await createRefreshToken(
+      const { token: oldToken, id: oldId, family_id: familyId } = await createRefreshToken(
         pool,
         'user@example.com',
       );
@@ -293,7 +293,7 @@ describe('auth/refresh-tokens', () => {
 
   describe('concurrent refresh race condition', () => {
     it('handles concurrent consume attempts without data corruption', async () => {
-      const { token, familyId } = await createRefreshToken(pool, 'user@example.com');
+      const { token, family_id: familyId } = await createRefreshToken(pool, 'user@example.com');
 
       // Fire two consume calls concurrently.
       // With FOR UPDATE serialisation, two outcomes are valid:

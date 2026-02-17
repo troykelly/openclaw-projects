@@ -75,7 +75,7 @@ export interface DeleteNotebookVariables {
  */
 export interface MoveNotesVariables {
   /** The target notebook ID to move/copy notes to. */
-  notebookId: string;
+  notebook_id: string;
   /** The note IDs and action (move or copy). */
   body: MoveNotesBody;
 }
@@ -173,7 +173,7 @@ export function useCreateNotebook(): UseMutationResult<Notebook, ApiRequestError
  * const { mutate, isPending } = useUpdateNotebook();
  *
  * mutate(
- *   { id: notebookId, body: { icon: '📚', color: '#3B82F6' } },
+ *   { id: notebook_id, body: { icon: '📚', color: '#3B82F6' } },
  *   {
  *     onSuccess: () => toast.success('Notebook updated'),
  *     onError: (error) => toast.error(error.message),
@@ -228,7 +228,7 @@ export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError
         queryClient.setQueryData<Notebook>(notebookKeys.detail(id), {
           ...previousNotebook,
           ...body,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -237,7 +237,7 @@ export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError
         if (data) {
           queryClient.setQueryData<NotebooksResponse>(queryKey, {
             ...data,
-            notebooks: data.notebooks.map((nb) => (nb.id === id ? { ...nb, ...body, updatedAt: new Date().toISOString() } : nb)),
+            notebooks: data.notebooks.map((nb) => (nb.id === id ? { ...nb, ...body, updated_at: new Date().toISOString() } : nb)),
           });
         }
       });
@@ -311,7 +311,7 @@ export function useUpdateNotebook(): UseMutationResult<Notebook, ApiRequestError
  *
  * const handleArchive = () => {
  *   if (confirm('Archive this notebook?')) {
- *     mutate(notebookId, {
+ *     mutate(notebook_id, {
  *       onSuccess: () => toast.success('Notebook archived'),
  *     });
  *   }
@@ -340,7 +340,7 @@ export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestErro
         queryClient.setQueryData<Notebook>(notebookKeys.detail(id), {
           ...previousNotebook,
           isArchived: true,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -479,7 +479,7 @@ export function useUnarchiveNotebook(): UseMutationResult<Notebook, ApiRequestEr
  *     : 'Delete this notebook? Notes will be moved to "No Notebook".';
  *
  *   if (confirm(message)) {
- *     mutate({ id: notebookId, deleteNotes }, {
+ *     mutate({ id: notebook_id, deleteNotes }, {
  *       onSuccess: () => navigate('/notebooks'),
  *       onError: (error) => toast.error(error.message),
  *     });
@@ -504,7 +504,7 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
 
   return useMutation({
     mutationFn: ({ id, deleteNotes = false }: DeleteNotebookVariables) =>
-      apiClient.delete(`/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?deleteNotes=true' : ''}`),
+      apiClient.delete(`/api/notebooks/${encodeURIComponent(id)}${deleteNotes ? '?delete_notes=true' : ''}`),
 
     onMutate: async ({ id }) => {
       // Cancel outgoing refetches
@@ -574,8 +574,8 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
  * - All note list queries
  *
  * @returns TanStack mutation result with:
- *   - `mutate({ notebookId, body })` - Trigger the mutation
- *   - `mutateAsync({ notebookId, body })` - Trigger and return a Promise
+ *   - `mutate({ notebook_id, body })` - Trigger the mutation
+ *   - `mutateAsync({ notebook_id, body })` - Trigger and return a Promise
  *   - `data` - {@link MoveNotesResponse} on success
  *   - `error` - {@link ApiRequestError} on failure
  *   - `isPending` - Loading state
@@ -585,7 +585,7 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
  * const { mutate } = useMoveNotesToNotebook();
  *
  * mutate({
- *   notebookId: 'target-notebook-123',
+ *   notebook_id: 'target-notebook-123',
  *   body: {
  *     noteIds: ['note-1', 'note-2', 'note-3'],
  *     action: 'move',
@@ -599,7 +599,7 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
  *
  * mutate(
  *   {
- *     notebookId: targetNotebookId,
+ *     notebook_id: targetNotebookId,
  *     body: { noteIds: selectedNoteIds, action: 'copy' },
  *   },
  *   {
@@ -617,7 +617,7 @@ export function useDeleteNotebook(): UseMutationResult<void, ApiRequestError, De
  *
  * const handleDrop = (noteIds: string[], targetNotebookId: string) => {
  *   mutate({
- *     notebookId: targetNotebookId,
+ *     notebook_id: targetNotebookId,
  *     body: { noteIds, action: 'move' },
  *   });
  * };
@@ -627,7 +627,7 @@ export function useMoveNotesToNotebook(): UseMutationResult<MoveNotesResponse, A
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ notebookId, body }: MoveNotesVariables) => apiClient.post<MoveNotesResponse>(`/api/notebooks/${encodeURIComponent(notebookId)}/notes`, body),
+    mutationFn: ({ notebook_id, body }: MoveNotesVariables) => apiClient.post<MoveNotesResponse>(`/api/notebooks/${encodeURIComponent(notebook_id)}/notes`, body),
 
     onSuccess: () => {
       // Invalidate all notebook and note queries using prefix invalidation

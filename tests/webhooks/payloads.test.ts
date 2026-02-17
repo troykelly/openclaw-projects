@@ -26,13 +26,13 @@ describe('Webhook Payloads', () => {
   describe('buildSmsReceivedPayload', () => {
     it('builds correct payload structure', () => {
       const payload = buildSmsReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'John Doe',
-        endpointType: 'phone',
-        endpointValue: '+15551234567',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Hello, this is a test message.',
+        contact_id: 'contact-123',
+        contact_name: 'John Doe',
+        endpoint_type: 'phone',
+        endpoint_value: '+15551234567',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Hello, this is a test message.',
       });
 
       expect(payload.name).toBe('SMS Handler');
@@ -49,14 +49,14 @@ describe('Webhook Payloads', () => {
 
     it('includes optional m365_contact_id', () => {
       const payload = buildSmsReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'John Doe',
-        endpointType: 'phone',
-        endpointValue: '+15551234567',
+        contact_id: 'contact-123',
+        contact_name: 'John Doe',
+        endpoint_type: 'phone',
+        endpoint_value: '+15551234567',
         m365ContactId: 'ms-contact-id',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Test',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Test',
       });
 
       expect(payload.context.m365_contact_id).toBe('ms-contact-id');
@@ -66,14 +66,14 @@ describe('Webhook Payloads', () => {
   describe('buildEmailReceivedPayload', () => {
     it('builds correct payload structure', () => {
       const payload = buildEmailReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'Jane Smith',
+        contact_id: 'contact-123',
+        contact_name: 'Jane Smith',
         fromEmail: 'jane@example.com',
         toEmail: 'me@example.com',
         subject: 'Meeting tomorrow',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Hi, can we meet tomorrow at 3pm?',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Hi, can we meet tomorrow at 3pm?',
       });
 
       expect(payload.name).toBe('Email Handler');
@@ -89,12 +89,12 @@ describe('Webhook Payloads', () => {
 
     it('handles missing subject', () => {
       const payload = buildEmailReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'Jane Smith',
+        contact_id: 'contact-123',
+        contact_name: 'Jane Smith',
         fromEmail: 'jane@example.com',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Test',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Test',
       });
 
       expect(payload.message).toContain('(no subject)');
@@ -105,7 +105,7 @@ describe('Webhook Payloads', () => {
     it('builds correct payload structure', () => {
       const notBefore = new Date('2026-02-03T10:00:00Z');
       const payload = buildReminderDuePayload({
-        workItemId: 'work-item-123',
+        work_item_id: 'work-item-123',
         workItemTitle: 'Call mom',
         workItemDescription: 'Wish her happy birthday',
         workItemKind: 'issue',
@@ -126,7 +126,7 @@ describe('Webhook Payloads', () => {
     it('builds correct payload structure', () => {
       const notAfter = new Date('2026-02-03T18:00:00Z');
       const payload = buildDeadlineApproachingPayload({
-        workItemId: 'work-item-123',
+        work_item_id: 'work-item-123',
         workItemTitle: 'Submit report',
         workItemKind: 'issue',
         notAfter,

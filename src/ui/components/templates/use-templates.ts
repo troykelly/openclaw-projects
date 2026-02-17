@@ -16,7 +16,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
     description: 'An epic with standard sprint issues: planning, development, testing, review',
     category: 'sprint',
     isBuiltIn: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
+    created_at: '2024-01-01T00:00:00.000Z',
     structure: {
       kind: 'epic',
       title: 'Sprint [N]',
@@ -56,7 +56,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
     description: 'An initiative structure for developing a new feature with design, implementation, and testing phases',
     category: 'feature',
     isBuiltIn: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
+    created_at: '2024-01-01T00:00:00.000Z',
     structure: {
       kind: 'initiative',
       title: 'Feature: [Name]',
@@ -101,7 +101,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
     description: 'An issue with a standard bug fix checklist',
     category: 'bugfix',
     isBuiltIn: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
+    created_at: '2024-01-01T00:00:00.000Z',
     structure: {
       kind: 'issue',
       title: 'Bug: [Description]',
@@ -123,7 +123,7 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
     description: 'A project structure with standard phases: planning, execution, delivery',
     category: 'project',
     isBuiltIn: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
+    created_at: '2024-01-01T00:00:00.000Z',
     structure: {
       kind: 'project',
       title: 'Project: [Name]',
@@ -207,11 +207,11 @@ export function useTemplates(): UseTemplatesReturn {
   const templates = React.useMemo(() => [...BUILTIN_TEMPLATES, ...customTemplates], [customTemplates]);
 
   const saveTemplate = React.useCallback(
-    (template: Omit<WorkItemTemplate, 'id' | 'createdAt'>) => {
+    (template: Omit<WorkItemTemplate, 'id' | 'created_at'>) => {
       const newTemplate: WorkItemTemplate = {
         ...template,
         id: generateId(),
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       };
       const updated = [...customTemplates, newTemplate];
       setCustomTemplates(updated);

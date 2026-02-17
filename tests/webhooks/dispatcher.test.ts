@@ -48,9 +48,9 @@ describe('Webhook Dispatcher', () => {
     });
 
     it('handles idempotency key', async () => {
-      const id1 = await enqueueWebhook(pool, 'reminder_due', '/hooks/agent', { message: 'First' }, { idempotencyKey: 'unique-key-123' });
+      const id1 = await enqueueWebhook(pool, 'reminder_due', '/hooks/agent', { message: 'First' }, { idempotency_key: 'unique-key-123' });
 
-      const id2 = await enqueueWebhook(pool, 'reminder_due', '/hooks/agent', { message: 'Second' }, { idempotencyKey: 'unique-key-123' });
+      const id2 = await enqueueWebhook(pool, 'reminder_due', '/hooks/agent', { message: 'Second' }, { idempotency_key: 'unique-key-123' });
 
       expect(id1).toBe(id2);
 
@@ -233,9 +233,9 @@ describe('Webhook Dispatcher', () => {
         lockedAt: null,
         lockedBy: null,
         dispatchedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       };
 
       const result = await dispatchWebhook(entry);

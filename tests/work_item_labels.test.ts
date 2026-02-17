@@ -94,9 +94,9 @@ describe('Work Item Labels (Issue #221)', () => {
   describe('set_work_item_labels function', () => {
     it('sets multiple labels on a work item', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Labeled Task') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY['@home', '@phone', 'urgent'])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY['@home', '@phone', 'urgent'])`, [work_item_id]);
 
       const labels = await pool.query(
         `SELECT l.normalized_name
@@ -104,7 +104,7 @@ describe('Work Item Labels (Issue #221)', () => {
          JOIN label l ON l.id = wl.label_id
          WHERE wl.work_item_id = $1
          ORDER BY l.normalized_name`,
-        [workItemId],
+        [work_item_id],
       );
 
       expect(labels.rows.map((r) => r.normalized_name)).toEqual(['@home', '@phone', 'urgent']);
@@ -112,13 +112,13 @@ describe('Work Item Labels (Issue #221)', () => {
 
     it('replaces existing labels', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Replace Labels') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
       // Set initial labels
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY['old-label', 'keep-label'])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY['old-label', 'keep-label'])`, [work_item_id]);
 
       // Replace with new labels
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY['keep-label', 'new-label'])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY['keep-label', 'new-label'])`, [work_item_id]);
 
       const labels = await pool.query(
         `SELECT l.normalized_name
@@ -126,7 +126,7 @@ describe('Work Item Labels (Issue #221)', () => {
          JOIN label l ON l.id = wl.label_id
          WHERE wl.work_item_id = $1
          ORDER BY l.normalized_name`,
-        [workItemId],
+        [work_item_id],
       );
 
       expect(labels.rows.map((r) => r.normalized_name)).toEqual(['keep-label', 'new-label']);
@@ -134,13 +134,13 @@ describe('Work Item Labels (Issue #221)', () => {
 
     it('clears labels when passed empty array', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Clear Labels') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY['label1', 'label2'])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY['label1', 'label2'])`, [work_item_id]);
 
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY[]::text[])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY[]::text[])`, [work_item_id]);
 
-      const labels = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [workItemId]);
+      const labels = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [work_item_id]);
 
       expect(parseInt(labels.rows[0].count, 10)).toBe(0);
     });
@@ -149,16 +149,16 @@ describe('Work Item Labels (Issue #221)', () => {
   describe('add_work_item_label function', () => {
     it('adds a single label', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Add Single') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT add_work_item_label($1, '@errands')`, [workItemId]);
+      await pool.query(`SELECT add_work_item_label($1, '@errands')`, [work_item_id]);
 
       const labels = await pool.query(
         `SELECT l.normalized_name
          FROM work_item_label wl
          JOIN label l ON l.id = wl.label_id
          WHERE wl.work_item_id = $1`,
-        [workItemId],
+        [work_item_id],
       );
 
       expect(labels.rows[0].normalized_name).toBe('@errands');
@@ -166,12 +166,12 @@ describe('Work Item Labels (Issue #221)', () => {
 
     it('does not duplicate labels', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('No Duplicate') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT add_work_item_label($1, 'test')`, [workItemId]);
-      await pool.query(`SELECT add_work_item_label($1, 'TEST')`, [workItemId]);
+      await pool.query(`SELECT add_work_item_label($1, 'test')`, [work_item_id]);
+      await pool.query(`SELECT add_work_item_label($1, 'TEST')`, [work_item_id]);
 
-      const labels = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [workItemId]);
+      const labels = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [work_item_id]);
 
       expect(parseInt(labels.rows[0].count, 10)).toBe(1);
     });
@@ -180,18 +180,18 @@ describe('Work Item Labels (Issue #221)', () => {
   describe('remove_work_item_label function', () => {
     it('removes a label from work item', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Remove Label') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY['keep', 'remove'])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY['keep', 'remove'])`, [work_item_id]);
 
-      await pool.query(`SELECT remove_work_item_label($1, 'remove')`, [workItemId]);
+      await pool.query(`SELECT remove_work_item_label($1, 'remove')`, [work_item_id]);
 
       const labels = await pool.query(
         `SELECT l.normalized_name
          FROM work_item_label wl
          JOIN label l ON l.id = wl.label_id
          WHERE wl.work_item_id = $1`,
-        [workItemId],
+        [work_item_id],
       );
 
       expect(labels.rows.map((r) => r.normalized_name)).toEqual(['keep']);
@@ -199,12 +199,12 @@ describe('Work Item Labels (Issue #221)', () => {
 
     it('handles case-insensitive removal', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Case Remove') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT add_work_item_label($1, 'CamelCase')`, [workItemId]);
-      await pool.query(`SELECT remove_work_item_label($1, 'camelcase')`, [workItemId]);
+      await pool.query(`SELECT add_work_item_label($1, 'CamelCase')`, [work_item_id]);
+      await pool.query(`SELECT remove_work_item_label($1, 'camelcase')`, [work_item_id]);
 
-      const labels = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [workItemId]);
+      const labels = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [work_item_id]);
 
       expect(parseInt(labels.rows[0].count, 10)).toBe(0);
     });
@@ -213,13 +213,13 @@ describe('Work Item Labels (Issue #221)', () => {
   describe('Work item cascade delete', () => {
     it('removes label associations when work item is deleted', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Cascade Delete') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT set_work_item_labels($1, ARRAY['cascade-test'])`, [workItemId]);
+      await pool.query(`SELECT set_work_item_labels($1, ARRAY['cascade-test'])`, [work_item_id]);
 
-      await pool.query(`DELETE FROM work_item WHERE id = $1`, [workItemId]);
+      await pool.query(`DELETE FROM work_item WHERE id = $1`, [work_item_id]);
 
-      const associations = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [workItemId]);
+      const associations = await pool.query(`SELECT COUNT(*) as count FROM work_item_label WHERE work_item_id = $1`, [work_item_id]);
 
       expect(parseInt(associations.rows[0].count, 10)).toBe(0);
 
@@ -232,9 +232,9 @@ describe('Work Item Labels (Issue #221)', () => {
   describe('Label cascade delete', () => {
     it('removes associations when label is deleted', async () => {
       const wiResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Label Delete') RETURNING id::text as id`);
-      const workItemId = wiResult.rows[0].id;
+      const work_item_id = wiResult.rows[0].id;
 
-      await pool.query(`SELECT add_work_item_label($1, 'deleteme')`, [workItemId]);
+      await pool.query(`SELECT add_work_item_label($1, 'deleteme')`, [work_item_id]);
 
       const labelResult = await pool.query(`SELECT id FROM label WHERE normalized_name = 'deleteme'`);
       const labelId = labelResult.rows[0].id;

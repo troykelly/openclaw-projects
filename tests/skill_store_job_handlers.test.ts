@@ -320,13 +320,13 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       );
 
       const itemResult = await pool.query(`SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' LIMIT 1`);
-      const itemId = (itemResult.rows[0] as { id: string }).id;
+      const item_id = (itemResult.rows[0] as { id: string }).id;
 
       // Enqueue an embed job
       await pool.query(
         `INSERT INTO internal_job (kind, payload, run_at)
          VALUES ('skill_store.embed', $1::jsonb, NOW())`,
-        [JSON.stringify({ item_id: itemId })],
+        [JSON.stringify({ item_id: item_id })],
       );
 
       const stats = await processJobs(pool, 10);
@@ -344,19 +344,19 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       );
 
       const itemResult = await pool.query(`SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'empty-col' LIMIT 1`);
-      const itemId = (itemResult.rows[0] as { id: string }).id;
+      const item_id = (itemResult.rows[0] as { id: string }).id;
 
       // Enqueue an embed job for this empty item
       await pool.query(
         `INSERT INTO internal_job (kind, payload, run_at)
          VALUES ('skill_store.embed', $1::jsonb, NOW())`,
-        [JSON.stringify({ item_id: itemId })],
+        [JSON.stringify({ item_id: item_id })],
       );
 
       await processJobs(pool, 10);
 
       // Item should have a terminal embedding_status (not 'pending')
-      const updated = await pool.query(`SELECT embedding_status FROM skill_store_item WHERE id = $1`, [itemId]);
+      const updated = await pool.query(`SELECT embedding_status FROM skill_store_item WHERE id = $1`, [item_id]);
       const status = updated.rows[0].embedding_status;
       // Must NOT be 'pending' or NULL — those would cause infinite backfill
       expect(status).not.toBe('pending');
@@ -372,7 +372,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
       );
 
       const itemResult = await pool.query(`SELECT id::text as id FROM skill_store_item WHERE skill_id = 'test-skill' AND collection = 'skip-col' LIMIT 1`);
-      const itemId = (itemResult.rows[0] as { id: string }).id;
+      const item_id = (itemResult.rows[0] as { id: string }).id;
 
       // Import and run backfill
       const { backfillSkillStoreEmbeddings } = await import('../src/api/embeddings/skill-store-integration.ts');
@@ -387,7 +387,7 @@ describe('Skill Store Job Handlers (Issue #806)', () => {
          WHERE kind = 'skill_store.embed'
            AND payload->>'item_id' = $1
            AND completed_at IS NULL`,
-        [itemId],
+        [item_id],
       );
       expect(jobs.rows).toHaveLength(0);
     });

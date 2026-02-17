@@ -1,6 +1,7 @@
 /**
  * File/Drive browsing service for OneDrive and Google Drive.
  * Part of Issue #1049.
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  *
  * Orchestrates file operations across providers:
  * - Token validation and refresh
@@ -20,26 +21,26 @@ import * as google from './google.ts';
 export interface DriveFile {
   id: string;
   name: string;
-  mimeType: string;
+  mime_type: string;
   size?: number;
-  createdAt?: Date;
-  modifiedAt?: Date;
+  created_at?: Date;
+  modified_at?: Date;
   path?: string;
-  parentId?: string;
-  webUrl?: string;
-  downloadUrl?: string;
-  thumbnailUrl?: string;
-  isFolder: boolean;
+  parent_id?: string;
+  web_url?: string;
+  download_url?: string;
+  thumbnail_url?: string;
+  is_folder: boolean;
   provider: OAuthProvider;
-  connectionId: string;
+  connection_id: string;
   metadata: Record<string, unknown>;
 }
 
 /** Paginated result from a file listing or search operation. */
 export interface DriveListResult {
   files: DriveFile[];
-  nextPageToken?: string;
-  totalCount?: number;
+  next_page_token?: string;
+  total_count?: number;
 }
 
 /**
@@ -47,7 +48,7 @@ export interface DriveListResult {
  * Throws OAuthError with 403 if files feature is not enabled.
  */
 function assertFilesEnabled(connection: OAuthConnection): void {
-  if (!connection.isActive) {
+  if (!connection.is_active) {
     throw new OAuthError(
       'OAuth connection is disabled',
       'CONNECTION_DISABLED',
@@ -55,7 +56,7 @@ function assertFilesEnabled(connection: OAuthConnection): void {
       403,
     );
   }
-  if (!connection.enabledFeatures.includes('files')) {
+  if (!connection.enabled_features.includes('files')) {
     throw new OAuthError(
       'Files feature is not enabled for this connection',
       'FILES_NOT_ENABLED',
@@ -71,38 +72,38 @@ function assertFilesEnabled(connection: OAuthConnection): void {
  */
 async function resolveConnection(
   pool: Pool,
-  connectionId: string,
-): Promise<{ connection: OAuthConnection; accessToken: string }> {
-  const connection = await getConnection(pool, connectionId);
+  connection_id: string,
+): Promise<{ connection: OAuthConnection; access_token: string }> {
+  const connection = await getConnection(pool, connection_id);
   if (!connection) {
-    throw new NoConnectionError(connectionId);
+    throw new NoConnectionError(connection_id);
   }
   assertFilesEnabled(connection);
-  const accessToken = await getValidAccessToken(pool, connectionId);
-  return { connection, accessToken };
+  const access_token = await getValidAccessToken(pool, connection_id);
+  return { connection, access_token };
 }
 
 /**
  * List files in a folder (or root) for a given connection.
  *
  * @param pool - Database pool for connection lookup and token refresh
- * @param connectionId - UUID of the OAuth connection
- * @param folderId - Optional folder ID; omit for root listing
- * @param pageToken - Optional pagination token from a previous result
+ * @param connection_id - UUID of the OAuth connection
+ * @param folder_id - Optional folder ID; omit for root listing
+ * @param page_token - Optional pagination token from a previous result
  */
 export async function listFiles(
   pool: Pool,
-  connectionId: string,
-  folderId?: string,
-  pageToken?: string,
+  connection_id: string,
+  folder_id?: string,
+  page_token?: string,
 ): Promise<DriveListResult> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
 
   switch (connection.provider) {
     case 'microsoft':
-      return microsoft.listDriveItems(accessToken, connectionId, folderId, pageToken);
+      return microsoft.listDriveItems(access_token, connection_id, folder_id, page_token);
     case 'google':
-      return google.listDriveFiles(accessToken, connectionId, folderId, pageToken);
+      return google.listDriveFiles(access_token, connection_id, folder_id, page_token);
     default:
       throw new OAuthError(
         `Unsupported provider for files: ${connection.provider}`,
@@ -116,23 +117,23 @@ export async function listFiles(
  * Search files across a connected drive.
  *
  * @param pool - Database pool for connection lookup and token refresh
- * @param connectionId - UUID of the OAuth connection
+ * @param connection_id - UUID of the OAuth connection
  * @param query - Search query string
- * @param pageToken - Optional pagination token from a previous result
+ * @param page_token - Optional pagination token from a previous result
  */
 export async function searchFiles(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   query: string,
-  pageToken?: string,
+  page_token?: string,
 ): Promise<DriveListResult> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
 
   switch (connection.provider) {
     case 'microsoft':
-      return microsoft.searchDriveItems(accessToken, connectionId, query, pageToken);
+      return microsoft.searchDriveItems(access_token, connection_id, query, page_token);
     case 'google':
-      return google.searchDriveFiles(accessToken, connectionId, query, pageToken);
+      return google.searchDriveFiles(access_token, connection_id, query, page_token);
     default:
       throw new OAuthError(
         `Unsupported provider for files: ${connection.provider}`,
@@ -146,21 +147,21 @@ export async function searchFiles(
  * Get metadata for a single file, including download URL.
  *
  * @param pool - Database pool for connection lookup and token refresh
- * @param connectionId - UUID of the OAuth connection
+ * @param connection_id - UUID of the OAuth connection
  * @param fileId - Provider-specific file/item ID
  */
 export async function getFile(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   fileId: string,
 ): Promise<DriveFile> {
-  const { connection, accessToken } = await resolveConnection(pool, connectionId);
+  const { connection, access_token } = await resolveConnection(pool, connection_id);
 
   switch (connection.provider) {
     case 'microsoft':
-      return microsoft.getDriveItem(accessToken, connectionId, fileId);
+      return microsoft.getDriveItem(access_token, connection_id, fileId);
     case 'google':
-      return google.getDriveFile(accessToken, connectionId, fileId);
+      return google.getDriveFile(access_token, connection_id, fileId);
     default:
       throw new OAuthError(
         `Unsupported provider for files: ${connection.provider}`,

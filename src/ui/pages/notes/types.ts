@@ -26,15 +26,15 @@ export function toUINote(apiNote: ApiNote): UINote {
     id: apiNote.id,
     title: apiNote.title,
     content: apiNote.content,
-    notebookId: apiNote.notebookId ?? undefined,
+    notebook_id: apiNote.notebook_id ?? undefined,
     notebookTitle: apiNote.notebook?.name,
     visibility: apiNote.visibility,
     hideFromAgents: apiNote.hideFromAgents,
     isPinned: apiNote.isPinned,
     tags: apiNote.tags,
-    createdAt: new Date(apiNote.createdAt),
-    updatedAt: new Date(apiNote.updatedAt),
-    createdBy: apiNote.userEmail,
+    created_at: new Date(apiNote.created_at),
+    updated_at: new Date(apiNote.updated_at),
+    createdBy: apiNote.user_email,
     version: apiNote.versionCount ?? 1,
   };
 }
@@ -49,7 +49,7 @@ export function toUINotebook(apiNotebook: ApiNotebook): UINotebook {
     description: apiNotebook.description ?? undefined,
     color: apiNotebook.color ?? undefined,
     noteCount: apiNotebook.noteCount ?? 0,
-    createdAt: new Date(apiNotebook.createdAt),
-    updatedAt: new Date(apiNotebook.updatedAt),
+    created_at: new Date(apiNotebook.created_at),
+    updated_at: new Date(apiNotebook.updated_at),
   };
 }

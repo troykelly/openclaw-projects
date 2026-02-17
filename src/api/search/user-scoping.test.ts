@@ -52,7 +52,7 @@ describe('Search user_email scoping', () => {
     const result = await unifiedSearch(pool, {
       query: uniqueWord,
       types: ['work_item'],
-      userEmail: aliceEmail,
+      user_email: aliceEmail,
       semantic: false,
     });
 
@@ -68,7 +68,7 @@ describe('Search user_email scoping', () => {
     const result = await unifiedSearch(pool, {
       query: uniqueWord,
       types: ['work_item'],
-      userEmail: bobEmail,
+      user_email: bobEmail,
       semantic: false,
     });
 
@@ -99,7 +99,7 @@ describe('Search user_email scoping', () => {
     const result = await unifiedSearch(pool, {
       query: uniqueWord,
       types: ['work_item'],
-      userEmail: charlieEmail,
+      user_email: charlieEmail,
       semantic: false,
     });
 

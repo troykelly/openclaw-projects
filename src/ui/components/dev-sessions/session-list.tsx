@@ -10,13 +10,13 @@ import {
 import { SessionCard } from './session-card';
 
 export interface SessionListProps {
-  projectId?: string;
+  project_id?: string;
   statusFilter?: string;
 }
 
-export function SessionList({ projectId, statusFilter }: SessionListProps) {
+export function SessionList({ project_id, statusFilter }: SessionListProps) {
   const { data, isLoading } = useDevSessions({
-    projectId,
+    project_id,
     status: statusFilter,
   });
   const completeMutation = useCompleteDevSession();

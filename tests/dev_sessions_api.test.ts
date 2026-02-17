@@ -13,7 +13,7 @@ const TEST_EMAIL = 'dev-session-test@example.com';
 describe('Dev Sessions API (Issue #1285)', () => {
   let app: Awaited<ReturnType<typeof buildServer>>;
   let pool: ReturnType<typeof createTestPool>;
-  let projectId: string;
+  let project_id: string;
 
   beforeAll(async () => {
     pool = createTestPool();
@@ -30,7 +30,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
        RETURNING id::text as id`,
       [TEST_EMAIL],
     );
-    projectId = projectResult.rows[0].id;
+    project_id = projectResult.rows[0].id;
   });
 
   afterAll(async () => {
@@ -78,7 +78,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
           session_name: 'dev-test-001',
           node: 'MST001-service',
           task_summary: 'Fix test parallelism',
-          project_id: projectId,
+          project_id: project_id,
         },
       });
 
@@ -89,7 +89,7 @@ describe('Dev Sessions API (Issue #1285)', () => {
       expect(body.node).toBe('MST001-service');
       expect(body.status).toBe('active');
       expect(body.task_summary).toBe('Fix test parallelism');
-      expect(body.project_id).toBe(projectId);
+      expect(body.project_id).toBe(project_id);
     });
 
     it('creates a session with optional fields', async () => {
@@ -188,14 +188,14 @@ describe('Dev Sessions API (Issue #1285)', () => {
     it('filters by project_id', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/dev-sessions?project_id=${projectId}`,
+        url: `/api/dev-sessions?project_id=${project_id}`,
         headers: { 'x-user-email': TEST_EMAIL },
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       for (const session of body.sessions) {
-        expect(session.project_id).toBe(projectId);
+        expect(session.project_id).toBe(project_id);
       }
     });
   });

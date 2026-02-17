@@ -131,7 +131,7 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
   const context = extractContext(runtime);
 
   // Determine user scope key based on config
-  const userId = getUserScopeKey(
+  const user_id = getUserScopeKey(
     {
       agentId: context.agent.agentId,
       sessionKey: context.session.sessionId,
@@ -145,73 +145,73 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     memoryStore: createMemoryStoreTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     memoryForget: createMemoryForgetTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     projectList: createProjectListTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     projectGet: createProjectGetTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     projectCreate: createProjectCreateTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     todoList: createTodoListTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     todoCreate: createTodoCreateTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     todoComplete: createTodoCompleteTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     contactSearch: createContactSearchTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     contactGet: createContactGetTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     contactCreate: createContactCreateTool({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
   };
 
@@ -221,13 +221,13 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
     agentEnd: createAutoCaptureHook({
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
     }),
   };
 
@@ -239,13 +239,13 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
     client: apiClient,
     logger,
     config,
-    userId,
+    user_id,
   });
 
   logger.info('Plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
-    userId,
+    user_id,
     config: redactConfig(config),
   });
 

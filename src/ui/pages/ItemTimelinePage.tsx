@@ -17,8 +17,8 @@ import { ChevronRight, BarChart3 } from 'lucide-react';
 
 export function ItemTimelinePage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
-  const itemId = id ?? '';
-  const { data, isLoading, error, refetch } = useItemTimeline(itemId);
+  const item_id = id ?? '';
+  const { data, isLoading, error, refetch } = useItemTimeline(item_id);
 
   if (isLoading) {
     return (

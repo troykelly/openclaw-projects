@@ -65,10 +65,10 @@ export function KeyboardShortcutsDialog({ open, onOpenChange, shortcuts }: Keybo
         </DialogHeader>
         <ScrollArea className="max-h-[60vh]">
           <div className="space-y-6 pr-4">
-            {groupEntries.map(([groupName, items], groupIndex) => (
-              <div key={groupName}>
+            {groupEntries.map(([group_name, items], groupIndex) => (
+              <div key={group_name}>
                 {groupIndex > 0 && <Separator className="mb-4" />}
-                <h3 className="mb-3 text-sm font-medium text-foreground">{groupName}</h3>
+                <h3 className="mb-3 text-sm font-medium text-foreground">{group_name}</h3>
                 <div className="space-y-2">
                   {items.map((shortcut) => (
                     <div key={shortcut.id} className="flex items-center justify-between py-1">

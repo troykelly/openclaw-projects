@@ -59,19 +59,19 @@ describe('RealtimeHub', () => {
   describe('addClient', () => {
     it('adds a client and returns a client ID', () => {
       const socket = new MockWebSocket();
-      const clientId = hub.addClient(socket as unknown as WebSocket);
+      const client_id = hub.addClient(socket as unknown as WebSocket);
 
-      expect(clientId).toBeDefined();
-      expect(typeof clientId).toBe('string');
+      expect(client_id).toBeDefined();
+      expect(typeof client_id).toBe('string');
       expect(hub.getClientCount()).toBe(1);
     });
 
     it('associates client with user ID when provided', () => {
       const socket = new MockWebSocket();
-      const userId = 'user@example.com';
-      const clientId = hub.addClient(socket as unknown as WebSocket, userId);
+      const user_id = 'user@example.com';
+      const client_id = hub.addClient(socket as unknown as WebSocket, user_id);
 
-      expect(hub.getUserClientIds(userId)).toContain(clientId);
+      expect(hub.getUserClientIds(user_id)).toContain(client_id);
     });
 
     it('sends connection established event to new client', () => {
@@ -81,31 +81,31 @@ describe('RealtimeHub', () => {
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
       expect(event.event).toBe('connection:established');
-      expect(event.data).toHaveProperty('clientId');
-      expect(event.data).toHaveProperty('connectedAt');
+      expect(event.data).toHaveProperty('client_id');
+      expect(event.data).toHaveProperty('connected_at');
     });
   });
 
   describe('removeClient', () => {
     it('removes a client', () => {
       const socket = new MockWebSocket();
-      const clientId = hub.addClient(socket as unknown as WebSocket);
+      const client_id = hub.addClient(socket as unknown as WebSocket);
 
       expect(hub.getClientCount()).toBe(1);
 
-      hub.removeClient(clientId);
+      hub.removeClient(client_id);
 
       expect(hub.getClientCount()).toBe(0);
     });
 
     it('removes client from user mapping', () => {
       const socket = new MockWebSocket();
-      const userId = 'user@example.com';
-      const clientId = hub.addClient(socket as unknown as WebSocket, userId);
+      const user_id = 'user@example.com';
+      const client_id = hub.addClient(socket as unknown as WebSocket, user_id);
 
-      hub.removeClient(clientId);
+      hub.removeClient(client_id);
 
-      expect(hub.getUserClientIds(userId)).toHaveLength(0);
+      expect(hub.getUserClientIds(user_id)).toHaveLength(0);
     });
 
     it('handles removing non-existent client gracefully', () => {
@@ -116,7 +116,7 @@ describe('RealtimeHub', () => {
   describe('sendToClient', () => {
     it('sends event to a specific client', () => {
       const socket = new MockWebSocket();
-      const clientId = hub.addClient(socket as unknown as WebSocket);
+      const client_id = hub.addClient(socket as unknown as WebSocket);
       socket.messages = []; // Clear the connection established message
 
       const event: RealtimeEvent = {
@@ -125,7 +125,7 @@ describe('RealtimeHub', () => {
         timestamp: new Date().toISOString(),
       };
 
-      const result = hub.sendToClient(clientId, event);
+      const result = hub.sendToClient(client_id, event);
 
       expect(result).toBe(true);
       expect(socket.messages.length).toBe(1);
@@ -146,7 +146,7 @@ describe('RealtimeHub', () => {
 
     it('returns false for closed socket', () => {
       const socket = new MockWebSocket();
-      const clientId = hub.addClient(socket as unknown as WebSocket);
+      const client_id = hub.addClient(socket as unknown as WebSocket);
       socket.readyState = 3; // CLOSED
       socket.messages = [];
 
@@ -156,7 +156,7 @@ describe('RealtimeHub', () => {
         timestamp: new Date().toISOString(),
       };
 
-      const result = hub.sendToClient(clientId, event);
+      const result = hub.sendToClient(client_id, event);
 
       expect(result).toBe(false);
       expect(socket.messages.length).toBe(0);
@@ -165,12 +165,12 @@ describe('RealtimeHub', () => {
 
   describe('sendToUser', () => {
     it('sends event to all user connections', () => {
-      const userId = 'user@example.com';
+      const user_id = 'user@example.com';
       const socket1 = new MockWebSocket();
       const socket2 = new MockWebSocket();
 
-      hub.addClient(socket1 as unknown as WebSocket, userId);
-      hub.addClient(socket2 as unknown as WebSocket, userId);
+      hub.addClient(socket1 as unknown as WebSocket, user_id);
+      hub.addClient(socket2 as unknown as WebSocket, user_id);
 
       socket1.messages = [];
       socket2.messages = [];
@@ -181,7 +181,7 @@ describe('RealtimeHub', () => {
         timestamp: new Date().toISOString(),
       };
 
-      const sent = hub.sendToUser(userId, event);
+      const sent = hub.sendToUser(user_id, event);
 
       expect(sent).toBe(2);
       expect(socket1.messages.length).toBe(1);
@@ -233,12 +233,12 @@ describe('RealtimeHub', () => {
   describe('updateClientPing', () => {
     it('updates client last ping time', () => {
       const socket = new MockWebSocket();
-      const clientId = hub.addClient(socket as unknown as WebSocket);
+      const client_id = hub.addClient(socket as unknown as WebSocket);
 
       // Advance time
       vi.advanceTimersByTime(10000);
 
-      hub.updateClientPing(clientId);
+      hub.updateClientPing(client_id);
 
       // Client should still be active after heartbeat check
       expect(hub.getClientCount()).toBe(1);
@@ -251,14 +251,14 @@ describe('RealtimeHub', () => {
 
   describe('getUserClientIds', () => {
     it('returns all client IDs for a user', () => {
-      const userId = 'user@example.com';
+      const user_id = 'user@example.com';
       const socket1 = new MockWebSocket();
       const socket2 = new MockWebSocket();
 
-      const clientId1 = hub.addClient(socket1 as unknown as WebSocket, userId);
-      const clientId2 = hub.addClient(socket2 as unknown as WebSocket, userId);
+      const clientId1 = hub.addClient(socket1 as unknown as WebSocket, user_id);
+      const clientId2 = hub.addClient(socket2 as unknown as WebSocket, user_id);
 
-      const clientIds = hub.getUserClientIds(userId);
+      const clientIds = hub.getUserClientIds(user_id);
 
       expect(clientIds).toContain(clientId1);
       expect(clientIds).toContain(clientId2);
@@ -315,12 +315,12 @@ describe('RealtimeHub emit', () => {
   });
 
   it('emits event to specific user', async () => {
-    const userId = 'user@example.com';
+    const user_id = 'user@example.com';
     const socket = new MockWebSocket();
-    hub.addClient(socket as unknown as WebSocket, userId);
+    hub.addClient(socket as unknown as WebSocket, user_id);
     socket.messages = [];
 
-    await hub.emit('work_item:created', { id: '123' }, userId);
+    await hub.emit('work_item:created', { id: '123' }, user_id);
 
     expect(socket.messages.length).toBe(1);
     const event = JSON.parse(socket.messages[0]) as RealtimeEvent;

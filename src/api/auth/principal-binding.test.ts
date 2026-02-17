@@ -2,7 +2,7 @@
  * Integration tests for principal binding (Issue #1353).
  *
  * Verifies that the preHandler hook in server.ts correctly enforces
- * principal binding: user tokens have their user_email/userEmail
+ * principal binding: user tokens have their user_email/user_email
  * parameters overridden with the authenticated identity's email,
  * while M2M tokens pass through the requested email unchanged.
  *
@@ -132,11 +132,11 @@ describe('Principal binding enforcement (Issue #1353)', () => {
       const bound = identity.email;
 
       if ('user_email' in query) query.user_email = bound;
-      if ('userEmail' in query) query.userEmail = bound;
+      if ('user_email' in query) query.user_email = bound;
 
       if (body && typeof body === 'object') {
         if ('user_email' in body) body.user_email = bound;
-        if ('userEmail' in body) body.userEmail = bound;
+        if ('user_email' in body) body.user_email = bound;
 
         for (const arrayKey of ['items', 'memories', 'contacts']) {
           const arr = body[arrayKey];
@@ -163,11 +163,11 @@ describe('Principal binding enforcement (Issue #1353)', () => {
       expect(query.limit).toBe('10'); // Other params untouched
     });
 
-    it('user token: overrides query.userEmail (camelCase)', async () => {
-      const query: Record<string, unknown> = { userEmail: 'evil@attacker.com' };
+    it('user token: overrides query.user_email (camelCase)', async () => {
+      const query: Record<string, unknown> = { user_email: 'evil@attacker.com' };
       await simulatePreHandler({ email: 'alice@example.com', type: 'user' }, query, null, {});
 
-      expect(query.userEmail).toBe('alice@example.com');
+      expect(query.user_email).toBe('alice@example.com');
     });
 
     it('user token: overrides body.user_email', async () => {

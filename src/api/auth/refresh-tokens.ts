@@ -47,21 +47,21 @@ export async function createRefreshToken(
   pool: Pool,
   email: string,
   familyId?: string,
-): Promise<{ token: string; id: string; familyId: string }> {
+): Promise<{ token: string; id: string; family_id: string }> {
   const token = generateToken();
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_MS);
+  const expires_at = new Date(Date.now() + TOKEN_LIFETIME_MS);
 
   // If no familyId provided, Postgres will generate one via gen_random_uuid()
   const result = await pool.query<{ id: string; family_id: string }>(
     `INSERT INTO auth_refresh_token (token_sha256, email, family_id, expires_at)
      VALUES ($1, $2, COALESCE($3::uuid, gen_random_uuid()), $4)
      RETURNING id, family_id`,
-    [tokenHash, email, familyId ?? null, expiresAt],
+    [tokenHash, email, familyId ?? null, expires_at],
   );
 
   const row = result.rows[0];
-  return { token, id: row.id, familyId: row.family_id };
+  return { token, id: row.id, family_id: row.family_id };
 }
 
 /**
@@ -83,7 +83,7 @@ export async function createRefreshToken(
 export async function consumeRefreshToken(
   pool: Pool,
   token: string,
-): Promise<{ email: string; familyId: string; tokenId: string }> {
+): Promise<{ email: string; family_id: string; token_id: string }> {
   const tokenHash = hashToken(token);
   const client = await pool.connect();
 
@@ -133,7 +133,7 @@ export async function consumeRefreshToken(
       if (graceExpiry && graceExpiry > new Date()) {
         // Within grace window — allow the reuse
         await client.query('COMMIT');
-        return { email: row.email, familyId: row.family_id, tokenId: row.id };
+        return { email: row.email, family_id: row.family_id, token_id: row.id };
       }
 
       // Outside grace window (or no grace window set) — reuse detected! Revoke the entire family.
@@ -156,7 +156,7 @@ export async function consumeRefreshToken(
     );
 
     await client.query('COMMIT');
-    return { email: row.email, familyId: row.family_id, tokenId: row.id };
+    return { email: row.email, family_id: row.family_id, token_id: row.id };
   } catch (err) {
     // Rollback only if we haven't already committed/rolled back
     try {

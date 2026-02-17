@@ -42,11 +42,11 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.id).toBeDefined();
       expect(body.title).toBe('My First Note');
       expect(body.content).toBe('This is the content of my note.');
-      expect(body.userEmail).toBe(testUserEmail);
+      expect(body.user_email).toBe(testUserEmail);
       expect(body.visibility).toBe('private');
-      expect(body.isPinned).toBe(false);
+      expect(body.is_pinned).toBe(false);
       expect(body.tags).toEqual([]);
-      expect(body.embeddingStatus).toBe('pending');
+      expect(body.embedding_status).toBe('pending');
     });
 
     it('creates a note with all optional fields', async () => {
@@ -69,15 +69,15 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       const body = res.json();
       expect(body.tags).toEqual(['work', 'important']);
       expect(body.visibility).toBe('public');
-      expect(body.hideFromAgents).toBe(true);
+      expect(body.hide_from_agents).toBe(true);
       expect(body.summary).toBe('A brief summary');
-      expect(body.isPinned).toBe(true);
+      expect(body.is_pinned).toBe(true);
     });
 
     it('creates a note in a notebook', async () => {
       // Create a notebook first
       const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Work Notebook') RETURNING id::text as id`, [testUserEmail]);
-      const notebookId = (nbResult.rows[0] as { id: string }).id;
+      const notebook_id = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
@@ -85,13 +85,13 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
         payload: {
           user_email: testUserEmail,
           title: 'Notebook Note',
-          notebook_id: notebookId,
+          notebook_id: notebook_id,
         },
       });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.notebookId).toBe(notebookId);
+      expect(body.notebook_id).toBe(notebook_id);
     });
 
     it('returns 400 when user_email is missing', async () => {
@@ -153,7 +153,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     it("returns 403 when adding note to someone else's notebook", async () => {
       // Create a notebook owned by another user
       const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other Notebook') RETURNING id::text as id`, [otherUserEmail]);
-      const notebookId = (nbResult.rows[0] as { id: string }).id;
+      const notebook_id = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
@@ -161,7 +161,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
         payload: {
           user_email: testUserEmail,
           title: 'Test',
-          notebook_id: notebookId,
+          notebook_id: notebook_id,
         },
       });
 
@@ -291,14 +291,14 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     it('filters notes by notebook', async () => {
       // Create a notebook and a note in it
       const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test Notebook') RETURNING id::text as id`, [testUserEmail]);
-      const notebookId = (nbResult.rows[0] as { id: string }).id;
+      const notebook_id = (nbResult.rows[0] as { id: string }).id;
 
-      await pool.query(`INSERT INTO note (user_email, title, notebook_id) VALUES ($1, 'Notebook Note', $2)`, [testUserEmail, notebookId]);
+      await pool.query(`INSERT INTO note (user_email, title, notebook_id) VALUES ($1, 'Notebook Note', $2)`, [testUserEmail, notebook_id]);
 
       const res = await app.inject({
         method: 'GET',
         url: '/api/notes',
-        query: { user_email: testUserEmail, notebook_id: notebookId },
+        query: { user_email: testUserEmail, notebook_id: notebook_id },
       });
 
       expect(res.statusCode).toBe(200);
@@ -390,7 +390,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().versionCount).toBeDefined();
+      expect(res.json().version_count).toBeDefined();
     });
   });
 
@@ -474,7 +474,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.isPinned).toBe(true);
+      expect(body.is_pinned).toBe(true);
       expect(body.title).toBe('Original Title'); // Unchanged
     });
 
@@ -559,7 +559,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.id).toBe(noteId);
-      expect(body.deletedAt).toBeNull();
+      expect(body.deleted_at).toBeNull();
     });
 
     it('returns 400 when user_email is missing', async () => {

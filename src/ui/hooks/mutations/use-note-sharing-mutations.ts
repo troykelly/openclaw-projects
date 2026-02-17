@@ -131,7 +131,7 @@ export interface RevokeNoteShareVariables {
  * mutate(
  *   {
  *     noteId: noteId,
- *     body: { email: userEmail, permission: 'read_write' },
+ *     body: { email: user_email, permission: 'read_write' },
  *   },
  *   {
  *     onSuccess: (share) => {
@@ -214,7 +214,7 @@ export function useShareNoteWithUser(): UseMutationResult<NoteUserShare, ApiRequ
  *     noteId: noteId,
  *     body: {
  *       permission: 'read',
- *       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+ *       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
  *       maxViews: 10,
  *     },
  *   },
@@ -292,7 +292,7 @@ export function useCreateNoteShareLink(): UseMutationResult<CreateLinkShareRespo
  *     noteId,
  *     shareId,
  *     body: {
- *       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+ *       expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
  *     },
  *   },
  *   {

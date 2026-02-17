@@ -2,7 +2,7 @@
  * Rate limiter for injection detection logging.
  *
  * Prevents log flooding when an attacker sends many injection-containing
- * messages. Logs the first N detections per key (sender/userId) per window,
+ * messages. Logs the first N detections per key (sender/user_id) per window,
  * then samples at a configurable rate. Emits summary entries for suppressed
  * counts when a new window begins.
  *

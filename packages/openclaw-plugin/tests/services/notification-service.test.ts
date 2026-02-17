@@ -61,7 +61,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
       });
 
@@ -81,7 +81,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config,
       });
@@ -100,7 +100,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -119,7 +119,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 60000 },
       });
@@ -137,7 +137,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true },
       });
@@ -152,7 +152,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: false },
       });
@@ -173,7 +173,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -191,8 +191,8 @@ describe('Notification Service', () => {
         {
           id: 'notif-1',
           event: 'message.new' as const,
-          payload: { messageId: 'msg-1', channel: 'sms' },
-          createdAt: '2025-01-01T00:00:00Z',
+          payload: { message_id: 'msg-1', channel: 'sms' },
+          created_at: '2025-01-01T00:00:00Z',
         },
       ];
 
@@ -204,7 +204,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -214,7 +214,7 @@ describe('Notification Service', () => {
       // Fast-forward to trigger poll
       await vi.advanceTimersByTimeAsync(5000);
 
-      expect(mockEmitter.emit).toHaveBeenCalledWith('projects:message', expect.objectContaining({ messageId: 'msg-1' }));
+      expect(mockEmitter.emit).toHaveBeenCalledWith('projects:message', expect.objectContaining({ message_id: 'msg-1' }));
     });
 
     it('should handle poll errors gracefully', async () => {
@@ -223,7 +223,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });
@@ -253,7 +253,7 @@ describe('Notification Service', () => {
             id: 'notif-1',
             event,
             payload: { id: 'test-id' },
-            createdAt: '2025-01-01T00:00:00Z',
+            created_at: '2025-01-01T00:00:00Z',
           },
         ];
 
@@ -265,7 +265,7 @@ describe('Notification Service', () => {
         const service = createNotificationService({
           logger: mockLogger,
           apiClient: mockApiClient,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
           events: mockEmitter,
           config: { enabled: true, pollIntervalMs: 5000 },
         });
@@ -283,7 +283,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true },
       });
@@ -301,7 +301,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true },
       });
@@ -321,7 +321,7 @@ describe('Notification Service', () => {
       const service = createNotificationService({
         logger: mockLogger,
         apiClient: mockApiClient,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
         events: mockEmitter,
         config: { enabled: true, pollIntervalMs: 5000 },
       });

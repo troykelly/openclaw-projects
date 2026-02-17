@@ -263,8 +263,8 @@ describe('Message embeddings (#295)', () => {
         runAt: new Date(),
         payload: { message_id: testMessageId },
         attempts: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       // Without provider configured, should succeed but stay pending
@@ -284,8 +284,8 @@ describe('Message embeddings (#295)', () => {
         runAt: new Date(),
         payload: { message_id: 'nonexistent-id' },
         attempts: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       expect(result.success).toBe(false);
@@ -330,7 +330,7 @@ describe('Message embeddings (#295)', () => {
 
       // With embeddings configured, semantic search is used but messages
       // without embeddings fall back to text matching
-      expect(['semantic', 'text']).toContain(result.searchType);
+      expect(['semantic', 'text']).toContain(result.search_type);
       // Search should work regardless of mode
       expect(result.results).toBeDefined();
     });
@@ -433,17 +433,17 @@ describe('Message embeddings (#295)', () => {
     it('processes batch of pending messages', async () => {
       const { backfillMessageEmbeddings } = await import('../src/api/embeddings/message-integration.js');
 
-      const result = await backfillMessageEmbeddings(pool, { batchSize: 10 });
+      const result = await backfillMessageEmbeddings(pool, { batch_size: 10 });
 
       expect(result.processed).toBe(3);
       // Without provider configured, all stay pending
       expect(result.succeeded + result.failed).toBeLessThanOrEqual(3);
     });
 
-    it('respects batchSize limit', async () => {
+    it('respects batch_size limit', async () => {
       const { backfillMessageEmbeddings } = await import('../src/api/embeddings/message-integration.js');
 
-      const result = await backfillMessageEmbeddings(pool, { batchSize: 2 });
+      const result = await backfillMessageEmbeddings(pool, { batch_size: 2 });
 
       expect(result.processed).toBe(2);
     });

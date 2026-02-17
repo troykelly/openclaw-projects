@@ -274,7 +274,7 @@ describe('useCreateMemory', () => {
 
     act(() => {
       result.current.mutate({
-        workItemId: 'wi-1',
+        work_item_id: 'wi-1',
         body: { title: 'Note', content: 'Details' },
       });
     });
@@ -300,7 +300,7 @@ describe('useUpdateMemory', () => {
       result.current.mutate({
         id: 'm1',
         body: { title: 'Updated Note' },
-        workItemId: 'wi-1',
+        work_item_id: 'wi-1',
       });
     });
 
@@ -326,7 +326,7 @@ describe('useUpdateContact', () => {
     act(() => {
       result.current.mutate({
         id: 'c1',
-        body: { displayName: 'Jane Doe' },
+        body: { display_name: 'Jane Doe' },
       });
     });
 

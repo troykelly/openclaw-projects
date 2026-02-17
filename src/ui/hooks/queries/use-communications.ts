@@ -10,19 +10,19 @@ import type { CommunicationsResponse } from '@/ui/lib/api-types.ts';
 /** Query key factory for communications. */
 export const communicationsKeys = {
   all: ['communications'] as const,
-  forWorkItem: (workItemId: string) => [...communicationsKeys.all, 'work-item', workItemId] as const,
+  forWorkItem: (work_item_id: string) => [...communicationsKeys.all, 'work-item', work_item_id] as const,
 };
 
 /**
  * Fetch communications linked to a work item.
  *
- * @param workItemId - The work item UUID
+ * @param work_item_id - The work item UUID
  * @returns TanStack Query result with `CommunicationsResponse`
  */
-export function useWorkItemCommunications(workItemId: string) {
+export function useWorkItemCommunications(work_item_id: string) {
   return useQuery({
-    queryKey: communicationsKeys.forWorkItem(workItemId),
-    queryFn: ({ signal }) => apiClient.get<CommunicationsResponse>(`/api/work-items/${workItemId}/communications`, { signal }),
-    enabled: !!workItemId,
+    queryKey: communicationsKeys.forWorkItem(work_item_id),
+    queryFn: ({ signal }) => apiClient.get<CommunicationsResponse>(`/api/work-items/${work_item_id}/communications`, { signal }),
+    enabled: !!work_item_id,
   });
 }

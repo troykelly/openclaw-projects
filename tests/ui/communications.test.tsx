@@ -24,7 +24,7 @@ const mockEmail: LinkedEmail = {
   snippet: 'Hi team, I wanted to share the latest project updates from our Q1 review meeting...',
   body: 'Hi team,\n\nI wanted to share the latest project updates from our Q1 review meeting.\n\nBest,\nJohn',
   hasAttachments: true,
-  isRead: false,
+  is_read: false,
 };
 
 const mockEmails: LinkedEmail[] = [
@@ -36,7 +36,7 @@ const mockEmails: LinkedEmail[] = [
     to: [{ name: 'John Doe', email: 'john@example.com' }],
     date: new Date(Date.now() - 86400000), // Yesterday
     snippet: 'Thanks for the update! I have a few questions...',
-    isRead: true,
+    is_read: true,
   },
 ];
 

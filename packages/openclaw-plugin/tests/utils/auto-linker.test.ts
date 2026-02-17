@@ -76,8 +76,8 @@ describe('auto-linker', () => {
 
   describe('sender -> contact matching', () => {
     it('should link thread to contact when sender email matches a contact', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -85,7 +85,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -102,21 +102,21 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Hello there',
         },
       });
 
-      expect(result.matches.contacts).toContain(contactId);
+      expect(result.matches.contacts).toContain(contact_id);
       expect(result.linksCreated).toBeGreaterThanOrEqual(1);
     });
 
     it('should link thread to contact when sender phone matches a contact', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -124,7 +124,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Bob', phone: '+61400000000' },
+                { id: contact_id, display_name: 'Bob', phone: '+61400000000' },
               ],
               total: 1,
             },
@@ -141,21 +141,21 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderPhone: '+61400000000',
           content: 'Hey Bob here',
         },
       });
 
-      expect(result.matches.contacts).toContain(contactId);
+      expect(result.matches.contacts).toContain(contact_id);
       expect(result.linksCreated).toBeGreaterThanOrEqual(1);
     });
 
     it('should search both email and phone when both are provided', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -163,7 +163,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com', phone: '+61400000000' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com', phone: '+61400000000' },
               ],
               total: 1,
             },
@@ -180,9 +180,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           senderPhone: '+61400000000',
           content: 'Hello',
@@ -196,7 +196,7 @@ describe('auto-linker', () => {
 
       // But should only create one set of links (deduplicated by ID)
       expect(result.matches.contacts).toHaveLength(1);
-      expect(result.matches.contacts).toContain(contactId);
+      expect(result.matches.contacts).toContain(contact_id);
     });
 
     it('should skip contact linking when no sender info is provided', async () => {
@@ -205,9 +205,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           content: 'Anonymous message',
         },
       });
@@ -233,9 +233,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'unknown@example.com',
           content: 'Hello from unknown',
         },
@@ -258,9 +258,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -284,9 +284,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -301,8 +301,8 @@ describe('auto-linker', () => {
 
   describe('thread link type', () => {
     it('should use url type with thread: URI prefix for thread links', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -310,7 +310,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -327,9 +327,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -343,7 +343,7 @@ describe('auto-linker', () => {
       const data = body.data as Record<string, unknown>;
       // One of forward/reverse should reference the thread
       const key = body.key as string;
-      expect(key).toContain(`thread:${threadId}`);
+      expect(key).toContain(`thread:${thread_id}`);
     });
   });
 
@@ -361,9 +361,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'stranger@example.com',
           content: 'This message about the tiny home build should not trigger content linking',
         },
@@ -387,9 +387,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           content: 'Anonymous message about projects',
         },
       });
@@ -400,9 +400,9 @@ describe('auto-linker', () => {
     });
 
     it('should run content matching when sender matches a known contact', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const projectId = '33333333-3333-3333-3333-333333333333';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const project_id = '33333333-3333-3333-3333-333333333333';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -410,7 +410,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -420,7 +420,7 @@ describe('auto-linker', () => {
             data: {
               results: [
                 {
-                  id: projectId,
+                  id: project_id,
                   title: 'Tiny home build',
                   snippet: 'Building a tiny home',
                   score: 0.85,
@@ -444,24 +444,24 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'The timber for the tiny home build is ready',
         },
       });
 
-      expect(result.matches.contacts).toContain(contactId);
-      expect(result.matches.projects).toContain(projectId);
+      expect(result.matches.contacts).toContain(contact_id);
+      expect(result.matches.projects).toContain(project_id);
     });
   });
 
   describe('content -> project matching', () => {
     it('should link thread to project when content matches above threshold', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const projectId = '33333333-3333-3333-3333-333333333333';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const project_id = '33333333-3333-3333-3333-333333333333';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -469,7 +469,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -479,7 +479,7 @@ describe('auto-linker', () => {
             data: {
               results: [
                 {
-                  id: projectId,
+                  id: project_id,
                   title: 'Tiny home build',
                   snippet: 'Building a tiny home',
                   score: 0.85,
@@ -503,21 +503,21 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'The timber for the tiny home build is ready for pickup',
         },
       });
 
-      expect(result.matches.projects).toContain(projectId);
+      expect(result.matches.projects).toContain(project_id);
       expect(result.linksCreated).toBeGreaterThanOrEqual(2); // contact + project
     });
 
     it('should not link project when score is below threshold', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -525,7 +525,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -559,9 +559,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'This should not match',
         },
@@ -571,9 +571,9 @@ describe('auto-linker', () => {
     });
 
     it('should respect custom similarity threshold', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const projectId = '33333333-3333-3333-3333-333333333333';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const project_id = '33333333-3333-3333-3333-333333333333';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -581,7 +581,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -591,7 +591,7 @@ describe('auto-linker', () => {
             data: {
               results: [
                 {
-                  id: projectId,
+                  id: project_id,
                   title: 'Project',
                   snippet: 'A project',
                   score: 0.6,
@@ -616,24 +616,24 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Some project related message',
         },
         similarityThreshold: 0.5,
       });
 
-      expect(result.matches.projects).toContain(projectId);
+      expect(result.matches.projects).toContain(project_id);
     });
   });
 
   describe('content -> todo matching', () => {
     it('should link thread to todo when content matches above threshold', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
       const todoId = '44444444-4444-4444-4444-444444444444';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -641,7 +641,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -675,9 +675,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Remember to buy asparagus at the store',
         },
@@ -690,9 +690,9 @@ describe('auto-linker', () => {
 
   describe('combined matching', () => {
     it('should match contacts and then content for known senders', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const projectId = '33333333-3333-3333-3333-333333333333';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const project_id = '33333333-3333-3333-3333-333333333333';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -700,7 +700,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -710,7 +710,7 @@ describe('auto-linker', () => {
             data: {
               results: [
                 {
-                  id: projectId,
+                  id: project_id,
                   title: 'Home renovation',
                   snippet: 'Kitchen remodel',
                   score: 0.88,
@@ -734,30 +734,30 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'The kitchen remodel tiles arrived',
         },
       });
 
-      expect(result.matches.contacts).toContain(contactId);
-      expect(result.matches.projects).toContain(projectId);
+      expect(result.matches.contacts).toContain(contact_id);
+      expect(result.matches.projects).toContain(project_id);
       expect(result.linksCreated).toBeGreaterThanOrEqual(2);
     });
   });
 
   describe('content sanitization', () => {
     it('should sanitize content before search (control chars removed)', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
           '/api/contacts': {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -778,9 +778,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
           content: 'Hello\x00\x01\x02World',
         },
@@ -798,7 +798,7 @@ describe('auto-linker', () => {
 
   describe('failure isolation', () => {
     it('should not crash when contact linking fails and skip content linking (no known sender)', async () => {
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -812,9 +812,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'A task related message',
         },
@@ -828,8 +828,8 @@ describe('auto-linker', () => {
     });
 
     it('should not crash when link creation fails', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       const client = createMockClient({
         getResponses: {
@@ -837,7 +837,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -854,9 +854,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -875,9 +875,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -893,8 +893,8 @@ describe('auto-linker', () => {
 
   describe('rollback handling', () => {
     it('should log partial state when rollback delete fails', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       let postCallCount = 0;
       const client = createMockClient({
@@ -903,7 +903,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -936,9 +936,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -955,8 +955,8 @@ describe('auto-linker', () => {
 
   describe('idempotency', () => {
     it('should not create duplicate links on repeated calls', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
-      const threadId = '22222222-2222-2222-2222-222222222222';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
+      const thread_id = '22222222-2222-2222-2222-222222222222';
 
       // skill-store upserts by key, so repeated calls should just overwrite
       const client = createMockClient({
@@ -965,7 +965,7 @@ describe('auto-linker', () => {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -982,9 +982,9 @@ describe('auto-linker', () => {
       const opts: AutoLinkOptions = {
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId,
+          thread_id,
           senderEmail: 'alice@example.com',
           content: 'Hello',
         },
@@ -1005,14 +1005,14 @@ describe('auto-linker', () => {
 
   describe('empty content handling', () => {
     it('should skip content matching when message content is empty', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
           '/api/contacts': {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -1029,9 +1029,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
           content: '',
         },
@@ -1044,14 +1044,14 @@ describe('auto-linker', () => {
     });
 
     it('should skip content matching when content is only whitespace', async () => {
-      const contactId = '11111111-1111-1111-1111-111111111111';
+      const contact_id = '11111111-1111-1111-1111-111111111111';
       const client = createMockClient({
         getResponses: {
           '/api/contacts': {
             success: true,
             data: {
               contacts: [
-                { id: contactId, display_name: 'Alice', email: 'alice@example.com' },
+                { id: contact_id, display_name: 'Alice', email: 'alice@example.com' },
               ],
               total: 1,
             },
@@ -1068,9 +1068,9 @@ describe('auto-linker', () => {
       await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           senderEmail: 'alice@example.com',
           content: '   \n  ',
         },
@@ -1089,9 +1089,9 @@ describe('auto-linker', () => {
       const result = await autoLinkInboundMessage({
         client,
         logger: mockLogger,
-        userId: 'user@test.com',
+        user_id: 'user@test.com',
         message: {
-          threadId: '22222222-2222-2222-2222-222222222222',
+          thread_id: '22222222-2222-2222-2222-222222222222',
           content: 'Hello',
         },
       });

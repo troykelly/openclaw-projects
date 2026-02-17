@@ -47,7 +47,7 @@ export interface ContactSearchSuccess {
     details: {
       contacts: Contact[];
       total: number;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -65,7 +65,7 @@ export interface ContactToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -123,7 +123,7 @@ function _isValidPhone(phone: string): boolean {
  * Creates the contact_search tool.
  */
 export function createContactSearchTool(options: ContactToolOptions): ContactSearchTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'contact_search',
@@ -145,7 +145,7 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
       }
 
       // Log without PII
-      logger.info('contact_search invoked', { userId, queryLength: sanitizedQuery.length, limit });
+      logger.info('contact_search invoked', { user_id, queryLength: sanitizedQuery.length, limit });
 
       try {
         const queryParams = new URLSearchParams({
@@ -154,12 +154,12 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
         });
 
         const response = await client.get<{ contacts?: Contact[]; items?: Contact[]; total?: number }>(`/api/contacts?${queryParams.toString()}`, {
-          userId,
+          user_id,
         });
 
         if (!response.success) {
           logger.error('contact_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -177,7 +177,7 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
             success: true,
             data: {
               content: 'No contacts found matching your search.',
-              details: { contacts: [], total: 0, userId },
+              details: { contacts: [], total: 0, user_id },
             },
           };
         }
@@ -192,18 +192,18 @@ export function createContactSearchTool(options: ContactToolOptions): ContactSea
           .join('\n');
 
         // Don't log contact details
-        logger.debug('contact_search completed', { userId, count: contacts.length });
+        logger.debug('contact_search completed', { user_id, count: contacts.length });
 
         return {
           success: true,
           data: {
             content,
-            details: { contacts, total, userId },
+            details: { contacts, total, user_id },
           },
         };
       } catch (error) {
         logger.error('contact_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -227,7 +227,7 @@ export interface ContactGetSuccess {
     content: string;
     details: {
       contact: Contact;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -245,7 +245,7 @@ export interface ContactGetTool {
  * Creates the contact_get tool.
  */
 export function createContactGetTool(options: ContactToolOptions): ContactGetTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'contact_get',
@@ -266,18 +266,18 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
         return { success: false, error: 'Invalid contact ID format. Expected UUID.' };
       }
 
-      logger.info('contact_get invoked', { userId, contactId: id });
+      logger.info('contact_get invoked', { user_id, contact_id: id });
 
       try {
-        const response = await client.get<Contact>(`/api/contacts/${id}`, { userId });
+        const response = await client.get<Contact>(`/api/contacts/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
             return { success: false, error: 'Contact not found.' };
           }
           logger.error('contact_get API error', {
-            userId,
-            contactId: id,
+            user_id,
+            contact_id: id,
             status: response.error.status,
           });
           return {
@@ -294,19 +294,19 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
 
         const content = lines.join('\n');
 
-        logger.debug('contact_get completed', { userId, contactId: id });
+        logger.debug('contact_get completed', { user_id, contact_id: id });
 
         return {
           success: true,
           data: {
             content,
-            details: { contact, userId },
+            details: { contact, user_id },
           },
         };
       } catch (error) {
         logger.error('contact_get failed', {
-          userId,
-          contactId: id,
+          user_id,
+          contact_id: id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -321,7 +321,7 @@ export function createContactGetTool(options: ContactToolOptions): ContactGetToo
 export const ContactCreateParamsSchema = z.object({
   name: z.string().min(1, 'Contact name is required').max(200, 'Contact name must be 200 characters or less'),
   notes: z.string().max(2000, 'Notes must be 2000 characters or less').optional(),
-  contactKind: z.string().max(50, 'Contact kind must be 50 characters or less').optional(),
+  contact_kind: z.string().max(50, 'Contact kind must be 50 characters or less').optional(),
 });
 export type ContactCreateParams = z.infer<typeof ContactCreateParamsSchema>;
 
@@ -333,7 +333,7 @@ export interface ContactCreateSuccess {
     details: {
       id: string;
       display_name: string;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -351,7 +351,7 @@ export interface ContactCreateTool {
  * Creates the contact_create tool.
  */
 export function createContactCreateTool(options: ContactToolOptions): ContactCreateTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'contact_create',
@@ -365,7 +365,7 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
         return { success: false, error: errorMessage };
       }
 
-      const { name, notes, contactKind } = parseResult.data;
+      const { name, notes, contact_kind } = parseResult.data;
 
       // Sanitize input
       const sanitizedName = stripHtml(name);
@@ -377,10 +377,10 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
 
       // Log without PII
       logger.info('contact_create invoked', {
-        userId,
+        user_id,
         nameLength: sanitizedName.length,
         hasNotes: !!notes,
-        contactKind: contactKind ?? 'person',
+        contact_kind: contact_kind ?? 'person',
       });
 
       try {
@@ -390,15 +390,15 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
         if (sanitizedNotes) {
           body.notes = sanitizedNotes;
         }
-        if (contactKind) {
-          body.contact_kind = contactKind;
+        if (contact_kind) {
+          body.contact_kind = contact_kind;
         }
 
-        const response = await client.post<{ id: string; display_name?: string }>('/api/contacts', body, { userId });
+        const response = await client.post<{ id: string; display_name?: string }>('/api/contacts', body, { user_id });
 
         if (!response.success) {
           logger.error('contact_create API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -411,8 +411,8 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
         const newContact = response.data;
 
         logger.debug('contact_create completed', {
-          userId,
-          contactId: newContact.id,
+          user_id,
+          contact_id: newContact.id,
         });
 
         return {
@@ -422,13 +422,13 @@ export function createContactCreateTool(options: ContactToolOptions): ContactCre
             details: {
               id: newContact.id,
               display_name: sanitizedName,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('contact_create failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

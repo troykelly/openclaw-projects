@@ -169,9 +169,9 @@ function CurrentLocationCard({ location, isLoading }: CurrentLocationCardProps) 
           <MapPin className="size-5 text-primary" />
         </div>
         <div className="min-w-0 flex-1">
-          {location.placeLabel && (
+          {location.place_label && (
             <p className="text-sm font-semibold" data-testid="location-place-label">
-              {location.placeLabel}
+              {location.place_label}
             </p>
           )}
           {location.address && (
@@ -417,7 +417,7 @@ function AddProviderDialog({ onCreate, onCreated, isSubmitting }: AddProviderDia
       }
       config = {
         url: form.haUrl.trim(),
-        accessToken: form.haAccessToken.trim(),
+        access_token: form.haAccessToken.trim(),
       };
     } else if (form.providerType === 'mqtt') {
       if (!form.mqttHost.trim()) {
@@ -669,7 +669,7 @@ export function LocationSection({
   const { createProvider, deleteProvider, verifyProvider, isSubmitting } = useGeoMutations();
 
   const [retentionHours, setRetentionHours] = useState(String(geoHighResRetentionHours));
-  const [retentionDays, setRetentionDays] = useState(String(geoGeneralRetentionDays));
+  const [retention_days, setRetentionDays] = useState(String(geoGeneralRetentionDays));
 
   /** Handle delete with optimistic list update via refetch. */
   const handleDelete = useCallback(
@@ -692,10 +692,10 @@ export function LocationSection({
 
   /** Persist retention days on blur. */
   const handleRetentionDaysBlur = useCallback(() => {
-    const parsed = Math.max(1, Number.parseInt(retentionDays, 10) || 1);
+    const parsed = Math.max(1, Number.parseInt(retention_days, 10) || 1);
     setRetentionDays(String(parsed));
     onUpdate({ geo_general_retention_days: parsed });
-  }, [retentionDays, onUpdate]);
+  }, [retention_days, onUpdate]);
 
   return (
     <div className="space-y-6" data-testid="location-section">
@@ -859,7 +859,7 @@ export function LocationSection({
                 id="retention-days"
                 type="number"
                 min={1}
-                value={retentionDays}
+                value={retention_days}
                 onChange={(e) => setRetentionDays(e.target.value)}
                 onBlur={handleRetentionDaysBlur}
                 className="w-24 text-right"

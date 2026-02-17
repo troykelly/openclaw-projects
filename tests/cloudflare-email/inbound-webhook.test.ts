@@ -17,7 +17,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
   const webhookSecret = 'cloudflare-email-secret-for-tests';
 
   function createCloudflarePayload(overrides: Partial<CloudflareEmailPayload> = {}): CloudflareEmailPayload {
-    const messageId = `${Date.now()}.${Math.random().toString(36).slice(2)}@cloudflare.test`;
+    const message_id = `${Date.now()}.${Math.random().toString(36).slice(2)}@cloudflare.test`;
     return {
       from: 'sender@example.com',
       to: 'support@myapp.com',
@@ -25,7 +25,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
       text_body: 'This is the plain text body.',
       html_body: '<p>This is the <strong>HTML</strong> body.</p>',
       headers: {
-        'message-id': `<${messageId}>`,
+        'message-id': `<${message_id}>`,
       },
       timestamp: new Date().toISOString(),
       ...overrides,
@@ -98,9 +98,9 @@ describe('Cloudflare Email Inbound Webhook', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json().success).toBe(true);
-      expect(response.json().receiptId).toBeDefined();
-      expect(response.json().contactId).toBeDefined();
-      expect(response.json().messageId).toBeDefined();
+      expect(response.json().receipt_id).toBeDefined();
+      expect(response.json().contact_id).toBeDefined();
+      expect(response.json().message_id).toBeDefined();
 
       // Verify contact was created
       const contactResult = await pool.query(
@@ -189,7 +189,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
         payload: originalPayload,
       });
       expect(response1.statusCode).toBe(200);
-      const originalThreadId = response1.json().threadId;
+      const originalThreadId = response1.json().thread_id;
 
       // Create reply with In-Reply-To header
       const replyPayload = createCloudflarePayload({
@@ -206,7 +206,7 @@ describe('Cloudflare Email Inbound Webhook', () => {
         payload: replyPayload,
       });
       expect(response2.statusCode).toBe(200);
-      const replyThreadId = response2.json().threadId;
+      const replyThreadId = response2.json().thread_id;
 
       // Both should be in the same thread
       expect(replyThreadId).toBe(originalThreadId);

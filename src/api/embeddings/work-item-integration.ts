@@ -25,24 +25,24 @@ export type WorkItemEmbeddingStatus = 'complete' | 'pending' | 'failed' | 'skipp
  * locking (e.g. checking updated_at before writing) for high-traffic items.
  *
  * @param pool Database pool
- * @param workItemId The work item ID
+ * @param work_item_id The work item ID
  * @param content The content to embed (title + description concatenated)
  * @returns The embedding status
  */
 export async function generateWorkItemEmbedding(
   pool: Pool,
-  workItemId: string,
+  work_item_id: string,
   content: string,
 ): Promise<WorkItemEmbeddingStatus> {
   if (!embeddingService.isConfigured()) {
-    await pool.query(`UPDATE work_item SET embedding_status = 'pending' WHERE id = $1`, [workItemId]);
+    await pool.query(`UPDATE work_item SET embedding_status = 'pending' WHERE id = $1`, [work_item_id]);
     return 'pending';
   }
 
   // Skip embedding for very short content (single-word titles with no description)
   const trimmed = content.trim();
   if (trimmed.length < 3) {
-    await pool.query(`UPDATE work_item SET embedding_status = 'skipped' WHERE id = $1`, [workItemId]);
+    await pool.query(`UPDATE work_item SET embedding_status = 'skipped' WHERE id = $1`, [work_item_id]);
     return 'skipped';
   }
 
@@ -50,7 +50,7 @@ export async function generateWorkItemEmbedding(
     const result = await embeddingService.embed(trimmed);
 
     if (!result) {
-      await pool.query(`UPDATE work_item SET embedding_status = 'pending' WHERE id = $1`, [workItemId]);
+      await pool.query(`UPDATE work_item SET embedding_status = 'pending' WHERE id = $1`, [work_item_id]);
       return 'pending';
     }
 
@@ -62,7 +62,7 @@ export async function generateWorkItemEmbedding(
            embedding_status = 'complete',
            updated_at = NOW()
        WHERE id = $4`,
-      [`[${result.embedding.join(',')}]`, result.model, result.provider, workItemId],
+      [`[${result.embedding.join(',')}]`, result.model, result.provider, work_item_id],
     );
 
     return 'complete';
@@ -72,11 +72,11 @@ export async function generateWorkItemEmbedding(
       return 'failed';
     }
     console.error(
-      `[Embeddings] Failed to embed work item ${workItemId}:`,
+      `[Embeddings] Failed to embed work item ${work_item_id}:`,
       error instanceof EmbeddingError ? error.toSafeString() : msg,
     );
 
-    await pool.query(`UPDATE work_item SET embedding_status = 'failed' WHERE id = $1`, [workItemId]).catch(() => {});
+    await pool.query(`UPDATE work_item SET embedding_status = 'failed' WHERE id = $1`, [work_item_id]).catch(() => {});
 
     return 'failed';
   }
@@ -92,7 +92,7 @@ export async function generateWorkItemEmbedding(
 export async function backfillWorkItemEmbeddings(
   pool: Pool,
   options: {
-    batchSize?: number;
+    batch_size?: number;
     force?: boolean;
   } = {},
 ): Promise<{
@@ -100,7 +100,7 @@ export async function backfillWorkItemEmbeddings(
   succeeded: number;
   failed: number;
 }> {
-  const { batchSize = 100, force = false } = options;
+  const { batch_size = 100, force = false } = options;
 
   if (!embeddingService.isConfigured()) {
     throw new Error('No embedding provider configured');
@@ -114,7 +114,7 @@ export async function backfillWorkItemEmbeddings(
      WHERE ${condition} AND deleted_at IS NULL
      ORDER BY created_at ASC
      LIMIT $1`,
-    [batchSize],
+    [batch_size],
   );
 
   let succeeded = 0;

@@ -141,7 +141,7 @@ describe('geolocation/routes', () => {
   describe('provider credential stripping', () => {
     it('strips credentials and config for non-owner providers', () => {
       const provider = geoService.rowToProvider(providerRow);
-      const isOwner = provider.ownerEmail === OTHER_EMAIL;
+      const isOwner = provider.owner_email === OTHER_EMAIL;
 
       // Simulate non-owner stripping logic
       const sanitized = {
@@ -156,7 +156,7 @@ describe('geolocation/routes', () => {
 
     it('preserves credentials and config for owner', () => {
       const provider = geoService.rowToProvider(providerRow);
-      const isOwner = provider.ownerEmail === OWNER_EMAIL;
+      const isOwner = provider.owner_email === OWNER_EMAIL;
 
       const sanitized = {
         ...provider,
@@ -248,7 +248,7 @@ describe('geolocation/routes', () => {
     it('non-owner gets 404 (anti-enumeration) not 403', () => {
       const provider = geoService.rowToProvider(providerRow);
       const requestEmail = OTHER_EMAIL;
-      const isOwner = provider.ownerEmail === requestEmail;
+      const isOwner = provider.owner_email === requestEmail;
       // Routes return 404 for non-owners to prevent resource enumeration
       expect(isOwner).toBe(false);
     });
@@ -256,7 +256,7 @@ describe('geolocation/routes', () => {
     it('owner can update provider', () => {
       const provider = geoService.rowToProvider(providerRow);
       const requestEmail = OWNER_EMAIL;
-      const isOwner = provider.ownerEmail === requestEmail;
+      const isOwner = provider.owner_email === requestEmail;
       expect(isOwner).toBe(true);
     });
   });
@@ -264,20 +264,20 @@ describe('geolocation/routes', () => {
   describe('subscription scoping', () => {
     it('user can only see own subscriptions', () => {
       const sub = geoService.rowToProviderUser(subscriptionRow);
-      expect(sub.userEmail).toBe(OWNER_EMAIL);
+      expect(sub.user_email).toBe(OWNER_EMAIL);
     });
 
     it('user can only update own subscription', () => {
       const sub = geoService.rowToProviderUser(subscriptionRow);
       const requestEmail = OWNER_EMAIL;
-      const canUpdate = sub.userEmail === requestEmail;
+      const canUpdate = sub.user_email === requestEmail;
       expect(canUpdate).toBe(true);
     });
 
     it('other user cannot update subscription', () => {
       const sub = geoService.rowToProviderUser(subscriptionRow);
       const requestEmail = OTHER_EMAIL;
-      const canUpdate = sub.userEmail === requestEmail;
+      const canUpdate = sub.user_email === requestEmail;
       expect(canUpdate).toBe(false);
     });
   });
@@ -366,7 +366,7 @@ describe('geolocation/routes', () => {
   });
 
   describe('cascade delete guard for shared providers', () => {
-    it('canDeleteProvider returns canDelete=true for non-shared provider', async () => {
+    it('canDeleteProvider returns can_delete=true for non-shared provider', async () => {
       const { canDeleteProvider } = geoService;
       const pool = {
         query: vi.fn()
@@ -374,7 +374,7 @@ describe('geolocation/routes', () => {
           .mockResolvedValueOnce({ rows: [{ count: '0' }], rowCount: 1 }),
       } as unknown as Pool;
       const result = await canDeleteProvider(pool, providerRow.id);
-      expect(result.canDelete).toBe(true);
+      expect(result.can_delete).toBe(true);
     });
 
     it('canDeleteProvider blocks shared provider with subscribers', async () => {
@@ -385,19 +385,19 @@ describe('geolocation/routes', () => {
           .mockResolvedValueOnce({ rows: [{ count: '2' }], rowCount: 1 }),
       } as unknown as Pool;
       const result = await canDeleteProvider(pool, providerRow.id);
-      expect(result.canDelete).toBe(false);
-      expect(result.subscriberCount).toBe(2);
+      expect(result.can_delete).toBe(false);
+      expect(result.subscriber_count).toBe(2);
     });
 
     it('DELETE route should return 409 when shared provider has subscribers', () => {
       // Simulates the route logic: check canDeleteProvider → if blocked, return 409
-      const canDeleteResult = { canDelete: false, reason: 'Cannot delete shared provider with active subscribers', subscriberCount: 3 };
+      const canDeleteResult = { can_delete: false, reason: 'Cannot delete shared provider with active subscribers', subscriber_count: 3 };
       const reply = mockReply();
 
-      if (!canDeleteResult.canDelete) {
+      if (!canDeleteResult.can_delete) {
         reply.code(409).send({
           error: canDeleteResult.reason,
-          subscriber_count: canDeleteResult.subscriberCount,
+          subscriber_count: canDeleteResult.subscriber_count,
         });
       }
 
@@ -407,10 +407,10 @@ describe('geolocation/routes', () => {
     });
 
     it('DELETE route should succeed (204) when shared provider has no subscribers', () => {
-      const canDeleteResult = { canDelete: true };
+      const canDeleteResult = { can_delete: true };
       const reply = mockReply();
 
-      if (!canDeleteResult.canDelete) {
+      if (!canDeleteResult.can_delete) {
         reply.code(409).send({ error: 'blocked' });
       } else {
         reply.code(204).send();

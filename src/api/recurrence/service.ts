@@ -102,13 +102,13 @@ export async function createFromNaturalLanguage(
   },
 ): Promise<{
   id: string;
-  isRecurring: boolean;
+  is_recurring: boolean;
   rrule: string | null;
   description: string;
 }> {
   const parseResult = parseNaturalLanguage(params.recurrenceNatural);
 
-  if (parseResult.isRecurring && parseResult.rrule) {
+  if (parseResult.is_recurring && parseResult.rrule) {
     const template = await createRecurrenceTemplate(pool, {
       title: params.title,
       description: params.description,
@@ -121,7 +121,7 @@ export async function createFromNaturalLanguage(
 
     return {
       id: template.id,
-      isRecurring: true,
+      is_recurring: true,
       rrule: parseResult.rrule,
       description: parseResult.description,
     };
@@ -144,7 +144,7 @@ export async function createFromNaturalLanguage(
 
   return {
     id: result.rows[0].id,
-    isRecurring: false,
+    is_recurring: false,
     rrule: null,
     description: parseResult.description,
   };
@@ -153,7 +153,7 @@ export async function createFromNaturalLanguage(
 /**
  * Get recurrence information for a work item
  */
-export async function getRecurrenceInfo(pool: Pool, workItemId: string): Promise<RecurrenceInfo | null> {
+export async function getRecurrenceInfo(pool: Pool, work_item_id: string): Promise<RecurrenceInfo | null> {
   const result = await pool.query(
     `SELECT
       recurrence_rule,
@@ -162,7 +162,7 @@ export async function getRecurrenceInfo(pool: Pool, workItemId: string): Promise
       is_recurrence_template
     FROM work_item
     WHERE id = $1`,
-    [workItemId],
+    [work_item_id],
   );
 
   if (result.rows.length === 0) {
@@ -176,17 +176,17 @@ export async function getRecurrenceInfo(pool: Pool, workItemId: string): Promise
     return null;
   }
 
-  let nextOccurrence: Date | null = null;
+  let next_occurrence: Date | null = null;
   if (row.recurrence_rule) {
-    nextOccurrence = getNextOccurrence(row.recurrence_rule);
+    next_occurrence = getNextOccurrence(row.recurrence_rule);
   }
 
   return {
     rule: row.recurrence_rule,
     end: row.recurrence_end,
-    parentId: row.parent_id,
-    isTemplate: row.is_recurrence_template,
-    nextOccurrence,
+    parent_id: row.parent_id,
+    is_template: row.is_recurrence_template,
+    next_occurrence,
   };
 }
 
@@ -195,7 +195,7 @@ export async function getRecurrenceInfo(pool: Pool, workItemId: string): Promise
  */
 export async function updateRecurrence(
   pool: Pool,
-  workItemId: string,
+  work_item_id: string,
   params: {
     recurrenceRule?: string;
     recurrenceEnd?: Date | null;
@@ -220,7 +220,7 @@ export async function updateRecurrence(
     return false;
   }
 
-  values.push(workItemId);
+  values.push(work_item_id);
   const result = await pool.query(
     `UPDATE work_item
     SET ${updates.join(', ')}, updated_at = now()
@@ -234,7 +234,7 @@ export async function updateRecurrence(
 /**
  * Stop recurrence for a work item (remove recurrence rule)
  */
-export async function stopRecurrence(pool: Pool, workItemId: string): Promise<boolean> {
+export async function stopRecurrence(pool: Pool, work_item_id: string): Promise<boolean> {
   const result = await pool.query(
     `UPDATE work_item
     SET recurrence_rule = NULL,
@@ -242,7 +242,7 @@ export async function stopRecurrence(pool: Pool, workItemId: string): Promise<bo
         is_recurrence_template = false,
         updated_at = now()
     WHERE id = $1`,
-    [workItemId],
+    [work_item_id],
   );
 
   return result.rowCount !== null && result.rowCount > 0;
@@ -251,7 +251,7 @@ export async function stopRecurrence(pool: Pool, workItemId: string): Promise<bo
 /**
  * Create an instance from a recurrence template
  */
-export async function createInstance(pool: Pool, templateId: string, scheduledDate: Date): Promise<string | null> {
+export async function createInstance(pool: Pool, templateId: string, scheduled_date: Date): Promise<string | null> {
   // Get the template
   const templateResult = await pool.query(
     `SELECT
@@ -294,7 +294,7 @@ export async function createInstance(pool: Pool, templateId: string, scheduledDa
       template.parent_work_item_id,
       template.work_item_kind,
       templateId,
-      scheduledDate,
+      scheduled_date,
     ],
   );
 
@@ -339,9 +339,9 @@ export async function getInstances(
     id: row.id,
     title: row.title,
     status: row.status,
-    scheduledDate: row.scheduled_date,
-    createdAt: row.created_at,
-    completedAt: row.completed_at,
+    scheduled_date: row.scheduled_date,
+    created_at: row.created_at,
+    completed_at: row.completed_at,
   }));
 }
 
@@ -421,10 +421,10 @@ export async function getTemplates(
     id: string;
     title: string;
     rule: string;
-    ruleDescription: string;
+    rule_description: string;
     end: Date | null;
-    nextOccurrence: Date | null;
-    instanceCount: number;
+    next_occurrence: Date | null;
+    instance_count: number;
   }>
 > {
   const limit = options.limit || 50;
@@ -450,9 +450,9 @@ export async function getTemplates(
     id: row.id,
     title: row.title,
     rule: row.rule,
-    ruleDescription: row.rule ? describeRrule(row.rule) : '',
+    rule_description: row.rule ? describeRrule(row.rule) : '',
     end: row.end,
-    nextOccurrence: row.rule ? getNextOccurrence(row.rule) : null,
-    instanceCount: parseInt(row.instance_count, 10),
+    next_occurrence: row.rule ? getNextOccurrence(row.rule) : null,
+    instance_count: parseInt(row.instance_count, 10),
   }));
 }

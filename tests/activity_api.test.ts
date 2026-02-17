@@ -273,7 +273,7 @@ describe('Activity Feed API', () => {
       // Filter for only 'created' actions
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?actionType=created',
+        url: '/api/activity?action_type=created',
       });
 
       expect(res.statusCode).toBe(200);
@@ -282,7 +282,7 @@ describe('Activity Feed API', () => {
       expect(body.items[0].type).toBe('created');
     });
 
-    it('filters by entityType', async () => {
+    it('filters by entity_type', async () => {
       // Create project
       await app.inject({
         method: 'POST',
@@ -300,7 +300,7 @@ describe('Activity Feed API', () => {
       // Filter for only 'project' entity type
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?entityType=project',
+        url: '/api/activity?entity_type=project',
       });
 
       expect(res.statusCode).toBe(200);
@@ -309,20 +309,20 @@ describe('Activity Feed API', () => {
       expect(body.items[0].entity_type).toBe('project');
     });
 
-    it('filters by projectId', async () => {
+    it('filters by project_id', async () => {
       // Create project
       const project = await app.inject({
         method: 'POST',
         url: '/api/work-items',
         payload: { title: 'Test Project', kind: 'project' },
       });
-      const projectId = (project.json() as { id: string }).id;
+      const project_id = (project.json() as { id: string }).id;
 
       // Create initiative under project (hierarchy: project -> initiative -> epic -> issue)
       const init = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Test Initiative', kind: 'initiative', parentId: projectId },
+        payload: { title: 'Test Initiative', kind: 'initiative', parent_id: project_id },
       });
       const initId = (init.json() as { id: string }).id;
 
@@ -330,7 +330,7 @@ describe('Activity Feed API', () => {
       const epic = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Test Epic', kind: 'epic', parentId: initId },
+        payload: { title: 'Test Epic', kind: 'epic', parent_id: initId },
       });
       const epicId = (epic.json() as { id: string }).id;
 
@@ -338,7 +338,7 @@ describe('Activity Feed API', () => {
       await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Test Issue', kind: 'issue', parentId: epicId },
+        payload: { title: 'Test Issue', kind: 'issue', parent_id: epicId },
       });
 
       // Create separate standalone issue (not under the project)
@@ -348,10 +348,10 @@ describe('Activity Feed API', () => {
         payload: { title: 'Standalone Issue', kind: 'issue' },
       });
 
-      // Filter by projectId (should get project + all descendants)
+      // Filter by project_id (should get project + all descendants)
       const res = await app.inject({
         method: 'GET',
-        url: `/api/activity?projectId=${projectId}`,
+        url: `/api/activity?project_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -417,13 +417,13 @@ describe('Activity Feed API', () => {
       expect(page1.statusCode).toBe(200);
       const body1 = page1.json() as {
         items: unknown[];
-        pagination: { page: number; limit: number; total: number; hasMore: boolean };
+        pagination: { page: number; limit: number; total: number; has_more: boolean };
       };
       expect(body1.items.length).toBe(2);
       expect(body1.pagination.page).toBe(1);
       expect(body1.pagination.limit).toBe(2);
       expect(body1.pagination.total).toBe(5);
-      expect(body1.pagination.hasMore).toBe(true);
+      expect(body1.pagination.has_more).toBe(true);
 
       // Get page 2
       const page2 = await app.inject({
@@ -434,11 +434,11 @@ describe('Activity Feed API', () => {
       expect(page2.statusCode).toBe(200);
       const body2 = page2.json() as {
         items: unknown[];
-        pagination: { page: number; hasMore: boolean };
+        pagination: { page: number; has_more: boolean };
       };
       expect(body2.items.length).toBe(2);
       expect(body2.pagination.page).toBe(2);
-      expect(body2.pagination.hasMore).toBe(true);
+      expect(body2.pagination.has_more).toBe(true);
 
       // Get page 3 (last page)
       const page3 = await app.inject({
@@ -449,10 +449,10 @@ describe('Activity Feed API', () => {
       expect(page3.statusCode).toBe(200);
       const body3 = page3.json() as {
         items: unknown[];
-        pagination: { hasMore: boolean };
+        pagination: { has_more: boolean };
       };
       expect(body3.items.length).toBe(1);
-      expect(body3.pagination.hasMore).toBe(false);
+      expect(body3.pagination.has_more).toBe(false);
     });
 
     it('includes entity_type in response', async () => {
@@ -462,13 +462,13 @@ describe('Activity Feed API', () => {
         url: '/api/work-items',
         payload: { title: 'Test Project', kind: 'project' },
       });
-      const projectId = (project.json() as { id: string }).id;
+      const project_id = (project.json() as { id: string }).id;
 
       // Create initiative under project
       const init = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Test Initiative', kind: 'initiative', parentId: projectId },
+        payload: { title: 'Test Initiative', kind: 'initiative', parent_id: project_id },
       });
       const initId = (init.json() as { id: string }).id;
 
@@ -476,7 +476,7 @@ describe('Activity Feed API', () => {
       await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Test Epic', kind: 'epic', parentId: initId },
+        payload: { title: 'Test Epic', kind: 'epic', parent_id: initId },
       });
 
       const res = await app.inject({
@@ -690,18 +690,18 @@ describe('Activity Feed API', () => {
         expect(res.payload).toContain('data:');
       });
 
-      it('accepts projectId filter parameter', async () => {
+      it('accepts project_id filter parameter', async () => {
         // Create a project first
         const project = await app.inject({
           method: 'POST',
           url: '/api/work-items',
           payload: { title: 'Test Project', kind: 'project' },
         });
-        const projectId = (project.json() as { id: string }).id;
+        const project_id = (project.json() as { id: string }).id;
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/activity/stream?projectId=${projectId}`,
+          url: `/api/activity/stream?project_id=${project_id}`,
         });
 
         expect(res.statusCode).toBe(200);
@@ -727,20 +727,20 @@ describe('Activity Feed API', () => {
         expect(res.payload).toContain('SSE Test Item');
       });
 
-      it('filters activity by projectId', async () => {
+      it('filters activity by project_id', async () => {
         // Create a project with a child
         const project = await app.inject({
           method: 'POST',
           url: '/api/work-items',
           payload: { title: 'Project A', kind: 'project' },
         });
-        const projectId = (project.json() as { id: string }).id;
+        const project_id = (project.json() as { id: string }).id;
 
         // Create initiative under project
         await app.inject({
           method: 'POST',
           url: '/api/work-items',
-          payload: { title: 'Initiative Under A', kind: 'initiative', parentId: projectId },
+          payload: { title: 'Initiative Under A', kind: 'initiative', parent_id: project_id },
         });
 
         // Create separate standalone item
@@ -752,7 +752,7 @@ describe('Activity Feed API', () => {
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/activity/stream?projectId=${projectId}`,
+          url: `/api/activity/stream?project_id=${project_id}`,
         });
 
         expect(res.statusCode).toBe(200);

@@ -13,13 +13,13 @@ const MAX_LIMIT = 500;
 /**
  * Soft delete a work item
  */
-export async function softDeleteWorkItem(pool: Pool, workItemId: string): Promise<boolean> {
+export async function softDeleteWorkItem(pool: Pool, work_item_id: string): Promise<boolean> {
   const result = await pool.query(
     `UPDATE work_item
      SET deleted_at = now()
      WHERE id = $1 AND deleted_at IS NULL
      RETURNING id`,
-    [workItemId],
+    [work_item_id],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
@@ -27,13 +27,13 @@ export async function softDeleteWorkItem(pool: Pool, workItemId: string): Promis
 /**
  * Soft delete a contact
  */
-export async function softDeleteContact(pool: Pool, contactId: string): Promise<boolean> {
+export async function softDeleteContact(pool: Pool, contact_id: string): Promise<boolean> {
   const result = await pool.query(
     `UPDATE contact
      SET deleted_at = now()
      WHERE id = $1 AND deleted_at IS NULL
      RETURNING id`,
-    [contactId],
+    [contact_id],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
@@ -41,29 +41,29 @@ export async function softDeleteContact(pool: Pool, contactId: string): Promise<
 /**
  * Permanently delete a work item
  */
-export async function hardDeleteWorkItem(pool: Pool, workItemId: string): Promise<boolean> {
-  const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id`, [workItemId]);
+export async function hardDeleteWorkItem(pool: Pool, work_item_id: string): Promise<boolean> {
+  const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id`, [work_item_id]);
   return result.rowCount !== null && result.rowCount > 0;
 }
 
 /**
  * Permanently delete a contact
  */
-export async function hardDeleteContact(pool: Pool, contactId: string): Promise<boolean> {
-  const result = await pool.query(`DELETE FROM contact WHERE id = $1 RETURNING id`, [contactId]);
+export async function hardDeleteContact(pool: Pool, contact_id: string): Promise<boolean> {
+  const result = await pool.query(`DELETE FROM contact WHERE id = $1 RETURNING id`, [contact_id]);
   return result.rowCount !== null && result.rowCount > 0;
 }
 
 /**
  * Restore a soft-deleted work item
  */
-export async function restoreWorkItem(pool: Pool, workItemId: string): Promise<RestoreResult | null> {
+export async function restoreWorkItem(pool: Pool, work_item_id: string): Promise<RestoreResult | null> {
   const result = await pool.query(
     `UPDATE work_item
      SET deleted_at = NULL
      WHERE id = $1 AND deleted_at IS NOT NULL
      RETURNING id::text`,
-    [workItemId],
+    [work_item_id],
   );
 
   if (result.rowCount === 0) {
@@ -72,22 +72,22 @@ export async function restoreWorkItem(pool: Pool, workItemId: string): Promise<R
 
   return {
     success: true,
-    entityType: 'work_item',
-    entityId: result.rows[0].id,
-    restoredAt: new Date(),
+    entity_type: 'work_item',
+    entity_id: result.rows[0].id,
+    restored_at: new Date(),
   };
 }
 
 /**
  * Restore a soft-deleted contact
  */
-export async function restoreContact(pool: Pool, contactId: string): Promise<RestoreResult | null> {
+export async function restoreContact(pool: Pool, contact_id: string): Promise<RestoreResult | null> {
   const result = await pool.query(
     `UPDATE contact
      SET deleted_at = NULL
      WHERE id = $1 AND deleted_at IS NOT NULL
      RETURNING id::text`,
-    [contactId],
+    [contact_id],
   );
 
   if (result.rowCount === 0) {
@@ -96,23 +96,23 @@ export async function restoreContact(pool: Pool, contactId: string): Promise<Res
 
   return {
     success: true,
-    entityType: 'contact',
-    entityId: result.rows[0].id,
-    restoredAt: new Date(),
+    entity_type: 'contact',
+    entity_id: result.rows[0].id,
+    restored_at: new Date(),
   };
 }
 
 /**
  * Restore any entity by type and ID
  */
-export async function restore(pool: Pool, entityType: SoftDeleteEntityType, entityId: string): Promise<RestoreResult | null> {
-  switch (entityType) {
+export async function restore(pool: Pool, entity_type: SoftDeleteEntityType, entity_id: string): Promise<RestoreResult | null> {
+  switch (entity_type) {
     case 'work_item':
-      return restoreWorkItem(pool, entityId);
+      return restoreWorkItem(pool, entity_id);
     case 'contact':
-      return restoreContact(pool, entityId);
+      return restoreContact(pool, entity_id);
     default:
-      throw new Error(`Unknown entity type: ${entityType}`);
+      throw new Error(`Unknown entity type: ${entity_type}`);
   }
 }
 
@@ -127,7 +127,7 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
   let total = 0;
 
   // Query work items
-  if (!options.entityType || options.entityType === 'work_item') {
+  if (!options.entity_type || options.entity_type === 'work_item') {
     const wiResult = await pool.query(
       `SELECT
         id::text,
@@ -146,10 +146,10 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
     for (const row of wiResult.rows) {
       items.push({
         id: row.id,
-        entityType: 'work_item',
+        entity_type: 'work_item',
         title: row.title,
-        deletedAt: row.deleted_at,
-        daysUntilPurge: row.days_until_purge,
+        deleted_at: row.deleted_at,
+        days_until_purge: row.days_until_purge,
       });
     }
 
@@ -157,7 +157,7 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
   }
 
   // Query contacts
-  if (!options.entityType || options.entityType === 'contact') {
+  if (!options.entity_type || options.entity_type === 'contact') {
     const cResult = await pool.query(
       `SELECT
         id::text,
@@ -176,10 +176,10 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
     for (const row of cResult.rows) {
       items.push({
         id: row.id,
-        entityType: 'contact',
-        displayName: row.display_name,
-        deletedAt: row.deleted_at,
-        daysUntilPurge: row.days_until_purge,
+        entity_type: 'contact',
+        display_name: row.display_name,
+        deleted_at: row.deleted_at,
+        days_until_purge: row.days_until_purge,
       });
     }
 
@@ -187,7 +187,7 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
   }
 
   // Sort combined results by deleted_at desc
-  items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+  items.sort((a, b) => b.deleted_at.getTime() - a.deleted_at.getTime());
 
   return { items: items.slice(0, limit), total };
 }
@@ -195,17 +195,17 @@ export async function listTrash(pool: Pool, options: TrashQueryOptions = {}): Pr
 /**
  * Purge old soft-deleted items
  */
-export async function purgeOldItems(pool: Pool, retentionDays: number = DEFAULT_RETENTION_DAYS): Promise<PurgeResult> {
-  const result = await pool.query(`SELECT * FROM purge_soft_deleted($1)`, [retentionDays]);
+export async function purgeOldItems(pool: Pool, retention_days: number = DEFAULT_RETENTION_DAYS): Promise<PurgeResult> {
+  const result = await pool.query(`SELECT * FROM purge_soft_deleted($1)`, [retention_days]);
 
   const row = result.rows[0];
-  const workItemsPurged = parseInt(row.work_items_purged || '0', 10);
-  const contactsPurged = parseInt(row.contacts_purged || '0', 10);
+  const work_items_purged = parseInt(row.work_items_purged || '0', 10);
+  const contacts_purged = parseInt(row.contacts_purged || '0', 10);
 
   return {
-    workItemsPurged,
-    contactsPurged,
-    totalPurged: workItemsPurged + contactsPurged,
+    work_items_purged,
+    contacts_purged,
+    total_purged: work_items_purged + contacts_purged,
   };
 }
 
@@ -233,9 +233,9 @@ export async function getTrashCount(pool: Pool): Promise<{
 /**
  * Check if entity is soft-deleted
  */
-export async function isDeleted(pool: Pool, entityType: SoftDeleteEntityType, entityId: string): Promise<boolean> {
-  const table = entityType === 'work_item' ? 'work_item' : 'contact';
-  const result = await pool.query(`SELECT deleted_at FROM ${table} WHERE id = $1`, [entityId]);
+export async function isDeleted(pool: Pool, entity_type: SoftDeleteEntityType, entity_id: string): Promise<boolean> {
+  const table = entity_type === 'work_item' ? 'work_item' : 'contact';
+  const result = await pool.query(`SELECT deleted_at FROM ${table} WHERE id = $1`, [entity_id]);
 
   if (result.rowCount === 0) {
     return false; // Entity doesn't exist

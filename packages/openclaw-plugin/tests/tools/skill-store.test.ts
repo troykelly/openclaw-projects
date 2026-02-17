@@ -58,7 +58,7 @@ describe('Skill Store Tools (Issue #800)', () => {
     client: mockApiClient,
     logger: mockLogger,
     config: mockConfig,
-    userId: 'agent-1',
+    user_id: 'agent-1',
   };
 
   beforeEach(() => {
@@ -160,7 +160,7 @@ describe('Skill Store Tools (Issue #800)', () => {
           content: 'sk-abcdefghijklmnopqrstuvwxyz',
         });
 
-        expect(mockLogger.warn).toHaveBeenCalledWith('Potential credential detected in skill_store_put', expect.objectContaining({ userId: 'agent-1' }));
+        expect(mockLogger.warn).toHaveBeenCalledWith('Potential credential detected in skill_store_put', expect.objectContaining({ user_id: 'agent-1' }));
       });
     });
 
@@ -203,7 +203,7 @@ describe('Skill Store Tools (Issue #800)', () => {
             title: 'My Settings',
             data: { theme: 'dark' },
           }),
-          { userId: 'agent-1' },
+          { user_id: 'agent-1' },
         );
 
         if (result.success) {
@@ -278,7 +278,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith('/api/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith('/api/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { user_id: 'agent-1' });
       });
 
       it('fetches by composite key', async () => {
@@ -308,7 +308,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/skill-store/items/by-key'), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/skill-store/items/by-key'), { user_id: 'agent-1' });
       });
 
       it('returns not found for 404', async () => {
@@ -410,7 +410,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('skill_id=test'), { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('skill_id=test'), { user_id: 'agent-1' });
 
         if (result.success) {
           expect(result.data.content).toContain('2 items');
@@ -471,7 +471,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.delete).toHaveBeenCalledWith('/api/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { userId: 'agent-1' });
+        expect(mockApiClient.delete).toHaveBeenCalledWith('/api/skill-store/items/550e8400-e29b-41d4-a716-446655440000', { user_id: 'agent-1' });
       });
 
       it('deletes by composite key (lookup then delete)', async () => {
@@ -491,8 +491,8 @@ describe('Skill Store Tools (Issue #800)', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/skill-store/items/by-key'), { userId: 'agent-1' });
-        expect(mockApiClient.delete).toHaveBeenCalledWith('/api/skill-store/items/found-uuid', { userId: 'agent-1' });
+        expect(mockApiClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/skill-store/items/by-key'), { user_id: 'agent-1' });
+        expect(mockApiClient.delete).toHaveBeenCalledWith('/api/skill-store/items/found-uuid', { user_id: 'agent-1' });
       });
 
       it('returns not found for 404', async () => {
@@ -619,7 +619,7 @@ describe('Skill Store Tools (Issue #800)', () => {
           data: { api_key: 'sk-abcdefghijklmnopqrstuvwxyz' },
         });
 
-        expect(mockLogger.warn).toHaveBeenCalledWith('Potential credential detected in skill_store_put', expect.objectContaining({ userId: 'agent-1' }));
+        expect(mockLogger.warn).toHaveBeenCalledWith('Potential credential detected in skill_store_put', expect.objectContaining({ user_id: 'agent-1' }));
       });
     });
 
@@ -628,7 +628,7 @@ describe('Skill Store Tools (Issue #800)', () => {
         const optionsWithoutConfig = {
           client: mockApiClient,
           logger: mockLogger,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         };
         // Should not throw — config is optional
         const tool = createSkillStorePutTool(optionsWithoutConfig as SkillStoreToolOptions);

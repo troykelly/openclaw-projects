@@ -16,7 +16,7 @@ export interface AddWatcherDialogProps {
   onOpenChange: (open: boolean) => void;
   users: WatcherUser[];
   existingWatcherIds: string[];
-  onAdd: (userId: string, notificationLevel?: NotificationLevel) => void;
+  onAdd: (user_id: string, notificationLevel?: NotificationLevel) => void;
   className?: string;
 }
 
@@ -30,8 +30,8 @@ export function AddWatcherDialog({ open, onOpenChange, users, existingWatcherIds
     return users.filter((user) => !existing.has(user.id)).filter((user) => user.name.toLowerCase().includes(search.toLowerCase()));
   }, [users, existingWatcherIds, search]);
 
-  const handleSelect = (userId: string) => {
-    onAdd(userId, notificationLevel);
+  const handleSelect = (user_id: string) => {
+    onAdd(user_id, notificationLevel);
     onOpenChange(false);
     setSearch('');
   };

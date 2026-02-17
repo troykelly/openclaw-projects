@@ -101,7 +101,7 @@ export function BaselineList({ baselines, onSelect, onDelete, onCompare, selecta
                 {baseline.description && <div className="text-sm text-muted-foreground mt-0.5 line-clamp-1">{baseline.description}</div>}
                 <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3" />
-                  <span>{formatDate(baseline.createdAt)}</span>
+                  <span>{formatDate(baseline.created_at)}</span>
                   <span className="text-muted-foreground/50">|</span>
                   <span>{baseline.items.length} items</span>
                 </div>

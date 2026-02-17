@@ -88,44 +88,44 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('createMemory with project_id', () => {
     it('creates a memory scoped to a project', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const memory = await createMemory(pool, {
-        userEmail: 'test@example.com',
+        user_email: 'test@example.com',
         title: 'Deployment config',
         content: 'Uses Docker Compose for staging',
-        memoryType: 'fact',
-        projectId,
+        memory_type: 'fact',
+        project_id,
       });
 
-      expect(memory.projectId).toBe(projectId);
-      expect(memory.userEmail).toBe('test@example.com');
+      expect(memory.project_id).toBe(project_id);
+      expect(memory.user_email).toBe('test@example.com');
     });
 
     it('creates a memory with only project_id scope', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const memory = await createMemory(pool, {
         title: 'Tech stack note',
         content: 'React + Fastify + Postgres',
-        memoryType: 'note',
-        projectId,
+        memory_type: 'note',
+        project_id,
       });
 
-      expect(memory.projectId).toBe(projectId);
-      expect(memory.userEmail).toBeNull();
-      expect(memory.workItemId).toBeNull();
-      expect(memory.contactId).toBeNull();
+      expect(memory.project_id).toBe(project_id);
+      expect(memory.user_email).toBeNull();
+      expect(memory.work_item_id).toBeNull();
+      expect(memory.contact_id).toBeNull();
     });
 
     it('creates a memory without project_id (backward compatible)', async () => {
       const memory = await createMemory(pool, {
-        userEmail: 'test@example.com',
+        user_email: 'test@example.com',
         title: 'Global note',
         content: 'No project scope',
       });
 
-      expect(memory.projectId).toBeNull();
+      expect(memory.project_id).toBeNull();
     });
   });
 
@@ -133,18 +133,18 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('deduplication within project scope', () => {
     it('deduplicates within the same project', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const first = await createMemory(pool, {
         title: 'Duplicate content',
         content: 'Same content in same project',
-        projectId,
+        project_id,
       });
 
       const second = await createMemory(pool, {
         title: 'Duplicate content',
         content: 'Same content in same project',
-        projectId,
+        project_id,
       });
 
       // Should return same memory (dedup), just updated timestamp
@@ -158,13 +158,13 @@ describe('Memory Project Scope (Issue #1273)', () => {
       const first = await createMemory(pool, {
         title: 'Same content',
         content: 'Identical content different project',
-        projectId: projectA,
+        project_id: projectA,
       });
 
       const second = await createMemory(pool, {
         title: 'Same content',
         content: 'Identical content different project',
-        projectId: projectB,
+        project_id: projectB,
       });
 
       // Different projects → separate memories
@@ -172,19 +172,19 @@ describe('Memory Project Scope (Issue #1273)', () => {
     });
 
     it('does NOT deduplicate project-scoped vs unscoped', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const unscoped = await createMemory(pool, {
         title: 'Global memory',
         content: 'Same text in both scopes',
-        userEmail: 'test@example.com',
+        user_email: 'test@example.com',
       });
 
       const scoped = await createMemory(pool, {
         title: 'Project memory',
         content: 'Same text in both scopes',
-        userEmail: 'test@example.com',
-        projectId,
+        user_email: 'test@example.com',
+        project_id,
       });
 
       expect(scoped.id).not.toBe(unscoped.id);
@@ -195,18 +195,18 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('getMemory returns project_id', () => {
     it('returns project_id when retrieving a memory', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const created = await createMemory(pool, {
         title: 'Project memory',
         content: 'Should round-trip project_id',
-        memoryType: 'fact',
-        projectId,
+        memory_type: 'fact',
+        project_id,
       });
 
       const retrieved = await getMemory(pool, created.id);
       expect(retrieved).not.toBeNull();
-      expect(retrieved!.projectId).toBe(projectId);
+      expect(retrieved!.project_id).toBe(project_id);
     });
   });
 
@@ -220,47 +220,47 @@ describe('Memory Project Scope (Issue #1273)', () => {
       await createMemory(pool, {
         title: 'Project A memory',
         content: 'Belongs to A',
-        memoryType: 'fact',
-        projectId: projectA,
+        memory_type: 'fact',
+        project_id: projectA,
       });
       await createMemory(pool, {
         title: 'Project B memory',
         content: 'Belongs to B',
-        memoryType: 'fact',
-        projectId: projectB,
+        memory_type: 'fact',
+        project_id: projectB,
       });
 
-      const result = await listMemories(pool, { projectId: projectA });
+      const result = await listMemories(pool, { project_id: projectA });
 
       expect(result.total).toBe(1);
       expect(result.memories[0].title).toBe('Project A memory');
     });
 
     it('combines project_id filter with other filters', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       await createMemory(pool, {
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         title: 'Project preference',
         content: 'Use TypeScript strict mode',
-        memoryType: 'preference',
-        projectId,
+        memory_type: 'preference',
+        project_id,
       });
       await createMemory(pool, {
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         title: 'Project fact',
         content: 'Uses Fastify framework',
-        memoryType: 'fact',
-        projectId,
+        memory_type: 'fact',
+        project_id,
       });
 
       const result = await listMemories(pool, {
-        projectId,
-        memoryType: 'preference',
+        project_id,
+        memory_type: 'preference',
       });
 
       expect(result.total).toBe(1);
-      expect(result.memories[0].memoryType).toBe('preference');
+      expect(result.memories[0].memory_type).toBe('preference');
     });
   });
 
@@ -268,20 +268,20 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('getGlobalMemories excludes project-scoped memories', () => {
     it('does not return project-scoped memories', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       await createMemory(pool, {
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         title: 'Global preference',
         content: 'Prefers dark mode',
-        memoryType: 'preference',
+        memory_type: 'preference',
       });
       await createMemory(pool, {
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         title: 'Project-scoped preference',
         content: 'Prefers tabs over spaces',
-        memoryType: 'preference',
-        projectId,
+        memory_type: 'preference',
+        project_id,
       });
 
       const result = await getGlobalMemories(pool, 'user@example.com');
@@ -295,24 +295,24 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('searchMemories with project_id filtering', () => {
     it('combines project_id filter with text search', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       await createMemory(pool, {
         title: 'Deployment config',
         content: 'Docker Compose deployment for staging environment',
-        memoryType: 'fact',
-        projectId,
+        memory_type: 'fact',
+        project_id,
       });
       await createMemory(pool, {
         title: 'Other deployment',
         content: 'Different project deployment configuration',
-        memoryType: 'fact',
+        memory_type: 'fact',
       });
 
-      const result = await searchMemories(pool, 'deployment', { projectId });
+      const result = await searchMemories(pool, 'deployment', { project_id });
 
       if (result.results.length > 0) {
-        expect(result.results.every((r) => r.projectId === projectId)).toBe(true);
+        expect(result.results.every((r) => r.project_id === project_id)).toBe(true);
       }
     });
   });
@@ -321,16 +321,16 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('scope validation', () => {
     it('project_id counts as a valid scope (no warning logged)', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const memory = await createMemory(pool, {
         title: 'Scoped by project',
         content: 'Has at least one scope',
-        projectId,
+        project_id,
       });
 
       expect(memory.id).toBeDefined();
-      expect(memory.projectId).toBe(projectId);
+      expect(memory.project_id).toBe(project_id);
     });
   });
 
@@ -338,22 +338,22 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('foreign key behavior', () => {
     it('sets project_id to null when work_item is deleted', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const memory = await createMemory(pool, {
         title: 'Will lose project ref',
         content: 'FK should SET NULL',
-        memoryType: 'fact',
-        projectId,
+        memory_type: 'fact',
+        project_id,
       });
 
       // Delete the project
-      await pool.query('DELETE FROM work_item WHERE id = $1', [projectId]);
+      await pool.query('DELETE FROM work_item WHERE id = $1', [project_id]);
 
       // Memory should still exist but with null project_id
       const retrieved = await getMemory(pool, memory.id);
       expect(retrieved).not.toBeNull();
-      expect(retrieved!.projectId).toBeNull();
+      expect(retrieved!.project_id).toBeNull();
     });
   });
 
@@ -361,7 +361,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('POST /api/memories/unified with project_id', () => {
     it('accepts project_id in request body', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const res = await app.inject({
         method: 'POST',
@@ -371,13 +371,13 @@ describe('Memory Project Scope (Issue #1273)', () => {
           content: 'Created via API with project scope',
           memory_type: 'fact',
           user_email: 'test@example.com',
-          project_id: projectId,
+          project_id: project_id,
         },
       });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.projectId).toBe(projectId);
+      expect(body.project_id).toBe(project_id);
     });
 
     it('creates memory without project_id (backward compatible)', async () => {
@@ -394,7 +394,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.projectId).toBeNull();
+      expect(body.project_id).toBeNull();
     });
   });
 
@@ -402,29 +402,29 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('GET /api/memories/unified with project_id filter', () => {
     it('filters memories by project_id query parameter', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       await createMemory(pool, {
         title: 'With project',
         content: 'Scoped to project',
-        memoryType: 'fact',
-        projectId,
+        memory_type: 'fact',
+        project_id,
       });
       await createMemory(pool, {
         title: 'Without project',
         content: 'No project scope',
-        memoryType: 'fact',
+        memory_type: 'fact',
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/unified?project_id=${projectId}`,
+        url: `/api/memories/unified?project_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.memories.length).toBe(1);
-      expect(body.memories[0].projectId).toBe(projectId);
+      expect(body.memories[0].project_id).toBe(project_id);
     });
   });
 
@@ -432,12 +432,12 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('GET /api/memories/search with project_id filter', () => {
     it('accepts project_id query parameter for filtered search', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, project_id)
          VALUES ('Deployment config', 'Docker Compose deployment for staging', 'fact', $1)`,
-        [projectId],
+        [project_id],
       );
       await pool.query(
         `INSERT INTO memory (title, content, memory_type)
@@ -446,7 +446,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/search?q=deployment&project_id=${projectId}`,
+        url: `/api/memories/search?q=deployment&project_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -461,13 +461,13 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
   describe('POST /api/memories/:id/supersede', () => {
     it('inherits project_id from superseded memory', async () => {
-      const projectId = await createTestProject();
+      const project_id = await createTestProject();
 
       const original = await pool.query(
         `INSERT INTO memory (title, content, memory_type, project_id)
          VALUES ('Old config', 'Docker Compose v1', 'fact', $1)
          RETURNING id::text as id`,
-        [projectId],
+        [project_id],
       );
       const oldId = (original.rows[0] as { id: string }).id;
 
@@ -482,7 +482,7 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.newMemory.projectId).toBe(projectId);
+      expect(body.new_memory.project_id).toBe(project_id);
     });
   });
 });

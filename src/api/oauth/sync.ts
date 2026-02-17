@@ -3,6 +3,7 @@
  * Manages pgcron-based periodic sync jobs for OAuth connections.
  * Only contacts sync locally; email/files/calendar use live API access.
  * Part of Issue #1055.
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
 import type { Pool } from 'pg';
@@ -27,21 +28,21 @@ export type LocalSyncFeature = (typeof LOCAL_SYNC_FEATURES)[number];
 
 /** Result of a sync job execution. */
 export interface SyncJobResult {
-  connectionId: string;
+  connection_id: string;
   feature: LocalSyncFeature;
   success: boolean;
   error?: string;
-  syncedCount?: number;
-  createdCount?: number;
-  updatedCount?: number;
+  synced_count?: number;
+  created_count?: number;
+  updated_count?: number;
 }
 
 /** Sync status stored in oauth_connection.sync_status per feature. */
 export interface FeatureSyncStatus {
-  lastSync?: string;
-  lastSuccess?: string;
-  lastError?: string;
-  consecutiveFailures: number;
+  last_sync?: string;
+  last_success?: string;
+  last_error?: string;
+  consecutive_failures: number;
   cursor?: string;
 }
 
@@ -58,10 +59,10 @@ export function getContactSyncInterval(): string {
  */
 export async function enqueueSyncJob(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   feature: LocalSyncFeature,
 ): Promise<string | null> {
-  const idempotencyKey = `oauth_sync:${connectionId}:${feature}`;
+  const idempotency_key = `oauth_sync:${connection_id}:${feature}`;
 
   const result = await pool.query(
     `INSERT INTO internal_job (kind, run_at, payload, idempotency_key)
@@ -71,8 +72,8 @@ export async function enqueueSyncJob(
      RETURNING id::text as id`,
     [
       SYNC_JOB_KIND,
-      JSON.stringify({ connection_id: connectionId, feature }),
-      idempotencyKey,
+      JSON.stringify({ connection_id: connection_id, feature }),
+      idempotency_key,
     ],
   );
 
@@ -98,49 +99,49 @@ export async function enqueueSyncJob(
  * 6. Fires OpenClaw hook if new contacts found
  * 7. Tracks consecutive failures, notifies after threshold
  */
-export async function executeContactSync(pool: Pool, connectionId: string): Promise<SyncJobResult> {
+export async function executeContactSync(pool: Pool, connection_id: string): Promise<SyncJobResult> {
   // 1. Validate connection
-  const connection = await getConnection(pool, connectionId);
+  const connection = await getConnection(pool, connection_id);
   if (!connection) {
     return {
-      connectionId,
+      connection_id: connection_id,
       feature: 'contacts',
       success: false,
-      error: `Connection ${connectionId} not found`,
+      error: `Connection ${connection_id} not found`,
     };
   }
 
-  if (!connection.isActive) {
+  if (!connection.is_active) {
     return {
-      connectionId,
+      connection_id: connection_id,
       feature: 'contacts',
       success: false,
-      error: `Connection ${connectionId} is not active`,
+      error: `Connection ${connection_id} is not active`,
     };
   }
 
   // 2. Check contacts feature is enabled
-  if (!connection.enabledFeatures.includes('contacts')) {
+  if (!connection.enabled_features.includes('contacts')) {
     return {
-      connectionId,
+      connection_id: connection_id,
       feature: 'contacts',
       success: false,
-      error: `Contacts feature not enabled on connection ${connectionId}`,
+      error: `Contacts feature not enabled on connection ${connection_id}`,
     };
   }
 
   // 3. Check time elapsed since last sync
   const syncInterval = getContactSyncInterval();
   const intervalMs = parseIntervalToMs(syncInterval);
-  const contactStatus = (connection.syncStatus?.contacts as FeatureSyncStatus | undefined);
-  const lastSuccessStr = contactStatus?.lastSuccess;
+  const contactStatus = (connection.sync_status?.contacts as FeatureSyncStatus | undefined);
+  const lastSuccessStr = contactStatus?.last_success;
 
   if (lastSuccessStr) {
     const lastSuccess = new Date(lastSuccessStr);
     const elapsed = Date.now() - lastSuccess.getTime();
     if (elapsed < intervalMs) {
       return {
-        connectionId,
+        connection_id: connection_id,
         feature: 'contacts',
         success: true, // Not an error, just not time yet
       };
@@ -149,48 +150,48 @@ export async function executeContactSync(pool: Pool, connectionId: string): Prom
 
   // 4. Perform incremental sync
   try {
-    const syncCursor = await getContactSyncCursor(pool, connectionId);
-    const result = await syncContacts(pool, connectionId, { syncCursor });
+    const sync_cursor = await getContactSyncCursor(pool, connection_id);
+    const result = await syncContacts(pool, connection_id, { sync_cursor });
 
     // 5. Update sync_status with success
     const newStatus: FeatureSyncStatus = {
-      lastSync: new Date().toISOString(),
-      lastSuccess: new Date().toISOString(),
-      consecutiveFailures: 0,
-      cursor: result.syncCursor,
+      last_sync: new Date().toISOString(),
+      last_success: new Date().toISOString(),
+      consecutive_failures: 0,
+      cursor: result.sync_cursor,
     };
 
-    await updateFeatureSyncStatus(pool, connectionId, 'contacts', newStatus);
+    await updateFeatureSyncStatus(pool, connection_id, 'contacts', newStatus);
 
     // 6. Fire hook if new contacts were synced
-    if (result.createdCount > 0 || result.updatedCount > 0) {
+    if (result.created_count > 0 || result.updated_count > 0) {
       await fireContactSyncHook(pool, connection, result);
     }
 
     return {
-      connectionId,
+      connection_id: connection_id,
       feature: 'contacts',
       success: true,
-      syncedCount: result.syncedCount,
-      createdCount: result.createdCount,
-      updatedCount: result.updatedCount,
+      synced_count: result.synced_count,
+      created_count: result.created_count,
+      updated_count: result.updated_count,
     };
   } catch (error) {
     const err = error as Error;
 
     // 5. Update sync_status with failure
-    const currentFailures = contactStatus?.consecutiveFailures ?? 0;
+    const currentFailures = contactStatus?.consecutive_failures ?? 0;
     const newFailures = currentFailures + 1;
 
     const newStatus: FeatureSyncStatus = {
-      lastSync: new Date().toISOString(),
-      lastError: err.message,
-      consecutiveFailures: newFailures,
-      lastSuccess: contactStatus?.lastSuccess,
+      last_sync: new Date().toISOString(),
+      last_error: err.message,
+      consecutive_failures: newFailures,
+      last_success: contactStatus?.last_success,
       cursor: contactStatus?.cursor,
     };
 
-    await updateFeatureSyncStatus(pool, connectionId, 'contacts', newStatus);
+    await updateFeatureSyncStatus(pool, connection_id, 'contacts', newStatus);
 
     // 7. Notify after threshold
     if (newFailures >= MAX_CONSECUTIVE_FAILURES) {
@@ -198,7 +199,7 @@ export async function executeContactSync(pool: Pool, connectionId: string): Prom
     }
 
     return {
-      connectionId,
+      connection_id: connection_id,
       feature: 'contacts',
       success: false,
       error: err.message,
@@ -211,7 +212,7 @@ export async function executeContactSync(pool: Pool, connectionId: string): Prom
  */
 export async function updateFeatureSyncStatus(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
   feature: string,
   status: FeatureSyncStatus,
 ): Promise<void> {
@@ -225,7 +226,7 @@ export async function updateFeatureSyncStatus(
      last_sync_at = now(),
      updated_at = now()
      WHERE id = $1`,
-    [connectionId, [feature], JSON.stringify(status)],
+    [connection_id, [feature], JSON.stringify(status)],
   );
 }
 
@@ -243,18 +244,18 @@ async function fireContactSyncHook(
     event_type: 'contact_sync_completed',
     connection_id: connection.id,
     provider: connection.provider,
-    user_email: connection.userEmail,
+    user_email: connection.user_email,
     label: connection.label,
-    synced_count: result.syncedCount,
-    created_count: result.createdCount,
-    updated_count: result.updatedCount,
+    synced_count: result.synced_count,
+    created_count: result.created_count,
+    updated_count: result.updated_count,
     timestamp: new Date().toISOString(),
   };
 
-  const idempotencyKey = `contact_sync:${connection.id}:${new Date().toISOString().slice(0, 16)}`;
+  const idempotency_key = `contact_sync:${connection.id}:${new Date().toISOString().slice(0, 16)}`;
 
   await enqueueWebhook(pool, 'oauth.sync.contacts.completed', destination, body, {
-    idempotencyKey,
+    idempotency_key,
   });
 }
 
@@ -273,7 +274,7 @@ async function fireSyncFailureHook(
     event_type: 'sync_failure_alert',
     connection_id: connection.id,
     provider: connection.provider,
-    user_email: connection.userEmail,
+    user_email: connection.user_email,
     label: connection.label,
     feature,
     consecutive_failures: consecutiveFailures,
@@ -281,10 +282,10 @@ async function fireSyncFailureHook(
     timestamp: new Date().toISOString(),
   };
 
-  const idempotencyKey = `sync_failure:${connection.id}:${feature}:${new Date().toISOString().slice(0, 13)}`;
+  const idempotency_key = `sync_failure:${connection.id}:${feature}:${new Date().toISOString().slice(0, 13)}`;
 
   await enqueueWebhook(pool, 'oauth.sync.failure_alert', destination, body, {
-    idempotencyKey,
+    idempotency_key,
   });
 }
 
@@ -317,13 +318,13 @@ export function parseIntervalToMs(interval: string): number {
  * Remove all pending sync jobs for a connection.
  * Called when a connection is deleted or deactivated.
  */
-export async function removePendingSyncJobs(pool: Pool, connectionId: string): Promise<number> {
+export async function removePendingSyncJobs(pool: Pool, connection_id: string): Promise<number> {
   const result = await pool.query(
     `DELETE FROM internal_job
      WHERE kind = $1
        AND completed_at IS NULL
        AND payload->>'connection_id' = $2`,
-    [SYNC_JOB_KIND, connectionId],
+    [SYNC_JOB_KIND, connection_id],
   );
 
   return result.rowCount ?? 0;
@@ -334,11 +335,11 @@ export async function removePendingSyncJobs(pool: Pool, connectionId: string): P
  */
 export async function getSyncStatus(
   pool: Pool,
-  connectionId: string,
+  connection_id: string,
 ): Promise<Record<string, FeatureSyncStatus> | null> {
   const result = await pool.query(
     `SELECT sync_status FROM oauth_connection WHERE id = $1`,
-    [connectionId],
+    [connection_id],
   );
 
   if (result.rows.length === 0) {

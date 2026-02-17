@@ -25,18 +25,18 @@ const mockItem: WorkItemDetail = {
   status: 'in_progress',
   priority: 'high',
   description: 'Test **description** with `code`',
-  parentId: 'parent-1',
+  parent_id: 'parent-1',
   parentTitle: 'Parent Epic',
   assignee: 'John Doe',
   estimateMinutes: 120,
   actualMinutes: 60,
   dueDate: new Date('2026-03-01'),
   startDate: new Date('2026-02-01'),
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  created_at: new Date(),
+  updated_at: new Date(),
   todos: [
-    { id: 'todo-1', text: 'First task', completed: true, createdAt: new Date() },
-    { id: 'todo-2', text: 'Second task', completed: false, createdAt: new Date() },
+    { id: 'todo-1', text: 'First task', completed: true, created_at: new Date() },
+    { id: 'todo-2', text: 'Second task', completed: false, created_at: new Date() },
   ],
   attachments: [
     { id: 'att-1', type: 'memory', title: 'Meeting Notes', linkedAt: new Date() },
@@ -111,8 +111,8 @@ describe('MetadataGrid', () => {
 
 describe('TodoList', () => {
   const todos: WorkItemTodo[] = [
-    { id: '1', text: 'Task A', completed: true, createdAt: new Date() },
-    { id: '2', text: 'Task B', completed: false, createdAt: new Date() },
+    { id: '1', text: 'Task A', completed: true, created_at: new Date() },
+    { id: '2', text: 'Task B', completed: false, created_at: new Date() },
   ];
 
   it('renders todos with checkboxes', () => {

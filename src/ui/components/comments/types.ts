@@ -23,9 +23,9 @@ export interface Comment {
   content: string;
   authorId: string;
   author: Author;
-  parentId?: string;
-  createdAt: string;
-  updatedAt: string;
+  parent_id?: string;
+  created_at: string;
+  updated_at: string;
   replyCount: number;
   reactions: CommentReaction[];
 }

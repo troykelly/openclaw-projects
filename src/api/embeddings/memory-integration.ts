@@ -18,9 +18,9 @@ export interface MemoryWithEmbedding {
   title: string;
   content: string;
   type: string;
-  linkedItemId: string;
-  createdAt: string;
-  updatedAt?: string;
+  linked_item_id: string;
+  created_at: string;
+  updated_at?: string;
   embedding_status: MemoryEmbeddingStatus;
   embedding_provider?: string;
   embedding_model?: string;
@@ -34,15 +34,15 @@ export interface MemoryWithEmbedding {
  * is still valid but marked as 'failed' status.
  *
  * @param pool Database pool
- * @param memoryId The memory ID
+ * @param memory_id The memory ID
  * @param content The content to embed (title + content concatenated)
  * @returns The embedding status
  */
-export async function generateMemoryEmbedding(pool: Pool, memoryId: string, content: string): Promise<MemoryEmbeddingStatus> {
+export async function generateMemoryEmbedding(pool: Pool, memory_id: string, content: string): Promise<MemoryEmbeddingStatus> {
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Mark as pending - can be backfilled later
-    await pool.query(`UPDATE memory SET embedding_status = 'pending' WHERE id = $1`, [memoryId]);
+    await pool.query(`UPDATE memory SET embedding_status = 'pending' WHERE id = $1`, [memory_id]);
     return 'pending';
   }
 
@@ -50,7 +50,7 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
     const result = await embeddingService.embed(content);
 
     if (!result) {
-      await pool.query(`UPDATE memory SET embedding_status = 'pending' WHERE id = $1`, [memoryId]);
+      await pool.query(`UPDATE memory SET embedding_status = 'pending' WHERE id = $1`, [memory_id]);
       return 'pending';
     }
 
@@ -63,7 +63,7 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
            embedding_status = 'complete',
            updated_at = NOW()
        WHERE id = $4`,
-      [`[${result.embedding.join(',')}]`, result.model, result.provider, memoryId],
+      [`[${result.embedding.join(',')}]`, result.model, result.provider, memory_id],
     );
 
     return 'complete';
@@ -74,10 +74,10 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
       return 'failed';
     }
     // Log error but don't fail the request
-    console.error(`[Embeddings] Failed to embed memory ${memoryId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
+    console.error(`[Embeddings] Failed to embed memory ${memory_id}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
 
     // Mark as failed (may also fail if pool is closed, ignore that)
-    await pool.query(`UPDATE memory SET embedding_status = 'failed' WHERE id = $1`, [memoryId]).catch(() => {});
+    await pool.query(`UPDATE memory SET embedding_status = 'failed' WHERE id = $1`, [memory_id]).catch(() => {});
 
     return 'failed';
   }
@@ -89,10 +89,10 @@ export async function generateMemoryEmbedding(pool: Pool, memoryId: string, cont
  * Part of Epic #1204, Issue #1210.
  *
  * @param pool Database pool
- * @param memoryId The memory ID
+ * @param memory_id The memory ID
  * @param locationText The location text to embed (address + place_label)
  */
-export async function generateLocationEmbedding(pool: Pool, memoryId: string, locationText: string): Promise<void> {
+export async function generateLocationEmbedding(pool: Pool, memory_id: string, locationText: string): Promise<void> {
   if (!embeddingService.isConfigured() || !locationText.trim()) return;
 
   try {
@@ -103,13 +103,13 @@ export async function generateLocationEmbedding(pool: Pool, memoryId: string, lo
       `UPDATE memory
        SET location_embedding = $1::vector
        WHERE id = $2`,
-      [`[${result.embedding.join(',')}]`, memoryId],
+      [`[${result.embedding.join(',')}]`, memory_id],
     );
   } catch (error) {
     // Non-fatal: location embedding is a bonus relevance signal
     const msg = error instanceof Error ? error.message : String(error);
     if (!msg.includes('Cannot use a pool after calling end')) {
-      console.error(`[Embeddings] Failed to embed location for memory ${memoryId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
+      console.error(`[Embeddings] Failed to embed location for memory ${memory_id}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
     }
   }
 }
@@ -130,22 +130,22 @@ export async function searchMemoriesSemantic(
   options: {
     limit?: number;
     offset?: number;
-    memoryType?: string;
-    workItemId?: string;
-    contactId?: string;
-    relationshipId?: string;
-    projectId?: string;
-    userEmail?: string;
+    memory_type?: string;
+    work_item_id?: string;
+    contact_id?: string;
+    relationship_id?: string;
+    project_id?: string;
+    user_email?: string;
     tags?: string[];
-    createdAfter?: Date;
-    createdBefore?: Date;
+    created_after?: Date;
+    created_before?: Date;
   } = {},
 ): Promise<{
   results: Array<MemoryWithEmbedding & { similarity: number }>;
-  searchType: 'semantic' | 'text';
-  queryEmbeddingProvider?: string;
+  search_type: 'semantic' | 'text';
+  query_embedding_provider?: string;
 }> {
-  const { limit = 20, offset = 0, memoryType, workItemId, contactId, relationshipId, projectId, userEmail, tags, createdAfter, createdBefore } = options;
+  const { limit = 20, offset = 0, memory_type, work_item_id, contact_id, relationship_id, project_id, user_email, tags, created_after, created_before } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -171,39 +171,39 @@ export async function searchMemoriesSemantic(
   const params: (string | number | string[])[] = [];
   let paramIndex = 1;
 
-  if (memoryType) {
+  if (memory_type) {
     conditions.push(`m.memory_type::text = $${paramIndex}`);
-    params.push(memoryType);
+    params.push(memory_type);
     paramIndex++;
   }
 
-  if (workItemId) {
+  if (work_item_id) {
     conditions.push(`m.work_item_id = $${paramIndex}`);
-    params.push(workItemId);
+    params.push(work_item_id);
     paramIndex++;
   }
 
-  if (contactId) {
+  if (contact_id) {
     conditions.push(`m.contact_id = $${paramIndex}`);
-    params.push(contactId);
+    params.push(contact_id);
     paramIndex++;
   }
 
-  if (relationshipId) {
+  if (relationship_id) {
     conditions.push(`m.relationship_id = $${paramIndex}`);
-    params.push(relationshipId);
+    params.push(relationship_id);
     paramIndex++;
   }
 
-  if (projectId) {
+  if (project_id) {
     conditions.push(`m.project_id = $${paramIndex}`);
-    params.push(projectId);
+    params.push(project_id);
     paramIndex++;
   }
 
-  if (userEmail) {
+  if (user_email) {
     conditions.push(`m.user_email = $${paramIndex}`);
-    params.push(userEmail);
+    params.push(user_email);
     paramIndex++;
   }
 
@@ -214,14 +214,14 @@ export async function searchMemoriesSemantic(
   }
 
   // Temporal filters (issue #1272)
-  if (createdAfter) {
+  if (created_after) {
     conditions.push(`m.created_at >= $${paramIndex}`);
-    params.push(createdAfter.toISOString());
+    params.push(created_after.toISOString());
     paramIndex++;
   }
-  if (createdBefore) {
+  if (created_before) {
     conditions.push(`m.created_at < $${paramIndex}`);
-    params.push(createdBefore.toISOString());
+    params.push(created_before.toISOString());
     paramIndex++;
   }
 
@@ -249,9 +249,9 @@ export async function searchMemoriesSemantic(
          m.title,
          m.content,
          m.memory_type::text as type,
-         m.work_item_id::text as "linkedItemId",
-         m.created_at as "createdAt",
-         m.updated_at as "updatedAt",
+         m.work_item_id::text as linked_item_id,
+         m.created_at,
+         m.updated_at,
          m.embedding_status,
          m.embedding_provider,
          m.embedding_model,
@@ -270,8 +270,8 @@ export async function searchMemoriesSemantic(
 
     return {
       results: result.rows as Array<MemoryWithEmbedding & { similarity: number }>,
-      searchType: 'semantic',
-      queryEmbeddingProvider: queryProvider,
+      search_type: 'semantic',
+      query_embedding_provider: queryProvider,
     };
   }
 
@@ -293,9 +293,9 @@ export async function searchMemoriesSemantic(
        m.title,
        m.content,
        m.memory_type::text as type,
-       m.work_item_id::text as "linkedItemId",
-       m.created_at as "createdAt",
-       m.updated_at as "updatedAt",
+       m.work_item_id::text as linked_item_id,
+       m.created_at,
+       m.updated_at,
        m.embedding_status,
        m.embedding_provider,
        m.embedding_model,
@@ -313,7 +313,7 @@ export async function searchMemoriesSemantic(
 
   return {
     results: result.rows as Array<MemoryWithEmbedding & { similarity: number }>,
-    searchType: 'text',
+    search_type: 'text',
   };
 }
 
@@ -327,7 +327,7 @@ export async function searchMemoriesSemantic(
 export async function backfillMemoryEmbeddings(
   pool: Pool,
   options: {
-    batchSize?: number;
+    batch_size?: number;
     force?: boolean;
   } = {},
 ): Promise<{
@@ -335,7 +335,7 @@ export async function backfillMemoryEmbeddings(
   succeeded: number;
   failed: number;
 }> {
-  const { batchSize = 100, force = false } = options;
+  const { batch_size = 100, force = false } = options;
 
   if (!embeddingService.isConfigured()) {
     throw new Error('No embedding provider configured');
@@ -350,7 +350,7 @@ export async function backfillMemoryEmbeddings(
      WHERE ${condition}
      ORDER BY created_at ASC
      LIMIT $1`,
-    [batchSize],
+    [batch_size],
   );
 
   let succeeded = 0;

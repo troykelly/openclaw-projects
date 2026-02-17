@@ -27,9 +27,9 @@ describe('Per-User Rate Limiting', () => {
       const mockGetSessionEmail = vi.fn().mockResolvedValue('user@example.com');
       const req = createMockRequest({ ip: '192.168.1.1' });
 
-      const userId = await extractUserIdForRateLimit(req, mockGetSessionEmail);
+      const user_id = await extractUserIdForRateLimit(req, mockGetSessionEmail);
 
-      expect(userId).toBe('user:user@example.com');
+      expect(user_id).toBe('user:user@example.com');
       expect(mockGetSessionEmail).toHaveBeenCalledWith(req);
     });
 
@@ -37,27 +37,27 @@ describe('Per-User Rate Limiting', () => {
       const mockGetSessionEmail = vi.fn().mockResolvedValue(null);
       const req = createMockRequest({ ip: '192.168.1.100' });
 
-      const userId = await extractUserIdForRateLimit(req, mockGetSessionEmail);
+      const user_id = await extractUserIdForRateLimit(req, mockGetSessionEmail);
 
-      expect(userId).toBe('ip:192.168.1.100');
+      expect(user_id).toBe('ip:192.168.1.100');
     });
 
     it('should handle session lookup errors gracefully', async () => {
       const mockGetSessionEmail = vi.fn().mockRejectedValue(new Error('DB error'));
       const req = createMockRequest({ ip: '10.0.0.1' });
 
-      const userId = await extractUserIdForRateLimit(req, mockGetSessionEmail);
+      const user_id = await extractUserIdForRateLimit(req, mockGetSessionEmail);
 
-      expect(userId).toBe('ip:10.0.0.1');
+      expect(user_id).toBe('ip:10.0.0.1');
     });
 
     it('should prefix user IDs to distinguish from IP keys', async () => {
       const mockGetSessionEmail = vi.fn().mockResolvedValue('admin@example.com');
       const req = createMockRequest({ ip: '127.0.0.1' });
 
-      const userId = await extractUserIdForRateLimit(req, mockGetSessionEmail);
+      const user_id = await extractUserIdForRateLimit(req, mockGetSessionEmail);
 
-      expect(userId.startsWith('user:')).toBe(true);
+      expect(user_id.startsWith('user:')).toBe(true);
     });
   });
 

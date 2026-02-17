@@ -225,8 +225,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       errorResponseBuilder: (_req, context) => ({
         error: 'Too Many Requests',
         message: `Rate limit exceeded. Try again in ${Math.ceil((context.ttl ?? 60000) / 1000)} seconds.`,
-        statusCode: 429,
-        retryAfter: Math.ceil((context.ttl ?? 60000) / 1000),
+        status_code: 429,
+        retry_after: Math.ceil((context.ttl ?? 60000) / 1000),
       }),
 
       // Skip rate limiting for health check endpoints
@@ -332,12 +332,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   /**
    * Verify that a parent entity belongs to the given user_email scope.
-   * Returns true if no scoping is requested (userEmail is undefined/empty) or if the entity matches.
+   * Returns true if no scoping is requested (user_email is undefined/empty) or if the entity matches.
    * Issue #1172: used by sub-resource routes to verify parent entity scope.
    */
-  async function verifyUserEmailScope(pool: ReturnType<typeof createPool>, table: string, id: string, userEmail?: string): Promise<boolean> {
-    if (!userEmail) return true;
-    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND user_email = $2`, [id, userEmail]);
+  async function verifyUserEmailScope(pool: ReturnType<typeof createPool>, table: string, id: string, user_email?: string): Promise<boolean> {
+    if (!user_email) return true;
+    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND user_email = $2`, [id, user_email]);
     return result.rows.length > 0;
   }
 
@@ -348,21 +348,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
    */
   async function scheduleWorkItemReminders(
     pool: ReturnType<typeof createPool>,
-    workItemId: string,
+    work_item_id: string,
     notBefore: Date | null,
     notAfter: Date | null,
   ): Promise<void> {
     // Handle not_before → reminder job
     if (notBefore) {
-      const idempotencyKey = `work_item_not_before:${workItemId}:${notBefore.toISOString().split('T')[0]}`;
-      const payload = JSON.stringify({ work_item_id: workItemId, not_before: notBefore.toISOString() });
+      const idempotency_key = `work_item_not_before:${work_item_id}:${notBefore.toISOString().split('T')[0]}`;
+      const payload = JSON.stringify({ work_item_id: work_item_id, not_before: notBefore.toISOString() });
       // Delete any existing uncompleted reminder jobs for this work item (handles date changes)
       await pool.query(
         `DELETE FROM internal_job
           WHERE kind = 'reminder.work_item.not_before'
             AND payload->>'work_item_id' = $1
             AND completed_at IS NULL`,
-        [workItemId],
+        [work_item_id],
       );
       // Insert the new job
       await pool.query(
@@ -370,7 +370,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          VALUES ('reminder.work_item.not_before', $1::timestamptz, $2::jsonb, $3)
          ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO UPDATE
            SET run_at = EXCLUDED.run_at, payload = EXCLUDED.payload, updated_at = now()`,
-        [notBefore, payload, idempotencyKey],
+        [notBefore, payload, idempotency_key],
       );
     } else {
       // Date cleared — remove any pending reminder jobs for this work item
@@ -379,14 +379,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE kind = 'reminder.work_item.not_before'
             AND payload->>'work_item_id' = $1
             AND completed_at IS NULL`,
-        [workItemId],
+        [work_item_id],
       );
     }
 
     // Handle not_after → nudge job
     if (notAfter) {
-      const idempotencyKey = `work_item_not_after:${workItemId}:${notAfter.toISOString().split('T')[0]}`;
-      const payload = JSON.stringify({ work_item_id: workItemId, not_after: notAfter.toISOString() });
+      const idempotency_key = `work_item_not_after:${work_item_id}:${notAfter.toISOString().split('T')[0]}`;
+      const payload = JSON.stringify({ work_item_id: work_item_id, not_after: notAfter.toISOString() });
       // Nudge run_at: 24 hours before deadline, or now if deadline is within 24h
       const nudgeRunAt = new Date(Math.max(notAfter.getTime() - 24 * 60 * 60 * 1000, Date.now()));
       // Delete any existing uncompleted nudge jobs for this work item (handles date changes)
@@ -395,7 +395,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE kind = 'nudge.work_item.not_after'
             AND payload->>'work_item_id' = $1
             AND completed_at IS NULL`,
-        [workItemId],
+        [work_item_id],
       );
       // Insert the new job
       await pool.query(
@@ -403,7 +403,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          VALUES ('nudge.work_item.not_after', $1::timestamptz, $2::jsonb, $3)
          ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO UPDATE
            SET run_at = EXCLUDED.run_at, payload = EXCLUDED.payload, updated_at = now()`,
-        [nudgeRunAt, payload, idempotencyKey],
+        [nudgeRunAt, payload, idempotency_key],
       );
     } else {
       // Date cleared — remove any pending nudge jobs for this work item
@@ -412,7 +412,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE kind = 'nudge.work_item.not_after'
             AND payload->>'work_item_id' = $1
             AND completed_at IS NULL`,
-        [workItemId],
+        [work_item_id],
       );
     }
   }
@@ -500,7 +500,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Principal binding hook (Issue #1353): for user tokens, override any
-  // user_email / userEmail supplied in query, body, or X-User-Email header
+  // user_email / user_email supplied in query, body, or X-User-Email header
   // so that downstream handlers always operate on the authenticated user's
   // own data.  M2M tokens pass through the requested email unchanged.
   app.addHook('preHandler', async (req) => {
@@ -515,14 +515,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const q = req.query as Record<string, unknown> | undefined;
     if (q) {
       if ('user_email' in q) q.user_email = bound;
-      if ('userEmail' in q) q.userEmail = bound;
+      if ('user_email' in q) q.user_email = bound;
     }
 
     // Override body fields
     const b = req.body as Record<string, unknown> | undefined | null;
     if (b && typeof b === 'object') {
       if ('user_email' in b) b.user_email = bound;
-      if ('userEmail' in b) b.userEmail = bound;
+      if ('user_email' in b) b.user_email = bound;
 
       // Handle arrays that may contain per-element user_email
       for (const arrayKey of ['items', 'memories', 'contacts']) {
@@ -567,8 +567,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Detailed health status for monitoring
   app.get('/api/health', async (_req, reply) => {
     const health = await healthRegistry.checkAll();
-    const statusCode = health.status === 'unhealthy' ? 503 : 200;
-    return reply.code(statusCode).send(health);
+    const status_code = health.status === 'unhealthy' ? 503 : 200;
+    return reply.code(status_code).send(health);
   });
 
   // Real-time WebSocket endpoint (Issue #213)
@@ -586,19 +586,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/ws', { websocket: true }, async (socket, req) => {
     // Authenticate via JWT in Authorization header or query string
-    let userId: string | undefined;
+    let user_id: string | undefined;
 
     // Try JWT from Authorization header first (via getAuthIdentity)
     const identity = await getAuthIdentity(req);
     if (identity) {
-      userId = identity.email;
+      user_id = identity.email;
     } else if (!isAuthDisabled()) {
       // Try JWT from query string (for WebSocket clients that can't set headers)
       const query = req.query as { token?: string };
       if (query.token) {
         try {
           const payload = await verifyAccessToken(query.token);
-          userId = payload.sub;
+          user_id = payload.sub;
         } catch {
           socket.close(4001, 'Unauthorized');
           return;
@@ -610,7 +610,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Add client to the hub
-    const clientId = realtimeHub.addClient(socket, userId);
+    const client_id = realtimeHub.addClient(socket, user_id);
 
     // Handle incoming messages
     socket.on('message', (data: Buffer) => {
@@ -619,7 +619,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         // Handle ping/pong for heartbeat
         if (message.event === 'connection:pong') {
-          realtimeHub.updateClientPing(clientId);
+          realtimeHub.updateClientPing(client_id);
         }
       } catch {
         // Ignore malformed messages
@@ -628,18 +628,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Handle client disconnect
     socket.on('close', () => {
-      realtimeHub.removeClient(clientId);
+      realtimeHub.removeClient(client_id);
     });
 
     socket.on('error', (err: Error) => {
-      console.error(`[WebSocket] Client ${clientId} error:`, err);
-      realtimeHub.removeClient(clientId);
+      console.error(`[WebSocket] Client ${client_id} error:`, err);
+      realtimeHub.removeClient(client_id);
     });
   });
 
   // Realtime stats endpoint (for monitoring)
   app.get('/api/ws/stats', async () => ({
-    connectedClients: realtimeHub.getClientCount(),
+    connected_clients: realtimeHub.getClientCount(),
   }));
 
   // SSE fallback endpoint (Issue #213)
@@ -669,7 +669,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     reply.raw.write(
       `data: ${JSON.stringify({
         event: 'connection:established',
-        data: { connectedAt: new Date().toISOString() },
+        data: { connected_at: new Date().toISOString() },
         timestamp: new Date().toISOString(),
       })}\n\n`,
     );
@@ -718,7 +718,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         .filter(Boolean);
 
       const result = await getBootstrapContext(pool, {
-        userEmail: query.user_email,
+        user_email: query.user_email,
         include,
         exclude,
       });
@@ -734,26 +734,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { retrieveContext, validateContextInput } = await import('./context/index.ts');
 
     const body = req.body as {
-      userId?: string;
+      user_id?: string;
       prompt?: string;
-      maxMemories?: number;
-      maxContextLength?: number;
-      includeProjects?: boolean;
-      includeTodos?: boolean;
-      includeContacts?: boolean;
-      minSimilarity?: number;
+      max_memories?: number;
+      max_context_length?: number;
+      include_projects?: boolean;
+      include_todos?: boolean;
+      include_contacts?: boolean;
+      min_similarity?: number;
     };
 
     // Validate input
     const validationError = validateContextInput({
-      userId: body.userId,
+      user_id: body.user_id,
       prompt: body.prompt ?? '',
-      maxMemories: body.maxMemories,
-      maxContextLength: body.maxContextLength,
-      includeProjects: body.includeProjects,
-      includeTodos: body.includeTodos,
-      includeContacts: body.includeContacts,
-      minSimilarity: body.minSimilarity,
+      max_memories: body.max_memories,
+      max_context_length: body.max_context_length,
+      include_projects: body.include_projects,
+      include_todos: body.include_todos,
+      include_contacts: body.include_contacts,
+      min_similarity: body.min_similarity,
     });
 
     if (validationError) {
@@ -764,14 +764,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await retrieveContext(pool, {
-        userId: body.userId,
+        user_id: body.user_id,
         prompt: body.prompt!,
-        maxMemories: body.maxMemories,
-        maxContextLength: body.maxContextLength,
-        includeProjects: body.includeProjects,
-        includeTodos: body.includeTodos,
-        includeContacts: body.includeContacts,
-        minSimilarity: body.minSimilarity,
+        max_memories: body.max_memories,
+        max_context_length: body.max_context_length,
+        include_projects: body.include_projects,
+        include_todos: body.include_todos,
+        include_contacts: body.include_contacts,
+        min_similarity: body.min_similarity,
       });
 
       return reply.send(result);
@@ -786,15 +786,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const body = req.body as {
       conversation?: string;
-      messageCount?: number;
-      userId?: string;
+      message_count?: number;
+      user_id?: string;
     };
 
     // Validate input
     const validationError = validateCaptureInput({
       conversation: body.conversation ?? '',
-      messageCount: body.messageCount ?? 0,
-      userId: body.userId,
+      message_count: body.message_count ?? 0,
+      user_id: body.user_id,
     });
 
     if (validationError) {
@@ -806,8 +806,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await captureContext(pool, {
         conversation: body.conversation!,
-        messageCount: body.messageCount!,
-        userId: body.userId,
+        message_count: body.message_count!,
+        user_id: body.user_id,
       });
 
       return reply.send(result);
@@ -835,8 +835,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         channel: query.channel,
-        contactId: query.contact_id,
-        userEmail: query.user_email,
+        contact_id: query.contact_id,
+        user_email: query.user_email,
       });
 
       return reply.send(result);
@@ -941,12 +941,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       if (senderAddress && channel) {
         // Create or get the contact endpoint for this sender
-        const endpointType = channel === 'phone' ? 'phone' : 'email';
+        const endpoint_type = channel === 'phone' ? 'phone' : 'email';
         await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
            VALUES ($1, $2::contact_endpoint_type, $3)
            ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
-          [body.contact_id, endpointType, senderAddress],
+          [body.contact_id, endpoint_type, senderAddress],
         );
       }
 
@@ -1667,7 +1667,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return sendAppHtml(reply, {
       route: { kind: 'work-items-list' },
       me: { email },
-      workItems: result.rows,
+      work_items: result.rows,
     });
   });
 
@@ -1714,7 +1714,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const bootstrap = {
         route: { kind: 'work-item-detail', id: params.id },
         me: { email },
-        workItem: null,
+        work_item: null,
         participants: [],
       };
 
@@ -1743,7 +1743,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const bootstrap = {
       route: { kind: 'work-item-detail', id: params.id },
       me: { email },
-      workItem: item.rows[0] ?? null,
+      work_item: item.rows[0] ?? null,
       participants: participants.rows,
     };
 
@@ -1820,7 +1820,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // This prevents leaking a login token to whoever can see the response in production.
     const shouldReturnUrl = !delivered && process.env.NODE_ENV !== 'production';
 
-    return reply.code(201).send({ ok: true, ...(shouldReturnUrl ? { loginUrl } : {}) });
+    return reply.code(201).send({ ok: true, ...(shouldReturnUrl ? { login_url: loginUrl } : {}) });
   });
 
   /**
@@ -1887,7 +1887,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { id, email } = link.rows[0] as { id: string; email: string };
 
       // Issue JWT before committing to avoid burning the magic link if signing fails
-      const accessToken = await signAccessToken(email);
+      const access_token = await signAccessToken(email);
 
       // Create refresh token family
       const refresh = await createRefreshToken(pool, email);
@@ -1900,7 +1900,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await logAuthEvent(pool, 'auth.token_consumed', req.ip, email, { success: true });
 
       setRefreshCookie(reply, refresh.token);
-      return reply.send({ accessToken });
+      return reply.send({ access_token });
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
@@ -1915,21 +1915,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     config: { rateLimit: refreshRateLimit() },
   }, async (req, reply) => {
     const cookies = req.cookies as Record<string, string | undefined>;
-    const refreshToken = cookies.projects_refresh;
-    if (!refreshToken) {
+    const refresh_token = cookies.projects_refresh;
+    if (!refresh_token) {
       return reply.code(401).send({ error: 'no refresh token' });
     }
 
     const pool = createPool();
     try {
       // Consume the old refresh token (validates + detects reuse)
-      const { email, familyId, tokenId: oldTokenId } = await consumeRefreshToken(pool, refreshToken);
+      const { email, family_id, token_id: oldTokenId } = await consumeRefreshToken(pool, refresh_token);
 
       // Issue new access token
-      const accessToken = await signAccessToken(email);
+      const access_token = await signAccessToken(email);
 
       // Rotate: create new refresh token in same family
-      const newRefresh = await createRefreshToken(pool, email, familyId);
+      const newRefresh = await createRefreshToken(pool, email, family_id);
 
       // Link old token to new one (prevents grace-window replay from minting multiple descendants)
       await pool.query(
@@ -1938,10 +1938,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       );
 
       // Audit: successful token refresh
-      await logAuthEvent(pool, 'auth.token_refresh', req.ip, email, { family_id: familyId });
+      await logAuthEvent(pool, 'auth.token_refresh', req.ip, email, { family_id });
 
       setRefreshCookie(reply, newRefresh.token);
-      return reply.send({ accessToken });
+      return reply.send({ access_token });
     } catch (err) {
       // Detect refresh token reuse (security event)
       const isReuse = err instanceof Error && err.message.includes('reuse');
@@ -1963,17 +1963,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     config: { rateLimit: revokeRateLimit() },
   }, async (req, reply) => {
     const cookies = req.cookies as Record<string, string | undefined>;
-    const refreshToken = cookies.projects_refresh;
+    const refresh_token = cookies.projects_refresh;
 
-    if (refreshToken) {
+    if (refresh_token) {
       const pool = createPool();
       try {
         // Look up the token to find its family, then revoke
-        const { familyId, email } = await consumeRefreshToken(pool, refreshToken);
-        await revokeTokenFamily(pool, familyId);
+        const { family_id, email } = await consumeRefreshToken(pool, refresh_token);
+        await revokeTokenFamily(pool, family_id);
 
         // Audit: token revoked (logout)
-        await logAuthEvent(pool, 'auth.token_revoked', req.ip, email, { family_id: familyId });
+        await logAuthEvent(pool, 'auth.token_revoked', req.ip, email, { family_id });
       } catch {
         // Token already invalid — ignore, still clear cookie
       } finally {
@@ -2047,7 +2047,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { id, email } = result.rows[0] as { id: string; email: string };
 
       // Issue JWT before committing to avoid burning the code if signing fails
-      const accessToken = await signAccessToken(email);
+      const access_token = await signAccessToken(email);
 
       // Create refresh token family
       const refresh = await createRefreshToken(pool, email);
@@ -2060,7 +2060,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await logAuthEvent(pool, 'auth.token_consumed', req.ip, email, { success: true });
 
       setRefreshCookie(reply, refresh.token);
-      return reply.send({ accessToken });
+      return reply.send({ access_token });
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
@@ -2176,24 +2176,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.patch('/api/settings/embeddings', async (req, reply) => {
     const body = req.body as {
-      dailyLimitUsd?: number;
-      monthlyLimitUsd?: number;
-      pauseOnLimit?: boolean;
+      daily_limit_usd?: number;
+      monthly_limit_usd?: number;
+      pause_on_limit?: boolean;
     };
 
     // Validate limits
-    if (body.dailyLimitUsd !== undefined) {
-      if (body.dailyLimitUsd < 0 || body.dailyLimitUsd > 10000) {
+    if (body.daily_limit_usd !== undefined) {
+      if (body.daily_limit_usd < 0 || body.daily_limit_usd > 10000) {
         return reply.code(400).send({
-          error: 'dailyLimitUsd must be between 0 and 10000',
+          error: 'daily_limit_usd must be between 0 and 10000',
         });
       }
     }
 
-    if (body.monthlyLimitUsd !== undefined) {
-      if (body.monthlyLimitUsd < 0 || body.monthlyLimitUsd > 100000) {
+    if (body.monthly_limit_usd !== undefined) {
+      if (body.monthly_limit_usd < 0 || body.monthly_limit_usd > 100000) {
         return reply.code(400).send({
-          error: 'monthlyLimitUsd must be between 0 and 100000',
+          error: 'monthly_limit_usd must be between 0 and 100000',
         });
       }
     }
@@ -2221,9 +2221,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       limit?: string;
       offset?: string;
       page?: string;
-      actionType?: string;
-      entityType?: string;
-      projectId?: string;
+      action_type?: string;
+      entity_type?: string;
+      project_id?: string;
       since?: string;
     };
 
@@ -2234,10 +2234,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #808: If entityType is 'skill_store', query only skill_store_activity.
-    // If no entityType filter, UNION both tables. Otherwise query work_item_activity only.
-    const isSkillStoreOnly = query.entityType === 'skill_store';
-    const includeSkillStore = !query.entityType || isSkillStoreOnly;
+    // Issue #808: If entity_type is 'skill_store', query only skill_store_activity.
+    // If no entity_type filter, UNION both tables. Otherwise query work_item_activity only.
+    const isSkillStoreOnly = query.entity_type === 'skill_store';
+    const includeSkillStore = !query.entity_type || isSkillStoreOnly;
 
     if (isSkillStoreOnly) {
       // Skill store activity only (Issue #808)
@@ -2245,9 +2245,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const params: (string | number)[] = [];
       let paramIndex = 1;
 
-      if (query.actionType) {
+      if (query.action_type) {
         conditions.push(`sa.activity_type::text = $${paramIndex}`);
-        params.push(query.actionType);
+        params.push(query.action_type);
         paramIndex++;
       }
 
@@ -2288,11 +2288,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const response: {
         items: unknown[];
-        pagination?: { page: number; limit: number; total: number; hasMore: boolean };
+        pagination?: { page: number; limit: number; total: number; has_more: boolean };
       } = { items: result.rows };
 
       if (page !== null) {
-        response.pagination = { page, limit, total, hasMore: offset + result.rows.length < total };
+        response.pagination = { page, limit, total, has_more: offset + result.rows.length < total };
       }
 
       return reply.send(response);
@@ -2303,21 +2303,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
-    if (query.actionType) {
+    if (query.action_type) {
       conditions.push(`a.activity_type = $${paramIndex}`);
-      params.push(query.actionType);
+      params.push(query.action_type);
       paramIndex++;
     }
 
-    if (query.entityType) {
+    if (query.entity_type) {
       conditions.push(`w.work_item_kind = $${paramIndex}`);
-      params.push(query.entityType);
+      params.push(query.entity_type);
       paramIndex++;
     }
 
-    // projectId filter handled separately with CTE
+    // project_id filter handled separately with CTE
     let projectIdCTE = '';
-    if (query.projectId) {
+    if (query.project_id) {
       // Use recursive CTE to get all descendants of the project
       projectIdCTE = `
         WITH RECURSIVE project_tree AS (
@@ -2327,7 +2327,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           JOIN project_tree pt ON w.parent_work_item_id = pt.id
         )`;
       conditions.push('w.id IN (SELECT id FROM project_tree)');
-      params.push(query.projectId);
+      params.push(query.project_id);
       paramIndex++;
     }
 
@@ -2339,7 +2339,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Issue #808: When no entityType filter, UNION skill_store_activity into the feed
+    // Issue #808: When no entity_type filter, UNION skill_store_activity into the feed
     const skillStoreUnion = includeSkillStore
       ? `UNION ALL
          SELECT sa.id::text as id,
@@ -2400,7 +2400,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Include pagination metadata if page-based pagination is used
     const response: {
       items: unknown[];
-      pagination?: { page: number; limit: number; total: number; hasMore: boolean };
+      pagination?: { page: number; limit: number; total: number; has_more: boolean };
     } = { items: result.rows };
 
     if (page !== null) {
@@ -2408,7 +2408,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         page,
         limit,
         total,
-        hasMore: offset + result.rows.length < total,
+        has_more: offset + result.rows.length < total,
       };
     }
 
@@ -2430,7 +2430,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Issue #101: SSE Real-time Activity Stream
   app.get('/api/activity/stream', async (req, reply) => {
-    const query = req.query as { projectId?: string };
+    const query = req.query as { project_id?: string };
 
     // Merge headers set by @fastify/cors into the raw writeHead call
     // so CORS headers are not lost when bypassing Fastify's response pipeline.
@@ -2450,7 +2450,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     let whereClause = '';
     const params: string[] = [];
 
-    if (query.projectId) {
+    if (query.project_id) {
       // Use recursive CTE to get all descendants of the project
       whereClause = `WHERE w.id IN (
         WITH RECURSIVE project_tree AS (
@@ -2461,7 +2461,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         )
         SELECT id FROM project_tree
       )`;
-      params.push(query.projectId);
+      params.push(query.project_id);
     }
 
     // Send initial heartbeat
@@ -2902,7 +2902,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
-      let createdCount = 0;
+      let created_count = 0;
       let failedCount = 0;
 
       for (let i = 0; i < body.items.length; i++) {
@@ -2967,14 +2967,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               notAfter,
             ],
           );
-          const workItemId = result.rows[0].id;
+          const work_item_id = result.rows[0].id;
 
           // Handle labels via junction table if provided
           if (item.labels && item.labels.length > 0) {
-            await client.query('SELECT set_work_item_labels($1, $2)', [workItemId, item.labels]);
+            await client.query('SELECT set_work_item_labels($1, $2)', [work_item_id, item.labels]);
           }
           results.push({ index: i, id: result.rows[0].id, status: 'created', _notBefore: notBefore, _notAfter: notAfter } as any);
-          createdCount++;
+          created_count++;
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'unknown error';
           results.push({ index: i, status: 'failed', error: errorMsg });
@@ -2983,7 +2983,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Transaction succeeds if at least some items were created
-      if (createdCount > 0) {
+      if (created_count > 0) {
         await client.query('COMMIT');
       } else {
         await client.query('ROLLBACK');
@@ -2992,7 +2992,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       client.release();
 
       // Issue #1352: Schedule reminder/nudge jobs for items with dates (after COMMIT)
-      if (createdCount > 0) {
+      if (created_count > 0) {
         for (const r of results) {
           if (r.status === 'created' && r.id) {
             const rAny = r as any;
@@ -3010,9 +3010,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       await pool.end();
 
-      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+      return reply.code(failedCount > 0 && created_count === 0 ? 400 : 200).send({
         success: failedCount === 0,
-        created: createdCount,
+        created: created_count,
         failed: failedCount,
         results,
       });
@@ -3173,8 +3173,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         case 'parent': {
           // value is the new parent ID, or null to unparent
-          const parentId = body.value || null;
-          if (parentId && !uuidRegex.test(parentId)) {
+          const parent_id = body.value || null;
+          if (parent_id && !uuidRegex.test(parent_id)) {
             await client.query('ROLLBACK');
             client.release();
             await pool.end();
@@ -3185,7 +3185,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              SET parent_work_item_id = $1, updated_at = now()
              WHERE id = ANY($2::uuid[])${bulkPatchUserEmailFilter}
              RETURNING id::text as id, title, parent_work_item_id::text as parent_id`,
-            [parentId, ids, ...bulkPatchExtraParams],
+            [parent_id, ids, ...bulkPatchExtraParams],
           );
           break;
         }
@@ -3271,9 +3271,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       kind?: string;
       type?: string; // Alias for 'kind' for client compatibility
       item_type?: string; // Alias used by OpenClaw plugin (Issue #1347)
-      parentId?: string | null;
-      estimateMinutes?: number | null;
-      actualMinutes?: number | null;
+      parent_id?: string | null;
+      estimate_minutes?: number | null;
+      actual_minutes?: number | null;
       recurrence_rule?: string;
       recurrence_natural?: string;
       recurrence_end?: string;
@@ -3293,33 +3293,33 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Validate estimate/actual constraints before hitting DB
-    const estimateMinutes = body.estimateMinutes ?? null;
-    const actualMinutes = body.actualMinutes ?? null;
+    const estimateMinutes = body.estimate_minutes ?? null;
+    const actualMinutes = body.actual_minutes ?? null;
 
     if (estimateMinutes !== null) {
       if (typeof estimateMinutes !== 'number' || estimateMinutes < 0 || estimateMinutes > 525600) {
-        return reply.code(400).send({ error: 'estimateMinutes must be between 0 and 525600' });
+        return reply.code(400).send({ error: 'estimate_minutes must be between 0 and 525600' });
       }
     }
 
     if (actualMinutes !== null) {
       if (typeof actualMinutes !== 'number' || actualMinutes < 0 || actualMinutes > 525600) {
-        return reply.code(400).send({ error: 'actualMinutes must be between 0 and 525600' });
+        return reply.code(400).send({ error: 'actual_minutes must be between 0 and 525600' });
       }
     }
 
     const pool = createPool();
 
     // Validate parent relationship before insert for a clearer 4xx than a DB exception.
-    const parentId = body.parentId ?? null;
-    if (parentId) {
+    const parent_id = body.parent_id ?? null;
+    if (parent_id) {
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRe.test(parentId)) {
+      if (!uuidRe.test(parent_id)) {
         await pool.end();
-        return reply.code(400).send({ error: 'parentId must be a UUID' });
+        return reply.code(400).send({ error: 'parent_id must be a UUID' });
       }
 
-      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parent_id]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3363,7 +3363,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Parse natural language recurrence
       const { parseNaturalLanguage } = await import('./recurrence/parser.ts');
       const parseResult = parseNaturalLanguage(body.recurrence_natural);
-      if (parseResult.isRecurring && parseResult.rrule) {
+      if (parseResult.is_recurring && parseResult.rrule) {
         recurrenceRule = parseResult.rrule;
         isRecurrenceTemplate = true;
       }
@@ -3406,7 +3406,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'not_before must be before or equal to not_after' });
     }
 
-    const userEmail = body.user_email?.trim() || null;
+    const user_email = body.user_email?.trim() || null;
 
     const result = await pool.query(
       `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email, not_before, not_after)
@@ -3416,14 +3416,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         body.title.trim(),
         body.description ?? null,
         kind,
-        parentId,
+        parent_id,
         kind,
         estimateMinutes,
         actualMinutes,
         recurrenceRule,
         recurrenceEnd,
         isRecurrenceTemplate,
-        userEmail,
+        user_email,
         notBefore,
         notAfter,
       ],
@@ -3453,7 +3453,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.patch('/api/work-items/:id/hierarchy', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { kind?: string; parentId?: string | null };
+    const body = req.body as { kind?: string; parent_id?: string | null };
 
     if (!body?.kind) {
       return reply.code(400).send({ error: 'kind is required' });
@@ -3465,7 +3465,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'kind must be one of project|initiative|epic|issue' });
     }
 
-    const parentId = body.parentId ?? null;
+    const parent_id = body.parent_id ?? null;
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping
@@ -3474,14 +3474,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    if (parentId) {
+    if (parent_id) {
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRe.test(parentId)) {
+      if (!uuidRe.test(parent_id)) {
         await pool.end();
-        return reply.code(400).send({ error: 'parentId must be a UUID' });
+        return reply.code(400).send({ error: 'parent_id must be a UUID' });
       }
 
-      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parent_id]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3524,7 +3524,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               updated_at = now()
         WHERE id = $1
       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id`,
-      [params.id, kind, parentId, kind],
+      [params.id, kind, parent_id, kind],
     );
     await pool.end();
 
@@ -3637,7 +3637,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get attachments - memories (issue #109)
     const memoriesResult = await pool.query(
-      `SELECT id::text as id, 'memory' as type, title, memory_type::text as subtitle, created_at as "linkedAt"
+      `SELECT id::text as id, 'memory' as type, title, memory_type::text as subtitle, created_at as "linked_at"
        FROM memory
        WHERE work_item_id = $1
        ORDER BY created_at DESC`,
@@ -3647,7 +3647,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Get attachments - contacts (issue #109)
     const contactsResult = await pool.query(
       `SELECT c.id::text as id, 'contact' as type, c.display_name as title,
-              wic.relationship::text as subtitle, wic.created_at as "linkedAt"
+              wic.relationship::text as subtitle, wic.created_at as "linked_at"
        FROM work_item_contact wic
        JOIN contact c ON c.id = wic.contact_id
        WHERE wic.work_item_id = $1
@@ -3677,12 +3677,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       description?: string | null;
       status?: string;
       priority?: string;
-      taskType?: string;
-      notBefore?: string | null;
-      notAfter?: string | null;
-      parentId?: string | null;
-      estimateMinutes?: number | null;
-      actualMinutes?: number | null;
+      task_type?: string;
+      not_before?: string | null;
+      not_after?: string | null;
+      parent_id?: string | null;
+      estimate_minutes?: number | null;
+      actual_minutes?: number | null;
     };
 
     if (!body?.title || body.title.trim().length === 0) {
@@ -3690,18 +3690,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Validate estimate/actual constraints before hitting DB
-    const estimateMinutesSpecified = Object.hasOwn(body, 'estimateMinutes');
-    const actualMinutesSpecified = Object.hasOwn(body, 'actualMinutes');
+    const estimateMinutesSpecified = Object.hasOwn(body, 'estimate_minutes');
+    const actualMinutesSpecified = Object.hasOwn(body, 'actual_minutes');
 
-    if (estimateMinutesSpecified && body.estimateMinutes !== null) {
-      if (typeof body.estimateMinutes !== 'number' || body.estimateMinutes < 0 || body.estimateMinutes > 525600) {
-        return reply.code(400).send({ error: 'estimateMinutes must be between 0 and 525600' });
+    if (estimateMinutesSpecified && body.estimate_minutes !== null) {
+      if (typeof body.estimate_minutes !== 'number' || body.estimate_minutes < 0 || body.estimate_minutes > 525600) {
+        return reply.code(400).send({ error: 'estimate_minutes must be between 0 and 525600' });
       }
     }
 
-    if (actualMinutesSpecified && body.actualMinutes !== null) {
-      if (typeof body.actualMinutes !== 'number' || body.actualMinutes < 0 || body.actualMinutes > 525600) {
-        return reply.code(400).send({ error: 'actualMinutes must be between 0 and 525600' });
+    if (actualMinutesSpecified && body.actual_minutes !== null) {
+      if (typeof body.actual_minutes !== 'number' || body.actual_minutes < 0 || body.actual_minutes > 525600) {
+        return reply.code(400).send({ error: 'actual_minutes must be between 0 and 525600' });
       }
     }
 
@@ -3740,27 +3740,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       actual_minutes: number | null;
     };
 
-    // If parentId is omitted, keep the current value.
-    const parentIdSpecified = Object.hasOwn(body, 'parentId');
-    const parentId = parentIdSpecified ? (body.parentId ?? null) : currentParentId;
+    // If parent_id is omitted, keep the current value.
+    const parentIdSpecified = Object.hasOwn(body, 'parent_id');
+    const parent_id = parentIdSpecified ? (body.parent_id ?? null) : currentParentId;
 
     // If estimate/actual not specified, keep current values.
-    const estimateMinutes = estimateMinutesSpecified ? (body.estimateMinutes ?? null) : currentEstimate;
-    const actualMinutes = actualMinutesSpecified ? (body.actualMinutes ?? null) : currentActual;
+    const estimateMinutes = estimateMinutesSpecified ? (body.estimate_minutes ?? null) : currentEstimate;
+    const actualMinutes = actualMinutesSpecified ? (body.actual_minutes ?? null) : currentActual;
 
-    // Validate parentId format early so we can return 4xx rather than a DB exception.
-    if (parentId) {
+    // Validate parent_id format early so we can return 4xx rather than a DB exception.
+    if (parent_id) {
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRe.test(parentId)) {
+      if (!uuidRe.test(parent_id)) {
         await pool.end();
-        return reply.code(400).send({ error: 'parentId must be a UUID' });
+        return reply.code(400).send({ error: 'parent_id must be a UUID' });
       }
     }
 
     // Validate parent relationship before update for a clearer 4xx than a DB exception.
     let parentKind: string | null = null;
-    if (parentId) {
-      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parentId]);
+    if (parent_id) {
+      const parent = await pool.query('SELECT kind FROM work_item WHERE id = $1', [parent_id]);
       if (parent.rows.length === 0) {
         await pool.end();
         return reply.code(400).send({ error: 'parent not found' });
@@ -3769,14 +3769,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (kind === 'initiative') {
-      if (parentId) {
+      if (parent_id) {
         await pool.end();
         return reply.code(400).send({ error: 'initiative cannot have parent' });
       }
     }
 
     if (kind === 'epic') {
-      if (!parentId) {
+      if (!parent_id) {
         await pool.end();
         return reply.code(400).send({ error: 'epic requires parent initiative' });
       }
@@ -3787,7 +3787,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (kind === 'issue') {
-      if (parentId && parentKind !== 'epic') {
+      if (parent_id && parentKind !== 'epic') {
         await pool.end();
         return reply.code(400).send({ error: 'issue parent must be epic' });
       }
@@ -3800,10 +3800,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       body.description ?? null,
       body.status ?? 'open',
       body.priority ?? 'P2',
-      body.taskType ?? 'general',
-      body.notBefore ?? null,
-      body.notAfter ?? null,
-      parentId,
+      body.task_type ?? 'general',
+      body.not_before ?? null,
+      body.not_after ?? null,
+      parent_id,
       estimateMinutes,
       actualMinutes,
     ];
@@ -3916,28 +3916,28 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/trash - List all soft-deleted items (Issue #225)
   app.get('/api/trash', async (req, reply) => {
     const query = req.query as {
-      entityType?: string;
+      entity_type?: string;
       limit?: string;
       offset?: string;
     };
     const pool = createPool();
 
-    const retentionDays = 30;
+    const retention_days = 30;
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 500);
     const offset = Number.parseInt(query.offset || '0', 10);
 
     const items: Array<{
       id: string;
-      entityType: string;
+      entity_type: string;
       title?: string;
-      displayName?: string;
-      deletedAt: Date;
-      daysUntilPurge: number;
+      display_name?: string;
+      deleted_at: Date;
+      days_until_purge: number;
     }> = [];
     let total = 0;
 
     // Query work items
-    if (!query.entityType || query.entityType === 'work_item') {
+    if (!query.entity_type || query.entity_type === 'work_item') {
       const wiResult = await pool.query(
         `SELECT
           id::text,
@@ -3948,7 +3948,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE deleted_at IS NOT NULL
         ORDER BY deleted_at DESC
         LIMIT $2 OFFSET $3`,
-        [retentionDays, limit, offset],
+        [retention_days, limit, offset],
       );
 
       const wiCountResult = await pool.query('SELECT COUNT(*) FROM work_item WHERE deleted_at IS NOT NULL');
@@ -3956,10 +3956,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       for (const row of wiResult.rows) {
         items.push({
           id: row.id,
-          entityType: 'work_item',
+          entity_type: 'work_item',
           title: row.title,
-          deletedAt: row.deleted_at,
-          daysUntilPurge: row.days_until_purge,
+          deleted_at: row.deleted_at,
+          days_until_purge: row.days_until_purge,
         });
       }
 
@@ -3967,7 +3967,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Query contacts
-    if (!query.entityType || query.entityType === 'contact') {
+    if (!query.entity_type || query.entity_type === 'contact') {
       const cResult = await pool.query(
         `SELECT
           id::text,
@@ -3978,7 +3978,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE deleted_at IS NOT NULL
         ORDER BY deleted_at DESC
         LIMIT $2 OFFSET $3`,
-        [retentionDays, limit, offset],
+        [retention_days, limit, offset],
       );
 
       const cCountResult = await pool.query('SELECT COUNT(*) FROM contact WHERE deleted_at IS NOT NULL');
@@ -3986,10 +3986,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       for (const row of cResult.rows) {
         items.push({
           id: row.id,
-          entityType: 'contact',
-          displayName: row.display_name,
-          deletedAt: row.deleted_at,
-          daysUntilPurge: row.days_until_purge,
+          entity_type: 'contact',
+          display_name: row.display_name,
+          deleted_at: row.deleted_at,
+          days_until_purge: row.days_until_purge,
         });
       }
 
@@ -3999,44 +3999,44 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.end();
 
     // Sort combined results by deleted_at desc
-    items.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+    items.sort((a, b) => b.deleted_at.getTime() - a.deleted_at.getTime());
 
     return reply.send({
       items: items.slice(0, limit),
       total,
       limit,
       offset,
-      retentionDays,
+      retention_days,
     });
   });
 
   // POST /api/trash/purge - Purge old soft-deleted items (Issue #225)
   app.post('/api/trash/purge', async (req, reply) => {
-    const body = req.body as { retentionDays?: number };
-    const retentionDays = body.retentionDays ?? 30;
+    const body = req.body as { retention_days?: number };
+    const retention_days = body.retention_days ?? 30;
 
-    if (retentionDays < 1 || retentionDays > 365) {
+    if (retention_days < 1 || retention_days > 365) {
       return reply.code(400).send({
-        error: 'retentionDays must be between 1 and 365',
+        error: 'retention_days must be between 1 and 365',
       });
     }
 
     const pool = createPool();
 
-    const result = await pool.query('SELECT * FROM purge_soft_deleted($1)', [retentionDays]);
+    const result = await pool.query('SELECT * FROM purge_soft_deleted($1)', [retention_days]);
 
     await pool.end();
 
     const row = result.rows[0];
-    const workItemsPurged = Number.parseInt(row.work_items_purged || '0', 10);
-    const contactsPurged = Number.parseInt(row.contacts_purged || '0', 10);
+    const work_items_purged = Number.parseInt(row.work_items_purged || '0', 10);
+    const contacts_purged = Number.parseInt(row.contacts_purged || '0', 10);
 
     return reply.send({
       success: true,
-      retentionDays,
-      workItemsPurged,
-      contactsPurged,
-      totalPurged: workItemsPurged + contactsPurged,
+      retention_days,
+      work_items_purged,
+      contacts_purged,
+      total_purged: work_items_purged + contacts_purged,
     });
   });
 
@@ -4100,9 +4100,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           storage,
           {
             filename,
-            contentType: mimetype || 'application/octet-stream',
+            content_type: mimetype || 'application/octet-stream',
             data: buffer,
-            uploadedBy: email || undefined,
+            uploaded_by: email || undefined,
           },
           maxFileSize,
         );
@@ -4117,7 +4117,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           return reply.code(413).send({
             error: 'File too large',
             message: error.message,
-            maxSizeBytes: error.maxSizeBytes,
+            max_size_bytes: error.max_size_bytes,
           });
         }
 
@@ -4128,7 +4128,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(413).send({
           error: 'File too large',
           message: `File exceeds maximum size of ${maxFileSize} bytes`,
-          maxSizeBytes: maxFileSize,
+          max_size_bytes: maxFileSize,
         });
       }
       throw error;
@@ -4140,14 +4140,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as {
       limit?: string;
       offset?: string;
-      uploadedBy?: string;
+      uploaded_by?: string;
     };
 
     const pool = createPool();
     const result = await listFiles(pool, {
       limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
       offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
-      uploadedBy: query.uploadedBy,
+      uploaded_by: query.uploaded_by,
     });
     await pool.end();
 
@@ -4179,10 +4179,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await downloadFile(pool, storage, params.id);
       await pool.end();
 
-      const safeFilename = sanitizeFilenameForHeader(result.metadata.originalFilename);
+      const safeFilename = sanitizeFilenameForHeader(result.metadata.original_filename);
       return reply
         .code(200)
-        .header('Content-Type', result.metadata.contentType)
+        .header('Content-Type', result.metadata.content_type)
         .header('Content-Disposition', `attachment; filename="${safeFilename}"`)
         .header('Content-Length', result.data.length)
         .send(result.data);
@@ -4223,8 +4223,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const params = req.params as { id: string };
-    const query = req.query as { expiresIn?: string };
-    const expiresIn = query.expiresIn ? Number.parseInt(query.expiresIn, 10) : 3600;
+    const query = req.query as { expires_in?: string };
+    const expiresIn = query.expires_in ? Number.parseInt(query.expires_in, 10) : 3600;
 
     if (expiresIn < 60 || expiresIn > 86400) {
       return reply.code(400).send({
@@ -4242,8 +4242,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.send({
         url: result.url,
         expiresIn,
-        filename: result.metadata.originalFilename,
-        contentType: result.metadata.contentType,
+        filename: result.metadata.original_filename,
+        content_type: result.metadata.content_type,
       });
     } catch (error) {
       await pool.end();
@@ -4305,9 +4305,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'Invalid file ID format' });
     }
 
-    const body = req.body as { expiresIn?: number; maxDownloads?: number } | null;
-    const expiresIn = body?.expiresIn ?? 3600;
-    const maxDownloads = body?.maxDownloads;
+    const body = req.body as { expires_in?: number; max_downloads?: number } | null;
+    const expiresIn = body?.expires_in ?? 3600;
+    const maxDownloads = body?.max_downloads;
 
     // Validate expiresIn range
     if (expiresIn < 60 || expiresIn > 604800) {
@@ -4329,16 +4329,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Allow if user uploaded the file, or if auth is disabled (dev mode)
-      if (metadata.uploadedBy !== email && !isAuthDisabled()) {
+      if (metadata.uploaded_by !== email && !isAuthDisabled()) {
         await pool.end();
         return reply.code(403).send({ error: 'You do not have permission to share this file' });
       }
 
       const result = await createFileShare(pool, storage, {
-        fileId: params.id,
-        expiresIn,
-        maxDownloads,
-        createdBy: email ?? 'agent',
+        file_id: params.id,
+        expires_in: expiresIn,
+        max_downloads: maxDownloads,
+        created_by: email ?? 'agent',
       });
       await pool.end();
 
@@ -4371,10 +4371,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await downloadFileByShareToken(pool, storage, params.token);
       await pool.end();
 
-      const safeFilename = sanitizeFilenameForHeader(result.metadata.originalFilename);
+      const safeFilename = sanitizeFilenameForHeader(result.metadata.original_filename);
       return reply
         .code(200)
-        .header('Content-Type', result.metadata.contentType)
+        .header('Content-Type', result.metadata.content_type)
         .header('Content-Disposition', `attachment; filename="${safeFilename}"`)
         .header('Content-Length', result.data.length)
         .send(result.data);
@@ -4401,10 +4401,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { fileId: string };
+    const body = req.body as { file_id: string };
 
-    if (!body.fileId) {
-      return reply.code(400).send({ error: 'fileId is required' });
+    if (!body.file_id) {
+      return reply.code(400).send({ error: 'file_id is required' });
     }
 
     const pool = createPool();
@@ -4423,7 +4423,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if file exists
-    const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.fileId]);
+    const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.file_id]);
     if (fileResult.rowCount === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'File not found' });
@@ -4436,13 +4436,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `INSERT INTO work_item_attachment (work_item_id, file_attachment_id, attached_by)
          VALUES ($1, $2, $3)
          ON CONFLICT DO NOTHING`,
-        [params.id, body.fileId, email],
+        [params.id, body.file_id, email],
       );
       await pool.end();
 
       return reply.code(201).send({
-        workItemId: params.id,
-        fileId: body.fileId,
+        work_item_id: params.id,
+        file_id: body.file_id,
         attached: true,
       });
     } catch (error) {
@@ -4483,24 +4483,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({
       attachments: result.rows.map((row) => ({
         id: row.id,
-        originalFilename: row.original_filename,
-        contentType: row.content_type,
-        sizeBytes: Number.parseInt(row.size_bytes, 10),
-        createdAt: row.created_at,
-        attachedAt: row.attached_at,
-        attachedBy: row.attached_by,
+        original_filename: row.original_filename,
+        content_type: row.content_type,
+        size_bytes: Number.parseInt(row.size_bytes, 10),
+        created_at: row.created_at,
+        attached_at: row.attached_at,
+        attached_by: row.attached_by,
       })),
     });
   });
 
-  // DELETE /api/work-items/:workItemId/attachments/:fileId - Remove attachment from work item
-  app.delete('/api/work-items/:workItemId/attachments/:fileId', async (req, reply) => {
-    const params = req.params as { workItemId: string; fileId: string };
+  // DELETE /api/work-items/:work_item_id/attachments/:file_id - Remove attachment from work item
+  app.delete('/api/work-items/:work_item_id/attachments/:file_id', async (req, reply) => {
+    const params = req.params as { work_item_id: string; file_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.workItemId, query.user_email))) {
+    if (!(await verifyUserEmailScope(pool, 'work_item', params.work_item_id, query.user_email))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4509,7 +4509,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_attachment
        WHERE work_item_id = $1 AND file_attachment_id = $2
        RETURNING work_item_id`,
-      [params.workItemId, params.fileId],
+      [params.work_item_id, params.file_id],
     );
     await pool.end();
 
@@ -4544,11 +4544,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.end();
       return reply.send({
         rule: info.rule,
-        ruleDescription: info.rule ? describeRrule(info.rule) : null,
+        rule_description: info.rule ? describeRrule(info.rule) : null,
         end: info.end,
-        parentId: info.parentId,
-        isTemplate: info.isTemplate,
-        nextOccurrence: info.nextOccurrence,
+        parent_id: info.parent_id,
+        is_template: info.is_template,
+        next_occurrence: info.next_occurrence,
       });
     } catch (_error) {
       await pool.end();
@@ -4580,7 +4580,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (body.recurrence_natural) {
         const { parseNaturalLanguage } = await import('./recurrence/parser.ts');
         const parseResult = parseNaturalLanguage(body.recurrence_natural);
-        if (parseResult.isRecurring && parseResult.rrule) {
+        if (parseResult.is_recurring && parseResult.rrule) {
           recurrenceRule = parseResult.rrule;
         } else {
           await pool.end();
@@ -4625,9 +4625,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         recurrence: info
           ? {
               rule: info.rule,
-              ruleDescription: info.rule ? describeRrule(info.rule) : null,
+              rule_description: info.rule ? describeRrule(info.rule) : null,
               end: info.end,
-              nextOccurrence: info.nextOccurrence,
+              next_occurrence: info.next_occurrence,
             }
           : null,
       });
@@ -4673,7 +4673,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as {
       limit?: string;
-      includeCompleted?: string;
+      include_completed?: string;
       user_email?: string;
     };
     const pool = createPool();
@@ -4689,7 +4689,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const instances = await getInstances(pool, params.id, {
         limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
-        includeCompleted: query.includeCompleted !== 'false',
+        includeCompleted: query.include_completed !== 'false',
       });
 
       await pool.end();
@@ -4737,14 +4737,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/recurrence/generate - Generate upcoming instances (Issue #217)
   app.post('/api/recurrence/generate', async (req, reply) => {
     const body = req.body as {
-      daysAhead?: number;
+      days_ahead?: number;
     };
     const pool = createPool();
 
     try {
       const { generateUpcomingInstances } = await import('./recurrence/index.ts');
 
-      const result = await generateUpcomingInstances(pool, body.daysAhead || 14);
+      const result = await generateUpcomingInstances(pool, body.days_ahead || 14);
 
       await pool.end();
 
@@ -4763,13 +4763,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/audit-log - List audit log entries with filtering (Issue #214)
   app.get('/api/audit-log', async (req, reply) => {
     const query = req.query as {
-      entityType?: string;
-      entityId?: string;
-      actorType?: string;
-      actorId?: string;
+      entity_type?: string;
+      entity_id?: string;
+      actor_type?: string;
+      actor_id?: string;
       action?: string;
-      startDate?: string;
-      endDate?: string;
+      start_date?: string;
+      end_date?: string;
       limit?: string;
       offset?: string;
     };
@@ -4779,21 +4779,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const { queryAuditLog } = await import('./audit/index.ts');
 
       const options: Parameters<typeof queryAuditLog>[1] = {
-        entityType: query.entityType,
-        entityId: query.entityId,
-        actorId: query.actorId,
+        entity_type: query.entity_type,
+        entity_id: query.entity_id,
+        actor_id: query.actor_id,
         limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       };
 
       // Parse actor type
-      if (query.actorType) {
+      if (query.actor_type) {
         const validActorTypes = ['agent', 'human', 'system'];
-        if (!validActorTypes.includes(query.actorType)) {
+        if (!validActorTypes.includes(query.actor_type)) {
           await pool.end();
-          return reply.code(400).send({ error: 'Invalid actorType' });
+          return reply.code(400).send({ error: 'Invalid actor_type' });
         }
-        options.actorType = query.actorType as 'agent' | 'human' | 'system';
+        options.actor_type = query.actor_type as 'agent' | 'human' | 'system';
       }
 
       // Parse action type
@@ -4807,22 +4807,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Parse dates
-      if (query.startDate) {
-        const date = new Date(query.startDate);
+      if (query.start_date) {
+        const date = new Date(query.start_date);
         if (Number.isNaN(date.getTime())) {
           await pool.end();
-          return reply.code(400).send({ error: 'Invalid startDate' });
+          return reply.code(400).send({ error: 'Invalid start_date' });
         }
-        options.startDate = date;
+        options.start_date = date;
       }
 
-      if (query.endDate) {
-        const date = new Date(query.endDate);
+      if (query.end_date) {
+        const date = new Date(query.end_date);
         if (Number.isNaN(date.getTime())) {
           await pool.end();
-          return reply.code(400).send({ error: 'Invalid endDate' });
+          return reply.code(400).send({ error: 'Invalid end_date' });
         }
-        options.endDate = date;
+        options.end_date = date;
       }
 
       const { entries, total } = await queryAuditLog(pool, options);
@@ -4859,8 +4859,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.end();
 
       return reply.send({
-        entityType: params.type,
-        entityId: params.id,
+        entity_type: params.type,
+        entity_id: params.id,
         entries,
         count: entries.length,
       });
@@ -4873,26 +4873,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/audit-log/purge - Purge old audit entries (Issue #214)
   app.post('/api/audit-log/purge', async (req, reply) => {
-    const body = req.body as { retentionDays?: number };
+    const body = req.body as { retention_days?: number };
     const pool = createPool();
 
     try {
       const { purgeOldEntries } = await import('./audit/index.ts');
 
-      const retentionDays = body.retentionDays || 90;
-      if (retentionDays < 1 || retentionDays > 3650) {
+      const retention_days = body.retention_days || 90;
+      if (retention_days < 1 || retention_days > 3650) {
         await pool.end();
-        return reply.code(400).send({ error: 'retentionDays must be between 1 and 3650' });
+        return reply.code(400).send({ error: 'retention_days must be between 1 and 3650' });
       }
 
-      const purged = await purgeOldEntries(pool, retentionDays);
+      const purged = await purgeOldEntries(pool, retention_days);
 
       await pool.end();
 
       return reply.send({
         success: true,
         purged,
-        retentionDays,
+        retention_days,
       });
     } catch (error) {
       await pool.end();
@@ -5003,7 +5003,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const limit = Math.min(Number.parseInt(query.limit || '20', 10), 100);
       const offset = Math.max(Number.parseInt(query.offset || '0', 10), 0);
       const semantic = query.semantic !== 'false'; // Default true
-      const semanticWeight = Math.min(1, Math.max(0, Number.parseFloat(query.semantic_weight || '0.5')));
+      const semantic_weight = Math.min(1, Math.max(0, Number.parseFloat(query.semantic_weight || '0.5')));
 
       // Parse entity types
       const validTypes = ['work_item', 'contact', 'memory', 'message'] as const;
@@ -5020,25 +5020,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Parse date filters
-      let dateFrom: Date | undefined;
-      let dateTo: Date | undefined;
+      let date_from: Date | undefined;
+      let date_to: Date | undefined;
       if (query.date_from) {
         const parsed = new Date(query.date_from);
         if (!Number.isNaN(parsed.getTime())) {
-          dateFrom = parsed;
+          date_from = parsed;
         }
       }
       if (query.date_to) {
         const parsed = new Date(query.date_to);
         if (!Number.isNaN(parsed.getTime())) {
-          dateTo = parsed;
+          date_to = parsed;
         }
       }
 
       const pool = createPool();
 
       // Issue #1216: scope work item results to user_email if provided
-      const userEmail = query.user_email?.trim() || undefined;
+      const user_email = query.user_email?.trim() || undefined;
 
       try {
         const result = await unifiedSearch(pool, {
@@ -5047,10 +5047,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           limit,
           offset,
           semantic,
-          dateFrom,
-          dateTo,
-          semanticWeight,
-          userEmail,
+          date_from,
+          date_to,
+          semantic_weight,
+          user_email,
         });
 
         return reply.send(result);
@@ -5493,8 +5493,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({ items: result.rows });
   });
 
-  app.delete('/api/work-items/:id/dependencies/:dependencyId', async (req, reply) => {
-    const params = req.params as { id: string; dependencyId: string };
+  app.delete('/api/work-items/:id/dependencies/:dependency_id', async (req, reply) => {
+    const params = req.params as { id: string; dependency_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -5508,7 +5508,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE id = $1
           AND work_item_id = $2
       RETURNING id::text as id`,
-      [params.dependencyId, params.id],
+      [params.dependency_id, params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -5566,8 +5566,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  app.delete('/api/work-items/:id/participants/:participantId', async (req, reply) => {
-    const params = req.params as { id: string; participantId: string };
+  app.delete('/api/work-items/:id/participants/:participant_id', async (req, reply) => {
+    const params = req.params as { id: string; participant_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -5581,7 +5581,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE id = $1
           AND work_item_id = $2
       RETURNING id::text as id`,
-      [params.participantId, params.id],
+      [params.participant_id, params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -5626,13 +5626,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       provider?: string;
       url?: string;
-      externalId?: string;
-      githubOwner?: string;
-      githubRepo?: string;
-      githubKind?: string;
-      githubNumber?: number;
-      githubNodeId?: string | null;
-      githubProjectNodeId?: string | null;
+      external_id?: string;
+      github_owner?: string;
+      github_repo?: string;
+      github_kind?: string;
+      github_number?: number;
+      github_node_id?: string | null;
+      github_project_node_id?: string | null;
     };
 
     if (!body?.provider || body.provider.trim().length === 0) {
@@ -5641,17 +5641,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!body?.url || body.url.trim().length === 0) {
       return reply.code(400).send({ error: 'url is required' });
     }
-    if (!body?.externalId || body.externalId.trim().length === 0) {
-      return reply.code(400).send({ error: 'externalId is required' });
+    if (!body?.external_id || body.external_id.trim().length === 0) {
+      return reply.code(400).send({ error: 'external_id is required' });
     }
 
     const provider = body.provider.trim();
     if (provider === 'github') {
-      if (!body.githubOwner || !body.githubRepo || !body.githubKind) {
-        return reply.code(400).send({ error: 'githubOwner, githubRepo, and githubKind are required' });
+      if (!body.github_owner || !body.github_repo || !body.github_kind) {
+        return reply.code(400).send({ error: 'github_owner, githubRepo, and githubKind are required' });
       }
-      if (body.githubKind !== 'project' && !body.githubNumber) {
-        return reply.code(400).send({ error: 'githubNumber is required for issues and PRs' });
+      if (body.github_kind !== 'project' && !body.github_number) {
+        return reply.code(400).send({ error: 'github_number is required for issues and PRs' });
       }
     }
 
@@ -5682,21 +5682,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         params.id,
         provider,
         body.url.trim(),
-        body.externalId.trim(),
-        body.githubOwner?.trim() ?? null,
-        body.githubRepo?.trim() ?? null,
-        body.githubKind ?? null,
-        body.githubNumber ?? null,
-        body.githubNodeId ?? null,
-        body.githubProjectNodeId ?? null,
+        body.external_id.trim(),
+        body.github_owner?.trim() ?? null,
+        body.github_repo?.trim() ?? null,
+        body.github_kind ?? null,
+        body.github_number ?? null,
+        body.github_node_id ?? null,
+        body.github_project_node_id ?? null,
       ],
     );
     await pool.end();
     return reply.code(201).send(result.rows[0]);
   });
 
-  app.delete('/api/work-items/:id/links/:linkId', async (req, reply) => {
-    const params = req.params as { id: string; linkId: string };
+  app.delete('/api/work-items/:id/links/:link_id', async (req, reply) => {
+    const params = req.params as { id: string; link_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -5710,7 +5710,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         WHERE id = $1
           AND work_item_id = $2
       RETURNING id::text as id`,
-      [params.linkId, params.id],
+      [params.link_id, params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -5720,17 +5720,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { dependsOnWorkItemId?: string; kind?: string };
-    if (!body?.dependsOnWorkItemId) {
-      return reply.code(400).send({ error: 'dependsOnWorkItemId is required' });
+    const body = req.body as { depends_on_work_item_id?: string; kind?: string };
+    if (!body?.depends_on_work_item_id) {
+      return reply.code(400).send({ error: 'depends_on_work_item_id is required' });
     }
 
-    const dependsOnWorkItemId = body.dependsOnWorkItemId;
+    const dependsOnWorkItemId = body.depends_on_work_item_id;
 
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     if (!uuidRe.test(dependsOnWorkItemId)) {
-      return reply.code(400).send({ error: 'dependsOnWorkItemId must be a UUID' });
+      return reply.code(400).send({ error: 'depends_on_work_item_id must be a UUID' });
     }
 
     if (dependsOnWorkItemId === params.id) {
@@ -5757,7 +5757,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const b = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [dependsOnWorkItemId]);
     if (b.rows.length === 0) {
       await pool.end();
-      return reply.code(400).send({ error: 'dependsOn work item not found' });
+      return reply.code(400).send({ error: 'depends_on work item not found' });
     }
 
     // Reject cycles for ordering/precedence relationships.
@@ -5834,21 +5834,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/contacts', async (req, reply) => {
     const body = req.body as {
-      displayName?: string; display_name?: string; notes?: string | null;
-      contactKind?: string; contact_kind?: string; user_email?: string;
+      display_name?: string; notes?: string | null;
+      contact_kind?: string; user_email?: string;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
-    // Accept both camelCase and snake_case (plugin sends snake_case, issue #1411)
-    const displayName = body?.displayName || body?.display_name;
-    if (!displayName || displayName.trim().length === 0) {
-      return reply.code(400).send({ error: 'displayName (or display_name) is required' });
+    const display_name = body?.display_name;
+    if (!display_name || display_name.trim().length === 0) {
+      return reply.code(400).send({ error: 'display_name is required' });
     }
 
     // Validate contact_kind if provided (issue #489)
-    const contactKind = body.contactKind ?? body.contact_kind ?? 'person';
-    if (!VALID_CONTACT_KINDS.includes(contactKind as ContactKind)) {
-      return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+    const contact_kind = body.contact_kind ?? 'person';
+    if (!VALID_CONTACT_KINDS.includes(contact_kind as ContactKind)) {
+      return reply.code(400).send({ error: `Invalid contact_kind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
     }
 
     // Validate communication channel preferences (issue #1269)
@@ -5882,7 +5881,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         urgency_override_channel::text, notification_notes,
         created_at, updated_at`,
       [
-        displayName.trim(), body.notes ?? null, contactKind, contactUserEmail,
+        display_name.trim(), body.notes ?? null, contact_kind, contactUserEmail,
         body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
         body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
       ],
@@ -5896,9 +5895,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/contacts/bulk', async (req, reply) => {
     const body = req.body as {
       contacts: Array<{
-        displayName: string;
+        display_name: string;
         notes?: string | null;
-        contactKind?: string;
+        contact_kind?: string;
         endpoints?: Array<{
           endpoint_type: string;
           endpoint_value: string;
@@ -5927,24 +5926,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
-      let createdCount = 0;
+      let created_count = 0;
       let failedCount = 0;
 
       for (let i = 0; i < body.contacts.length; i++) {
         const contact = body.contacts[i];
 
         // Validate required fields
-        if (!contact.displayName || contact.displayName.trim().length === 0) {
-          results.push({ index: i, status: 'failed', error: 'displayName is required' });
+        if (!contact.display_name || contact.display_name.trim().length === 0) {
+          results.push({ index: i, status: 'failed', error: 'display_name is required' });
           failedCount++;
           continue;
         }
 
         try {
           // Validate contact_kind if provided (issue #489)
-          const bulkContactKind = contact.contactKind ?? 'person';
+          const bulkContactKind = contact.contact_kind ?? 'person';
           if (!VALID_CONTACT_KINDS.includes(bulkContactKind as ContactKind)) {
-            results.push({ index: i, status: 'failed', error: `Invalid contactKind: ${bulkContactKind}` });
+            results.push({ index: i, status: 'failed', error: `Invalid contact_kind: ${bulkContactKind}` });
             failedCount++;
             continue;
           }
@@ -5954,9 +5953,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             `INSERT INTO contact (display_name, notes, contact_kind, user_email)
              VALUES ($1, $2, $3, $4)
              RETURNING id::text as id`,
-            [contact.displayName.trim(), contact.notes ?? null, bulkContactKind, bulkContactUserEmail],
+            [contact.display_name.trim(), contact.notes ?? null, bulkContactKind, bulkContactUserEmail],
           );
-          const contactId = contactResult.rows[0].id;
+          const contact_id = contactResult.rows[0].id;
 
           // Create endpoints if provided
           if (contact.endpoints && Array.isArray(contact.endpoints)) {
@@ -5965,14 +5964,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 await client.query(
                   `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
                    VALUES ($1, $2, $3, $4::jsonb)`,
-                  [contactId, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {})],
+                  [contact_id, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {})],
                 );
               }
             }
           }
 
-          results.push({ index: i, id: contactId, status: 'created' });
-          createdCount++;
+          results.push({ index: i, id: contact_id, status: 'created' });
+          created_count++;
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'unknown error';
           results.push({ index: i, status: 'failed', error: errorMsg });
@@ -5981,7 +5980,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Transaction succeeds if at least some contacts were created
-      if (createdCount > 0) {
+      if (created_count > 0) {
         await client.query('COMMIT');
       } else {
         await client.query('ROLLBACK');
@@ -5990,9 +5989,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       client.release();
       await pool.end();
 
-      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+      return reply.code(failedCount > 0 && created_count === 0 ? 400 : 200).send({
         success: failedCount === 0,
-        created: createdCount,
+        created: created_count,
         failed: failedCount,
         results,
       });
@@ -6361,17 +6360,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
     const body = req.body as {
-      displayName?: string; notes?: string | null; contactKind?: string;
+      display_name?: string; notes?: string | null; contact_kind?: string;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
 
     const pool = createPool();
 
-    // Validate contactKind if provided (issue #489)
-    if (body.contactKind !== undefined && !VALID_CONTACT_KINDS.includes(body.contactKind as ContactKind)) {
+    // Validate contact_kind if provided (issue #489)
+    if (body.contact_kind !== undefined && !VALID_CONTACT_KINDS.includes(body.contact_kind as ContactKind)) {
       await pool.end();
-      return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
+      return reply.code(400).send({ error: `Invalid contact_kind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
     }
 
     // Validate communication channel preferences (issue #1269)
@@ -6406,9 +6405,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const values: (string | null)[] = [];
     let paramIndex = 1;
 
-    if (body.displayName !== undefined) {
+    if (body.display_name !== undefined) {
       updates.push(`display_name = $${paramIndex}`);
-      values.push(body.displayName.trim());
+      values.push(body.display_name.trim());
       paramIndex++;
     }
 
@@ -6418,9 +6417,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    if (body.contactKind !== undefined) {
+    if (body.contact_kind !== undefined) {
       updates.push(`contact_kind = $${paramIndex}`);
-      values.push(body.contactKind);
+      values.push(body.contact_kind);
       paramIndex++;
     }
 
@@ -6557,7 +6556,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({
       restored: true,
       id: result.rows[0].id,
-      displayName: result.rows[0].display_name,
+      display_name: result.rows[0].display_name,
     });
   });
 
@@ -6618,10 +6617,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const result = await pool.query(
-      `SELECT wic.contact_id::text as "contactId",
-              c.display_name as "displayName",
+      `SELECT wic.contact_id::text as "contact_id",
+              c.display_name as "display_name",
               wic.relationship::text as relationship,
-              wic.created_at as "createdAt"
+              wic.created_at as "created_at"
          FROM work_item_contact wic
          JOIN contact c ON c.id = wic.contact_id
         WHERE wic.work_item_id = $1
@@ -6637,10 +6636,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { contactId?: string; relationship?: string };
+    const body = req.body as { contact_id?: string; relationship?: string };
 
-    if (!body?.contactId) {
-      return reply.code(400).send({ error: 'contactId is required' });
+    if (!body?.contact_id) {
+      return reply.code(400).send({ error: 'contact_id is required' });
     }
 
     if (!body?.relationship) {
@@ -6668,15 +6667,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if contact exists and get its name
-    const contactResult = await pool.query('SELECT display_name FROM contact WHERE id = $1', [body.contactId]);
+    const contactResult = await pool.query('SELECT display_name FROM contact WHERE id = $1', [body.contact_id]);
     if (contactResult.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'contact not found' });
     }
-    const contactName = (contactResult.rows[0] as { display_name: string }).display_name;
+    const contact_name = (contactResult.rows[0] as { display_name: string }).display_name;
 
     // Check if link already exists
-    const existingLink = await pool.query('SELECT 1 FROM work_item_contact WHERE work_item_id = $1 AND contact_id = $2', [params.id, body.contactId]);
+    const existingLink = await pool.query('SELECT 1 FROM work_item_contact WHERE work_item_id = $1 AND contact_id = $2', [params.id, body.contact_id]);
     if (existingLink.rows.length > 0) {
       await pool.end();
       return reply.code(409).send({ error: 'contact already linked to this work item' });
@@ -6686,22 +6685,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_contact (work_item_id, contact_id, relationship)
        VALUES ($1, $2, $3::contact_relationship_type)`,
-      [params.id, body.contactId, body.relationship],
+      [params.id, body.contact_id, body.relationship],
     );
 
     await pool.end();
 
     return reply.code(201).send({
-      workItemId: params.id,
-      contactId: body.contactId,
+      work_item_id: params.id,
+      contact_id: body.contact_id,
       relationship: body.relationship,
-      contactName,
+      contact_name: contact_name,
     });
   });
 
-  // DELETE /api/work-items/:id/contacts/:contactId - Unlink a contact from a work item
-  app.delete('/api/work-items/:id/contacts/:contactId', async (req, reply) => {
-    const params = req.params as { id: string; contactId: string };
+  // DELETE /api/work-items/:id/contacts/:contact_id - Unlink a contact from a work item
+  app.delete('/api/work-items/:id/contacts/:contact_id', async (req, reply) => {
+    const params = req.params as { id: string; contact_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -6715,7 +6714,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_contact
        WHERE work_item_id = $1 AND contact_id = $2
        RETURNING work_item_id::text`,
-      [params.id, params.contactId],
+      [params.id, params.contact_id],
     );
 
     await pool.end();
@@ -6731,13 +6730,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
     const body = req.body as {
-      endpointType?: string;
-      endpointValue?: string;
+      endpoint_type?: string;
+      endpoint_value?: string;
       metadata?: unknown;
     };
 
-    if (!body?.endpointType || !body?.endpointValue) {
-      return reply.code(400).send({ error: 'endpointType and endpointValue are required' });
+    if (!body?.endpoint_type || !body?.endpoint_value) {
+      return reply.code(400).send({ error: 'endpoint_type and endpoint_value are required' });
     }
 
     const pool = createPool();
@@ -6753,7 +6752,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb))
        RETURNING id::text as id, contact_id::text as contact_id, endpoint_type::text as endpoint_type,
                  endpoint_value, normalized_value, metadata`,
-      [params.id, body.endpointType, body.endpointValue, body.metadata ? JSON.stringify(body.metadata) : null],
+      [params.id, body.endpoint_type, body.endpoint_value, body.metadata ? JSON.stringify(body.metadata) : null],
     );
 
     await pool.end();
@@ -6768,7 +6767,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
       search?: string;
       type?: string;
-      linkedItemKind?: string;
+      linked_item_kind?: string;
       tags?: string;
     };
 
@@ -6776,7 +6775,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const offset = Number.parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
     const typeFilter = query.type || null;
-    const kindFilter = query.linkedItemKind || null;
+    const kindFilter = query.linked_item_kind || null;
     const tagsFilter = query.tags
       ? query.tags
           .split(',')
@@ -6837,11 +6836,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               m.content,
               m.memory_type::text as type,
               m.tags,
-              m.work_item_id::text as "linkedItemId",
-              wi.title as "linkedItemTitle",
-              wi.work_item_kind as "linkedItemKind",
-              m.created_at as "createdAt",
-              m.updated_at as "updatedAt"
+              m.work_item_id::text as "linked_item_id",
+              wi.title as "linked_item_title",
+              wi.work_item_kind as "linked_item_kind",
+              m.created_at as "created_at",
+              m.updated_at as "updated_at"
          FROM memory m
          JOIN work_item wi ON wi.id = m.work_item_id
         ${whereClause}
@@ -6852,12 +6851,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     await pool.end();
 
-    const hasMore = offset + result.rows.length < total;
+    const has_more = offset + result.rows.length < total;
 
     return reply.send({
       items: result.rows,
       total,
-      hasMore,
+      has_more,
     });
   });
 
@@ -6867,7 +6866,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       title?: string;
       content?: string;
-      linkedItemId?: string;
+      linked_item_id?: string;
       type?: string;
       tags?: string[];
     };
@@ -6880,20 +6879,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'content is required' });
     }
 
-    if (!body?.linkedItemId) {
-      return reply.code(400).send({ error: 'linkedItemId is required' });
+    if (!body?.linked_item_id) {
+      return reply.code(400).send({ error: 'linked_item_id is required' });
     }
 
-    const memoryType = body.type ?? 'note';
+    const memory_type = body.type ?? 'note';
     const validTypes = ['note', 'decision', 'context', 'reference'];
-    if (!validTypes.includes(memoryType)) {
+    if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
 
     const pool = createPool();
 
     // Check if linked work item exists and get its title
-    const linkedItem = await pool.query('SELECT title FROM work_item WHERE id = $1', [body.linkedItemId]);
+    const linkedItem = await pool.query('SELECT title FROM work_item WHERE id = $1', [body.linked_item_id]);
     if (linkedItem.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'linked item not found' });
@@ -6911,10 +6910,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  content,
                  memory_type::text as type,
                  tags,
-                 work_item_id::text as "linkedItemId",
-                 created_at as "createdAt",
+                 work_item_id::text as "linked_item_id",
+                 created_at as "created_at",
                  embedding_status`,
-      [body.linkedItemId, body.title.trim(), body.content.trim(), memoryType, tags],
+      [body.linked_item_id, body.title.trim(), body.content.trim(), memory_type, tags],
     );
 
     const row = result.rows[0] as {
@@ -6923,14 +6922,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       content: string;
       type: string;
       tags: string[];
-      linkedItemId: string;
-      createdAt: string;
+      linked_item_id: string;
+      created_at: string;
       embedding_status: string;
     };
 
     // Generate embedding asynchronously (don't block response)
     const memoryContent = `${row.title}\n\n${row.content}`;
-    const embeddingStatus = await generateMemoryEmbedding(pool, row.id, memoryContent);
+    const embedding_status = await generateMemoryEmbedding(pool, row.id, memoryContent);
 
     await pool.end();
 
@@ -6940,10 +6939,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       content: row.content,
       type: row.type,
       tags: row.tags,
-      linkedItemId: row.linkedItemId,
-      linkedItemTitle,
-      createdAt: row.createdAt,
-      embedding_status: embeddingStatus,
+      linked_item_id: row.linked_item_id,
+      linked_item_title: linkedItemTitle,
+      created_at: row.created_at,
+      embedding_status: embedding_status,
     });
   });
 
@@ -6960,9 +6959,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'content is required' });
     }
 
-    const memoryType = body.type ?? 'note';
+    const memory_type = body.type ?? 'note';
     const validTypes = ['note', 'decision', 'context', 'reference'];
-    if (!validTypes.includes(memoryType)) {
+    if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
 
@@ -6987,12 +6986,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  content,
                  memory_type::text as type,
                  tags,
-                 work_item_id::text as "linkedItemId",
-                 created_at as "createdAt",
-                 updated_at as "updatedAt"`,
+                 work_item_id::text as "linked_item_id",
+                 created_at as "created_at",
+                 updated_at as "updated_at"`,
       tags !== undefined
-        ? [body.title.trim(), body.content.trim(), memoryType, params.id, tags]
-        : [body.title.trim(), body.content.trim(), memoryType, params.id],
+        ? [body.title.trim(), body.content.trim(), memory_type, params.id, tags]
+        : [body.title.trim(), body.content.trim(), memory_type, params.id],
     );
 
     const row = result.rows[0] as {
@@ -7001,20 +7000,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       content: string;
       type: string;
       tags: string[];
-      linkedItemId: string;
-      createdAt: string;
-      updatedAt: string;
+      linked_item_id: string;
+      created_at: string;
+      updated_at: string;
     };
 
     // Regenerate embedding (content changed)
     const memoryContent = `${row.title}\n\n${row.content}`;
-    const embeddingStatus = await generateMemoryEmbedding(pool, row.id, memoryContent);
+    const embedding_status = await generateMemoryEmbedding(pool, row.id, memoryContent);
 
     await pool.end();
 
     return reply.send({
       ...row,
-      embedding_status: embeddingStatus,
+      embedding_status: embedding_status,
     });
   });
 
@@ -7078,30 +7077,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         : undefined;
 
       // Resolve temporal parameters (issue #1272)
-      let createdAfter: Date | undefined;
-      let createdBefore: Date | undefined;
+      let created_after: Date | undefined;
+      let created_before: Date | undefined;
 
       if (query.period) {
         const periodResult = resolvePeriod(query.period);
         if (!periodResult) {
           return reply.code(400).send({ error: `Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}` });
         }
-        createdAfter = periodResult.since;
-        createdBefore = periodResult.before;
+        created_after = periodResult.since;
+        created_before = periodResult.before;
       }
       if (query.since) {
         const resolved = resolveRelativeTime(query.since);
         if (!resolved) {
           return reply.code(400).send({ error: 'Invalid since parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
         }
-        createdAfter = resolved;
+        created_after = resolved;
       }
       if (query.before) {
         const resolved = resolveRelativeTime(query.before);
         if (!resolved) {
           return reply.code(400).send({ error: 'Invalid before parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
         }
-        createdBefore = resolved;
+        created_before = resolved;
       }
 
       const pool = createPool();
@@ -7110,15 +7109,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const result = await searchMemoriesSemantic(pool, query.q.trim(), {
           limit,
           offset,
-          memoryType: query.memory_type,
-          workItemId: query.work_item_id,
-          contactId: query.contact_id,
-          relationshipId: query.relationship_id,
-          projectId: query.project_id,
-          userEmail: query.user_email,
+          memory_type: query.memory_type,
+          work_item_id: query.work_item_id,
+          contact_id: query.contact_id,
+          relationship_id: query.relationship_id,
+          project_id: query.project_id,
+          user_email: query.user_email,
           tags: searchTags,
-          createdAfter,
-          createdBefore,
+          created_after,
+          created_before,
         });
 
         // Map results to include score (Issue #1145)
@@ -7129,8 +7128,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         return reply.send({
           results: mappedResults,
-          search_type: result.searchType,
-          embedding_provider: result.queryEmbeddingProvider,
+          search_type: result.search_type,
+          embedding_provider: result.query_embedding_provider,
         });
       } finally {
         await pool.end();
@@ -7145,13 +7144,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       force?: boolean;
     };
 
-    const batchSize = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
+    const batch_size = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
     const force = body?.force === true;
 
     const pool = createPool();
 
     try {
-      const result = await backfillMemoryEmbeddings(pool, { batchSize, force });
+      const result = await backfillMemoryEmbeddings(pool, { batch_size, force });
       return reply.code(202).send({
         status: 'completed',
         processed: result.processed,
@@ -7174,13 +7173,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       force?: boolean;
     };
 
-    const batchSize = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
+    const batch_size = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
     const force = body?.force === true;
 
     const pool = createPool();
 
     try {
-      const result = await backfillWorkItemEmbeddings(pool, { batchSize, force });
+      const result = await backfillWorkItemEmbeddings(pool, { batch_size, force });
       return reply.code(202).send({
         status: 'completed',
         processed: result.processed,
@@ -7247,7 +7246,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         provider: config.provider,
         model: config.model,
         dimensions: config.dimensions,
-        configured_providers: config.configuredProviders,
+        configured_providers: config.configured_providers,
         stats: {
           total_memories: Number.parseInt(row.total, 10),
           with_embedding: Number.parseInt(row.with_embedding, 10),
@@ -7288,7 +7287,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await getGlobalMemories(pool, query.user_email, {
-        memoryType: query.memory_type as any,
+        memory_type: query.memory_type as any,
         limit: Number.parseInt(query.limit || '50', 10),
         offset: Number.parseInt(query.offset || '0', 10),
       });
@@ -7347,8 +7346,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const title = body?.title?.trim() || generateTitleFromContent(body.content.trim());
 
-    const memoryType = body.memory_type ?? 'note';
-    if (!isValidMemoryType(memoryType)) {
+    const memory_type = body.memory_type ?? 'note';
+    if (!isValidMemoryType(memory_type)) {
       return reply.code(400).send({
         error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
       });
@@ -7360,23 +7359,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const memory = await createMemory(pool, {
         title: title,
         content: body.content.trim(),
-        memoryType: memoryType as any,
-        userEmail: body.user_email,
-        workItemId: body.work_item_id,
-        contactId: body.contact_id,
-        relationshipId: body.relationship_id,
-        projectId: body.project_id,
-        createdByAgent: body.created_by_agent,
-        createdByHuman: body.created_by_human,
-        sourceUrl: body.source_url,
+        memory_type: memory_type as any,
+        user_email: body.user_email,
+        work_item_id: body.work_item_id,
+        contact_id: body.contact_id,
+        relationship_id: body.relationship_id,
+        project_id: body.project_id,
+        created_by_agent: body.created_by_agent,
+        created_by_human: body.created_by_human,
+        source_url: body.source_url,
         importance: body.importance,
         confidence: body.confidence,
-        expiresAt: body.expires_at ? new Date(body.expires_at) : undefined,
+        expires_at: body.expires_at ? new Date(body.expires_at) : undefined,
         tags: body.tags,
         lat: body.lat,
         lng: body.lng,
         address: body.address,
-        placeLabel: body.place_label,
+        place_label: body.place_label,
       });
 
       // Generate content embedding asynchronously
@@ -7384,8 +7383,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await generateMemoryEmbedding(pool, memory.id, memoryContent);
 
       // Generate location embedding if geo data present
-      if (memory.address || memory.placeLabel) {
-        const locationText = [memory.address, memory.placeLabel].filter(Boolean).join(' ');
+      if (memory.address || memory.place_label) {
+        const locationText = [memory.address, memory.place_label].filter(Boolean).join(' ');
         const { generateLocationEmbedding } = await import('./embeddings/memory-integration.ts');
         await generateLocationEmbedding(pool, memory.id, locationText);
       }
@@ -7440,7 +7439,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const results: Array<{ index: number; id?: string; status: 'created' | 'failed'; error?: string }> = [];
-      let createdCount = 0;
+      let created_count = 0;
       let failedCount = 0;
 
       for (let i = 0; i < body.memories.length; i++) {
@@ -7459,8 +7458,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           continue;
         }
 
-        const memoryType = mem.memory_type ?? 'note';
-        if (!isValidMemoryType(memoryType)) {
+        const memory_type = mem.memory_type ?? 'note';
+        if (!isValidMemoryType(memory_type)) {
           results.push({ index: i, status: 'failed', error: 'invalid memory_type' });
           failedCount++;
           continue;
@@ -7489,23 +7488,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           const memory = await createMemory(pool, {
             title: mem.title.trim(),
             content: mem.content.trim(),
-            memoryType: memoryType as any,
-            userEmail: mem.user_email,
-            workItemId: mem.work_item_id,
-            contactId: mem.contact_id,
-            relationshipId: mem.relationship_id,
-            projectId: mem.project_id,
-            createdByAgent: mem.created_by_agent,
-            createdByHuman: mem.created_by_human,
-            sourceUrl: mem.source_url,
+            memory_type: memory_type as any,
+            user_email: mem.user_email,
+            work_item_id: mem.work_item_id,
+            contact_id: mem.contact_id,
+            relationship_id: mem.relationship_id,
+            project_id: mem.project_id,
+            created_by_agent: mem.created_by_agent,
+            created_by_human: mem.created_by_human,
+            source_url: mem.source_url,
             importance: mem.importance,
             confidence: mem.confidence,
-            expiresAt: mem.expires_at ? new Date(mem.expires_at) : undefined,
+            expires_at: mem.expires_at ? new Date(mem.expires_at) : undefined,
             tags: mem.tags,
             lat: mem.lat,
             lng: mem.lng,
             address: mem.address,
-            placeLabel: mem.place_label,
+            place_label: mem.place_label,
           });
 
           // Generate embedding asynchronously (don't await to avoid blocking)
@@ -7518,7 +7517,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           });
 
           results.push({ index: i, id: memory.id, status: 'created' });
-          createdCount++;
+          created_count++;
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'unknown error';
           results.push({ index: i, status: 'failed', error: errorMsg });
@@ -7526,9 +7525,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      return reply.code(failedCount > 0 && createdCount === 0 ? 400 : 200).send({
+      return reply.code(failedCount > 0 && created_count === 0 ? 400 : 200).send({
         success: failedCount === 0,
-        created: createdCount,
+        created: created_count,
         failed: failedCount,
         results,
       });
@@ -7569,7 +7568,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       const results: Array<{ index: number; id: string; status: 'updated' | 'failed'; error?: string }> = [];
-      let updatedCount = 0;
+      let updated_count = 0;
       let failedCount = 0;
 
       for (let i = 0; i < body.updates.length; i++) {
@@ -7641,7 +7640,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             failedCount++;
           } else {
             results.push({ index: i, id: update.id, status: 'updated' });
-            updatedCount++;
+            updated_count++;
           }
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'unknown error';
@@ -7651,7 +7650,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Commit if at least some updates succeeded
-      if (updatedCount > 0) {
+      if (updated_count > 0) {
         await client.query('COMMIT');
       } else {
         await client.query('ROLLBACK');
@@ -7660,9 +7659,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       client.release();
       await pool.end();
 
-      return reply.code(failedCount > 0 && updatedCount === 0 ? 400 : 200).send({
+      return reply.code(failedCount > 0 && updated_count === 0 ? 400 : 200).send({
         success: failedCount === 0,
-        updated: updatedCount,
+        updated: updated_count,
         failed: failedCount,
         results,
       });
@@ -7700,46 +7699,46 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     // Resolve temporal parameters (issue #1272)
-    let createdAfter: Date | undefined;
-    let createdBefore: Date | undefined;
+    let created_after: Date | undefined;
+    let created_before: Date | undefined;
 
     if (query.period) {
       const periodResult = resolvePeriod(query.period);
       if (!periodResult) {
         return reply.code(400).send({ error: `Invalid period. Must be one of: ${VALID_PERIODS.join(', ')}` });
       }
-      createdAfter = periodResult.since;
-      createdBefore = periodResult.before;
+      created_after = periodResult.since;
+      created_before = periodResult.before;
     }
     if (query.since) {
       const resolved = resolveRelativeTime(query.since);
       if (!resolved) {
         return reply.code(400).send({ error: 'Invalid since parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
       }
-      createdAfter = resolved;
+      created_after = resolved;
     }
     if (query.before) {
       const resolved = resolveRelativeTime(query.before);
       if (!resolved) {
         return reply.code(400).send({ error: 'Invalid before parameter. Use duration (e.g. "7d", "2w") or ISO date.' });
       }
-      createdBefore = resolved;
+      created_before = resolved;
     }
 
     const pool = createPool();
 
     try {
       const result = await listMemories(pool, {
-        userEmail: query.user_email,
-        workItemId: query.work_item_id,
-        contactId: query.contact_id,
-        relationshipId: query.relationship_id,
-        projectId: query.project_id,
-        memoryType: query.memory_type as any,
-        includeExpired: query.include_expired === 'true',
-        includeSuperseded: query.include_superseded === 'true',
-        createdAfter,
-        createdBefore,
+        user_email: query.user_email,
+        work_item_id: query.work_item_id,
+        contact_id: query.contact_id,
+        relationship_id: query.relationship_id,
+        project_id: query.project_id,
+        memory_type: query.memory_type as any,
+        include_expired: query.include_expired === 'true',
+        include_superseded: query.include_superseded === 'true',
+        created_after,
+        created_before,
         limit: parseInt(query.limit || '50', 10),
         offset: parseInt(query.offset || '0', 10),
       });
@@ -7783,8 +7782,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: 'Memory not found' });
       }
 
-      const memoryType = body.memory_type ?? oldMemory.memoryType;
-      if (!isValidMemoryType(memoryType)) {
+      const memory_type = body.memory_type ?? oldMemory.memory_type;
+      if (!isValidMemoryType(memory_type)) {
         return reply.code(400).send({
           error: 'Invalid memory_type. Valid types: preference, fact, note, decision, context, reference',
         });
@@ -7793,12 +7792,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const newMemory = await supersedeMemory(pool, params.id, {
         title: body.title.trim(),
         content: body.content.trim(),
-        memoryType: memoryType as any,
-        userEmail: oldMemory.userEmail ?? undefined,
-        workItemId: oldMemory.workItemId ?? undefined,
-        contactId: oldMemory.contactId ?? undefined,
-        relationshipId: oldMemory.relationshipId ?? undefined,
-        projectId: oldMemory.projectId ?? undefined,
+        memory_type: memory_type as any,
+        user_email: oldMemory.user_email ?? undefined,
+        work_item_id: oldMemory.work_item_id ?? undefined,
+        contact_id: oldMemory.contact_id ?? undefined,
+        relationship_id: oldMemory.relationship_id ?? undefined,
+        project_id: oldMemory.project_id ?? undefined,
         importance: body.importance ?? oldMemory.importance,
         confidence: body.confidence ?? oldMemory.confidence,
       });
@@ -7808,8 +7807,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await generateMemoryEmbedding(pool, newMemory.id, memoryContent);
 
       return reply.code(201).send({
-        newMemory,
-        supersededId: params.id,
+        new_memory: newMemory,
+        superseded_id: params.id,
       });
     } finally {
       await pool.end();
@@ -7819,10 +7818,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/memories/:id/attachments - Attach a file to a memory (Issue #1271)
   app.post('/api/memories/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
-    const body = req.body as { fileId: string };
+    const body = req.body as { file_id: string };
 
-    if (!body.fileId) {
-      return reply.code(400).send({ error: 'fileId is required' });
+    if (!body.file_id) {
+      return reply.code(400).send({ error: 'file_id is required' });
     }
 
     const pool = createPool();
@@ -7835,7 +7834,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Check file exists
-      const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.fileId]);
+      const fileResult = await pool.query('SELECT id FROM file_attachment WHERE id = $1', [body.file_id]);
       if (fileResult.rowCount === 0) {
         return reply.code(404).send({ error: 'File not found' });
       }
@@ -7846,12 +7845,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `INSERT INTO unified_memory_attachment (memory_id, file_attachment_id, attached_by)
          VALUES ($1, $2, $3)
          ON CONFLICT DO NOTHING`,
-        [params.id, body.fileId, email],
+        [params.id, body.file_id, email],
       );
 
       return reply.code(201).send({
-        memoryId: params.id,
-        fileId: body.fileId,
+        memory_id: params.id,
+        file_id: body.file_id,
         attached: true,
       });
     } finally {
@@ -7884,12 +7883,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.send({
         attachments: result.rows.map((row) => ({
           id: row.id,
-          originalFilename: row.original_filename,
-          contentType: row.content_type,
-          sizeBytes: Number.parseInt(row.size_bytes, 10),
-          createdAt: row.created_at,
-          attachedAt: row.attached_at,
-          attachedBy: row.attached_by,
+          original_filename: row.original_filename,
+          content_type: row.content_type,
+          size_bytes: Number.parseInt(row.size_bytes, 10),
+          created_at: row.created_at,
+          attached_at: row.attached_at,
+          attached_by: row.attached_by,
         })),
       });
     } finally {
@@ -7897,9 +7896,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/memories/:memoryId/attachments/:fileId - Remove attachment from memory (Issue #1271)
-  app.delete('/api/memories/:memoryId/attachments/:fileId', async (req, reply) => {
-    const params = req.params as { memoryId: string; fileId: string };
+  // DELETE /api/memories/:memory_id/attachments/:file_id - Remove attachment from memory (Issue #1271)
+  app.delete('/api/memories/:memory_id/attachments/:file_id', async (req, reply) => {
+    const params = req.params as { memory_id: string; file_id: string };
     const pool = createPool();
 
     try {
@@ -7907,7 +7906,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `DELETE FROM unified_memory_attachment
          WHERE memory_id = $1 AND file_attachment_id = $2
          RETURNING memory_id`,
-        [params.memoryId, params.fileId],
+        [params.memory_id, params.file_id],
       );
 
       if (result.rowCount === 0) {
@@ -8014,10 +8013,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.send({
         configured: config.configured,
-        gatewayUrl: config.gatewayUrl,
-        hasToken: config.hasToken,
-        defaultModel: config.defaultModel,
-        timeoutSeconds: config.timeoutSeconds,
+        gateway_url: config.gateway_url,
+        has_token: config.has_token,
+        default_model: config.default_model,
+        timeout_seconds: config.timeout_seconds,
         stats: {
           pending: pendingResult.total,
           failed: failedResult.total,
@@ -8078,8 +8077,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       const result = await listMemories(pool, {
-        projectId: params.id,
-        memoryType: query.memory_type as undefined,
+        project_id: params.id,
+        memory_type: query.memory_type as undefined,
         limit: Number.parseInt(query.limit || '50', 10),
         offset: Number.parseInt(query.offset || '0', 10),
       });
@@ -8144,9 +8143,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'content is required' });
     }
 
-    const memoryType = body.type ?? 'note';
+    const memory_type = body.type ?? 'note';
     const validTypes = ['note', 'decision', 'context', 'reference'];
-    if (!validTypes.includes(memoryType)) {
+    if (!validTypes.includes(memory_type)) {
       return reply.code(400).send({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
 
@@ -8174,7 +8173,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  memory_type::text as type,
                  created_at,
                  updated_at`,
-      [params.id, body.title.trim(), body.content.trim(), memoryType],
+      [params.id, body.title.trim(), body.content.trim(), memory_type],
     );
 
     await pool.end();
@@ -8268,19 +8267,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/memories/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
-      contactId?: string;
-      relationshipType?: string;
+      contact_id?: string;
+      relationship_type?: string;
       notes?: string;
     };
 
-    if (!body?.contactId) {
-      return reply.code(400).send({ error: 'contactId is required' });
+    if (!body?.contact_id) {
+      return reply.code(400).send({ error: 'contact_id is required' });
     }
 
-    const relationshipType = body.relationshipType || 'about';
+    const relationship_type = body.relationship_type || 'about';
     const validTypes = ['about', 'from', 'shared_with', 'mentioned'];
-    if (!validTypes.includes(relationshipType)) {
-      return reply.code(400).send({ error: `relationshipType must be one of: ${validTypes.join(', ')}` });
+    if (!validTypes.includes(relationship_type)) {
+      return reply.code(400).send({ error: `relationship_type must be one of: ${validTypes.join(', ')}` });
     }
 
     const pool = createPool();
@@ -8293,7 +8292,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Check if contact exists
-      const contactExists = await pool.query('SELECT 1 FROM contact WHERE id = $1', [body.contactId]);
+      const contactExists = await pool.query('SELECT 1 FROM contact WHERE id = $1', [body.contact_id]);
       if (contactExists.rows.length === 0) {
         return reply.code(404).send({ error: 'contact not found' });
       }
@@ -8303,9 +8302,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         `INSERT INTO memory_contact (memory_id, contact_id, relationship_type, notes)
          VALUES ($1, $2, $3::memory_contact_relationship, $4)
          ON CONFLICT (memory_id, contact_id, relationship_type) DO UPDATE SET notes = EXCLUDED.notes
-         RETURNING id::text as id, memory_id::text as "memoryId", contact_id::text as "contactId",
-                   relationship_type::text as "relationshipType", notes, created_at as "createdAt"`,
-        [params.id, body.contactId, relationshipType, body.notes || null],
+         RETURNING id::text as id, memory_id::text as "memory_id", contact_id::text as "contact_id",
+                   relationship_type::text as "relationship_type", notes, created_at as "created_at"`,
+        [params.id, body.contact_id, relationship_type, body.notes || null],
       );
 
       return reply.code(201).send(result.rows[0]);
@@ -8317,7 +8316,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/memories/:id/contacts - Get contacts linked to a memory
   app.get('/api/memories/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { relationshipType?: string };
+    const query = req.query as { relationship_type?: string };
 
     const pool = createPool();
 
@@ -8330,21 +8329,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       let sql = `
         SELECT mc.id::text as id,
-               mc.memory_id::text as "memoryId",
-               mc.contact_id::text as "contactId",
-               mc.relationship_type::text as "relationshipType",
+               mc.memory_id::text as "memory_id",
+               mc.contact_id::text as "contact_id",
+               mc.relationship_type::text as "relationship_type",
                mc.notes,
-               mc.created_at as "createdAt",
-               c.display_name as "contactName"
+               mc.created_at as "created_at",
+               c.display_name as "contact_name"
         FROM memory_contact mc
         JOIN contact c ON c.id = mc.contact_id
         WHERE mc.memory_id = $1
       `;
       const queryParams: string[] = [params.id];
 
-      if (query.relationshipType) {
+      if (query.relationship_type) {
         sql += ' AND mc.relationship_type = $2::memory_contact_relationship';
-        queryParams.push(query.relationshipType);
+        queryParams.push(query.relationship_type);
       }
 
       sql += ' ORDER BY mc.created_at DESC';
@@ -8356,20 +8355,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/memories/:memoryId/contacts/:contactId - Remove memory-contact link
-  app.delete('/api/memories/:memoryId/contacts/:contactId', async (req, reply) => {
-    const params = req.params as { memoryId: string; contactId: string };
-    const query = req.query as { relationshipType?: string };
+  // DELETE /api/memories/:memory_id/contacts/:contact_id - Remove memory-contact link
+  app.delete('/api/memories/:memory_id/contacts/:contact_id', async (req, reply) => {
+    const params = req.params as { memory_id: string; contact_id: string };
+    const query = req.query as { relationship_type?: string };
 
     const pool = createPool();
 
     try {
       let sql = 'DELETE FROM memory_contact WHERE memory_id = $1 AND contact_id = $2';
-      const queryParams: string[] = [params.memoryId, params.contactId];
+      const queryParams: string[] = [params.memory_id, params.contact_id];
 
-      if (query.relationshipType) {
+      if (query.relationship_type) {
         sql += ' AND relationship_type = $3::memory_contact_relationship';
-        queryParams.push(query.relationshipType);
+        queryParams.push(query.relationship_type);
       }
 
       sql += ' RETURNING id::text as id';
@@ -8389,7 +8388,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts/:id/memories - Get memories linked to a contact
   app.get('/api/contacts/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { relationshipType?: string; limit?: string; offset?: string; user_email?: string };
+    const query = req.query as { relationship_type?: string; limit?: string; offset?: string; user_email?: string };
 
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const offset = Number.parseInt(query.offset || '0', 10);
@@ -8410,17 +8409,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       let sql = `
-        SELECT mc.id::text as "relationshipId",
-               mc.relationship_type::text as "relationshipType",
-               mc.notes as "relationshipNotes",
-               mc.created_at as "linkedAt",
+        SELECT mc.id::text as "relationship_id",
+               mc.relationship_type::text as "relationship_type",
+               mc.notes as "relationship_notes",
+               mc.created_at as "linked_at",
                m.id::text as id,
                m.title,
                m.content,
                m.memory_type::text as type,
-               m.work_item_id::text as "linkedItemId",
-               m.created_at as "createdAt",
-               m.updated_at as "updatedAt"
+               m.work_item_id::text as "linked_item_id",
+               m.created_at as "created_at",
+               m.updated_at as "updated_at"
         FROM memory_contact mc
         JOIN memory m ON m.id = mc.memory_id
         WHERE mc.contact_id = $1
@@ -8428,9 +8427,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const queryParams: (string | number)[] = [params.id];
       let paramIndex = 2;
 
-      if (query.relationshipType) {
+      if (query.relationship_type) {
         sql += ` AND mc.relationship_type = $${paramIndex}::memory_contact_relationship`;
-        queryParams.push(query.relationshipType);
+        queryParams.push(query.relationship_type);
         paramIndex++;
       }
 
@@ -8448,30 +8447,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/memories/:id/related', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
-      relatedMemoryId?: string;
-      relationshipType?: string;
+      related_memory_id?: string;
+      relationship_type?: string;
       notes?: string;
     };
 
-    if (!body?.relatedMemoryId) {
-      return reply.code(400).send({ error: 'relatedMemoryId is required' });
+    if (!body?.related_memory_id) {
+      return reply.code(400).send({ error: 'related_memory_id is required' });
     }
 
-    if (params.id === body.relatedMemoryId) {
+    if (params.id === body.related_memory_id) {
       return reply.code(400).send({ error: 'cannot create self-referential relationship' });
     }
 
-    const relationshipType = body.relationshipType || 'related';
+    const relationship_type = body.relationship_type || 'related';
     const validTypes = ['related', 'supersedes', 'contradicts', 'supports'];
-    if (!validTypes.includes(relationshipType)) {
-      return reply.code(400).send({ error: `relationshipType must be one of: ${validTypes.join(', ')}` });
+    if (!validTypes.includes(relationship_type)) {
+      return reply.code(400).send({ error: `relationship_type must be one of: ${validTypes.join(', ')}` });
     }
 
     const pool = createPool();
 
     try {
       // Check if both memories exist
-      const memoriesExist = await pool.query('SELECT id FROM memory WHERE id = ANY($1::uuid[])', [[params.id, body.relatedMemoryId]]);
+      const memoriesExist = await pool.query('SELECT id FROM memory WHERE id = ANY($1::uuid[])', [[params.id, body.related_memory_id]]);
       if (memoriesExist.rows.length < 2) {
         return reply.code(404).send({ error: 'one or both memories not found' });
       }
@@ -8483,9 +8482,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ON CONFLICT (memory_id, related_memory_id) DO UPDATE SET
            relationship_type = EXCLUDED.relationship_type,
            notes = EXCLUDED.notes
-         RETURNING id::text as id, memory_id::text as "memoryId", related_memory_id::text as "relatedMemoryId",
-                   relationship_type::text as "relationshipType", notes, created_at as "createdAt"`,
-        [params.id, body.relatedMemoryId, relationshipType, body.notes || null],
+         RETURNING id::text as id, memory_id::text as "memory_id", related_memory_id::text as "related_memory_id",
+                   relationship_type::text as "relationship_type", notes, created_at as "created_at"`,
+        [params.id, body.related_memory_id, relationship_type, body.notes || null],
       );
 
       return reply.code(201).send(result.rows[0]);
@@ -8497,7 +8496,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/memories/:id/related - Get memories related to this one
   app.get('/api/memories/:id/related', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { relationshipType?: string; direction?: string };
+    const query = req.query as { relationship_type?: string; direction?: string };
 
     const pool = createPool();
 
@@ -8510,18 +8509,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Get relationships where this memory is the source
       let outgoingSql = `
-        SELECT mr.id::text as "relationshipId",
-               mr.relationship_type::text as "relationshipType",
-               mr.notes as "relationshipNotes",
-               mr.created_at as "linkedAt",
+        SELECT mr.id::text as "relationship_id",
+               mr.relationship_type::text as "relationship_type",
+               mr.notes as "relationship_notes",
+               mr.created_at as "linked_at",
                'outgoing' as direction,
                m.id::text as id,
                m.title,
                m.content,
                m.memory_type::text as type,
-               m.work_item_id::text as "linkedItemId",
-               m.created_at as "createdAt",
-               m.updated_at as "updatedAt"
+               m.work_item_id::text as "linked_item_id",
+               m.created_at as "created_at",
+               m.updated_at as "updated_at"
         FROM memory_relationship mr
         JOIN memory m ON m.id = mr.related_memory_id
         WHERE mr.memory_id = $1
@@ -8529,18 +8528,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Get relationships where this memory is the target
       let incomingSql = `
-        SELECT mr.id::text as "relationshipId",
-               mr.relationship_type::text as "relationshipType",
-               mr.notes as "relationshipNotes",
-               mr.created_at as "linkedAt",
+        SELECT mr.id::text as "relationship_id",
+               mr.relationship_type::text as "relationship_type",
+               mr.notes as "relationship_notes",
+               mr.created_at as "linked_at",
                'incoming' as direction,
                m.id::text as id,
                m.title,
                m.content,
                m.memory_type::text as type,
-               m.work_item_id::text as "linkedItemId",
-               m.created_at as "createdAt",
-               m.updated_at as "updatedAt"
+               m.work_item_id::text as "linked_item_id",
+               m.created_at as "created_at",
+               m.updated_at as "updated_at"
         FROM memory_relationship mr
         JOIN memory m ON m.id = mr.memory_id
         WHERE mr.related_memory_id = $1
@@ -8548,11 +8547,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const queryParams: string[] = [params.id];
 
-      if (query.relationshipType) {
+      if (query.relationship_type) {
         const typeCondition = ' AND mr.relationship_type = $2::memory_relationship_type';
         outgoingSql += typeCondition;
         incomingSql += typeCondition;
-        queryParams.push(query.relationshipType);
+        queryParams.push(query.relationship_type);
       }
 
       // Combine based on direction filter
@@ -8563,7 +8562,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         results = await pool.query(`${incomingSql} ORDER BY mr.created_at DESC`, queryParams);
       } else {
         // Get both directions
-        const combinedSql = `(${outgoingSql}) UNION ALL (${incomingSql}) ORDER BY "linkedAt" DESC`;
+        const combinedSql = `(${outgoingSql}) UNION ALL (${incomingSql}) ORDER BY "linked_at" DESC`;
         results = await pool.query(combinedSql, queryParams);
       }
 
@@ -8573,9 +8572,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/memories/:memoryId/related/:relatedMemoryId - Remove memory relationship
-  app.delete('/api/memories/:memoryId/related/:relatedMemoryId', async (req, reply) => {
-    const params = req.params as { memoryId: string; relatedMemoryId: string };
+  // DELETE /api/memories/:memory_id/related/:related_memory_id - Remove memory relationship
+  app.delete('/api/memories/:memory_id/related/:related_memory_id', async (req, reply) => {
+    const params = req.params as { memory_id: string; related_memory_id: string };
 
     const pool = createPool();
 
@@ -8586,7 +8585,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          WHERE (memory_id = $1 AND related_memory_id = $2)
             OR (memory_id = $2 AND related_memory_id = $1)
          RETURNING id::text as id`,
-        [params.memoryId, params.relatedMemoryId],
+        [params.memory_id, params.related_memory_id],
       );
 
       if (result.rows.length === 0) {
@@ -8642,9 +8641,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 m.title,
                 m.content,
                 m.memory_type::text as type,
-                m.work_item_id::text as "linkedItemId",
-                m.created_at as "createdAt",
-                m.updated_at as "updatedAt",
+                m.work_item_id::text as "linked_item_id",
+                m.created_at as "created_at",
+                m.updated_at as "updated_at",
                 1 - (m.embedding <=> $1::vector) as similarity
          FROM memory m
          WHERE m.id != $2
@@ -8732,9 +8731,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                   m.title,
                   m.content,
                   m.memory_type::text as type,
-                  m.work_item_id::text as "linkedItemId",
-                  m.created_at as "createdAt",
-                  m.updated_at as "updatedAt",
+                  m.work_item_id::text as "linked_item_id",
+                  m.created_at as "created_at",
+                  m.updated_at as "updated_at",
                   1 - (m.embedding <=> $1::vector) as similarity
            FROM memory m
            WHERE m.embedding IS NOT NULL
@@ -8763,9 +8762,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 m.title,
                 m.content,
                 m.memory_type::text as type,
-                m.work_item_id::text as "linkedItemId",
-                m.created_at as "createdAt",
-                m.updated_at as "updatedAt",
+                m.work_item_id::text as "linked_item_id",
+                m.created_at as "created_at",
+                m.updated_at as "updated_at",
                 1 - (m.embedding <=> $1::vector) as similarity
          FROM memory m
          WHERE m.embedding IS NOT NULL
@@ -8817,9 +8816,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get directly linked contacts
       const directContactsResult = await pool.query(
         `SELECT c.id::text as id,
-                c.display_name as "displayName",
+                c.display_name as "display_name",
                 wic.relationship::text as relationship,
-                'direct' as "linkType"
+                'direct' as "link_type"
          FROM work_item_contact wic
          JOIN contact c ON c.id = wic.contact_id
          WHERE wic.work_item_id = $1`,
@@ -8832,7 +8831,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 m.title,
                 m.content,
                 m.memory_type::text as type,
-                'direct' as "linkType"
+                'direct' as "link_type"
          FROM memory m
          WHERE m.work_item_id = $1`,
         [params.id],
@@ -8841,9 +8840,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get contacts linked through memories
       const memoryContactsResult = await pool.query(
         `SELECT DISTINCT c.id::text as id,
-                c.display_name as "displayName",
+                c.display_name as "display_name",
                 mc.relationship_type::text as relationship,
-                'via_memory' as "linkType"
+                'via_memory' as "link_type"
          FROM memory m
          JOIN memory_contact mc ON mc.memory_id = m.id
          JOIN contact c ON c.id = mc.contact_id
@@ -8874,9 +8873,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                   m.title,
                   m.content,
                   m.memory_type::text as type,
-                  m.work_item_id::text as "originalWorkItemId",
+                  m.work_item_id::text as "original_work_item_id",
                   1 - (m.embedding <=> $1::vector) as similarity,
-                  'semantic' as "linkType"
+                  'semantic' as "link_type"
            FROM memory m
            WHERE m.work_item_id != $2
              AND m.embedding IS NOT NULL
@@ -9051,8 +9050,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         date: r.received_at?.toISOString() ?? null,
         snippet: (raw.snippet as string) ?? null,
         body: r.body,
-        hasAttachments: (raw.hasAttachments as boolean) ?? false,
-        isRead: (raw.isRead as boolean) ?? false,
+        has_attachments: (raw.has_attachments as boolean) ?? false,
+        is_read: (raw.is_read as boolean) ?? false,
       };
     });
 
@@ -9091,7 +9090,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          JOIN external_message em ON em.id = wic.message_id
         WHERE wic.work_item_id = $1
           AND (em.raw->>'type') = 'calendar_event'
-        ORDER BY (em.raw->>'startTime') ASC`,
+        ORDER BY (em.raw->>'start_time') ASC`,
       [params.id],
     );
 
@@ -9107,13 +9106,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: r.id,
         title: (raw.title as string) ?? null,
         description: (raw.description as string) ?? null,
-        startTime: (raw.startTime as string) ?? null,
-        endTime: (raw.endTime as string) ?? null,
-        isAllDay: (raw.isAllDay as boolean) ?? false,
+        start_time: (raw.start_time as string) ?? null,
+        end_time: (raw.end_time as string) ?? null,
+        is_all_day: (raw.is_all_day as boolean) ?? false,
         location: (raw.location as string) ?? null,
         attendees: (raw.attendees as Array<{ email: string; name?: string; status?: string }>) ?? [],
         organizer: (raw.organizer as { email: string; name?: string }) ?? null,
-        meetingLink: (raw.meetingLink as string) ?? null,
+        meeting_link: (raw.meeting_link as string) ?? null,
       };
     });
 
@@ -9126,10 +9125,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/emails', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { emailId?: string };
+    const body = req.body as { email_id?: string };
 
-    if (!body?.emailId) {
-      return reply.code(400).send({ error: 'emailId is required' });
+    if (!body?.email_id) {
+      return reply.code(400).send({ error: 'email_id is required' });
     }
 
     const pool = createPool();
@@ -9148,12 +9147,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if email message exists and get its thread
-    const emailExists = await pool.query('SELECT thread_id FROM external_message WHERE id = $1', [body.emailId]);
+    const emailExists = await pool.query('SELECT thread_id FROM external_message WHERE id = $1', [body.email_id]);
     if (emailExists.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'email not found' });
     }
-    const threadId = (emailExists.rows[0] as { thread_id: string }).thread_id;
+    const thread_id = (emailExists.rows[0] as { thread_id: string }).thread_id;
 
     // Create the link (upsert to handle existing links)
     await pool.query(
@@ -9162,19 +9161,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (work_item_id) DO UPDATE
          SET thread_id = EXCLUDED.thread_id,
              message_id = EXCLUDED.message_id`,
-      [params.id, threadId, body.emailId],
+      [params.id, thread_id, body.email_id],
     );
 
     await pool.end();
     return reply.code(201).send({
-      workItemId: params.id,
-      emailId: body.emailId,
+      work_item_id: params.id,
+      email_id: body.email_id,
     });
   });
 
-  // DELETE /api/work-items/:id/emails/:emailId - Unlink an email from a work item
-  app.delete('/api/work-items/:id/emails/:emailId', async (req, reply) => {
-    const params = req.params as { id: string; emailId: string };
+  // DELETE /api/work-items/:id/emails/:email_id - Unlink an email from a work item
+  app.delete('/api/work-items/:id/emails/:email_id', async (req, reply) => {
+    const params = req.params as { id: string; email_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -9196,7 +9195,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_communication
        WHERE work_item_id = $1 AND message_id = $2
        RETURNING work_item_id::text`,
-      [params.id, params.emailId],
+      [params.id, params.email_id],
     );
 
     await pool.end();
@@ -9213,10 +9212,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/calendar', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { eventId?: string };
+    const body = req.body as { event_id?: string };
 
-    if (!body?.eventId) {
-      return reply.code(400).send({ error: 'eventId is required' });
+    if (!body?.event_id) {
+      return reply.code(400).send({ error: 'event_id is required' });
     }
 
     const pool = createPool();
@@ -9235,12 +9234,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if event message exists and get its thread
-    const eventExists = await pool.query('SELECT thread_id FROM external_message WHERE id = $1', [body.eventId]);
+    const eventExists = await pool.query('SELECT thread_id FROM external_message WHERE id = $1', [body.event_id]);
     if (eventExists.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'event not found' });
     }
-    const threadId = (eventExists.rows[0] as { thread_id: string }).thread_id;
+    const thread_id = (eventExists.rows[0] as { thread_id: string }).thread_id;
 
     // Create the link (upsert to handle existing links)
     await pool.query(
@@ -9249,19 +9248,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (work_item_id) DO UPDATE
          SET thread_id = EXCLUDED.thread_id,
              message_id = EXCLUDED.message_id`,
-      [params.id, threadId, body.eventId],
+      [params.id, thread_id, body.event_id],
     );
 
     await pool.end();
     return reply.code(201).send({
-      workItemId: params.id,
-      eventId: body.eventId,
+      work_item_id: params.id,
+      event_id: body.event_id,
     });
   });
 
-  // DELETE /api/work-items/:id/calendar/:eventId - Unlink a calendar event from a work item
-  app.delete('/api/work-items/:id/calendar/:eventId', async (req, reply) => {
-    const params = req.params as { id: string; eventId: string };
+  // DELETE /api/work-items/:id/calendar/:event_id - Unlink a calendar event from a work item
+  app.delete('/api/work-items/:id/calendar/:event_id', async (req, reply) => {
+    const params = req.params as { id: string; event_id: string };
     const pool = createPool();
 
     // Check if work item exists
@@ -9276,7 +9275,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_communication
        WHERE work_item_id = $1 AND message_id = $2
        RETURNING work_item_id::text`,
-      [params.id, params.eventId],
+      [params.id, params.event_id],
     );
 
     await pool.end();
@@ -9293,13 +9292,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
     const body = req.body as {
-      threadId?: string;
-      messageId?: string | null;
+      thread_id?: string;
+      message_id?: string | null;
       action?: 'reply_required' | 'follow_up';
     };
 
-    if (!body?.threadId) {
-      return reply.code(400).send({ error: 'threadId is required' });
+    if (!body?.thread_id) {
+      return reply.code(400).send({ error: 'thread_id is required' });
     }
 
     const pool = createPool();
@@ -9318,7 +9317,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if thread exists
-    const threadExists = await pool.query('SELECT 1 FROM external_thread WHERE id = $1', [body.threadId]);
+    const threadExists = await pool.query('SELECT 1 FROM external_thread WHERE id = $1', [body.thread_id]);
     if (threadExists.rows.length === 0) {
       await pool.end();
       return reply.code(400).send({ error: 'thread not found' });
@@ -9337,7 +9336,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  thread_id::text as thread_id,
                  message_id::text as message_id,
                  action::text as action`,
-      [params.id, body.threadId, body.messageId ?? null, action],
+      [params.id, body.thread_id, body.message_id ?? null, action],
     );
 
     await pool.end();
@@ -9345,8 +9344,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // DELETE /api/work-items/:id/communications/:comm_id - Unlink a communication
-  app.delete('/api/work-items/:id/communications/:commId', async (req, reply) => {
-    const params = req.params as { id: string; commId: string };
+  app.delete('/api/work-items/:id/communications/:comm_id', async (req, reply) => {
+    const params = req.params as { id: string; comm_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -9368,7 +9367,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `DELETE FROM work_item_communication
        WHERE work_item_id = $1 AND thread_id = $2
        RETURNING work_item_id::text as work_item_id`,
-      [params.id, params.commId],
+      [params.id, params.comm_id],
     );
 
     await pool.end();
@@ -9524,23 +9523,23 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Ingestion: create (or reuse) contact+endpoint, create (or reuse) thread, insert message.
   app.post('/api/ingest/external-message', async (req, reply) => {
     const body = req.body as {
-      contactDisplayName?: string;
-      endpointType?: string;
-      endpointValue?: string;
-      externalThreadKey?: string;
-      externalMessageKey?: string;
+      contact_display_name?: string;
+      endpoint_type?: string;
+      endpoint_value?: string;
+      external_thread_key?: string;
+      external_message_key?: string;
       direction?: 'inbound' | 'outbound';
-      messageBody?: string | null;
+      message_body?: string | null;
       raw?: unknown;
-      receivedAt?: string;
+      received_at?: string;
     };
 
-    if (!body?.endpointType || !body?.endpointValue) {
-      return reply.code(400).send({ error: 'endpointType and endpointValue are required' });
+    if (!body?.endpoint_type || !body?.endpoint_value) {
+      return reply.code(400).send({ error: 'endpoint_type and endpoint_value are required' });
     }
 
-    if (!body?.externalThreadKey || !body?.externalMessageKey || !body?.direction) {
-      return reply.code(400).send({ error: 'externalThreadKey, externalMessageKey, and direction are required' });
+    if (!body?.external_thread_key || !body?.external_message_key || !body?.direction) {
+      return reply.code(400).send({ error: 'external_thread_key, external_message_key, and direction are required' });
     }
 
     const pool = createPool();
@@ -9549,7 +9548,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
-      const displayName = (body.contactDisplayName || 'Unknown').trim();
+      const display_name = (body.contact_display_name || 'Unknown').trim();
 
       // Try to find an existing endpoint (unique on (endpoint_type, normalized_value))
       const existingEndpoint = await client.query(
@@ -9558,29 +9557,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           WHERE ce.endpoint_type = $1::contact_endpoint_type
             AND ce.normalized_value = normalize_contact_endpoint_value($1::contact_endpoint_type, $2)
           LIMIT 1`,
-        [body.endpointType, body.endpointValue],
+        [body.endpoint_type, body.endpoint_value],
       );
 
-      let contactId: string;
+      let contact_id: string;
       let endpointId: string;
 
       if (existingEndpoint.rows.length > 0) {
         endpointId = existingEndpoint.rows[0].id;
-        contactId = existingEndpoint.rows[0].contact_id;
+        contact_id = existingEndpoint.rows[0].contact_id;
       } else {
         const contact = await client.query(
           `INSERT INTO contact (display_name)
            VALUES ($1)
            RETURNING id::text as id`,
-          [displayName.length > 0 ? displayName : 'Unknown'],
+          [display_name.length > 0 ? display_name : 'Unknown'],
         );
-        contactId = contact.rows[0].id;
+        contact_id = contact.rows[0].id;
 
         const endpoint = await client.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
            VALUES ($1, $2::contact_endpoint_type, $3)
            RETURNING id::text as id`,
-          [contactId, body.endpointType, body.endpointValue],
+          [contact_id, body.endpoint_type, body.endpoint_value],
         );
         endpointId = endpoint.rows[0].id;
       }
@@ -9591,9 +9590,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ON CONFLICT (channel, external_thread_key)
          DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, updated_at = now()
          RETURNING id::text as id`,
-        [endpointId, body.endpointType, body.externalThreadKey],
+        [endpointId, body.endpoint_type, body.external_thread_key],
       );
-      const threadId = thread.rows[0].id as string;
+      const thread_id = thread.rows[0].id as string;
 
       const message = await client.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw, received_at)
@@ -9601,16 +9600,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          ON CONFLICT (thread_id, external_message_key)
          DO UPDATE SET body = EXCLUDED.body
          RETURNING id::text as id`,
-        [threadId, body.externalMessageKey, body.direction, body.messageBody ?? null, body.raw ? JSON.stringify(body.raw) : null, body.receivedAt ?? null],
+        [thread_id, body.external_message_key, body.direction, body.message_body ?? null, body.raw ? JSON.stringify(body.raw) : null, body.received_at ?? null],
       );
-      const messageId = message.rows[0].id as string;
+      const message_id = message.rows[0].id as string;
 
       await client.query('COMMIT');
       return reply.code(201).send({
-        contactId,
-        endpointId,
-        threadId,
-        messageId,
+        contact_id: contact_id,
+        endpoint_id: endpointId,
+        thread_id: thread_id,
+        message_id: message_id,
       });
     } catch (e) {
       await client.query('ROLLBACK');
@@ -9664,10 +9663,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       try {
         const result = await processTwilioSms(pool, payload);
 
-        console.log(`[Twilio] SMS from ${payload.From}: contactId=${result.contactId}, ` + `messageId=${result.messageId}, isNew=${result.isNewContact}`);
+        console.log(`[Twilio] SMS from ${payload.From}: contact_id=${result.contact_id}, ` + `message_id=${result.message_id}, isNew=${result.isNewContact}`);
 
         // Enqueue embedding job for semantic search (#1343)
-        triggerMessageEmbedding(pool, result.messageId);
+        triggerMessageEmbedding(pool, result.message_id);
 
         // TODO: Queue webhook to notify OpenClaw of new inbound message (#201)
 
@@ -9686,8 +9685,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     Body: {
       to: string;
       body: string;
-      threadId?: string;
-      idempotencyKey?: string;
+      thread_id?: string;
+      idempotency_key?: string;
     };
   }>(
     '/api/twilio/sms/send',
@@ -9716,7 +9715,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      const { to, body, threadId, idempotencyKey } = req.body;
+      const { to, body, thread_id, idempotency_key } = req.body;
 
       // Validate required fields
       if (!to || !body) {
@@ -9729,17 +9728,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const result = await enqueueSmsMessage(pool, {
           to,
           body,
-          threadId,
-          idempotencyKey,
+          thread_id,
+          idempotency_key,
         });
 
-        console.log(`[Twilio] SMS queued: to=${to}, messageId=${result.messageId}, ` + `idempotencyKey=${result.idempotencyKey}`);
+        console.log(`[Twilio] SMS queued: to=${to}, message_id=${result.message_id}, ` + `idempotency_key=${result.idempotency_key}`);
 
         return reply.code(202).send({
-          messageId: result.messageId,
-          threadId: result.threadId,
+          message_id: result.message_id,
+          thread_id: result.thread_id,
           status: result.status,
-          idempotencyKey: result.idempotencyKey,
+          idempotency_key: result.idempotency_key,
         });
       } catch (error) {
         const err = error as Error;
@@ -9803,7 +9802,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       try {
         const result = await processDeliveryStatus(pool, callback);
 
-        if (result.notFound) {
+        if (result.not_found) {
           // Return 404 but Twilio will retry - this is expected for messages
           // we didn't send through this system
           return reply.code(404).send({ error: 'Message not found' });
@@ -9817,8 +9816,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Return success (Twilio expects 200-299 to stop retrying)
         return reply.code(200).send({
           success: true,
-          messageId: result.messageId,
-          statusUnchanged: result.statusUnchanged || false,
+          message_id: result.message_id,
+          status_unchanged: result.status_unchanged || false,
         });
       } finally {
         await pool.end();
@@ -9865,11 +9864,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     },
   );
 
-  // GET /api/twilio/numbers/:phoneNumber - Get phone number details
+  // GET /api/twilio/numbers/:phone_number - Get phone number details
   app.get<{
-    Params: { phoneNumber: string };
+    Params: { phone_number: string };
   }>(
-    '/api/twilio/numbers/:phoneNumber',
+    '/api/twilio/numbers/:phone_number',
     {
       config: {
         rateLimit: {
@@ -9896,7 +9895,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       try {
-        const { phoneNumber } = req.params;
+        const { phone_number: phoneNumber } = req.params;
         const details = await getPhoneNumberDetails(decodeURIComponent(phoneNumber));
         return reply.code(200).send(details);
       } catch (error) {
@@ -9910,9 +9909,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     },
   );
 
-  // PATCH /api/twilio/numbers/:phoneNumber - Update phone number webhooks
+  // PATCH /api/twilio/numbers/:phone_number - Update phone number webhooks
   app.patch<{
-    Params: { phoneNumber: string };
+    Params: { phone_number: string };
     Body: {
       smsUrl?: string;
       smsMethod?: 'GET' | 'POST';
@@ -9924,7 +9923,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       statusCallbackMethod?: 'GET' | 'POST';
     };
   }>(
-    '/api/twilio/numbers/:phoneNumber',
+    '/api/twilio/numbers/:phone_number',
     {
       config: {
         rateLimit: {
@@ -9953,13 +9952,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const pool = createPool();
 
       try {
-        const { phoneNumber } = req.params;
+        const { phone_number: phoneNumber } = req.params;
         const options = req.body;
 
         // Extract actor ID from auth token if available (for audit logging)
-        const actorId = req.headers['x-actor-id'] as string | undefined;
+        const actor_id = req.headers['x-actor-id'] as string | undefined;
 
-        const updated = await updatePhoneNumberWebhooks(decodeURIComponent(phoneNumber), options, pool, actorId);
+        const updated = await updatePhoneNumberWebhooks(decodeURIComponent(phoneNumber), options, pool, actor_id);
 
         return reply.code(200).send(updated);
       } catch (error) {
@@ -10023,20 +10022,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         console.log(
           `[Postmark] Email from ${payload.FromFull.Email}: subject="${payload.Subject}", ` +
-            `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`,
+            `contact_id=${result.contact_id}, message_id=${result.message_id}, isNew=${result.isNewContact}`,
         );
 
         // Enqueue embedding job for semantic search (#1343)
-        triggerMessageEmbedding(pool, result.messageId);
+        triggerMessageEmbedding(pool, result.message_id);
 
         // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
 
         // Return success
         return reply.code(200).send({
           success: true,
-          contactId: result.contactId,
-          threadId: result.threadId,
-          messageId: result.messageId,
+          contact_id: result.contact_id,
+          thread_id: result.thread_id,
+          message_id: result.message_id,
         });
       } catch (error) {
         console.error('[Postmark] Error processing email:', error);
@@ -10054,10 +10053,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       to: string;
       subject: string;
       body: string;
-      htmlBody?: string;
-      threadId?: string;
-      replyToMessageId?: string;
-      idempotencyKey?: string;
+      html_body?: string;
+      thread_id?: string;
+      reply_to_message_id?: string;
+      idempotency_key?: string;
     };
   }>(
     '/api/postmark/email/send',
@@ -10086,7 +10085,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         });
       }
 
-      const { to, subject, body, htmlBody, threadId, replyToMessageId, idempotencyKey } = req.body;
+      const { to, subject, body, html_body, thread_id, reply_to_message_id, idempotency_key } = req.body;
 
       // Validate required fields
       if (!to || !subject || !body) {
@@ -10100,19 +10099,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           to,
           subject,
           body,
-          htmlBody,
-          threadId,
-          replyToMessageId,
-          idempotencyKey,
+          html_body,
+          thread_id,
+          reply_to_message_id,
+          idempotency_key,
         });
 
-        console.log(`[Postmark] Email queued: to=${to}, messageId=${result.messageId}, ` + `idempotencyKey=${result.idempotencyKey}`);
+        console.log(`[Postmark] Email queued: to=${to}, message_id=${result.message_id}, ` + `idempotency_key=${result.idempotency_key}`);
 
         return reply.code(202).send({
-          messageId: result.messageId,
-          threadId: result.threadId,
+          message_id: result.message_id,
+          thread_id: result.thread_id,
           status: result.status,
-          idempotencyKey: result.idempotencyKey,
+          idempotency_key: result.idempotency_key,
         });
       } catch (error) {
         const err = error as Error;
@@ -10178,7 +10177,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       try {
         const result = await processPostmarkDeliveryStatus(pool, payload);
 
-        if (result.notFound) {
+        if (result.not_found) {
           console.warn(`[Postmark] Message not found for MessageID: ${payload.MessageID}`);
           // Return 200 to acknowledge - we don't want Postmark to retry for unknown messages
           return reply.code(200).send({ success: false, reason: 'Message not found' });
@@ -10186,13 +10185,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         console.log(
           `[Postmark] Delivery status: MessageID=${payload.MessageID}, RecordType=${payload.RecordType}, ` +
-            `messageId=${result.messageId}, statusUnchanged=${result.statusUnchanged ?? false}`,
+            `message_id=${result.message_id}, status_unchanged=${result.status_unchanged ?? false}`,
         );
 
         return reply.code(200).send({
           success: true,
-          messageId: result.messageId,
-          statusUnchanged: result.statusUnchanged ?? false,
+          message_id: result.message_id,
+          status_unchanged: result.status_unchanged ?? false,
         });
       } catch (error) {
         console.error('[Postmark] Delivery status webhook error:', error);
@@ -10248,21 +10247,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         console.log(
           `[Cloudflare Email] Email from ${payload.from}: subject="${payload.subject}", ` +
-            `contactId=${result.contactId}, messageId=${result.messageId}, isNew=${result.isNewContact}`,
+            `contact_id=${result.contact_id}, message_id=${result.message_id}, isNew=${result.isNewContact}`,
         );
 
         // Enqueue embedding job for semantic search (#1343)
-        triggerMessageEmbedding(pool, result.messageId);
+        triggerMessageEmbedding(pool, result.message_id);
 
         // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
 
         // Return success with receipt ID
         return reply.code(200).send({
           success: true,
-          receiptId: result.messageId,
-          contactId: result.contactId,
-          threadId: result.threadId,
-          messageId: result.messageId,
+          receipt_id: result.message_id,
+          contact_id: result.contact_id,
+          thread_id: result.thread_id,
+          message_id: result.message_id,
         });
       } catch (error) {
         console.error('[Cloudflare Email] Error processing email:', error);
@@ -10278,9 +10277,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.patch('/api/work-items/:id/reparent', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { newParentId?: string | null; afterId?: string | null };
+    const body = req.body as { new_parent_id?: string | null; after_id?: string | null };
 
-    const newParentId = body.newParentId ?? null;
+    const newParentId = body.new_parent_id ?? null;
 
     const pool = createPool();
 
@@ -10326,7 +10325,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Get new parent info if not null
       let newParentKind: string | null = null;
       if (newParentId) {
-        const parentResult = await client.query('SELECT work_item_kind as kind FROM work_item WHERE id = $1', [newParentId]);
+        const parentResult = await client.query('SELECT kind FROM work_item WHERE id = $1', [newParentId]);
         if (parentResult.rows.length === 0) {
           await client.query('ROLLBACK');
           client.release();
@@ -10370,7 +10369,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Calculate new sort_order among new siblings
       let newSortOrder: number;
-      const afterId = body.afterId ?? null;
+      const afterId = body.after_id ?? null;
 
       if (afterId) {
         // Position after a specific sibling in new parent
@@ -10379,7 +10378,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           await client.query('ROLLBACK');
           client.release();
           await pool.end();
-          return reply.code(400).send({ error: 'afterId target not found' });
+          return reply.code(400).send({ error: 'after_id target not found' });
         }
         const afterItem = afterResult.rows[0] as {
           sort_order: number;
@@ -10391,7 +10390,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           await client.query('ROLLBACK');
           client.release();
           await pool.end();
-          return reply.code(400).send({ error: 'afterId must be in new parent' });
+          return reply.code(400).send({ error: 'after_id must be in new parent' });
         }
 
         // Get next sibling
@@ -10460,17 +10459,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.patch('/api/work-items/:id/reorder', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { afterId?: string | null; beforeId?: string | null };
+    const body = req.body as { after_id?: string | null; before_id?: string | null };
 
-    // Validate exactly one of afterId or beforeId is provided
-    const hasAfter = Object.hasOwn(body, 'afterId');
-    const hasBefore = Object.hasOwn(body, 'beforeId');
+    // Validate exactly one of after_id or before_id is provided
+    const hasAfter = Object.hasOwn(body, 'after_id');
+    const hasBefore = Object.hasOwn(body, 'before_id');
 
     if (!hasAfter && !hasBefore) {
-      return reply.code(400).send({ error: 'afterId or beforeId is required' });
+      return reply.code(400).send({ error: 'after_id or before_id is required' });
     }
     if (hasAfter && hasBefore) {
-      return reply.code(400).send({ error: 'provide only one of afterId or beforeId' });
+      return reply.code(400).send({ error: 'provide only one of after_id or before_id' });
     }
 
     const pool = createPool();
@@ -10484,7 +10483,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const client = await pool.connect();
 
     // Helper to normalize sort_order when gaps run out
-    async function normalizeSort(parentId: string | null): Promise<void> {
+    async function normalizeSort(parent_id: string | null): Promise<void> {
       await client.query(
         `WITH ranked AS (
            SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order) * 1000 as new_order
@@ -10495,7 +10494,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          SET sort_order = ranked.new_order
          FROM ranked
          WHERE wi.id = ranked.id`,
-        [parentId],
+        [parent_id],
       );
     }
 
@@ -10522,10 +10521,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       let insertPosition: 'after' | 'before' = 'after';
 
       if (hasAfter) {
-        targetId = body.afterId ?? null;
+        targetId = body.after_id ?? null;
         insertPosition = 'after';
       } else {
-        targetId = body.beforeId ?? null;
+        targetId = body.before_id ?? null;
         insertPosition = 'before';
       }
 
@@ -10670,11 +10669,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.patch('/api/work-items/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { startDate?: string | null; endDate?: string | null };
+    const body = req.body as { start_date?: string | null; end_date?: string | null };
 
     // Check at least one field is provided
-    const hasStartDate = Object.hasOwn(body, 'startDate');
-    const hasEndDate = Object.hasOwn(body, 'endDate');
+    const hasStartDate = Object.hasOwn(body, 'start_date');
+    const hasEndDate = Object.hasOwn(body, 'end_date');
     if (!hasStartDate && !hasEndDate) {
       return reply.code(400).send({ error: 'at least one date field is required' });
     }
@@ -10692,10 +10691,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     let newEndDate: Date | null | undefined;
 
     if (hasStartDate) {
-      if (body.startDate === null) {
+      if (body.start_date === null) {
         newStartDate = null;
       } else {
-        newStartDate = parseDate(body.startDate);
+        newStartDate = parseDate(body.start_date);
         if (newStartDate && Number.isNaN(newStartDate.getTime())) {
           return reply.code(400).send({ error: 'invalid date format' });
         }
@@ -10703,10 +10702,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     if (hasEndDate) {
-      if (body.endDate === null) {
+      if (body.end_date === null) {
         newEndDate = null;
       } else {
-        newEndDate = parseDate(body.endDate);
+        newEndDate = parseDate(body.end_date);
         if (newEndDate && Number.isNaN(newEndDate.getTime())) {
           return reply.code(400).send({ error: 'invalid date format' });
         }
@@ -10741,7 +10740,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (finalStartDate && finalEndDate) {
       if (finalStartDate > finalEndDate) {
         await pool.end();
-        return reply.code(400).send({ error: 'startDate must be before or equal to endDate' });
+        return reply.code(400).send({ error: 'start_date must be before or equal to end_date' });
       }
     }
 
@@ -10781,9 +10780,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       ok: true,
       item: {
         id: row.id,
-        startDate: formatDate(row.not_before),
-        endDate: formatDate(row.not_after),
-        updatedAt: row.updated_at.toISOString(),
+        start_date: formatDate(row.not_before),
+        end_date: formatDate(row.not_after),
+        updated_at: row.updated_at.toISOString(),
       },
     });
   });
@@ -10812,8 +10811,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT id::text as id,
               text,
               completed,
-              created_at as "createdAt",
-              completed_at as "completedAt"
+              created_at as "created_at",
+              completed_at as "completed_at"
          FROM work_item_todo
         WHERE work_item_id = $1
         ORDER BY created_at ASC`,
@@ -10855,8 +10854,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        RETURNING id::text as id,
                  text,
                  completed,
-                 created_at as "createdAt",
-                 completed_at as "completedAt"`,
+                 created_at as "created_at",
+                 completed_at as "completed_at"`,
       [params.id, body.text.trim()],
     );
 
@@ -10864,9 +10863,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  // PATCH /api/work-items/:id/todos/:todoId - Update a todo
-  app.patch('/api/work-items/:id/todos/:todoId', async (req, reply) => {
-    const params = req.params as { id: string; todoId: string };
+  // PATCH /api/work-items/:id/todos/:todo_id - Update a todo
+  app.patch('/api/work-items/:id/todos/:todo_id', async (req, reply) => {
+    const params = req.params as { id: string; todo_id: string };
     const query = req.query as { user_email?: string };
     const body = req.body as { text?: string; completed?: boolean };
 
@@ -10893,7 +10892,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if todo exists and belongs to work item
-    const todoExists = await pool.query('SELECT 1 FROM work_item_todo WHERE id = $1 AND work_item_id = $2', [params.todoId, params.id]);
+    const todoExists = await pool.query('SELECT 1 FROM work_item_todo WHERE id = $1 AND work_item_id = $2', [params.todo_id, params.id]);
     if (todoExists.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -10923,15 +10922,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    values.push(params.todoId);
+    values.push(params.todo_id);
 
     const result = await pool.query(
       `UPDATE work_item_todo SET ${updates.join(', ')} WHERE id = $${paramIndex}
        RETURNING id::text as id,
                  text,
                  completed,
-                 created_at as "createdAt",
-                 completed_at as "completedAt"`,
+                 created_at as "created_at",
+                 completed_at as "completed_at"`,
       values,
     );
 
@@ -10939,9 +10938,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows[0]);
   });
 
-  // DELETE /api/work-items/:id/todos/:todoId - Delete a todo
-  app.delete('/api/work-items/:id/todos/:todoId', async (req, reply) => {
-    const params = req.params as { id: string; todoId: string };
+  // DELETE /api/work-items/:id/todos/:todo_id - Delete a todo
+  app.delete('/api/work-items/:id/todos/:todo_id', async (req, reply) => {
+    const params = req.params as { id: string; todo_id: string };
     const query = req.query as { user_email?: string };
     const pool = createPool();
 
@@ -10959,7 +10958,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Delete todo (only if it belongs to the work item)
-    const result = await pool.query('DELETE FROM work_item_todo WHERE id = $1 AND work_item_id = $2 RETURNING id::text as id', [params.todoId, params.id]);
+    const result = await pool.query('DELETE FROM work_item_todo WHERE id = $1 AND work_item_id = $2 RETURNING id::text as id', [params.todo_id, params.id]);
 
     await pool.end();
 
@@ -10978,24 +10977,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/notifications - List notifications for a user
   app.get('/api/notifications', async (req, reply) => {
     const query = req.query as {
-      userEmail?: string;
-      unreadOnly?: string;
+      user_email?: string;
+      unread_only?: string;
       limit?: string;
       offset?: string;
     };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const offset = Number.parseInt(query.offset || '0', 10);
-    const unreadOnly = query.unreadOnly === 'true';
+    const unreadOnly = query.unread_only === 'true';
 
     const pool = createPool();
 
     let whereClause = 'WHERE user_email = $1 AND dismissed_at IS NULL';
-    const params: (string | number)[] = [query.userEmail];
+    const params: (string | number)[] = [query.user_email];
 
     if (unreadOnly) {
       whereClause += ' AND read_at IS NULL';
@@ -11004,14 +11003,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const result = await pool.query(
       `SELECT
          id::text as id,
-         notification_type as "notificationType",
+         notification_type as "notification_type",
          title,
          message,
-         work_item_id::text as "workItemId",
-         actor_email as "actorEmail",
+         work_item_id::text as "work_item_id",
+         actor_email as "actor_email",
          metadata,
-         read_at as "readAt",
-         created_at as "createdAt"
+         read_at as "read_at",
+         created_at as "created_at"
        FROM notification
        ${whereClause}
        ORDER BY created_at DESC
@@ -11020,39 +11019,39 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     );
 
     const countResult = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [
-      query.userEmail,
+      query.user_email,
     ]);
 
     await pool.end();
 
     return reply.send({
       notifications: result.rows,
-      unreadCount: Number.parseInt(countResult.rows[0].count, 10),
+      unread_count: Number.parseInt(countResult.rows[0].count, 10),
     });
   });
 
   // GET /api/notifications/unread-count - Get unread count for a user
   app.get('/api/notifications/unread-count', async (req, reply) => {
-    const query = req.query as { userEmail?: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
-    const result = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [query.userEmail]);
+    const result = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [query.user_email]);
     await pool.end();
 
-    return reply.send({ unreadCount: Number.parseInt(result.rows[0].count, 10) });
+    return reply.send({ unread_count: Number.parseInt(result.rows[0].count, 10) });
   });
 
   // POST /api/notifications/:id/read - Mark a notification as read
   app.post('/api/notifications/:id/read', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { userEmail?: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11061,7 +11060,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = COALESCE(read_at, now())
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.userEmail],
+      [params.id, query.user_email],
     );
     await pool.end();
 
@@ -11074,10 +11073,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/notifications/read-all - Mark all notifications as read
   app.post('/api/notifications/read-all', async (req, reply) => {
-    const query = req.query as { userEmail?: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11086,20 +11085,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET read_at = now()
        WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL
        RETURNING id`,
-      [query.userEmail],
+      [query.user_email],
     );
     await pool.end();
 
-    return reply.send({ markedCount: result.rowCount || 0 });
+    return reply.send({ marked_count: result.rowCount || 0 });
   });
 
   // DELETE /api/notifications/:id - Dismiss a notification
   app.delete('/api/notifications/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { userEmail?: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11108,7 +11107,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        SET dismissed_at = now()
        WHERE id = $1 AND user_email = $2
        RETURNING id`,
-      [params.id, query.userEmail],
+      [params.id, query.user_email],
     );
     await pool.end();
 
@@ -11121,10 +11120,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notifications/preferences - Get notification preferences
   app.get('/api/notifications/preferences', async (req, reply) => {
-    const query = req.query as { userEmail?: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11132,20 +11131,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT notification_type, in_app_enabled, email_enabled
        FROM notification_preference
        WHERE user_email = $1`,
-      [query.userEmail],
+      [query.user_email],
     );
     await pool.end();
 
     // Build preferences object with defaults
-    const preferences: Record<string, { inApp: boolean; email: boolean }> = {};
+    const preferences: Record<string, { in_app: boolean; email: boolean }> = {};
     for (const type of NOTIFICATION_TYPES) {
-      preferences[type] = { inApp: true, email: false };
+      preferences[type] = { in_app: true, email: false };
     }
 
     // Override with user preferences
     for (const row of result.rows) {
       preferences[row.notification_type] = {
-        inApp: row.in_app_enabled,
+        in_app: row.in_app_enabled,
         email: row.email_enabled,
       };
     }
@@ -11155,11 +11154,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/notifications/preferences - Update notification preferences
   app.patch('/api/notifications/preferences', async (req, reply) => {
-    const query = req.query as { userEmail?: string };
-    const body = req.body as Record<string, { inApp?: boolean; email?: boolean }>;
+    const query = req.query as { user_email?: string };
+    const body = req.body as Record<string, { in_app?: boolean; email?: boolean }>;
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     // Validate notification types
@@ -11179,7 +11178,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            in_app_enabled = COALESCE($3, notification_preference.in_app_enabled),
            email_enabled = COALESCE($4, notification_preference.email_enabled),
            updated_at = now()`,
-        [query.userEmail, type, pref.inApp ?? true, pref.email ?? false],
+        [query.user_email, type, pref.in_app ?? true, pref.email ?? false],
       );
     }
 
@@ -11213,14 +11212,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const comments = await pool.query(
       `SELECT
          c.id::text as id,
-         c.work_item_id::text as "workItemId",
-         c.parent_id::text as "parentId",
-         c.user_email as "userEmail",
+         c.work_item_id::text as "work_item_id",
+         c.parent_id::text as "parent_id",
+         c.user_email as "user_email",
          c.content,
          c.mentions,
-         c.edited_at as "editedAt",
-         c.created_at as "createdAt",
-         c.updated_at as "updatedAt"
+         c.edited_at as "edited_at",
+         c.created_at as "created_at",
+         c.updated_at as "updated_at"
        FROM work_item_comment c
        WHERE c.work_item_id = $1
        ORDER BY c.created_at ASC`,
@@ -11262,10 +11261,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/comments', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { userEmail: string; content: string; parentId?: string };
+    const body = req.body as { user_email: string; content: string; parent_id?: string };
 
-    if (!body.userEmail || !body.content) {
-      return reply.code(400).send({ error: 'userEmail and content are required' });
+    if (!body.user_email || !body.content) {
+      return reply.code(400).send({ error: 'user_email and content are required' });
     }
 
     const pool = createPool();
@@ -11296,13 +11295,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        VALUES ($1, $2, $3, $4, $5)
        RETURNING
          id::text as id,
-         work_item_id::text as "workItemId",
-         parent_id::text as "parentId",
-         user_email as "userEmail",
+         work_item_id::text as "work_item_id",
+         parent_id::text as "parent_id",
+         user_email as "user_email",
          content,
          mentions,
-         created_at as "createdAt"`,
-      [params.id, body.userEmail, body.content, body.parentId || null, mentions],
+         created_at as "created_at"`,
+      [params.id, body.user_email, body.content, body.parent_id || null, mentions],
     );
 
     await pool.end();
@@ -11310,14 +11309,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(201).send(result.rows[0]);
   });
 
-  // PUT /api/work-items/:id/comments/:commentId - Update a comment
-  app.put('/api/work-items/:id/comments/:commentId', async (req, reply) => {
-    const params = req.params as { id: string; commentId: string };
+  // PUT /api/work-items/:id/comments/:comment_id - Update a comment
+  app.put('/api/work-items/:id/comments/:comment_id', async (req, reply) => {
+    const params = req.params as { id: string; comment_id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { userEmail: string; content: string };
+    const body = req.body as { user_email: string; content: string };
 
-    if (!body.userEmail || !body.content) {
-      return reply.code(400).send({ error: 'userEmail and content are required' });
+    if (!body.user_email || !body.content) {
+      return reply.code(400).send({ error: 'user_email and content are required' });
     }
 
     const pool = createPool();
@@ -11329,14 +11328,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check ownership
-    const comment = await pool.query('SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.commentId, params.id]);
+    const comment = await pool.query('SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.comment_id, params.id]);
 
     if (comment.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    if (comment.rows[0].user_email !== body.userEmail) {
+    if (comment.rows[0].user_email !== body.user_email) {
       await pool.end();
       return reply.code(403).send({ error: 'cannot edit other user comment' });
     }
@@ -11357,9 +11356,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          id::text as id,
          content,
          mentions,
-         edited_at as "editedAt",
-         updated_at as "updatedAt"`,
-      [body.content, mentions, params.commentId],
+         edited_at as "edited_at",
+         updated_at as "updated_at"`,
+      [body.content, mentions, params.comment_id],
     );
 
     await pool.end();
@@ -11367,13 +11366,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send(result.rows[0]);
   });
 
-  // DELETE /api/work-items/:id/comments/:commentId - Delete a comment
-  app.delete('/api/work-items/:id/comments/:commentId', async (req, reply) => {
-    const params = req.params as { id: string; commentId: string };
-    const query = req.query as { userEmail?: string; user_email?: string };
+  // DELETE /api/work-items/:id/comments/:comment_id - Delete a comment
+  app.delete('/api/work-items/:id/comments/:comment_id', async (req, reply) => {
+    const params = req.params as { id: string; comment_id: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11385,32 +11384,32 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check ownership
-    const comment = await pool.query('SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.commentId, params.id]);
+    const comment = await pool.query('SELECT user_email FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.comment_id, params.id]);
 
     if (comment.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
 
-    if (comment.rows[0].user_email !== query.userEmail) {
+    if (comment.rows[0].user_email !== query.user_email) {
       await pool.end();
       return reply.code(403).send({ error: 'cannot delete other user comment' });
     }
 
-    await pool.query('DELETE FROM work_item_comment WHERE id = $1', [params.commentId]);
+    await pool.query('DELETE FROM work_item_comment WHERE id = $1', [params.comment_id]);
     await pool.end();
 
     return reply.send({ success: true });
   });
 
-  // POST /api/work-items/:id/comments/:commentId/reactions - Toggle a reaction
-  app.post('/api/work-items/:id/comments/:commentId/reactions', async (req, reply) => {
-    const params = req.params as { id: string; commentId: string };
+  // POST /api/work-items/:id/comments/:comment_id/reactions - Toggle a reaction
+  app.post('/api/work-items/:id/comments/:comment_id/reactions', async (req, reply) => {
+    const params = req.params as { id: string; comment_id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { userEmail: string; emoji: string };
+    const body = req.body as { user_email: string; emoji: string };
 
-    if (!body.userEmail || !body.emoji) {
-      return reply.code(400).send({ error: 'userEmail and emoji are required' });
+    if (!body.user_email || !body.emoji) {
+      return reply.code(400).send({ error: 'user_email and emoji are required' });
     }
 
     const pool = createPool();
@@ -11422,7 +11421,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Check if comment exists
-    const commentExists = await pool.query('SELECT 1 FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.commentId, params.id]);
+    const commentExists = await pool.query('SELECT 1 FROM work_item_comment WHERE id = $1 AND work_item_id = $2', [params.comment_id, params.id]);
 
     if (commentExists.rows.length === 0) {
       await pool.end();
@@ -11431,15 +11430,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Check if reaction exists - if so, remove it (toggle)
     const existing = await pool.query('SELECT 1 FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3', [
-      params.commentId,
-      body.userEmail,
+      params.comment_id,
+      body.user_email,
       body.emoji,
     ]);
 
     if (existing.rows.length > 0) {
       await pool.query('DELETE FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2 AND emoji = $3', [
-        params.commentId,
-        body.userEmail,
+        params.comment_id,
+        body.user_email,
         body.emoji,
       ]);
       await pool.end();
@@ -11449,7 +11448,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
        VALUES ($1, $2, $3)`,
-      [params.commentId, body.userEmail, body.emoji],
+      [params.comment_id, body.user_email, body.emoji],
     );
 
     await pool.end();
@@ -11471,7 +11470,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Get users with recent presence (within 5 minutes)
     const result = await pool.query(
-      `SELECT user_email as email, last_seen_at as "lastSeenAt", cursor_position as "cursorPosition"
+      `SELECT user_email as email, last_seen_at as "last_seen_at", cursor_position as "cursor_position"
        FROM user_presence
        WHERE work_item_id = $1 AND last_seen_at > now() - interval '5 minutes'
        ORDER BY last_seen_at DESC`,
@@ -11487,10 +11486,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/presence', async (req, reply) => {
     const params = req.params as { id: string };
     const query = req.query as { user_email?: string };
-    const body = req.body as { userEmail: string; cursorPosition?: object };
+    const body = req.body as { user_email: string; cursor_position?: object };
 
-    if (!body.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!body.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11507,7 +11506,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        ON CONFLICT (user_email, work_item_id) DO UPDATE SET
          last_seen_at = now(),
          cursor_position = COALESCE($3, user_presence.cursor_position)`,
-      [body.userEmail, params.id, body.cursorPosition ? JSON.stringify(body.cursorPosition) : null],
+      [body.user_email, params.id, body.cursor_position ? JSON.stringify(body.cursor_position) : null],
     );
 
     await pool.end();
@@ -11518,10 +11517,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id/presence - Remove user presence
   app.delete('/api/work-items/:id/presence', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { userEmail?: string; user_email?: string };
+    const query = req.query as { user_email?: string };
 
-    if (!query.userEmail) {
-      return reply.code(400).send({ error: 'userEmail is required' });
+    if (!query.user_email) {
+      return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
@@ -11532,7 +11531,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    await pool.query('DELETE FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [query.userEmail, params.id]);
+    await pool.query('DELETE FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [query.user_email, params.id]);
 
     await pool.end();
 
@@ -11573,14 +11572,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/analytics/project-health - Get health metrics for projects
   app.get('/api/analytics/project-health', async (req, reply) => {
-    const query = req.query as { projectId?: string };
+    const query = req.query as { project_id?: string };
     const pool = createPool();
 
     let projectFilter = '';
     const params: string[] = [];
 
-    if (query.projectId) {
-      params.push(query.projectId);
+    if (query.project_id) {
+      params.push(query.project_id);
       projectFilter = 'AND p.id = $1';
     }
 
@@ -11588,10 +11587,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT
          p.id::text as id,
          p.title,
-         COUNT(CASE WHEN c.status IN ('open', 'backlog', 'todo') THEN 1 END)::int as "openCount",
-         COUNT(CASE WHEN c.status IN ('in_progress', 'review') THEN 1 END)::int as "inProgressCount",
-         COUNT(CASE WHEN c.status IN ('closed', 'done', 'cancelled') THEN 1 END)::int as "closedCount",
-         COUNT(c.id)::int as "totalCount"
+         COUNT(CASE WHEN c.status IN ('open', 'backlog', 'todo') THEN 1 END)::int as "open_count",
+         COUNT(CASE WHEN c.status IN ('in_progress', 'review') THEN 1 END)::int as "in_progress_count",
+         COUNT(CASE WHEN c.status IN ('closed', 'done', 'cancelled') THEN 1 END)::int as "closed_count",
+         COUNT(c.id)::int as "total_count"
        FROM work_item p
        LEFT JOIN work_item c ON c.parent_work_item_id = p.id
        WHERE p.work_item_kind = 'project'
@@ -11608,7 +11607,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/analytics/velocity - Get velocity data
   app.get('/api/analytics/velocity', async (req, reply) => {
-    const query = req.query as { weeks?: string; projectId?: string };
+    const query = req.query as { weeks?: string; project_id?: string };
     const weeks = Math.min(Number.parseInt(query.weeks || '12', 10), 52);
     const pool = createPool();
 
@@ -11629,16 +11628,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     return reply.send({
       weeks: result.rows.map((r) => ({
-        weekStart: r.week_start,
-        completedCount: r.completed_count,
-        estimatedMinutes: r.estimated_minutes,
+        week_start: r.week_start,
+        completed_count: r.completed_count,
+        estimated_minutes: r.estimated_minutes,
       })),
     });
   });
 
   // GET /api/analytics/effort - Get effort summary
   app.get('/api/analytics/effort', async (req, reply) => {
-    const _query = req.query as { projectId?: string };
+    const _query = req.query as { project_id?: string };
     const pool = createPool();
 
     // Get total effort
@@ -11664,13 +11663,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.end();
 
     return reply.send({
-      totalEstimated: totalResult.rows[0]?.total_estimated || 0,
-      totalActual: totalResult.rows[0]?.total_actual || 0,
-      byStatus: byStatusResult.rows.map((r) => ({
+      total_estimated: totalResult.rows[0]?.total_estimated || 0,
+      total_actual: totalResult.rows[0]?.total_actual || 0,
+      by_status: byStatusResult.rows.map((r) => ({
         status: r.status,
-        estimatedMinutes: r.estimated_minutes,
-        actualMinutes: r.actual_minutes,
-        itemCount: r.item_count,
+        estimated_minutes: r.estimated_minutes,
+        actual_minutes: r.actual_minutes,
+        item_count: r.item_count,
       })),
     });
   });
@@ -11703,11 +11702,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.end();
 
     return reply.send({
-      totalScope: result.rows[0]?.total_scope || 0,
-      completedScope: result.rows[0]?.completed_scope || 0,
-      remainingScope: result.rows[0]?.remaining_scope || 0,
-      totalItems: result.rows[0]?.total_items || 0,
-      completedItems: result.rows[0]?.completed_items || 0,
+      total_scope: result.rows[0]?.total_scope || 0,
+      completed_scope: result.rows[0]?.completed_scope || 0,
+      remaining_scope: result.rows[0]?.remaining_scope || 0,
+      total_items: result.rows[0]?.total_items || 0,
+      completed_items: result.rows[0]?.completed_items || 0,
     });
   });
 
@@ -11723,9 +11722,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          title,
          status,
          priority,
-         work_item_kind as "workItemKind",
-         not_after as "dueDate",
-         (now() - not_after) as "overdueBy"
+         work_item_kind as "work_item_kind",
+         not_after as "due_date",
+         (now() - not_after) as "overdue_by"
        FROM work_item
        WHERE not_after < now()
          AND status NOT IN ('closed', 'done', 'cancelled')
@@ -11751,10 +11750,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          w.title,
          w.status,
          w.priority,
-         w.work_item_kind as "workItemKind",
-         d.depends_on_work_item_id::text as "blockedById",
-         b.title as "blockedByTitle",
-         b.status as "blockedByStatus"
+         w.work_item_kind as "work_item_kind",
+         d.depends_on_work_item_id::text as "blocked_by_id",
+         b.title as "blocked_by_title",
+         b.status as "blocked_by_status"
        FROM work_item w
        INNER JOIN work_item_dependency d ON d.work_item_id = w.id
        INNER JOIN work_item b ON b.id = d.depends_on_work_item_id
@@ -11813,30 +11812,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/oauth/connections - List OAuth connections
   app.get('/api/oauth/connections', async (req, reply) => {
-    const query = req.query as { userEmail?: string; provider?: string };
+    const query = req.query as { user_email?: string; provider?: string };
     const pool = createPool();
 
     const provider = query.provider as OAuthProvider | undefined;
-    const connections = await listConnections(pool, query.userEmail, provider);
+    const connections = await listConnections(pool, query.user_email, provider);
     await pool.end();
 
     return reply.send({
       connections: connections.map((conn) => ({
         id: conn.id,
-        userEmail: conn.userEmail,
+        user_email: conn.user_email,
         provider: conn.provider,
         scopes: conn.scopes,
-        expiresAt: conn.expiresAt,
+        expires_at: conn.expires_at,
         label: conn.label,
-        providerAccountId: conn.providerAccountId,
-        providerAccountEmail: conn.providerAccountEmail,
-        permissionLevel: conn.permissionLevel,
-        enabledFeatures: conn.enabledFeatures,
-        isActive: conn.isActive,
-        lastSyncAt: conn.lastSyncAt,
-        syncStatus: conn.syncStatus,
-        createdAt: conn.createdAt,
-        updatedAt: conn.updatedAt,
+        provider_account_id: conn.provider_account_id,
+        provider_account_email: conn.provider_account_email,
+        permission_level: conn.permission_level,
+        enabled_features: conn.enabled_features,
+        is_active: conn.is_active,
+        last_sync_at: conn.last_sync_at,
+        sync_status: conn.sync_status,
+        created_at: conn.created_at,
+        updated_at: conn.updated_at,
       })),
     });
   });
@@ -11845,12 +11844,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // Accepts optional query params:
   //   scopes: comma-separated raw scope strings (legacy)
   //   features: comma-separated feature names (contacts,email,files,calendar)
-  //   permissionLevel: 'read' or 'read_write' (default: 'read')
+  //   permission_level: 'read' or 'read_write' (default: 'read')
   // When features are provided, scopes are computed from the feature-to-scope map.
   // Returns a 302 redirect to the provider's authorization URL.
   app.get('/api/oauth/authorize/:provider', async (req, reply) => {
     const params = req.params as { provider: string };
-    const query = req.query as { scopes?: string; features?: string; permissionLevel?: string };
+    const query = req.query as { scopes?: string; features?: string; permission_level?: string };
 
     const validProviders = ['google', 'microsoft'];
     if (!validProviders.includes(params.provider)) {
@@ -11867,8 +11866,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
     }
 
-    // Validate permissionLevel if provided
-    if (query.permissionLevel !== undefined && !['read', 'read_write'].includes(query.permissionLevel)) {
+    // Validate permission_level if provided
+    if (query.permission_level !== undefined && !['read', 'read_write'].includes(query.permission_level)) {
       return reply.code(400).send({ error: 'Invalid permission level. Must be "read" or "read_write"' });
     }
 
@@ -11886,14 +11885,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const scopes = query.scopes?.split(',');
-    const permissionLevel = (query.permissionLevel as OAuthPermissionLevel) || 'read';
+    const permission_level = (query.permission_level as OAuthPermissionLevel) || 'read';
     const state = randomBytes(32).toString('hex');
 
     const pool = createPool();
     try {
       const authResult = await getAuthorizationUrl(pool, provider, state, scopes, {
         features,
-        permissionLevel,
+        permission_level,
       });
 
       return reply.redirect(authResult.url);
@@ -11932,7 +11931,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      // Validate state and get stored data (provider, codeVerifier)
+      // Validate state and get stored data (provider, code_verifier)
       let stateData;
       try {
         stateData = await validateState(pool, query.state);
@@ -11955,14 +11954,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Exchange code for tokens (with PKCE code_verifier)
-      const tokens = await exchangeCodeForTokens(provider, query.code, stateData.codeVerifier);
+      const tokens = await exchangeCodeForTokens(provider, query.code, stateData.code_verifier);
 
       // Get user email from provider
-      const userEmail = await getOAuthUserEmail(provider, tokens.accessToken);
+      const user_email = await getOAuthUserEmail(provider, tokens.access_token);
 
       // Save connection with provider account email for multi-account support
-      await saveConnection(pool, userEmail, provider, tokens, {
-        providerAccountEmail: userEmail,
+      await saveConnection(pool, user_email, provider, tokens, {
+        provider_account_email: user_email,
       });
 
       // Generate a one-time authorization code for the SPA to exchange for a JWT.
@@ -11973,7 +11972,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.query(
         `INSERT INTO auth_one_time_code (code_sha256, email, expires_at)
          VALUES ($1, $2, now() + interval '60 seconds')`,
-        [authCodeSha, userEmail],
+        [authCodeSha, user_email],
       );
 
       // Redirect to the SPA auth consume page with the one-time code.
@@ -11994,7 +11993,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.redirect(redirectUrl);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({
+        return reply.code(error.status_code).send({
           error: error.message,
           code: error.code,
         });
@@ -12045,15 +12044,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // PATCH /api/oauth/connections/:id - Update connection settings
-  // When features or permissionLevel change, computes required scopes and
+  // When features or permission_level change, computes required scopes and
   // returns a reAuthUrl if the connection needs additional OAuth grants.
   app.patch('/api/oauth/connections/:id', async (req, reply) => {
     const params = req.params as { id: string };
     const body = req.body as {
       label?: string;
-      permissionLevel?: string;
-      enabledFeatures?: string[];
-      isActive?: boolean;
+      permission_level?: string;
+      enabled_features?: string[];
+      is_active?: boolean;
     };
 
     // Validate label is non-empty if provided
@@ -12061,16 +12060,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'Label must not be empty' });
     }
 
-    // Validate permissionLevel if provided
-    if (body.permissionLevel !== undefined && !['read', 'read_write'].includes(body.permissionLevel)) {
+    // Validate permission_level if provided
+    if (body.permission_level !== undefined && !['read', 'read_write'].includes(body.permission_level)) {
       return reply.code(400).send({ error: 'Invalid permission level. Must be "read" or "read_write"' });
     }
 
-    // Validate enabledFeatures if provided
+    // Validate enabled_features if provided
     let validatedFeatures: OAuthFeature[] | undefined;
-    if (body.enabledFeatures !== undefined) {
+    if (body.enabled_features !== undefined) {
       try {
-        validatedFeatures = validateFeatures(body.enabledFeatures);
+        validatedFeatures = validateFeatures(body.enabled_features);
       } catch (error) {
         if (error instanceof OAuthError) {
           return reply.code(400).send({ error: error.message });
@@ -12090,9 +12089,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const updated = await updateConnection(pool, params.id, {
         label: body.label?.trim(),
-        permissionLevel: body.permissionLevel as OAuthPermissionLevel | undefined,
-        enabledFeatures: validatedFeatures,
-        isActive: body.isActive,
+        permission_level: body.permission_level as OAuthPermissionLevel | undefined,
+        enabled_features: validatedFeatures,
+        is_active: body.is_active,
       });
 
       if (!updated) {
@@ -12100,17 +12099,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       // Manage sync jobs based on feature/active changes
-      if (!updated.isActive || !updated.enabledFeatures.includes('contacts')) {
+      if (!updated.is_active || !updated.enabled_features.includes('contacts')) {
         // Connection deactivated or contacts disabled — remove pending sync jobs
         await removePendingSyncJobs(pool, updated.id);
-      } else if (updated.isActive && updated.enabledFeatures.includes('contacts')) {
+      } else if (updated.is_active && updated.enabled_features.includes('contacts')) {
         // Contacts enabled and active — enqueue a sync job if not already pending
         await enqueueSyncJob(pool, updated.id, 'contacts');
       }
 
       // Check if the updated features/permissions require new scopes
-      const effectiveFeatures = updated.enabledFeatures;
-      const effectivePermission = updated.permissionLevel;
+      const effectiveFeatures = updated.enabled_features;
+      const effectivePermission = updated.permission_level;
       const requiredScopes = getRequiredScopes(updated.provider, effectiveFeatures, effectivePermission);
       const missing = getMissingScopes(updated.scopes, requiredScopes);
 
@@ -12119,9 +12118,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Generate a re-authorization URL with the new required scopes
         const state = randomBytes(32).toString('hex');
         const authResult = await getAuthorizationUrl(pool, updated.provider, state, undefined, {
-          userEmail: updated.userEmail,
+          user_email: updated.user_email,
           features: effectiveFeatures,
-          permissionLevel: effectivePermission,
+          permission_level: effectivePermission,
         });
         reAuthUrl = authResult.url;
       }
@@ -12129,19 +12128,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const response: Record<string, unknown> = {
         connection: {
           id: updated.id,
-          userEmail: updated.userEmail,
+          user_email: updated.user_email,
           provider: updated.provider,
           scopes: updated.scopes,
           label: updated.label,
-          providerAccountId: updated.providerAccountId,
-          providerAccountEmail: updated.providerAccountEmail,
-          permissionLevel: updated.permissionLevel,
-          enabledFeatures: updated.enabledFeatures,
-          isActive: updated.isActive,
-          lastSyncAt: updated.lastSyncAt,
-          syncStatus: updated.syncStatus,
-          createdAt: updated.createdAt,
-          updatedAt: updated.updatedAt,
+          provider_account_id: updated.provider_account_id,
+          provider_account_email: updated.provider_account_email,
+          permission_level: updated.permission_level,
+          enabled_features: updated.enabled_features,
+          is_active: updated.is_active,
+          last_sync_at: updated.last_sync_at,
+          sync_status: updated.sync_status,
+          created_at: updated.created_at,
+          updated_at: updated.updated_at,
         },
       };
 
@@ -12161,26 +12160,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/drive/files - List files from a connected drive
   app.get('/api/drive/files', async (req, reply) => {
-    const query = req.query as { connectionId?: string; folderId?: string; pageToken?: string };
+    const query = req.query as { connection_id?: string; folder_id?: string; page_token?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
-    if (!isValidUUID(query.connectionId)) {
-      return reply.code(400).send({ error: 'connectionId must be a valid UUID' });
+    if (!isValidUUID(query.connection_id)) {
+      return reply.code(400).send({ error: 'connection_id must be a valid UUID' });
     }
 
     const pool = createPool();
     try {
-      const result = await listDriveFiles(pool, query.connectionId, query.folderId, query.pageToken);
+      const result = await listDriveFiles(pool, query.connection_id, query.folder_id, query.page_token);
       return reply.send(result);
     } catch (error) {
       if (error instanceof NoConnectionError) {
         return reply.code(404).send({ error: 'OAuth connection not found', code: error.code });
       }
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12190,14 +12189,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/drive/files/search - Search files across a connected drive
   app.get('/api/drive/files/search', async (req, reply) => {
-    const query = req.query as { connectionId?: string; q?: string; pageToken?: string };
+    const query = req.query as { connection_id?: string; q?: string; page_token?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
-    if (!isValidUUID(query.connectionId)) {
-      return reply.code(400).send({ error: 'connectionId must be a valid UUID' });
+    if (!isValidUUID(query.connection_id)) {
+      return reply.code(400).send({ error: 'connection_id must be a valid UUID' });
     }
 
     if (!query.q || query.q.trim() === '') {
@@ -12206,14 +12205,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await searchDriveFiles(pool, query.connectionId, query.q, query.pageToken);
+      const result = await searchDriveFiles(pool, query.connection_id, query.q, query.page_token);
       return reply.send(result);
     } catch (error) {
       if (error instanceof NoConnectionError) {
         return reply.code(404).send({ error: 'OAuth connection not found', code: error.code });
       }
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12224,26 +12223,26 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/drive/files/:id - Get single file metadata with download URL
   app.get('/api/drive/files/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { connectionId?: string };
+    const query = req.query as { connection_id?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
-    if (!isValidUUID(query.connectionId)) {
-      return reply.code(400).send({ error: 'connectionId must be a valid UUID' });
+    if (!isValidUUID(query.connection_id)) {
+      return reply.code(400).send({ error: 'connection_id must be a valid UUID' });
     }
 
     const pool = createPool();
     try {
-      const file = await getDriveFile(pool, query.connectionId, params.id);
+      const file = await getDriveFile(pool, query.connection_id, params.id);
       return reply.send({ file });
     } catch (error) {
       if (error instanceof NoConnectionError) {
         return reply.code(404).send({ error: 'OAuth connection not found', code: error.code });
       }
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12253,34 +12252,34 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/sync/contacts - Trigger contact sync from OAuth provider
   app.post('/api/sync/contacts', async (req, reply) => {
-    const body = req.body as { connectionId: string; incremental?: boolean };
+    const body = req.body as { connection_id: string; incremental?: boolean };
     const pool = createPool();
 
-    if (!body.connectionId) {
+    if (!body.connection_id) {
       await pool.end();
-      return reply.code(400).send({ error: 'connectionId is required' });
+      return reply.code(400).send({ error: 'connection_id is required' });
     }
 
     try {
       // Get sync cursor for incremental sync
-      let syncCursor: string | undefined;
+      let sync_cursor: string | undefined;
       if (body.incremental !== false) {
-        syncCursor = await getContactSyncCursor(pool, body.connectionId);
+        sync_cursor = await getContactSyncCursor(pool, body.connection_id);
       }
 
-      // Perform sync using connectionId
-      const result = await syncContacts(pool, body.connectionId, { syncCursor });
+      // Perform sync using connection_id
+      const result = await syncContacts(pool, body.connection_id, { sync_cursor });
 
       await pool.end();
 
       return reply.send({
         status: 'completed',
         provider: result.provider,
-        userEmail: result.userEmail,
-        syncedCount: result.syncedCount,
-        createdCount: result.createdCount,
-        updatedCount: result.updatedCount,
-        incremental: !!syncCursor,
+        user_email: result.user_email,
+        synced_count: result.synced_count,
+        created_count: result.created_count,
+        updated_count: result.updated_count,
+        incremental: !!sync_cursor,
       });
     } catch (error) {
       await pool.end();
@@ -12293,7 +12292,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
 
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({
+        return reply.code(error.status_code).send({
           error: error.message,
           code: error.code,
         });
@@ -12303,21 +12302,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/sync/status/:connectionId - Get sync status for a connection
-  app.get('/api/sync/status/:connectionId', async (req, reply) => {
-    const params = req.params as { connectionId: string };
+  // GET /api/sync/status/:connection_id - Get sync status for a connection
+  app.get('/api/sync/status/:connection_id', async (req, reply) => {
+    const params = req.params as { connection_id: string };
     const pool = createPool();
 
     try {
-      const status = await getSyncStatus(pool, params.connectionId);
+      const status = await getSyncStatus(pool, params.connection_id);
 
       if (!status) {
         return reply.code(404).send({ error: 'Connection not found' });
       }
 
       return reply.send({
-        connectionId: params.connectionId,
-        syncStatus: status,
+        connection_id: params.connection_id,
+        sync_status: status,
       });
     } finally {
       await pool.end();
@@ -12329,35 +12328,35 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/email/messages - List or search emails via provider API
   app.get('/api/email/messages', async (req, reply) => {
     const query = req.query as {
-      connectionId?: string;
-      folderId?: string;
+      connection_id?: string;
+      folder_id?: string;
       q?: string;
-      maxResults?: string;
-      pageToken?: string;
-      includeSpamTrash?: string;
-      labelIds?: string;
+      max_results?: string;
+      page_token?: string;
+      include_spam_trash?: string;
+      label_ids?: string;
     };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
       const params: EmailListParams = {
-        folderId: query.folderId,
+        folder_id: query.folder_id,
         query: query.q,
-        maxResults: query.maxResults ? Number.parseInt(query.maxResults, 10) : undefined,
-        pageToken: query.pageToken,
-        includeSpamTrash: query.includeSpamTrash === 'true',
-        labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
+        max_results: query.max_results ? Number.parseInt(query.max_results, 10) : undefined,
+        page_token: query.page_token,
+        include_spam_trash: query.include_spam_trash === 'true',
+        label_ids: query.label_ids ? query.label_ids.split(',') : undefined,
       };
 
-      const result = await emailService.listMessages(pool, query.connectionId, params);
+      const result = await emailService.listMessages(pool, query.connection_id, params);
       return reply.send(result);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12365,22 +12364,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/email/messages/:messageId - Get a single email message
-  app.get('/api/email/messages/:messageId', async (req, reply) => {
-    const { messageId } = req.params as { messageId: string };
-    const query = req.query as { connectionId?: string };
+  // GET /api/email/messages/:message_id - Get a single email message
+  app.get('/api/email/messages/:message_id', async (req, reply) => {
+    const { message_id: message_id } = req.params as { message_id: string };
+    const query = req.query as { connection_id?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
-      const message = await emailService.getMessage(pool, query.connectionId, messageId);
+      const message = await emailService.getMessage(pool, query.connection_id, message_id);
       return reply.send(message);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12391,35 +12390,35 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/email/threads - List email threads
   app.get('/api/email/threads', async (req, reply) => {
     const query = req.query as {
-      connectionId?: string;
-      folderId?: string;
+      connection_id?: string;
+      folder_id?: string;
       q?: string;
-      maxResults?: string;
-      pageToken?: string;
-      includeSpamTrash?: string;
-      labelIds?: string;
+      max_results?: string;
+      page_token?: string;
+      include_spam_trash?: string;
+      label_ids?: string;
     };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
       const params: EmailListParams = {
-        folderId: query.folderId,
+        folder_id: query.folder_id,
         query: query.q,
-        maxResults: query.maxResults ? Number.parseInt(query.maxResults, 10) : undefined,
-        pageToken: query.pageToken,
-        includeSpamTrash: query.includeSpamTrash === 'true',
-        labelIds: query.labelIds ? query.labelIds.split(',') : undefined,
+        max_results: query.max_results ? Number.parseInt(query.max_results, 10) : undefined,
+        page_token: query.page_token,
+        include_spam_trash: query.include_spam_trash === 'true',
+        label_ids: query.label_ids ? query.label_ids.split(',') : undefined,
       };
 
-      const result = await emailService.listThreads(pool, query.connectionId, params);
+      const result = await emailService.listThreads(pool, query.connection_id, params);
       return reply.send(result);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12427,22 +12426,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/email/threads/:threadId - Get a full email thread
-  app.get('/api/email/threads/:threadId', async (req, reply) => {
-    const { threadId } = req.params as { threadId: string };
-    const query = req.query as { connectionId?: string };
+  // GET /api/email/threads/:thread_id - Get a full email thread
+  app.get('/api/email/threads/:thread_id', async (req, reply) => {
+    const { thread_id: thread_id } = req.params as { thread_id: string };
+    const query = req.query as { connection_id?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
-      const thread = await emailService.getThread(pool, query.connectionId, threadId);
+      const thread = await emailService.getThread(pool, query.connection_id, thread_id);
       return reply.send(thread);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12452,19 +12451,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/email/folders - List email folders/labels
   app.get('/api/email/folders', async (req, reply) => {
-    const query = req.query as { connectionId?: string };
+    const query = req.query as { connection_id?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
-      const folders = await emailService.listFolders(pool, query.connectionId);
+      const folders = await emailService.listFolders(pool, query.connection_id);
       return reply.send({ folders });
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12475,19 +12474,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/email/messages/send - Send an email via provider API
   app.post('/api/email/messages/send', async (req, reply) => {
     const body = req.body as {
-      connectionId: string;
+      connection_id: string;
       to: Array<{ email: string; name?: string }>;
       cc?: Array<{ email: string; name?: string }>;
       bcc?: Array<{ email: string; name?: string }>;
       subject: string;
-      bodyText?: string;
-      bodyHtml?: string;
-      replyToMessageId?: string;
-      threadId?: string;
+      body_text?: string;
+      body_html?: string;
+      reply_to_message_id?: string;
+      thread_id?: string;
     };
 
-    if (!body.connectionId) {
-      return reply.code(400).send({ error: 'connectionId is required' });
+    if (!body.connection_id) {
+      return reply.code(400).send({ error: 'connection_id is required' });
     }
     if (!body.to || body.to.length === 0) {
       return reply.code(400).send({ error: 'At least one recipient (to) is required' });
@@ -12503,17 +12502,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         cc: body.cc,
         bcc: body.bcc,
         subject: body.subject,
-        bodyText: body.bodyText,
-        bodyHtml: body.bodyHtml,
-        replyToMessageId: body.replyToMessageId,
-        threadId: body.threadId,
+        body_text: body.body_text,
+        body_html: body.body_html,
+        reply_to_message_id: body.reply_to_message_id,
+        thread_id: body.thread_id,
       };
 
-      const result = await emailService.sendMessage(pool, body.connectionId, params);
+      const result = await emailService.sendMessage(pool, body.connection_id, params);
       return reply.send(result);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12524,19 +12523,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/email/drafts - Create a draft email
   app.post('/api/email/drafts', async (req, reply) => {
     const body = req.body as {
-      connectionId: string;
+      connection_id: string;
       to?: Array<{ email: string; name?: string }>;
       cc?: Array<{ email: string; name?: string }>;
       bcc?: Array<{ email: string; name?: string }>;
       subject?: string;
-      bodyText?: string;
-      bodyHtml?: string;
-      replyToMessageId?: string;
-      threadId?: string;
+      body_text?: string;
+      body_html?: string;
+      reply_to_message_id?: string;
+      thread_id?: string;
     };
 
-    if (!body.connectionId) {
-      return reply.code(400).send({ error: 'connectionId is required' });
+    if (!body.connection_id) {
+      return reply.code(400).send({ error: 'connection_id is required' });
     }
 
     const pool = createPool();
@@ -12546,17 +12545,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         cc: body.cc,
         bcc: body.bcc,
         subject: body.subject,
-        bodyText: body.bodyText,
-        bodyHtml: body.bodyHtml,
-        replyToMessageId: body.replyToMessageId,
-        threadId: body.threadId,
+        body_text: body.body_text,
+        body_html: body.body_html,
+        reply_to_message_id: body.reply_to_message_id,
+        thread_id: body.thread_id,
       };
 
-      const draft = await emailService.createDraft(pool, body.connectionId, params);
+      const draft = await emailService.createDraft(pool, body.connection_id, params);
       return reply.code(201).send(draft);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12564,22 +12563,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PATCH /api/email/drafts/:draftId - Update a draft email
-  app.patch('/api/email/drafts/:draftId', async (req, reply) => {
-    const { draftId } = req.params as { draftId: string };
+  // PATCH /api/email/drafts/:draft_id - Update a draft email
+  app.patch('/api/email/drafts/:draft_id', async (req, reply) => {
+    const { draft_id: draftId } = req.params as { draft_id: string };
     const body = req.body as {
-      connectionId: string;
+      connection_id: string;
       to?: Array<{ email: string; name?: string }>;
       cc?: Array<{ email: string; name?: string }>;
       bcc?: Array<{ email: string; name?: string }>;
       subject?: string;
-      bodyText?: string;
-      bodyHtml?: string;
-      threadId?: string;
+      body_text?: string;
+      body_html?: string;
+      thread_id?: string;
     };
 
-    if (!body.connectionId) {
-      return reply.code(400).send({ error: 'connectionId is required' });
+    if (!body.connection_id) {
+      return reply.code(400).send({ error: 'connection_id is required' });
     }
 
     const pool = createPool();
@@ -12589,16 +12588,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         cc: body.cc,
         bcc: body.bcc,
         subject: body.subject,
-        bodyText: body.bodyText,
-        bodyHtml: body.bodyHtml,
-        threadId: body.threadId,
+        body_text: body.body_text,
+        body_html: body.body_html,
+        thread_id: body.thread_id,
       };
 
-      const draft = await emailService.updateDraft(pool, body.connectionId, draftId, params);
+      const draft = await emailService.updateDraft(pool, body.connection_id, draftId, params);
       return reply.send(draft);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12606,37 +12605,37 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PATCH /api/email/messages/:messageId - Update message state (read, star, labels, move)
-  app.patch('/api/email/messages/:messageId', async (req, reply) => {
-    const { messageId } = req.params as { messageId: string };
+  // PATCH /api/email/messages/:message_id - Update message state (read, star, labels, move)
+  app.patch('/api/email/messages/:message_id', async (req, reply) => {
+    const { message_id: message_id } = req.params as { message_id: string };
     const body = req.body as {
-      connectionId: string;
-      isRead?: boolean;
-      isStarred?: boolean;
-      addLabels?: string[];
-      removeLabels?: string[];
-      moveTo?: string;
+      connection_id: string;
+      is_read?: boolean;
+      is_starred?: boolean;
+      add_labels?: string[];
+      remove_labels?: string[];
+      move_to?: string;
     };
 
-    if (!body.connectionId) {
-      return reply.code(400).send({ error: 'connectionId is required' });
+    if (!body.connection_id) {
+      return reply.code(400).send({ error: 'connection_id is required' });
     }
 
     const pool = createPool();
     try {
       const params: EmailUpdateParams = {
-        isRead: body.isRead,
-        isStarred: body.isStarred,
-        addLabels: body.addLabels,
-        removeLabels: body.removeLabels,
-        moveTo: body.moveTo,
+        is_read: body.is_read,
+        is_starred: body.is_starred,
+        add_labels: body.add_labels,
+        remove_labels: body.remove_labels,
+        move_to: body.move_to,
       };
 
-      await emailService.updateMessage(pool, body.connectionId, messageId, params);
+      await emailService.updateMessage(pool, body.connection_id, message_id, params);
       return reply.code(204).send();
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12644,22 +12643,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/email/messages/:messageId - Delete an email message
-  app.delete('/api/email/messages/:messageId', async (req, reply) => {
-    const { messageId } = req.params as { messageId: string };
-    const query = req.query as { connectionId?: string; permanent?: string };
+  // DELETE /api/email/messages/:message_id - Delete an email message
+  app.delete('/api/email/messages/:message_id', async (req, reply) => {
+    const { message_id: message_id } = req.params as { message_id: string };
+    const query = req.query as { connection_id?: string; permanent?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
-      await emailService.deleteMessage(pool, query.connectionId, messageId, query.permanent === 'true');
+      await emailService.deleteMessage(pool, query.connection_id, message_id, query.permanent === 'true');
       return reply.code(204).send();
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12667,22 +12666,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/email/messages/:messageId/attachments/:attachmentId - Download attachment
-  app.get('/api/email/messages/:messageId/attachments/:attachmentId', async (req, reply) => {
-    const { messageId, attachmentId } = req.params as { messageId: string; attachmentId: string };
-    const query = req.query as { connectionId?: string };
+  // GET /api/email/messages/:message_id/attachments/:attachment_id - Download attachment
+  app.get('/api/email/messages/:message_id/attachments/:attachment_id', async (req, reply) => {
+    const { message_id, attachment_id } = req.params as { message_id: string; attachment_id: string };
+    const query = req.query as { connection_id?: string };
 
-    if (!query.connectionId) {
-      return reply.code(400).send({ error: 'connectionId query parameter is required' });
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id query parameter is required' });
     }
 
     const pool = createPool();
     try {
-      const attachment = await emailService.getAttachment(pool, query.connectionId, messageId, attachmentId);
+      const attachment = await emailService.getAttachment(pool, query.connection_id, message_id, attachment_id);
       return reply.send(attachment);
     } catch (error) {
       if (error instanceof OAuthError) {
-        return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
       }
       throw error;
     } finally {
@@ -12694,16 +12693,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/sync/emails - Trigger email sync (legacy stub, redirects to new API)
   app.post('/api/sync/emails', async (req, reply) => {
-    const body = req.body as { connectionId: string };
+    const body = req.body as { connection_id: string };
     const pool = createPool();
 
-    if (!body.connectionId) {
+    if (!body.connection_id) {
       await pool.end();
-      return reply.code(400).send({ error: 'connectionId is required' });
+      return reply.code(400).send({ error: 'connection_id is required' });
     }
 
     // Look up connection by ID
-    const connection = await getConnection(pool, body.connectionId);
+    const connection = await getConnection(pool, body.connection_id);
 
     if (!connection) {
       await pool.end();
@@ -12715,27 +12714,27 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(200).send({
       status: 'live_api',
       message: 'Email is now accessed live via /api/email/messages. No sync needed.',
-      connectionId: connection.id,
+      connection_id: connection.id,
       provider: connection.provider,
     });
   });
 
   // GET /api/emails - List emails (legacy, proxies to new API)
   app.get('/api/emails', async (req, reply) => {
-    const query = req.query as { connectionId?: string; provider?: string; limit?: string };
+    const query = req.query as { connection_id?: string; provider?: string; limit?: string };
 
-    if (query.connectionId) {
+    if (query.connection_id) {
       // Proxy to new API
       const pool = createPool();
       try {
         const params: EmailListParams = {
-          maxResults: query.limit ? Number.parseInt(query.limit, 10) : 50,
+          max_results: query.limit ? Number.parseInt(query.limit, 10) : 50,
         };
-        const result = await emailService.listMessages(pool, query.connectionId, params);
+        const result = await emailService.listMessages(pool, query.connection_id, params);
         return reply.send({ emails: result.messages });
       } catch (error) {
         if (error instanceof OAuthError) {
-          return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+          return reply.code(error.status_code).send({ error: error.message, code: error.code });
         }
         throw error;
       } finally {
@@ -12773,14 +12772,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({
       emails: result.rows.map((row: Record<string, unknown>) => ({
         id: row.id,
-        externalKey: row.external_message_key,
+        external_key: row.external_message_key,
         direction: row.direction,
         body: row.body,
         subject: row.subject,
-        fromAddress: row.from_address,
-        toAddresses: row.to_addresses,
-        ccAddresses: row.cc_addresses,
-        receivedAt: row.received_at,
+        from_address: row.from_address,
+        to_addresses: row.to_addresses,
+        cc_addresses: row.cc_addresses,
+        received_at: row.received_at,
         channel: row.channel,
         provider: row.sync_provider,
       })),
@@ -12790,29 +12789,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/emails/send - Send email (legacy, proxies to new API)
   app.post('/api/emails/send', async (req, reply) => {
     const body = req.body as {
-      connectionId?: string;
-      userEmail?: string;
-      threadId?: string;
+      connection_id?: string;
+      user_email?: string;
+      thread_id?: string;
       body: string;
       to?: Array<{ email: string; name?: string }>;
       subject?: string;
     };
 
-    if (body.connectionId && body.to) {
+    if (body.connection_id && body.to) {
       // Use new API
       const pool = createPool();
       try {
         const params: EmailSendParams = {
           to: body.to,
           subject: body.subject || '',
-          bodyText: body.body,
-          threadId: body.threadId,
+          body_text: body.body,
+          thread_id: body.thread_id,
         };
-        const result = await emailService.sendMessage(pool, body.connectionId, params);
+        const result = await emailService.sendMessage(pool, body.connection_id, params);
         return reply.send(result);
       } catch (error) {
         if (error instanceof OAuthError) {
-          return reply.code(error.statusCode).send({ error: error.message, code: error.code });
+          return reply.code(error.status_code).send({ error: error.message, code: error.code });
         }
         throw error;
       } finally {
@@ -12822,12 +12821,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Legacy fallback
     const pool = createPool();
-    if (!body.threadId || !body.userEmail) {
+    if (!body.thread_id || !body.user_email) {
       await pool.end();
-      return reply.code(400).send({ error: 'threadId and userEmail are required (or use connectionId + to for the new API)' });
+      return reply.code(400).send({ error: 'thread_id and user_email are required (or use connection_id + to for the new API)' });
     }
 
-    const thread = await pool.query('SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1', [body.threadId]);
+    const thread = await pool.query('SELECT t.id, t.sync_provider FROM external_thread t WHERE t.id = $1', [body.thread_id]);
 
     if (thread.rows.length === 0) {
       await pool.end();
@@ -12837,20 +12836,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body)
        VALUES ($1, $2, 'outbound', $3)`,
-      [body.threadId, `outbound-${Date.now()}`, body.body],
+      [body.thread_id, `outbound-${Date.now()}`, body.body],
     );
 
     await pool.end();
 
     return reply.code(202).send({
       status: 'queued',
-      threadId: body.threadId,
+      thread_id: body.thread_id,
     });
   });
 
   // POST /api/emails/create-work-item - Create work item from email
   app.post('/api/emails/create-work-item', async (req, reply) => {
-    const body = req.body as { messageId: string; title?: string };
+    const body = req.body as { message_id: string; title?: string };
     const pool = createPool();
 
     // Get the message
@@ -12859,7 +12858,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        FROM external_message m
        JOIN external_thread t ON m.thread_id = t.id
        WHERE m.id = $1`,
-      [body.messageId],
+      [body.message_id],
     );
 
     if (messageResult.rows.length === 0) {
@@ -12888,7 +12887,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     await pool.end();
 
     return reply.code(201).send({
-      workItem: workItemResult.rows[0],
+      work_item: workItemResult.rows[0],
     });
   });
 
@@ -12903,9 +12902,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/calendar/events - Get calendar events
   app.get('/api/calendar/events', async (req, reply) => {
     const query = req.query as {
-      userEmail?: string;
-      startAfter?: string;
-      endBefore?: string;
+      user_email?: string;
+      start_after?: string;
+      end_before?: string;
       limit?: string;
     };
     const limit = Math.min(Number.parseInt(query.limit || '100', 10), 500);
@@ -12921,21 +12920,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
-    if (query.userEmail) {
+    if (query.user_email) {
       sql += ` AND user_email = $${paramIndex}`;
-      params.push(query.userEmail);
+      params.push(query.user_email);
       paramIndex++;
     }
 
-    if (query.startAfter) {
+    if (query.start_after) {
       sql += ` AND start_time >= $${paramIndex}::timestamptz`;
-      params.push(query.startAfter);
+      params.push(query.start_after);
       paramIndex++;
     }
 
-    if (query.endBefore) {
+    if (query.end_before) {
       sql += ` AND end_time <= $${paramIndex}::timestamptz`;
-      params.push(query.endBefore);
+      params.push(query.end_before);
       paramIndex++;
     }
 
@@ -12948,18 +12947,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.send({
       events: result.rows.map((row: Record<string, unknown>) => ({
         id: row.id,
-        userEmail: row.user_email,
+        user_email: row.user_email,
         provider: row.provider,
-        externalEventId: row.external_event_id,
+        external_event_id: row.external_event_id,
         title: row.title,
         description: row.description,
-        startTime: row.start_time,
-        endTime: row.end_time,
+        start_time: row.start_time,
+        end_time: row.end_time,
         location: row.location,
         attendees: row.attendees,
-        workItemId: row.work_item_id,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        work_item_id: row.work_item_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
       })),
     });
   });
@@ -12967,12 +12966,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/calendar/events - Create calendar event
   app.post('/api/calendar/events', async (req, reply) => {
     const body = req.body as {
-      userEmail: string;
+      user_email: string;
       provider: string;
       title: string;
       description?: string;
-      startTime: string;
-      endTime: string;
+      start_time: string;
+      end_time: string;
       location?: string;
       attendees?: Array<{ email: string; name?: string }>;
     };
@@ -12982,7 +12981,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, body.provider],
+      [body.user_email, body.provider],
     );
 
     if (connResult.rows.length === 0) {
@@ -13000,13 +12999,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id::text as id, title, description, start_time, end_time, location, attendees`,
       [
-        body.userEmail,
+        body.user_email,
         body.provider,
         externalEventId,
         body.title,
         body.description || null,
-        body.startTime,
-        body.endTime,
+        body.start_time,
+        body.end_time,
         body.location || null,
         JSON.stringify(body.attendees || []),
       ],
@@ -13019,8 +13018,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: result.rows[0].id,
         title: result.rows[0].title,
         description: result.rows[0].description,
-        startTime: result.rows[0].start_time,
-        endTime: result.rows[0].end_time,
+        start_time: result.rows[0].start_time,
+        end_time: result.rows[0].end_time,
         location: result.rows[0].location,
         attendees: result.rows[0].attendees,
       },
@@ -13030,10 +13029,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/calendar/events/from-work-item - Create calendar event from work item deadline
   app.post('/api/calendar/events/from-work-item', async (req, reply) => {
     const body = req.body as {
-      userEmail: string;
+      user_email: string;
       provider: string;
-      workItemId: string;
-      reminderMinutes?: number;
+      work_item_id: string;
+      reminder_minutes?: number;
     };
     const pool = createPool();
 
@@ -13041,7 +13040,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
-      [body.userEmail, body.provider],
+      [body.user_email, body.provider],
     );
 
     if (connResult.rows.length === 0) {
@@ -13054,7 +13053,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `SELECT id::text as id, title, description, not_after
        FROM work_item
        WHERE id = $1`,
-      [body.workItemId],
+      [body.work_item_id],
     );
 
     if (workItemResult.rows.length === 0) {
@@ -13070,7 +13069,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Create calendar event for the deadline
-    const externalEventId = `workitem-${body.workItemId}-${Date.now()}`;
+    const externalEventId = `workitem-${body.work_item_id}-${Date.now()}`;
     const startTime = new Date(workItem.not_after);
     const endTime = new Date(startTime.getTime() + 30 * 60 * 1000); // 30 min duration
 
@@ -13080,14 +13079,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id::text as id, title, description, start_time, end_time, work_item_id::text as work_item_id`,
       [
-        body.userEmail,
+        body.user_email,
         body.provider,
         externalEventId,
         `Deadline: ${workItem.title}`,
         workItem.description || null,
         startTime.toISOString(),
         endTime.toISOString(),
-        body.workItemId,
+        body.work_item_id,
       ],
     );
 
@@ -13098,9 +13097,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         id: result.rows[0].id,
         title: result.rows[0].title,
         description: result.rows[0].description,
-        startTime: result.rows[0].start_time,
-        endTime: result.rows[0].end_time,
-        workItemId: result.rows[0].work_item_id,
+        start_time: result.rows[0].start_time,
+        end_time: result.rows[0].end_time,
+        work_item_id: result.rows[0].work_item_id,
       },
     });
   });
@@ -13123,8 +13122,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/calendar - Get work items with deadlines as calendar entries
   app.get('/api/work-items/calendar', async (req, reply) => {
     const query = req.query as {
-      startDate?: string;
-      endDate?: string;
+      start_date?: string;
+      end_date?: string;
       kind?: string;
       status?: string;
       user_email?: string;
@@ -13147,15 +13146,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    if (query.startDate) {
+    if (query.start_date) {
       sql += ` AND not_after >= $${paramIndex}::timestamptz`;
-      params.push(query.startDate);
+      params.push(query.start_date);
       paramIndex++;
     }
 
-    if (query.endDate) {
+    if (query.end_date) {
       sql += ` AND not_after <= $${paramIndex}::timestamptz`;
-      params.push(query.endDate);
+      params.push(query.end_date);
       paramIndex++;
     }
 
@@ -13183,8 +13182,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         description: row.description,
         status: row.status,
         kind: row.work_item_kind,
-        startDate: row.not_before,
-        endDate: row.not_after,
+        start_date: row.not_before,
+        end_date: row.not_after,
         priority: row.priority,
         type: 'work_item_deadline',
       })),
@@ -13218,15 +13217,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listNotes(pool, query.user_email, {
-        notebookId: query.notebook_id,
+        notebook_id: query.notebook_id,
         tags: query.tags ? query.tags.split(',').map((t) => t.trim()) : undefined,
         visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
         search: query.search,
-        isPinned: query.is_pinned !== undefined ? query.is_pinned === 'true' : undefined,
+        is_pinned: query.is_pinned !== undefined ? query.is_pinned === 'true' : undefined,
         limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
-        sortBy: query.sort_by as 'createdAt' | 'updatedAt' | 'title' | undefined,
-        sortOrder: query.sort_order as 'asc' | 'desc' | undefined,
+        sort_by: query.sort_by as 'created_at' | 'updated_at' | 'title' | undefined,
+        sort_order: query.sort_order as 'asc' | 'desc' | undefined,
       });
 
       return reply.send(result);
@@ -13254,8 +13253,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const note = await getNote(pool, params.id, query.user_email, {
-        includeVersions: query.include_versions === 'true',
-        includeReferences: query.include_references === 'true',
+        include_versions: query.include_versions === 'true',
+        include_references: query.include_references === 'true',
       });
 
       if (!note) {
@@ -13306,12 +13305,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         {
           title: body.title.trim(),
           content: body.content,
-          notebookId: body.notebook_id,
+          notebook_id: body.notebook_id,
           tags: body.tags,
           visibility: body.visibility as 'private' | 'shared' | 'public' | undefined,
-          hideFromAgents: body.hide_from_agents,
+          hide_from_agents: body.hide_from_agents,
           summary: body.summary,
-          isPinned: body.is_pinned,
+          is_pinned: body.is_pinned,
         },
         body.user_email,
       );
@@ -13368,13 +13367,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         {
           title: body.title,
           content: body.content,
-          notebookId: body.notebook_id,
+          notebook_id: body.notebook_id,
           tags: body.tags,
           visibility: body.visibility as 'private' | 'shared' | 'public' | undefined,
-          hideFromAgents: body.hide_from_agents,
+          hide_from_agents: body.hide_from_agents,
           summary: body.summary,
-          isPinned: body.is_pinned,
-          sortOrder: body.sort_order,
+          is_pinned: body.is_pinned,
+          sort_order: body.sort_order,
         },
         body.user_email,
       );
@@ -13543,11 +13542,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // GET /api/notes/:id/versions/:versionNumber - Get specific version
-  app.get('/api/notes/:id/versions/:versionNumber', async (req, reply) => {
+  // GET /api/notes/:id/versions/:version_number - Get specific version
+  app.get('/api/notes/:id/versions/:version_number', async (req, reply) => {
     const { getVersion } = await import('./notes/index.ts');
 
-    const params = req.params as { id: string; versionNumber: string };
+    const params = req.params as { id: string; version_number: string };
     const query = req.query as {
       user_email?: string;
     };
@@ -13556,7 +13555,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
-    const versionNumber = Number.parseInt(params.versionNumber, 10);
+    const versionNumber = Number.parseInt(params.version_number, 10);
     if (Number.isNaN(versionNumber)) {
       return reply.code(400).send({ error: 'versionNumber must be a valid number' });
     }
@@ -13576,11 +13575,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // POST /api/notes/:id/versions/:versionNumber/restore - Restore to version
-  app.post('/api/notes/:id/versions/:versionNumber/restore', async (req, reply) => {
+  // POST /api/notes/:id/versions/:version_number/restore - Restore to version
+  app.post('/api/notes/:id/versions/:version_number/restore', async (req, reply) => {
     const { restoreVersion } = await import('./notes/index.ts');
 
-    const params = req.params as { id: string; versionNumber: string };
+    const params = req.params as { id: string; version_number: string };
     const query = req.query as {
       user_email?: string;
     };
@@ -13589,7 +13588,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
-    const versionNumber = Number.parseInt(params.versionNumber, 10);
+    const versionNumber = Number.parseInt(params.version_number, 10);
     if (Number.isNaN(versionNumber)) {
       return reply.code(400).send({ error: 'versionNumber must be a valid number' });
     }
@@ -13629,7 +13628,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       user_email?: string;
       email?: string;
       permission?: string;
-      expiresAt?: string;
+      expires_at?: string;
     };
 
     if (!body?.user_email) {
@@ -13648,7 +13647,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         {
           email: body.email,
           permission: body.permission as 'read' | 'read_write' | undefined,
-          expiresAt: body.expiresAt,
+          expires_at: body.expires_at,
         },
         body.user_email,
       );
@@ -13680,9 +13679,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       user_email?: string;
       permission?: string;
-      isSingleView?: boolean;
-      maxViews?: number;
-      expiresAt?: string;
+      is_single_view?: boolean;
+      max_views?: number;
+      expires_at?: string;
     };
 
     if (!body?.user_email) {
@@ -13697,9 +13696,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         params.id,
         {
           permission: body.permission as 'read' | 'read_write' | undefined,
-          isSingleView: body.isSingleView,
-          maxViews: body.maxViews,
-          expiresAt: body.expiresAt,
+          is_single_view: body.is_single_view,
+          max_views: body.max_views,
+          expires_at: body.expires_at,
         },
         body.user_email,
       );
@@ -13752,15 +13751,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PUT /api/notes/:id/shares/:shareId - Update share
-  app.put('/api/notes/:id/shares/:shareId', async (req, reply) => {
+  // PUT /api/notes/:id/shares/:share_id - Update share
+  app.put('/api/notes/:id/shares/:share_id', async (req, reply) => {
     const { updateShare } = await import('./notes/index.ts');
 
-    const params = req.params as { id: string; shareId: string };
+    const params = req.params as { id: string; share_id: string };
     const body = req.body as {
       user_email?: string;
       permission?: string;
-      expiresAt?: string | null;
+      expires_at?: string | null;
     };
 
     if (!body?.user_email) {
@@ -13773,10 +13772,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const share = await updateShare(
         pool,
         params.id,
-        params.shareId,
+        params.share_id,
         {
           permission: body.permission as 'read' | 'read_write' | undefined,
-          expiresAt: body.expiresAt,
+          expires_at: body.expires_at,
         },
         body.user_email,
       );
@@ -13800,11 +13799,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/notes/:id/shares/:shareId - Revoke share
-  app.delete('/api/notes/:id/shares/:shareId', async (req, reply) => {
+  // DELETE /api/notes/:id/shares/:share_id - Revoke share
+  app.delete('/api/notes/:id/shares/:share_id', async (req, reply) => {
     const { revokeShare } = await import('./notes/index.ts');
 
-    const params = req.params as { id: string; shareId: string };
+    const params = req.params as { id: string; share_id: string };
     const query = req.query as { user_email?: string };
 
     if (!query.user_email) {
@@ -13814,7 +13813,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      await revokeShare(pool, params.id, params.shareId, query.user_email);
+      await revokeShare(pool, params.id, params.share_id, query.user_email);
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -13900,29 +13899,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const body = req.body as {
-      userEmail?: unknown;
-      cursorPosition?: unknown;
+      user_email?: unknown;
+      cursor_position?: unknown;
     } | null;
 
-    // Validate userEmail is a string (#697)
-    if (!body?.userEmail || typeof body.userEmail !== 'string') {
-      return reply.code(400).send({ error: 'userEmail is required in request body and must be a string' });
+    // Validate user_email is a string (#697)
+    if (!body?.user_email || typeof body.user_email !== 'string') {
+      return reply.code(400).send({ error: 'user_email is required in request body and must be a string' });
     }
 
     // Validate cursorPosition structure if provided (#697)
     let validatedCursorPosition: { line: number; column: number } | undefined;
-    if (body.cursorPosition !== undefined) {
+    if (body.cursor_position !== undefined) {
       if (
-        typeof body.cursorPosition !== 'object' ||
-        body.cursorPosition === null ||
-        !('line' in body.cursorPosition) ||
-        !('column' in body.cursorPosition) ||
-        typeof (body.cursorPosition as Record<string, unknown>).line !== 'number' ||
-        typeof (body.cursorPosition as Record<string, unknown>).column !== 'number'
+        typeof body.cursor_position !== 'object' ||
+        body.cursor_position === null ||
+        !('line' in body.cursor_position) ||
+        !('column' in body.cursor_position) ||
+        typeof (body.cursor_position as Record<string, unknown>).line !== 'number' ||
+        typeof (body.cursor_position as Record<string, unknown>).column !== 'number'
       ) {
         return reply.code(400).send({ error: 'cursorPosition must be an object with numeric line and column properties' });
       }
-      const { line, column } = body.cursorPosition as { line: number; column: number };
+      const { line, column } = body.cursor_position as { line: number; column: number };
       if (!Number.isInteger(line) || !Number.isInteger(column)) {
         return reply.code(400).send({ error: 'cursorPosition line and column must be integers' });
       }
@@ -13935,7 +13934,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const collaborators = await joinNotePresence(pool, params.id, body.userEmail, validatedCursorPosition);
+      const collaborators = await joinNotePresence(pool, params.id, body.user_email, validatedCursorPosition);
       return reply.send({ collaborators });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -13968,12 +13967,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!userEmailHeader || typeof userEmailHeader !== 'string') {
       return reply.code(400).send({ error: 'X-User-Email header is required and must be a string' });
     }
-    const userEmail = userEmailHeader;
+    const user_email = userEmailHeader;
 
     const pool = createPool();
 
     try {
-      await leaveNotePresence(pool, params.id, userEmail);
+      await leaveNotePresence(pool, params.id, user_email);
       return reply.code(204).send();
     } finally {
       await pool.end();
@@ -14000,12 +13999,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!userEmailHeader || typeof userEmailHeader !== 'string') {
       return reply.code(400).send({ error: 'X-User-Email header is required and must be a string' });
     }
-    const userEmail = userEmailHeader;
+    const user_email = userEmailHeader;
 
     const pool = createPool();
 
     try {
-      const collaborators = await getNotePresence(pool, params.id, userEmail);
+      const collaborators = await getNotePresence(pool, params.id, user_email);
       return reply.send({ collaborators });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -14033,30 +14032,30 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const body = req.body as {
-      userEmail?: unknown;
-      cursorPosition?: unknown;
+      user_email?: unknown;
+      cursor_position?: unknown;
     } | null;
 
-    // Validate userEmail is a string (#697)
-    if (!body?.userEmail || typeof body.userEmail !== 'string') {
-      return reply.code(400).send({ error: 'userEmail is required in request body and must be a string' });
+    // Validate user_email is a string (#697)
+    if (!body?.user_email || typeof body.user_email !== 'string') {
+      return reply.code(400).send({ error: 'user_email is required in request body and must be a string' });
     }
 
     // Validate cursorPosition structure (#697)
     if (
-      !body.cursorPosition ||
-      typeof body.cursorPosition !== 'object' ||
-      body.cursorPosition === null ||
-      !('line' in body.cursorPosition) ||
-      !('column' in body.cursorPosition) ||
-      typeof (body.cursorPosition as Record<string, unknown>).line !== 'number' ||
-      typeof (body.cursorPosition as Record<string, unknown>).column !== 'number'
+      !body.cursor_position ||
+      typeof body.cursor_position !== 'object' ||
+      body.cursor_position === null ||
+      !('line' in body.cursor_position) ||
+      !('column' in body.cursor_position) ||
+      typeof (body.cursor_position as Record<string, unknown>).line !== 'number' ||
+      typeof (body.cursor_position as Record<string, unknown>).column !== 'number'
     ) {
       return reply.code(400).send({ error: 'cursorPosition is required and must be an object with numeric line and column properties' });
     }
 
     // Validate cursor position values (#694)
-    const { line, column } = body.cursorPosition as { line: number; column: number };
+    const { line, column } = body.cursor_position as { line: number; column: number };
     if (!Number.isInteger(line) || !Number.isInteger(column)) {
       return reply.code(400).send({ error: 'cursorPosition line and column must be integers' });
     }
@@ -14074,7 +14073,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      await updateCursorPosition(pool, params.id, body.userEmail, validatedCursorPosition);
+      await updateCursorPosition(pool, params.id, body.user_email, validatedCursorPosition);
       return reply.code(204).send();
     } finally {
       await pool.end();
@@ -14105,10 +14104,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listNotebooks(pool, query.user_email, {
-        parentId: query.parent_id === 'null' ? null : query.parent_id,
-        includeArchived: query.include_archived === 'true',
-        includeNoteCounts: query.include_note_counts !== 'false',
-        includeChildCounts: query.include_child_counts !== 'false',
+        parent_id: query.parent_id === 'null' ? null : query.parent_id,
+        include_archived: query.include_archived === 'true',
+        include_note_counts: query.include_note_counts !== 'false',
+        include_child_counts: query.include_child_counts !== 'false',
         limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
       });
@@ -14162,8 +14161,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const notebook = await getNotebook(pool, params.id, query.user_email, {
-        includeNotes: query.include_notes === 'true',
-        includeChildren: query.include_children === 'true',
+        include_notes: query.include_notes === 'true',
+        include_children: query.include_children === 'true',
       });
 
       if (!notebook) {
@@ -14207,7 +14206,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           description: body.description,
           icon: body.icon,
           color: body.color,
-          parentNotebookId: body.parent_notebook_id,
+          parent_notebook_id: body.parent_notebook_id,
         },
         body.user_email,
       );
@@ -14257,8 +14256,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           description: body.description,
           icon: body.icon,
           color: body.color,
-          parentNotebookId: body.parent_notebook_id,
-          sortOrder: body.sort_order,
+          parent_notebook_id: body.parent_notebook_id,
+          sort_order: body.sort_order,
         },
         body.user_email,
       );
@@ -14420,7 +14419,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         pool,
         params.id,
         {
-          noteIds: body.note_ids,
+          note_ids: body.note_ids,
           action: body.action as 'move' | 'copy',
         },
         body.user_email,
@@ -14452,7 +14451,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       user_email?: string;
       email?: string;
       permission?: string;
-      expiresAt?: string;
+      expires_at?: string;
     };
 
     if (!body?.user_email) {
@@ -14471,7 +14470,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         {
           email: body.email,
           permission: body.permission as 'read' | 'read_write' | undefined,
-          expiresAt: body.expiresAt,
+          expires_at: body.expires_at,
         },
         body.user_email,
       );
@@ -14503,7 +14502,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const body = req.body as {
       user_email?: string;
       permission?: string;
-      expiresAt?: string;
+      expires_at?: string;
     };
 
     if (!body?.user_email) {
@@ -14518,7 +14517,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         params.id,
         {
           permission: body.permission as 'read' | 'read_write' | undefined,
-          expiresAt: body.expiresAt,
+          expires_at: body.expires_at,
         },
         body.user_email,
       );
@@ -14571,15 +14570,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PUT /api/notebooks/:id/shares/:shareId - Update share
-  app.put('/api/notebooks/:id/shares/:shareId', async (req, reply) => {
+  // PUT /api/notebooks/:id/shares/:share_id - Update share
+  app.put('/api/notebooks/:id/shares/:share_id', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
-    const params = req.params as { id: string; shareId: string };
+    const params = req.params as { id: string; share_id: string };
     const body = req.body as {
       user_email?: string;
       permission?: string;
-      expiresAt?: string | null;
+      expires_at?: string | null;
     };
 
     if (!body?.user_email) {
@@ -14592,10 +14591,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const share = await notebookSharing.updateShare(
         pool,
         params.id,
-        params.shareId,
+        params.share_id,
         {
           permission: body.permission as 'read' | 'read_write' | undefined,
-          expiresAt: body.expiresAt,
+          expires_at: body.expires_at,
         },
         body.user_email,
       );
@@ -14619,11 +14618,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/notebooks/:id/shares/:shareId - Revoke share
-  app.delete('/api/notebooks/:id/shares/:shareId', async (req, reply) => {
+  // DELETE /api/notebooks/:id/shares/:share_id - Revoke share
+  app.delete('/api/notebooks/:id/shares/:share_id', async (req, reply) => {
     const notebookSharing = await import('./notebooks/sharing.ts');
 
-    const params = req.params as { id: string; shareId: string };
+    const params = req.params as { id: string; share_id: string };
     const query = req.query as { user_email?: string };
 
     if (!query.user_email) {
@@ -14633,7 +14632,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      await notebookSharing.revokeShare(pool, params.id, params.shareId, query.user_email);
+      await notebookSharing.revokeShare(pool, params.id, params.share_id, query.user_email);
       return reply.code(204).send();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -14723,8 +14722,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const body = req.body as {
       limit?: number;
-      onlyPending?: boolean;
-      batchSize?: number;
+      only_pending?: boolean;
+      batch_size?: number;
     };
 
     const pool = createPool();
@@ -14732,8 +14731,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await noteEmbeddings.backfillNoteEmbeddings(pool, {
         limit: body?.limit ?? 100,
-        onlyPending: body?.onlyPending ?? true,
-        batchSize: body?.batchSize ?? 10,
+        only_pending: body?.only_pending ?? true,
+        batch_size: body?.batch_size ?? 10,
       });
       return reply.send(result);
     } catch (err) {
@@ -14858,7 +14857,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Use hybrid search if semantic_weight is provided, otherwise pure semantic
         if (body.semantic_weight !== undefined) {
           // Clamp semantic_weight to [0, 1]
-          const semanticWeight = Math.min(1, Math.max(0, body.semantic_weight));
+          const semantic_weight = Math.min(1, Math.max(0, body.semantic_weight));
 
           const result = await skillStoreSearch.searchSkillStoreHybrid(pool, {
             skill_id: body.skill_id,
@@ -14869,12 +14868,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             user_email: body.user_email,
             min_similarity: body.min_similarity ?? 0.3,
             limit,
-            semantic_weight: semanticWeight,
+            semantic_weight: semantic_weight,
           });
 
           return reply.send({
             results: result.results,
-            search_type: result.searchType,
+            search_type: result.search_type,
             semantic_weight: result.semantic_weight,
           });
         }
@@ -14893,8 +14892,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         return reply.send({
           results: result.results,
-          search_type: result.searchType,
-          query_embedding_provider: result.queryEmbeddingProvider,
+          search_type: result.search_type,
+          query_embedding_provider: result.query_embedding_provider,
         });
       } catch (err) {
         console.error('[SkillStore] Semantic search error:', err instanceof Error ? err.message : err);
@@ -14931,13 +14930,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       batch_size?: number;
     };
 
-    const batchSize = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
+    const batch_size = Math.min(Math.max(body?.batch_size || 100, 1), 1000);
 
     const pool = createPool();
 
     try {
       const result = await skillStoreEmbeddings.backfillSkillStoreEmbeddings(pool, {
-        batchSize,
+        batch_size,
       });
       return reply.code(202).send({
         status: 'completed',
@@ -15090,10 +15089,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          GROUP BY embedding_status`,
         [skill_id],
       );
-      const embeddingStatus: Record<string, number> = { complete: 0, pending: 0, failed: 0 };
+      const embedding_status: Record<string, number> = { complete: 0, pending: 0, failed: 0 };
       for (const row of embeddingResult.rows) {
         if (row.embedding_status) {
-          embeddingStatus[row.embedding_status] = row.count;
+          embedding_status[row.embedding_status] = row.count;
         }
       }
 
@@ -15115,7 +15114,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           collection: r.collection,
           count: r.count,
         })),
-        embedding_status: embeddingStatus,
+        embedding_status: embedding_status,
         schedules: schedulesResult.rows,
       });
     } catch (err) {
@@ -15187,7 +15186,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       query?: string;
       limit?: number;
       offset?: number;
-      notebookId?: string;
+      notebook_id?: string;
       tags?: string[];
     };
 
@@ -15205,7 +15204,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await noteEmbeddings.searchNotesSemantic(pool, body.query, body.user_email, {
         limit: body.limit ?? 20,
         offset: body.offset ?? 0,
-        notebookId: body.notebookId,
+        notebook_id: body.notebook_id,
         tags: body.tags,
       });
       return reply.send(result);
@@ -15225,13 +15224,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as {
       user_email?: string;
       q?: string;
-      searchType?: 'hybrid' | 'text' | 'semantic';
-      notebookId?: string;
+      search_type?: 'hybrid' | 'text' | 'semantic';
+      notebook_id?: string;
       tags?: string;
       visibility?: string;
       limit?: string;
       offset?: string;
-      minSimilarity?: string;
+      min_similarity?: string;
     };
 
     if (!query.user_email) {
@@ -15249,14 +15248,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await noteSearch.searchNotes(pool, query.q, query.user_email, {
-        searchType: query.searchType ?? 'hybrid',
-        notebookId: query.notebookId,
+        search_type: query.search_type ?? 'hybrid',
+        notebook_id: query.notebook_id,
         tags: query.tags ? query.tags.split(',') : undefined,
         visibility: query.visibility as 'private' | 'shared' | 'public' | undefined,
         limit: query.limit ? Math.min(Number.parseInt(query.limit, 10), 50) : 20,
         offset: query.offset ? Number.parseInt(query.offset, 10) : 0,
-        minSimilarity: query.minSimilarity ? Number.parseFloat(query.minSimilarity) : 0.3,
-        isAgent,
+        min_similarity: query.min_similarity ? Number.parseFloat(query.min_similarity) : 0.3,
+        is_agent: isAgent,
       });
 
       return reply.send(result);
@@ -15273,7 +15272,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as {
       user_email?: string;
       limit?: string;
-      minSimilarity?: string;
+      min_similarity?: string;
     };
 
     if (!query.user_email) {
@@ -15288,8 +15287,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await noteSearch.findSimilarNotes(pool, params.id, query.user_email, {
         limit: query.limit ? Math.min(Number.parseInt(query.limit, 10), 20) : 5,
-        minSimilarity: query.minSimilarity ? Number.parseFloat(query.minSimilarity) : 0.5,
-        isAgent,
+        min_similarity: query.min_similarity ? Number.parseFloat(query.min_similarity) : 0.5,
+        is_agent: isAgent,
       });
 
       if (!result) {
@@ -15316,13 +15315,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const options: Parameters<typeof listRelationshipTypes>[1] = {};
 
       if (query.is_directional !== undefined) {
-        options.isDirectional = query.is_directional === 'true';
+        options.is_directional = query.is_directional === 'true';
       }
       if (query.created_by_agent !== undefined) {
-        options.createdByAgent = query.created_by_agent;
+        options.created_by_agent = query.created_by_agent;
       }
       if (query.pre_seeded_only === 'true') {
-        options.preSeededOnly = true;
+        options.pre_seeded_only = true;
       }
       if (query.limit !== undefined) {
         options.limit = Number.parseInt(query.limit, 10);
@@ -15401,10 +15400,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const input = {
         name: name.trim(),
         label: label.trim(),
-        isDirectional: body.is_directional === true,
-        inverseTypeName: (body.inverse_type_name as string) ?? undefined,
+        is_directional: body.is_directional === true,
+        inverse_type_name: (body.inverse_type_name as string) ?? undefined,
         description: (body.description as string) ?? undefined,
-        createdByAgent: (body.created_by_agent as string) ?? undefined,
+        created_by_agent: (body.created_by_agent as string) ?? undefined,
       };
 
       const type = await createRelationshipType(pool, input);
@@ -15437,13 +15436,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const options: Parameters<typeof listRelationships>[1] = {};
 
       if (query.contact_id !== undefined) {
-        options.contactId = query.contact_id;
+        options.contact_id = query.contact_id;
       }
       if (query.relationship_type_id !== undefined) {
-        options.relationshipTypeId = query.relationship_type_id;
+        options.relationship_type_id = query.relationship_type_id;
       }
       if (query.created_by_agent !== undefined) {
-        options.createdByAgent = query.created_by_agent;
+        options.created_by_agent = query.created_by_agent;
       }
       if (query.limit !== undefined) {
         options.limit = Number.parseInt(query.limit, 10);
@@ -15453,7 +15452,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
       // Issue #1172: optional user_email scoping
       if (query.user_email !== undefined) {
-        options.userEmail = query.user_email;
+        options.user_email = query.user_email;
       }
 
       const result = await listRelationships(pool, options);
@@ -15475,29 +15474,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Request body is required' });
       }
 
-      const contactA = body.contact_a as string | undefined;
-      const contactB = body.contact_b as string | undefined;
-      const relationshipType = body.relationship_type as string | undefined;
+      const contact_a = body.contact_a as string | undefined;
+      const contact_b = body.contact_b as string | undefined;
+      const relationship_type = body.relationship_type as string | undefined;
 
-      if (!contactA || typeof contactA !== 'string' || contactA.trim().length === 0) {
+      if (!contact_a || typeof contact_a !== 'string' || contact_a.trim().length === 0) {
         return reply.code(400).send({ error: 'Field "contact_a" is required' });
       }
 
-      if (!contactB || typeof contactB !== 'string' || contactB.trim().length === 0) {
+      if (!contact_b || typeof contact_b !== 'string' || contact_b.trim().length === 0) {
         return reply.code(400).send({ error: 'Field "contact_b" is required' });
       }
 
-      if (!relationshipType || typeof relationshipType !== 'string' || relationshipType.trim().length === 0) {
+      if (!relationship_type || typeof relationship_type !== 'string' || relationship_type.trim().length === 0) {
         return reply.code(400).send({ error: 'Field "relationship_type" is required' });
       }
 
       const result = await relationshipSet(pool, {
-        contactA: contactA.trim(),
-        contactB: contactB.trim(),
-        relationshipType: relationshipType.trim(),
+        contact_a: contact_a.trim(),
+        contact_b: contact_b.trim(),
+        relationship_type: relationship_type.trim(),
         notes: (body.notes as string) ?? undefined,
-        createdByAgent: (body.created_by_agent as string) ?? undefined,
-        userEmail: (body.user_email as string)?.trim() || undefined,
+        created_by_agent: (body.created_by_agent as string) ?? undefined,
+        user_email: (body.user_email as string)?.trim() || undefined,
       });
 
       return reply.send(result);
@@ -15548,29 +15547,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'Request body is required' });
       }
 
-      const contactAId = body.contact_a_id as string | undefined;
-      const contactBId = body.contact_b_id as string | undefined;
-      const relationshipTypeId = body.relationship_type_id as string | undefined;
+      const contact_a_id = body.contact_a_id as string | undefined;
+      const contact_b_id = body.contact_b_id as string | undefined;
+      const relationship_type_id = body.relationship_type_id as string | undefined;
 
-      if (!contactAId || typeof contactAId !== 'string') {
+      if (!contact_a_id || typeof contact_a_id !== 'string') {
         return reply.code(400).send({ error: 'Field "contact_a_id" is required' });
       }
 
-      if (!contactBId || typeof contactBId !== 'string') {
+      if (!contact_b_id || typeof contact_b_id !== 'string') {
         return reply.code(400).send({ error: 'Field "contact_b_id" is required' });
       }
 
-      if (!relationshipTypeId || typeof relationshipTypeId !== 'string') {
+      if (!relationship_type_id || typeof relationship_type_id !== 'string') {
         return reply.code(400).send({ error: 'Field "relationship_type_id" is required' });
       }
 
       const relationship = await createRelationship(pool, {
-        contactAId,
-        contactBId,
-        relationshipTypeId,
+        contact_a_id,
+        contact_b_id,
+        relationship_type_id,
         notes: (body.notes as string) ?? undefined,
-        createdByAgent: (body.created_by_agent as string) ?? undefined,
-        userEmail: (body.user_email as string)?.trim() || undefined,
+        created_by_agent: (body.created_by_agent as string) ?? undefined,
+        user_email: (body.user_email as string)?.trim() || undefined,
       });
 
       return reply.code(201).send(relationship);
@@ -15609,7 +15608,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         input.notes = body.notes;
       }
       if (body?.relationship_type_id !== undefined) {
-        input.relationshipTypeId = body.relationship_type_id;
+        input.relationship_type_id = body.relationship_type_id;
       }
 
       const updated = await updateRelationship(pool, params.id, input);
@@ -15768,9 +15767,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const priority = typeof body.priority === 'number' ? body.priority : null;
     const mediaUrl = (body.media_url as string | undefined) ?? null;
     const mediaType = (body.media_type as string | undefined) ?? null;
-    const sourceUrl = (body.source_url as string | undefined) ?? null;
-    const userEmail = (body.user_email as string | undefined) ?? null;
-    const expiresAt = (body.expires_at as string | undefined) ?? null;
+    const source_url = (body.source_url as string | undefined) ?? null;
+    const user_email = (body.user_email as string | undefined) ?? null;
+    const expires_at = (body.expires_at as string | undefined) ?? null;
     const pinned = typeof body.pinned === 'boolean' ? body.pinned : false;
 
     const pool = createPool();
@@ -15822,7 +15821,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              pinned = EXCLUDED.pinned
            RETURNING ${SKILL_STORE_SELECT_COLS},
              (xmax = 0) AS _was_insert`,
-          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
+          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
         );
 
         const row = upsertResult.rows[0];
@@ -15853,7 +15852,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
                  $9, $10, $11, $12, $13, $14, $15)
          RETURNING ${SKILL_STORE_SELECT_COLS}`,
-        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
+        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
       );
 
       // Emit activity event (Issue #808)
@@ -15989,9 +15988,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           const priority = typeof item.priority === 'number' ? item.priority : null;
           const mediaUrl = (item.media_url as string | undefined) ?? null;
           const mediaType = (item.media_type as string | undefined) ?? null;
-          const sourceUrl = (item.source_url as string | undefined) ?? null;
-          const userEmail = (item.user_email as string | undefined) ?? null;
-          const expiresAt = (item.expires_at as string | undefined) ?? null;
+          const source_url = (item.source_url as string | undefined) ?? null;
+          const user_email = (item.user_email as string | undefined) ?? null;
+          const expires_at = (item.expires_at as string | undefined) ?? null;
           const pinned = typeof item.pinned === 'boolean' ? item.pinned : false;
 
           let result;
@@ -16017,7 +16016,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  expires_at = EXCLUDED.expires_at,
                  pinned = EXCLUDED.pinned
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
             );
           } else {
             result = await pool.query(
@@ -16027,7 +16026,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
                        $9, $10, $11, $12, $13, $14, $15)
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, sourceUrl, userEmail, expiresAt, pinned],
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
             );
           }
           results.push(result.rows[0]);
@@ -16199,7 +16198,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       : null;
     const since = query.since;
     const until = query.until;
-    const userEmail = query.user_email;
+    const user_email = query.user_email;
     const orderBy = query.order_by || 'created_at';
 
     const allowedOrderBy = ['created_at', 'updated_at', 'title', 'priority'];
@@ -16239,9 +16238,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIdx++;
     }
 
-    if (userEmail) {
+    if (user_email) {
       conditions.push(`user_email = $${paramIdx}`);
-      params.push(userEmail);
+      params.push(user_email);
       paramIdx++;
     }
 
@@ -17161,15 +17160,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // We need the provider ID for encryption, so create first then update
       const { createProvider: createGeoProvider } = await import('./geolocation/service.ts');
       const provider = await createGeoProvider(client, {
-        ownerEmail: email,
-        providerType: providerType as 'home_assistant' | 'mqtt' | 'webhook',
-        authType: authType as 'oauth2' | 'access_token' | 'mqtt_credentials' | 'webhook_token',
+        owner_email: email,
+        provider_type: providerType as 'home_assistant' | 'mqtt' | 'webhook',
+        auth_type: authType as 'oauth2' | 'access_token' | 'mqtt_credentials' | 'webhook_token',
         label,
         config,
         credentials: null, // placeholder
-        pollIntervalSeconds: pollInterval,
-        maxAgeSeconds: maxAge,
-        isShared: typeof body.is_shared === 'boolean' ? body.is_shared : undefined,
+        poll_interval_seconds: pollInterval,
+        max_age_seconds: maxAge,
+        is_shared: typeof body.is_shared === 'boolean' ? body.is_shared : undefined,
       });
 
       // Encrypt and update credentials if provided
@@ -17183,10 +17182,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Auto-create subscription for owner
       const { createSubscription: createGeoSubscription } = await import('./geolocation/service.ts');
       await createGeoSubscription(client, {
-        providerId: provider.id,
-        userEmail: email,
+        provider_id: provider.id,
+        user_email: email,
         priority: 0,
-        isActive: true,
+        is_active: true,
         entities: [],
       });
 
@@ -17214,8 +17213,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Strip credentials and config for non-owners
       const sanitized = providers.map((p) => ({
         ...p,
-        credentials: p.ownerEmail === email ? p.credentials : null,
-        config: p.ownerEmail === email ? p.config : {},
+        credentials: p.owner_email === email ? p.credentials : null,
+        config: p.owner_email === email ? p.config : {},
       }));
 
       return reply.send(sanitized);
@@ -17244,15 +17243,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       // Check access: must be owner or subscriber
       const subResult = await pool.query('SELECT 1 FROM geo_provider_user WHERE provider_id = $1 AND user_email = $2', [id, email]);
-      if (provider.ownerEmail !== email && subResult.rows.length === 0) {
+      if (provider.owner_email !== email && subResult.rows.length === 0) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
       // Strip credentials/config for non-owners
       const sanitized = {
         ...provider,
-        credentials: provider.ownerEmail === email ? provider.credentials : null,
-        config: provider.ownerEmail === email ? provider.config : {},
+        credentials: provider.owner_email === email ? provider.credentials : null,
+        config: provider.owner_email === email ? provider.config : {},
       };
 
       return reply.send(sanitized);
@@ -17278,7 +17277,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (!existing) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
-      if (existing.ownerEmail !== email) {
+      if (existing.owner_email !== email) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
@@ -17292,7 +17291,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (body.config && typeof body.config === 'object') {
         // Validate new config via registry plugin
         const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
-        const plugin = getRegistryPlugin(existing.providerType);
+        const plugin = getRegistryPlugin(existing.provider_type);
         if (plugin) {
           const validation = plugin.validateConfig(body.config);
           if (!validation.ok) {
@@ -17309,15 +17308,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         if (!Number.isFinite(body.poll_interval_seconds) || body.poll_interval_seconds <= 0) {
           return reply.code(400).send({ error: 'poll_interval_seconds must be a positive number' });
         }
-        updates.pollIntervalSeconds = body.poll_interval_seconds;
+        updates.poll_interval_seconds = body.poll_interval_seconds;
       }
       if (typeof body.max_age_seconds === 'number') {
         if (!Number.isFinite(body.max_age_seconds) || body.max_age_seconds <= 0) {
           return reply.code(400).send({ error: 'max_age_seconds must be a positive number' });
         }
-        updates.maxAgeSeconds = body.max_age_seconds;
+        updates.max_age_seconds = body.max_age_seconds;
       }
-      if (typeof body.is_shared === 'boolean') updates.isShared = body.is_shared;
+      if (typeof body.is_shared === 'boolean') updates.is_shared = body.is_shared;
 
       if (Object.keys(updates).length === 0) {
         return reply.code(400).send({ error: 'No valid fields to update' });
@@ -17359,7 +17358,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (!existing) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
-      if (existing.ownerEmail !== email) {
+      if (existing.owner_email !== email) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
@@ -17369,11 +17368,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await client.query('BEGIN');
 
         const deleteCheck = await canDeleteGeoProvider(client, id);
-        if (!deleteCheck.canDelete) {
+        if (!deleteCheck.can_delete) {
           await client.query('ROLLBACK');
           return reply.code(409).send({
             error: deleteCheck.reason,
-            subscriber_count: deleteCheck.subscriberCount,
+            subscriber_count: deleteCheck.subscriber_count,
           });
         }
 
@@ -17409,14 +17408,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (!provider) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
-      if (provider.ownerEmail !== email) {
+      if (provider.owner_email !== email) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
       const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
-      const plugin = getRegistryPlugin(provider.providerType);
+      const plugin = getRegistryPlugin(provider.provider_type);
       if (!plugin) {
-        return reply.code(400).send({ error: `No plugin registered for provider type: ${provider.providerType}` });
+        return reply.code(400).send({ error: `No plugin registered for provider type: ${provider.provider_type}` });
       }
 
       // Decrypt credentials for verification
@@ -17447,14 +17446,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (!provider) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
-      if (provider.ownerEmail !== email) {
+      if (provider.owner_email !== email) {
         return reply.code(404).send({ error: 'Provider not found' });
       }
 
       const { getProvider: getRegistryPlugin } = await import('./geolocation/registry.ts');
-      const plugin = getRegistryPlugin(provider.providerType);
+      const plugin = getRegistryPlugin(provider.provider_type);
       if (!plugin) {
-        return reply.code(400).send({ error: `No plugin registered for provider type: ${provider.providerType}` });
+        return reply.code(400).send({ error: `No plugin registered for provider type: ${provider.provider_type}` });
       }
 
       const { decryptCredentials } = await import('./geolocation/crypto.ts');
@@ -17515,7 +17514,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
         updates.priority = body.priority;
       }
-      if (typeof body.is_active === 'boolean') updates.isActive = body.is_active;
+      if (typeof body.is_active === 'boolean') updates.is_active = body.is_active;
       if (Array.isArray(body.entities)) updates.entities = body.entities;
 
       if (Object.keys(updates).length === 0) {
@@ -17794,14 +17793,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/contexts/:id/links/:linkId - Remove a specific link
-  app.delete('/api/contexts/:id/links/:linkId', async (req, reply) => {
-    const { id, linkId } = req.params as { id: string; linkId: string };
+  // DELETE /api/contexts/:id/links/:link_id - Remove a specific link
+  app.delete('/api/contexts/:id/links/:link_id', async (req, reply) => {
+    const { id, link_id } = req.params as { id: string; link_id: string };
     const pool = createPool();
     try {
       const result = await pool.query(
         'DELETE FROM context_link WHERE id = $1 AND context_id = $2 RETURNING id',
-        [linkId, id],
+        [link_id, id],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
@@ -18018,7 +18017,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (!name) return reply.code(400).send({ error: 'name is required' });
 
-    const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : name;
+    const display_name = typeof body.display_name === 'string' ? body.display_name.trim() : name;
     const persona = typeof body.persona === 'string' ? body.persona : '';
 
     const hdr = (req.headers as Record<string, string | string[] | undefined>)['x-user-email'];
@@ -18042,7 +18041,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          RETURNING *`,
         [
           name,
-          displayName,
+          display_name,
           body.emoji ?? null,
           body.avatar_s3_key ?? null,
           persona,
@@ -18533,9 +18532,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // PATCH /api/lists/:listId/items/:itemId - Update an item
-  app.patch('/api/lists/:listId/items/:itemId', async (req, reply) => {
-    const { listId, itemId } = req.params as { listId: string; itemId: string };
+  // PATCH /api/lists/:list_id/items/:item_id - Update an item
+  app.patch('/api/lists/:list_id/items/:item_id', async (req, reply) => {
+    const { list_id, item_id } = req.params as { list_id: string; item_id: string };
     const body = req.body as {
       name?: string; quantity?: string | null; category?: string | null;
       is_recurring?: boolean; sort_order?: number; notes?: string | null;
@@ -18545,7 +18544,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const existing = await pool.query(
         'SELECT id FROM list_item WHERE id = $1 AND list_id = $2',
-        [itemId, listId],
+        [item_id, list_id],
       );
       if (existing.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
@@ -18590,7 +18589,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(400).send({ error: 'no fields to update' });
       }
 
-      values.push(itemId);
+      values.push(item_id);
       const result = await pool.query(
         `UPDATE list_item SET ${updates.join(', ')} WHERE id = $${paramIndex}
          RETURNING id::text as id, list_id::text as list_id, name, quantity, category,
@@ -18605,14 +18604,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
-  // DELETE /api/lists/:listId/items/:itemId - Remove an item
-  app.delete('/api/lists/:listId/items/:itemId', async (req, reply) => {
-    const { listId, itemId } = req.params as { listId: string; itemId: string };
+  // DELETE /api/lists/:list_id/items/:item_id - Remove an item
+  app.delete('/api/lists/:list_id/items/:item_id', async (req, reply) => {
+    const { list_id, item_id } = req.params as { list_id: string; item_id: string };
     const pool = createPool();
     try {
       const result = await pool.query(
         'DELETE FROM list_item WHERE id = $1 AND list_id = $2 RETURNING id',
-        [itemId, listId],
+        [item_id, list_id],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
@@ -19517,9 +19516,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const routeParams = req.params as { id: string };
     const body = req.body as Record<string, unknown> | null | undefined;
-    const listId = typeof body?.list_id === 'string' ? body.list_id : null;
+    const list_id = typeof body?.list_id === 'string' ? body.list_id : null;
 
-    if (!listId || !isValidUUID(listId)) {
+    if (!list_id || !isValidUUID(list_id)) {
       return reply.code(400).send({ error: 'list_id is required' });
     }
 
@@ -19537,7 +19536,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       // Verify list exists and belongs to user
       const listCheck = await pool.query(
         `SELECT id FROM list WHERE id = $1 AND user_email = $2`,
-        [listId, email],
+        [list_id, email],
       );
       if (listCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'List not found' });
@@ -19556,7 +19555,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         await pool.query(
           `INSERT INTO list_item (list_id, name, quantity, category)
            VALUES ($1, $2, $3, $4)`,
-          [listId, ing.name, quantityStr, ing.category],
+          [list_id, ing.name, quantityStr, ing.category],
         );
         added++;
       }

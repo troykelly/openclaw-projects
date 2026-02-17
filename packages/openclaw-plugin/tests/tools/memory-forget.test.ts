@@ -50,7 +50,7 @@ describe('memory_forget tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.name).toBe('memory_forget');
     });
@@ -60,7 +60,7 @@ describe('memory_forget tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -71,29 +71,29 @@ describe('memory_forget tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.parameters).toBeDefined();
     });
   });
 
   describe('parameter validation', () => {
-    it('should require either memoryId or query', async () => {
+    it('should require either memory_id or query', async () => {
       const tool = createMemoryForgetTool({
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({} as MemoryForgetParams);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toContain('memoryId');
+        expect(result.error).toContain('memory_id');
       }
     });
 
-    it('should accept memoryId alone', async () => {
+    it('should accept memory_id alone', async () => {
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
         data: { deleted: true },
@@ -104,10 +104,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      await tool.execute({ memoryId: 'mem-123' });
+      await tool.execute({ memory_id: 'mem-123' });
       expect(mockDelete).toHaveBeenCalled();
     });
 
@@ -127,7 +127,7 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'delete my coffee preference' });
@@ -139,7 +139,7 @@ describe('memory_forget tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const longQuery = 'a'.repeat(1001);
@@ -160,12 +160,12 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      await tool.execute({ memoryId: 'mem-123' });
+      await tool.execute({ memory_id: 'mem-123' });
 
-      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-123', expect.objectContaining({ userId: 'agent-1' }));
+      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-123', expect.objectContaining({ user_id: 'agent-1' }));
     });
 
     it('should return success for deleted memory', async () => {
@@ -179,10 +179,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      const result = await tool.execute({ memoryId: 'mem-123' });
+      const result = await tool.execute({ memory_id: 'mem-123' });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -202,10 +202,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      const result = await tool.execute({ memoryId: 'nonexistent' });
+      const result = await tool.execute({ memory_id: 'nonexistent' });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -228,14 +228,14 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'coffee' });
 
       expect(mockGet).toHaveBeenCalledWith(
         expect.stringMatching(/^\/api\/memories\/search\?q=coffee&limit=5$/),
-        expect.objectContaining({ userId: 'agent-1' }),
+        expect.objectContaining({ user_id: 'agent-1' }),
       );
     });
 
@@ -251,13 +251,13 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'coffee' });
 
       expect(mockDelete).toHaveBeenCalledTimes(1);
-      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-1', expect.objectContaining({ userId: 'agent-1' }));
+      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-1', expect.objectContaining({ user_id: 'agent-1' }));
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.content).toContain('Forgotten');
@@ -283,7 +283,7 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'coffee' });
@@ -293,7 +293,7 @@ describe('memory_forget tool', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.content).toContain('candidates');
-        expect(result.data.content).toContain('memoryId');
+        expect(result.data.content).toContain('memory_id');
         expect(result.data.details.deletedCount).toBe(0);
       }
     });
@@ -317,7 +317,7 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -346,14 +346,14 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'unique' });
 
       // When there's only 1 candidate, auto-delete it (don't make user copy/paste)
       expect(mockDelete).toHaveBeenCalledTimes(1);
-      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-only', expect.objectContaining({ userId: 'agent-1' }));
+      expect(mockDelete).toHaveBeenCalledWith('/api/memories/mem-only', expect.objectContaining({ user_id: 'agent-1' }));
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.details.deletedCount).toBe(1);
@@ -372,7 +372,7 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'something vague' });
@@ -397,7 +397,7 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'nonexistent' });
@@ -422,10 +422,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      const result = await tool.execute({ memoryId: 'mem-123' });
+      const result = await tool.execute({ memory_id: 'mem-123' });
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -441,10 +441,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      const result = await tool.execute({ memoryId: 'mem-123' });
+      const result = await tool.execute({ memory_id: 'mem-123' });
 
       expect(result.success).toBe(false);
     });
@@ -457,10 +457,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      const result = await tool.execute({ memoryId: 'mem-123' });
+      const result = await tool.execute({ memory_id: 'mem-123' });
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -482,16 +482,16 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      await tool.execute({ memoryId: 'mem-123' });
+      await tool.execute({ memory_id: 'mem-123' });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         'memory_forget invoked',
         expect.objectContaining({
-          userId: 'agent-1',
-          memoryId: 'mem-123',
+          user_id: 'agent-1',
+          memory_id: 'mem-123',
         }),
       );
     });
@@ -507,10 +507,10 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      await tool.execute({ memoryId: 'mem-123' });
+      await tool.execute({ memory_id: 'mem-123' });
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'memory_forget completed',
@@ -528,17 +528,17 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
-      await tool.execute({ memoryId: 'mem-123' });
+      await tool.execute({ memory_id: 'mem-123' });
 
       expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 
   describe('user scoping', () => {
-    it('should use provided userId for API calls', async () => {
+    it('should use provided user_id for API calls', async () => {
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
         data: { deleted: true },
@@ -549,15 +549,15 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'custom-user-456',
+        user_id: 'custom-user-456',
       });
 
-      await tool.execute({ memoryId: 'mem-123' });
+      await tool.execute({ memory_id: 'mem-123' });
 
-      expect(mockDelete).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ userId: 'custom-user-456' }));
+      expect(mockDelete).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ user_id: 'custom-user-456' }));
     });
 
-    it('should include userId in response details', async () => {
+    it('should include user_id in response details', async () => {
       const mockDelete = vi.fn().mockResolvedValue({
         success: true,
         data: { deleted: true },
@@ -568,14 +568,14 @@ describe('memory_forget tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'my-agent',
+        user_id: 'my-agent',
       });
 
-      const result = await tool.execute({ memoryId: 'mem-123' });
+      const result = await tool.execute({ memory_id: 'mem-123' });
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.details.userId).toBe('my-agent');
+        expect(result.data.details.user_id).toBe('my-agent');
       }
     });
   });

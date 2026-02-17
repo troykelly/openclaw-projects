@@ -211,7 +211,7 @@ function renderPage(initialPath: string, routeDefinitions?: Array<{ path: string
       ),
     },
     {
-      path: 'projects/:projectId',
+      path: 'projects/:project_id',
       element: (
         <React.Suspense fallback={<div>Loading...</div>}>
           <ProjectDetailPage />
@@ -219,7 +219,7 @@ function renderPage(initialPath: string, routeDefinitions?: Array<{ path: string
       ),
     },
     {
-      path: 'projects/:projectId/:view',
+      path: 'projects/:project_id/:view',
       element: (
         <React.Suspense fallback={<div>Loading...</div>}>
           <ProjectDetailPage />

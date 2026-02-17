@@ -41,9 +41,9 @@ function getSortValue(item: Record<string, unknown>, field: SortField): string |
     case 'title':
       return (item.title as string)?.toLowerCase() ?? '';
     case 'created':
-      return item.created_at ?? item.createdAt ?? item.created ?? '';
+      return item.created_at ?? item.created_at ?? item.created ?? '';
     case 'updated':
-      return item.updated_at ?? item.updatedAt ?? item.updated ?? '';
+      return item.updated_at ?? item.updated_at ?? item.updated ?? '';
     case 'dueDate':
       return item.due_date ?? item.dueDate ?? item.not_after ?? null;
     case 'startDate':

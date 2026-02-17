@@ -44,9 +44,9 @@ interface EntityLinkBadgeProps {
 }
 
 export function EntityLinkBadge({ link, side, onClick, onRemove }: EntityLinkBadgeProps) {
-  const entityType = side === 'source' ? link.source_type : link.target_type;
-  const Icon = TYPE_ICONS[entityType] ?? MessageSquare;
-  const label = TYPE_LABELS[entityType] ?? entityType;
+  const entity_type = side === 'source' ? link.source_type : link.target_type;
+  const Icon = TYPE_ICONS[entity_type] ?? MessageSquare;
+  const label = TYPE_LABELS[entity_type] ?? entity_type;
   const linkLabel = LINK_TYPE_LABELS[link.link_type] ?? link.link_type;
 
   return (

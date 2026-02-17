@@ -72,7 +72,7 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
         >
           {overflow.map((item) => {
             const Icon = item.icon;
-            const isActive = activeItem === item.id;
+            const is_active = activeItem === item.id;
 
             return (
               <button
@@ -82,9 +82,9 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
                 onClick={() => handleItemClick(item)}
                 className={cn(
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                  isActive && 'bg-primary/10 text-primary',
+                  is_active && 'bg-primary/10 text-primary',
                 )}
-                aria-current={isActive ? 'page' : undefined}
+                aria-current={is_active ? 'page' : undefined}
               >
                 <Icon className="size-4" />
                 <span className="font-medium">{item.label}</span>
@@ -109,7 +109,7 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
         {/* Primary nav items */}
         {primary.map((item) => {
           const Icon = item.icon;
-          const isActive = activeItem === item.id;
+          const is_active = activeItem === item.id;
 
           return (
             <button
@@ -118,9 +118,9 @@ export function MobileNav({ items = defaultNavItems, activeItem = 'activity', on
               onClick={() => handleItemClick(item)}
               className={cn(
                 'flex flex-col items-center justify-center gap-1 px-3 py-2 text-muted-foreground transition-colors hover:text-foreground',
-                isActive && 'text-primary',
+                is_active && 'text-primary',
               )}
-              aria-current={isActive ? 'page' : undefined}
+              aria-current={is_active ? 'page' : undefined}
             >
               <Icon className="size-5" />
               <span className="text-[10px] font-medium">{item.label}</span>

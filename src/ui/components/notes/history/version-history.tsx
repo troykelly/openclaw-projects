@@ -93,7 +93,7 @@ export function VersionHistory({ open, onOpenChange, note, versions, onPreviewVe
           <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 mb-4">
             <Badge variant="default">Current</Badge>
             <span className="text-sm font-medium">Version {note.version}</span>
-            <span className="text-xs text-muted-foreground ml-auto">{formatDate(note.updatedAt)}</span>
+            <span className="text-xs text-muted-foreground ml-auto">{formatDate(note.updated_at)}</span>
           </div>
 
           <Separator className="mb-4" />

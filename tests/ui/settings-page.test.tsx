@@ -53,19 +53,19 @@ const defaultEmbeddingSettings: EmbeddingSettings = {
     model: 'text-embedding-3-large',
     dimensions: 3072,
     status: 'active',
-    keySource: 'environment',
+    key_source: 'environment',
   },
-  availableProviders: [
+  available_providers: [
     { name: 'voyageai', configured: false, priority: 1 },
     { name: 'openai', configured: true, priority: 2 },
     { name: 'gemini', configured: false, priority: 3 },
   ],
   budget: {
-    dailyLimitUsd: 10.0,
-    monthlyLimitUsd: 100.0,
-    todaySpendUsd: 1.5,
-    monthSpendUsd: 15.0,
-    pauseOnLimit: true,
+    daily_limit_usd: 10.0,
+    monthly_limit_usd: 100.0,
+    today_spend_usd: 1.5,
+    month_spend_usd: 15.0,
+    pause_on_limit: true,
   },
   usage: {
     today: { count: 50, tokens: 10000 },

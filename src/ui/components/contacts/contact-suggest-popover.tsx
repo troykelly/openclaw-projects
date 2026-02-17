@@ -15,7 +15,7 @@ import { useContactSuggestMatch } from '@/ui/hooks/queries/use-contact-suggest-m
 
 interface ContactSuggestPopoverProps {
   /** The message ID to link. */
-  messageId: string;
+  message_id: string;
   /** Sender phone number, if available. */
   phone?: string;
   /** Sender email, if available. */
@@ -23,20 +23,20 @@ interface ContactSuggestPopoverProps {
   /** Sender name, if available. */
   name?: string;
   /** Called after a contact is successfully linked. */
-  onLinked?: (contactId: string) => void;
+  onLinked?: (contact_id: string) => void;
 }
 
-export function ContactSuggestPopover({ messageId, phone, email, name, onLinked }: ContactSuggestPopoverProps) {
+export function ContactSuggestPopover({ message_id, phone, email, name, onLinked }: ContactSuggestPopoverProps) {
   const [open, setOpen] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const { data } = useContactSuggestMatch({ phone, email, name });
   const matches = data?.matches ?? [];
 
-  const handleSelect = async (contactId: string) => {
+  const handleSelect = async (contact_id: string) => {
     setIsLinking(true);
     try {
-      await apiClient.post(`/api/messages/${messageId}/link-contact`, { contact_id: contactId });
-      onLinked?.(contactId);
+      await apiClient.post(`/api/messages/${message_id}/link-contact`, { contact_id: contact_id });
+      onLinked?.(contact_id);
       setOpen(false);
     } catch (err) {
       console.error('Failed to link contact:', err);

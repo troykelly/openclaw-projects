@@ -159,7 +159,7 @@ describe('Command Palette Integration', () => {
          VALUES ('Navigate Test', 'project')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
@@ -169,7 +169,7 @@ describe('Command Palette Integration', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.results.length).toBe(1);
-      expect(body.results[0].url).toBe(`/app/work-items/${itemId}`);
+      expect(body.results[0].url).toBe(`/app/work-items/${item_id}`);
     });
   });
 });

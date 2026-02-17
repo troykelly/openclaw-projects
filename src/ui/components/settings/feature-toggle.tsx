@@ -75,10 +75,10 @@ const PROVIDER_NAMES: Record<OAuthProvider, string> = {
 export function needsScopeUpgrade(
   feature: OAuthFeature,
   provider: OAuthProvider,
-  permissionLevel: OAuthPermissionLevel,
+  permission_level: OAuthPermissionLevel,
   currentScopes: string[],
 ): boolean {
-  const required = SCOPE_MAP[provider][feature][permissionLevel];
+  const required = SCOPE_MAP[provider][feature][permission_level];
   const current = new Set(currentScopes);
   return required.some((s) => !current.has(s));
 }
@@ -92,7 +92,7 @@ export interface FeatureToggleProps {
   enabled: boolean;
   currentScopes: string[];
   provider: OAuthProvider;
-  permissionLevel: OAuthPermissionLevel;
+  permission_level: OAuthPermissionLevel;
   onToggle: (feature: OAuthFeature, enabled: boolean) => void;
   isDisabled?: boolean;
 }
@@ -102,12 +102,12 @@ export function FeatureToggle({
   enabled,
   currentScopes,
   provider,
-  permissionLevel,
+  permission_level,
   onToggle,
   isDisabled,
 }: FeatureToggleProps) {
   const meta = FEATURE_META[feature];
-  const requiresUpgrade = !enabled && needsScopeUpgrade(feature, provider, permissionLevel, currentScopes);
+  const requiresUpgrade = !enabled && needsScopeUpgrade(feature, provider, permission_level, currentScopes);
 
   return (
     <div

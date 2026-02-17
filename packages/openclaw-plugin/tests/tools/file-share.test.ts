@@ -11,7 +11,7 @@ import type { Logger } from '../../src/logger.js';
 describe('file_share tool', () => {
   let mockClient: ApiClient;
   let mockLogger: Logger;
-  const userId = 'test-user';
+  const user_id = 'test-user';
 
   beforeEach(() => {
     mockClient = {
@@ -81,7 +81,7 @@ describe('file_share tool', () => {
       const tool = createFileShareTool({
         client: mockClient,
         logger: mockLogger,
-        userId,
+        user_id,
       });
 
       const mockResponse = {
@@ -89,11 +89,11 @@ describe('file_share tool', () => {
         data: {
           shareToken: 'abc123xyz',
           url: 'https://example.com/api/files/shared/abc123xyz',
-          expiresAt: '2026-02-05T10:00:00Z',
+          expires_at: '2026-02-05T10:00:00Z',
           expiresIn: 3600,
           filename: 'document.pdf',
-          contentType: 'application/pdf',
-          sizeBytes: 1048576,
+          content_type: 'application/pdf',
+          size_bytes: 1048576,
         },
       };
 
@@ -115,7 +115,7 @@ describe('file_share tool', () => {
       const tool = createFileShareTool({
         client: mockClient,
         logger: mockLogger,
-        userId,
+        user_id,
       });
 
       vi.mocked(mockClient.post).mockResolvedValue({
@@ -139,7 +139,7 @@ describe('file_share tool', () => {
       const tool = createFileShareTool({
         client: mockClient,
         logger: mockLogger,
-        userId,
+        user_id,
       });
 
       vi.mocked(mockClient.post).mockResolvedValue({
@@ -147,11 +147,11 @@ describe('file_share tool', () => {
         data: {
           shareToken: 'abc123xyz',
           url: 'https://example.com/api/files/shared/abc123xyz',
-          expiresAt: '2026-02-05T10:00:00Z',
+          expires_at: '2026-02-05T10:00:00Z',
           expiresIn: 3600,
           filename: 'document.pdf',
-          contentType: 'application/pdf',
-          sizeBytes: 1048576,
+          content_type: 'application/pdf',
+          size_bytes: 1048576,
         },
       });
 
@@ -169,7 +169,7 @@ describe('file_share tool', () => {
       const tool = createFileShareTool({
         client: mockClient,
         logger: mockLogger,
-        userId,
+        user_id,
       });
 
       vi.mocked(mockClient.post).mockResolvedValue({
@@ -177,11 +177,11 @@ describe('file_share tool', () => {
         data: {
           shareToken: 'abc123xyz',
           url: 'https://example.com/api/files/shared/abc123xyz',
-          expiresAt: '2026-02-05T10:00:00Z',
+          expires_at: '2026-02-05T10:00:00Z',
           expiresIn: 3600,
           filename: 'document.pdf',
-          contentType: 'application/pdf',
-          sizeBytes: 1048576,
+          content_type: 'application/pdf',
+          size_bytes: 1048576,
         },
       });
 
@@ -192,7 +192,7 @@ describe('file_share tool', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'file_share invoked',
         expect.objectContaining({
-          userId,
+          user_id,
           fileId: '550e8400-e29b-41d4-a716-446655440000',
         }),
       );

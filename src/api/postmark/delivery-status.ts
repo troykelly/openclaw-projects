@@ -67,9 +67,9 @@ export type PostmarkWebhookPayload = PostmarkDeliveryPayload | PostmarkBouncePay
  */
 export interface DeliveryStatusResult {
   success: boolean;
-  messageId?: string;
-  notFound?: boolean;
-  statusUnchanged?: boolean;
+  message_id?: string;
+  not_found?: boolean;
+  status_unchanged?: boolean;
   error?: string;
 }
 
@@ -154,7 +154,7 @@ export async function processPostmarkDeliveryStatus(pool: Pool, payload: Postmar
   if (messageResult.rows.length === 0) {
     return {
       success: false,
-      notFound: true,
+      not_found: true,
     };
   }
 
@@ -164,7 +164,7 @@ export async function processPostmarkDeliveryStatus(pool: Pool, payload: Postmar
     endpoint_id: string;
   };
 
-  const messageId = row.id;
+  const message_id = row.id;
   const currentStatus = row.delivery_status;
   const endpointId = row.endpoint_id;
 
@@ -178,13 +178,13 @@ export async function processPostmarkDeliveryStatus(pool: Pool, payload: Postmar
        SET provider_status_raw = $2::jsonb,
            status_updated_at = now()
        WHERE id = $1`,
-      [messageId, JSON.stringify(payload)],
+      [message_id, JSON.stringify(payload)],
     );
 
     return {
       success: true,
-      messageId,
-      statusUnchanged: true,
+      message_id,
+      status_unchanged: true,
     };
   }
 
@@ -196,13 +196,13 @@ export async function processPostmarkDeliveryStatus(pool: Pool, payload: Postmar
        SET provider_status_raw = $2::jsonb,
            status_updated_at = now()
        WHERE id = $1`,
-      [messageId, JSON.stringify(payload)],
+      [message_id, JSON.stringify(payload)],
     );
 
     return {
       success: true,
-      messageId,
-      statusUnchanged: true,
+      message_id,
+      status_unchanged: true,
     };
   }
 
@@ -213,7 +213,7 @@ export async function processPostmarkDeliveryStatus(pool: Pool, payload: Postmar
          provider_status_raw = $3::jsonb,
          status_updated_at = now()
      WHERE id = $1`,
-    [messageId, newStatus, JSON.stringify(payload)],
+    [message_id, newStatus, JSON.stringify(payload)],
   );
 
   // For hard bounces, flag the contact endpoint
@@ -234,10 +234,10 @@ export async function processPostmarkDeliveryStatus(pool: Pool, payload: Postmar
     );
   }
 
-  console.log(`[Postmark] Status updated: messageId=${messageId}, status=${newStatus}, type=${payload.RecordType}`);
+  console.log(`[Postmark] Status updated: message_id=${message_id}, status=${newStatus}, type=${payload.RecordType}`);
 
   return {
     success: true,
-    messageId,
+    message_id,
   };
 }

@@ -93,8 +93,8 @@ describe('ActivityTimeline', () => {
     expect(screen.getByText('No activity yet')).toBeInTheDocument();
   });
 
-  it('shows load more button when hasMore is true', () => {
-    render(<ActivityTimeline activities={mockActivities} hasMore onLoadMore={vi.fn()} />);
+  it('shows load more button when has_more is true', () => {
+    render(<ActivityTimeline activities={mockActivities} has_more onLoadMore={vi.fn()} />);
     expect(screen.getByText('Load More')).toBeInTheDocument();
   });
 

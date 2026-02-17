@@ -62,7 +62,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('note_create');
       });
@@ -72,7 +72,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.description).toBeDefined();
         expect(tool.description).toContain('note');
@@ -83,7 +83,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.parameters).toBeDefined();
       });
@@ -95,7 +95,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({ content: 'test' } as NoteCreateParams);
@@ -110,7 +110,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({ title: 'Test' } as NoteCreateParams);
@@ -125,7 +125,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -142,9 +142,9 @@ describe('note tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           title: 'Test Note',
           content: 'Test content',
-          notebookId: null,
+          notebook_id: null,
           visibility: 'private',
-          createdAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
         };
 
         (mockApiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -156,7 +156,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -182,7 +182,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -200,9 +200,9 @@ describe('note tools', () => {
             id: '123e4567-e89b-12d3-a456-426614174000',
             title: 'Test Note',
             content: 'Test content',
-            notebookId: null,
+            notebook_id: null,
             visibility: 'private',
-            createdAt: '2024-01-01T00:00:00Z',
+            created_at: '2024-01-01T00:00:00Z',
           },
         });
 
@@ -210,7 +210,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         await tool.execute({
@@ -237,7 +237,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('note_get');
       });
@@ -249,7 +249,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({ noteId: 'invalid' } as NoteGetParams);
@@ -266,13 +266,13 @@ describe('note tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           title: 'Test Note',
           content: 'Test content',
-          notebookId: null,
+          notebook_id: null,
           tags: ['tag1'],
           visibility: 'private',
           summary: null,
           isPinned: false,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         };
 
         (mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -284,7 +284,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -308,7 +308,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -330,7 +330,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('note_update');
       });
@@ -342,7 +342,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({ title: 'New' } as NoteUpdateParams);
@@ -354,7 +354,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -374,7 +374,7 @@ describe('note tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           title: 'Updated Title',
           visibility: 'private',
-          updatedAt: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         };
 
         (mockApiClient.put as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -386,7 +386,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -411,7 +411,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -434,7 +434,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('note_delete');
       });
@@ -451,7 +451,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -474,7 +474,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -502,9 +502,9 @@ describe('note tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           title: 'Test Note',
           content: 'Test content',
-          notebookId: null,
+          notebook_id: null,
           visibility: 'private',
-          createdAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
         },
       });
 
@@ -512,7 +512,7 @@ describe('note tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({
@@ -534,13 +534,13 @@ describe('note tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           title: 'Test Note',
           content: 'Test content',
-          notebookId: null,
+          notebook_id: null,
           tags: [],
           visibility: 'private',
           summary: null,
           isPinned: false,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         },
       });
 
@@ -548,7 +548,7 @@ describe('note tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({
@@ -569,7 +569,7 @@ describe('note tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           title: 'Updated Title',
           visibility: 'private',
-          updatedAt: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         },
       });
 
@@ -577,7 +577,7 @@ describe('note tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({
@@ -597,7 +597,7 @@ describe('note tools', () => {
         success: true,
         data: {
           query: 'test',
-          searchType: 'hybrid',
+          search_type: 'hybrid',
           results: [
             {
               id: '123e4567-e89b-12d3-a456-426614174000',
@@ -606,7 +606,7 @@ describe('note tools', () => {
               score: 0.95,
               tags: ['test'],
               visibility: 'private',
-              updatedAt: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
             },
           ],
           total: 1,
@@ -619,7 +619,7 @@ describe('note tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -639,7 +639,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('note_search');
       });
@@ -651,7 +651,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({} as NoteSearchParams);
@@ -666,7 +666,7 @@ describe('note tools', () => {
       it('should search notes successfully', async () => {
         const mockResults = {
           query: 'test',
-          searchType: 'hybrid',
+          search_type: 'hybrid',
           results: [
             {
               id: '123e4567-e89b-12d3-a456-426614174000',
@@ -675,7 +675,7 @@ describe('note tools', () => {
               score: 0.95,
               tags: ['test'],
               visibility: 'private',
-              updatedAt: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
             },
           ],
           total: 1,
@@ -692,7 +692,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({ query: 'test' });
@@ -710,7 +710,7 @@ describe('note tools', () => {
           success: true,
           data: {
             query: 'test',
-            searchType: 'hybrid',
+            search_type: 'hybrid',
             results: [],
             total: 0,
             limit: 20,
@@ -722,7 +722,7 @@ describe('note tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         await tool.execute({ query: 'test' });

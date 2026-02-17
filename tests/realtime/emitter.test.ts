@@ -81,7 +81,7 @@ describe('Event Emitter Helpers', () => {
 
   describe('Memory Events', () => {
     it('emitMemoryCreated sends memory:created event', async () => {
-      await emitMemoryCreated({ id: '456', title: 'Test Memory', memoryType: 'preference' }, 'test-user');
+      await emitMemoryCreated({ id: '456', title: 'Test Memory', memory_type: 'preference' }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -89,7 +89,7 @@ describe('Event Emitter Helpers', () => {
       expect(event.data).toEqual({
         id: '456',
         title: 'Test Memory',
-        memoryType: 'preference',
+        memory_type: 'preference',
       });
     });
 
@@ -112,16 +112,16 @@ describe('Event Emitter Helpers', () => {
 
   describe('Contact Events', () => {
     it('emitContactCreated sends contact:created event', async () => {
-      await emitContactCreated({ id: '789', displayName: 'John Doe' }, 'test-user');
+      await emitContactCreated({ id: '789', display_name: 'John Doe' }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
       expect(event.event).toBe('contact:created');
-      expect(event.data).toEqual({ id: '789', displayName: 'John Doe' });
+      expect(event.data).toEqual({ id: '789', display_name: 'John Doe' });
     });
 
     it('emitContactUpdated sends contact:updated event', async () => {
-      await emitContactUpdated({ id: '789', changes: ['displayName'] }, 'test-user');
+      await emitContactUpdated({ id: '789', changes: ['display_name'] }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
@@ -139,14 +139,14 @@ describe('Event Emitter Helpers', () => {
 
   describe('Message Events', () => {
     it('emitMessageReceived sends message:received event', async () => {
-      await emitMessageReceived({ id: 'msg-1', threadId: 'thread-1', source: 'sms', preview: 'Hello' }, 'test-user');
+      await emitMessageReceived({ id: 'msg-1', thread_id: 'thread-1', source: 'sms', preview: 'Hello' }, 'test-user');
 
       expect(socket.messages.length).toBe(1);
       const event = JSON.parse(socket.messages[0]) as RealtimeEvent;
       expect(event.event).toBe('message:received');
       expect(event.data).toEqual({
         id: 'msg-1',
-        threadId: 'thread-1',
+        thread_id: 'thread-1',
         source: 'sms',
         preview: 'Hello',
       });
@@ -160,8 +160,8 @@ describe('Event Emitter Helpers', () => {
           id: 'notif-1',
           type: 'reminder',
           title: 'Task due soon',
-          entityType: 'work_item',
-          entityId: '123',
+          entity_type: 'work_item',
+          entity_id: '123',
         },
         'test-user',
       );
@@ -173,14 +173,14 @@ describe('Event Emitter Helpers', () => {
         id: 'notif-1',
         type: 'reminder',
         title: 'Task due soon',
-        entityType: 'work_item',
-        entityId: '123',
+        entity_type: 'work_item',
+        entity_id: '123',
       });
     });
   });
 
   describe('Broadcast Events', () => {
-    it('broadcasts event when no userId provided', async () => {
+    it('broadcasts event when no user_id provided', async () => {
       const socket2 = new MockWebSocket();
       getRealtimeHub().addClient(socket2 as unknown as WebSocket, 'other-user');
       socket2.messages = [];

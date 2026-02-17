@@ -59,11 +59,11 @@ describe('createFileShare presigned mode', () => {
 
   const mockMetadata: FileAttachment = {
     id: 'file-123',
-    storageKey: '2026/02/15/test-uuid.pdf',
-    originalFilename: 'report.pdf',
-    contentType: 'application/pdf',
-    sizeBytes: 1024,
-    createdAt: new Date('2026-02-15'),
+    storage_key: '2026/02/15/test-uuid.pdf',
+    original_filename: 'report.pdf',
+    content_type: 'application/pdf',
+    size_bytes: 1024,
+    created_at: new Date('2026-02-15'),
   };
 
   it('calls getExternalSignedUrl (not getSignedUrl) in presigned mode', async () => {
@@ -86,7 +86,7 @@ describe('createFileShare presigned mode', () => {
     });
 
     // Should call getExternalSignedUrl, NOT getSignedUrl
-    expect(storage.getExternalSignedUrl).toHaveBeenCalledWith(mockMetadata.storageKey, 3600);
+    expect(storage.getExternalSignedUrl).toHaveBeenCalledWith(mockMetadata.storage_key, 3600);
     expect(storage.getSignedUrl).not.toHaveBeenCalled();
   });
 

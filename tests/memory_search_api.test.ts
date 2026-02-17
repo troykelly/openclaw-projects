@@ -45,13 +45,13 @@ describe('Memory Search API', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create a memory
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Test Memory', 'Some content', 'note')`,
-        [workItemId],
+        [work_item_id],
       );
 
       const res = await app.inject({
@@ -72,7 +72,7 @@ describe('Memory Search API', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create memory via API (which generates embedding)
       const createRes = await app.inject({
@@ -81,7 +81,7 @@ describe('Memory Search API', () => {
         payload: {
           title: 'Dark Mode Preference',
           content: 'User prefers dark mode for reduced eye strain',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
           type: 'note',
         },
       });
@@ -109,7 +109,7 @@ describe('Memory Search API', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
@@ -117,7 +117,7 @@ describe('Memory Search API', () => {
         payload: {
           title: 'Test Memory',
           content: 'Test content for embedding',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
           type: 'note',
         },
       });
@@ -136,21 +136,21 @@ describe('Memory Search API', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create memory
       const memory = await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Original Title', 'Original content', 'note', 'complete')
          RETURNING id::text as id`,
-        [workItemId],
+        [work_item_id],
       );
-      const memoryId = (memory.rows[0] as { id: string }).id;
+      const memory_id = (memory.rows[0] as { id: string }).id;
 
       // Update via API
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/memory/${memoryId}`,
+        url: `/api/memory/${memory_id}`,
         payload: {
           title: 'Updated Title',
           content: 'Updated content about something new',
@@ -173,14 +173,14 @@ describe('Memory Search API', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create memories without embeddings
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Memory 1', 'Content 1', 'note', 'pending'),
                 ($1, 'Memory 2', 'Content 2', 'note', 'pending')`,
-        [workItemId],
+        [work_item_id],
       );
 
       const res = await app.inject({

@@ -39,10 +39,10 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(res.statusCode).toBe(201);
       const body = res.json();
       expect(body.id).toBeDefined();
-      expect(body.userEmail).toBe('test@example.com');
-      expect(body.workItemId).toBeNull();
-      expect(body.contactId).toBeNull();
-      expect(body.memoryType).toBe('preference');
+      expect(body.user_email).toBe('test@example.com');
+      expect(body.work_item_id).toBeNull();
+      expect(body.contact_id).toBeNull();
+      expect(body.memory_type).toBe('preference');
     });
 
     it('creates memory with work item scope', async () => {
@@ -52,7 +52,7 @@ describe('Unified Memory API (Issue #209)', () => {
          VALUES ('Test Project', 'project', 'open')
          RETURNING id::text as id`,
       );
-      const workItemId = (wiResult.rows[0] as { id: string }).id;
+      const work_item_id = (wiResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
@@ -62,13 +62,13 @@ describe('Unified Memory API (Issue #209)', () => {
           content: 'Chose PostgreSQL for ACID compliance',
           memory_type: 'decision',
           user_email: 'test@example.com',
-          work_item_id: workItemId,
+          work_item_id: work_item_id,
         },
       });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.workItemId).toBe(workItemId);
+      expect(body.work_item_id).toBe(work_item_id);
     });
 
     it('creates memory with contact scope', async () => {
@@ -78,7 +78,7 @@ describe('Unified Memory API (Issue #209)', () => {
          VALUES ('John Doe')
          RETURNING id::text as id`,
       );
-      const contactId = (contactResult.rows[0] as { id: string }).id;
+      const contact_id = (contactResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
@@ -88,13 +88,13 @@ describe('Unified Memory API (Issue #209)', () => {
           content: 'John prefers email',
           memory_type: 'fact',
           user_email: 'test@example.com',
-          contact_id: contactId,
+          contact_id: contact_id,
         },
       });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.contactId).toBe(contactId);
+      expect(body.contact_id).toBe(contact_id);
     });
 
     it('creates memory with agent attribution', async () => {
@@ -112,8 +112,8 @@ describe('Unified Memory API (Issue #209)', () => {
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.createdByAgent).toBe('openclaw-pi');
-      expect(body.sourceUrl).toBe('https://example.com/conv/123');
+      expect(body.created_by_agent).toBe('openclaw-pi');
+      expect(body.source_url).toBe('https://example.com/conv/123');
     });
 
     it('creates memory with importance and confidence', async () => {
@@ -216,7 +216,7 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.memories.length).toBe(1);
-      expect(body.memories[0].userEmail).toBe('user1@example.com');
+      expect(body.memories[0].user_email).toBe('user1@example.com');
     });
 
     it('filters by memory type', async () => {
@@ -234,7 +234,7 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.memories.length).toBe(1);
-      expect(body.memories[0].memoryType).toBe('preference');
+      expect(body.memories[0].memory_type).toBe('preference');
     });
   });
 
@@ -246,7 +246,7 @@ describe('Unified Memory API (Issue #209)', () => {
          VALUES ('Test', 'project', 'open')
          RETURNING id::text as id`,
       );
-      const workItemId = (wiResult.rows[0] as { id: string }).id;
+      const work_item_id = (wiResult.rows[0] as { id: string }).id;
 
       // Create global and work item scoped memories
       await pool.query(
@@ -256,7 +256,7 @@ describe('Unified Memory API (Issue #209)', () => {
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, user_email, work_item_id)
          VALUES ('Scoped', 'Content', 'note', 'test@example.com', $1)`,
-        [workItemId],
+        [work_item_id],
       );
 
       const res = await app.inject({
@@ -303,13 +303,13 @@ describe('Unified Memory API (Issue #209)', () => {
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.newMemory.title).toBe('New fact');
-      expect(body.newMemory.importance).toBe(8);
-      expect(body.supersededId).toBe(oldId);
+      expect(body.new_memory.title).toBe('New fact');
+      expect(body.new_memory.importance).toBe(8);
+      expect(body.superseded_id).toBe(oldId);
 
       // Verify old memory is marked superseded
       const oldMemory = await pool.query(`SELECT superseded_by::text FROM memory WHERE id = $1`, [oldId]);
-      expect(oldMemory.rows[0].superseded_by).toBe(body.newMemory.id);
+      expect(oldMemory.rows[0].superseded_by).toBe(body.new_memory.id);
     });
 
     it('returns 404 for non-existent memory', async () => {

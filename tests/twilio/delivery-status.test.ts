@@ -64,7 +64,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.messageId).toBe(testMessageId);
+      expect(result.message_id).toBe(testMessageId);
 
       // Verify status updated
       const msg = await pool.query(
@@ -138,7 +138,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.notFound).toBe(true);
+      expect(result.not_found).toBe(true);
     });
 
     it('stores full callback payload in provider_status_raw', async () => {
@@ -191,7 +191,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
 
       // Should succeed (webhook processed) but status unchanged
       expect(result.success).toBe(true);
-      expect(result.statusUnchanged).toBe(true);
+      expect(result.status_unchanged).toBe(true);
 
       // Verify status still delivered
       const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [testMessageId]);
@@ -215,7 +215,7 @@ describe('Twilio delivery status webhooks (#292)', () => {
 
       expect(result1.success).toBe(true);
       expect(result2.success).toBe(true);
-      expect(result2.statusUnchanged).toBe(true);
+      expect(result2.status_unchanged).toBe(true);
     });
   });
 

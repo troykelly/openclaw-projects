@@ -115,21 +115,21 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Multi Endpoint')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       // Create endpoints
       const emailResult = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'test@example.com', 'test@example.com')
          RETURNING id::text as id`,
-        [contactId],
+        [contact_id],
       );
       const emailId = emailResult.rows[0].id;
 
       // Set as preferred
-      await pool.query(`UPDATE contact SET preferred_endpoint_id = $1 WHERE id = $2`, [emailId, contactId]);
+      await pool.query(`UPDATE contact SET preferred_endpoint_id = $1 WHERE id = $2`, [emailId, contact_id]);
 
-      const result = await pool.query(`SELECT preferred_endpoint_id::text FROM contact WHERE id = $1`, [contactId]);
+      const result = await pool.query(`SELECT preferred_endpoint_id::text FROM contact WHERE id = $1`, [contact_id]);
 
       expect(result.rows[0].preferred_endpoint_id).toBe(emailId);
     });
@@ -140,23 +140,23 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Endpoint Delete Test')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       const endpointResult = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'delete@example.com', 'delete@example.com')
          RETURNING id::text as id`,
-        [contactId],
+        [contact_id],
       );
       const endpointId = endpointResult.rows[0].id;
 
-      await pool.query(`UPDATE contact SET preferred_endpoint_id = $1 WHERE id = $2`, [endpointId, contactId]);
+      await pool.query(`UPDATE contact SET preferred_endpoint_id = $1 WHERE id = $2`, [endpointId, contact_id]);
 
       // Delete the endpoint
       await pool.query(`DELETE FROM contact_endpoint WHERE id = $1`, [endpointId]);
 
       // Check that preferred_endpoint_id is now null
-      const result = await pool.query(`SELECT preferred_endpoint_id FROM contact WHERE id = $1`, [contactId]);
+      const result = await pool.query(`SELECT preferred_endpoint_id FROM contact WHERE id = $1`, [contact_id]);
 
       expect(result.rows[0].preferred_endpoint_id).toBeNull();
     });
@@ -169,14 +169,14 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Synced Contact')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       const result = await pool.query(
         `INSERT INTO contact_external_identity
            (contact_id, provider, external_id, sync_status, synced_at)
          VALUES ($1, 'microsoft', 'ms-123', 'synced', NOW())
          RETURNING provider, external_id, sync_status`,
-        [contactId],
+        [contact_id],
       );
 
       expect(result.rows[0].provider).toBe('microsoft');
@@ -190,12 +190,12 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Unique Provider Test')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_external_identity (contact_id, provider, external_id)
          VALUES ($1, 'google', 'google-123')`,
-        [contactId],
+        [contact_id],
       );
 
       // Should fail on duplicate
@@ -203,7 +203,7 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
         pool.query(
           `INSERT INTO contact_external_identity (contact_id, provider, external_id)
            VALUES ($1, 'google', 'google-456')`,
-          [contactId],
+          [contact_id],
         ),
       ).rejects.toThrow(/duplicate/i);
     });
@@ -233,16 +233,16 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Multi Provider')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_external_identity (contact_id, provider, external_id)
          VALUES ($1, 'microsoft', 'ms-id'),
                 ($1, 'google', 'google-id')`,
-        [contactId],
+        [contact_id],
       );
 
-      const result = await pool.query(`SELECT provider FROM contact_external_identity WHERE contact_id = $1 ORDER BY provider`, [contactId]);
+      const result = await pool.query(`SELECT provider FROM contact_external_identity WHERE contact_id = $1 ORDER BY provider`, [contact_id]);
 
       expect(result.rows).toHaveLength(2);
       expect(result.rows[0].provider).toBe('google');
@@ -255,13 +255,13 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Provider Check')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await expect(
         pool.query(
           `INSERT INTO contact_external_identity (contact_id, provider, external_id)
            VALUES ($1, 'invalid_provider', 'id-123')`,
-          [contactId],
+          [contact_id],
         ),
       ).rejects.toThrow(/check/i);
     });
@@ -272,13 +272,13 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Status Check')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await expect(
         pool.query(
           `INSERT INTO contact_external_identity (contact_id, provider, external_id, sync_status)
            VALUES ($1, 'microsoft', 'id-123', 'invalid_status')`,
-          [contactId],
+          [contact_id],
         ),
       ).rejects.toThrow(/check/i);
     });
@@ -289,19 +289,19 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Cascade Delete')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_external_identity (contact_id, provider, external_id)
          VALUES ($1, 'microsoft', 'cascade-test')`,
-        [contactId],
+        [contact_id],
       );
 
       // Delete contact
-      await pool.query(`DELETE FROM contact WHERE id = $1`, [contactId]);
+      await pool.query(`DELETE FROM contact WHERE id = $1`, [contact_id]);
 
       // External identity should be deleted
-      const result = await pool.query(`SELECT COUNT(*) as count FROM contact_external_identity WHERE contact_id = $1`, [contactId]);
+      const result = await pool.query(`SELECT COUNT(*) as count FROM contact_external_identity WHERE contact_id = $1`, [contact_id]);
 
       expect(parseInt(result.rows[0].count, 10)).toBe(0);
     });
@@ -315,13 +315,13 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Message Test')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       const endpointResult = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'phone', '+15551234567', '+15551234567')
          RETURNING id::text as id`,
-        [contactId],
+        [contact_id],
       );
       const endpointId = endpointResult.rows[0].id;
 
@@ -331,10 +331,10 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          RETURNING id::text as id`,
         [endpointId],
       );
-      const threadId = threadResult.rows[0].id;
+      const thread_id = threadResult.rows[0].id;
 
       // Initially null
-      const beforeResult = await pool.query(`SELECT last_contact_date FROM contact WHERE id = $1`, [contactId]);
+      const beforeResult = await pool.query(`SELECT last_contact_date FROM contact WHERE id = $1`, [contact_id]);
       expect(beforeResult.rows[0].last_contact_date).toBeNull();
 
       // Insert message
@@ -342,11 +342,11 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
       await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'msg-trigger', 'inbound', 'Hello', $2)`,
-        [threadId, messageTime],
+        [thread_id, messageTime],
       );
 
       // Check last_contact_date was updated
-      const afterResult = await pool.query(`SELECT last_contact_date FROM contact WHERE id = $1`, [contactId]);
+      const afterResult = await pool.query(`SELECT last_contact_date FROM contact WHERE id = $1`, [contact_id]);
 
       expect(afterResult.rows[0].last_contact_date).not.toBeNull();
       const lastContact = new Date(afterResult.rows[0].last_contact_date);
@@ -359,13 +359,13 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Newer Date Test', '2026-02-10T10:00:00Z')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       const endpointResult = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'phone', '+15559999999', '+15559999999')
          RETURNING id::text as id`,
-        [contactId],
+        [contact_id],
       );
       const endpointId = endpointResult.rows[0].id;
 
@@ -375,16 +375,16 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          RETURNING id::text as id`,
         [endpointId],
       );
-      const threadId = threadResult.rows[0].id;
+      const thread_id = threadResult.rows[0].id;
 
       // Insert an older message - should NOT update last_contact_date
       await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'older-msg', 'inbound', 'Older', '2026-02-05T10:00:00Z')`,
-        [threadId],
+        [thread_id],
       );
 
-      const result = await pool.query(`SELECT last_contact_date FROM contact WHERE id = $1`, [contactId]);
+      const result = await pool.query(`SELECT last_contact_date FROM contact WHERE id = $1`, [contact_id]);
 
       // Should still be the original date (Feb 10), not the older message date (Feb 5)
       const lastContact = new Date(result.rows[0].last_contact_date);
@@ -399,17 +399,17 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          VALUES ('Memory Contact')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       // Create memory linked to contact
       const memoryResult = await pool.query(
         `INSERT INTO memory (title, content, memory_type, contact_id, importance)
          VALUES ('Preference', 'Prefers email over phone', 'preference', $1, 8)
          RETURNING id::text as id, contact_id::text`,
-        [contactId],
+        [contact_id],
       );
 
-      expect(memoryResult.rows[0].contact_id).toBe(contactId);
+      expect(memoryResult.rows[0].contact_id).toBe(contact_id);
 
       // Query memories for contact
       const memories = await pool.query(
@@ -417,7 +417,7 @@ describe('Contact Schema Enhancement (Issue #208)', () => {
          FROM memory
          WHERE contact_id = $1
          ORDER BY created_at`,
-        [contactId],
+        [contact_id],
       );
 
       expect(memories.rows).toHaveLength(1);

@@ -135,12 +135,36 @@ async function request<T>(path: string, init: RequestInit, baseHeaders: Record<s
   return { res, parsed: await parseBody<T>(res) };
 }
 
+
+/**
+ * Recursively convert all camelCase object keys to snake_case.
+ * Used when sending request bodies to the API.
+ */
+function camelToSnakeKey(key: string): string {
+  return key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+}
+
+function snakeifyKeys(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(snakeifyKeys);
+  }
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[camelToSnakeKey(key)] = snakeifyKeys(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
 /** Parse response body as JSON, returning undefined for 204 No Content. */
 async function parseBody<T>(res: Response): Promise<T> {
   if (res.status === 204) {
     return undefined as T;
   }
-  return (await res.json()) as T;
+  const json = await res.json();
+  return json as T;
 }
 
 /**
@@ -182,7 +206,7 @@ export const apiClient = {
   async post<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
     const { parsed } = await request<T>(
       path,
-      { method: 'POST', body: JSON.stringify(body) },
+      { method: 'POST', body: JSON.stringify(snakeifyKeys(body)) },
       { 'content-type': 'application/json', accept: 'application/json' },
       opts,
     );
@@ -202,7 +226,7 @@ export const apiClient = {
   async put<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
     const { parsed } = await request<T>(
       path,
-      { method: 'PUT', body: JSON.stringify(body) },
+      { method: 'PUT', body: JSON.stringify(snakeifyKeys(body)) },
       { 'content-type': 'application/json', accept: 'application/json' },
       opts,
     );
@@ -222,7 +246,7 @@ export const apiClient = {
   async patch<T>(path: string, body: unknown, opts?: RequestOptions): Promise<T> {
     const { parsed } = await request<T>(
       path,
-      { method: 'PATCH', body: JSON.stringify(body) },
+      { method: 'PATCH', body: JSON.stringify(snakeifyKeys(body)) },
       { 'content-type': 'application/json', accept: 'application/json' },
       opts,
     );

@@ -30,13 +30,13 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
        VALUES ('Project', 'project', '2025-01-01', '2025-03-31', 60)
        RETURNING id::text as id`,
     );
-    const projectId = project.rows[0].id;
+    const project_id = project.rows[0].id;
 
     const init = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Initiative', 'initiative', $1, '2025-01-01', '2025-02-15', 120)
        RETURNING id::text as id`,
-      [projectId],
+      [project_id],
     );
 
     const epic = await pool.query(
@@ -81,7 +81,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
 
     const response = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${projectId}/dependency-graph`,
+      url: `/api/work-items/${project_id}/dependency-graph`,
     });
 
     expect(response.statusCode).toBe(200);
@@ -142,13 +142,13 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
        VALUES ('Project', 'project')
        RETURNING id::text as id`,
     );
-    const projectId = project.rows[0].id;
+    const project_id = project.rows[0].id;
 
     const init = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
        VALUES ('Init', 'initiative', $1)
        RETURNING id::text as id`,
-      [projectId],
+      [project_id],
     );
 
     const epic = await pool.query(
@@ -180,7 +180,7 @@ describe('Dependency Graph API: GET /api/work-items/:id/dependency-graph', () =>
 
     const response = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${projectId}/dependency-graph`,
+      url: `/api/work-items/${project_id}/dependency-graph`,
     });
 
     expect(response.statusCode).toBe(200);

@@ -13,7 +13,7 @@ export interface LinkedEmail {
   snippet: string;
   body?: string;
   hasAttachments?: boolean;
-  isRead?: boolean;
+  is_read?: boolean;
 }
 
 export interface CalendarAttendee {

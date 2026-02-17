@@ -7,7 +7,7 @@ import { ROUTE_PATTERNS, matchNotesRoute, matchWorkItemsRoute, extractWorkItemId
 
 describe('ROUTE_PATTERNS', () => {
   describe('notebookNote', () => {
-    it('matches /notebooks/:notebookId/notes/:noteId', () => {
+    it('matches /notebooks/:notebook_id/notes/:noteId', () => {
       const match = ROUTE_PATTERNS.notebookNote.exec('/notebooks/abc-123/notes/def-456');
       expect(match).not.toBeNull();
       expect(match?.[1]).toBe('abc-123');
@@ -19,20 +19,20 @@ describe('ROUTE_PATTERNS', () => {
       expect(match).not.toBeNull();
     });
 
-    it('does not match /notebooks/:notebookId', () => {
+    it('does not match /notebooks/:notebook_id', () => {
       const match = ROUTE_PATTERNS.notebookNote.exec('/notebooks/abc-123');
       expect(match).toBeNull();
     });
   });
 
   describe('notebook', () => {
-    it('matches /notebooks/:notebookId', () => {
+    it('matches /notebooks/:notebook_id', () => {
       const match = ROUTE_PATTERNS.notebook.exec('/notebooks/abc-123');
       expect(match).not.toBeNull();
       expect(match?.[1]).toBe('abc-123');
     });
 
-    it('does not match /notebooks/:notebookId/notes/:noteId', () => {
+    it('does not match /notebooks/:notebook_id/notes/:noteId', () => {
       const match = ROUTE_PATTERNS.notebook.exec('/notebooks/abc-123/notes/def-456');
       expect(match).toBeNull();
     });
@@ -99,17 +99,17 @@ describe('matchNotesRoute', () => {
     });
   });
 
-  it('returns notebook type with notebookId for /notebooks/:notebookId', () => {
+  it('returns notebook type with notebook_id for /notebooks/:notebook_id', () => {
     expect(matchNotesRoute('/notebooks/abc-123')).toEqual({
       type: 'notebook',
-      notebookId: 'abc-123',
+      notebook_id: 'abc-123',
     });
   });
 
-  it('returns notebookNote type with both IDs for /notebooks/:notebookId/notes/:noteId', () => {
+  it('returns notebookNote type with both IDs for /notebooks/:notebook_id/notes/:noteId', () => {
     expect(matchNotesRoute('/notebooks/abc-123/notes/def-456')).toEqual({
       type: 'notebookNote',
-      notebookId: 'abc-123',
+      notebook_id: 'abc-123',
       noteId: 'def-456',
     });
   });

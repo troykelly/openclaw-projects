@@ -11,15 +11,15 @@ import { apiClient, ApiRequestError } from '@/ui/lib/api-client';
 interface OAuthCallbackResult {
   status: 'loading' | 'success' | 'error';
   provider?: string;
-  userEmail?: string;
+  user_email?: string;
   errorMessage?: string;
 }
 
 interface CallbackResponse {
   status: string;
   provider: string;
-  userEmail: string;
-  connectionId: string;
+  user_email: string;
+  connection_id: string;
   scopes: string[];
 }
 
@@ -84,7 +84,7 @@ export function useOAuthCallback(): OAuthCallbackResult {
         setResult({
           status: 'success',
           provider: body.provider,
-          userEmail: body.userEmail,
+          user_email: body.user_email,
         });
 
         // Auto-redirect after 3 seconds

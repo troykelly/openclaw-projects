@@ -39,44 +39,44 @@ describe('OAuth types (Issue #1045)', () => {
   it('OAuthConnection interface includes multi-account fields', () => {
     const conn: OAuthConnection = {
       id: 'test-id',
-      userEmail: 'test@example.com',
+      user_email: 'test@example.com',
       provider: 'google',
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
       scopes: ['email'],
-      expiresAt: new Date(),
-      tokenMetadata: {},
+      expires_at: new Date(),
+      token_metadata: {},
       label: 'Work Gmail',
-      providerAccountId: 'goog-123',
-      providerAccountEmail: 'work@gmail.com',
-      permissionLevel: 'read_write',
-      enabledFeatures: ['contacts', 'email'],
-      isActive: true,
-      lastSyncAt: new Date(),
-      syncStatus: { contacts: { lastSync: '2025-01-01' } },
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      provider_account_id: 'goog-123',
+      provider_account_email: 'work@gmail.com',
+      permission_level: 'read_write',
+      enabled_features: ['contacts', 'email'],
+      is_active: true,
+      last_sync_at: new Date(),
+      sync_status: { contacts: { lastSync: '2025-01-01' } },
+      created_at: new Date(),
+      updated_at: new Date(),
     };
 
     expect(conn.label).toBe('Work Gmail');
-    expect(conn.providerAccountId).toBe('goog-123');
-    expect(conn.providerAccountEmail).toBe('work@gmail.com');
-    expect(conn.permissionLevel).toBe('read_write');
-    expect(conn.enabledFeatures).toEqual(['contacts', 'email']);
-    expect(conn.isActive).toBe(true);
-    expect(conn.lastSyncAt).toBeInstanceOf(Date);
-    expect(conn.syncStatus).toEqual({ contacts: { lastSync: '2025-01-01' } });
+    expect(conn.provider_account_id).toBe('goog-123');
+    expect(conn.provider_account_email).toBe('work@gmail.com');
+    expect(conn.permission_level).toBe('read_write');
+    expect(conn.enabled_features).toEqual(['contacts', 'email']);
+    expect(conn.is_active).toBe(true);
+    expect(conn.last_sync_at).toBeInstanceOf(Date);
+    expect(conn.sync_status).toEqual({ contacts: { lastSync: '2025-01-01' } });
   });
 
   it('OAuthConnectionUpdate allows partial updates', () => {
     const update: OAuthConnectionUpdate = {
       label: 'Personal',
-      isActive: false,
+      is_active: false,
     };
     expect(update.label).toBe('Personal');
-    expect(update.permissionLevel).toBeUndefined();
-    expect(update.enabledFeatures).toBeUndefined();
-    expect(update.isActive).toBe(false);
+    expect(update.permission_level).toBeUndefined();
+    expect(update.enabled_features).toBeUndefined();
+    expect(update.is_active).toBe(false);
   });
 });
 
@@ -112,7 +112,7 @@ describe('validateFeatures', () => {
 });
 
 describe('NoConnectionError overloads', () => {
-  it('constructs with provider and userEmail', () => {
+  it('constructs with provider and user_email', () => {
     const err = new NoConnectionError('google', 'test@example.com');
     expect(err.message).toContain('test@example.com');
     expect(err.message).toContain('google');
@@ -120,7 +120,7 @@ describe('NoConnectionError overloads', () => {
     expect(err.statusCode).toBe(404);
   });
 
-  it('constructs with connectionId only', () => {
+  it('constructs with connection_id only', () => {
     const err = new NoConnectionError('conn-uuid-123');
     expect(err.message).toContain('conn-uuid-123');
     expect(err.code).toBe('NO_CONNECTION');

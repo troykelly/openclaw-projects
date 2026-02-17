@@ -47,7 +47,7 @@ export interface AutoRecallHookOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
   timeoutMs?: number;
 }
 
@@ -56,7 +56,7 @@ export interface AutoCaptureHookOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
   timeoutMs?: number;
 }
 
@@ -107,45 +107,45 @@ function filterSensitiveContent(content: string): string {
  * and returns it to be prepended to the conversation.
  */
 export function createAutoRecallHook(options: AutoRecallHookOptions): (event: AutoRecallEvent) => Promise<AutoRecallResult | null> {
-  const { client, logger, config, userId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
+  const { client, logger, config, user_id, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
 
   return async (event: AutoRecallEvent): Promise<AutoRecallResult | null> => {
     // Skip if auto-recall is disabled
     if (!config.autoRecall) {
-      logger.debug('auto-recall skipped: disabled in config', { userId });
+      logger.debug('auto-recall skipped: disabled in config', { user_id });
       return null;
     }
 
     // Log without prompt content
     logger.info('auto-recall invoked', {
-      userId,
+      user_id,
       promptLength: event.prompt.length,
     });
 
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchContext(client, userId, event.prompt, logger, config.maxRecallMemories),
+        fetchContext(client, user_id, event.prompt, logger, config.maxRecallMemories),
         createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
-          logger.warn('auto-recall timeout exceeded', { userId, timeoutMs });
+          logger.warn('auto-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
       ]);
 
       if (result === null) {
-        logger.debug('auto-recall returned no context', { userId });
+        logger.debug('auto-recall returned no context', { user_id });
         return null;
       }
 
       logger.debug('auto-recall completed', {
-        userId,
+        user_id,
         contextLength: result.prependContext.length,
       });
 
       return result;
     } catch (error) {
       logger.error('auto-recall failed', {
-        userId,
+        user_id,
         error: error instanceof Error ? error.message : String(error),
       });
       return null;
@@ -160,13 +160,13 @@ export function createAutoRecallHook(options: AutoRecallHookOptions): (event: Au
  * instead of the non-existent `/api/context` endpoint.
  * The user's actual prompt is passed as the search query for semantic matching.
  */
-async function fetchContext(client: ApiClient, userId: string, prompt: string, logger: Logger, maxResults = 5): Promise<AutoRecallResult | null> {
+async function fetchContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 5): Promise<AutoRecallResult | null> {
   // Truncate prompt to a reasonable length for the search query
   const searchQuery = prompt.substring(0, 500);
 
   const queryParams = new URLSearchParams({
     q: searchQuery,
-    limit: String(maxResults),
+    limit: String(max_results),
   });
 
   const response = await client.get<{
@@ -176,11 +176,11 @@ async function fetchContext(client: ApiClient, userId: string, prompt: string, l
       category: string;
       score?: number;
     }>;
-  }>(`/api/memories/search?${queryParams.toString()}`, { userId });
+  }>(`/api/memories/search?${queryParams.toString()}`, { user_id });
 
   if (!response.success) {
     logger.error('auto-recall API error', {
-      userId,
+      user_id,
       status: response.error.status,
       code: response.error.code,
     });
@@ -217,40 +217,40 @@ async function fetchContext(client: ApiClient, userId: string, prompt: string, l
  * information as memories.
  */
 export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: AutoCaptureEvent) => Promise<void> {
-  const { client, logger, config, userId, timeoutMs = DEFAULT_CAPTURE_TIMEOUT_MS } = options;
+  const { client, logger, config, user_id, timeoutMs = DEFAULT_CAPTURE_TIMEOUT_MS } = options;
 
   return async (event: AutoCaptureEvent): Promise<void> => {
     // Skip if auto-capture is disabled
     if (!config.autoCapture) {
-      logger.debug('auto-capture skipped: disabled in config', { userId });
+      logger.debug('auto-capture skipped: disabled in config', { user_id });
       return;
     }
 
     // Skip empty conversations
     if (!event.messages || event.messages.length === 0) {
-      logger.debug('auto-capture skipped: no messages', { userId });
+      logger.debug('auto-capture skipped: no messages', { user_id });
       return;
     }
 
     // Log without message content
     logger.info('auto-capture invoked', {
-      userId,
-      messageCount: event.messages.length,
+      user_id,
+      message_count: event.messages.length,
     });
 
     try {
       // Race between API call and timeout
       await Promise.race([
-        captureContext(client, userId, event.messages, logger),
+        captureContext(client, user_id, event.messages, logger),
         createTimeoutPromise<void>(timeoutMs, undefined).then(() => {
-          logger.warn('auto-capture timeout exceeded', { userId, timeoutMs });
+          logger.warn('auto-capture timeout exceeded', { user_id, timeoutMs });
         }),
       ]);
 
-      logger.debug('auto-capture completed', { userId });
+      logger.debug('auto-capture completed', { user_id });
     } catch (error) {
       logger.error('auto-capture failed', {
-        userId,
+        user_id,
         error: error instanceof Error ? error.message : String(error),
       });
       // Don't throw - hook errors should not crash the agent
@@ -261,18 +261,18 @@ export function createAutoCaptureHook(options: AutoCaptureHookOptions): (event: 
 /**
  * Capture context from conversation messages.
  */
-async function captureContext(client: ApiClient, userId: string, messages: AutoCaptureEvent['messages'], logger: Logger): Promise<void> {
+async function captureContext(client: ApiClient, user_id: string, messages: AutoCaptureEvent['messages'], logger: Logger): Promise<void> {
   // Filter out messages with sensitive content
   const filteredMessages = messages.filter((msg) => {
     if (containsSensitiveContent(msg.content)) {
-      logger.debug('auto-capture filtered sensitive message', { userId });
+      logger.debug('auto-capture filtered sensitive message', { user_id });
       return false;
     }
     return true;
   });
 
   if (filteredMessages.length === 0) {
-    logger.debug('auto-capture skipped: all messages filtered', { userId });
+    logger.debug('auto-capture skipped: all messages filtered', { user_id });
     return;
   }
 
@@ -283,14 +283,14 @@ async function captureContext(client: ApiClient, userId: string, messages: AutoC
     '/api/context/capture',
     {
       conversation: conversationSummary,
-      messageCount: filteredMessages.length,
+      message_count: filteredMessages.length,
     },
-    { userId },
+    { user_id },
   );
 
   if (!response.success) {
     logger.error('auto-capture API error', {
-      userId,
+      user_id,
       status: response.error.status,
       code: response.error.code,
     });
@@ -302,7 +302,7 @@ export interface GraphAwareRecallHookOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
   timeoutMs?: number;
 }
 
@@ -315,7 +315,7 @@ interface GraphAwareContextApiResponse {
     id: string;
     title: string;
     content: string;
-    memoryType: string;
+    memory_type: string;
     similarity: number;
     importance: number;
     confidence: number;
@@ -328,7 +328,7 @@ interface GraphAwareContextApiResponse {
     queryTimeMs: number;
     scopeCount: number;
     totalMemoriesFound: number;
-    searchType: string;
+    search_type: string;
     maxDepth: number;
   };
 }
@@ -344,45 +344,45 @@ interface GraphAwareContextApiResponse {
  * Part of Epic #486, Issue #497.
  */
 export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions): (event: AutoRecallEvent) => Promise<AutoRecallResult | null> {
-  const { client, logger, config, userId, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
+  const { client, logger, config, user_id, timeoutMs = DEFAULT_RECALL_TIMEOUT_MS } = options;
 
   return async (event: AutoRecallEvent): Promise<AutoRecallResult | null> => {
     // Skip if auto-recall is disabled
     if (!config.autoRecall) {
-      logger.debug('graph-aware-recall skipped: disabled in config', { userId });
+      logger.debug('graph-aware-recall skipped: disabled in config', { user_id });
       return null;
     }
 
     // Log without prompt content
     logger.info('graph-aware-recall invoked', {
-      userId,
+      user_id,
       promptLength: event.prompt.length,
     });
 
     try {
       // Race between API call and timeout
       const result = await Promise.race([
-        fetchGraphAwareContext(client, userId, event.prompt, logger, config.maxRecallMemories),
+        fetchGraphAwareContext(client, user_id, event.prompt, logger, config.maxRecallMemories),
         createTimeoutPromise<AutoRecallResult | null>(timeoutMs, null).then(() => {
-          logger.warn('graph-aware-recall timeout exceeded', { userId, timeoutMs });
+          logger.warn('graph-aware-recall timeout exceeded', { user_id, timeoutMs });
           return null;
         }),
       ]);
 
       if (result === null) {
-        logger.debug('graph-aware-recall returned no context', { userId });
+        logger.debug('graph-aware-recall returned no context', { user_id });
         return null;
       }
 
       logger.debug('graph-aware-recall completed', {
-        userId,
+        user_id,
         contextLength: result.prependContext.length,
       });
 
       return result;
     } catch (error) {
       logger.error('graph-aware-recall failed', {
-        userId,
+        user_id,
         error: error instanceof Error ? error.message : String(error),
       });
       return null;
@@ -397,7 +397,7 @@ export function createGraphAwareRecallHook(options: GraphAwareRecallHookOptions)
  * multi-scope semantic search across relationships.
  * Falls back to basic /api/memories/search if the graph-aware endpoint fails.
  */
-async function fetchGraphAwareContext(client: ApiClient, userId: string, prompt: string, logger: Logger, maxResults = 10): Promise<AutoRecallResult | null> {
+async function fetchGraphAwareContext(client: ApiClient, user_id: string, prompt: string, logger: Logger, max_results = 10): Promise<AutoRecallResult | null> {
   // Truncate prompt for the search query
   const searchPrompt = prompt.substring(0, 500);
 
@@ -406,18 +406,18 @@ async function fetchGraphAwareContext(client: ApiClient, userId: string, prompt:
     '/api/context/graph-aware',
     {
       prompt: searchPrompt,
-      maxMemories: maxResults,
+      maxMemories: max_results,
       maxDepth: 1,
     },
-    { userId },
+    { user_id },
   );
 
   if (graphResponse.success && graphResponse.data.context) {
     logger.debug('graph-aware context retrieved', {
-      userId,
+      user_id,
       memoryCount: graphResponse.data.memories.length,
       scopeCount: graphResponse.data.metadata.scopeCount,
-      searchType: graphResponse.data.metadata.searchType,
+      search_type: graphResponse.data.metadata.search_type,
       queryTimeMs: graphResponse.data.metadata.queryTimeMs,
     });
 
@@ -438,11 +438,11 @@ async function fetchGraphAwareContext(client: ApiClient, userId: string, prompt:
 
   // Fall back to basic memory search if graph-aware endpoint fails
   logger.debug('graph-aware endpoint unavailable, falling back to basic recall', {
-    userId,
+    user_id,
     graphError: graphResponse.success ? 'no context' : graphResponse.error.code,
   });
 
-  return fetchContext(client, userId, prompt, logger, maxResults);
+  return fetchContext(client, user_id, prompt, logger, max_results);
 }
 
 /**

@@ -42,7 +42,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
         deletedItemsRef.current = [item.id];
 
         setUndoState({
-          itemId: item.id,
+          item_id: item.id,
           itemTitle: item.title,
           onUndo: handleUndo,
         });
@@ -67,7 +67,7 @@ export function useWorkItemDelete(options: UseWorkItemDeleteOptions = {}): UseWo
         deletedItemsRef.current = items.map((i) => i.id);
 
         setUndoState({
-          itemId: items[0].id,
+          item_id: items[0].id,
           itemTitle: items[0].title,
           itemCount: items.length,
           onUndo: handleUndo,

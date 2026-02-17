@@ -26,9 +26,9 @@ describe('Postmark Inbound Webhook', () => {
   }
 
   function createPostmarkPayload(overrides: Partial<PostmarkInboundPayload> = {}): PostmarkInboundPayload {
-    const messageId = `${Date.now()}.${Math.random().toString(36).slice(2)}@postmark.test`;
+    const message_id = `${Date.now()}.${Math.random().toString(36).slice(2)}@postmark.test`;
     return {
-      MessageID: messageId,
+      MessageID: message_id,
       From: 'sender@example.com',
       FromFull: createPostmarkAddress('sender@example.com', 'Test Sender'),
       To: 'recipient@example.com',
@@ -36,7 +36,7 @@ describe('Postmark Inbound Webhook', () => {
       Subject: 'Test Email Subject',
       TextBody: 'This is the plain text body.',
       HtmlBody: '<p>This is the <strong>HTML</strong> body.</p>',
-      Headers: [{ Name: 'Message-ID', Value: `<${messageId}>` }],
+      Headers: [{ Name: 'Message-ID', Value: `<${message_id}>` }],
       Date: new Date().toISOString(),
       ...overrides,
     };
@@ -82,8 +82,8 @@ describe('Postmark Inbound Webhook', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json().success).toBe(true);
-      expect(response.json().contactId).toBeDefined();
-      expect(response.json().messageId).toBeDefined();
+      expect(response.json().contact_id).toBeDefined();
+      expect(response.json().message_id).toBeDefined();
 
       // Verify contact was created
       const contactResult = await pool.query(
@@ -173,7 +173,7 @@ describe('Postmark Inbound Webhook', () => {
         url: '/api/postmark/inbound',
         payload: originalPayload,
       });
-      const originalThreadId = response1.json().threadId;
+      const originalThreadId = response1.json().thread_id;
 
       // Create reply with In-Reply-To header
       const replyPayload = createPostmarkPayload({
@@ -190,7 +190,7 @@ describe('Postmark Inbound Webhook', () => {
         url: '/api/postmark/inbound',
         payload: replyPayload,
       });
-      const replyThreadId = response2.json().threadId;
+      const replyThreadId = response2.json().thread_id;
 
       // Both should be in the same thread
       expect(replyThreadId).toBe(originalThreadId);
@@ -261,12 +261,12 @@ describe('Postmark Inbound Webhook', () => {
       expect(attachments).toHaveLength(2);
       expect(attachments[0]).toEqual({
         name: 'document.pdf',
-        contentType: 'application/pdf',
+        content_type: 'application/pdf',
         size: 12345,
       });
       expect(attachments[1]).toEqual({
         name: 'image.png',
-        contentType: 'image/png',
+        content_type: 'image/png',
         size: 67890,
         contentId: 'cid:image1',
       });

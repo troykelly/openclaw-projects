@@ -66,7 +66,7 @@ export function mapApiTreeToTreeItems(apiItems: WorkItemTreeNode[]): TreeItem[] 
     title: item.title,
     kind: item.kind as TreeItemKind,
     status: item.status as 'not_started' | 'in_progress' | 'blocked' | 'done' | 'cancelled',
-    parentId: item.parent_id,
+    parent_id: item.parent_id,
     childCount: item.children_count,
     children: item.children.length > 0 ? mapApiTreeToTreeItems(item.children) : undefined,
   }));

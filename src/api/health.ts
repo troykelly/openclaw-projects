@@ -4,7 +4,7 @@ export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
 export interface HealthCheckResult {
   status: HealthStatus;
-  latencyMs: number;
+  latency_ms: number;
   details?: Record<string, unknown>;
 }
 
@@ -16,7 +16,7 @@ export interface HealthChecker {
 
 export interface ComponentHealth {
   status: HealthStatus;
-  latencyMs: number;
+  latency_ms: number;
   details?: Record<string, unknown>;
 }
 
@@ -36,21 +36,21 @@ export class DatabaseHealthChecker implements HealthChecker {
     const start = Date.now();
     try {
       await this.pool.query('SELECT 1');
-      const latencyMs = Date.now() - start;
+      const latency_ms = Date.now() - start;
 
       return {
         status: 'healthy',
-        latencyMs,
+        latency_ms,
         details: {
-          poolTotal: this.pool.totalCount,
-          poolIdle: this.pool.idleCount,
-          poolWaiting: this.pool.waitingCount,
+          pool_total: this.pool.totalCount,
+          pool_idle: this.pool.idleCount,
+          pool_waiting: this.pool.waitingCount,
         },
       };
     } catch {
       return {
         status: 'unhealthy',
-        latencyMs: Date.now() - start,
+        latency_ms: Date.now() - start,
         details: { error: 'Database connection failed' },
       };
     }
@@ -72,7 +72,7 @@ export class HealthCheckRegistry {
       const result = await checker.check();
       components[checker.name] = {
         status: result.status,
-        latencyMs: result.latencyMs,
+        latency_ms: result.latency_ms,
         details: result.details,
       };
 

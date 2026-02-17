@@ -55,8 +55,8 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       });
 
       expect(requestRes.statusCode).toBe(201);
-      const { loginUrl } = requestRes.json() as { loginUrl: string };
-      const token = new URL(loginUrl).searchParams.get('token')!;
+      const { login_url } = requestRes.json() as { login_url: string };
+      const token = new URL(login_url).searchParams.get('token')!;
 
       // Step 2: First use - should succeed (POST with token in body)
       const firstUse = await app.inject({
@@ -66,8 +66,8 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       });
 
       expect(firstUse.statusCode).toBe(200);
-      const firstBody = firstUse.json() as { accessToken?: string };
-      expect(firstBody.accessToken).toBeDefined();
+      const firstBody = firstUse.json() as { access_token?: string };
+      expect(firstBody.access_token).toBeDefined();
 
       // Step 3: Second use - should fail (token already consumed)
       const secondUse = await app.inject({
@@ -91,8 +91,8 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
         payload: { email: testEmail },
       });
 
-      const { loginUrl } = requestRes.json() as { loginUrl: string };
-      const token = new URL(loginUrl).searchParams.get('token')!;
+      const { login_url } = requestRes.json() as { login_url: string };
+      const token = new URL(login_url).searchParams.get('token')!;
 
       // Manually expire the token in the database
       await pool.query(`UPDATE auth_magic_link SET expires_at = NOW() - INTERVAL '1 hour' WHERE email = $1`, [testEmail]);
@@ -132,7 +132,7 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
   });
 
   describe('User Experience', () => {
-    it('returns JSON with accessToken for API requests', async () => {
+    it('returns JSON with access_token for API requests', async () => {
       const testEmail = 'api@example.com';
 
       // Request a link
@@ -142,8 +142,8 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
         payload: { email: testEmail },
       });
 
-      const { loginUrl } = requestRes.json() as { loginUrl: string };
-      const token = new URL(loginUrl).searchParams.get('token')!;
+      const { login_url } = requestRes.json() as { login_url: string };
+      const token = new URL(login_url).searchParams.get('token')!;
 
       // Consume token
       const res = await app.inject({
@@ -153,9 +153,9 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { accessToken?: string };
-      expect(body.accessToken).toBeDefined();
-      expect(typeof body.accessToken).toBe('string');
+      const body = res.json() as { access_token?: string };
+      expect(body.access_token).toBeDefined();
+      expect(typeof body.access_token).toBe('string');
     });
 
     it('sets refresh cookie on successful authentication', async () => {
@@ -168,8 +168,8 @@ describe('Magic Link Single-Use Security (Issue #781)', () => {
         payload: { email: testEmail },
       });
 
-      const { loginUrl } = requestRes.json() as { loginUrl: string };
-      const token = new URL(loginUrl).searchParams.get('token')!;
+      const { login_url } = requestRes.json() as { login_url: string };
+      const token = new URL(login_url).searchParams.get('token')!;
 
       // Consume token
       const res = await app.inject({

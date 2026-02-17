@@ -29,10 +29,10 @@ function makeMicrosoftDriveItem(overrides: Record<string, unknown> = {}) {
     size: 54321,
     createdDateTime: '2025-01-15T10:30:00Z',
     lastModifiedDateTime: '2025-06-20T14:00:00Z',
-    webUrl: 'https://onedrive.live.com/redir?resid=item-abc',
+    web_url: 'https://onedrive.live.com/redir?resid=item-abc',
     file: { mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
     parentReference: { id: 'parent-folder-1', path: '/drive/root:/Documents' },
-    '@microsoft.graph.downloadUrl': 'https://download.example.com/item-abc?token=xyz',
+    '@microsoft.graph.download_url': 'https://download.example.com/item-abc?token=xyz',
     thumbnails: [{ large: { url: 'https://thumb.example.com/item-abc' } }],
     ...overrides,
   };
@@ -45,7 +45,7 @@ function makeMicrosoftFolder(overrides: Record<string, unknown> = {}) {
     size: 0,
     createdDateTime: '2025-01-01T00:00:00Z',
     lastModifiedDateTime: '2025-06-01T00:00:00Z',
-    webUrl: 'https://onedrive.live.com/redir?resid=folder-xyz',
+    web_url: 'https://onedrive.live.com/redir?resid=folder-xyz',
     folder: { childCount: 5 },
     parentReference: { id: 'root', path: '/drive/root:' },
     ...overrides,
@@ -53,7 +53,7 @@ function makeMicrosoftFolder(overrides: Record<string, unknown> = {}) {
 }
 
 describe('microsoft — listDriveItems', () => {
-  it('should list files from root when no folderId', async () => {
+  it('should list files from root when no folder_id', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -75,21 +75,21 @@ describe('microsoft — listDriveItems', () => {
     const file = result.files[0];
     expect(file.id).toBe('item-abc');
     expect(file.name).toBe('document.docx');
-    expect(file.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    expect(file.mime_type).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     expect(file.size).toBe(54321);
-    expect(file.isFolder).toBe(false);
+    expect(file.is_folder).toBe(false);
     expect(file.provider).toBe('microsoft');
-    expect(file.connectionId).toBe('conn-1');
-    expect(file.downloadUrl).toBe('https://download.example.com/item-abc?token=xyz');
-    expect(file.parentId).toBe('parent-folder-1');
+    expect(file.connection_id).toBe('conn-1');
+    expect(file.download_url).toBe('https://download.example.com/item-abc?token=xyz');
+    expect(file.parent_id).toBe('parent-folder-1');
 
     // Folder
     const folder = result.files[1];
     expect(folder.id).toBe('folder-xyz');
     expect(folder.name).toBe('Documents');
-    expect(folder.isFolder).toBe(true);
+    expect(folder.is_folder).toBe(true);
 
-    expect(result.nextPageToken).toBe('https://graph.microsoft.com/v1.0/me/drive/root/children?$skiptoken=abc');
+    expect(result.next_page_token).toBe('https://graph.microsoft.com/v1.0/me/drive/root/children?$skiptoken=abc');
   });
 
   it('should list files from a specific folder', async () => {
@@ -104,7 +104,7 @@ describe('microsoft — listDriveItems', () => {
     expect(url).toContain('/me/drive/items/folder-123/children');
   });
 
-  it('should use pageToken as direct URL for pagination', async () => {
+  it('should use page_token as direct URL for pagination', async () => {
     const pageUrl = 'https://graph.microsoft.com/v1.0/me/drive/root/children?$skiptoken=page2';
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -126,7 +126,7 @@ describe('microsoft — listDriveItems', () => {
 
     await expect(listDriveItems('bad-tok', 'conn-1')).rejects.toMatchObject({
       code: 'FILES_LIST_FAILED',
-      statusCode: 401,
+      status_code: 401,
     });
   });
 
@@ -148,10 +148,10 @@ describe('microsoft — listDriveItems', () => {
     const file = result.files[0];
     expect(file.id).toBe('min-item');
     expect(file.size).toBeUndefined();
-    expect(file.downloadUrl).toBeUndefined();
-    expect(file.thumbnailUrl).toBeUndefined();
-    expect(file.parentId).toBeUndefined();
-    expect(file.isFolder).toBe(false);
+    expect(file.download_url).toBeUndefined();
+    expect(file.thumbnail_url).toBeUndefined();
+    expect(file.parent_id).toBeUndefined();
+    expect(file.is_folder).toBe(false);
   });
 });
 
@@ -200,7 +200,7 @@ describe('microsoft — getDriveItem', () => {
     expect(result.id).toBe('item-abc');
     expect(result.name).toBe('document.docx');
     expect(result.provider).toBe('microsoft');
-    expect(result.connectionId).toBe('conn-1');
+    expect(result.connection_id).toBe('conn-1');
   });
 
   it('should throw OAuthError on 404', async () => {
@@ -212,7 +212,7 @@ describe('microsoft — getDriveItem', () => {
 
     await expect(getDriveItem('tok', 'conn-1', 'no-such')).rejects.toMatchObject({
       code: 'FILE_NOT_FOUND',
-      statusCode: 404,
+      status_code: 404,
     });
   });
 });

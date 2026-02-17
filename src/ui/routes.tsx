@@ -62,8 +62,8 @@ function lazy(Component: React.LazyExoticComponent<React.ComponentType>): React.
  *   /work-items/:id -> WorkItemDetailPage
  *   /work-items/:id/timeline -> ItemTimelinePage
  *   /work-items/:id/graph -> DependencyGraphPage
- *   /projects/:projectId -> ProjectDetailPage (list view)
- *   /projects/:projectId/:view -> ProjectDetailPage (board|tree|calendar view)
+ *   /projects/:project_id -> ProjectDetailPage (list view)
+ *   /projects/:project_id/:view -> ProjectDetailPage (board|tree|calendar view)
  *   /kanban -> KanbanPage
  *   /timeline -> GlobalTimelinePage
  *   /contacts -> ContactsPage
@@ -112,11 +112,11 @@ export const routes: RouteObject[] = [
         element: lazy(DependencyGraphPage),
       },
       {
-        path: 'projects/:projectId',
+        path: 'projects/:project_id',
         element: lazy(ProjectDetailPage),
       },
       {
-        path: 'projects/:projectId/:view',
+        path: 'projects/:project_id/:view',
         element: lazy(ProjectDetailPage),
       },
       {
@@ -145,7 +145,7 @@ export const routes: RouteObject[] = [
         ],
       },
       {
-        path: 'notebooks/:notebookId',
+        path: 'notebooks/:notebook_id',
         children: [
           { index: true, element: lazy(NotesPage) },
           { path: 'notes/:noteId', element: lazy(NotesPage) },

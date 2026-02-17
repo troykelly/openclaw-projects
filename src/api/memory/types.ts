@@ -5,6 +5,8 @@
  * Relationship scope added in Issue #493
  * Geolocation fields added in Epic #1204
  * Project scope added in Issue #1273
+ *
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
 /** Valid memory types */
@@ -13,25 +15,25 @@ export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context'
 /** Memory scoping options */
 export interface MemoryScope {
   /** User email for global scope */
-  userEmail?: string;
+  user_email?: string;
   /** Work item ID for work item scope */
-  workItemId?: string;
+  work_item_id?: string;
   /** Contact ID for contact scope */
-  contactId?: string;
+  contact_id?: string;
   /** Relationship ID for relationship scope (e.g., anniversaries, interpersonal metadata) */
-  relationshipId?: string;
+  relationship_id?: string;
   /** Project ID for project scope (FK to work_item of kind 'project') */
-  projectId?: string;
+  project_id?: string;
 }
 
 /** Attribution metadata for a memory */
 export interface MemoryAttribution {
   /** Agent that created this memory */
-  createdByAgent?: string;
+  created_by_agent?: string;
   /** Whether created by a human (vs agent) */
-  createdByHuman?: boolean;
+  created_by_human?: boolean;
   /** Source URL for external references */
-  sourceUrl?: string;
+  source_url?: string;
 }
 
 /** Lifecycle metadata for a memory */
@@ -41,16 +43,16 @@ export interface MemoryLifecycle {
   /** Confidence score 0-1 */
   confidence?: number;
   /** When the memory expires (for temporary context) */
-  expiresAt?: Date;
+  expires_at?: Date;
   /** ID of memory that supersedes this one */
-  supersededBy?: string;
+  superseded_by?: string;
 }
 
 /** Input for creating a new memory */
 export interface CreateMemoryInput extends MemoryScope, MemoryAttribution, MemoryLifecycle {
   title: string;
   content: string;
-  memoryType?: MemoryType;
+  memory_type?: MemoryType;
   /** Freeform text tags for categorical filtering */
   tags?: string[];
   /** WGS84 latitude (-90 to 90) */
@@ -60,18 +62,18 @@ export interface CreateMemoryInput extends MemoryScope, MemoryAttribution, Memor
   /** Reverse-geocoded address */
   address?: string;
   /** Short human-friendly place name */
-  placeLabel?: string;
+  place_label?: string;
 }
 
 /** Input for updating a memory */
 export interface UpdateMemoryInput {
   title?: string;
   content?: string;
-  memoryType?: MemoryType;
+  memory_type?: MemoryType;
   importance?: number;
   confidence?: number;
-  expiresAt?: Date | null;
-  supersededBy?: string | null;
+  expires_at?: Date | null;
+  superseded_by?: string | null;
   /** Freeform text tags for categorical filtering */
   tags?: string[];
 }
@@ -79,26 +81,26 @@ export interface UpdateMemoryInput {
 /** A memory entry from the database */
 export interface MemoryEntry {
   id: string;
-  userEmail: string | null;
-  workItemId: string | null;
-  contactId: string | null;
+  user_email: string | null;
+  work_item_id: string | null;
+  contact_id: string | null;
   /** Relationship this memory is scoped to (e.g., anniversaries, interpersonal metadata) */
-  relationshipId: string | null;
+  relationship_id: string | null;
   /** Project this memory is scoped to (FK to work_item of kind 'project') */
-  projectId: string | null;
+  project_id: string | null;
   title: string;
   content: string;
-  memoryType: MemoryType;
+  memory_type: MemoryType;
   /** Freeform text tags for categorical filtering */
   tags: string[];
-  createdByAgent: string | null;
-  createdByHuman: boolean;
-  sourceUrl: string | null;
+  created_by_agent: string | null;
+  created_by_human: boolean;
+  source_url: string | null;
   importance: number;
   confidence: number;
-  expiresAt: Date | null;
-  supersededBy: string | null;
-  embeddingStatus: 'pending' | 'complete' | 'failed';
+  expires_at: Date | null;
+  superseded_by: string | null;
+  embedding_status: 'pending' | 'complete' | 'failed';
   /** WGS84 latitude */
   lat: number | null;
   /** WGS84 longitude */
@@ -106,25 +108,25 @@ export interface MemoryEntry {
   /** Reverse-geocoded address */
   address: string | null;
   /** Short human-friendly place name */
-  placeLabel: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  place_label: string | null;
+  created_at: Date;
+  updated_at: Date;
   /** Number of file attachments (Issue #1271), populated when joined */
-  attachmentCount?: number;
+  attachment_count?: number;
 }
 
 /** Query options for listing memories */
 export interface ListMemoriesOptions extends MemoryScope {
   status?: 'pending' | 'dispatched' | 'failed';
-  memoryType?: MemoryType;
+  memory_type?: MemoryType;
   /** Filter to memories containing all of these tags */
   tags?: string[];
-  includeExpired?: boolean;
-  includeSuperseded?: boolean;
+  include_expired?: boolean;
+  include_superseded?: boolean;
   /** Only include memories created at or after this date (issue #1272) */
-  createdAfter?: Date;
+  created_after?: Date;
   /** Only include memories created before this date (issue #1272) */
-  createdBefore?: Date;
+  created_before?: Date;
   limit?: number;
   offset?: number;
 }
@@ -138,20 +140,20 @@ export interface ListMemoriesResult {
 /** Result of semantic memory search */
 export interface MemorySearchResult {
   results: Array<MemoryEntry & { similarity: number }>;
-  searchType: 'semantic' | 'text';
-  queryEmbeddingProvider?: string;
+  search_type: 'semantic' | 'text';
+  query_embedding_provider?: string;
 }
 
 /** Options for semantic search */
 export interface SearchMemoriesOptions extends MemoryScope {
-  memoryType?: MemoryType;
+  memory_type?: MemoryType;
   /** Filter to memories containing all of these tags */
   tags?: string[];
   /** Only include memories created at or after this date (issue #1272) */
-  createdAfter?: Date;
+  created_after?: Date;
   /** Only include memories created before this date (issue #1272) */
-  createdBefore?: Date;
+  created_before?: Date;
   limit?: number;
   offset?: number;
-  minSimilarity?: number;
+  min_similarity?: number;
 }

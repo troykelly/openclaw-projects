@@ -14,22 +14,22 @@ export const memoryKeys = {
   all: ['memories'] as const,
   lists: () => [...memoryKeys.all, 'list'] as const,
   list: () => [...memoryKeys.lists()] as const,
-  forWorkItem: (workItemId: string) => [...memoryKeys.all, 'work-item', workItemId] as const,
-  forProject: (projectId: string) => [...memoryKeys.all, 'project', projectId] as const,
-  attachments: (memoryId: string) => [...memoryKeys.all, memoryId, 'attachments'] as const,
+  forWorkItem: (work_item_id: string) => [...memoryKeys.all, 'work-item', work_item_id] as const,
+  forProject: (project_id: string) => [...memoryKeys.all, 'project', project_id] as const,
+  attachments: (memory_id: string) => [...memoryKeys.all, memory_id, 'attachments'] as const,
 };
 
 /**
  * Fetch memories attached to a specific work item.
  *
- * @param workItemId - The work item UUID
+ * @param work_item_id - The work item UUID
  * @returns TanStack Query result with `WorkItemMemoriesResponse`
  */
-export function useWorkItemMemories(workItemId: string) {
+export function useWorkItemMemories(work_item_id: string) {
   return useQuery({
-    queryKey: memoryKeys.forWorkItem(workItemId),
-    queryFn: ({ signal }) => apiClient.get<WorkItemMemoriesResponse>(`/api/work-items/${workItemId}/memories`, { signal }),
-    enabled: !!workItemId,
+    queryKey: memoryKeys.forWorkItem(work_item_id),
+    queryFn: ({ signal }) => apiClient.get<WorkItemMemoriesResponse>(`/api/work-items/${work_item_id}/memories`, { signal }),
+    enabled: !!work_item_id,
   });
 }
 
@@ -48,27 +48,27 @@ export function useMemories() {
 /**
  * Fetch memories scoped to a specific project.
  *
- * @param projectId - The project UUID
+ * @param project_id - The project UUID
  * @returns TanStack Query result with `MemoryListResponse`
  */
-export function useProjectMemories(projectId: string) {
+export function useProjectMemories(project_id: string) {
   return useQuery({
-    queryKey: memoryKeys.forProject(projectId),
-    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/projects/${projectId}/memories`, { signal }),
-    enabled: !!projectId,
+    queryKey: memoryKeys.forProject(project_id),
+    queryFn: ({ signal }) => apiClient.get<MemoryListResponse>(`/api/projects/${project_id}/memories`, { signal }),
+    enabled: !!project_id,
   });
 }
 
 /**
  * Fetch file attachments for a specific memory (Issue #1271).
  *
- * @param memoryId - The memory UUID
+ * @param memory_id - The memory UUID
  * @returns TanStack Query result with `MemoryAttachmentsResponse`
  */
-export function useMemoryAttachments(memoryId: string) {
+export function useMemoryAttachments(memory_id: string) {
   return useQuery({
-    queryKey: memoryKeys.attachments(memoryId),
-    queryFn: ({ signal }) => apiClient.get<MemoryAttachmentsResponse>(`/api/memories/${memoryId}/attachments`, { signal }),
-    enabled: !!memoryId,
+    queryKey: memoryKeys.attachments(memory_id),
+    queryFn: ({ signal }) => apiClient.get<MemoryAttachmentsResponse>(`/api/memories/${memory_id}/attachments`, { signal }),
+    enabled: !!memory_id,
   });
 }

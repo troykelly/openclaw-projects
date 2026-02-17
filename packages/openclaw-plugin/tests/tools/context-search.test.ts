@@ -120,7 +120,7 @@ describe('context_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.name).toBe('context_search');
     });
@@ -130,7 +130,7 @@ describe('context_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -141,7 +141,7 @@ describe('context_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -153,7 +153,7 @@ describe('context_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({} as ContextSearchParams);
@@ -168,7 +168,7 @@ describe('context_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: '   ' });
@@ -213,7 +213,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'production city' });
@@ -232,7 +232,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', entity_types: ['memory'] });
@@ -249,7 +249,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', entity_types: ['todo'] });
@@ -266,7 +266,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', entity_types: ['project'] });
@@ -283,7 +283,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', entity_types: ['todo', 'memory'] });
@@ -298,7 +298,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', entity_types: ['message'] });
@@ -316,7 +316,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', entity_types: ['memory', 'message'] });
@@ -334,7 +334,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       await tool.execute({ query: 'test', entity_types: ['message'] });
@@ -351,7 +351,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       await tool.execute({ query: 'test' });
@@ -368,7 +368,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       await tool.execute({ query: 'test' });
@@ -423,7 +423,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -450,7 +450,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -469,7 +469,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -494,7 +494,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -520,7 +520,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -546,7 +546,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -572,7 +572,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -606,7 +606,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', limit: 5 });
@@ -622,7 +622,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'nonexistent xyz' });
@@ -646,7 +646,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', entity_types: ['todo'] });
@@ -670,7 +670,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', entity_types: ['project'] });
@@ -700,7 +700,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'investor deck' });
@@ -727,7 +727,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -754,7 +754,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', entity_types: ['message'] });
@@ -776,7 +776,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', entity_types: ['message'] });
@@ -797,7 +797,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -841,7 +841,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -882,7 +882,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -922,7 +922,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -958,7 +958,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -1000,7 +1000,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -1020,7 +1020,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -1081,7 +1081,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'production city' });
@@ -1137,7 +1137,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'investor deck' });
@@ -1168,7 +1168,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'nonexistent' });
@@ -1200,7 +1200,7 @@ describe('context_search tool', () => {
         client,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test\x00\x01query' });

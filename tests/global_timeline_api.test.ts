@@ -155,14 +155,14 @@ describe('Global Timeline API', () => {
          VALUES ('Project', 'project', '2024-03-01')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       // Create an initiative under project
       const initiative = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId],
+        [project_id],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -191,13 +191,13 @@ describe('Global Timeline API', () => {
          VALUES ('Project', 'project', '2024-03-01')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       const initiative = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId],
+        [project_id],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -223,13 +223,13 @@ describe('Global Timeline API', () => {
          VALUES ('Project', 'project', '2024-03-01')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       const initiative = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId],
+        [project_id],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -247,7 +247,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?parent_id=${projectId}`,
+        url: `/api/timeline?parent_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -310,13 +310,13 @@ describe('Global Timeline API', () => {
          VALUES ('Project', 'project', '2024-03-01')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       const initiative = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before)
          VALUES ('Initiative', 'initiative', $1, '2024-03-01')
          RETURNING id::text as id`,
-        [projectId],
+        [project_id],
       );
       const initiativeId = (initiative.rows[0] as { id: string }).id;
 
@@ -328,7 +328,7 @@ describe('Global Timeline API', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?parent_id=${projectId}`,
+        url: `/api/timeline?parent_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);

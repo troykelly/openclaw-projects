@@ -20,7 +20,7 @@ export interface TeamMember {
 export interface WorkAssignment {
   id: string;
   title: string;
-  memberId: string;
+  member_id: string;
   hours: number;
   startDate?: string;
   endDate?: string;
@@ -31,7 +31,7 @@ export interface WorkAssignment {
  * Summary of workload for a team member
  */
 export interface WorkloadSummary {
-  memberId: string;
+  member_id: string;
   totalHours: number;
   capacityHours: number;
   utilizationPercent: number;
@@ -52,14 +52,14 @@ export function calculateUtilization(assignedHours: number, capacityHours: numbe
 
 /**
  * Calculate total workload per team member
- * @returns Map of memberId -> total hours
+ * @returns Map of member_id -> total hours
  */
 export function calculateWorkload(assignments: WorkAssignment[]): Map<string, number> {
   const workload = new Map<string, number>();
 
   for (const assignment of assignments) {
-    const current = workload.get(assignment.memberId) || 0;
-    workload.set(assignment.memberId, current + assignment.hours);
+    const current = workload.get(assignment.member_id) || 0;
+    workload.set(assignment.member_id, current + assignment.hours);
   }
 
   return workload;
@@ -110,14 +110,14 @@ export function getUtilizationStatus(utilizationPercent: number): 'low' | 'mediu
  * Calculate workload summary for a team member
  */
 export function getWorkloadSummary(member: TeamMember, assignments: WorkAssignment[]): WorkloadSummary {
-  const memberAssignments = assignments.filter((a) => a.memberId === member.id);
+  const memberAssignments = assignments.filter((a) => a.member_id === member.id);
   const totalHours = memberAssignments.reduce((sum, a) => sum + a.hours, 0);
   const utilizationPercent = calculateUtilization(totalHours, member.hoursPerWeek);
   const isOverallocated = utilizationPercent > 100;
   const availableHours = Math.max(0, member.hoursPerWeek - totalHours);
 
   return {
-    memberId: member.id,
+    member_id: member.id,
     totalHours,
     capacityHours: member.hoursPerWeek,
     utilizationPercent,

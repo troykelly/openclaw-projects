@@ -107,7 +107,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Troy',
+          display_name: 'Troy',
           preferred_channel: 'telegram',
         },
       });
@@ -122,7 +122,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Alex',
+          display_name: 'Alex',
           quiet_hours_start: '23:00',
           quiet_hours_end: '08:00',
           quiet_hours_timezone: 'Australia/Sydney',
@@ -141,7 +141,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Jordan',
+          display_name: 'Jordan',
           preferred_channel: 'email',
           quiet_hours_start: '22:00',
           quiet_hours_end: '07:00',
@@ -165,7 +165,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Legacy Contact' },
+        payload: { display_name: 'Legacy Contact' },
       });
 
       expect(res.statusCode).toBe(201);
@@ -183,7 +183,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Bad Channel',
+          display_name: 'Bad Channel',
           preferred_channel: 'carrier_pigeon',
         },
       });
@@ -198,7 +198,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Bad Override',
+          display_name: 'Bad Override',
           urgency_override_channel: 'fax',
         },
       });
@@ -217,7 +217,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Comm Prefs Test',
+          display_name: 'Comm Prefs Test',
           preferred_channel: 'sms',
           quiet_hours_start: '21:00',
           quiet_hours_end: '06:30',
@@ -226,11 +226,11 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
           notification_notes: 'Text first, call if urgent',
         },
       });
-      const contactId = createRes.json().id;
+      const contact_id = createRes.json().id;
 
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
       });
 
       expect(getRes.statusCode).toBe(200);
@@ -251,13 +251,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Update Test', preferred_channel: 'email' },
+        payload: { display_name: 'Update Test', preferred_channel: 'email' },
       });
-      const contactId = createRes.json().id;
+      const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
         payload: { preferred_channel: 'telegram' },
       });
 
@@ -269,13 +269,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Quiet Hours Test' },
+        payload: { display_name: 'Quiet Hours Test' },
       });
-      const contactId = createRes.json().id;
+      const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
         payload: {
           quiet_hours_start: '23:00',
           quiet_hours_end: '07:00',
@@ -294,13 +294,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Clear Test', preferred_channel: 'sms' },
+        payload: { display_name: 'Clear Test', preferred_channel: 'sms' },
       });
-      const contactId = createRes.json().id;
+      const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
         payload: { preferred_channel: null },
       });
 
@@ -312,13 +312,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Notes Test' },
+        payload: { display_name: 'Notes Test' },
       });
-      const contactId = createRes.json().id;
+      const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
         payload: { notification_notes: 'Prefers morning messages' },
       });
 
@@ -330,13 +330,13 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Invalid Update' },
+        payload: { display_name: 'Invalid Update' },
       });
-      const contactId = createRes.json().id;
+      const contact_id = createRes.json().id;
 
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
         payload: { preferred_channel: 'invalid_channel' },
       });
 
@@ -352,7 +352,7 @@ describe('Contact Communication Preferences (Issue #1269)', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'Partial Quiet Hours',
+          display_name: 'Partial Quiet Hours',
           quiet_hours_start: '23:00',
           // missing quiet_hours_end
         },

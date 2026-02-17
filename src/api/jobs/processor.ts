@@ -39,10 +39,10 @@ export async function claimJobs(pool: Pool, workerId: string, limit: number = 10
        last_error as "lastError",
        locked_at as "lockedAt",
        locked_by as "lockedBy",
-       completed_at as "completedAt",
-       idempotency_key as "idempotencyKey",
-       created_at as "createdAt",
-       updated_at as "updatedAt"
+       completed_at as "completed_at",
+       idempotency_key as "idempotency_key",
+       created_at as "created_at",
+       updated_at as "updated_at"
      FROM internal_job_claim($1, $2)`,
     [workerId, limit],
   );
@@ -79,7 +79,7 @@ export async function failJob(pool: Pool, jobId: string, error: string, retrySec
  * Fetches work item details and enqueues a webhook.
  */
 async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
-  const workItemId = job.payload.work_item_id as string;
+  const work_item_id = job.payload.work_item_id as string;
   const notBefore = new Date(job.payload.not_before as string);
 
   // Fetch work item details
@@ -93,13 +93,13 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
        user_email
      FROM work_item
      WHERE id = $1`,
-    [workItemId],
+    [work_item_id],
   );
 
   if (workItemResult.rows.length === 0) {
     return {
       success: false,
-      error: `Work item ${workItemId} not found`,
+      error: `Work item ${work_item_id} not found`,
     };
   }
 
@@ -119,20 +119,20 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
 
   // Build the webhook payload
   const payload = buildReminderDuePayload({
-    workItemId: workItem.id,
-    workItemTitle: workItem.title,
-    workItemDescription: workItem.description || undefined,
-    workItemKind: workItem.kind,
-    notBefore,
-    agentId: workItem.user_email || undefined,
+    work_item_id: workItem.id,
+    work_item_title: workItem.title,
+    work_item_description: workItem.description || undefined,
+    work_item_kind: workItem.kind,
+    not_before: notBefore,
+    agent_id: workItem.user_email || undefined,
   });
 
   const destination = getWebhookDestination('reminder_due');
-  const idempotencyKey = `reminder:${workItemId}:${notBefore.toISOString().split('T')[0]}`;
+  const idempotency_key = `reminder:${work_item_id}:${notBefore.toISOString().split('T')[0]}`;
 
   // Enqueue the webhook
   await enqueueWebhook(pool, 'reminder.work_item.not_before', destination, payload, {
-    idempotencyKey,
+    idempotency_key,
   });
 
   return { success: true };
@@ -143,7 +143,7 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
  * Fetches work item details and enqueues a webhook.
  */
 async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
-  const workItemId = job.payload.work_item_id as string;
+  const work_item_id = job.payload.work_item_id as string;
   const notAfter = new Date(job.payload.not_after as string);
 
   // Fetch work item details
@@ -156,13 +156,13 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
        user_email
      FROM work_item
      WHERE id = $1`,
-    [workItemId],
+    [work_item_id],
   );
 
   if (workItemResult.rows.length === 0) {
     return {
       success: false,
-      error: `Work item ${workItemId} not found`,
+      error: `Work item ${work_item_id} not found`,
     };
   }
 
@@ -184,20 +184,20 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
 
   // Build the webhook payload
   const payload = buildDeadlineApproachingPayload({
-    workItemId: workItem.id,
-    workItemTitle: workItem.title,
-    workItemKind: workItem.kind,
-    notAfter,
-    hoursRemaining,
-    agentId: workItem.user_email || undefined,
+    work_item_id: workItem.id,
+    work_item_title: workItem.title,
+    work_item_kind: workItem.kind,
+    not_after: notAfter,
+    hours_remaining: hoursRemaining,
+    agent_id: workItem.user_email || undefined,
   });
 
   const destination = getWebhookDestination('deadline_approaching');
-  const idempotencyKey = `nudge:${workItemId}:${notAfter.toISOString().split('T')[0]}`;
+  const idempotency_key = `nudge:${work_item_id}:${notAfter.toISOString().split('T')[0]}`;
 
   // Enqueue the webhook
   await enqueueWebhook(pool, 'nudge.work_item.not_after', destination, payload, {
-    idempotencyKey,
+    idempotency_key,
   });
 
   return { success: true };
@@ -292,10 +292,10 @@ async function handleScheduledProcessJob(pool: Pool, job: InternalJob): Promise<
 
   try {
     // Enqueue to webhook_outbox for reliable delivery
-    const idempotencyKey = `schedule:${schedule.id}:${new Date().toISOString().slice(0, 16)}`;
+    const idempotency_key = `schedule:${schedule.id}:${new Date().toISOString().slice(0, 16)}`;
     await enqueueWebhook(pool, 'skill_store.scheduled_process', schedule.webhook_url, webhookBody, {
       headers: schedule.webhook_headers || undefined,
-      idempotencyKey,
+      idempotency_key,
     });
 
     // Update schedule with success; reset consecutive_failures and advance next_run_at (Issue #825, #1356)

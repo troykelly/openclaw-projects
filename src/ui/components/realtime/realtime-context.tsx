@@ -62,7 +62,7 @@ export function useRealtimeOptional(): RealtimeContextValue | null {
 interface EventHandler {
   eventType: RealtimeEventType;
   handler: (event: RealtimeEvent) => void;
-  entityId?: string;
+  entity_id?: string;
 }
 
 export function RealtimeProvider({ url, children, reconnectOptions: userReconnectOptions, onStatusChange, onError, getAccessToken, onTokenRefreshed }: RealtimeProviderProps) {
@@ -165,10 +165,10 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
             // Dispatch to handlers
             eventHandlersRef.current.forEach((handler) => {
               if (handler.eventType === message.event!.type) {
-                // If entityId filter specified, check payload
-                if (handler.entityId) {
+                // If entity_id filter specified, check payload
+                if (handler.entity_id) {
                   const payload = message.event!.payload as { id?: string };
-                  if (payload.id !== handler.entityId) {
+                  if (payload.id !== handler.entity_id) {
                     return;
                   }
                 }
@@ -255,8 +255,8 @@ export function RealtimeProvider({ url, children, reconnectOptions: userReconnec
     }
   }, []);
 
-  const addEventHandler = React.useCallback((eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entityId?: string) => {
-    const handlerObj: EventHandler = { eventType, handler, entityId };
+  const addEventHandler = React.useCallback((eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entity_id?: string) => {
+    const handlerObj: EventHandler = { eventType, handler, entity_id };
     eventHandlersRef.current.push(handlerObj);
 
     // Return cleanup function

@@ -76,7 +76,7 @@ describe('Webhook Config', () => {
 
       const config = getOpenClawConfig();
 
-      expect(config!.timeoutSeconds).toBe(120);
+      expect(config!.timeout_seconds).toBe(120);
     });
 
     it('uses custom timeout when specified', () => {
@@ -86,7 +86,7 @@ describe('Webhook Config', () => {
 
       const config = getOpenClawConfig();
 
-      expect(config!.timeoutSeconds).toBe(300);
+      expect(config!.timeout_seconds).toBe(300);
     });
 
     it('falls back to OPENCLAW_API_TOKEN when OPENCLAW_HOOK_TOKEN is not set', () => {
@@ -148,8 +148,8 @@ describe('Webhook Config', () => {
       const summary = getConfigSummary();
 
       expect(summary.configured).toBe(false);
-      expect(summary.gatewayUrl).toBeNull();
-      expect(summary.hasToken).toBe(false);
+      expect(summary.gateway_url).toBeNull();
+      expect(summary.has_token).toBe(false);
     });
 
     it('returns configured summary when set', () => {
@@ -159,9 +159,9 @@ describe('Webhook Config', () => {
       const summary = getConfigSummary();
 
       expect(summary.configured).toBe(true);
-      expect(summary.gatewayUrl).toBe('http://localhost:18789');
-      expect(summary.hasToken).toBe(true);
-      expect(summary.defaultModel).toBe('anthropic/claude-sonnet-4-20250514');
+      expect(summary.gateway_url).toBe('http://localhost:18789');
+      expect(summary.has_token).toBe(true);
+      expect(summary.default_model).toBe('anthropic/claude-sonnet-4-20250514');
     });
   });
 });

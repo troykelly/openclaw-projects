@@ -1,6 +1,6 @@
 /**
- * Tests for webhook payload builders — agentId support.
- * Issue #1195: Webhook payloads must include agentId for multi-agent routing.
+ * Tests for webhook payload builders — agent_id support.
+ * Issue #1195: Webhook payloads must include agent_id for multi-agent routing.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
@@ -10,7 +10,7 @@ import {
   buildDeadlineApproachingPayload,
 } from './payloads.ts';
 
-describe('webhook payloads — agentId', () => {
+describe('webhook payloads — agent_id', () => {
   beforeEach(() => {
     vi.stubEnv('OPENCLAW_GATEWAY_URL', 'https://gateway.test');
     vi.stubEnv('OPENCLAW_API_TOKEN', 'test-token');
@@ -24,28 +24,28 @@ describe('webhook payloads — agentId', () => {
 
   describe('buildSmsReceivedPayload', () => {
     const baseParams = {
-      contactId: 'contact-1',
-      contactName: 'Alice',
-      endpointType: 'phone',
-      endpointValue: '+61400000000',
-      threadId: 'thread-1',
-      messageId: 'msg-1',
-      messageBody: 'Hello',
+      contact_id: 'contact-1',
+      contact_name: 'Alice',
+      endpoint_type: 'phone',
+      endpoint_value: '+61400000000',
+      thread_id: 'thread-1',
+      message_id: 'msg-1',
+      message_body: 'Hello',
     };
 
-    it('includes agentId at top level when provided', () => {
-      const payload = buildSmsReceivedPayload({ ...baseParams, agentId: 'agent@example.com' });
-      expect(payload.agentId).toBe('agent@example.com');
+    it('includes agent_id at top level when provided', () => {
+      const payload = buildSmsReceivedPayload({ ...baseParams, agent_id: 'agent@example.com' });
+      expect(payload.agent_id).toBe('agent@example.com');
     });
 
-    it('includes agent_id in context when agentId is provided', () => {
-      const payload = buildSmsReceivedPayload({ ...baseParams, agentId: 'agent@example.com' });
+    it('includes agent_id in context when agent_id is provided', () => {
+      const payload = buildSmsReceivedPayload({ ...baseParams, agent_id: 'agent@example.com' });
       expect(payload.context.agent_id).toBe('agent@example.com');
     });
 
-    it('omits agentId from top level when not provided', () => {
+    it('omits agent_id from top level when not provided', () => {
       const payload = buildSmsReceivedPayload(baseParams);
-      expect(payload.agentId).toBeUndefined();
+      expect(payload.agent_id).toBeUndefined();
     });
 
     it('omits agent_id from context when not provided', () => {
@@ -56,71 +56,71 @@ describe('webhook payloads — agentId', () => {
 
   describe('buildEmailReceivedPayload', () => {
     const baseParams = {
-      contactId: 'contact-2',
-      contactName: 'Bob',
-      fromEmail: 'bob@example.com',
-      threadId: 'thread-2',
-      messageId: 'msg-2',
-      messageBody: 'Hi there',
+      contact_id: 'contact-2',
+      contact_name: 'Bob',
+      from_email: 'bob@example.com',
+      thread_id: 'thread-2',
+      message_id: 'msg-2',
+      message_body: 'Hi there',
     };
 
-    it('includes agentId at top level when provided', () => {
-      const payload = buildEmailReceivedPayload({ ...baseParams, agentId: 'agent@example.com' });
-      expect(payload.agentId).toBe('agent@example.com');
+    it('includes agent_id at top level when provided', () => {
+      const payload = buildEmailReceivedPayload({ ...baseParams, agent_id: 'agent@example.com' });
+      expect(payload.agent_id).toBe('agent@example.com');
     });
 
-    it('includes agent_id in context when agentId is provided', () => {
-      const payload = buildEmailReceivedPayload({ ...baseParams, agentId: 'agent@example.com' });
+    it('includes agent_id in context when agent_id is provided', () => {
+      const payload = buildEmailReceivedPayload({ ...baseParams, agent_id: 'agent@example.com' });
       expect(payload.context.agent_id).toBe('agent@example.com');
     });
 
-    it('omits agentId when not provided', () => {
+    it('omits agent_id when not provided', () => {
       const payload = buildEmailReceivedPayload(baseParams);
-      expect(payload.agentId).toBeUndefined();
+      expect(payload.agent_id).toBeUndefined();
     });
   });
 
   describe('buildReminderDuePayload', () => {
     const baseParams = {
-      workItemId: 'wi-1',
-      workItemTitle: 'Buy groceries',
-      workItemKind: 'task',
-      notBefore: new Date('2026-02-14T10:00:00Z'),
+      work_item_id: 'wi-1',
+      work_item_title: 'Buy groceries',
+      work_item_kind: 'task',
+      not_before: new Date('2026-02-14T10:00:00Z'),
     };
 
-    it('includes agentId at top level when provided', () => {
-      const payload = buildReminderDuePayload({ ...baseParams, agentId: 'agent@example.com' });
-      expect(payload.agentId).toBe('agent@example.com');
+    it('includes agent_id at top level when provided', () => {
+      const payload = buildReminderDuePayload({ ...baseParams, agent_id: 'agent@example.com' });
+      expect(payload.agent_id).toBe('agent@example.com');
     });
 
-    it('includes agent_id in context when agentId is provided', () => {
-      const payload = buildReminderDuePayload({ ...baseParams, agentId: 'agent@example.com' });
+    it('includes agent_id in context when agent_id is provided', () => {
+      const payload = buildReminderDuePayload({ ...baseParams, agent_id: 'agent@example.com' });
       expect(payload.context.agent_id).toBe('agent@example.com');
     });
 
-    it('omits agentId when not provided', () => {
+    it('omits agent_id when not provided', () => {
       const payload = buildReminderDuePayload(baseParams);
-      expect(payload.agentId).toBeUndefined();
+      expect(payload.agent_id).toBeUndefined();
     });
   });
 
   describe('buildDeadlineApproachingPayload', () => {
     const baseParams = {
-      workItemId: 'wi-2',
-      workItemTitle: 'Submit report',
-      workItemKind: 'task',
-      notAfter: new Date('2026-02-15T10:00:00Z'),
-      hoursRemaining: 24,
+      work_item_id: 'wi-2',
+      work_item_title: 'Submit report',
+      work_item_kind: 'task',
+      not_after: new Date('2026-02-15T10:00:00Z'),
+      hours_remaining: 24,
     };
 
-    it('includes agentId at top level when provided', () => {
-      const payload = buildDeadlineApproachingPayload({ ...baseParams, agentId: 'agent@example.com' });
-      expect(payload.agentId).toBe('agent@example.com');
+    it('includes agent_id at top level when provided', () => {
+      const payload = buildDeadlineApproachingPayload({ ...baseParams, agent_id: 'agent@example.com' });
+      expect(payload.agent_id).toBe('agent@example.com');
     });
 
-    it('omits agentId when not provided', () => {
+    it('omits agent_id when not provided', () => {
       const payload = buildDeadlineApproachingPayload(baseParams);
-      expect(payload.agentId).toBeUndefined();
+      expect(payload.agent_id).toBeUndefined();
     });
   });
 

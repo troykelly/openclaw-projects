@@ -34,11 +34,11 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   /**
    * Helper to create a note via API
    */
-  async function createNote(userEmail: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
+  async function createNote(user_email: string, title: string, content: string, visibility: 'private' | 'shared' | 'public' = 'private'): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notes',
-      payload: { user_email: userEmail, title, content, visibility },
+      payload: { user_email: user_email, title, content, visibility },
     });
     expect(res.statusCode).toBe(201);
     return res.json().id;
@@ -47,11 +47,11 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   /**
    * Helper to create a notebook via API
    */
-  async function createNotebook(userEmail: string, name: string): Promise<string> {
+  async function createNotebook(user_email: string, name: string): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notebooks',
-      payload: { user_email: userEmail, name },
+      payload: { user_email: user_email, name },
     });
     expect(res.statusCode).toBe(201);
     return res.json().id;
@@ -78,8 +78,8 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       expect(res.statusCode).toBe(201);
       const share = res.json();
       expect(share.type).toBe('user');
-      expect(share.noteId).toBe(noteId);
-      expect(share.sharedWithEmail).toBe(collaboratorEmail);
+      expect(share.note_id).toBe(noteId);
+      expect(share.shared_with_email).toBe(collaboratorEmail);
       expect(share.permission).toBe('read');
     });
 
@@ -102,7 +102,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
     it('supports expiration date', async () => {
       const noteId = await createNote(ownerEmail, 'Test Note', 'Content');
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
       const res = await app.inject({
         method: 'POST',
@@ -110,12 +110,12 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         payload: {
           user_email: ownerEmail,
           email: collaboratorEmail,
-          expiresAt,
+          expires_at: expires_at,
         },
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().expiresAt).toBeDefined();
+      expect(res.json().expires_at).toBeDefined();
     });
 
     it('returns 404 for non-existent note', async () => {
@@ -225,12 +225,12 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         url: `/api/notes/${noteId}/share/link`,
         payload: {
           user_email: ownerEmail,
-          isSingleView: true,
+          is_single_view: true,
         },
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().isSingleView).toBe(true);
+      expect(res.json().is_single_view).toBe(true);
     });
 
     it('supports max views limit', async () => {
@@ -241,12 +241,12 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         url: `/api/notes/${noteId}/share/link`,
         payload: {
           user_email: ownerEmail,
-          maxViews: 5,
+          max_views: 5,
         },
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().maxViews).toBe(5);
+      expect(res.json().max_views).toBe(5);
     });
 
     it('returns 403 for non-owner', async () => {
@@ -292,7 +292,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.noteId).toBe(noteId);
+      expect(body.note_id).toBe(noteId);
       expect(body.shares.length).toBe(2);
 
       const types = body.shares.map((s: { type: string }) => s.type);
@@ -414,7 +414,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       expect(body.note.title).toBe('Shared Note');
       expect(body.note.content).toBe('Secret content');
       expect(body.permission).toBe('read');
-      expect(body.sharedBy).toBe(ownerEmail);
+      expect(body.shared_by).toBe(ownerEmail);
     });
 
     it('returns 404 for invalid token', async () => {
@@ -432,7 +432,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       const linkRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/share/link`,
-        payload: { user_email: ownerEmail, isSingleView: true },
+        payload: { user_email: ownerEmail, is_single_view: true },
       });
       const token = linkRes.json().token;
 
@@ -496,7 +496,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       expect(body.notes.length).toBe(1);
       expect(body.notes[0].id).toBe(noteId);
       expect(body.notes[0].title).toBe('Shared Note');
-      expect(body.notes[0].sharedByEmail).toBe(ownerEmail);
+      expect(body.notes[0].shared_by_email).toBe(ownerEmail);
     });
 
     it('returns empty list when nothing shared', async () => {
@@ -518,7 +518,7 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
       await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/share`,
-        payload: { user_email: ownerEmail, email: collaboratorEmail, expiresAt: pastDate },
+        payload: { user_email: ownerEmail, email: collaboratorEmail, expires_at: pastDate },
       });
 
       const res = await app.inject({
@@ -539,11 +539,11 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
   describe('Notebook Sharing', () => {
     describe('POST /api/notebooks/:id/share', () => {
       it('shares a notebook with another user', async () => {
-        const notebookId = await createNotebook(ownerEmail, 'Test Notebook');
+        const notebook_id = await createNotebook(ownerEmail, 'Test Notebook');
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebookId}/share`,
+          url: `/api/notebooks/${notebook_id}/share`,
           payload: {
             user_email: ownerEmail,
             email: collaboratorEmail,
@@ -554,18 +554,18 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
         expect(res.statusCode).toBe(201);
         const share = res.json();
         expect(share.type).toBe('user');
-        expect(share.notebookId).toBe(notebookId);
-        expect(share.sharedWithEmail).toBe(collaboratorEmail);
+        expect(share.notebook_id).toBe(notebook_id);
+        expect(share.shared_with_email).toBe(collaboratorEmail);
       });
     });
 
     describe('POST /api/notebooks/:id/share/link', () => {
       it('creates a share link for notebook', async () => {
-        const notebookId = await createNotebook(ownerEmail, 'Test Notebook');
+        const notebook_id = await createNotebook(ownerEmail, 'Test Notebook');
 
         const res = await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebookId}/share/link`,
+          url: `/api/notebooks/${notebook_id}/share/link`,
           payload: { user_email: ownerEmail },
         });
 
@@ -577,17 +577,17 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
     describe('GET /api/notebooks/:id/shares', () => {
       it('lists notebook shares', async () => {
-        const notebookId = await createNotebook(ownerEmail, 'Test Notebook');
+        const notebook_id = await createNotebook(ownerEmail, 'Test Notebook');
 
         await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebookId}/share`,
+          url: `/api/notebooks/${notebook_id}/share`,
           payload: { user_email: ownerEmail, email: collaboratorEmail },
         });
 
         const res = await app.inject({
           method: 'GET',
-          url: `/api/notebooks/${notebookId}/shares`,
+          url: `/api/notebooks/${notebook_id}/shares`,
           query: { user_email: ownerEmail },
         });
 
@@ -598,11 +598,11 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
     describe('GET /api/shared/notebooks/:token', () => {
       it('accesses a notebook via share link', async () => {
-        const notebookId = await createNotebook(ownerEmail, 'Shared Notebook');
+        const notebook_id = await createNotebook(ownerEmail, 'Shared Notebook');
 
         const linkRes = await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebookId}/share/link`,
+          url: `/api/notebooks/${notebook_id}/share/link`,
           payload: { user_email: ownerEmail },
         });
         const token = linkRes.json().token;
@@ -614,17 +614,17 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.json().notebook.name).toBe('Shared Notebook');
-        expect(res.json().sharedBy).toBe(ownerEmail);
+        expect(res.json().shared_by).toBe(ownerEmail);
       });
     });
 
     describe('GET /api/notebooks/shared-with-me', () => {
       it('lists notebooks shared with user', async () => {
-        const notebookId = await createNotebook(ownerEmail, 'Shared Notebook');
+        const notebook_id = await createNotebook(ownerEmail, 'Shared Notebook');
 
         await app.inject({
           method: 'POST',
-          url: `/api/notebooks/${notebookId}/share`,
+          url: `/api/notebooks/${notebook_id}/share`,
           payload: { user_email: ownerEmail, email: collaboratorEmail },
         });
 

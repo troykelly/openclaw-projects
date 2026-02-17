@@ -11,7 +11,7 @@ export interface TimelineItem {
   status: TimelineItemStatus;
   startDate: Date;
   endDate: Date;
-  parentId?: string;
+  parent_id?: string;
   progress?: number; // 0-100
   dependencies?: string[]; // IDs of items this depends on
   isCriticalPath?: boolean;

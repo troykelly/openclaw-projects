@@ -66,7 +66,7 @@ describe('RelationshipCard', () => {
 
   const mockRelationship: ContactRelationship = {
     id: 'rel-1',
-    contactId: 'contact-1',
+    contact_id: 'contact-1',
     relatedContactId: 'contact-2',
     type: 'colleague',
     strength: 'strong',
@@ -215,7 +215,7 @@ describe('AddRelationshipDialog', () => {
     await waitFor(() => {
       expect(onAddRelationship).toHaveBeenCalledWith(
         expect.objectContaining({
-          contactId: 'contact-1',
+          contact_id: 'contact-1',
           relatedContactId: 'contact-2',
           type: 'colleague',
         }),
@@ -324,7 +324,7 @@ describe('ContactRelationshipSection', () => {
   const mockRelationships: ContactRelationship[] = [
     {
       id: 'rel-1',
-      contactId: 'contact-1',
+      contact_id: 'contact-1',
       relatedContactId: 'contact-2',
       type: 'colleague',
       strength: 'strong',
@@ -332,7 +332,7 @@ describe('ContactRelationshipSection', () => {
     },
     {
       id: 'rel-2',
-      contactId: 'contact-1',
+      contact_id: 'contact-1',
       relatedContactId: 'contact-3',
       type: 'client',
       strength: 'medium',
@@ -341,9 +341,9 @@ describe('ContactRelationshipSection', () => {
   ];
 
   const defaultProps: ContactRelationshipSectionProps = {
-    contactId: 'contact-1',
+    contact_id: 'contact-1',
     relationships: mockRelationships,
-    relatedContacts: mockRelatedContacts,
+    related_contacts: mockRelatedContacts,
     availableContacts: [...mockRelatedContacts],
     onAddRelationship: vi.fn(),
     onEditRelationship: vi.fn(),

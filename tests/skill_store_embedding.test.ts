@@ -69,12 +69,12 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
       const { generateSkillStoreItemEmbedding } = await import('../src/api/embeddings/skill-store-integration.ts');
       const { embeddingService } = await import('../src/api/embeddings/service.ts');
 
-      const itemId = await insertItem({
+      const item_id = await insertItem({
         title: 'Test Item',
         summary: 'A test summary',
       });
 
-      const status = await generateSkillStoreItemEmbedding(pool, itemId, 'Test Item\n\nA test summary');
+      const status = await generateSkillStoreItemEmbedding(pool, item_id, 'Test Item\n\nA test summary');
 
       if (embeddingService.isConfigured()) {
         // If provider is configured, should succeed
@@ -82,14 +82,14 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
         const row = await pool.query(
           `SELECT embedding_status, embedding IS NOT NULL as has_embedding
            FROM skill_store_item WHERE id = $1`,
-          [itemId],
+          [item_id],
         );
         expect(row.rows[0].embedding_status).toBe('complete');
         expect(row.rows[0].has_embedding).toBe(true);
       } else {
         // If no provider, mark as pending for backfill
         expect(status).toBe('pending');
-        const row = await pool.query(`SELECT embedding_status FROM skill_store_item WHERE id = $1`, [itemId]);
+        const row = await pool.query(`SELECT embedding_status FROM skill_store_item WHERE id = $1`, [item_id]);
         expect(row.rows[0].embedding_status).toBe('pending');
       }
     });
@@ -175,10 +175,10 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
         lastError: null,
         lockedAt: null,
         lockedBy: null,
-        completedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        completed_at: null,
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       expect(result.success).toBe(false);
@@ -197,10 +197,10 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
         lastError: null,
         lockedAt: null,
         lockedBy: null,
-        completedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        completed_at: null,
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       expect(result.success).toBe(false);
@@ -210,7 +210,7 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
     it('skips items already marked as complete', async () => {
       const { handleSkillStoreEmbedJob } = await import('../src/api/embeddings/skill-store-integration.ts');
 
-      const itemId = await insertItem({
+      const item_id = await insertItem({
         title: 'Already embedded',
         summary: 'Already has embedding',
         embedding_status: 'complete',
@@ -220,15 +220,15 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
         id: 'job-3',
         kind: 'skill_store.embed',
         runAt: new Date(),
-        payload: { item_id: itemId },
+        payload: { item_id: item_id },
         attempts: 0,
         lastError: null,
         lockedAt: null,
         lockedBy: null,
-        completedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        completed_at: null,
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       expect(result.success).toBe(true);
@@ -237,7 +237,7 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
     it('processes a valid item and sets embedding status', async () => {
       const { handleSkillStoreEmbedJob } = await import('../src/api/embeddings/skill-store-integration.ts');
 
-      const itemId = await insertItem({
+      const item_id = await insertItem({
         title: 'Test Item',
         summary: 'Test summary for embedding',
         embedding_status: 'pending',
@@ -247,15 +247,15 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
         id: 'job-4',
         kind: 'skill_store.embed',
         runAt: new Date(),
-        payload: { item_id: itemId },
+        payload: { item_id: item_id },
         attempts: 0,
         lastError: null,
         lockedAt: null,
         lockedBy: null,
-        completedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        completed_at: null,
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       // With no embedding service configured, it should succeed
@@ -275,10 +275,10 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
         lastError: null,
         lockedAt: null,
         lockedBy: null,
-        completedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        completed_at: null,
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       expect(result.success).toBe(false);
@@ -290,12 +290,12 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
     it('creates an internal_job entry with correct kind', async () => {
       const { enqueueSkillStoreEmbedJob } = await import('../src/api/embeddings/skill-store-integration.ts');
 
-      const itemId = await insertItem({
+      const item_id = await insertItem({
         title: 'Enqueue test',
         summary: 'Test item for enqueue',
       });
 
-      await enqueueSkillStoreEmbedJob(pool, itemId);
+      await enqueueSkillStoreEmbedJob(pool, item_id);
 
       const jobs = await pool.query(
         `SELECT kind, payload FROM internal_job
@@ -303,26 +303,26 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
       );
       expect(jobs.rows).toHaveLength(1);
       expect(jobs.rows[0].kind).toBe('skill_store.embed');
-      expect((jobs.rows[0].payload as Record<string, unknown>).item_id).toBe(itemId);
+      expect((jobs.rows[0].payload as Record<string, unknown>).item_id).toBe(item_id);
     });
 
     it('uses idempotency key to prevent duplicate jobs', async () => {
       const { enqueueSkillStoreEmbedJob } = await import('../src/api/embeddings/skill-store-integration.ts');
 
-      const itemId = await insertItem({
+      const item_id = await insertItem({
         title: 'Dedup test',
         summary: 'Test deduplication',
       });
 
       // Enqueue twice with the same item
-      await enqueueSkillStoreEmbedJob(pool, itemId);
-      await enqueueSkillStoreEmbedJob(pool, itemId);
+      await enqueueSkillStoreEmbedJob(pool, item_id);
+      await enqueueSkillStoreEmbedJob(pool, item_id);
 
       const jobs = await pool.query(
         `SELECT count(*) FROM internal_job
          WHERE kind = 'skill_store.embed'
          AND payload->>'item_id' = $1`,
-        [itemId],
+        [item_id],
       );
       // Should only have 1 job due to idempotency
       expect(parseInt(jobs.rows[0].count, 10)).toBe(1);
@@ -342,9 +342,9 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
       const stats = await getSkillStoreEmbeddingStats(pool);
 
       expect(stats.total).toBe(4);
-      expect(stats.byStatus.complete).toBe(2);
-      expect(stats.byStatus.pending).toBe(1);
-      expect(stats.byStatus.failed).toBe(1);
+      expect(stats.by_status.complete).toBe(2);
+      expect(stats.by_status.pending).toBe(1);
+      expect(stats.by_status.failed).toBe(1);
     });
 
     it('excludes soft-deleted items', async () => {
@@ -357,7 +357,7 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
 
       const stats = await getSkillStoreEmbeddingStats(pool);
       expect(stats.total).toBe(1);
-      expect(stats.byStatus.complete).toBe(1);
+      expect(stats.by_status.complete).toBe(1);
     });
 
     it('returns provider info', async () => {
@@ -378,7 +378,7 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
       await insertItem({ title: 'Pending 2', content: 'Also need embedding', embedding_status: 'pending' });
       await insertItem({ title: 'Complete', summary: 'Already done', embedding_status: 'complete' });
 
-      const result = await backfillSkillStoreEmbeddings(pool, { batchSize: 100 });
+      const result = await backfillSkillStoreEmbeddings(pool, { batch_size: 100 });
 
       expect(result.enqueued).toBe(2);
 
@@ -392,7 +392,7 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
 
       await insertItem({ title: 'Failed 1', summary: 'Retry me', embedding_status: 'failed' });
 
-      const result = await backfillSkillStoreEmbeddings(pool, { batchSize: 100 });
+      const result = await backfillSkillStoreEmbeddings(pool, { batch_size: 100 });
 
       expect(result.enqueued).toBe(1);
     });
@@ -403,20 +403,20 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
       // Item with no title, summary, or content
       await insertItem({ embedding_status: 'pending' });
 
-      const result = await backfillSkillStoreEmbeddings(pool, { batchSize: 100 });
+      const result = await backfillSkillStoreEmbeddings(pool, { batch_size: 100 });
 
       expect(result.enqueued).toBe(0);
       expect(result.skipped).toBe(1);
     });
 
-    it('respects batchSize limit', async () => {
+    it('respects batch_size limit', async () => {
       const { backfillSkillStoreEmbeddings } = await import('../src/api/embeddings/skill-store-integration.ts');
 
       for (let i = 0; i < 5; i++) {
         await insertItem({ title: `Item ${i}`, summary: `Summary ${i}`, embedding_status: 'pending' });
       }
 
-      const result = await backfillSkillStoreEmbeddings(pool, { batchSize: 3 });
+      const result = await backfillSkillStoreEmbeddings(pool, { batch_size: 3 });
 
       expect(result.enqueued).toBe(3);
     });
@@ -429,7 +429,7 @@ describe('Skill Store Embedding Integration (Issue #799)', () => {
 
       await insertItem({ title: 'Active Item', summary: 'Still here', embedding_status: 'pending' });
 
-      const result = await backfillSkillStoreEmbeddings(pool, { batchSize: 100 });
+      const result = await backfillSkillStoreEmbeddings(pool, { batch_size: 100 });
 
       expect(result.enqueued).toBe(1);
     });

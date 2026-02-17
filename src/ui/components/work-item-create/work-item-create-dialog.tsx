@@ -60,7 +60,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<WorkItemKind>(defaultKind);
   const [description, setDescription] = useState('');
-  const [parentId, setParentId] = useState<string | undefined>(defaultParentId);
+  const [parent_id, setParentId] = useState<string | undefined>(defaultParentId);
   const [estimateMinutes, setEstimateMinutes] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,13 +108,13 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
 
     // Validate parent requirement for non-project kinds (except issues which can be top-level)
     const requiredParentKind = parentKindMap[kind];
-    if (requiredParentKind && !parentId && kind !== 'issue') {
+    if (requiredParentKind && !parent_id && kind !== 'issue') {
       errors.parent = `${kindLabels[kind]} requires a parent ${kindLabels[requiredParentKind]}`;
     }
 
     // Validate parent kind matches
-    if (parentId && requiredParentKind) {
-      const selectedParent = parentOptions.find((p) => p.id === parentId);
+    if (parent_id && requiredParentKind) {
+      const selectedParent = parentOptions.find((p) => p.id === parent_id);
       if (selectedParent && selectedParent.kind !== requiredParentKind) {
         errors.parent = `${kindLabels[kind]} parent must be a ${kindLabels[requiredParentKind]}`;
       }
@@ -130,7 +130,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [title, kind, parentId, parentOptions, estimateMinutes]);
+  }, [title, kind, parent_id, parentOptions, estimateMinutes]);
 
   const handleSubmit = useCallback(async () => {
     if (isLoading) return;
@@ -144,7 +144,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
       title: title.trim(),
       kind,
       description: description.trim() || undefined,
-      parentId: parentId ?? null,
+      parent_id: parent_id ?? null,
       estimateMinutes: estimateMinutes ? parseInt(estimateMinutes, 10) : null,
     };
 
@@ -158,7 +158,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     } finally {
       setIsLoading(false);
     }
-  }, [title, kind, description, parentId, estimateMinutes, isLoading, validate, onCreated, onOpenChange, resetForm]);
+  }, [title, kind, description, parent_id, estimateMinutes, isLoading, validate, onCreated, onOpenChange, resetForm]);
 
   const handleOpenChange = useCallback(
     (newOpen: boolean) => {
@@ -211,9 +211,9 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
               onValueChange={(value) => {
                 setKind(value as WorkItemKind);
                 // Clear parent when kind changes if it's no longer valid
-                if (parentId) {
+                if (parent_id) {
                   const newAllowedParent = parentKindMap[value as WorkItemKind];
-                  const selectedParent = parentOptions.find((p) => p.id === parentId);
+                  const selectedParent = parentOptions.find((p) => p.id === parent_id);
                   if (selectedParent?.kind !== newAllowedParent) {
                     setParentId(undefined);
                   }
@@ -241,7 +241,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
             <div className="space-y-2">
               <Label htmlFor="parent">Parent</Label>
               <Select
-                value={parentId ?? '__none__'}
+                value={parent_id ?? '__none__'}
                 onValueChange={(value) => setParentId(value === '__none__' ? undefined : value)}
                 disabled={kind === 'project' || loadingParents}
               >

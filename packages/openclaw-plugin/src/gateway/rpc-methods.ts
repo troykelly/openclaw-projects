@@ -55,7 +55,7 @@ export interface Notification {
   /** Event-specific payload */
   payload: Record<string, unknown>;
   /** When the notification was created */
-  createdAt: string;
+  created_at: string;
 }
 
 /** Get notifications result */
@@ -63,7 +63,7 @@ export interface GetNotificationsResult {
   /** Notifications matching the query */
   notifications: Notification[];
   /** Whether there are more notifications available */
-  hasMore: boolean;
+  has_more: boolean;
 }
 
 /** Options for creating gateway methods */
@@ -73,7 +73,7 @@ export interface GatewayMethodsOptions {
   /** API client for backend calls */
   apiClient: ApiClient;
   /** User ID for scoping */
-  userId: string;
+  user_id: string;
 }
 
 /** Gateway methods interface */
@@ -105,7 +105,7 @@ function filterValidEvents(events: string[]): NotificationEvent[] {
  * @returns Gateway method handlers
  */
 export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMethods {
-  const { logger, apiClient, userId } = options;
+  const { logger, apiClient, user_id } = options;
 
   // Local subscription state
   let subscribedEvents: NotificationEvent[] = [];
@@ -124,7 +124,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
       subscribedEvents = validEvents;
 
       logger.info('Gateway subscribe', {
-        userId,
+        user_id,
         requestedEvents: params.events,
         subscribedEvents: validEvents,
       });
@@ -144,7 +144,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
       subscribedEvents = [];
 
       logger.info('Gateway unsubscribe', {
-        userId,
+        user_id,
         previousEvents,
       });
 
@@ -162,7 +162,7 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
       const { since, limit = 20 } = params;
 
       logger.debug('Gateway getNotifications', {
-        userId,
+        user_id,
         since,
         limit,
       });
@@ -178,40 +178,40 @@ export function createGatewayMethods(options: GatewayMethodsOptions): GatewayMet
         const response = await apiClient.get<{
           notifications: Notification[];
           total: number;
-        }>(`/api/notifications?${queryParams}`, { userId });
+        }>(`/api/notifications?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('Gateway getNotifications API error', {
-            userId,
+            user_id,
             error: response.error.message,
           });
           return {
             notifications: [],
-            hasMore: false,
+            has_more: false,
           };
         }
 
         const { notifications, total } = response.data;
 
         logger.debug('Gateway getNotifications success', {
-          userId,
+          user_id,
           count: notifications.length,
           total,
         });
 
         return {
           notifications,
-          hasMore: notifications.length >= limit && total > notifications.length,
+          has_more: notifications.length >= limit && total > notifications.length,
         };
       } catch (error) {
         logger.error('Gateway getNotifications failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
         return {
           notifications: [],
-          hasMore: false,
+          has_more: false,
         };
       }
     },

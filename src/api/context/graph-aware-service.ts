@@ -17,9 +17,9 @@ export type ScopeType = 'personal' | 'contact' | 'group' | 'relationship';
 /** Details about a single scope in the graph traversal */
 export interface ScopeDetail {
   /** What kind of scope this is */
-  scopeType: ScopeType;
+  scope_type: ScopeType;
   /** The ID for this scope (email, contact ID, relationship ID) */
-  scopeId: string;
+  scope_id: string;
   /** Human-readable label for this scope */
   label: string;
 }
@@ -27,35 +27,35 @@ export interface ScopeDetail {
 /** Collected scopes from graph traversal */
 export interface GraphScope {
   /** The user's email (personal scope) */
-  userEmail: string;
+  user_email: string;
   /** Contact IDs from direct relationships and group memberships */
-  contactIds: string[];
+  contact_ids: string[];
   /** Relationship IDs linking the user to other contacts */
-  relationshipIds: string[];
+  relationship_ids: string[];
   /** Detailed scope descriptions for attribution */
-  scopeDetails: ScopeDetail[];
+  scope_details: ScopeDetail[];
 }
 
 /** Options for graph traversal */
 export interface GraphTraversalOptions {
   /** Maximum relationship hops (default: 1, direct only) */
-  maxDepth?: number;
+  max_depth?: number;
 }
 
 /** Input for graph-aware context retrieval */
 export interface GraphAwareContextInput {
   /** User email for identifying the user */
-  userEmail: string;
+  user_email: string;
   /** The user's prompt/query for semantic matching */
   prompt: string;
   /** Maximum number of memories to return (default: 10) */
-  maxMemories?: number;
+  max_memories?: number;
   /** Minimum similarity threshold (default: 0.3) */
-  minSimilarity?: number;
+  min_similarity?: number;
   /** Maximum relationship traversal depth (default: 1) */
-  maxDepth?: number;
+  max_depth?: number;
   /** Maximum context string length (default: 4000) */
-  maxContextLength?: number;
+  max_context_length?: number;
 }
 
 /** A memory result with scope attribution and combined relevance */
@@ -67,7 +67,7 @@ export interface ScopedMemoryResult {
   /** Memory content */
   content: string;
   /** Memory type (preference, fact, etc.) */
-  memoryType: string;
+  memory_type: string;
   /** Similarity score from semantic/text search (0-1) */
   similarity: number;
   /** Importance (1-10) */
@@ -75,25 +75,25 @@ export interface ScopedMemoryResult {
   /** Confidence (0-1) */
   confidence: number;
   /** Combined relevance score: similarity * (importance/10) * confidence */
-  combinedRelevance: number;
+  combined_relevance: number;
   /** The type of scope this memory came from */
-  scopeType: ScopeType;
+  scope_type: ScopeType;
   /** Human-readable label for the source scope */
-  scopeLabel: string;
+  scope_label: string;
 }
 
 /** Result metadata */
 export interface GraphContextMetadata {
   /** Total time for graph traversal and search */
-  queryTimeMs: number;
+  query_time_ms: number;
   /** Number of scopes searched */
-  scopeCount: number;
+  scope_count: number;
   /** Total memories found before filtering */
-  totalMemoriesFound: number;
+  total_memories_found: number;
   /** Search type used */
-  searchType: 'semantic' | 'text';
+  search_type: 'semantic' | 'text';
   /** Graph traversal depth used */
-  maxDepth: number;
+  max_depth: number;
 }
 
 /** Full result of graph-aware context retrieval */
@@ -116,14 +116,14 @@ export interface GraphAwareContextResult {
  *
  * @returns The contact ID, or null if no matching contact found
  */
-async function findUserContactId(pool: Pool, userEmail: string): Promise<string | null> {
+async function findUserContactId(pool: Pool, user_email: string): Promise<string | null> {
   const result = await pool.query(
     `SELECT ce.contact_id::text as contact_id
      FROM contact_endpoint ce
      WHERE ce.endpoint_type = 'email'
        AND lower(ce.endpoint_value) = lower($1)
      LIMIT 1`,
-    [userEmail],
+    [user_email],
   );
 
   if (result.rows.length === 0) {
@@ -146,14 +146,14 @@ async function findUserContactId(pool: Pool, userEmail: string): Promise<string 
  */
 async function traverseRelationships(
   pool: Pool,
-  contactId: string,
+  contact_id: string,
   options: GraphTraversalOptions = {},
 ): Promise<{
   contactIds: string[];
   relationshipIds: string[];
   scopeDetails: ScopeDetail[];
 }> {
-  const maxDepth = options.maxDepth ?? 1;
+  const maxDepth = options.max_depth ?? 1;
 
   if (maxDepth < 1) {
     return { contactIds: [], relationshipIds: [], scopeDetails: [] };
@@ -186,7 +186,7 @@ async function traverseRelationships(
     JOIN contact cb ON r.contact_b_id = cb.id
     JOIN relationship_type rt ON r.relationship_type_id = rt.id
     WHERE r.contact_a_id = $1 OR r.contact_b_id = $1`,
-    [contactId],
+    [contact_id],
   );
 
   // Track group contact IDs for member expansion
@@ -206,7 +206,7 @@ async function traverseRelationships(
     // member_of: contact_b -> contact_a (inverse)
     // If the other contact is on the A side of a has_member relationship,
     // then the other contact is a group.
-    const isGroupRelationship = relTypeName === 'has_member' && rawContactAId !== contactId;
+    const isGroupRelationship = relTypeName === 'has_member' && rawContactAId !== contact_id;
 
     if (!seen.has(otherContactId)) {
       seen.add(otherContactId);
@@ -215,8 +215,8 @@ async function traverseRelationships(
       const scopeType: ScopeType = isGroupRelationship ? 'group' : 'contact';
 
       scopeDetails.push({
-        scopeType,
-        scopeId: otherContactId,
+        scope_type: scopeType,
+        scope_id: otherContactId,
         label: `${relTypeLabel}: ${otherContactName}`,
       });
 
@@ -230,8 +230,8 @@ async function traverseRelationships(
       relationshipIds.push(relId);
 
       scopeDetails.push({
-        scopeType: 'relationship',
-        scopeId: relId,
+        scope_type: 'relationship',
+        scope_id: relId,
         label: `Relationship (${relTypeLabel})`,
       });
     }
@@ -252,22 +252,22 @@ async function traverseRelationships(
       WHERE r_member.contact_a_id = ANY($1::uuid[])
         AND rt_member.name = 'has_member'
         AND cm.id != $2`,
-      [groupContactIds, contactId],
+      [groupContactIds, contact_id],
     );
 
     for (const row of groupMemberResult.rows) {
       const r = row as Record<string, unknown>;
-      const memberId = r.member_id as string;
-      const memberName = r.member_name as string;
+      const member_id = r.member_id as string;
+      const member_name = r.member_name as string;
 
-      if (!seen.has(memberId)) {
-        seen.add(memberId);
-        contactIds.push(memberId);
+      if (!seen.has(member_id)) {
+        seen.add(member_id);
+        contactIds.push(member_id);
 
         scopeDetails.push({
-          scopeType: 'contact',
-          scopeId: memberId,
-          label: `Group member: ${memberName}`,
+          scope_type: 'contact',
+          scope_id: member_id,
+          label: `Group member: ${member_name}`,
         });
       }
     }
@@ -285,22 +285,22 @@ async function traverseRelationships(
  * 3. Collect: user_email (personal), contact_ids, relationship_ids
  * 4. Build scope details for attribution
  */
-export async function collectGraphScopes(pool: Pool, userEmail: string, options: GraphTraversalOptions = {}): Promise<GraphScope> {
+export async function collectGraphScopes(pool: Pool, user_email: string, options: GraphTraversalOptions = {}): Promise<GraphScope> {
   const scope: GraphScope = {
-    userEmail,
-    contactIds: [],
-    relationshipIds: [],
-    scopeDetails: [{ scopeType: 'personal', scopeId: userEmail, label: 'Personal' }],
+    user_email: user_email,
+    contact_ids: [],
+    relationship_ids: [],
+    scope_details: [{ scope_type: 'personal', scope_id: user_email, label: 'Personal' }],
   };
 
-  const maxDepth = options.maxDepth ?? 1;
+  const maxDepth = options.max_depth ?? 1;
 
   if (maxDepth < 1) {
     return scope;
   }
 
   // Find the user's contact ID from their email
-  const userContactId = await findUserContactId(pool, userEmail);
+  const userContactId = await findUserContactId(pool, user_email);
 
   if (!userContactId) {
     // No contact record found - return personal scope only
@@ -308,11 +308,11 @@ export async function collectGraphScopes(pool: Pool, userEmail: string, options:
   }
 
   // Traverse relationships from this contact
-  const traversal = await traverseRelationships(pool, userContactId, { maxDepth });
+  const traversal = await traverseRelationships(pool, userContactId, { max_depth: maxDepth });
 
-  scope.contactIds = traversal.contactIds;
-  scope.relationshipIds = traversal.relationshipIds;
-  scope.scopeDetails.push(...traversal.scopeDetails);
+  scope.contact_ids = traversal.contactIds;
+  scope.relationship_ids = traversal.relationshipIds;
+  scope.scope_details.push(...traversal.scopeDetails);
 
   return scope;
 }
@@ -329,8 +329,8 @@ function classifyScopeType(
   scopes: GraphScope,
 ): { scopeType: ScopeType; scopeLabel: string } {
   // Check relationship scope first (most specific)
-  if (memory.relationship_id && scopes.relationshipIds.includes(memory.relationship_id)) {
-    const detail = scopes.scopeDetails.find((s) => s.scopeType === 'relationship' && s.scopeId === memory.relationship_id);
+  if (memory.relationship_id && scopes.relationship_ids.includes(memory.relationship_id)) {
+    const detail = scopes.scope_details.find((s) => s.scope_type === 'relationship' && s.scope_id === memory.relationship_id);
     return {
       scopeType: 'relationship',
       scopeLabel: detail?.label ?? 'Relationship',
@@ -338,10 +338,10 @@ function classifyScopeType(
   }
 
   // Check contact scope
-  if (memory.contact_id && scopes.contactIds.includes(memory.contact_id)) {
-    const detail = scopes.scopeDetails.find((s) => (s.scopeType === 'contact' || s.scopeType === 'group') && s.scopeId === memory.contact_id);
+  if (memory.contact_id && scopes.contact_ids.includes(memory.contact_id)) {
+    const detail = scopes.scope_details.find((s) => (s.scope_type === 'contact' || s.scope_type === 'group') && s.scope_id === memory.contact_id);
     return {
-      scopeType: detail?.scopeType ?? 'contact',
+      scopeType: detail?.scope_type ?? 'contact',
       scopeLabel: detail?.label ?? 'Related contact',
     };
   }
@@ -357,7 +357,7 @@ function classifyScopeType(
  * Performs a multi-scope semantic search across all collected scopes.
  *
  * Uses a single query with OR conditions for each scope type:
- *   WHERE (user_email = $userEmail
+ *   WHERE (user_email = $user_email
  *      OR contact_id = ANY($contactIds)
  *      OR relationship_id = ANY($relationshipIds))
  *   AND (expires_at IS NULL OR expires_at > now())
@@ -369,7 +369,7 @@ async function multiScopeMemorySearch(
   scopes: GraphScope,
   options: {
     limit: number;
-    minSimilarity: number;
+    min_similarity: number;
   },
 ): Promise<{
   results: Array<{
@@ -384,9 +384,9 @@ async function multiScopeMemorySearch(
     confidence: number;
     similarity: number;
   }>;
-  searchType: 'semantic' | 'text';
+  search_type: 'semantic' | 'text';
 }> {
-  const { limit, minSimilarity } = options;
+  const { limit, min_similarity } = options;
 
   // Build scope conditions
   const scopeConditions: string[] = [];
@@ -395,20 +395,20 @@ async function multiScopeMemorySearch(
 
   // Always include user email scope
   scopeConditions.push(`m.user_email = $${paramIndex}`);
-  params.push(scopes.userEmail);
+  params.push(scopes.user_email);
   paramIndex++;
 
   // Include contact scopes if any
-  if (scopes.contactIds.length > 0) {
+  if (scopes.contact_ids.length > 0) {
     scopeConditions.push(`m.contact_id = ANY($${paramIndex}::uuid[])`);
-    params.push(scopes.contactIds);
+    params.push(scopes.contact_ids);
     paramIndex++;
   }
 
   // Include relationship scopes if any
-  if (scopes.relationshipIds.length > 0) {
+  if (scopes.relationship_ids.length > 0) {
     scopeConditions.push(`m.relationship_id = ANY($${paramIndex}::uuid[])`);
-    params.push(scopes.relationshipIds);
+    params.push(scopes.relationship_ids);
     paramIndex++;
   }
 
@@ -480,7 +480,7 @@ async function multiScopeMemorySearch(
           confidence: number;
           similarity: number;
         }>,
-        searchType: 'semantic',
+        search_type: 'semantic',
       };
     }
     // Fall through to text search if no embedded memories found
@@ -536,7 +536,7 @@ async function multiScopeMemorySearch(
       confidence: number;
       similarity: number;
     }>,
-    searchType: 'text',
+    search_type: 'text',
   };
 }
 
@@ -553,10 +553,10 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
   const parts: string[] = [];
 
   // Group by scope type
-  const personal = memories.filter((m) => m.scopeType === 'personal');
-  const contact = memories.filter((m) => m.scopeType === 'contact');
-  const group = memories.filter((m) => m.scopeType === 'group');
-  const relationship = memories.filter((m) => m.scopeType === 'relationship');
+  const personal = memories.filter((m) => m.scope_type === 'personal');
+  const contact = memories.filter((m) => m.scope_type === 'contact');
+  const group = memories.filter((m) => m.scope_type === 'group');
+  const relationship = memories.filter((m) => m.scope_type === 'relationship');
 
   if (personal.length > 0) {
     parts.push('## Personal Preferences & Memories\n');
@@ -569,7 +569,7 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
   if (group.length > 0) {
     parts.push('## Household / Group Context\n');
     for (const mem of group) {
-      parts.push(`- **${mem.title}** _(${mem.scopeLabel})_: ${mem.content}\n`);
+      parts.push(`- **${mem.title}** _(${mem.scope_label})_: ${mem.content}\n`);
     }
     parts.push('\n');
   }
@@ -577,7 +577,7 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
   if (contact.length > 0) {
     parts.push('## Related People Context\n');
     for (const mem of contact) {
-      parts.push(`- **${mem.title}** _(${mem.scopeLabel})_: ${mem.content}\n`);
+      parts.push(`- **${mem.title}** _(${mem.scope_label})_: ${mem.content}\n`);
     }
     parts.push('\n');
   }
@@ -585,7 +585,7 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
   if (relationship.length > 0) {
     parts.push('## Relationship Context\n');
     for (const mem of relationship) {
-      parts.push(`- **${mem.title}** _(${mem.scopeLabel})_: ${mem.content}\n`);
+      parts.push(`- **${mem.title}** _(${mem.scope_label})_: ${mem.content}\n`);
     }
     parts.push('\n');
   }
@@ -619,20 +619,20 @@ function buildGraphContextString(memories: ScopedMemoryResult[], maxLength: numb
 export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareContextInput): Promise<GraphAwareContextResult> {
   const startTime = Date.now();
 
-  const { userEmail, prompt, maxMemories = 10, minSimilarity = 0.3, maxDepth = 1, maxContextLength = 4000 } = input;
+  const { user_email: user_email, prompt, max_memories: maxMemories = 10, min_similarity: min_similarity = 0.3, max_depth: maxDepth = 1, max_context_length: maxContextLength = 4000 } = input;
 
   // Step 1: Collect scopes via graph traversal
-  const scopes = await collectGraphScopes(pool, userEmail, { maxDepth });
+  const scopes = await collectGraphScopes(pool, user_email, { max_depth: maxDepth });
 
   // Step 2: Multi-scope semantic search
   const searchResult = await multiScopeMemorySearch(pool, prompt, scopes, {
     limit: maxMemories * 2, // Fetch extra to allow filtering
-    minSimilarity,
+    min_similarity,
   });
 
   // Step 3: Filter by similarity threshold and classify scopes
   const scoredMemories: ScopedMemoryResult[] = searchResult.results
-    .filter((m) => m.similarity >= minSimilarity)
+    .filter((m) => m.similarity >= min_similarity)
     .map((m) => {
       const { scopeType, scopeLabel } = classifyScopeType(
         {
@@ -652,18 +652,18 @@ export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareCon
         id: m.id,
         title: m.title,
         content: m.content,
-        memoryType: m.memory_type,
+        memory_type: m.memory_type,
         similarity: m.similarity,
         importance: m.importance,
         confidence: m.confidence ?? 1.0,
-        combinedRelevance,
-        scopeType,
-        scopeLabel,
+        combined_relevance: combinedRelevance,
+        scope_type: scopeType,
+        scope_label: scopeLabel,
       };
     });
 
   // Step 4: Rank by combined relevance
-  scoredMemories.sort((a, b) => b.combinedRelevance - a.combinedRelevance);
+  scoredMemories.sort((a, b) => b.combined_relevance - a.combined_relevance);
 
   // Apply maxMemories limit
   const limitedMemories = scoredMemories.slice(0, maxMemories);
@@ -678,11 +678,11 @@ export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareCon
     memories: limitedMemories,
     scopes,
     metadata: {
-      queryTimeMs,
-      scopeCount: scopes.scopeDetails.length,
-      totalMemoriesFound: searchResult.results.length,
-      searchType: searchResult.searchType,
-      maxDepth,
+      query_time_ms: queryTimeMs,
+      scope_count: scopes.scope_details.length,
+      total_memories_found: searchResult.results.length,
+      search_type: searchResult.search_type,
+      max_depth: maxDepth,
     },
   };
 }

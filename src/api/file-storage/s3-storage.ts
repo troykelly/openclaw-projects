@@ -25,23 +25,23 @@ export class S3Storage implements FileStorage {
       endpoint: config.endpoint,
       region: config.region,
       credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
+        accessKeyId: config.access_key_id,
+        secretAccessKey: config.secret_access_key,
       },
-      forcePathStyle: config.forcePathStyle ?? !!config.endpoint,
+      forcePathStyle: config.force_path_style ?? !!config.endpoint,
     });
   }
 
   /**
    * Upload a file to S3
    */
-  async upload(key: string, data: Buffer, contentType: string): Promise<string> {
+  async upload(key: string, data: Buffer, content_type: string): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
         Body: data,
-        ContentType: contentType,
+        ContentType: content_type,
       }),
     );
 
@@ -107,19 +107,19 @@ export class S3Storage implements FileStorage {
    * Returns the internal client if no external endpoint is configured.
    */
   private getExternalClient(): S3Client {
-    if (!this.config.externalEndpoint) {
+    if (!this.config.external_endpoint) {
       return this.client;
     }
 
     if (!this.externalClient) {
       this.externalClient = new S3Client({
-        endpoint: this.config.externalEndpoint,
+        endpoint: this.config.external_endpoint,
         region: this.config.region,
         credentials: {
-          accessKeyId: this.config.accessKeyId,
-          secretAccessKey: this.config.secretAccessKey,
+          accessKeyId: this.config.access_key_id,
+          secretAccessKey: this.config.secret_access_key,
         },
-        forcePathStyle: this.config.forcePathStyle ?? !!this.config.externalEndpoint,
+        forcePathStyle: this.config.force_path_style ?? !!this.config.external_endpoint,
       });
     }
 
@@ -165,20 +165,20 @@ export class S3Storage implements FileStorage {
 export function createS3StorageFromEnv(): S3Storage | null {
   const bucket = process.env.S3_BUCKET;
   const region = process.env.S3_REGION;
-  const accessKeyId = process.env.S3_ACCESS_KEY;
-  const secretAccessKey = process.env.S3_SECRET_KEY;
+  const access_key_id = process.env.S3_ACCESS_KEY;
+  const secret_access_key = process.env.S3_SECRET_KEY;
 
-  if (!bucket || !region || !accessKeyId || !secretAccessKey) {
+  if (!bucket || !region || !access_key_id || !secret_access_key) {
     return null;
   }
 
   return new S3Storage({
     endpoint: process.env.S3_ENDPOINT,
-    externalEndpoint: process.env.S3_EXTERNAL_ENDPOINT,
+    external_endpoint: process.env.S3_EXTERNAL_ENDPOINT,
     bucket,
     region,
-    accessKeyId,
-    secretAccessKey,
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+    access_key_id: access_key_id,
+    secret_access_key: secret_access_key,
+    force_path_style: process.env.S3_FORCE_PATH_STYLE === 'true',
   });
 }

@@ -15,7 +15,7 @@ export interface BaselineItem {
   endDate?: string;
   estimate?: number;
   status?: WorkItemStatus | string;
-  parentId?: string;
+  parent_id?: string;
 }
 
 /**
@@ -25,8 +25,8 @@ export interface BaselineSnapshot {
   id: string;
   name: string;
   description?: string;
-  projectId: string;
-  createdAt: string;
+  project_id: string;
+  created_at: string;
   createdBy: string;
   items: BaselineItem[];
 }

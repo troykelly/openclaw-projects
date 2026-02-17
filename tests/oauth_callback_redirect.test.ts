@@ -111,11 +111,11 @@ describe('OAuth callback redirect (Issue #1335)', () => {
         expect(result.rows[0].used_at).toBeNull();
 
         // Verify expiry is ~60s from now (within a tolerance window)
-        const expiresAt = new Date(result.rows[0].expires_at).getTime();
+        const expires_at = new Date(result.rows[0].expires_at).getTime();
         const now = Date.now();
         const sixtySecondsFromNow = now + 60_000;
-        expect(expiresAt).toBeGreaterThan(now);
-        expect(expiresAt).toBeLessThanOrEqual(sixtySecondsFromNow + 5_000);
+        expect(expires_at).toBeGreaterThan(now);
+        expect(expires_at).toBeLessThanOrEqual(sixtySecondsFromNow + 5_000);
       } finally {
         // Clean up our test data
         await pool.query('DELETE FROM auth_one_time_code WHERE code_sha256 = $1', [codeSha]);
@@ -154,9 +154,9 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { accessToken?: string };
-      expect(body.accessToken).toBeTruthy();
-      expect(body.accessToken!.split('.')).toHaveLength(3); // JWT format
+      const body = res.json() as { access_token?: string };
+      expect(body.access_token).toBeTruthy();
+      expect(body.access_token!.split('.')).toHaveLength(3); // JWT format
 
       // Should set refresh cookie
       const setCookie = res.headers['set-cookie'];
@@ -308,7 +308,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toHaveProperty('accessToken');
+      expect(res.json()).toHaveProperty('access_token');
     });
 
     it('accepts requests without Origin header (same-origin / non-browser clients)', async () => {
@@ -333,7 +333,7 @@ describe('OAuth callback redirect (Issue #1335)', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toHaveProperty('accessToken');
+      expect(res.json()).toHaveProperty('access_token');
     });
   });
 

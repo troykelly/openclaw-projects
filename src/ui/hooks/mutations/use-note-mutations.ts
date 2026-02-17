@@ -121,7 +121,7 @@ export interface RestoreNoteVersionVariables {
  * const { mutate } = useCreateNote();
  *
  * mutate(
- *   { title: 'My Note', notebookId: 'notebook-123' },
+ *   { title: 'My Note', notebook_id: 'notebook-123' },
  *   {
  *     onSuccess: (note) => {
  *       navigate(`/notes/${note.id}`);
@@ -147,19 +147,19 @@ export interface RestoreNoteVersionVariables {
  */
 export function useCreateNote(): UseMutationResult<Note, ApiRequestError, CreateNoteBody> {
   const queryClient = useQueryClient();
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
 
   return useMutation({
     mutationFn: (body: CreateNoteBody) => {
-      if (!userEmail) {
+      if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
       // Convert to snake_case for API
       const apiBody: CreateNoteApiBody = {
-        user_email: userEmail,
+        user_email: user_email,
         title: body.title,
         content: body.content,
-        notebook_id: body.notebookId,
+        notebook_id: body.notebook_id,
         tags: body.tags,
         visibility: body.visibility,
         hide_from_agents: body.hideFromAgents,
@@ -174,7 +174,7 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
       // If note has a notebook, invalidate notebook tree (includes detail)
-      if (note.notebookId) {
+      if (note.notebook_id) {
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -224,24 +224,24 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
  *
  * @example Moving to a notebook
  * ```ts
- * mutate({ id: 'note-123', body: { notebookId: 'notebook-456' } });
+ * mutate({ id: 'note-123', body: { notebook_id: 'notebook-456' } });
  * ```
  */
 export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, UpdateNoteVariables> {
   const queryClient = useQueryClient();
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
 
   return useMutation({
     mutationFn: ({ id, body }: UpdateNoteVariables) => {
-      if (!userEmail) {
+      if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
       // Convert to snake_case for API
       const apiBody: UpdateNoteApiBody = {
-        user_email: userEmail,
+        user_email: user_email,
         title: body.title,
         content: body.content,
-        notebook_id: body.notebookId,
+        notebook_id: body.notebook_id,
         tags: body.tags,
         visibility: body.visibility,
         hide_from_agents: body.hideFromAgents,
@@ -268,7 +268,7 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
         queryClient.setQueryData<Note>(noteKeys.detail(id), {
           ...previousNote,
           ...body,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -277,7 +277,7 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
         if (data) {
           queryClient.setQueryData<NotesResponse>(queryKey, {
             ...data,
-            notes: data.notes.map((note) => (note.id === id ? { ...note, ...body, updatedAt: new Date().toISOString() } : note)),
+            notes: data.notes.map((note) => (note.id === id ? { ...note, ...body, updated_at: new Date().toISOString() } : note)),
           });
         }
       });
@@ -305,7 +305,7 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
       queryClient.invalidateQueries({ queryKey: noteKeys.versions(id) });
 
       // If note has a notebook, invalidate notebook tree
-      if (note?.notebookId) {
+      if (note?.notebook_id) {
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -353,14 +353,14 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
  */
 export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string> {
   const queryClient = useQueryClient();
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
 
   return useMutation({
     mutationFn: (id: string) => {
-      if (!userEmail) {
+      if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
-      return apiClient.delete(`/api/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(userEmail)}`);
+      return apiClient.delete(`/api/notes/${encodeURIComponent(id)}?user_email=${encodeURIComponent(user_email)}`);
     },
 
     onMutate: async (id) => {
@@ -451,15 +451,15 @@ export function useDeleteNote(): UseMutationResult<void, ApiRequestError, string
  */
 export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, string> {
   const queryClient = useQueryClient();
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
 
   return useMutation({
     mutationFn: (id: string) => {
-      if (!userEmail) {
+      if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
       return apiClient.post<Note>(`/api/notes/${encodeURIComponent(id)}/restore`, {
-        user_email: userEmail,
+        user_email: user_email,
       });
     },
 
@@ -471,7 +471,7 @@ export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, strin
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
 
       // If note has a notebook, invalidate notebook tree (includes detail)
-      if (note.notebookId) {
+      if (note.notebook_id) {
         queryClient.invalidateQueries({ queryKey: notebookKeys.tree() });
       }
     },
@@ -526,15 +526,15 @@ export function useRestoreNote(): UseMutationResult<Note, ApiRequestError, strin
  */
 export function useRestoreNoteVersion(): UseMutationResult<RestoreVersionResponse, ApiRequestError, RestoreNoteVersionVariables> {
   const queryClient = useQueryClient();
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
 
   return useMutation({
     mutationFn: ({ id, versionNumber }: RestoreNoteVersionVariables) => {
-      if (!userEmail) {
+      if (!user_email) {
         return Promise.reject(new Error('User not authenticated'));
       }
       return apiClient.post<RestoreVersionResponse>(
-        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore?user_email=${encodeURIComponent(userEmail)}`,
+        `/api/notes/${encodeURIComponent(id)}/versions/${versionNumber}/restore?user_email=${encodeURIComponent(user_email)}`,
         {},
       );
     },

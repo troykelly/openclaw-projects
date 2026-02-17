@@ -90,65 +90,65 @@ const locationRow = {
 
 describe('geolocation/service', () => {
   describe('rowToProvider', () => {
-    it('maps snake_case DB row to camelCase', () => {
+    it('maps DB row to snake_case', () => {
       const result = rowToProvider(providerRow);
       expect(result).toEqual({
         id: providerRow.id,
-        ownerEmail: 'user@example.com',
-        providerType: 'home_assistant',
-        authType: 'access_token',
+        owner_email: 'user@example.com',
+        provider_type: 'home_assistant',
+        auth_type: 'access_token',
         label: 'My HA',
         status: 'active',
-        statusMessage: null,
+        status_message: null,
         config: { url: 'https://ha.example.com' },
         credentials: 'encrypted-blob',
-        pollIntervalSeconds: 30,
-        maxAgeSeconds: 300,
-        isShared: false,
-        lastSeenAt: providerRow.last_seen_at,
-        deletedAt: null,
-        createdAt: providerRow.created_at,
-        updatedAt: providerRow.updated_at,
+        poll_interval_seconds: 30,
+        max_age_seconds: 300,
+        is_shared: false,
+        last_seen_at: providerRow.last_seen_at,
+        deleted_at: null,
+        created_at: providerRow.created_at,
+        updated_at: providerRow.updated_at,
       });
     });
   });
 
   describe('rowToProviderUser', () => {
-    it('maps snake_case DB row to camelCase', () => {
+    it('maps DB row to snake_case', () => {
       const result = rowToProviderUser(subscriptionRow);
       expect(result).toEqual({
         id: subscriptionRow.id,
-        providerId: subscriptionRow.provider_id,
-        userEmail: 'user@example.com',
+        provider_id: subscriptionRow.provider_id,
+        user_email: 'user@example.com',
         priority: 1,
-        isActive: true,
+        is_active: true,
         entities: [{ id: 'person.john', subPriority: 0 }],
-        createdAt: subscriptionRow.created_at,
-        updatedAt: subscriptionRow.updated_at,
+        created_at: subscriptionRow.created_at,
+        updated_at: subscriptionRow.updated_at,
       });
     });
   });
 
   describe('rowToLocation', () => {
-    it('maps snake_case DB row to camelCase', () => {
+    it('maps DB row to snake_case', () => {
       const result = rowToLocation(locationRow);
       expect(result).toEqual({
         time: locationRow.time,
-        userEmail: 'user@example.com',
-        providerId: locationRow.provider_id,
-        entityId: 'person.john',
+        user_email: 'user@example.com',
+        provider_id: locationRow.provider_id,
+        entity_id: 'person.john',
         lat: -33.8688,
         lng: 151.2093,
-        accuracyM: 10,
-        altitudeM: 50,
-        speedMps: 1.5,
+        accuracy_m: 10,
+        altitude_m: 50,
+        speed_mps: 1.5,
         bearing: 90,
-        indoorZone: null,
+        indoor_zone: null,
         address: '123 George St, Sydney',
-        placeLabel: 'Sydney CBD',
-        rawPayload: { source: 'gps' },
-        locationEmbedding: null,
-        embeddingStatus: 'pending',
+        place_label: 'Sydney CBD',
+        raw_payload: { source: 'gps' },
+        location_embedding: null,
+        embedding_status: 'pending',
       });
     });
   });
@@ -157,19 +157,19 @@ describe('geolocation/service', () => {
     it('inserts a provider and returns mapped result', async () => {
       const pool = mockPool([providerRow]);
       const result = await createProvider(pool, {
-        ownerEmail: 'user@example.com',
-        providerType: 'home_assistant',
-        authType: 'access_token',
+        owner_email: 'user@example.com',
+        provider_type: 'home_assistant',
+        auth_type: 'access_token',
         label: 'My HA',
         config: { url: 'https://ha.example.com' },
         credentials: 'encrypted-blob',
-        pollIntervalSeconds: 30,
-        maxAgeSeconds: 300,
-        isShared: false,
+        poll_interval_seconds: 30,
+        max_age_seconds: 300,
+        is_shared: false,
       });
 
       expect(result.id).toBe(providerRow.id);
-      expect(result.ownerEmail).toBe('user@example.com');
+      expect(result.owner_email).toBe('user@example.com');
       const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(query[0]).toContain('INSERT INTO geo_provider');
     });
@@ -198,7 +198,7 @@ describe('geolocation/service', () => {
       const pool = mockPool([providerRow]);
       const result = await listProviders(pool, 'user@example.com');
       expect(result).toHaveLength(1);
-      expect(result[0].ownerEmail).toBe('user@example.com');
+      expect(result[0].owner_email).toBe('user@example.com');
       const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(query[1]).toEqual(['user@example.com']);
     });
@@ -233,13 +233,13 @@ describe('geolocation/service', () => {
     it('inserts a subscription and returns mapped result', async () => {
       const pool = mockPool([subscriptionRow]);
       const result = await createSubscription(pool, {
-        providerId: subscriptionRow.provider_id,
-        userEmail: 'user@example.com',
+        provider_id: subscriptionRow.provider_id,
+        user_email: 'user@example.com',
         priority: 1,
-        isActive: true,
+        is_active: true,
         entities: [{ id: 'person.john', subPriority: 0 }],
       });
-      expect(result.providerId).toBe(subscriptionRow.provider_id);
+      expect(result.provider_id).toBe(subscriptionRow.provider_id);
       const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(query[0]).toContain('INSERT INTO geo_provider_user');
     });
@@ -250,7 +250,7 @@ describe('geolocation/service', () => {
       const pool = mockPool([subscriptionRow]);
       const result = await listSubscriptions(pool, 'user@example.com');
       expect(result).toHaveLength(1);
-      expect(result[0].userEmail).toBe('user@example.com');
+      expect(result[0].user_email).toBe('user@example.com');
     });
   });
 
@@ -305,19 +305,19 @@ describe('geolocation/service', () => {
       const pool = mockPool([locationRow]);
       await insertLocation(pool, {
         time: locationRow.time,
-        userEmail: 'user@example.com',
-        providerId: locationRow.provider_id,
-        entityId: 'person.john',
+        user_email: 'user@example.com',
+        provider_id: locationRow.provider_id,
+        entity_id: 'person.john',
         lat: -33.8688,
         lng: 151.2093,
-        accuracyM: 10,
-        altitudeM: 50,
-        speedMps: 1.5,
+        accuracy_m: 10,
+        altitude_m: 50,
+        speed_mps: 1.5,
         bearing: 90,
-        indoorZone: null,
+        indoor_zone: null,
         address: null,
-        placeLabel: null,
-        rawPayload: { source: 'gps' },
+        place_label: null,
+        raw_payload: { source: 'gps' },
       });
       const query = (pool.query as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(query[0]).toContain('INSERT INTO geo_location');
@@ -333,7 +333,7 @@ describe('geolocation/service', () => {
         { rows: [{ count: '0' }], rowCount: 1 } as QueryResult,
       ]);
       const result = await canDeleteProvider(pool, providerRow.id);
-      expect(result.canDelete).toBe(true);
+      expect(result.can_delete).toBe(true);
     });
 
     it('allows deleting a shared provider with no other subscribers', async () => {
@@ -342,7 +342,7 @@ describe('geolocation/service', () => {
         { rows: [{ count: '0' }], rowCount: 1 } as QueryResult,
       ]);
       const result = await canDeleteProvider(pool, providerRow.id);
-      expect(result.canDelete).toBe(true);
+      expect(result.can_delete).toBe(true);
     });
 
     it('blocks deleting a shared provider with other subscribers', async () => {
@@ -351,17 +351,17 @@ describe('geolocation/service', () => {
         { rows: [{ count: '3' }], rowCount: 1 } as QueryResult,
       ]);
       const result = await canDeleteProvider(pool, providerRow.id);
-      expect(result.canDelete).toBe(false);
-      expect(result.subscriberCount).toBe(3);
+      expect(result.can_delete).toBe(false);
+      expect(result.subscriber_count).toBe(3);
       expect(result.reason).toContain('subscriber');
     });
 
-    it('returns canDelete false when provider not found', async () => {
+    it('returns can_delete false when provider not found', async () => {
       const pool = mockPoolSequence([
         { rows: [], rowCount: 0 } as unknown as QueryResult,
       ]);
       const result = await canDeleteProvider(pool, 'nonexistent-id');
-      expect(result.canDelete).toBe(false);
+      expect(result.can_delete).toBe(false);
       expect(result.reason).toContain('not found');
     });
   });

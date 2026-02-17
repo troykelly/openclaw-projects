@@ -36,7 +36,7 @@ describe('Magic-link auth (JWT)', () => {
     return token;
   }
 
-  it('issues a magic link and returns accessToken on POST consume', async () => {
+  it('issues a magic link and returns access_token on POST consume', async () => {
     const token = await createMagicLinkToken('test@example.com');
 
     const consume = await app.inject({
@@ -46,15 +46,15 @@ describe('Magic-link auth (JWT)', () => {
     });
 
     expect(consume.statusCode).toBe(200);
-    const body = consume.json() as { accessToken?: string };
-    expect(body.accessToken).toBeTruthy();
+    const body = consume.json() as { access_token?: string };
+    expect(body.access_token).toBeTruthy();
 
     // Verify the access token works for /api/me
     const me = await app.inject({
       method: 'GET',
       url: '/api/me',
       headers: {
-        authorization: `Bearer ${body.accessToken}`,
+        authorization: `Bearer ${body.access_token}`,
       },
     });
 

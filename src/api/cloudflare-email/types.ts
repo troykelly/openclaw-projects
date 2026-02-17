@@ -45,13 +45,13 @@ export interface CloudflareEmailHeaders {
  */
 export interface CloudflareEmailResult {
   /** Database ID of the contact */
-  contactId: string;
+  contact_id: string;
   /** Database ID of the contact endpoint */
   endpointId: string;
   /** Database ID of the external thread */
-  threadId: string;
+  thread_id: string;
   /** Database ID of the stored message */
-  messageId: string;
+  message_id: string;
   /** Whether a new contact was created */
   isNewContact: boolean;
   /** Whether a new thread was created */

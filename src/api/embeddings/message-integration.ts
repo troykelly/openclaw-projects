@@ -18,8 +18,8 @@ export interface MessageWithEmbedding {
   subject?: string;
   direction: string;
   channel: string;
-  threadId: string;
-  receivedAt: string;
+  thread_id: string;
+  received_at: string;
   embedding_status: MessageEmbeddingStatus;
   embedding_provider?: string;
   embedding_model?: string;
@@ -29,15 +29,15 @@ export interface MessageWithEmbedding {
  * Generate and store embedding for a message record.
  *
  * @param pool Database pool
- * @param messageId The message ID
+ * @param message_id The message ID
  * @param content The content to embed (body + optional subject)
  * @returns The embedding status
  */
-export async function generateMessageEmbedding(pool: Pool, messageId: string, content: string): Promise<MessageEmbeddingStatus> {
+export async function generateMessageEmbedding(pool: Pool, message_id: string, content: string): Promise<MessageEmbeddingStatus> {
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Mark as pending - can be backfilled later
-    await pool.query(`UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`, [messageId]);
+    await pool.query(`UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`, [message_id]);
     return 'pending';
   }
 
@@ -45,7 +45,7 @@ export async function generateMessageEmbedding(pool: Pool, messageId: string, co
     const result = await embeddingService.embed(content);
 
     if (!result) {
-      await pool.query(`UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`, [messageId]);
+      await pool.query(`UPDATE external_message SET embedding_status = 'pending' WHERE id = $1`, [message_id]);
       return 'pending';
     }
 
@@ -57,16 +57,16 @@ export async function generateMessageEmbedding(pool: Pool, messageId: string, co
            embedding_provider = $3,
            embedding_status = 'complete'
        WHERE id = $4`,
-      [`[${result.embedding.join(',')}]`, result.model, result.provider, messageId],
+      [`[${result.embedding.join(',')}]`, result.model, result.provider, message_id],
     );
 
     return 'complete';
   } catch (error) {
     // Log error but don't fail the request
-    console.error(`[Embeddings] Failed to embed message ${messageId}:`, error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message);
+    console.error(`[Embeddings] Failed to embed message ${message_id}:`, error instanceof EmbeddingError ? error.toSafeString() : (error as Error).message);
 
     // Mark as failed
-    await pool.query(`UPDATE external_message SET embedding_status = 'failed' WHERE id = $1`, [messageId]);
+    await pool.query(`UPDATE external_message SET embedding_status = 'failed' WHERE id = $1`, [message_id]);
 
     return 'failed';
   }
@@ -161,16 +161,16 @@ export async function handleMessageEmbedJob(pool: Pool, job: InternalJob): Promi
  * path for explicit enqueue calls and backfill operations.
  *
  * @param pool Database pool
- * @param messageId The message ID
+ * @param message_id The message ID
  */
-export async function enqueueMessageEmbedJob(pool: Pool, messageId: string): Promise<void> {
-  const idempotencyKey = `message.embed:${messageId}`;
+export async function enqueueMessageEmbedJob(pool: Pool, message_id: string): Promise<void> {
+  const idempotency_key = `message.embed:${message_id}`;
 
   await pool.query(
     `INSERT INTO internal_job (kind, payload, idempotency_key)
      VALUES ('message.embed', $1::jsonb, $2)
      ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO NOTHING`,
-    [JSON.stringify({ message_id: messageId }), idempotencyKey],
+    [JSON.stringify({ message_id: message_id }), idempotency_key],
   );
 }
 
@@ -182,13 +182,13 @@ export async function enqueueMessageEmbedJob(pool: Pool, messageId: string): Pro
  * to avoid blocking the inbound message webhook response.
  *
  * @param pool Database pool
- * @param messageId The message ID
+ * @param message_id The message ID
  */
-export function triggerMessageEmbedding(pool: Pool, messageId: string): void {
-  enqueueMessageEmbedJob(pool, messageId).catch((err) => {
+export function triggerMessageEmbedding(pool: Pool, message_id: string): void {
+  enqueueMessageEmbedJob(pool, message_id).catch((err) => {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Cannot use a pool after calling end')) return;
-    console.error(`[Embeddings] Failed to enqueue message embed job for ${messageId}:`, msg);
+    console.error(`[Embeddings] Failed to enqueue message embed job for ${message_id}:`, msg);
   });
 }
 
@@ -205,15 +205,15 @@ export async function searchMessagesSemantic(
     offset?: number;
     channel?: string;
     direction?: 'inbound' | 'outbound';
-    dateFrom?: Date;
-    dateTo?: Date;
+    date_from?: Date;
+    date_to?: Date;
   } = {},
 ): Promise<{
   results: Array<MessageWithEmbedding & { similarity: number }>;
-  searchType: 'semantic' | 'text';
-  queryEmbeddingProvider?: string;
+  search_type: 'semantic' | 'text';
+  query_embedding_provider?: string;
 }> {
-  const { limit = 20, offset = 0, channel, direction, dateFrom, dateTo } = options;
+  const { limit = 20, offset = 0, channel, direction, date_from, date_to } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -251,15 +251,15 @@ export async function searchMessagesSemantic(
     paramIndex++;
   }
 
-  if (dateFrom) {
+  if (date_from) {
     conditions.push(`m.received_at >= $${paramIndex}`);
-    params.push(dateFrom);
+    params.push(date_from);
     paramIndex++;
   }
 
-  if (dateTo) {
+  if (date_to) {
     conditions.push(`m.received_at <= $${paramIndex}`);
-    params.push(dateTo);
+    params.push(date_to);
     paramIndex++;
   }
 
@@ -288,8 +288,8 @@ export async function searchMessagesSemantic(
          m.subject,
          m.direction::text as direction,
          t.channel::text as channel,
-         m.thread_id::text as "threadId",
-         m.received_at as "receivedAt",
+         m.thread_id::text as thread_id,
+         m.received_at,
          m.embedding_status,
          m.embedding_provider,
          m.embedding_model,
@@ -304,8 +304,8 @@ export async function searchMessagesSemantic(
 
     return {
       results: result.rows as Array<MessageWithEmbedding & { similarity: number }>,
-      searchType: 'semantic',
-      queryEmbeddingProvider: queryProvider,
+      search_type: 'semantic',
+      query_embedding_provider: queryProvider,
     };
   }
 
@@ -329,8 +329,8 @@ export async function searchMessagesSemantic(
        m.subject,
        m.direction::text as direction,
        t.channel::text as channel,
-       m.thread_id::text as "threadId",
-       m.received_at as "receivedAt",
+       m.thread_id::text as thread_id,
+       m.received_at,
        m.embedding_status,
        m.embedding_provider,
        m.embedding_model,
@@ -345,7 +345,7 @@ export async function searchMessagesSemantic(
 
   return {
     results: result.rows as Array<MessageWithEmbedding & { similarity: number }>,
-    searchType: 'text',
+    search_type: 'text',
   };
 }
 
@@ -355,7 +355,7 @@ export async function searchMessagesSemantic(
 export async function backfillMessageEmbeddings(
   pool: Pool,
   options: {
-    batchSize?: number;
+    batch_size?: number;
     force?: boolean;
   } = {},
 ): Promise<{
@@ -363,7 +363,7 @@ export async function backfillMessageEmbeddings(
   succeeded: number;
   failed: number;
 }> {
-  const { batchSize = 100, force = false } = options;
+  const { batch_size = 100, force = false } = options;
 
   // Find messages without embeddings (or all if force=true)
   const condition = force ? '1=1' : "(embedding_status IS NULL OR embedding_status != 'complete')";
@@ -376,7 +376,7 @@ export async function backfillMessageEmbeddings(
        AND length(trim(m.body)) > 0
      ORDER BY m.received_at ASC
      LIMIT $1`,
-    [batchSize],
+    [batch_size],
   );
 
   let succeeded = 0;

@@ -29,11 +29,11 @@ export class WebhookHealthChecker implements HealthChecker {
     if (!summary.configured) {
       return {
         status: 'degraded',
-        latencyMs: Date.now() - start,
+        latency_ms: Date.now() - start,
         details: {
           configured: false,
-          gatewayUrl: null,
-          hasToken: false,
+          gateway_url: null,
+          has_token: false,
           message: 'OpenClaw webhook dispatch not configured. Events will queue but not dispatch.',
         },
       };
@@ -41,13 +41,13 @@ export class WebhookHealthChecker implements HealthChecker {
 
     return {
       status: 'healthy',
-      latencyMs: Date.now() - start,
+      latency_ms: Date.now() - start,
       details: {
         configured: true,
-        gatewayUrl: summary.gatewayUrl,
-        hasToken: summary.hasToken,
-        defaultModel: summary.defaultModel,
-        timeoutSeconds: summary.timeoutSeconds,
+        gateway_url: summary.gateway_url,
+        has_token: summary.has_token,
+        default_model: summary.default_model,
+        timeout_seconds: summary.timeout_seconds,
       },
     };
   }

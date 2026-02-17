@@ -98,7 +98,7 @@ describe('Contact Kind (Issue #489)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Default Person' },
+        payload: { display_name: 'Default Person' },
       });
 
       expect(res.statusCode).toBe(201);
@@ -115,7 +115,7 @@ describe('Contact Kind (Issue #489)', () => {
         const res = await app.inject({
           method: 'POST',
           url: '/api/contacts',
-          payload: { displayName: name, contactKind: kind },
+          payload: { display_name: name, contact_kind: kind },
         });
 
         expect(res.statusCode).toBe(201);
@@ -128,7 +128,7 @@ describe('Contact Kind (Issue #489)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Bad Kind', contactKind: 'robot' },
+        payload: { display_name: 'Bad Kind', contact_kind: 'robot' },
       });
 
       expect(res.statusCode).toBe(400);
@@ -140,7 +140,7 @@ describe('Contact Kind (Issue #489)', () => {
       await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Listed Contact', contactKind: 'organisation' },
+        payload: { display_name: 'Listed Contact', contact_kind: 'organisation' },
       });
 
       const res = await app.inject({
@@ -210,7 +210,7 @@ describe('Contact Kind (Issue #489)', () => {
       const created = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Agent Smith', contactKind: 'agent' },
+        payload: { display_name: 'Agent Smith', contact_kind: 'agent' },
       });
       const { id } = created.json() as { id: string };
 
@@ -230,14 +230,14 @@ describe('Contact Kind (Issue #489)', () => {
       const created = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Will Become Org' },
+        payload: { display_name: 'Will Become Org' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/contacts/${id}`,
-        payload: { contactKind: 'organisation' },
+        payload: { contact_kind: 'organisation' },
       });
 
       expect(res.statusCode).toBe(200);
@@ -249,14 +249,14 @@ describe('Contact Kind (Issue #489)', () => {
       const created = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Update Test' },
+        payload: { display_name: 'Update Test' },
       });
       const { id } = created.json() as { id: string };
 
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/contacts/${id}`,
-        payload: { contactKind: 'invalid' },
+        payload: { contact_kind: 'invalid' },
       });
 
       expect(res.statusCode).toBe(400);
@@ -270,9 +270,9 @@ describe('Contact Kind (Issue #489)', () => {
         url: '/api/contacts/bulk',
         payload: {
           contacts: [
-            { displayName: 'Person Bulk', contactKind: 'person' },
-            { displayName: 'Org Bulk', contactKind: 'organisation' },
-            { displayName: 'Group Bulk', contactKind: 'group' },
+            { display_name: 'Person Bulk', contact_kind: 'person' },
+            { display_name: 'Org Bulk', contact_kind: 'organisation' },
+            { display_name: 'Group Bulk', contact_kind: 'group' },
           ],
         },
       });

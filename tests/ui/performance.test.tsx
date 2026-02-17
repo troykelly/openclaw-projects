@@ -119,7 +119,7 @@ describe('LazyLoad', () => {
 describe('InfiniteScroll', () => {
   const defaultProps: InfiniteScrollProps = {
     onLoadMore: vi.fn(),
-    hasMore: true,
+    has_more: true,
     children: <div>Content</div>,
   };
 
@@ -138,11 +138,11 @@ describe('InfiniteScroll', () => {
   });
 
   it('should show end message when no more items', () => {
-    render(<InfiniteScroll {...defaultProps} hasMore={false} />);
+    render(<InfiniteScroll {...defaultProps} has_more={false} />);
     expect(screen.getByText(/no more items/i)).toBeInTheDocument();
   });
 
-  it('should call onLoadMore when hasMore is true', () => {
+  it('should call onLoadMore when has_more is true', () => {
     const onLoadMore = vi.fn();
     render(<InfiniteScroll {...defaultProps} onLoadMore={onLoadMore} />);
     // With our mock, it immediately triggers

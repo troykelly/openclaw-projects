@@ -30,13 +30,13 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
        VALUES ('Project Alpha', 'project', '2025-01-01', '2025-03-31', 60)
        RETURNING id::text as id`,
     );
-    const projectId = project.rows[0].id;
+    const project_id = project.rows[0].id;
 
     const initiative = await pool.query(
       `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, not_before, not_after, estimate_minutes)
        VALUES ('Initiative 1', 'initiative', $1, '2025-01-01', '2025-02-15', 120)
        RETURNING id::text as id`,
-      [projectId],
+      [project_id],
     );
     const initiativeId = initiative.rows[0].id;
 
@@ -71,7 +71,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: `/api/work-items/${projectId}/timeline`,
+      url: `/api/work-items/${project_id}/timeline`,
     });
 
     expect(response.statusCode).toBe(200);
@@ -81,7 +81,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
     expect(body.dependencies).toHaveLength(1);
 
     // Check items have required fields
-    const projectItem = body.items.find((i: { id: string }) => i.id === projectId);
+    const projectItem = body.items.find((i: { id: string }) => i.id === project_id);
     expect(projectItem).toBeDefined();
     expect(projectItem.title).toBe('Project Alpha');
     expect(projectItem.kind).toBe('project');
@@ -92,7 +92,7 @@ describe('Timeline API: GET /api/work-items/:id/timeline', () => {
     // Check hierarchy levels
     const initItem = body.items.find((i: { id: string }) => i.id === initiativeId);
     expect(initItem.level).toBe(1);
-    expect(initItem.parent_id).toBe(projectId);
+    expect(initItem.parent_id).toBe(project_id);
 
     const epicItem = body.items.find((i: { id: string }) => i.id === epicId);
     expect(epicItem.level).toBe(2);

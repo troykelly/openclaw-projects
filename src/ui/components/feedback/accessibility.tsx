@@ -5,11 +5,11 @@ import { cn } from '@/ui/lib/utils';
 /**
  * Hook for managing focus trapping within a container (for modals/dialogs)
  */
-export function useFocusTrap(isActive: boolean = true) {
+export function useFocusTrap(is_active: boolean = true) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isActive || !containerRef.current) return;
+    if (!is_active || !containerRef.current) return;
 
     const container = containerRef.current;
     const focusableElements = container.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
@@ -40,7 +40,7 @@ export function useFocusTrap(isActive: boolean = true) {
 
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [isActive]);
+  }, [is_active]);
 
   return containerRef;
 }

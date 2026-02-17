@@ -29,15 +29,15 @@ export interface Note {
   id: string;
   title: string;
   content: string;
-  notebookId: string | null;
-  userEmail: string;
+  notebook_id: string | null;
+  user_email: string;
   tags: string[];
   visibility: NoteVisibility;
   hideFromAgents: boolean;
   summary: string | null;
   isPinned: boolean;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Tool options shared by all note tools */
@@ -45,7 +45,7 @@ export interface NoteToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export interface NoteToolOptions {
 export const NoteCreateParamsSchema = z.object({
   title: z.string().min(1, 'Title cannot be empty').max(500, 'Title must be 500 characters or less'),
   content: z.string().min(1, 'Content cannot be empty').max(100000, 'Content must be 100,000 characters or less'),
-  notebookId: z.string().uuid().optional(),
+  notebook_id: z.string().uuid().optional(),
   tags: z.array(z.string()).max(20).optional(),
   visibility: NoteVisibility.optional().default('private'),
   summary: z.string().max(1000).optional(),
@@ -67,9 +67,9 @@ export interface NoteCreateSuccess {
   data: {
     id: string;
     title: string;
-    notebookId: string | null;
+    notebook_id: string | null;
     visibility: string;
-    createdAt: string;
+    created_at: string;
     url?: string;
   };
 }
@@ -89,7 +89,7 @@ export interface NoteCreateTool {
 }
 
 export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_create',
@@ -104,7 +104,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
         return { success: false, error: errorMessage };
       }
 
-      const { title, content, notebookId, tags, visibility, summary } = parseResult.data;
+      const { title, content, notebook_id, tags, visibility, summary } = parseResult.data;
 
       const sanitizedTitle = sanitizeText(title);
       const sanitizedContent = sanitizeText(content);
@@ -117,10 +117,10 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
       }
 
       logger.info('note_create invoked', {
-        userId,
+        user_id,
         titleLength: sanitizedTitle.length,
         contentLength: sanitizedContent.length,
-        notebookId,
+        notebook_id,
         visibility,
       });
 
@@ -130,17 +130,17 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
           {
             title: sanitizedTitle,
             content: sanitizedContent,
-            notebook_id: notebookId,
+            notebook_id: notebook_id,
             tags,
             visibility,
             summary,
           },
-          { userId },
+          { user_id },
         );
 
         if (!response.success) {
           logger.error('note_create API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -153,7 +153,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
         const note = response.data;
 
         logger.debug('note_create completed', {
-          userId,
+          user_id,
           noteId: note.id,
         });
 
@@ -162,15 +162,15 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
           data: {
             id: note.id,
             title: note.title,
-            notebookId: note.notebookId,
+            notebook_id: note.notebook_id,
             visibility: note.visibility,
-            createdAt: note.createdAt,
+            created_at: note.created_at,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
           },
         };
       } catch (error) {
         logger.error('note_create failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return {
@@ -198,13 +198,13 @@ export interface NoteGetSuccess {
     id: string;
     title: string;
     content: string;
-    notebookId: string | null;
+    notebook_id: string | null;
     tags: string[];
     visibility: string;
     summary: string | null;
     isPinned: boolean;
-    createdAt: string;
-    updatedAt: string;
+    created_at: string;
+    updated_at: string;
     url?: string;
     versionCount?: number;
   };
@@ -225,7 +225,7 @@ export interface NoteGetTool {
 }
 
 export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_get',
@@ -242,25 +242,25 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
       const { noteId, includeVersions } = parseResult.data;
 
       logger.info('note_get invoked', {
-        userId,
+        user_id,
         noteId,
         includeVersions,
       });
 
       try {
-        const queryParams = new URLSearchParams({ user_email: userId });
+        const queryParams = new URLSearchParams({ user_email: user_id });
         if (includeVersions) {
           queryParams.set('includeVersions', 'true');
         }
 
-        const response = await client.get<Note>(`/api/notes/${noteId}?${queryParams}`, { userId });
+        const response = await client.get<Note>(`/api/notes/${noteId}?${queryParams}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
             return { success: false, error: 'Note not found or access denied' };
           }
           logger.error('note_get API error', {
-            userId,
+            user_id,
             noteId,
             status: response.error.status,
           });
@@ -273,7 +273,7 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
         const note = response.data;
 
         logger.debug('note_get completed', {
-          userId,
+          user_id,
           noteId,
         });
 
@@ -283,20 +283,20 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
             id: note.id,
             title: note.title,
             content: note.content,
-            notebookId: note.notebookId,
+            notebook_id: note.notebook_id,
             tags: note.tags,
             visibility: note.visibility,
             summary: note.summary,
             isPinned: note.isPinned,
-            createdAt: note.createdAt,
-            updatedAt: note.updatedAt,
+            created_at: note.created_at,
+            updated_at: note.updated_at,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
             versionCount: (note as Note & { versionCount?: number }).versionCount,
           },
         };
       } catch (error) {
         logger.error('note_get failed', {
-          userId,
+          user_id,
           noteId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -317,7 +317,7 @@ export const NoteUpdateParamsSchema = z.object({
   noteId: z.string().uuid('Note ID must be a valid UUID'),
   title: z.string().min(1).max(500).optional(),
   content: z.string().min(1).max(100000).optional(),
-  notebookId: z.string().uuid().nullable().optional(),
+  notebook_id: z.string().uuid().nullable().optional(),
   tags: z.array(z.string()).max(20).optional(),
   visibility: NoteVisibility.optional(),
   summary: z.string().max(1000).nullable().optional(),
@@ -331,7 +331,7 @@ export interface NoteUpdateSuccess {
     id: string;
     title: string;
     visibility: string;
-    updatedAt: string;
+    updated_at: string;
     url?: string;
     changes: string[];
   };
@@ -352,7 +352,7 @@ export interface NoteUpdateTool {
 }
 
 export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_update',
@@ -368,11 +368,11 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
         return { success: false, error: errorMessage };
       }
 
-      const { noteId, title, content, notebookId, tags, visibility, summary, isPinned } = parseResult.data;
+      const { noteId, title, content, notebook_id, tags, visibility, summary, isPinned } = parseResult.data;
 
       // Track what's being changed
       const changes: string[] = [];
-      const updateData: Record<string, unknown> = { user_email: userId };
+      const updateData: Record<string, unknown> = { user_email: user_id };
 
       if (title !== undefined) {
         const sanitizedTitle = sanitizeText(title);
@@ -392,8 +392,8 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
         changes.push('content');
       }
 
-      if (notebookId !== undefined) {
-        updateData.notebook_id = notebookId;
+      if (notebook_id !== undefined) {
+        updateData.notebook_id = notebook_id;
         changes.push('notebook');
       }
 
@@ -422,13 +422,13 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
       }
 
       logger.info('note_update invoked', {
-        userId,
+        user_id,
         noteId,
         changes,
       });
 
       try {
-        const response = await client.put<Note>(`/api/notes/${noteId}`, updateData, { userId });
+        const response = await client.put<Note>(`/api/notes/${noteId}`, updateData, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -438,7 +438,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
             return { success: false, error: 'You do not have permission to update this note' };
           }
           logger.error('note_update API error', {
-            userId,
+            user_id,
             noteId,
             status: response.error.status,
           });
@@ -451,7 +451,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
         const note = response.data;
 
         logger.debug('note_update completed', {
-          userId,
+          user_id,
           noteId,
           changes,
         });
@@ -462,14 +462,14 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
             id: note.id,
             title: note.title,
             visibility: note.visibility,
-            updatedAt: note.updatedAt,
+            updated_at: note.updated_at,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
             changes,
           },
         };
       } catch (error) {
         logger.error('note_update failed', {
-          userId,
+          user_id,
           noteId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -514,7 +514,7 @@ export interface NoteDeleteTool {
 }
 
 export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'note_delete',
@@ -531,12 +531,12 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
       const { noteId } = parseResult.data;
 
       logger.info('note_delete invoked', {
-        userId,
+        user_id,
         noteId,
       });
 
       try {
-        const response = await client.delete<void>(`/api/notes/${noteId}?user_email=${encodeURIComponent(userId)}`, { userId });
+        const response = await client.delete<void>(`/api/notes/${noteId}?user_email=${encodeURIComponent(user_id)}`, { user_id });
 
         if (!response.success) {
           if (response.error.status === 404) {
@@ -546,7 +546,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
             return { success: false, error: 'Only the note owner can delete this note' };
           }
           logger.error('note_delete API error', {
-            userId,
+            user_id,
             noteId,
             status: response.error.status,
           });
@@ -557,7 +557,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
         }
 
         logger.debug('note_delete completed', {
-          userId,
+          user_id,
           noteId,
         });
 
@@ -570,7 +570,7 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
         };
       } catch (error) {
         logger.error('note_delete failed', {
-          userId,
+          user_id,
           noteId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -589,8 +589,8 @@ export function createNoteDeleteTool(options: NoteToolOptions): NoteDeleteTool {
 
 export const NoteSearchParamsSchema = z.object({
   query: z.string().min(1, 'Search query cannot be empty').max(500),
-  searchType: z.enum(['hybrid', 'text', 'semantic']).optional().default('hybrid'),
-  notebookId: z.string().uuid().optional(),
+  search_type: z.enum(['hybrid', 'text', 'semantic']).optional().default('hybrid'),
+  notebook_id: z.string().uuid().optional(),
   tags: z.array(z.string()).optional(),
   visibility: NoteVisibility.optional(),
   limit: z.number().min(1).max(50).optional().default(20),
@@ -605,14 +605,14 @@ export interface NoteSearchResult {
   score: number;
   tags: string[];
   visibility: string;
-  updatedAt: string;
+  updated_at: string;
 }
 
 export interface NoteSearchSuccess {
   success: true;
   data: {
     query: string;
-    searchType: string;
+    search_type: string;
     results: Array<{
       id: string;
       title: string;
@@ -643,7 +643,7 @@ export interface NoteSearchTool {
 }
 
 export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'note_search',
@@ -659,41 +659,41 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
         return { success: false, error: errorMessage };
       }
 
-      const { query, searchType, notebookId, tags, visibility, limit, offset } = parseResult.data;
+      const { query, search_type, notebook_id, tags, visibility, limit, offset } = parseResult.data;
 
       logger.info('note_search invoked', {
-        userId,
+        user_id,
         queryLength: query.length,
-        searchType,
-        notebookId,
+        search_type,
+        notebook_id,
         limit,
       });
 
       try {
         const queryParams = new URLSearchParams({
-          user_email: userId,
+          user_email: user_id,
           q: query,
-          searchType,
+          search_type,
           limit: String(limit),
           offset: String(offset),
         });
 
-        if (notebookId) queryParams.set('notebookId', notebookId);
+        if (notebook_id) queryParams.set('notebook_id', notebook_id);
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (visibility) queryParams.set('visibility', visibility);
 
         const response = await client.get<{
           query: string;
-          searchType: string;
+          search_type: string;
           results: NoteSearchResult[];
           total: number;
           limit: number;
           offset: number;
-        }>(`/api/notes/search?${queryParams}`, { userId, isAgent: true });
+        }>(`/api/notes/search?${queryParams}`, { user_id, isAgent: true });
 
         if (!response.success) {
           logger.error('note_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
           });
           return {
@@ -705,7 +705,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
         const searchResult = response.data;
 
         logger.debug('note_search completed', {
-          userId,
+          user_id,
           resultsCount: searchResult.results.length,
           total: searchResult.total,
         });
@@ -714,7 +714,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
           success: true,
           data: {
             query: searchResult.query,
-            searchType: searchResult.searchType,
+            search_type: searchResult.search_type,
             results: searchResult.results.map((r) => ({
               id: r.id,
               title: r.title,
@@ -731,7 +731,7 @@ export function createNoteSearchTool(options: NoteToolOptions): NoteSearchTool {
         };
       } catch (error) {
         logger.error('note_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return {

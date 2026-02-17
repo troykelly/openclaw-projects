@@ -10,42 +10,41 @@ import { getOpenClawConfig } from './config.ts';
  * Build payload for SMS received event.
  */
 export function buildSmsReceivedPayload(params: {
-  contactId: string;
-  contactName: string;
-  endpointType: string;
-  endpointValue: string;
-  m365ContactId?: string;
-  trustLevel?: string;
-  threadId: string;
-  messageId: string;
-  messageBody: string;
-  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
-  agentId?: string;
+  contact_id: string;
+  contact_name: string;
+  endpoint_type: string;
+  endpoint_value: string;
+  m365_contact_id?: string;
+  trust_level?: string;
+  thread_id: string;
+  message_id: string;
+  message_body: string;
+  agent_id?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
   return {
-    message: `SMS received from ${params.contactName}:\n\n${params.messageBody}`,
+    message: `SMS received from ${params.contact_name}:\n\n${params.message_body}`,
     name: 'SMS Handler',
-    sessionKey: `sms:contact:${params.contactId}:thread:${params.threadId}`,
-    wakeMode: 'now',
+    session_key: `sms:contact:${params.contact_id}:thread:${params.thread_id}`,
+    wake_mode: 'now',
     deliver: true,
     channel: 'last',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
-    timeoutSeconds: config?.timeoutSeconds || 300,
-    ...(params.agentId ? { agentId: params.agentId } : {}),
+    timeout_seconds: config?.timeout_seconds || 300,
+    ...(params.agent_id ? { agent_id: params.agent_id } : {}),
     context: {
       event_type: 'sms_received',
-      contact_id: params.contactId,
-      contact_name: params.contactName,
-      endpoint_type: params.endpointType,
-      endpoint_value: params.endpointValue,
-      m365_contact_id: params.m365ContactId,
-      trust_level: params.trustLevel || 'low',
-      thread_id: params.threadId,
-      message_id: params.messageId,
-      message_body: params.messageBody,
-      ...(params.agentId ? { agent_id: params.agentId } : {}),
+      contact_id: params.contact_id,
+      contact_name: params.contact_name,
+      endpoint_type: params.endpoint_type,
+      endpoint_value: params.endpoint_value,
+      m365_contact_id: params.m365_contact_id,
+      trust_level: params.trust_level || 'low',
+      thread_id: params.thread_id,
+      message_id: params.message_id,
+      message_body: params.message_body,
+      ...(params.agent_id ? { agent_id: params.agent_id } : {}),
     },
   };
 }
@@ -54,40 +53,39 @@ export function buildSmsReceivedPayload(params: {
  * Build payload for email received event.
  */
 export function buildEmailReceivedPayload(params: {
-  contactId: string;
-  contactName: string;
-  fromEmail: string;
-  toEmail?: string;
+  contact_id: string;
+  contact_name: string;
+  from_email: string;
+  to_email?: string;
   subject?: string;
-  threadId: string;
-  messageId: string;
-  messageBody: string;
-  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
-  agentId?: string;
+  thread_id: string;
+  message_id: string;
+  message_body: string;
+  agent_id?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
   return {
-    message: `Email received from ${params.contactName} <${params.fromEmail}>:\n\nSubject: ${params.subject || '(no subject)'}\n\n${params.messageBody}`,
+    message: `Email received from ${params.contact_name} <${params.from_email}>:\n\nSubject: ${params.subject || '(no subject)'}\n\n${params.message_body}`,
     name: 'Email Handler',
-    sessionKey: `email:contact:${params.contactId}:thread:${params.threadId}`,
-    wakeMode: 'now',
+    session_key: `email:contact:${params.contact_id}:thread:${params.thread_id}`,
+    wake_mode: 'now',
     deliver: true,
     channel: 'last',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
-    timeoutSeconds: config?.timeoutSeconds || 300,
-    ...(params.agentId ? { agentId: params.agentId } : {}),
+    timeout_seconds: config?.timeout_seconds || 300,
+    ...(params.agent_id ? { agent_id: params.agent_id } : {}),
     context: {
       event_type: 'email_received',
-      contact_id: params.contactId,
-      contact_name: params.contactName,
-      from_email: params.fromEmail,
-      to_email: params.toEmail,
+      contact_id: params.contact_id,
+      contact_name: params.contact_name,
+      from_email: params.from_email,
+      to_email: params.to_email,
       subject: params.subject,
-      thread_id: params.threadId,
-      message_id: params.messageId,
-      message_body: params.messageBody,
-      ...(params.agentId ? { agent_id: params.agentId } : {}),
+      thread_id: params.thread_id,
+      message_id: params.message_id,
+      message_body: params.message_body,
+      ...(params.agent_id ? { agent_id: params.agent_id } : {}),
     },
   };
 }
@@ -96,38 +94,37 @@ export function buildEmailReceivedPayload(params: {
  * Build payload for reminder due event.
  */
 export function buildReminderDuePayload(params: {
-  workItemId: string;
-  workItemTitle: string;
-  workItemDescription?: string;
-  workItemKind: string;
-  notBefore: Date;
-  contactId?: string;
-  contactName?: string;
-  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
-  agentId?: string;
+  work_item_id: string;
+  work_item_title: string;
+  work_item_description?: string;
+  work_item_kind: string;
+  not_before: Date;
+  contact_id?: string;
+  contact_name?: string;
+  agent_id?: string;
 }): AgentHookPayload {
   const config = getOpenClawConfig();
 
   return {
-    message: `Reminder: ${params.workItemTitle}${params.workItemDescription ? '\n\n' + params.workItemDescription : ''}`,
+    message: `Reminder: ${params.work_item_title}${params.work_item_description ? '\n\n' + params.work_item_description : ''}`,
     name: 'Reminder Handler',
-    sessionKey: `reminder:work_item:${params.workItemId}`,
-    wakeMode: 'now',
+    session_key: `reminder:work_item:${params.work_item_id}`,
+    wake_mode: 'now',
     deliver: true,
     channel: 'last',
     model: config?.defaultModel || 'anthropic/claude-sonnet-4-20250514',
-    timeoutSeconds: config?.timeoutSeconds || 120,
-    ...(params.agentId ? { agentId: params.agentId } : {}),
+    timeout_seconds: config?.timeout_seconds || 120,
+    ...(params.agent_id ? { agent_id: params.agent_id } : {}),
     context: {
       event_type: 'reminder_due',
-      work_item_id: params.workItemId,
-      work_item_title: params.workItemTitle,
-      work_item_description: params.workItemDescription,
-      work_item_kind: params.workItemKind,
-      not_before: params.notBefore.toISOString(),
-      contact_id: params.contactId,
-      contact_name: params.contactName,
-      ...(params.agentId ? { agent_id: params.agentId } : {}),
+      work_item_id: params.work_item_id,
+      work_item_title: params.work_item_title,
+      work_item_description: params.work_item_description,
+      work_item_kind: params.work_item_kind,
+      not_before: params.not_before.toISOString(),
+      contact_id: params.contact_id,
+      contact_name: params.contact_name,
+      ...(params.agent_id ? { agent_id: params.agent_id } : {}),
     },
   };
 }
@@ -137,18 +134,17 @@ export function buildReminderDuePayload(params: {
  * This uses the /hooks/wake endpoint instead of /hooks/agent.
  */
 export function buildDeadlineApproachingPayload(params: {
-  workItemId: string;
-  workItemTitle: string;
-  workItemKind: string;
-  notAfter: Date;
-  hoursRemaining: number;
-  /** Agent identifier for multi-agent routing. Maps to user_email scope. */
-  agentId?: string;
+  work_item_id: string;
+  work_item_title: string;
+  work_item_kind: string;
+  not_after: Date;
+  hours_remaining: number;
+  agent_id?: string;
 }): WakeHookPayload {
   return {
-    text: `Deadline approaching: "${params.workItemTitle}" (${params.workItemKind}) is due in ${params.hoursRemaining} hours (${params.notAfter.toISOString()})`,
+    text: `Deadline approaching: "${params.work_item_title}" (${params.work_item_kind}) is due in ${params.hours_remaining} hours (${params.not_after.toISOString()})`,
     mode: 'now',
-    ...(params.agentId ? { agentId: params.agentId } : {}),
+    ...(params.agent_id ? { agent_id: params.agent_id } : {}),
   };
 }
 

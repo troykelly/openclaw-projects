@@ -434,15 +434,15 @@ export function FilterBar({
       {showQuickFilters && (
         <div className="flex items-center gap-1">
           {quickFilters.map((qf) => {
-            const isActive = isQuickFilterActive(qf, filters);
+            const is_active = isQuickFilterActive(qf, filters);
             return (
               <Button
                 key={qf.id}
-                variant={isActive ? 'secondary' : 'ghost'}
+                variant={is_active ? 'secondary' : 'ghost'}
                 size="sm"
                 className="gap-1 text-xs"
                 onClick={() => handleApplyQuickFilter(qf)}
-                data-active={isActive}
+                data-active={is_active}
               >
                 {qf.icon}
                 {qf.label}

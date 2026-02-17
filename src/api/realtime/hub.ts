@@ -60,66 +60,66 @@ export class RealtimeHub {
   /**
    * Add a WebSocket client
    */
-  addClient(socket: WebSocket, userId?: string): string {
-    const clientId = randomUUID();
+  addClient(socket: WebSocket, user_id?: string): string {
+    const client_id = randomUUID();
     const now = new Date();
 
     const client: WebSocketClient = {
-      clientId,
-      userId,
+      client_id: client_id,
+      user_id: user_id,
       socket,
-      connectedAt: now,
-      lastPing: now,
+      connected_at: now,
+      last_ping: now,
     };
 
-    this.clients.set(clientId, client);
+    this.clients.set(client_id, client);
 
-    if (userId) {
-      let userSet = this.userClients.get(userId);
+    if (user_id) {
+      let userSet = this.userClients.get(user_id);
       if (!userSet) {
         userSet = new Set();
-        this.userClients.set(userId, userSet);
+        this.userClients.set(user_id, userSet);
       }
-      userSet.add(clientId);
+      userSet.add(client_id);
     }
 
     // Send connection established event
-    this.sendToClient(clientId, {
+    this.sendToClient(client_id, {
       event: 'connection:established',
-      data: { clientId, connectedAt: now.toISOString() },
+      data: { client_id: client_id, connected_at: now.toISOString() },
       timestamp: now.toISOString(),
     });
 
-    return clientId;
+    return client_id;
   }
 
   /**
    * Remove a WebSocket client
    */
-  removeClient(clientId: string): void {
-    const client = this.clients.get(clientId);
+  removeClient(client_id: string): void {
+    const client = this.clients.get(client_id);
     if (!client) return;
 
-    if (client.userId) {
-      const userSet = this.userClients.get(client.userId);
+    if (client.user_id) {
+      const userSet = this.userClients.get(client.user_id);
       if (userSet) {
-        userSet.delete(clientId);
+        userSet.delete(client_id);
         if (userSet.size === 0) {
-          this.userClients.delete(client.userId);
+          this.userClients.delete(client.user_id);
         }
       }
     }
 
-    this.clients.delete(clientId);
+    this.clients.delete(client_id);
   }
 
   /**
    * Update client ping time
    */
-  updateClientPing(clientId: string): void {
-    const client = this.clients.get(clientId);
+  updateClientPing(client_id: string): void {
+    const client = this.clients.get(client_id);
     if (client) {
-      client.lastPing = new Date();
+      client.last_ping = new Date();
     }
   }
 
@@ -133,16 +133,16 @@ export class RealtimeHub {
   /**
    * Get client IDs for a user
    */
-  getUserClientIds(userId: string): string[] {
-    const userSet = this.userClients.get(userId);
+  getUserClientIds(user_id: string): string[] {
+    const userSet = this.userClients.get(user_id);
     return userSet ? Array.from(userSet) : [];
   }
 
   /**
    * Send event to a specific client
    */
-  sendToClient(clientId: string, event: RealtimeEvent): boolean {
-    const client = this.clients.get(clientId);
+  sendToClient(client_id: string, event: RealtimeEvent): boolean {
+    const client = this.clients.get(client_id);
     if (!client) return false;
 
     try {
@@ -153,7 +153,7 @@ export class RealtimeHub {
         return true;
       }
     } catch (err) {
-      console.error(`[RealtimeHub] Error sending to client ${clientId}:`, err);
+      console.error(`[RealtimeHub] Error sending to client ${client_id}:`, err);
     }
 
     return false;
@@ -162,12 +162,12 @@ export class RealtimeHub {
   /**
    * Send event to a specific user (all their connections)
    */
-  sendToUser(userId: string, event: RealtimeEvent): number {
-    const clientIds = this.getUserClientIds(userId);
+  sendToUser(user_id: string, event: RealtimeEvent): number {
+    const clientIds = this.getUserClientIds(user_id);
     let sent = 0;
 
-    for (const clientId of clientIds) {
-      if (this.sendToClient(clientId, event)) {
+    for (const client_id of clientIds) {
+      if (this.sendToClient(client_id, event)) {
         sent++;
       }
     }
@@ -181,8 +181,8 @@ export class RealtimeHub {
   broadcast(event: RealtimeEvent): number {
     let sent = 0;
 
-    for (const clientId of this.clients.keys()) {
-      if (this.sendToClient(clientId, event)) {
+    for (const client_id of this.clients.keys()) {
+      if (this.sendToClient(client_id, event)) {
         sent++;
       }
     }
@@ -193,7 +193,7 @@ export class RealtimeHub {
   /**
    * Emit an event (broadcasts to relevant clients and publishes to PostgreSQL)
    */
-  async emit(eventType: RealtimeEventType, data: unknown, userId?: string): Promise<void> {
+  async emit(eventType: RealtimeEventType, data: unknown, user_id?: string): Promise<void> {
     const event: RealtimeEvent = {
       event: eventType,
       data,
@@ -201,14 +201,14 @@ export class RealtimeHub {
     };
 
     // Send locally
-    if (userId) {
-      this.sendToUser(userId, event);
+    if (user_id) {
+      this.sendToUser(user_id, event);
     } else {
       this.broadcast(event);
     }
 
     // Publish to PostgreSQL for other processes
-    await this.publish({ event: eventType, userId, data });
+    await this.publish({ event: eventType, user_id: user_id, data });
   }
 
   /**
@@ -268,8 +268,8 @@ export class RealtimeHub {
       timestamp: new Date().toISOString(),
     };
 
-    if (payload.userId) {
-      this.sendToUser(payload.userId, event);
+    if (payload.user_id) {
+      this.sendToUser(payload.user_id, event);
     } else {
       this.broadcast(event);
     }
@@ -287,15 +287,15 @@ export class RealtimeHub {
         timestamp: now.toISOString(),
       };
 
-      for (const [clientId, client] of this.clients.entries()) {
+      for (const [client_id, client] of this.clients.entries()) {
         const socket = client.socket as WebSocket;
 
         // Check if client is stale (no ping response in 2 intervals)
-        const timeSinceLastPing = now.getTime() - client.lastPing.getTime();
+        const timeSinceLastPing = now.getTime() - client.last_ping.getTime();
         if (timeSinceLastPing > HEARTBEAT_INTERVAL_MS * 2) {
-          console.log(`[RealtimeHub] Removing stale client ${clientId}`);
+          console.log(`[RealtimeHub] Removing stale client ${client_id}`);
           socket.close(1001, 'Connection timeout');
-          this.removeClient(clientId);
+          this.removeClient(client_id);
           continue;
         }
 

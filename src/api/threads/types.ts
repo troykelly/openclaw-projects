@@ -5,17 +5,17 @@
 
 export interface ThreadContact {
   id: string;
-  displayName: string;
+  display_name: string;
   notes?: string;
 }
 
 export interface ThreadInfo {
   id: string;
   channel: string;
-  externalThreadKey: string;
+  external_thread_key: string;
   contact: ThreadContact;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface ThreadMessage {
@@ -23,23 +23,23 @@ export interface ThreadMessage {
   direction: 'inbound' | 'outbound';
   body: string | null;
   subject?: string;
-  fromAddress?: string;
-  receivedAt: Date;
-  createdAt: Date;
+  from_address?: string;
+  received_at: Date;
+  created_at: Date;
 }
 
 export interface RelatedWorkItem {
   id: string;
   title: string;
   status: string;
-  workItemKind: string;
-  notBefore?: Date;
-  notAfter?: Date;
+  work_item_kind: string;
+  not_before?: Date;
+  not_after?: Date;
 }
 
 export interface ContactMemory {
   id: string;
-  memoryType: string;
+  memory_type: string;
   title: string;
   content: string;
   importance: number;
@@ -48,12 +48,12 @@ export interface ContactMemory {
 export interface ThreadHistoryResponse {
   thread: ThreadInfo;
   messages: ThreadMessage[];
-  relatedWorkItems: RelatedWorkItem[];
-  contactMemories: ContactMemory[];
+  related_work_items: RelatedWorkItem[];
+  contact_memories: ContactMemory[];
   pagination: {
-    hasMore: boolean;
-    oldestTimestamp?: string;
-    newestTimestamp?: string;
+    has_more: boolean;
+    oldest_timestamp?: string;
+    newest_timestamp?: string;
   };
 }
 
@@ -69,26 +69,26 @@ export interface ThreadListOptions {
   limit?: number;
   offset?: number;
   channel?: string;
-  contactId?: string;
+  contact_id?: string;
   /** Filter by user email (Issue #1172) */
-  userEmail?: string;
+  user_email?: string;
 }
 
 export interface ThreadListItem {
   id: string;
   channel: string;
-  externalThreadKey: string;
+  external_thread_key: string;
   contact: ThreadContact;
-  createdAt: Date;
-  updatedAt: Date;
-  lastMessage?: {
+  created_at: Date;
+  updated_at: Date;
+  last_message?: {
     id: string;
     direction: 'inbound' | 'outbound';
     body: string | null;
     subject?: string;
-    receivedAt: Date;
+    received_at: Date;
   };
-  messageCount: number;
+  message_count: number;
 }
 
 export interface ThreadListResponse {
@@ -97,6 +97,6 @@ export interface ThreadListResponse {
   pagination: {
     limit: number;
     offset: number;
-    hasMore: boolean;
+    has_more: boolean;
   };
 }

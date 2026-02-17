@@ -47,10 +47,10 @@ export type E164PhoneNumber = string;
  * Result of processing a Twilio SMS webhook.
  */
 export interface TwilioSmsResult {
-  contactId: string;
+  contact_id: string;
   endpointId: string;
-  threadId: string;
-  messageId: string;
+  thread_id: string;
+  message_id: string;
   isNewContact: boolean;
 }
 

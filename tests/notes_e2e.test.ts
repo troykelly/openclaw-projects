@@ -31,107 +31,107 @@ type SharePermission = 'read' | 'read_write';
 /** Note response from API */
 interface NoteResponse {
   id: string;
-  notebookId: string | null;
-  userEmail: string;
+  notebook_id: string | null;
+  user_email: string;
   title: string;
   content: string;
   summary: string | null;
   tags: string[];
-  isPinned: boolean;
-  sortOrder: number;
+  is_pinned: boolean;
+  sort_order: number;
   visibility: NoteVisibility;
-  hideFromAgents: boolean;
-  embeddingStatus: string;
-  deletedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  hide_from_agents: boolean;
+  embedding_status: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
   notebook?: { id: string; name: string } | null;
-  versionCount?: number;
+  version_count?: number;
 }
 
 /** Notebook response from API */
 interface NotebookResponse {
   id: string;
-  userEmail: string;
+  user_email: string;
   name: string;
   description: string | null;
   icon: string | null;
   color: string | null;
-  parentNotebookId: string | null;
-  sortOrder: number;
-  isArchived: boolean;
-  deletedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  noteCount?: number;
-  childCount?: number;
+  parent_notebook_id: string | null;
+  sort_order: number;
+  is_archived: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  note_count?: number;
+  child_count?: number;
   parent?: { id: string; name: string } | null;
   children?: NotebookResponse[];
-  notes?: Array<{ id: string; title: string; updatedAt: string }>;
+  notes?: Array<{ id: string; title: string; updated_at: string }>;
 }
 
 /** Note share response (user share) */
 interface NoteShareResponse {
   id: string;
-  noteId: string;
+  note_id: string;
   type: 'user';
-  sharedWithEmail: string;
+  shared_with_email: string;
   permission: SharePermission;
-  expiresAt: string | null;
-  createdByEmail: string;
-  createdAt: string;
-  lastAccessedAt: string | null;
+  expires_at: string | null;
+  created_by_email: string;
+  created_at: string;
+  last_accessed_at: string | null;
 }
 
 /** Link share response */
 interface LinkShareResponse {
   id: string;
-  noteId: string;
+  note_id: string;
   type: 'link';
   token: string;
   permission: SharePermission;
-  isSingleView: boolean;
-  viewCount: number;
-  maxViews: number | null;
-  expiresAt: string | null;
-  createdByEmail: string;
-  createdAt: string;
-  lastAccessedAt: string | null;
+  is_single_view: boolean;
+  view_count: number;
+  max_views: number | null;
+  expires_at: string | null;
+  created_by_email: string;
+  created_at: string;
+  last_accessed_at: string | null;
   url: string;
 }
 
 /** Note version response */
 interface NoteVersionResponse {
   id: string;
-  noteId: string;
-  versionNumber: number;
+  note_id: string;
+  version_number: number;
   title: string;
   content: string;
   summary: string | null;
-  changedByEmail: string | null;
-  changeType: string;
-  contentLength: number;
-  createdAt: string;
+  changed_by_email: string | null;
+  change_type: string;
+  content_length: number;
+  created_at: string;
 }
 
 /** Version comparison diff result */
 interface VersionCompareResponse {
-  noteId: string;
+  note_id: string;
   from: {
-    versionNumber: number;
+    version_number: number;
     title: string;
-    createdAt: string;
+    created_at: string;
   };
   to: {
-    versionNumber: number;
+    version_number: number;
     title: string;
-    createdAt: string;
+    created_at: string;
   };
   diff: {
-    titleChanged: boolean;
-    titleDiff: string | null;
-    contentChanged: boolean;
-    contentDiff: string;
+    title_changed: boolean;
+    title_diff: string | null;
+    content_changed: boolean;
+    content_diff: string;
     stats: {
       additions: number;
       deletions: number;
@@ -160,7 +160,7 @@ interface NotebookTreeNode {
   name: string;
   icon: string | null;
   color: string | null;
-  noteCount?: number;
+  note_count?: number;
   children: NotebookTreeNode[];
 }
 
@@ -188,7 +188,7 @@ interface SearchResponse {
 interface ErrorResponse {
   error: string;
   message?: string;
-  statusCode?: number;
+  status_code?: number;
 }
 
 /** Move/copy notes response */
@@ -203,10 +203,10 @@ interface SharedNoteAccessResponse {
     id: string;
     title: string;
     content: string;
-    updatedAt: string;
+    updated_at: string;
   };
   permission: SharePermission;
-  sharedBy: string;
+  shared_by: string;
 }
 
 /** Shared with me response (notes) */
@@ -214,9 +214,9 @@ interface SharedWithMeNotesResponse {
   notes: Array<{
     id: string;
     title: string;
-    sharedByEmail: string;
+    shared_by_email: string;
     permission: SharePermission;
-    sharedAt: string;
+    shared_at: string;
   }>;
 }
 
@@ -225,46 +225,46 @@ interface SharedWithMeNotebooksResponse {
   notebooks: Array<{
     id: string;
     name: string;
-    sharedByEmail: string;
+    shared_by_email: string;
     permission: SharePermission;
-    sharedAt: string;
+    shared_at: string;
   }>;
 }
 
 /** Notebook share response */
 interface NotebookShareResponse {
   id: string;
-  notebookId: string;
+  notebook_id: string;
   type: 'user';
-  sharedWithEmail: string;
+  shared_with_email: string;
   permission: SharePermission;
-  expiresAt: string | null;
-  createdByEmail: string;
-  createdAt: string;
-  lastAccessedAt: string | null;
+  expires_at: string | null;
+  created_by_email: string;
+  created_at: string;
+  last_accessed_at: string | null;
 }
 
 /** Note versions list response */
 interface NoteVersionsListResponse {
-  noteId: string;
-  currentVersion: number;
+  note_id: string;
+  current_version: number;
   versions: Array<{
     id: string;
-    versionNumber: number;
+    version_number: number;
     title: string;
-    changedByEmail: string | null;
-    changeType: string;
-    contentLength: number;
-    createdAt: string;
+    changed_by_email: string | null;
+    change_type: string;
+    content_length: number;
+    created_at: string;
   }>;
   total: number;
 }
 
 /** Restore version response */
 interface RestoreVersionResponse {
-  noteId: string;
-  restoredFromVersion: number;
-  newVersion: number;
+  note_id: string;
+  restored_from_version: number;
+  new_version: number;
   title: string;
   message: string;
 }
@@ -359,11 +359,11 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Test Notebook' },
       });
-      const notebookId = nbRes.json<NotebookResponse>().id;
+      const notebook_id = nbRes.json<NotebookResponse>().id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/app/notes?notebook=${notebookId}`,
+        url: `/app/notes?notebook=${notebook_id}`,
         headers: await getAuthHeaders(primaryUser),
       });
 
@@ -394,7 +394,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       expect(nbRes.statusCode).toBe(201);
       const notebook = nbRes.json<NotebookResponse>();
       expect(notebook.name).toBe('Project Notes');
-      expect(notebook.noteCount).toBe(0);
+      expect(notebook.note_count).toBe(0);
 
       // 2. Create notes in the notebook
       const note1Res = await app.inject({
@@ -411,7 +411,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
       expect(note1Res.statusCode).toBe(201);
       const note1 = note1Res.json<NoteResponse>();
-      expect(note1.notebookId).toBe(notebook.id);
+      expect(note1.notebook_id).toBe(notebook.id);
 
       const note2Res = await app.inject({
         method: 'POST',
@@ -505,7 +505,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
 
       const notes = finalListRes.json<NotesListResponse>().notes;
       expect(notes).toHaveLength(2);
-      expect(notes.every((n) => n.notebookId === null)).toBe(true);
+      expect(notes.every((n) => n.notebook_id === null)).toBe(true);
     });
 
     it('creates nested notebook hierarchy', async () => {
@@ -529,7 +529,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       });
       const child = childRes.json<NotebookResponse>();
       const childId = child.id;
-      expect(child.parentNotebookId).toBe(rootId);
+      expect(child.parent_notebook_id).toBe(rootId);
 
       // 3. Create grandchild notebook
       const grandchildRes = await app.inject({
@@ -541,7 +541,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
           parent_notebook_id: childId,
         },
       });
-      expect(grandchildRes.json<NotebookResponse>().parentNotebookId).toBe(childId);
+      expect(grandchildRes.json<NotebookResponse>().parent_notebook_id).toBe(childId);
 
       // 4. Get tree view
       const treeRes = await app.inject({
@@ -577,8 +577,8 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
       const note2 = note2Res.json<NoteResponse>();
 
       // Verify initial state
-      expect(note1.isPinned).toBe(false);
-      expect(note2.isPinned).toBe(true);
+      expect(note1.is_pinned).toBe(false);
+      expect(note2.is_pinned).toBe(true);
 
       // Pin note 1
       const pinRes = await app.inject({
@@ -586,7 +586,7 @@ describe('Notes E2E Integration (Epic #338, Issue #627)', () => {
         url: `/api/notes/${note1Id}`,
         payload: { user_email: primaryUser, is_pinned: true },
       });
-      expect(pinRes.json<NoteResponse>().isPinned).toBe(true);
+      expect(pinRes.json<NoteResponse>().is_pinned).toBe(true);
 
       // List pinned notes
       const pinnedRes = await app.inject({
@@ -819,7 +819,7 @@ $$
         query: {
           user_email: primaryUser,
           q: 'TypeScript',
-          searchType: 'text',
+          search_type: 'text',
         },
       });
 
@@ -975,7 +975,7 @@ $$
 
       expect(shareRes.statusCode).toBe(201);
       const share = shareRes.json<NoteShareResponse>();
-      expect(share.sharedWithEmail).toBe(secondaryUser);
+      expect(share.shared_with_email).toBe(secondaryUser);
 
       // 4. Secondary user can now access
       const afterShareRes = await app.inject({
@@ -1101,7 +1101,7 @@ $$
         url: `/api/notes/${noteId}/share/link`,
         payload: {
           user_email: primaryUser,
-          isSingleView: true,
+          is_single_view: true,
         },
       });
       const token = linkRes.json<LinkShareResponse>().token;
@@ -1128,7 +1128,7 @@ $$
         url: '/api/notebooks',
         payload: { user_email: primaryUser, name: 'Shared Notebook' },
       });
-      const notebookId = nbRes.json<NotebookResponse>().id;
+      const notebook_id = nbRes.json<NotebookResponse>().id;
 
       await app.inject({
         method: 'POST',
@@ -1136,14 +1136,14 @@ $$
         payload: {
           user_email: primaryUser,
           title: 'Note in Shared Notebook',
-          notebook_id: notebookId,
+          notebook_id: notebook_id,
         },
       });
 
       // 2. Share notebook
       const shareRes = await app.inject({
         method: 'POST',
-        url: `/api/notebooks/${notebookId}/share`,
+        url: `/api/notebooks/${notebook_id}/share`,
         payload: {
           user_email: primaryUser,
           email: secondaryUser,
@@ -1362,7 +1362,7 @@ $$
 
       expect(v1Res.statusCode).toBe(200);
       const v1 = v1Res.json<NoteVersionResponse>();
-      expect(v1.versionNumber).toBe(1);
+      expect(v1.version_number).toBe(1);
       expect(v1.title).toBe('Version Test');
       expect(v1.content).toBe('Original content v1');
 
@@ -1379,8 +1379,8 @@ $$
 
       expect(compareRes.statusCode).toBe(200);
       const diff = compareRes.json<VersionCompareResponse>();
-      expect(diff.diff.titleChanged).toBe(true);
-      expect(diff.diff.contentChanged).toBe(true);
+      expect(diff.diff.title_changed).toBe(true);
+      expect(diff.diff.content_changed).toBe(true);
 
       // 6. Restore to version 1
       const restoreRes = await app.inject({
@@ -1438,7 +1438,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: primaryUser },
+        payload: { user_email: primaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
       const joinData = joinRes.json();
@@ -1480,7 +1480,7 @@ $$
       await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: primaryUser },
+        payload: { user_email: primaryUser },
       });
 
       // 3. Update cursor position
@@ -1488,8 +1488,8 @@ $$
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: primaryUser,
-          cursorPosition: { line: 5, column: 10 },
+          user_email: primaryUser,
+          cursor_position: { line: 5, column: 10 },
         },
       });
       expect(cursorRes.statusCode).toBe(204);
@@ -1513,7 +1513,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: secondaryUser },
+        payload: { user_email: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(403);
 
@@ -1555,7 +1555,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: secondaryUser },
+        payload: { user_email: secondaryUser },
       });
       expect(joinRes.statusCode).toBe(200);
 
@@ -1588,15 +1588,15 @@ $$
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: primaryUser,
-          cursorPosition: { line: 1, column: 0 },
+          user_email: primaryUser,
+          cursor_position: { line: 1, column: 0 },
         },
       });
       expect(joinRes.statusCode).toBe(200);
       const collaborators = joinRes.json().collaborators;
       const currentUser = collaborators.find((u: { email: string }) => u.email === primaryUser);
       expect(currentUser).toBeDefined();
-      expect(currentUser.cursorPosition).toBeDefined();
+      expect(currentUser.cursor_position).toBeDefined();
     });
 
     it('handles non-existent note for presence operations', async () => {
@@ -1606,7 +1606,7 @@ $$
       const joinRes = await app.inject({
         method: 'POST',
         url: `/api/notes/${fakeId}/presence`,
-        payload: { userEmail: primaryUser },
+        payload: { user_email: primaryUser },
       });
       // Should return 403 or 404 depending on implementation
       expect([403, 404]).toContain(joinRes.statusCode);
@@ -1704,7 +1704,7 @@ $$
         query: {
           user_email: primaryUser,
           q: 'Agent Hidden',
-          searchType: 'text',
+          search_type: 'text',
         },
         headers: {
           'X-OpenClaw-Agent': 'test-agent',
@@ -1722,7 +1722,7 @@ $$
         query: {
           user_email: primaryUser,
           q: 'Agent Hidden',
-          searchType: 'text',
+          search_type: 'text',
         },
       });
 
@@ -1953,7 +1953,7 @@ $$
         query: {
           user_email: primaryUser,
           q: 'xyz123',
-          searchType: 'text',
+          search_type: 'text',
         },
       });
 
@@ -2135,7 +2135,7 @@ $$
             query: {
               user_email: primaryUser,
               q: 'test',
-              searchType: 'text',
+              search_type: 'text',
             },
           }),
         );
@@ -2271,7 +2271,7 @@ $$
         url: `/api/notes/${noteId}`,
         query: { user_email: primaryUser },
       });
-      expect(checkRes.json<NoteResponse>().notebookId).toBe(nb2Id);
+      expect(checkRes.json<NoteResponse>().notebook_id).toBe(nb2Id);
     });
 
     it('copies notes to another notebook', async () => {
@@ -2316,7 +2316,7 @@ $$
         url: `/api/notes/${originalId}`,
         query: { user_email: primaryUser },
       });
-      expect(origCheck.json<NoteResponse>().notebookId).toBeNull();
+      expect(origCheck.json<NoteResponse>().notebook_id).toBeNull();
 
       // Verify copy in notebook
       const copyCheck = await app.inject({
@@ -2325,7 +2325,7 @@ $$
         query: { user_email: primaryUser },
       });
       const copiedNote = copyCheck.json<NoteResponse>();
-      expect(copiedNote.notebookId).toBe(nbId);
+      expect(copiedNote.notebook_id).toBe(nbId);
       expect(copiedNote.title).toBe('Original Note');
     });
   });

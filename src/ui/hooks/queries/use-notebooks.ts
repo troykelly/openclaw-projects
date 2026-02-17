@@ -37,16 +37,16 @@ export const notebookKeys = {
 /**
  * Build query string from ListNotebooksParams and user email.
  */
-function buildNotebooksQueryString(userEmail: string | null, params?: ListNotebooksParams): string {
+function buildNotebooksQueryString(user_email: string | null, params?: ListNotebooksParams): string {
   const searchParams = new URLSearchParams();
 
   // user_email is required by the API
-  if (userEmail) {
-    searchParams.set('user_email', userEmail);
+  if (user_email) {
+    searchParams.set('user_email', user_email);
   }
 
-  if (params?.parentId !== undefined) {
-    searchParams.set('parentId', params.parentId ?? 'null');
+  if (params?.parent_id !== undefined) {
+    searchParams.set('parent_id', params.parent_id ?? 'null');
   }
   if (params?.includeArchived) {
     searchParams.set('includeArchived', 'true');
@@ -76,8 +76,8 @@ function buildNotebooksQueryString(userEmail: string | null, params?: ListNotebo
  * @returns TanStack Query result with `NotebooksResponse`
  */
 export function useNotebooks(params?: ListNotebooksParams, options?: { enabled?: boolean; staleTime?: number }) {
-  const userEmail = useUserEmail();
-  const queryString = buildNotebooksQueryString(userEmail, params);
+  const user_email = useUserEmail();
+  const queryString = buildNotebooksQueryString(user_email, params);
 
   return useQuery({
     queryKey: notebookKeys.list(params),
@@ -85,7 +85,7 @@ export function useNotebooks(params?: ListNotebooksParams, options?: { enabled?:
       apiClient.get<NotebooksResponse>(`/api/notebooks${queryString}`, {
         signal,
       }),
-    enabled: (options?.enabled ?? true) && !!userEmail,
+    enabled: (options?.enabled ?? true) && !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_LIST_STALE_TIME,
   });
 }
@@ -106,10 +106,10 @@ export function useNotebook(
     enabled?: boolean;
   },
 ) {
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
   const searchParams = new URLSearchParams();
-  if (userEmail) {
-    searchParams.set('user_email', userEmail);
+  if (user_email) {
+    searchParams.set('user_email', user_email);
   }
   if (options?.includeNotes) {
     searchParams.set('includeNotes', 'true');
@@ -122,7 +122,7 @@ export function useNotebook(
   return useQuery({
     queryKey: notebookKeys.detail(id),
     queryFn: ({ signal }) => apiClient.get<Notebook>(`/api/notebooks/${encodeURIComponent(id)}${queryString ? `?${queryString}` : ''}`, { signal }),
-    enabled: (options?.enabled ?? true) && !!id && !!userEmail,
+    enabled: (options?.enabled ?? true) && !!id && !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_STALE_TIME,
   });
 }
@@ -135,10 +135,10 @@ export function useNotebook(
  * @returns TanStack Query result with array of `NotebookTreeNode`
  */
 export function useNotebooksTree(includeNoteCounts = false, options?: { staleTime?: number }) {
-  const userEmail = useUserEmail();
+  const user_email = useUserEmail();
   const searchParams = new URLSearchParams();
-  if (userEmail) {
-    searchParams.set('user_email', userEmail);
+  if (user_email) {
+    searchParams.set('user_email', user_email);
   }
   if (includeNoteCounts) {
     searchParams.set('includeNoteCounts', 'true');
@@ -148,7 +148,7 @@ export function useNotebooksTree(includeNoteCounts = false, options?: { staleTim
   return useQuery({
     queryKey: notebookKeys.tree(),
     queryFn: ({ signal }) => apiClient.get<NotebookTreeNode[]>(`/api/notebooks/tree${queryString ? `?${queryString}` : ''}`, { signal }),
-    enabled: !!userEmail,
+    enabled: !!user_email,
     staleTime: options?.staleTime ?? NOTEBOOK_TREE_STALE_TIME,
   });
 }

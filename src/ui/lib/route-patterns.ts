@@ -27,8 +27,8 @@ export const ROUTES = {
   workItemGraph: '/work-items/:id/graph',
 
   // Projects
-  project: '/projects/:projectId',
-  projectView: '/projects/:projectId/:view',
+  project: '/projects/:project_id',
+  projectView: '/projects/:project_id/:view',
 
   // Kanban
   kanban: '/kanban',
@@ -36,8 +36,8 @@ export const ROUTES = {
   // Notes
   notes: '/notes',
   note: '/notes/:noteId',
-  notebooks: '/notebooks/:notebookId',
-  notebookNote: '/notebooks/:notebookId/notes/:noteId',
+  notebooks: '/notebooks/:notebook_id',
+  notebookNote: '/notebooks/:notebook_id/notes/:noteId',
 
   // Other sections
   contacts: '/contacts',
@@ -54,10 +54,10 @@ export const ROUTES = {
  * Each pattern captures relevant IDs in numbered groups.
  */
 export const ROUTE_PATTERNS = {
-  /** Matches /notebooks/:notebookId/notes/:noteId - Groups: [1]=notebookId, [2]=noteId */
+  /** Matches /notebooks/:notebook_id/notes/:noteId - Groups: [1]=notebook_id, [2]=noteId */
   notebookNote: /^\/notebooks\/([^/]+)\/notes\/([^/]+)\/?$/,
 
-  /** Matches /notebooks/:notebookId - Groups: [1]=notebookId */
+  /** Matches /notebooks/:notebook_id - Groups: [1]=notebook_id */
   notebook: /^\/notebooks\/([^/]+)\/?$/,
 
   /** Matches /notes/:noteId - Groups: [1]=noteId */
@@ -81,7 +81,7 @@ export const ROUTE_PATTERNS = {
  */
 export interface NotesRouteMatch {
   type: 'notebookNote' | 'notebook' | 'note' | 'list';
-  notebookId?: string;
+  notebook_id?: string;
   noteId?: string;
 }
 
@@ -96,22 +96,22 @@ export function matchNotesRoute(pathname: string): NotesRouteMatch | undefined {
     return undefined;
   }
 
-  // /notebooks/:notebookId/notes/:noteId
+  // /notebooks/:notebook_id/notes/:noteId
   const notebookNoteMatch = ROUTE_PATTERNS.notebookNote.exec(pathname);
   if (notebookNoteMatch) {
     return {
       type: 'notebookNote',
-      notebookId: notebookNoteMatch[1],
+      notebook_id: notebookNoteMatch[1],
       noteId: notebookNoteMatch[2],
     };
   }
 
-  // /notebooks/:notebookId
+  // /notebooks/:notebook_id
   const notebookMatch = ROUTE_PATTERNS.notebook.exec(pathname);
   if (notebookMatch) {
     return {
       type: 'notebook',
-      notebookId: notebookMatch[1],
+      notebook_id: notebookMatch[1],
     };
   }
 

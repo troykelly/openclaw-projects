@@ -22,7 +22,7 @@ const mockColumns: ColumnDefinition[] = [
   { id: 'priority', label: 'Priority', width: 100, sortable: true },
   { id: 'assignee', label: 'Assignee', width: 150, sortable: true },
   { id: 'dueDate', label: 'Due Date', width: 120, sortable: true },
-  { id: 'createdAt', label: 'Created', width: 120, sortable: true },
+  { id: 'created_at', label: 'Created', width: 120, sortable: true },
 ];
 
 const mockItems: ListItem[] = [
@@ -33,7 +33,7 @@ const mockItems: ListItem[] = [
     priority: 'high',
     assignee: 'Alice',
     dueDate: '2026-03-01',
-    createdAt: '2026-01-15',
+    created_at: '2026-01-15',
   },
   {
     id: 'item-2',
@@ -42,7 +42,7 @@ const mockItems: ListItem[] = [
     priority: 'medium',
     assignee: 'Bob',
     dueDate: '2026-02-15',
-    createdAt: '2026-01-20',
+    created_at: '2026-01-20',
   },
   {
     id: 'item-3',
@@ -51,7 +51,7 @@ const mockItems: ListItem[] = [
     priority: 'low',
     assignee: null,
     dueDate: null,
-    createdAt: '2026-01-10',
+    created_at: '2026-01-10',
   },
 ];
 

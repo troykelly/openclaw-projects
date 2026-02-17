@@ -1,21 +1,22 @@
 /**
  * Types for internal job processing.
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  * Part of Issue #222.
  */
 
 export interface InternalJob {
   id: string;
   kind: string;
-  runAt: Date;
+  run_at: Date;
   payload: Record<string, unknown>;
   attempts: number;
-  lastError: string | null;
-  lockedAt: Date | null;
-  lockedBy: string | null;
-  completedAt: Date | null;
-  idempotencyKey: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  last_error: string | null;
+  locked_at: Date | null;
+  locked_by: string | null;
+  completed_at: Date | null;
+  idempotency_key: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface JobProcessorResult {

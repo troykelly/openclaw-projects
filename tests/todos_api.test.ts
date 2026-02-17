@@ -7,7 +7,7 @@ import { buildServer } from '../src/api/server.ts';
 describe('Todos API (issue #108)', () => {
   const app = buildServer();
   let pool: Pool;
-  let workItemId: string;
+  let work_item_id: string;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -24,7 +24,7 @@ describe('Todos API (issue #108)', () => {
       url: '/api/work-items',
       payload: { title: 'Work item with todos' },
     });
-    workItemId = (created.json() as { id: string }).id;
+    work_item_id = (created.json() as { id: string }).id;
   });
 
   afterAll(async () => {
@@ -36,7 +36,7 @@ describe('Todos API (issue #108)', () => {
     it('returns empty array when no todos exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ todos: [] });
@@ -55,18 +55,18 @@ describe('Todos API (issue #108)', () => {
       // Create multiple todos
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: { text: 'First todo' },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: { text: 'Second todo' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -81,7 +81,7 @@ describe('Todos API (issue #108)', () => {
     it('creates a new todo', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: { text: 'New todo item' },
       });
       expect(res.statusCode).toBe(201);
@@ -90,20 +90,20 @@ describe('Todos API (issue #108)', () => {
         id: string;
         text: string;
         completed: boolean;
-        createdAt: string;
-        completedAt: string | null;
+        created_at: string;
+        completed_at: string | null;
       };
       expect(body.id).toMatch(/^[0-9a-f-]{36}$/i);
       expect(body.text).toBe('New todo item');
       expect(body.completed).toBe(false);
-      expect(body.completedAt).toBeNull();
-      expect(body.createdAt).toBeDefined();
+      expect(body.completed_at).toBeNull();
+      expect(body.created_at).toBeDefined();
     });
 
     it('returns 400 when text is missing', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -113,7 +113,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 400 when text is empty', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: { text: '   ' },
       });
       expect(res.statusCode).toBe(400);
@@ -137,7 +137,7 @@ describe('Todos API (issue #108)', () => {
     beforeEach(async () => {
       const created = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: { text: 'Original text' },
       });
       todoId = (created.json() as { id: string }).id;
@@ -146,7 +146,7 @@ describe('Todos API (issue #108)', () => {
     it('updates todo text', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${workItemId}/todos/${todoId}`,
+        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
         payload: { text: 'Updated text' },
       });
       expect(res.statusCode).toBe(200);
@@ -155,44 +155,44 @@ describe('Todos API (issue #108)', () => {
       expect(body.text).toBe('Updated text');
     });
 
-    it('marks todo as completed and sets completedAt', async () => {
+    it('marks todo as completed and sets completed_at', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${workItemId}/todos/${todoId}`,
+        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
         payload: { completed: true },
       });
       expect(res.statusCode).toBe(200);
 
-      const body = res.json() as { completed: boolean; completedAt: string | null };
+      const body = res.json() as { completed: boolean; completed_at: string | null };
       expect(body.completed).toBe(true);
-      expect(body.completedAt).not.toBeNull();
+      expect(body.completed_at).not.toBeNull();
     });
 
-    it('marks todo as incomplete and clears completedAt', async () => {
+    it('marks todo as incomplete and clears completed_at', async () => {
       // First mark as complete
       await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${workItemId}/todos/${todoId}`,
+        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
         payload: { completed: true },
       });
 
       // Then mark as incomplete
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${workItemId}/todos/${todoId}`,
+        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
         payload: { completed: false },
       });
       expect(res.statusCode).toBe(200);
 
-      const body = res.json() as { completed: boolean; completedAt: string | null };
+      const body = res.json() as { completed: boolean; completed_at: string | null };
       expect(body.completed).toBe(false);
-      expect(body.completedAt).toBeNull();
+      expect(body.completed_at).toBeNull();
     });
 
     it('returns 404 for non-existent todo', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${workItemId}/todos/00000000-0000-0000-0000-000000000000`,
+        url: `/api/work-items/${work_item_id}/todos/00000000-0000-0000-0000-000000000000`,
         payload: { text: 'Updated' },
       });
       expect(res.statusCode).toBe(404);
@@ -212,7 +212,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 400 when no update fields provided', async () => {
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${workItemId}/todos/${todoId}`,
+        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
         payload: {},
       });
       expect(res.statusCode).toBe(400);
@@ -226,7 +226,7 @@ describe('Todos API (issue #108)', () => {
     beforeEach(async () => {
       const created = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
         payload: { text: 'Todo to delete' },
       });
       todoId = (created.json() as { id: string }).id;
@@ -235,14 +235,14 @@ describe('Todos API (issue #108)', () => {
     it('deletes a todo', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}/todos/${todoId}`,
+        url: `/api/work-items/${work_item_id}/todos/${todoId}`,
       });
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
       const list = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/todos`,
+        url: `/api/work-items/${work_item_id}/todos`,
       });
       const body = list.json() as { todos: Array<{ id: string }> };
       expect(body.todos.find((t) => t.id === todoId)).toBeUndefined();
@@ -251,7 +251,7 @@ describe('Todos API (issue #108)', () => {
     it('returns 404 for non-existent todo', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}/todos/00000000-0000-0000-0000-000000000000`,
+        url: `/api/work-items/${work_item_id}/todos/00000000-0000-0000-0000-000000000000`,
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });

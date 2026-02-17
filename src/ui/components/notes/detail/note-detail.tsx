@@ -65,7 +65,7 @@ function generateAutoTitle(): string {
 export interface NoteDetailProps {
   note?: Note;
   notebooks?: Notebook[];
-  onSave?: (data: { title: string; content: string; notebookId?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => Promise<void>;
+  onSave?: (data: { title: string; content: string; notebook_id?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => Promise<void>;
   onBack?: () => void;
   onShare?: () => void;
   onViewHistory?: () => void;
@@ -94,7 +94,7 @@ export function NoteDetail({
 
   const [title, setTitle] = useState(note?.title || (isNew ? autoTitle : ''));
   const [content, setContent] = useState(note?.content || '');
-  const [notebookId, setNotebookId] = useState(note?.notebookId);
+  const [notebook_id, setNotebookId] = useState(note?.notebook_id);
   const [visibility, setVisibility] = useState<NoteVisibility>(note?.visibility || 'private');
   const [hideFromAgents, setHideFromAgents] = useState(note?.hideFromAgents || false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -109,7 +109,7 @@ export function NoteDetail({
   const lastSavedRef = useRef<{
     title: string;
     content: string;
-    notebookId?: string;
+    notebook_id?: string;
     visibility: NoteVisibility;
     hideFromAgents: boolean;
   } | null>(
@@ -117,7 +117,7 @@ export function NoteDetail({
       ? {
           title: note.title,
           content: note.content,
-          notebookId: note.notebookId,
+          notebook_id: note.notebook_id,
           visibility: note.visibility,
           hideFromAgents: note.hideFromAgents,
         }
@@ -133,25 +133,25 @@ export function NoteDetail({
     return (
       title !== lastSavedRef.current.title ||
       content !== lastSavedRef.current.content ||
-      notebookId !== lastSavedRef.current.notebookId ||
+      notebook_id !== lastSavedRef.current.notebook_id ||
       visibility !== lastSavedRef.current.visibility ||
       hideFromAgents !== lastSavedRef.current.hideFromAgents
     );
-  }, [title, content, notebookId, visibility, hideFromAgents]);
+  }, [title, content, notebook_id, visibility, hideFromAgents]);
 
   // Reset when note changes (e.g., navigating to different note)
   useEffect(() => {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
-      setNotebookId(note.notebookId);
+      setNotebookId(note.notebook_id);
       setVisibility(note.visibility);
       setHideFromAgents(note.hideFromAgents);
       setNoteCreated(true);
       lastSavedRef.current = {
         title: note.title,
         content: note.content,
-        notebookId: note.notebookId,
+        notebook_id: note.notebook_id,
         visibility: note.visibility,
         hideFromAgents: note.hideFromAgents,
       };
@@ -168,7 +168,7 @@ export function NoteDetail({
     const data = {
       title: currentTitle,
       content,
-      notebookId,
+      notebook_id,
       visibility,
       hideFromAgents,
     };
@@ -195,7 +195,7 @@ export function NoteDetail({
       setSaveError('Unable to save. Please try again.');
       setSaveStatus('error');
     }
-  }, [onSave, title, content, notebookId, visibility, hideFromAgents, autoTitle]);
+  }, [onSave, title, content, notebook_id, visibility, hideFromAgents, autoTitle]);
 
   // Cleanup status reset timer on unmount
   useEffect(() => {
@@ -439,7 +439,7 @@ export function NoteDetail({
         {/* Notebook selector */}
         <div className="flex items-center gap-2">
           <BookOpen className="size-4 text-muted-foreground" />
-          <Select value={notebookId ?? 'none'} onValueChange={(v) => setNotebookId(v === 'none' ? undefined : v)}>
+          <Select value={notebook_id ?? 'none'} onValueChange={(v) => setNotebookId(v === 'none' ? undefined : v)}>
             <SelectTrigger className="w-[140px] h-7 text-xs">
               <SelectValue placeholder="No notebook" />
             </SelectTrigger>
@@ -479,7 +479,7 @@ export function NoteDetail({
         {/* Version info */}
         {note && !isNew && (
           <span className="text-xs text-muted-foreground">
-            v{note.version} · Updated {note.updatedAt.toLocaleDateString()}
+            v{note.version} · Updated {note.updated_at.toLocaleDateString()}
           </span>
         )}
       </div>

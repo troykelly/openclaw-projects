@@ -47,9 +47,9 @@ describe('Workload Utils', () => {
 
   describe('calculateWorkload', () => {
     const assignments: WorkAssignment[] = [
-      { id: '1', title: 'Task A', memberId: 'member-1', hours: 8 },
-      { id: '2', title: 'Task B', memberId: 'member-1', hours: 12 },
-      { id: '3', title: 'Task C', memberId: 'member-2', hours: 20 },
+      { id: '1', title: 'Task A', member_id: 'member-1', hours: 8 },
+      { id: '2', title: 'Task B', member_id: 'member-1', hours: 12 },
+      { id: '3', title: 'Task C', member_id: 'member-2', hours: 20 },
     ];
 
     it('should sum hours per member', () => {
@@ -64,7 +64,7 @@ describe('Workload Utils', () => {
     });
 
     it('should handle single assignment', () => {
-      const result = calculateWorkload([{ id: '1', title: 'Task', memberId: 'member-1', hours: 5 }]);
+      const result = calculateWorkload([{ id: '1', title: 'Task', member_id: 'member-1', hours: 5 }]);
       expect(result.get('member-1')).toBe(5);
     });
   });
@@ -286,9 +286,9 @@ describe('Integration', () => {
     ];
 
     const assignments: WorkAssignment[] = [
-      { id: 'a', title: 'Task A', memberId: '1', hours: 45 }, // Over
-      { id: 'b', title: 'Task B', memberId: '2', hours: 50 }, // Over
-      { id: 'c', title: 'Task C', memberId: '3', hours: 30 }, // OK
+      { id: 'a', title: 'Task A', member_id: '1', hours: 45 }, // Over
+      { id: 'b', title: 'Task B', member_id: '2', hours: 50 }, // Over
+      { id: 'c', title: 'Task C', member_id: '3', hours: 30 }, // OK
     ];
 
     const workload = calculateWorkload(assignments);

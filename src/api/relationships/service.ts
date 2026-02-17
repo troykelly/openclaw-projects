@@ -27,14 +27,14 @@ import type {
 function mapRowToRelationship(row: Record<string, unknown>): RelationshipEntry {
   return {
     id: row.id as string,
-    contactAId: row.contact_a_id as string,
-    contactBId: row.contact_b_id as string,
-    relationshipTypeId: row.relationship_type_id as string,
+    contact_a_id: row.contact_a_id as string,
+    contact_b_id: row.contact_b_id as string,
+    relationship_type_id: row.relationship_type_id as string,
     notes: (row.notes as string) ?? null,
-    createdByAgent: (row.created_by_agent as string) ?? null,
-    embeddingStatus: row.embedding_status as 'pending' | 'complete' | 'failed',
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    created_by_agent: (row.created_by_agent as string) ?? null,
+    embedding_status: row.embedding_status as 'pending' | 'complete' | 'failed',
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
   };
 }
 
@@ -44,13 +44,13 @@ function mapRowToRelationship(row: Record<string, unknown>): RelationshipEntry {
 function mapRowToRelationshipWithDetails(row: Record<string, unknown>): RelationshipWithDetails {
   return {
     ...mapRowToRelationship(row),
-    contactAName: row.contact_a_name as string,
-    contactBName: row.contact_b_name as string,
-    relationshipType: {
+    contact_a_name: row.contact_a_name as string,
+    contact_b_name: row.contact_b_name as string,
+    relationship_type: {
       id: row.rt_id as string,
       name: row.rt_name as string,
       label: row.rt_label as string,
-      isDirectional: row.rt_is_directional as boolean,
+      is_directional: row.rt_is_directional as boolean,
     },
   };
 }
@@ -101,7 +101,7 @@ const SELECT_BASIC = `
  * @throws Error if duplicate relationship exists
  */
 export async function createRelationship(pool: Pool, input: CreateRelationshipInput): Promise<RelationshipEntry> {
-  if (input.contactAId === input.contactBId) {
+  if (input.contact_a_id === input.contact_b_id) {
     throw new Error('Cannot create a self-relationship');
   }
 
@@ -117,7 +117,7 @@ export async function createRelationship(pool: Pool, input: CreateRelationshipIn
       relationship_type_id::text as relationship_type_id,
       notes, created_by_agent, embedding_status,
       created_at, updated_at`,
-    [input.contactAId, input.contactBId, input.relationshipTypeId, input.notes ?? null, input.createdByAgent ?? null, input.userEmail ?? null],
+    [input.contact_a_id, input.contact_b_id, input.relationship_type_id, input.notes ?? null, input.created_by_agent ?? null, input.user_email ?? null],
   );
 
   return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
@@ -144,9 +144,9 @@ export async function updateRelationship(pool: Pool, id: string, input: UpdateRe
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  if (input.relationshipTypeId !== undefined) {
+  if (input.relationship_type_id !== undefined) {
     updates.push(`relationship_type_id = $${paramIndex}`);
-    params.push(input.relationshipTypeId);
+    params.push(input.relationship_type_id);
     paramIndex++;
   }
 
@@ -201,28 +201,28 @@ export async function listRelationships(pool: Pool, options: ListRelationshipsOp
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  if (options.contactId !== undefined) {
+  if (options.contact_id !== undefined) {
     conditions.push(`(r.contact_a_id = $${paramIndex} OR r.contact_b_id = $${paramIndex})`);
-    params.push(options.contactId);
+    params.push(options.contact_id);
     paramIndex++;
   }
 
-  if (options.relationshipTypeId !== undefined) {
+  if (options.relationship_type_id !== undefined) {
     conditions.push(`r.relationship_type_id = $${paramIndex}`);
-    params.push(options.relationshipTypeId);
+    params.push(options.relationship_type_id);
     paramIndex++;
   }
 
-  if (options.createdByAgent !== undefined) {
+  if (options.created_by_agent !== undefined) {
     conditions.push(`r.created_by_agent = $${paramIndex}`);
-    params.push(options.createdByAgent);
+    params.push(options.created_by_agent);
     paramIndex++;
   }
 
   // Issue #1172: optional user_email scoping
-  if (options.userEmail !== undefined) {
+  if (options.user_email !== undefined) {
     conditions.push(`r.user_email = $${paramIndex}`);
-    params.push(options.userEmail);
+    params.push(options.user_email);
     paramIndex++;
   }
 
@@ -263,10 +263,10 @@ export async function listRelationships(pool: Pool, options: ListRelationshipsOp
  *    - If type is directional (is_directional = true) -> return inverse type
  * 3. Combine results
  */
-export async function getRelatedContacts(pool: Pool, contactId: string, userEmail?: string): Promise<GraphTraversalResult> {
+export async function getRelatedContacts(pool: Pool, contact_id: string, user_email?: string): Promise<GraphTraversalResult> {
   // Get the contact's name first
-  const contactResult = await pool.query(`SELECT display_name FROM contact WHERE id = $1`, [contactId]);
-  const contactName = contactResult.rows.length > 0 ? (contactResult.rows[0] as { display_name: string }).display_name : 'Unknown';
+  const contactResult = await pool.query(`SELECT display_name FROM contact WHERE id = $1`, [contact_id]);
+  const contact_name = contactResult.rows.length > 0 ? (contactResult.rows[0] as { display_name: string }).display_name : 'Unknown';
 
   // Check if contact_kind column exists (added in separate migration 044_contact_kind)
   const kindColCheck = await pool.query(
@@ -277,10 +277,10 @@ export async function getRelatedContacts(pool: Pool, contactId: string, userEmai
   const contactKindSelect = hasContactKind ? `c_ref.contact_kind::text as contact_kind` : `'person' as contact_kind`;
 
   // Issue #1172: optional user_email scoping for graph traversal
-  const graphParams: string[] = [contactId];
+  const graphParams: string[] = [contact_id];
   let graphUserEmailFilter = '';
-  if (userEmail) {
-    graphParams.push(userEmail);
+  if (user_email) {
+    graphParams.push(user_email);
     graphUserEmailFilter = `AND r.user_email = $${graphParams.length}`;
   }
 
@@ -331,40 +331,40 @@ export async function getRelatedContacts(pool: Pool, contactId: string, userEmai
     graphParams,
   );
 
-  const relatedContacts: RelatedContact[] = [];
+  const related_contacts: RelatedContact[] = [];
 
   for (const row of aSideResult.rows) {
     const r = row as Record<string, unknown>;
-    relatedContacts.push({
-      contactId: r.contact_id as string,
-      contactName: r.contact_name as string,
-      contactKind: r.contact_kind as string,
-      relationshipId: r.relationship_id as string,
-      relationshipTypeName: r.relationship_type_name as string,
-      relationshipTypeLabel: r.relationship_type_label as string,
-      isDirectional: r.is_directional as boolean,
+    related_contacts.push({
+      contact_id: r.contact_id as string,
+      contact_name: r.contact_name as string,
+      contact_kind: r.contact_kind as string,
+      relationship_id: r.relationship_id as string,
+      relationship_type_name: r.relationship_type_name as string,
+      relationship_type_label: r.relationship_type_label as string,
+      is_directional: r.is_directional as boolean,
       notes: (r.notes as string) ?? null,
     });
   }
 
   for (const row of bSideResult.rows) {
     const r = row as Record<string, unknown>;
-    relatedContacts.push({
-      contactId: r.contact_id as string,
-      contactName: r.contact_name as string,
-      contactKind: r.contact_kind as string,
-      relationshipId: r.relationship_id as string,
-      relationshipTypeName: r.relationship_type_name as string,
-      relationshipTypeLabel: r.relationship_type_label as string,
-      isDirectional: r.is_directional as boolean,
+    related_contacts.push({
+      contact_id: r.contact_id as string,
+      contact_name: r.contact_name as string,
+      contact_kind: r.contact_kind as string,
+      relationship_id: r.relationship_id as string,
+      relationship_type_name: r.relationship_type_name as string,
+      relationship_type_label: r.relationship_type_label as string,
+      is_directional: r.is_directional as boolean,
       notes: (r.notes as string) ?? null,
     });
   }
 
   return {
-    contactId,
-    contactName,
-    relatedContacts,
+    contact_id,
+    contact_name,
+    related_contacts,
   };
 }
 
@@ -393,11 +393,11 @@ export async function getGroupMembers(pool: Pool, groupContactId: string): Promi
   return result.rows.map((row) => {
     const r = row as Record<string, unknown>;
     return {
-      groupId: r.group_id as string,
-      groupName: r.group_name as string,
-      memberId: r.member_id as string,
-      memberName: r.member_name as string,
-      relationshipId: r.relationship_id as string,
+      group_id: r.group_id as string,
+      group_name: r.group_name as string,
+      member_id: r.member_id as string,
+      member_name: r.member_name as string,
+      relationship_id: r.relationship_id as string,
     };
   });
 }
@@ -406,7 +406,7 @@ export async function getGroupMembers(pool: Pool, groupContactId: string): Promi
  * Gets all groups a contact belongs to.
  * Uses the has_member/member_of directional relationship type.
  */
-export async function getContactGroups(pool: Pool, contactId: string): Promise<GroupMembership[]> {
+export async function getContactGroups(pool: Pool, contact_id: string): Promise<GroupMembership[]> {
   const result = await pool.query(
     `SELECT
       r.id::text as relationship_id,
@@ -421,17 +421,17 @@ export async function getContactGroups(pool: Pool, contactId: string): Promise<G
     WHERE r.contact_b_id = $1
       AND rt.name = 'has_member'
     ORDER BY cg.display_name ASC`,
-    [contactId],
+    [contact_id],
   );
 
   return result.rows.map((row) => {
     const r = row as Record<string, unknown>;
     return {
-      groupId: r.group_id as string,
-      groupName: r.group_name as string,
-      memberId: r.member_id as string,
-      memberName: r.member_name as string,
-      relationshipId: r.relationship_id as string,
+      group_id: r.group_id as string,
+      group_name: r.group_name as string,
+      member_id: r.member_id as string,
+      member_name: r.member_name as string,
+      relationship_id: r.relationship_id as string,
     };
   });
 }
@@ -440,10 +440,10 @@ export async function getContactGroups(pool: Pool, contactId: string): Promise<G
  * Resolves a contact identifier (UUID or display name) to a contact ID and name.
  * Returns null if the contact cannot be found.
  */
-async function resolveContact(pool: Pool, identifier: string, userEmail?: string): Promise<{ id: string; displayName: string } | null> {
+async function resolveContact(pool: Pool, identifier: string, user_email?: string): Promise<{ id: string; display_name: string } | null> {
   // Issue #1172: optional user_email scoping for contact resolution
-  const userEmailFilter = userEmail ? `AND user_email = $2` : '';
-  const baseParams = userEmail ? [identifier, userEmail] : [identifier];
+  const userEmailFilter = user_email ? `AND user_email = $2` : '';
+  const baseParams = user_email ? [identifier, user_email] : [identifier];
 
   // Try as UUID first
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -452,7 +452,7 @@ async function resolveContact(pool: Pool, identifier: string, userEmail?: string
     const result = await pool.query(`SELECT id::text as id, display_name FROM contact WHERE id = $1 ${userEmailFilter}`, baseParams);
     if (result.rows.length > 0) {
       const row = result.rows[0] as { id: string; display_name: string };
-      return { id: row.id, displayName: row.display_name };
+      return { id: row.id, display_name: row.display_name };
     }
   }
 
@@ -467,7 +467,7 @@ async function resolveContact(pool: Pool, identifier: string, userEmail?: string
 
   if (nameResult.rows.length > 0) {
     const row = nameResult.rows[0] as { id: string; display_name: string };
-    return { id: row.id, displayName: row.display_name };
+    return { id: row.id, display_name: row.display_name };
   }
 
   return null;
@@ -488,7 +488,7 @@ async function resolveRelationshipType(pool: Pool, typeIdentifier: string): Prom
 
   // Try semantic/text match
   const { findSemanticMatch } = await import('../relationship-types/index.ts');
-  const matches = await findSemanticMatch(pool, typeIdentifier, { limit: 1, minSimilarity: 0.1 });
+  const matches = await findSemanticMatch(pool, typeIdentifier, { limit: 1, min_similarity: 0.1 });
 
   if (matches.length > 0) {
     const match = matches[0];
@@ -515,20 +515,20 @@ async function resolveRelationshipType(pool: Pool, typeIdentifier: string): Prom
  */
 export async function relationshipSet(pool: Pool, input: RelationshipSetInput): Promise<RelationshipSetResult> {
   // Step 1 & 2: Resolve contacts (Issue #1172: scope by user_email when provided)
-  const contactA = await resolveContact(pool, input.contactA, input.userEmail);
-  if (!contactA) {
-    throw new Error(`Contact "${input.contactA}" cannot be resolved. No matching contact found.`);
+  const contact_a = await resolveContact(pool, input.contact_a, input.user_email);
+  if (!contact_a) {
+    throw new Error(`Contact "${input.contact_a}" cannot be resolved. No matching contact found.`);
   }
 
-  const contactB = await resolveContact(pool, input.contactB, input.userEmail);
-  if (!contactB) {
-    throw new Error(`Contact "${input.contactB}" cannot be resolved. No matching contact found.`);
+  const contact_b = await resolveContact(pool, input.contact_b, input.user_email);
+  if (!contact_b) {
+    throw new Error(`Contact "${input.contact_b}" cannot be resolved. No matching contact found.`);
   }
 
   // Step 3: Resolve relationship type
-  const relType = await resolveRelationshipType(pool, input.relationshipType);
+  const relType = await resolveRelationshipType(pool, input.relationship_type);
   if (!relType) {
-    throw new Error(`Relationship type "${input.relationshipType}" cannot be resolved. No matching type found.`);
+    throw new Error(`Relationship type "${input.relationship_type}" cannot be resolved. No matching type found.`);
   }
 
   // Step 4: Check for existing relationship
@@ -540,34 +540,34 @@ export async function relationshipSet(pool: Pool, input: RelationshipSetInput): 
             created_at, updated_at
      FROM relationship
      WHERE contact_a_id = $1 AND contact_b_id = $2 AND relationship_type_id = $3`,
-    [contactA.id, contactB.id, relType.id],
+    [contact_a.id, contact_b.id, relType.id],
   );
 
   if (existingResult.rows.length > 0) {
     return {
       relationship: mapRowToRelationship(existingResult.rows[0] as Record<string, unknown>),
-      contactA: { id: contactA.id, displayName: contactA.displayName },
-      contactB: { id: contactB.id, displayName: contactB.displayName },
-      relationshipType: relType,
+      contact_a: { id: contact_a.id, display_name: contact_a.display_name },
+      contact_b: { id: contact_b.id, display_name: contact_b.display_name },
+      relationship_type: relType,
       created: false,
     };
   }
 
   // Step 5: Create the relationship
   const relationship = await createRelationship(pool, {
-    contactAId: contactA.id,
-    contactBId: contactB.id,
-    relationshipTypeId: relType.id,
+    contact_a_id: contact_a.id,
+    contact_b_id: contact_b.id,
+    relationship_type_id: relType.id,
     notes: input.notes,
-    createdByAgent: input.createdByAgent,
-    userEmail: input.userEmail,
+    created_by_agent: input.created_by_agent,
+    user_email: input.user_email,
   });
 
   return {
     relationship,
-    contactA: { id: contactA.id, displayName: contactA.displayName },
-    contactB: { id: contactB.id, displayName: contactB.displayName },
-    relationshipType: relType,
+    contact_a: { id: contact_a.id, display_name: contact_a.display_name },
+    contact_b: { id: contact_b.id, display_name: contact_b.display_name },
+    relationship_type: relType,
     created: true,
   };
 }

@@ -7,8 +7,8 @@ import { buildServer } from '../src/api/server.ts';
 describe('Work Item Attachments and Dependencies API (issue #109)', () => {
   const app = buildServer();
   let pool: Pool;
-  let workItemId: string;
-  let contactId: string;
+  let work_item_id: string;
+  let contact_id: string;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -25,15 +25,15 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       url: '/api/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
-    workItemId = (wi.json() as { id: string }).id;
+    work_item_id = (wi.json() as { id: string }).id;
 
     // Create a contact
     const contact = await app.inject({
       method: 'POST',
       url: '/api/contacts',
-      payload: { displayName: 'John Doe' },
+      payload: { display_name: 'John Doe' },
     });
-    contactId = (contact.json() as { id: string }).id;
+    contact_id = (contact.json() as { id: string }).id;
   });
 
   afterAll(async () => {
@@ -45,7 +45,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
     it('returns empty attachments array when no attachments exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}`,
+        url: `/api/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -57,14 +57,14 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Create a memory
       const memory = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/memories`,
+        url: `/api/work-items/${work_item_id}/memories`,
         payload: { title: 'Important Note', content: 'Content here', type: 'note' },
       });
-      const memoryId = (memory.json() as { id: string }).id;
+      const memory_id = (memory.json() as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}`,
+        url: `/api/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -78,7 +78,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
         }>;
       };
       expect(body.attachments.length).toBe(1);
-      expect(body.attachments[0].id).toBe(memoryId);
+      expect(body.attachments[0].id).toBe(memory_id);
       expect(body.attachments[0].type).toBe('memory');
       expect(body.attachments[0].title).toBe('Important Note');
     });
@@ -87,13 +87,13 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Link a contact
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/contacts`,
-        payload: { contactId, relationship: 'owner' },
+        url: `/api/work-items/${work_item_id}/contacts`,
+        payload: { contact_id, relationship: 'owner' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}`,
+        url: `/api/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -106,7 +106,7 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
         }>;
       };
       expect(body.attachments.length).toBe(1);
-      expect(body.attachments[0].id).toBe(contactId);
+      expect(body.attachments[0].id).toBe(contact_id);
       expect(body.attachments[0].type).toBe('contact');
       expect(body.attachments[0].title).toBe('John Doe');
       expect(body.attachments[0].subtitle).toBe('owner');
@@ -116,20 +116,20 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       // Create a memory
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/memories`,
+        url: `/api/work-items/${work_item_id}/memories`,
         payload: { title: 'Memory 1', content: 'Content', type: 'note' },
       });
 
       // Link a contact
       await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/contacts`,
-        payload: { contactId, relationship: 'assignee' },
+        url: `/api/work-items/${work_item_id}/contacts`,
+        payload: { contact_id, relationship: 'assignee' },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}`,
+        url: `/api/work-items/${work_item_id}`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -152,14 +152,14 @@ describe('Work Item Attachments and Dependencies API (issue #109)', () => {
       const init1 = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Initiative 1', kind: 'initiative', parentId: workItemId },
+        payload: { title: 'Initiative 1', kind: 'initiative', parent_id: work_item_id },
       });
       blockedWorkItemId = (init1.json() as { id: string }).id;
 
       const init2 = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Initiative 2', kind: 'initiative', parentId: workItemId },
+        payload: { title: 'Initiative 2', kind: 'initiative', parent_id: work_item_id },
       });
       blockingWorkItemId = (init2.json() as { id: string }).id;
     });

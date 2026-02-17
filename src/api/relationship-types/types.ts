@@ -1,4 +1,6 @@
 /**
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
+ *
  * Types for the relationship type system.
  * Part of Epic #486, Issue #490
  *
@@ -21,18 +23,18 @@ export interface RelationshipTypeEntry {
   /** Human-readable label, e.g. 'Partner of' */
   label: string;
   /** Whether the relationship is directional (parent_of -> child_of) */
-  isDirectional: boolean;
+  is_directional: boolean;
   /** For directional types, the ID of the inverse type */
-  inverseTypeId: string | null;
+  inverse_type_id: string | null;
   /** Description of the relationship type */
   description: string | null;
   /** Agent that created this type (null = pre-seeded) */
-  createdByAgent: string | null;
+  created_by_agent: string | null;
   /** Embedding status for semantic matching */
-  embeddingStatus: RelationshipTypeEmbeddingStatus;
+  embedding_status: RelationshipTypeEmbeddingStatus;
   /** Timestamps */
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 /**
@@ -40,7 +42,7 @@ export interface RelationshipTypeEntry {
  */
 export interface RelationshipTypeWithInverse extends RelationshipTypeEntry {
   /** The inverse relationship type (if directional) */
-  inverseType: Pick<RelationshipTypeEntry, 'id' | 'name' | 'label'> | null;
+  inverse_type: Pick<RelationshipTypeEntry, 'id' | 'name' | 'label'> | null;
 }
 
 /**
@@ -52,13 +54,13 @@ export interface CreateRelationshipTypeInput {
   /** Human-readable label */
   label: string;
   /** Whether the relationship is directional */
-  isDirectional?: boolean;
+  is_directional?: boolean;
   /** For directional types, the name of the inverse type to link */
-  inverseTypeName?: string;
+  inverse_type_name?: string;
   /** Description of the relationship type */
   description?: string;
   /** Agent that created this type */
-  createdByAgent?: string;
+  created_by_agent?: string;
 }
 
 /**
@@ -76,11 +78,11 @@ export interface UpdateRelationshipTypeInput {
  */
 export interface ListRelationshipTypesOptions {
   /** Filter by directional or symmetric */
-  isDirectional?: boolean;
+  is_directional?: boolean;
   /** Filter by agent-created vs pre-seeded */
-  createdByAgent?: string;
+  created_by_agent?: string;
   /** Only pre-seeded types (created_by_agent IS NULL) */
-  preSeededOnly?: boolean;
+  pre_seeded_only?: boolean;
   /** Limit results */
   limit?: number;
   /** Offset for pagination */

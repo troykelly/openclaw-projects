@@ -54,12 +54,12 @@ describe('Audit Log API Endpoints', () => {
     it('filters by entity type', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/audit-log?entityType=work_item',
+        url: '/api/audit-log?entity_type=work_item',
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.entries.every((e: { entityType: string }) => e.entityType === 'work_item')).toBe(true);
+      expect(body.entries.every((e: { entity_type: string }) => e.entity_type === 'work_item')).toBe(true);
     });
 
     it('filters by action', async () => {
@@ -93,7 +93,7 @@ describe('Audit Log API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/audit-log?startDate=${hourAgo.toISOString()}&endDate=${tomorrow.toISOString()}`,
+        url: `/api/audit-log?start_date=${hourAgo.toISOString()}&end_date=${tomorrow.toISOString()}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -101,14 +101,14 @@ describe('Audit Log API Endpoints', () => {
       expect(body.entries.length).toBeGreaterThan(0);
     });
 
-    it('returns 400 for invalid actorType', async () => {
+    it('returns 400 for invalid actor_type', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/audit-log?actorType=invalid',
+        url: '/api/audit-log?actor_type=invalid',
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('Invalid actorType');
+      expect(response.json().error).toContain('Invalid actor_type');
     });
 
     it('returns 400 for invalid action', async () => {
@@ -124,11 +124,11 @@ describe('Audit Log API Endpoints', () => {
     it('returns 400 for invalid date format', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/audit-log?startDate=not-a-date',
+        url: '/api/audit-log?start_date=not-a-date',
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('Invalid startDate');
+      expect(response.json().error).toContain('Invalid start_date');
     });
   });
 
@@ -136,20 +136,20 @@ describe('Audit Log API Endpoints', () => {
     it('returns audit log for a specific entity', async () => {
       // Create a work item to generate audit entries
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Audit Test Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
       // Update the work item to create another audit entry
-      await pool.query(`UPDATE work_item SET title = 'Updated Task' WHERE id = $1`, [workItemId]);
+      await pool.query(`UPDATE work_item SET title = 'Updated Task' WHERE id = $1`, [work_item_id]);
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/audit-log/entity/work_item/${workItemId}`,
+        url: `/api/audit-log/entity/work_item/${work_item_id}`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.entityType).toBe('work_item');
-      expect(body.entityId).toBe(workItemId);
+      expect(body.entity_type).toBe('work_item');
+      expect(body.entity_id).toBe(work_item_id);
       expect(body.entries.length).toBe(2);
       expect(body.count).toBe(2);
     });
@@ -167,16 +167,16 @@ describe('Audit Log API Endpoints', () => {
 
     it('supports pagination', async () => {
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Pagination Test') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
       // Create multiple updates
       for (let i = 0; i < 3; i++) {
-        await pool.query(`UPDATE work_item SET title = $1 WHERE id = $2`, [`Title ${i}`, workItemId]);
+        await pool.query(`UPDATE work_item SET title = $1 WHERE id = $2`, [`Title ${i}`, work_item_id]);
       }
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/audit-log/entity/work_item/${workItemId}?limit=2`,
+        url: `/api/audit-log/entity/work_item/${work_item_id}?limit=2`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -196,7 +196,7 @@ describe('Audit Log API Endpoints', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/audit-log/purge',
-        payload: { retentionDays: 90 },
+        payload: { retention_days: 90 },
       });
 
       expect(response.statusCode).toBe(200);
@@ -214,25 +214,25 @@ describe('Audit Log API Endpoints', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.retentionDays).toBe(90);
+      expect(body.retention_days).toBe(90);
     });
 
     it('accepts positive retention days in valid range', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/audit-log/purge',
-        payload: { retentionDays: 30 },
+        payload: { retention_days: 30 },
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().retentionDays).toBe(30);
+      expect(response.json().retention_days).toBe(30);
     });
 
     it('returns 400 for retention days too large', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/audit-log/purge',
-        payload: { retentionDays: 5000 },
+        payload: { retention_days: 5000 },
       });
 
       expect(response.statusCode).toBe(400);
@@ -269,11 +269,11 @@ describe('Audit Log Trigger Verification via API', () => {
     });
 
     expect(createResponse.statusCode).toBe(201);
-    const workItemId = createResponse.json().id;
+    const work_item_id = createResponse.json().id;
 
     const auditResponse = await app.inject({
       method: 'GET',
-      url: `/api/audit-log/entity/work_item/${workItemId}`,
+      url: `/api/audit-log/entity/work_item/${work_item_id}`,
     });
 
     expect(auditResponse.statusCode).toBe(200);
@@ -288,15 +288,15 @@ describe('Audit Log Trigger Verification via API', () => {
     const createResponse = await app.inject({
       method: 'POST',
       url: '/api/contacts',
-      payload: { displayName: 'API Created Contact' },
+      payload: { display_name: 'API Created Contact' },
     });
 
     expect(createResponse.statusCode).toBe(201);
-    const contactId = createResponse.json().id;
+    const contact_id = createResponse.json().id;
 
     const auditResponse = await app.inject({
       method: 'GET',
-      url: `/api/audit-log/entity/contact/${contactId}`,
+      url: `/api/audit-log/entity/contact/${contact_id}`,
     });
 
     expect(auditResponse.statusCode).toBe(200);
@@ -312,11 +312,11 @@ describe('Audit Log Trigger Verification via API', () => {
        VALUES ('Test Memory', 'Test content', 'note')
        RETURNING id::text`,
     );
-    const memoryId = result.rows[0].id;
+    const memory_id = result.rows[0].id;
 
     const auditResponse = await app.inject({
       method: 'GET',
-      url: `/api/audit-log/entity/memory/${memoryId}`,
+      url: `/api/audit-log/entity/memory/${memory_id}`,
     });
 
     expect(auditResponse.statusCode).toBe(200);

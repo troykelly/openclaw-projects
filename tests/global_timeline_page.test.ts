@@ -194,12 +194,12 @@ describe('Global Timeline Page', () => {
          RETURNING id::text as id`,
         [now.toISOString(), nextWeek.toISOString()],
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, not_before, not_after, parent_work_item_id)
          VALUES ('Epic 1-1', 'epic', $1, $2, $3)`,
-        [now.toISOString(), nextWeek.toISOString(), projectId],
+        [now.toISOString(), nextWeek.toISOString(), project_id],
       );
 
       // Create another project (should not appear)
@@ -211,7 +211,7 @@ describe('Global Timeline Page', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/timeline?parent_id=${projectId}`,
+        url: `/api/timeline?parent_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);

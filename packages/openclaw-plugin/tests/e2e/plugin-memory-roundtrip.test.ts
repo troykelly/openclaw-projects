@@ -55,7 +55,7 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
     cleanupClient = createTestApiClient(apiUrl);
 
     // Create tool instances — these are the units under test
-    const toolOptions = { client, logger, config: pluginConfig, userId: testUserId };
+    const toolOptions = { client, logger, config: pluginConfig, user_id: testUserId };
     storeTool = createMemoryStoreTool(toolOptions);
     recallTool = createMemoryRecallTool(toolOptions);
     forgetTool = createMemoryForgetTool(toolOptions);
@@ -86,7 +86,7 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
     expect(result.data.details.id).toBeDefined();
     expect(result.data.details.category).toBe('fact');
     expect(result.data.details.importance).toBe(0.8);
-    expect(result.data.details.userId).toBe(testUserId);
+    expect(result.data.details.user_id).toBe(testUserId);
     expect(result.data.content).toContain('Stored memory');
 
     createdMemoryIds.push(result.data.details.id);
@@ -126,20 +126,20 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
     });
     expect(storeResult.success).toBe(true);
     if (!storeResult.success) return;
-    const memoryId = storeResult.data.details.id;
-    createdMemoryIds.push(memoryId);
+    const memory_id = storeResult.data.details.id;
+    createdMemoryIds.push(memory_id);
 
     // Delete by ID
-    const forgetResult = await forgetTool.execute({ memoryId });
+    const forgetResult = await forgetTool.execute({ memory_id });
 
     expect(forgetResult.success).toBe(true);
     if (!forgetResult.success) return;
 
     expect(forgetResult.data.details.deletedCount).toBe(1);
-    expect(forgetResult.data.details.deletedIds).toContain(memoryId);
+    expect(forgetResult.data.details.deletedIds).toContain(memory_id);
 
     // Remove from cleanup since it is already deleted
-    const idx = createdMemoryIds.indexOf(memoryId);
+    const idx = createdMemoryIds.indexOf(memory_id);
     if (idx !== -1) createdMemoryIds.splice(idx, 1);
   });
 
@@ -154,25 +154,25 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
     });
     expect(storeResult.success).toBe(true);
     if (!storeResult.success) return;
-    const memoryId = storeResult.data.details.id;
-    createdMemoryIds.push(memoryId);
+    const memory_id = storeResult.data.details.id;
+    createdMemoryIds.push(memory_id);
 
     // 2. Recall — should find it
     const recallResult = await recallTool.execute({ query: tag, limit: 10 });
     expect(recallResult.success).toBe(true);
     if (!recallResult.success) return;
 
-    const foundBefore = recallResult.data.details.memories.some((m) => m.id === memoryId);
+    const foundBefore = recallResult.data.details.memories.some((m) => m.id === memory_id);
     expect(foundBefore).toBe(true);
 
     // 3. Forget
-    const forgetResult = await forgetTool.execute({ memoryId });
+    const forgetResult = await forgetTool.execute({ memory_id });
     expect(forgetResult.success).toBe(true);
     if (!forgetResult.success) return;
     expect(forgetResult.data.details.deletedCount).toBe(1);
 
     // Remove from cleanup
-    const idx = createdMemoryIds.indexOf(memoryId);
+    const idx = createdMemoryIds.indexOf(memory_id);
     if (idx !== -1) createdMemoryIds.splice(idx, 1);
 
     // 4. Verify gone — recall should no longer find it
@@ -180,7 +180,7 @@ describe.skipIf(!RUN_E2E)('Plugin Memory Tool Round-Trip (Issue #1098)', () => {
     expect(verifyResult.success).toBe(true);
     if (!verifyResult.success) return;
 
-    const foundAfter = verifyResult.data.details.memories.some((m) => m.id === memoryId);
+    const foundAfter = verifyResult.data.details.memories.some((m) => m.id === memory_id);
     expect(foundAfter).toBe(false);
   });
 

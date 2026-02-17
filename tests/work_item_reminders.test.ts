@@ -290,7 +290,7 @@ describe('Work item reminders (Issue #1321)', () => {
       const patchRes = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${id}/dates`,
-        payload: { startDate: '2026-07-01' },
+        payload: { start_date: '2026-07-01' },
       });
 
       expect(patchRes.statusCode).toBe(200);
@@ -317,7 +317,7 @@ describe('Work item reminders (Issue #1321)', () => {
       const patchRes = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${id}/dates`,
-        payload: { endDate: '2026-07-15' },
+        payload: { end_date: '2026-07-15' },
       });
 
       expect(patchRes.statusCode).toBe(200);
@@ -360,7 +360,7 @@ describe('Work item reminders (Issue #1321)', () => {
       await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${id}/dates`,
-        payload: { startDate: null },
+        payload: { start_date: null },
       });
 
       // Small delay to let DELETE propagate
@@ -403,7 +403,7 @@ describe('Work item reminders (Issue #1321)', () => {
       await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${id}/dates`,
-        payload: { endDate: null },
+        payload: { end_date: null },
       });
 
       // Small delay to let DELETE propagate
@@ -435,7 +435,7 @@ describe('Work item reminders (Issue #1321)', () => {
       const patchRes = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${id}/dates`,
-        payload: { startDate: '2026-08-01' },
+        payload: { start_date: '2026-08-01' },
       });
 
       expect(patchRes.statusCode).toBe(200);

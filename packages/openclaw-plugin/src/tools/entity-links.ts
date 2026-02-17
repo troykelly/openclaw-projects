@@ -51,8 +51,8 @@ function buildLinkKey(sourceType: string, sourceRef: string, targetType: string,
 /**
  * Build a tag for source-entity lookup: `src:type:id`
  */
-function buildSourceTag(entityType: string, entityRef: string): string {
-  return `src:${entityType}:${entityRef}`;
+function buildSourceTag(entity_type: string, entityRef: string): string {
+  return `src:${entity_type}:${entityRef}`;
 }
 
 // ==================== Schemas ====================
@@ -110,7 +110,7 @@ export interface EntityLinkToolOptions {
   client: ApiClient;
   logger: Logger;
   config?: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition interface */
@@ -143,7 +143,7 @@ interface SkillStoreItem {
  * items: one for the forward direction (A->B) and one for the reverse (B->A).
  */
 export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'links_set',
@@ -170,7 +170,7 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
       const now = new Date().toISOString();
 
       logger.info('links_set invoked', {
-        userId,
+        user_id,
         source_type,
         target_type,
         hasLabel: !!label,
@@ -211,12 +211,12 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
             data: forwardData,
             tags: [buildSourceTag(source_type, source_id)],
           },
-          { userId },
+          { user_id },
         );
 
         if (!forwardResponse.success) {
           logger.error('links_set forward link API error', {
-            userId,
+            user_id,
             status: forwardResponse.error.status,
             code: forwardResponse.error.code,
           });
@@ -236,12 +236,12 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
             data: reverseData,
             tags: [buildSourceTag(target_type, target_ref)],
           },
-          { userId },
+          { user_id },
         );
 
         if (!reverseResponse.success) {
           logger.error('links_set reverse link API error', {
-            userId,
+            user_id,
             status: reverseResponse.error.status,
             code: reverseResponse.error.code,
           });
@@ -249,12 +249,12 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
           // Rollback: delete the orphaned forward link
           const rollback = await client.delete(
             `/api/skill-store/items/${forwardResponse.data.id}`,
-            { userId },
+            { user_id },
           );
 
           if (!rollback.success) {
             logger.error('links_set rollback failed — partial state', {
-              userId,
+              user_id,
               forwardId: forwardResponse.data.id,
             });
             return {
@@ -273,7 +273,7 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
         const content = `Linked ${source_type}:${source_id} -> ${target_type}:${target_ref}${labelStr}`;
 
         logger.debug('links_set completed', {
-          userId,
+          user_id,
           forwardId: forwardResponse.data.id,
           reverseId: reverseResponse.data.id,
         });
@@ -290,13 +290,13 @@ export function createLinksSetTool(options: EntityLinkToolOptions): EntityLinkTo
               label: label ?? null,
               forwardId: forwardResponse.data.id,
               reverseId: reverseResponse.data.id,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('links_set failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -321,7 +321,7 @@ interface ParsedLink {
  * in the `entity_links` collection filtered by a source tag.
  */
 export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLinkTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'links_query',
@@ -340,7 +340,7 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
       const { entity_type, entity_id, link_types } = parseResult.data;
 
       logger.info('links_query invoked', {
-        userId,
+        user_id,
         entity_type,
         hasLinkTypes: !!link_types,
       });
@@ -358,11 +358,11 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
           items: SkillStoreItem[];
           total: number;
           has_more: boolean;
-        }>(`/api/skill-store/items?${queryParams.toString()}`, { userId });
+        }>(`/api/skill-store/items?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('links_query API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -393,7 +393,7 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
             success: true,
             data: {
               content: `No links found for ${entity_type}:${entity_id}.`,
-              details: { links: [], entity_type, entity_id, userId },
+              details: { links: [], entity_type, entity_id, user_id },
             },
           };
         }
@@ -408,7 +408,7 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
         const content = lines.join('\n');
 
         logger.debug('links_query completed', {
-          userId,
+          user_id,
           entity_type,
           linkCount: links.length,
         });
@@ -422,13 +422,13 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
               entity_type,
               entity_id,
               total: links.length,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('links_query failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -445,7 +445,7 @@ export function createLinksQueryTool(options: EntityLinkToolOptions): EntityLink
  * reverse (B->A) skill_store items.
  */
 export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLinkTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'links_remove',
@@ -469,7 +469,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
       }
 
       logger.info('links_remove invoked', {
-        userId,
+        user_id,
         source_type,
         target_type,
       });
@@ -486,7 +486,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
         });
         const forwardLookup = await client.get<SkillStoreItem>(
           `/api/skill-store/items/by-key?${forwardLookupParams.toString()}`,
-          { userId },
+          { user_id },
         );
 
         // Look up reverse item by key
@@ -497,7 +497,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
         });
         const reverseLookup = await client.get<SkillStoreItem>(
           `/api/skill-store/items/by-key?${reverseLookupParams.toString()}`,
-          { userId },
+          { user_id },
         );
 
         // Classify each lookup result
@@ -537,7 +537,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
           expectedCount++;
           const deleteResult = await client.delete(
             `/api/skill-store/items/${forwardLookup.data.id}`,
-            { userId },
+            { user_id },
           );
           if (deleteResult.success) {
             deletedCount++;
@@ -551,7 +551,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
           expectedCount++;
           const deleteResult = await client.delete(
             `/api/skill-store/items/${reverseLookup.data.id}`,
-            { userId },
+            { user_id },
           );
           if (deleteResult.success) {
             deletedCount++;
@@ -563,7 +563,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
         // If any deletes failed, report partial failure
         if (deletedCount < expectedCount) {
           logger.error('links_remove partial delete', {
-            userId,
+            user_id,
             deletedCount,
             expectedCount,
             deleteErrors,
@@ -577,7 +577,7 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
         const content = `Removed link between ${source_type}:${source_id} and ${target_type}:${target_ref} (${deletedCount} record${deletedCount !== 1 ? 's' : ''} deleted)`;
 
         logger.debug('links_remove completed', {
-          userId,
+          user_id,
           deletedCount,
         });
 
@@ -591,13 +591,13 @@ export function createLinksRemoveTool(options: EntityLinkToolOptions): EntityLin
               target_type,
               target_ref,
               deletedCount,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('links_remove failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

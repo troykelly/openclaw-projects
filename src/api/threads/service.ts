@@ -22,22 +22,22 @@ const MAX_LIMIT = 200;
 /**
  * Fetch thread information by ID.
  */
-async function fetchThreadInfo(pool: Pool, threadId: string): Promise<ThreadInfo | null> {
+async function fetchThreadInfo(pool: Pool, thread_id: string): Promise<ThreadInfo | null> {
   const result = await pool.query(
     `SELECT
        et.id::text as id,
        et.channel::text as channel,
-       et.external_thread_key as "externalThreadKey",
-       et.created_at as "createdAt",
-       et.updated_at as "updatedAt",
-       c.id::text as "contactId",
-       c.display_name as "displayName",
+       et.external_thread_key as "external_thread_key",
+       et.created_at as "created_at",
+       et.updated_at as "updated_at",
+       c.id::text as "contact_id",
+       c.display_name as "display_name",
        c.notes
      FROM external_thread et
      JOIN contact_endpoint ce ON ce.id = et.endpoint_id
      JOIN contact c ON c.id = ce.contact_id
      WHERE et.id = $1`,
-    [threadId],
+    [thread_id],
   );
 
   if (result.rows.length === 0) {
@@ -47,34 +47,34 @@ async function fetchThreadInfo(pool: Pool, threadId: string): Promise<ThreadInfo
   const row = result.rows[0] as {
     id: string;
     channel: string;
-    externalThreadKey: string;
-    createdAt: string;
-    updatedAt: string;
-    contactId: string;
-    displayName: string;
+    external_thread_key: string;
+    created_at: string;
+    updated_at: string;
+    contact_id: string;
+    display_name: string;
     notes: string | null;
   };
 
   return {
     id: row.id,
     channel: row.channel,
-    externalThreadKey: row.externalThreadKey,
+    external_thread_key: row.external_thread_key,
     contact: {
-      id: row.contactId,
-      displayName: row.displayName,
+      id: row.contact_id,
+      display_name: row.display_name,
       notes: row.notes || undefined,
     },
-    createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt),
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
   };
 }
 
 /**
  * Fetch messages for a thread with pagination.
  */
-async function fetchMessages(pool: Pool, threadId: string, options: ThreadHistoryOptions): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
+async function fetchMessages(pool: Pool, thread_id: string, options: ThreadHistoryOptions): Promise<{ messages: ThreadMessage[]; has_more: boolean }> {
   const limit = Math.min(options.limit || DEFAULT_LIMIT, MAX_LIMIT);
-  const params: (string | number | Date)[] = [threadId, limit + 1];
+  const params: (string | number | Date)[] = [thread_id, limit + 1];
   const conditions: string[] = ['em.thread_id = $1'];
   let paramIndex = 3;
 
@@ -98,9 +98,9 @@ async function fetchMessages(pool: Pool, threadId: string, options: ThreadHistor
        em.direction::text as direction,
        em.body,
        em.subject,
-       em.from_address as "fromAddress",
-       em.received_at as "receivedAt",
-       em.created_at as "createdAt"
+       em.from_address as "from_address",
+       em.received_at as "received_at",
+       em.created_at as "created_at"
      FROM external_message em
      WHERE ${whereClause}
      ORDER BY em.received_at DESC
@@ -108,52 +108,52 @@ async function fetchMessages(pool: Pool, threadId: string, options: ThreadHistor
     params,
   );
 
-  const hasMore = result.rows.length > limit;
+  const has_more = result.rows.length > limit;
   const messages = result.rows.slice(0, limit).map((row) => {
     const r = row as {
       id: string;
       direction: string;
       body: string | null;
       subject: string | null;
-      fromAddress: string | null;
-      receivedAt: string;
-      createdAt: string;
+      from_address: string | null;
+      received_at: string;
+      created_at: string;
     };
     return {
       id: r.id,
       direction: r.direction as 'inbound' | 'outbound',
       body: r.body,
       subject: r.subject || undefined,
-      fromAddress: r.fromAddress || undefined,
-      receivedAt: new Date(r.receivedAt),
-      createdAt: new Date(r.createdAt),
+      from_address: r.from_address || undefined,
+      received_at: new Date(r.received_at),
+      created_at: new Date(r.created_at),
     };
   });
 
   // Reverse to get chronological order (oldest first)
   messages.reverse();
 
-  return { messages, hasMore };
+  return { messages, has_more: has_more };
 }
 
 /**
  * Fetch work items related to a thread.
  */
-async function fetchRelatedWorkItems(pool: Pool, threadId: string): Promise<RelatedWorkItem[]> {
+async function fetchRelatedWorkItems(pool: Pool, thread_id: string): Promise<RelatedWorkItem[]> {
   const result = await pool.query(
     `SELECT
        wi.id::text as id,
        wi.title,
        wi.status,
-       wi.work_item_kind::text as "workItemKind",
-       wi.not_before as "notBefore",
-       wi.not_after as "notAfter"
+       wi.work_item_kind::text as "work_item_kind",
+       wi.not_before as "not_before",
+       wi.not_after as "not_after"
      FROM work_item wi
      JOIN work_item_communication wic ON wic.work_item_id = wi.id
      WHERE wic.thread_id = $1
      ORDER BY wi.updated_at DESC
      LIMIT 20`,
-    [threadId],
+    [thread_id],
   );
 
   return result.rows.map((row) => {
@@ -161,17 +161,17 @@ async function fetchRelatedWorkItems(pool: Pool, threadId: string): Promise<Rela
       id: string;
       title: string;
       status: string;
-      workItemKind: string;
-      notBefore: string | null;
-      notAfter: string | null;
+      work_item_kind: string;
+      not_before: string | null;
+      not_after: string | null;
     };
     return {
       id: r.id,
       title: r.title,
       status: r.status,
-      workItemKind: r.workItemKind,
-      notBefore: r.notBefore ? new Date(r.notBefore) : undefined,
-      notAfter: r.notAfter ? new Date(r.notAfter) : undefined,
+      work_item_kind: r.work_item_kind,
+      not_before: r.not_before ? new Date(r.not_before) : undefined,
+      not_after: r.not_after ? new Date(r.not_after) : undefined,
     };
   });
 }
@@ -179,11 +179,11 @@ async function fetchRelatedWorkItems(pool: Pool, threadId: string): Promise<Rela
 /**
  * Fetch memories related to the contact.
  */
-async function fetchContactMemories(pool: Pool, contactId: string): Promise<ContactMemory[]> {
+async function fetchContactMemories(pool: Pool, contact_id: string): Promise<ContactMemory[]> {
   const result = await pool.query(
     `SELECT
        m.id::text as id,
-       m.memory_type as "memoryType",
+       m.memory_type as "memory_type",
        m.title,
        m.content,
        m.importance
@@ -193,20 +193,20 @@ async function fetchContactMemories(pool: Pool, contactId: string): Promise<Cont
        AND m.superseded_by IS NULL
      ORDER BY m.importance DESC, m.created_at DESC
      LIMIT 10`,
-    [contactId],
+    [contact_id],
   );
 
   return result.rows.map((row) => {
     const r = row as {
       id: string;
-      memoryType: string;
+      memory_type: string;
       title: string;
       content: string;
       importance: number;
     };
     return {
       id: r.id,
-      memoryType: r.memoryType,
+      memory_type: r.memory_type,
       title: r.title,
       content: r.content,
       importance: r.importance,
@@ -217,38 +217,38 @@ async function fetchContactMemories(pool: Pool, contactId: string): Promise<Cont
 /**
  * Get thread history with messages, related work items, and contact memories.
  */
-export async function getThreadHistory(pool: Pool, threadId: string, options: ThreadHistoryOptions = {}): Promise<ThreadHistoryResponse | null> {
+export async function getThreadHistory(pool: Pool, thread_id: string, options: ThreadHistoryOptions = {}): Promise<ThreadHistoryResponse | null> {
   // Fetch thread info first
-  const thread = await fetchThreadInfo(pool, threadId);
+  const thread = await fetchThreadInfo(pool, thread_id);
 
   if (!thread) {
     return null;
   }
 
   // Fetch messages
-  const { messages, hasMore } = await fetchMessages(pool, threadId, options);
+  const { messages, has_more: has_more } = await fetchMessages(pool, thread_id, options);
 
   // Fetch related work items (default: include)
-  const relatedWorkItems = options.includeWorkItems !== false ? await fetchRelatedWorkItems(pool, threadId) : [];
+  const relatedWorkItems = options.includeWorkItems !== false ? await fetchRelatedWorkItems(pool, thread_id) : [];
 
   // Fetch contact memories (default: include)
   const contactMemories = options.includeMemories !== false ? await fetchContactMemories(pool, thread.contact.id) : [];
 
   // Build pagination info
   const pagination: ThreadHistoryResponse['pagination'] = {
-    hasMore,
+    has_more: has_more,
   };
 
   if (messages.length > 0) {
-    pagination.oldestTimestamp = messages[0].receivedAt.toISOString();
-    pagination.newestTimestamp = messages[messages.length - 1].receivedAt.toISOString();
+    pagination.oldest_timestamp = messages[0].received_at.toISOString();
+    pagination.newest_timestamp = messages[messages.length - 1].received_at.toISOString();
   }
 
   return {
     thread,
     messages,
-    relatedWorkItems,
-    contactMemories,
+    related_work_items: relatedWorkItems,
+    contact_memories: contactMemories,
     pagination,
   };
 }
@@ -256,8 +256,8 @@ export async function getThreadHistory(pool: Pool, threadId: string, options: Th
 /**
  * Check if a thread exists.
  */
-export async function threadExists(pool: Pool, threadId: string): Promise<boolean> {
-  const result = await pool.query(`SELECT 1 FROM external_thread WHERE id = $1`, [threadId]);
+export async function threadExists(pool: Pool, thread_id: string): Promise<boolean> {
+  const result = await pool.query(`SELECT 1 FROM external_thread WHERE id = $1`, [thread_id]);
   return result.rows.length > 0;
 }
 
@@ -280,16 +280,16 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
   }
 
   // Filter by contact_id
-  if (options.contactId) {
+  if (options.contact_id) {
     whereClauses.push(`ce.contact_id = $${paramIndex}`);
-    params.push(options.contactId);
+    params.push(options.contact_id);
     paramIndex++;
   }
 
   // Issue #1172: optional user_email scoping
-  if (options.userEmail) {
+  if (options.user_email) {
     whereClauses.push(`et.user_email = $${paramIndex}`);
-    params.push(options.userEmail);
+    params.push(options.user_email);
     paramIndex++;
   }
 
@@ -306,7 +306,7 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
   const total = countResult.rows[0].count as number;
 
   // Get threads with last message
-  params.push(limit + 1); // Fetch one extra to determine hasMore
+  params.push(limit + 1); // Fetch one extra to determine has_more
   const limitParam = paramIndex;
   paramIndex++;
 
@@ -317,18 +317,18 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
     `SELECT
        et.id::text as id,
        et.channel::text as channel,
-       et.external_thread_key as "externalThreadKey",
-       et.created_at as "createdAt",
-       et.updated_at as "updatedAt",
-       c.id::text as "contactId",
-       c.display_name as "displayName",
+       et.external_thread_key as "external_thread_key",
+       et.created_at as "created_at",
+       et.updated_at as "updated_at",
+       c.id::text as "contact_id",
+       c.display_name as "display_name",
        c.notes,
-       (SELECT COUNT(*)::int FROM external_message WHERE thread_id = et.id) as "messageCount",
-       lm.id::text as "lastMessageId",
-       lm.direction::text as "lastMessageDirection",
-       lm.body as "lastMessageBody",
-       lm.subject as "lastMessageSubject",
-       lm.received_at as "lastMessageReceivedAt"
+       (SELECT COUNT(*)::int FROM external_message WHERE thread_id = et.id) as "message_count",
+       lm.id::text as "last_message_id",
+       lm.direction::text as "last_message_direction",
+       lm.body as "last_message_body",
+       lm.subject as "last_message_subject",
+       lm.received_at as "last_message_received_at"
      FROM external_thread et
      JOIN contact_endpoint ce ON ce.id = et.endpoint_id
      JOIN contact c ON c.id = ce.contact_id
@@ -346,48 +346,48 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
     params,
   );
 
-  const hasMore = result.rows.length > limit;
+  const has_more = result.rows.length > limit;
   const rows = result.rows.slice(0, limit);
 
   const threads: ThreadListItem[] = rows.map((row) => {
     const r = row as {
       id: string;
       channel: string;
-      externalThreadKey: string;
-      createdAt: string;
-      updatedAt: string;
-      contactId: string;
-      displayName: string;
+      external_thread_key: string;
+      created_at: string;
+      updated_at: string;
+      contact_id: string;
+      display_name: string;
       notes: string | null;
-      messageCount: number;
-      lastMessageId: string | null;
-      lastMessageDirection: string | null;
-      lastMessageBody: string | null;
-      lastMessageSubject: string | null;
-      lastMessageReceivedAt: string | null;
+      message_count: number;
+      last_message_id: string | null;
+      last_message_direction: string | null;
+      last_message_body: string | null;
+      last_message_subject: string | null;
+      last_message_received_at: string | null;
     };
 
     const thread: ThreadListItem = {
       id: r.id,
       channel: r.channel,
-      externalThreadKey: r.externalThreadKey,
+      external_thread_key: r.external_thread_key,
       contact: {
-        id: r.contactId,
-        displayName: r.displayName,
+        id: r.contact_id,
+        display_name: r.display_name,
         notes: r.notes || undefined,
       },
-      createdAt: new Date(r.createdAt),
-      updatedAt: new Date(r.updatedAt),
-      messageCount: r.messageCount,
+      created_at: new Date(r.created_at),
+      updated_at: new Date(r.updated_at),
+      message_count: r.message_count,
     };
 
-    if (r.lastMessageId) {
-      thread.lastMessage = {
-        id: r.lastMessageId,
-        direction: r.lastMessageDirection as 'inbound' | 'outbound',
-        body: r.lastMessageBody,
-        subject: r.lastMessageSubject || undefined,
-        receivedAt: new Date(r.lastMessageReceivedAt!),
+    if (r.last_message_id) {
+      thread.last_message = {
+        id: r.last_message_id,
+        direction: r.last_message_direction as 'inbound' | 'outbound',
+        body: r.last_message_body,
+        subject: r.last_message_subject || undefined,
+        received_at: new Date(r.last_message_received_at!),
       };
     }
 
@@ -400,7 +400,7 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
     pagination: {
       limit,
       offset,
-      hasMore,
+      has_more: has_more,
     },
   };
 }

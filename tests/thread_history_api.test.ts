@@ -30,14 +30,14 @@ describe('Thread History API (Issue #226)', () => {
        VALUES ('John Smith', 'Friend from work')
        RETURNING id::text as id`,
     );
-    const contactId = contactResult.rows[0].id as string;
+    const contact_id = contactResult.rows[0].id as string;
 
     // Create endpoint
     const endpointResult = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, 'phone', '+15551234567', '+15551234567')
        RETURNING id::text as id`,
-      [contactId],
+      [contact_id],
     );
     const endpointId = endpointResult.rows[0].id as string;
 
@@ -48,27 +48,27 @@ describe('Thread History API (Issue #226)', () => {
        RETURNING id::text as id`,
       [endpointId],
     );
-    const threadId = threadResult.rows[0].id as string;
+    const thread_id = threadResult.rows[0].id as string;
 
-    return { contactId, endpointId, threadId };
+    return { contact_id, endpointId, thread_id };
   }
 
   describe('GET /api/threads/:id/history', () => {
     it('returns thread info with contact details', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history`,
+        url: `/api/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
       expect(body.thread).toBeDefined();
-      expect(body.thread.id).toBe(threadId);
+      expect(body.thread.id).toBe(thread_id);
       expect(body.thread.channel).toBe('phone');
-      expect(body.thread.contact.displayName).toBe('John Smith');
+      expect(body.thread.contact.display_name).toBe('John Smith');
       expect(body.thread.contact.notes).toBe('Friend from work');
     });
 
@@ -83,7 +83,7 @@ describe('Thread History API (Issue #226)', () => {
     });
 
     it('returns messages in chronological order', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       // Create messages
       await pool.query(
@@ -91,12 +91,12 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ($1, 'msg1', 'inbound', 'Hello', NOW() - interval '2 hours'),
                 ($1, 'msg2', 'outbound', 'Hi there!', NOW() - interval '1 hour'),
                 ($1, 'msg3', 'inbound', 'How are you?', NOW())`,
-        [threadId],
+        [thread_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history`,
+        url: `/api/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -111,40 +111,40 @@ describe('Thread History API (Issue #226)', () => {
     });
 
     it('respects limit parameter', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       // Create 5 messages
       for (let i = 0; i < 5; i++) {
         await pool.query(
           `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
            VALUES ($1, $2, 'inbound', $3, NOW() - interval '${5 - i} hours')`,
-          [threadId, `msg${i}`, `Message ${i}`],
+          [thread_id, `msg${i}`, `Message ${i}`],
         );
       }
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history?limit=3`,
+        url: `/api/threads/${thread_id}/history?limit=3`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
       expect(body.messages.length).toBe(3);
-      expect(body.pagination.hasMore).toBe(true);
+      expect(body.pagination.has_more).toBe(true);
     });
 
     it('returns related work items', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       // Create message
       const msgResult = await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body)
          VALUES ($1, 'msg1', 'inbound', 'Can we reschedule?')
          RETURNING id::text as id`,
-        [threadId],
+        [thread_id],
       );
-      const messageId = msgResult.rows[0].id as string;
+      const message_id = msgResult.rows[0].id as string;
 
       // Create work item linked to thread
       const wiResult = await pool.query(
@@ -152,88 +152,88 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ('Lunch with John', 'issue', 'open', NOW() + interval '1 day')
          RETURNING id::text as id`,
       );
-      const workItemId = wiResult.rows[0].id as string;
+      const work_item_id = wiResult.rows[0].id as string;
 
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [workItemId, threadId, messageId],
+        [work_item_id, thread_id, message_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history`,
+        url: `/api/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
-      expect(body.relatedWorkItems.length).toBe(1);
-      expect(body.relatedWorkItems[0].title).toBe('Lunch with John');
-      expect(body.relatedWorkItems[0].status).toBe('open');
-      expect(body.relatedWorkItems[0].notBefore).toBeDefined();
+      expect(body.related_work_items.length).toBe(1);
+      expect(body.related_work_items[0].title).toBe('Lunch with John');
+      expect(body.related_work_items[0].status).toBe('open');
+      expect(body.related_work_items[0].not_before).toBeDefined();
     });
 
     it('returns contact memories', async () => {
-      const { threadId, contactId } = await createTestThread();
+      const { thread_id, contact_id } = await createTestThread();
 
       // Create a memory for the contact
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, contact_id, importance)
          VALUES ('Scheduling preference', 'Prefers afternoon meetings', 'preference', $1, 8)`,
-        [contactId],
+        [contact_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history`,
+        url: `/api/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
-      expect(body.contactMemories.length).toBe(1);
-      expect(body.contactMemories[0].title).toBe('Scheduling preference');
-      expect(body.contactMemories[0].memoryType).toBe('preference');
-      expect(body.contactMemories[0].importance).toBe(8);
+      expect(body.contact_memories.length).toBe(1);
+      expect(body.contact_memories[0].title).toBe('Scheduling preference');
+      expect(body.contact_memories[0].memory_type).toBe('preference');
+      expect(body.contact_memories[0].importance).toBe(8);
     });
 
     it('excludes work items when include_work_items=false', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history?include_work_items=false`,
+        url: `/api/threads/${thread_id}/history?include_work_items=false`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
-      expect(body.relatedWorkItems).toEqual([]);
+      expect(body.related_work_items).toEqual([]);
     });
 
     it('excludes memories when include_memories=false', async () => {
-      const { threadId, contactId } = await createTestThread();
+      const { thread_id, contact_id } = await createTestThread();
 
       await pool.query(
         `INSERT INTO memory (title, content, memory_type, contact_id)
          VALUES ('Test memory', 'Content', 'note', $1)`,
-        [contactId],
+        [contact_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history?include_memories=false`,
+        url: `/api/threads/${thread_id}/history?include_memories=false`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
-      expect(body.contactMemories).toEqual([]);
+      expect(body.contact_memories).toEqual([]);
     });
 
     it('supports before pagination', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       // Create messages at different times
       await pool.query(
@@ -241,12 +241,12 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ($1, 'msg1', 'inbound', 'First', '2026-01-01T10:00:00Z'),
                 ($1, 'msg2', 'inbound', 'Second', '2026-01-01T11:00:00Z'),
                 ($1, 'msg3', 'inbound', 'Third', '2026-01-01T12:00:00Z')`,
-        [threadId],
+        [thread_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history?before=2026-01-01T12:00:00Z`,
+        url: `/api/threads/${thread_id}/history?before=2026-01-01T12:00:00Z`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -258,7 +258,7 @@ describe('Thread History API (Issue #226)', () => {
     });
 
     it('supports after pagination', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       // Create messages at different times
       await pool.query(
@@ -266,12 +266,12 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ($1, 'msg1', 'inbound', 'First', '2026-01-01T10:00:00Z'),
                 ($1, 'msg2', 'inbound', 'Second', '2026-01-01T11:00:00Z'),
                 ($1, 'msg3', 'inbound', 'Third', '2026-01-01T12:00:00Z')`,
-        [threadId],
+        [thread_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history?after=2026-01-01T10:00:00Z`,
+        url: `/api/threads/${thread_id}/history?after=2026-01-01T10:00:00Z`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -283,26 +283,26 @@ describe('Thread History API (Issue #226)', () => {
     });
 
     it('returns pagination metadata', async () => {
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
          VALUES ($1, 'msg1', 'inbound', 'Message', NOW())`,
-        [threadId],
+        [thread_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history`,
+        url: `/api/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
       expect(body.pagination).toBeDefined();
-      expect(body.pagination.hasMore).toBe(false);
-      expect(body.pagination.oldestTimestamp).toBeDefined();
-      expect(body.pagination.newestTimestamp).toBeDefined();
+      expect(body.pagination.has_more).toBe(false);
+      expect(body.pagination.oldest_timestamp).toBeDefined();
+      expect(body.pagination.newest_timestamp).toBeDefined();
     });
 
     it('includes email-specific fields when present', async () => {
@@ -312,13 +312,13 @@ describe('Thread History API (Issue #226)', () => {
          VALUES ('Email User')
          RETURNING id::text as id`,
       );
-      const contactId = contactResult.rows[0].id as string;
+      const contact_id = contactResult.rows[0].id as string;
 
       const endpointResult = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'user@example.com', 'user@example.com')
          RETURNING id::text as id`,
-        [contactId],
+        [contact_id],
       );
       const endpointId = endpointResult.rows[0].id as string;
 
@@ -328,18 +328,18 @@ describe('Thread History API (Issue #226)', () => {
          RETURNING id::text as id`,
         [endpointId],
       );
-      const threadId = threadResult.rows[0].id as string;
+      const thread_id = threadResult.rows[0].id as string;
 
       // Create email message with subject
       await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, subject, from_address)
          VALUES ($1, 'email1', 'inbound', 'Email body', 'Meeting Request', 'user@example.com')`,
-        [threadId],
+        [thread_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads/${threadId}/history`,
+        url: `/api/threads/${thread_id}/history`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -347,7 +347,7 @@ describe('Thread History API (Issue #226)', () => {
 
       expect(body.messages.length).toBe(1);
       expect(body.messages[0].subject).toBe('Meeting Request');
-      expect(body.messages[0].fromAddress).toBe('user@example.com');
+      expect(body.messages[0].from_address).toBe('user@example.com');
     });
   });
 

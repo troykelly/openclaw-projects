@@ -105,13 +105,13 @@ export function AddDependencyDialog({
 
   // Check for circular dependencies
   const wouldCreateCycle = React.useCallback(
-    (itemId: string): boolean => {
+    (item_id: string): boolean => {
       if (direction === 'blocks') {
         // Source blocks target: source -> target
-        return detectCircularDependency(dependencyGraph, sourceItemId, itemId);
+        return detectCircularDependency(dependencyGraph, sourceItemId, item_id);
       } else {
         // Target blocks source: target -> source
-        return detectCircularDependency(dependencyGraph, itemId, sourceItemId);
+        return detectCircularDependency(dependencyGraph, item_id, sourceItemId);
       }
     },
     [dependencyGraph, sourceItemId, direction],

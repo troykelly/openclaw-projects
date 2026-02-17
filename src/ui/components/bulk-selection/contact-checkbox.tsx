@@ -7,19 +7,19 @@ import { Checkbox } from '@/ui/components/ui/checkbox';
 import { cn } from '@/ui/lib/utils';
 
 export interface ContactCheckboxProps {
-  contactId: string;
+  contact_id: string;
   isSelected: boolean;
   onToggle: (id: string) => void;
   className?: string;
 }
 
-export function ContactCheckbox({ contactId, isSelected, onToggle, className }: ContactCheckboxProps) {
+export function ContactCheckbox({ contact_id, isSelected, onToggle, className }: ContactCheckboxProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
 
   const handleChange = () => {
-    onToggle(contactId);
+    onToggle(contact_id);
   };
 
   return (

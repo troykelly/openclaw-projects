@@ -81,7 +81,7 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
     title: v.title,
     content: '', // Content not in summary
     changedBy: v.changedByEmail ?? 'Unknown',
-    changedAt: new Date(v.createdAt),
+    changedAt: new Date(v.created_at),
     changeReason: v.changeType,
   }));
 

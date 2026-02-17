@@ -184,7 +184,7 @@ describe('OAuth API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/oauth/connections?userEmail=test@example.com',
+        url: '/api/oauth/connections?user_email=test@example.com',
       });
 
       expect(response.statusCode).toBe(200);
@@ -201,17 +201,17 @@ describe('OAuth API Endpoints', () => {
          VALUES ('test@example.com', 'google', 'test-token', ARRAY['contacts'])
          RETURNING id::text`,
       );
-      const connectionId = insertResult.rows[0].id;
+      const connection_id = insertResult.rows[0].id;
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/oauth/connections/${connectionId}`,
+        url: `/api/oauth/connections/${connection_id}`,
       });
 
       expect(response.statusCode).toBe(204);
 
       // Verify deletion
-      const checkResult = await pool.query('SELECT id FROM oauth_connection WHERE id = $1', [connectionId]);
+      const checkResult = await pool.query('SELECT id FROM oauth_connection WHERE id = $1', [connection_id]);
       expect(checkResult.rows).toHaveLength(0);
     });
 
@@ -231,7 +231,7 @@ describe('OAuth API Endpoints', () => {
         method: 'POST',
         url: '/api/sync/contacts',
         payload: {
-          connectionId: '00000000-0000-0000-0000-000000000000',
+          connection_id: '00000000-0000-0000-0000-000000000000',
         },
       });
 
@@ -240,7 +240,7 @@ describe('OAuth API Endpoints', () => {
       expect(body.error).toContain('No OAuth connection');
     });
 
-    it('returns error when connectionId is missing', async () => {
+    it('returns error when connection_id is missing', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/sync/contacts',
@@ -249,7 +249,7 @@ describe('OAuth API Endpoints', () => {
 
       expect(response.statusCode).toBe(400);
       const body = response.json();
-      expect(body.error).toContain('connectionId is required');
+      expect(body.error).toContain('connection_id is required');
     });
   });
 });

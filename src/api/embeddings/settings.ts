@@ -15,7 +15,7 @@ export interface ProviderStatus {
   model: string;
   dimensions: number;
   status: 'active' | 'configured' | 'unconfigured';
-  keySource: 'environment' | 'file' | 'command' | null;
+  key_source: 'environment' | 'file' | 'command' | null;
 }
 
 /**
@@ -31,11 +31,11 @@ export interface AvailableProvider {
  * Budget settings
  */
 export interface BudgetSettings {
-  dailyLimitUsd: number;
-  monthlyLimitUsd: number;
-  todaySpendUsd: number;
-  monthSpendUsd: number;
-  pauseOnLimit: boolean;
+  daily_limit_usd: number;
+  monthly_limit_usd: number;
+  today_spend_usd: number;
+  month_spend_usd: number;
+  pause_on_limit: boolean;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface UsageStats {
  */
 export interface EmbeddingSettingsResponse {
   provider: ProviderStatus | null;
-  availableProviders: AvailableProvider[];
+  available_providers: AvailableProvider[];
   budget: BudgetSettings;
   usage: {
     today: UsageStats;
@@ -64,9 +64,9 @@ export interface EmbeddingSettingsResponse {
  * Budget update request
  */
 export interface BudgetUpdateRequest {
-  dailyLimitUsd?: number;
-  monthlyLimitUsd?: number;
-  pauseOnLimit?: boolean;
+  daily_limit_usd?: number;
+  monthly_limit_usd?: number;
+  pause_on_limit?: boolean;
 }
 
 /**
@@ -121,7 +121,7 @@ export function getProviderStatus(): ProviderStatus | null {
     model: details.model,
     dimensions: details.dimensions,
     status: 'active',
-    keySource: getKeySource(envVar),
+    key_source: getKeySource(envVar),
   };
 }
 
@@ -168,11 +168,11 @@ export async function getBudgetSettings(pool: Pool): Promise<BudgetSettings> {
   `);
 
   return {
-    dailyLimitUsd: parseFloat(settings.daily_limit_usd),
-    monthlyLimitUsd: parseFloat(settings.monthly_limit_usd),
-    pauseOnLimit: settings.pause_on_limit,
-    todaySpendUsd: parseFloat(todayResult.rows[0].total),
-    monthSpendUsd: parseFloat(monthResult.rows[0].total),
+    daily_limit_usd: parseFloat(settings.daily_limit_usd),
+    monthly_limit_usd: parseFloat(settings.monthly_limit_usd),
+    pause_on_limit: settings.pause_on_limit,
+    today_spend_usd: parseFloat(todayResult.rows[0].total),
+    month_spend_usd: parseFloat(monthResult.rows[0].total),
   };
 }
 
@@ -184,19 +184,19 @@ export async function updateBudgetSettings(pool: Pool, updates: BudgetUpdateRequ
   const values: (number | boolean)[] = [];
   let paramIndex = 1;
 
-  if (updates.dailyLimitUsd !== undefined) {
+  if (updates.daily_limit_usd !== undefined) {
     fields.push(`daily_limit_usd = $${paramIndex++}`);
-    values.push(updates.dailyLimitUsd);
+    values.push(updates.daily_limit_usd);
   }
 
-  if (updates.monthlyLimitUsd !== undefined) {
+  if (updates.monthly_limit_usd !== undefined) {
     fields.push(`monthly_limit_usd = $${paramIndex++}`);
-    values.push(updates.monthlyLimitUsd);
+    values.push(updates.monthly_limit_usd);
   }
 
-  if (updates.pauseOnLimit !== undefined) {
+  if (updates.pause_on_limit !== undefined) {
     fields.push(`pause_on_limit = $${paramIndex++}`);
-    values.push(updates.pauseOnLimit);
+    values.push(updates.pause_on_limit);
   }
 
   if (fields.length > 0) {
@@ -264,7 +264,7 @@ export async function getEmbeddingSettings(pool: Pool): Promise<EmbeddingSetting
 
   return {
     provider: getProviderStatus(),
-    availableProviders: getAvailableProviders(),
+    available_providers: getAvailableProviders(),
     budget,
     usage,
   };
@@ -274,29 +274,29 @@ export async function getEmbeddingSettings(pool: Pool): Promise<EmbeddingSetting
  * Record embedding usage
  */
 export async function recordEmbeddingUsage(pool: Pool, provider: EmbeddingProviderName, tokens: number): Promise<void> {
-  const costPerMillion = PROVIDER_COSTS[provider];
-  const costUsd = (tokens / 1_000_000) * costPerMillion;
+  const cost_per_million = PROVIDER_COSTS[provider];
+  const cost_usd = (tokens / 1_000_000) * cost_per_million;
 
-  await pool.query(`SELECT increment_embedding_usage($1, $2, $3)`, [provider, tokens, costUsd]);
+  await pool.query(`SELECT increment_embedding_usage($1, $2, $3)`, [provider, tokens, cost_usd]);
 }
 
 /**
  * Check if embeddings should be paused due to budget limits
  */
 export async function isOverBudget(pool: Pool): Promise<{
-  overDaily: boolean;
-  overMonthly: boolean;
-  shouldPause: boolean;
+  over_daily: boolean;
+  over_monthly: boolean;
+  should_pause: boolean;
 }> {
   const budget = await getBudgetSettings(pool);
 
-  const overDaily = budget.todaySpendUsd >= budget.dailyLimitUsd;
-  const overMonthly = budget.monthSpendUsd >= budget.monthlyLimitUsd;
+  const over_daily = budget.today_spend_usd >= budget.daily_limit_usd;
+  const over_monthly = budget.month_spend_usd >= budget.monthly_limit_usd;
 
   return {
-    overDaily,
-    overMonthly,
-    shouldPause: budget.pauseOnLimit && (overDaily || overMonthly),
+    over_daily,
+    over_monthly,
+    should_pause: budget.pause_on_limit && (over_daily || over_monthly),
   };
 }
 
@@ -307,7 +307,7 @@ export async function testProviderConnection(): Promise<{
   success: boolean;
   provider: EmbeddingProviderName | null;
   error?: string;
-  latencyMs?: number;
+  latency_ms?: number;
 }> {
   const summary = getConfigSummary();
 
@@ -326,12 +326,12 @@ export async function testProviderConnection(): Promise<{
 
     const start = Date.now();
     await provider.embed(['test connection']);
-    const latencyMs = Date.now() - start;
+    const latency_ms = Date.now() - start;
 
     return {
       success: true,
       provider: summary.provider,
-      latencyMs,
+      latency_ms,
     };
   } catch (error) {
     return {

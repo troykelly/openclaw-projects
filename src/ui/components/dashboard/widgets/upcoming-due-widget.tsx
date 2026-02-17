@@ -15,7 +15,7 @@ export interface DueItem {
 
 export interface UpcomingDueWidgetProps {
   items: DueItem[];
-  onItemClick: (itemId: string) => void;
+  onItemClick: (item_id: string) => void;
   groupByUrgency?: boolean;
   limit?: number;
   className?: string;

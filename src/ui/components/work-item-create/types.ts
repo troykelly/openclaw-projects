@@ -8,7 +8,7 @@ export interface WorkItemCreatePayload {
   title: string;
   kind: WorkItemKind;
   description?: string;
-  parentId?: string | null;
+  parent_id?: string | null;
   estimateMinutes?: number | null;
 }
 

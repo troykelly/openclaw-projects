@@ -61,9 +61,9 @@ describe('S3Storage external endpoint presigning', () => {
     endpoint: 'http://seaweedfs:8333',
     bucket: 'test-bucket',
     region: 'us-east-1',
-    accessKeyId: 'test-key',
-    secretAccessKey: 'test-secret',
-    forcePathStyle: true,
+    access_key_id: 'test-key',
+    secret_access_key: 'test-secret',
+    force_path_style: true,
   };
 
   beforeEach(() => {
@@ -72,10 +72,10 @@ describe('S3Storage external endpoint presigning', () => {
   });
 
   describe('getExternalSignedUrl', () => {
-    it('uses external endpoint for signing when externalEndpoint is configured', async () => {
+    it('uses external endpoint for signing when external_endpoint is configured', async () => {
       const storage = new S3Storage({
         ...baseConfig,
-        externalEndpoint: 'https://s3.execdesk.ai',
+        external_endpoint: 'https://s3.execdesk.ai',
       });
 
       const url = await storage.getExternalSignedUrl('test-key', 3600);
@@ -85,7 +85,7 @@ describe('S3Storage external endpoint presigning', () => {
       expect(url).not.toContain('seaweedfs:8333');
     });
 
-    it('falls back to internal client when no externalEndpoint is configured', async () => {
+    it('falls back to internal client when no external_endpoint is configured', async () => {
       const storage = new S3Storage(baseConfig);
 
       const url = await storage.getExternalSignedUrl('test-key', 3600);
@@ -97,7 +97,7 @@ describe('S3Storage external endpoint presigning', () => {
     it('creates a separate client for external signing (not reusing internal client)', async () => {
       const storage = new S3Storage({
         ...baseConfig,
-        externalEndpoint: 'https://s3.execdesk.ai',
+        external_endpoint: 'https://s3.execdesk.ai',
       });
 
       // After constructor: 1 instance (internal client)
@@ -115,7 +115,7 @@ describe('S3Storage external endpoint presigning', () => {
     it('reuses the external client on subsequent calls (lazy singleton)', async () => {
       const storage = new S3Storage({
         ...baseConfig,
-        externalEndpoint: 'https://s3.execdesk.ai',
+        external_endpoint: 'https://s3.execdesk.ai',
       });
 
       await storage.getExternalSignedUrl('key1', 3600);
@@ -125,10 +125,10 @@ describe('S3Storage external endpoint presigning', () => {
       expect(s3Instances).toHaveLength(2);
     });
 
-    it('preserves other client config (region, credentials, forcePathStyle) on external client', async () => {
+    it('preserves other client config (region, credentials, force_path_style) on external client', async () => {
       const storage = new S3Storage({
         ...baseConfig,
-        externalEndpoint: 'https://s3.execdesk.ai',
+        external_endpoint: 'https://s3.execdesk.ai',
       });
 
       await storage.getExternalSignedUrl('test-key', 3600);
@@ -147,7 +147,7 @@ describe('S3Storage external endpoint presigning', () => {
     it('still uses internal endpoint for regular signed URLs', async () => {
       const storage = new S3Storage({
         ...baseConfig,
-        externalEndpoint: 'https://s3.execdesk.ai',
+        external_endpoint: 'https://s3.execdesk.ai',
       });
 
       const url = await storage.getSignedUrl('test-key', 3600);

@@ -93,7 +93,7 @@ describe('BulkSelectionProvider', () => {
 
 describe('ContactCheckbox', () => {
   const defaultProps: ContactCheckboxProps = {
-    contactId: 'contact-1',
+    contact_id: 'contact-1',
     isSelected: false,
     onToggle: vi.fn(),
   };

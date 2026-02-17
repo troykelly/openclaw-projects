@@ -44,8 +44,8 @@ export interface ProjectSearchSuccess {
     details: {
       count: number;
       results: ProjectSearchItem[];
-      searchType: string;
-      userId: string;
+      search_type: string;
+      user_id: string;
     };
   };
 }
@@ -63,7 +63,7 @@ export interface ProjectSearchToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -85,7 +85,7 @@ function sanitizeQuery(query: string): string {
  * Creates the project_search tool.
  */
 export function createProjectSearchTool(options: ProjectSearchToolOptions): ProjectSearchTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'project_search',
@@ -110,7 +110,7 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
       }
 
       logger.info('project_search invoked', {
-        userId,
+        user_id,
         queryLength: sanitizedQuery.length,
         limit,
         status: status ?? 'all',
@@ -123,14 +123,14 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
         if (location && config.nominatimUrl) {
           try {
             const geo = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
-            if (geo?.placeLabel) {
-              const augmented = `${sanitizedQuery} near ${geo.placeLabel}`;
+            if (geo?.place_label) {
+              const augmented = `${sanitizedQuery} near ${geo.place_label}`;
               if (augmented.length <= 1000) {
                 searchQuery = augmented;
               }
             }
           } catch {
-            logger.warn('Reverse geocode failed, proceeding without location augmentation', { userId });
+            logger.warn('Reverse geocode failed, proceeding without location augmentation', { user_id });
           }
         }
 
@@ -142,7 +142,7 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
           types: 'work_item',
           limit: String(fetchLimit),
           semantic: 'true',
-          user_email: userId,
+          user_email: user_id,
         });
 
         const response = await client.get<{
@@ -156,11 +156,11 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
           }>;
           search_type: string;
           total: number;
-        }>(`/api/search?${queryParams.toString()}`, { userId });
+        }>(`/api/search?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('project_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -198,8 +198,8 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
               details: {
                 count: 0,
                 results: [],
-                searchType: response.data.search_type,
-                userId,
+                search_type: response.data.search_type,
+                user_id,
               },
             },
           };
@@ -214,9 +214,9 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
           .join('\n');
 
         logger.debug('project_search completed', {
-          userId,
+          user_id,
           resultCount: items.length,
-          searchType: response.data.search_type,
+          search_type: response.data.search_type,
         });
 
         return {
@@ -226,14 +226,14 @@ export function createProjectSearchTool(options: ProjectSearchToolOptions): Proj
             details: {
               count: items.length,
               results: items,
-              searchType: response.data.search_type,
-              userId,
+              search_type: response.data.search_type,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('project_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

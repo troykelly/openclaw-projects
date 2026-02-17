@@ -8,8 +8,8 @@ export interface WorkItemTodo {
   id: string;
   text: string;
   completed: boolean;
-  createdAt: Date;
-  completedAt?: Date;
+  created_at: Date;
+  completed_at?: Date;
 }
 
 export interface WorkItemAttachment {
@@ -35,15 +35,15 @@ export interface WorkItemDetail {
   status: WorkItemStatus;
   priority: WorkItemPriority;
   description?: string;
-  parentId?: string;
+  parent_id?: string;
   parentTitle?: string;
   assignee?: string;
   estimateMinutes?: number;
   actualMinutes?: number;
   dueDate?: Date;
   startDate?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
   todos: WorkItemTodo[];
   attachments: WorkItemAttachment[];
   dependencies: WorkItemDependency[];

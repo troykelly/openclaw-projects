@@ -1,6 +1,8 @@
 /**
  * File storage types.
  * Part of Issue #215.
+ *
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
 /**
@@ -8,23 +10,23 @@
  */
 export interface S3Config {
   endpoint?: string;
-  externalEndpoint?: string;
+  external_endpoint?: string;
   bucket: string;
   region: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  forcePathStyle?: boolean;
+  access_key_id: string;
+  secret_access_key: string;
+  force_path_style?: boolean;
 }
 
 /**
  * File storage interface for S3-compatible backends
  */
 export interface FileStorage {
-  upload(key: string, data: Buffer, contentType: string): Promise<string>;
+  upload(key: string, data: Buffer, content_type: string): Promise<string>;
   download(key: string): Promise<Buffer>;
-  getSignedUrl(key: string, expiresIn: number): Promise<string>;
+  getSignedUrl(key: string, expires_in: number): Promise<string>;
   /** Get a signed URL using the external endpoint (for browser-facing presigned URLs). Falls back to internal client when no external endpoint is configured. */
-  getExternalSignedUrl(key: string, expiresIn: number): Promise<string>;
+  getExternalSignedUrl(key: string, expires_in: number): Promise<string>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
 }
@@ -34,13 +36,13 @@ export interface FileStorage {
  */
 export interface FileAttachment {
   id: string;
-  storageKey: string;
-  originalFilename: string;
-  contentType: string;
-  sizeBytes: number;
-  checksumSha256?: string;
-  uploadedBy?: string;
-  createdAt: Date;
+  storage_key: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+  checksum_sha256?: string;
+  uploaded_by?: string;
+  created_at: Date;
 }
 
 /**
@@ -48,9 +50,9 @@ export interface FileAttachment {
  */
 export interface UploadRequest {
   filename: string;
-  contentType: string;
+  content_type: string;
   data: Buffer;
-  uploadedBy?: string;
+  uploaded_by?: string;
 }
 
 /**
@@ -58,19 +60,19 @@ export interface UploadRequest {
  */
 export interface UploadResponse {
   id: string;
-  storageKey: string;
-  originalFilename: string;
-  contentType: string;
-  sizeBytes: number;
-  checksumSha256: string;
-  createdAt: Date;
+  storage_key: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+  checksum_sha256: string;
+  created_at: Date;
 }
 
 /**
  * File size limits configuration
  */
 export interface FileSizeLimits {
-  maxFileSizeBytes: number;
+  max_file_size_bytes: number;
 }
 
 /**

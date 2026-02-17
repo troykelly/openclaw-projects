@@ -27,7 +27,7 @@ export interface SkillStoreItemForEmbedding {
 /** Stats returned by getSkillStoreEmbeddingStats. */
 export interface SkillStoreEmbeddingStatsResult {
   total: number;
-  byStatus: {
+  by_status: {
     complete: number;
     pending: number;
     failed: number;
@@ -50,11 +50,11 @@ export interface SkillStoreBackfillResult {
  * or content (fallback), with title prepended."
  */
 export function buildSkillStoreEmbeddingText(item: { title: string | null; summary: string | null; content: string | null }): string {
-  const bodyText = item.summary ?? item.content ?? '';
-  if (item.title && bodyText) {
-    return `${item.title}\n\n${bodyText}`;
+  const body_text = item.summary ?? item.content ?? '';
+  if (item.title && body_text) {
+    return `${item.title}\n\n${body_text}`;
   }
-  return item.title ?? bodyText;
+  return item.title ?? body_text;
 }
 
 /**
@@ -65,15 +65,15 @@ export function buildSkillStoreEmbeddingText(item: { title: string | null; summa
  * is still valid but marked as 'failed' status.
  *
  * @param pool Database pool
- * @param itemId The skill store item ID
+ * @param item_id The skill store item ID
  * @param content The content to embed
  * @returns The embedding status
  */
-export async function generateSkillStoreItemEmbedding(pool: Pool, itemId: string, content: string): Promise<SkillStoreEmbeddingStatus> {
+export async function generateSkillStoreItemEmbedding(pool: Pool, item_id: string, content: string): Promise<SkillStoreEmbeddingStatus> {
   // Check if embedding service is configured
   if (!embeddingService.isConfigured()) {
     // Mark as pending — can be backfilled later
-    await pool.query(`UPDATE skill_store_item SET embedding_status = 'pending' WHERE id = $1`, [itemId]);
+    await pool.query(`UPDATE skill_store_item SET embedding_status = 'pending' WHERE id = $1`, [item_id]);
     return 'pending';
   }
 
@@ -81,7 +81,7 @@ export async function generateSkillStoreItemEmbedding(pool: Pool, itemId: string
     const result = await embeddingService.embed(content);
 
     if (!result) {
-      await pool.query(`UPDATE skill_store_item SET embedding_status = 'pending' WHERE id = $1`, [itemId]);
+      await pool.query(`UPDATE skill_store_item SET embedding_status = 'pending' WHERE id = $1`, [item_id]);
       return 'pending';
     }
 
@@ -93,7 +93,7 @@ export async function generateSkillStoreItemEmbedding(pool: Pool, itemId: string
            embedding_provider = $3,
            embedding_status = 'complete'
        WHERE id = $4`,
-      [`[${result.embedding.join(',')}]`, result.model, result.provider, itemId],
+      [`[${result.embedding.join(',')}]`, result.model, result.provider, item_id],
     );
 
     return 'complete';
@@ -104,10 +104,10 @@ export async function generateSkillStoreItemEmbedding(pool: Pool, itemId: string
       return 'failed';
     }
     // Log error but don't fail the request
-    console.error(`[Embeddings] Failed to embed skill store item ${itemId}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
+    console.error(`[Embeddings] Failed to embed skill store item ${item_id}:`, error instanceof EmbeddingError ? error.toSafeString() : msg);
 
     // Mark as failed (may also fail if pool is closed, ignore that)
-    await pool.query(`UPDATE skill_store_item SET embedding_status = 'failed' WHERE id = $1`, [itemId]).catch(() => {});
+    await pool.query(`UPDATE skill_store_item SET embedding_status = 'failed' WHERE id = $1`, [item_id]).catch(() => {});
 
     return 'failed';
   }
@@ -120,16 +120,16 @@ export async function generateSkillStoreItemEmbedding(pool: Pool, itemId: string
  * Uses idempotency key to prevent duplicate jobs for the same item.
  *
  * @param pool Database pool
- * @param itemId The skill store item ID
+ * @param item_id The skill store item ID
  */
-export async function enqueueSkillStoreEmbedJob(pool: Pool, itemId: string): Promise<void> {
-  const idempotencyKey = `skill_store.embed:${itemId}`;
+export async function enqueueSkillStoreEmbedJob(pool: Pool, item_id: string): Promise<void> {
+  const idempotency_key = `skill_store.embed:${item_id}`;
 
   await pool.query(
     `INSERT INTO internal_job (kind, payload, idempotency_key)
      VALUES ('skill_store.embed', $1::jsonb, $2)
      ON CONFLICT ON CONSTRAINT internal_job_kind_idempotency_uniq DO NOTHING`,
-    [JSON.stringify({ item_id: itemId }), idempotencyKey],
+    [JSON.stringify({ item_id: item_id }), idempotency_key],
   );
 }
 
@@ -220,14 +220,14 @@ export async function handleSkillStoreEmbedJob(pool: Pool, job: InternalJob): Pr
  * to avoid N concurrent API calls during bulk operations.
  *
  * @param pool Database pool
- * @param itemId The skill store item ID
+ * @param item_id The skill store item ID
  */
-export function triggerSkillStoreItemEmbedding(pool: Pool, itemId: string): void {
+export function triggerSkillStoreItemEmbedding(pool: Pool, item_id: string): void {
   // Enqueue async — don't wait for result
-  enqueueSkillStoreEmbedJob(pool, itemId).catch((err) => {
+  enqueueSkillStoreEmbedJob(pool, item_id).catch((err) => {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('Cannot use a pool after calling end')) return;
-    console.error(`[Embeddings] Failed to enqueue skill store embed job for ${itemId}:`, msg);
+    console.error(`[Embeddings] Failed to enqueue skill store embed job for ${item_id}:`, msg);
   });
 }
 
@@ -244,10 +244,10 @@ export function triggerSkillStoreItemEmbedding(pool: Pool, itemId: string): void
 export async function backfillSkillStoreEmbeddings(
   pool: Pool,
   options: {
-    batchSize?: number;
+    batch_size?: number;
   } = {},
 ): Promise<SkillStoreBackfillResult> {
-  const { batchSize = 100 } = options;
+  const { batch_size = 100 } = options;
 
   // Find items with pending or failed embedding status that have text content
   const result = await pool.query(
@@ -257,7 +257,7 @@ export async function backfillSkillStoreEmbeddings(
        AND (embedding_status IS NULL OR embedding_status IN ('pending', 'failed'))
      ORDER BY created_at ASC
      LIMIT $1`,
-    [batchSize],
+    [batch_size],
   );
 
   let enqueued = 0;
@@ -297,7 +297,7 @@ export async function getSkillStoreEmbeddingStats(pool: Pool): Promise<SkillStor
     GROUP BY embedding_status
   `);
 
-  const byStatus = {
+  const by_status = {
     complete: 0,
     pending: 0,
     failed: 0,
@@ -310,12 +310,12 @@ export async function getSkillStoreEmbeddingStats(pool: Pool): Promise<SkillStor
     total += count;
 
     if (status === 'complete') {
-      byStatus.complete = count;
+      by_status.complete = count;
     } else if (status === 'failed') {
-      byStatus.failed = count;
+      by_status.failed = count;
     } else {
       // null or 'pending'
-      byStatus.pending += count;
+      by_status.pending += count;
     }
   }
 
@@ -324,7 +324,7 @@ export async function getSkillStoreEmbeddingStats(pool: Pool): Promise<SkillStor
 
   return {
     total,
-    byStatus,
+    by_status,
     provider: configSummary?.provider ?? null,
     model: configSummary?.model ?? null,
   };

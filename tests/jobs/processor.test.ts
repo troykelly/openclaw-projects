@@ -131,13 +131,13 @@ describe('Job processor (Issue #222)', () => {
          VALUES ('Call mom', now() - interval '1 hour', 'open', 'issue')
          RETURNING id::text as id`,
       );
-      const workItemId = wi.rows[0].id as string;
+      const work_item_id = wi.rows[0].id as string;
 
       // Create a reminder job
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('reminder.work_item.not_before', now(), $1)`,
-        [JSON.stringify({ work_item_id: workItemId, not_before: new Date().toISOString() })],
+        [JSON.stringify({ work_item_id: work_item_id, not_before: new Date().toISOString() })],
       );
 
       // Process jobs
@@ -156,7 +156,7 @@ describe('Job processor (Issue #222)', () => {
 
       expect(webhooks.rows.length).toBe(1);
       expect(webhooks.rows[0].destination).toBe('/hooks/agent');
-      expect(webhooks.rows[0].body.context.work_item_id).toBe(workItemId);
+      expect(webhooks.rows[0].body.context.work_item_id).toBe(work_item_id);
     });
 
     it('processes nudge.work_item.not_after jobs', async () => {
@@ -166,13 +166,13 @@ describe('Job processor (Issue #222)', () => {
          VALUES ('Deadline soon', now() + interval '2 hours', 'open', 'issue')
          RETURNING id::text as id`,
       );
-      const workItemId = wi.rows[0].id as string;
+      const work_item_id = wi.rows[0].id as string;
 
       // Create a nudge job
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('nudge.work_item.not_after', now(), $1)`,
-        [JSON.stringify({ work_item_id: workItemId, not_after: new Date().toISOString() })],
+        [JSON.stringify({ work_item_id: work_item_id, not_after: new Date().toISOString() })],
       );
 
       // Process jobs
@@ -199,13 +199,13 @@ describe('Job processor (Issue #222)', () => {
          VALUES ('Done task', now() - interval '1 hour', 'completed', 'issue')
          RETURNING id::text as id`,
       );
-      const workItemId = wi.rows[0].id as string;
+      const work_item_id = wi.rows[0].id as string;
 
       // Create a reminder job
       await pool.query(
         `INSERT INTO internal_job (kind, run_at, payload)
          VALUES ('reminder.work_item.not_before', now(), $1)`,
-        [JSON.stringify({ work_item_id: workItemId, not_before: new Date().toISOString() })],
+        [JSON.stringify({ work_item_id: work_item_id, not_before: new Date().toISOString() })],
       );
 
       // Process jobs

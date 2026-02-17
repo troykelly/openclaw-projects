@@ -57,7 +57,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.name).toBe('todo_search');
     });
@@ -67,7 +67,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -78,7 +78,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -90,7 +90,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({} as TodoSearchParams);
@@ -105,7 +105,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: '' });
@@ -117,7 +117,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const longQuery = 'a'.repeat(1001);
@@ -130,7 +130,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', limit: 51 });
@@ -142,7 +142,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', limit: 0 });
@@ -160,7 +160,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', kind: 'task' });
@@ -172,7 +172,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -195,7 +195,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'geolocation memory' });
@@ -209,7 +209,7 @@ describe('todo_search tool', () => {
       expect(callUrl).toContain('user_email=agent-1');
     });
 
-    it('should scope search results to the userId (user_email)', async () => {
+    it('should scope search results to the user_id (user_email)', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { results: [], search_type: 'text', total: 0 },
@@ -220,7 +220,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       await tool.execute({ query: 'shopping list' });
@@ -261,7 +261,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'geolocation memory' });
@@ -288,7 +288,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'nonexistent item xyz' });
@@ -331,7 +331,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'restaurant', kind: 'task' });
@@ -374,7 +374,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'task', status: 'open' });
@@ -396,7 +396,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -414,7 +414,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test' });
@@ -432,7 +432,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test\x00\x01query' });
@@ -452,7 +452,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', limit: 25 });
@@ -471,7 +471,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', limit: 10, kind: 'task' });
@@ -490,7 +490,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', limit: 10, status: 'open' });
@@ -509,7 +509,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', limit: 25, kind: 'task' });
@@ -537,7 +537,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', limit: 5, kind: 'task' });
@@ -557,7 +557,7 @@ describe('todo_search tool', () => {
     it('should augment query with place label when location and nominatimUrl provided', async () => {
       const { reverseGeocode } = await import('../../src/utils/nominatim.js');
       const mockReverseGeocode = vi.mocked(reverseGeocode);
-      mockReverseGeocode.mockResolvedValue({ address: '123 Main St, Melbourne', placeLabel: 'Melbourne' });
+      mockReverseGeocode.mockResolvedValue({ address: '123 Main St, Melbourne', place_label: 'Melbourne' });
 
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
@@ -569,7 +569,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
@@ -594,7 +594,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig, // no nominatimUrl
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
@@ -620,7 +620,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
@@ -630,10 +630,10 @@ describe('todo_search tool', () => {
       expect(callUrl).not.toContain('near');
     });
 
-    it('should fall back to original query when placeLabel is empty', async () => {
+    it('should fall back to original query when place_label is empty', async () => {
       const { reverseGeocode } = await import('../../src/utils/nominatim.js');
       const mockReverseGeocode = vi.mocked(reverseGeocode);
-      mockReverseGeocode.mockResolvedValue({ address: '123 Main St', placeLabel: '' });
+      mockReverseGeocode.mockResolvedValue({ address: '123 Main St', place_label: '' });
 
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
@@ -645,7 +645,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
@@ -658,7 +658,7 @@ describe('todo_search tool', () => {
     it('should over-fetch by 3x when location is provided', async () => {
       const { reverseGeocode } = await import('../../src/utils/nominatim.js');
       const mockReverseGeocode = vi.mocked(reverseGeocode);
-      mockReverseGeocode.mockResolvedValue({ address: 'Sydney', placeLabel: 'Sydney' });
+      mockReverseGeocode.mockResolvedValue({ address: 'Sydney', place_label: 'Sydney' });
 
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
@@ -670,7 +670,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', limit: 10, location: { lat: -33.8688, lng: 151.2093 } });
@@ -683,7 +683,7 @@ describe('todo_search tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'test', location: { lat: 91, lng: 0 } });
@@ -704,7 +704,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
@@ -718,7 +718,7 @@ describe('todo_search tool', () => {
     it('should not augment query when augmented length exceeds 1000 chars', async () => {
       const { reverseGeocode } = await import('../../src/utils/nominatim.js');
       const longLabel = 'A'.repeat(1000);
-      vi.mocked(reverseGeocode).mockResolvedValue({ address: longLabel, placeLabel: longLabel });
+      vi.mocked(reverseGeocode).mockResolvedValue({ address: longLabel, place_label: longLabel });
 
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
@@ -730,7 +730,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'restaurants', location: { lat: -37.8136, lng: 144.9631 } });
@@ -754,7 +754,7 @@ describe('todo_search tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: geoConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test', location: { lat: 0, lng: 0 } });
