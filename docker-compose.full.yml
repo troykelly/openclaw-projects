@@ -163,7 +163,9 @@ services:
     container_name: openclaw-modsecurity
     restart: unless-stopped
     environment:
-      MODSEC_RULE_ENGINE: ${MODSEC_ENABLED:-true}
+      MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-On}
+      # Pass backend error responses through as-is (don't replace with Apache HTML)
+      PROXY_ERROR_OVERRIDE: "Off"
       PARANOIA: ${MODSEC_PARANOIA_LEVEL:-1}
       ANOMALY_INBOUND: ${MODSEC_ANOMALY_INBOUND:-5}
       ANOMALY_OUTBOUND: ${MODSEC_ANOMALY_OUTBOUND:-4}

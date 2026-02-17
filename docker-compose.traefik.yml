@@ -167,7 +167,9 @@ services:
     restart: unless-stopped
     environment:
       # ModSecurity engine mode: On, Off, DetectionOnly
-      MODSEC_RULE_ENGINE: ${MODSEC_ENABLED:-true}
+      MODSEC_RULE_ENGINE: ${MODSEC_RULE_ENGINE:-On}
+      # Pass backend error responses through as-is (don't replace with Apache HTML)
+      PROXY_ERROR_OVERRIDE: "Off"
       # OWASP CRS Paranoia Level (1-4)
       # 1 = Low false positives, basic protection
       # 2 = Moderate protection, some false positives

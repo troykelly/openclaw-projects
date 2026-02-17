@@ -5834,16 +5834,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/contacts', async (req, reply) => {
     const body = req.body as {
-      displayName?: string; notes?: string | null; contactKind?: string; user_email?: string;
+      displayName?: string; display_name?: string; notes?: string | null;
+      contactKind?: string; contact_kind?: string; user_email?: string;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
-    if (!body?.displayName || body.displayName.trim().length === 0) {
-      return reply.code(400).send({ error: 'displayName is required' });
+    // Accept both camelCase and snake_case (plugin sends snake_case, issue #1411)
+    const displayName = body?.displayName || body?.display_name;
+    if (!displayName || displayName.trim().length === 0) {
+      return reply.code(400).send({ error: 'displayName (or display_name) is required' });
     }
 
     // Validate contact_kind if provided (issue #489)
-    const contactKind = body.contactKind ?? 'person';
+    const contactKind = body.contactKind ?? body.contact_kind ?? 'person';
     if (!VALID_CONTACT_KINDS.includes(contactKind as ContactKind)) {
       return reply.code(400).send({ error: `Invalid contactKind. Must be one of: ${VALID_CONTACT_KINDS.join(', ')}` });
     }
@@ -5879,7 +5882,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         urgency_override_channel::text, notification_notes,
         created_at, updated_at`,
       [
-        body.displayName.trim(), body.notes ?? null, contactKind, contactUserEmail,
+        displayName.trim(), body.notes ?? null, contactKind, contactUserEmail,
         body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
         body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
       ],

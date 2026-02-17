@@ -156,6 +156,76 @@ describe('Contacts API', () => {
     });
   });
 
+  describe('POST /api/contacts (snake_case fields, issue #1411)', () => {
+    it('accepts display_name (snake_case) instead of displayName', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Snake Case Name', notes: 'Created with snake_case' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string };
+      expect(body.id).toBeDefined();
+
+      // Verify the contact was created with the correct name
+      const get = await app.inject({
+        method: 'GET',
+        url: `/api/contacts/${body.id}`,
+      });
+      expect(get.statusCode).toBe(200);
+      const contact = get.json() as { display_name: string; notes: string };
+      expect(contact.display_name).toBe('Snake Case Name');
+      expect(contact.notes).toBe('Created with snake_case');
+    });
+
+    it('accepts contact_kind (snake_case) instead of contactKind', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Org Contact', contact_kind: 'organisation' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string };
+
+      const get = await app.inject({
+        method: 'GET',
+        url: `/api/contacts/${body.id}`,
+      });
+      const contact = get.json() as { contact_kind: string };
+      expect(contact.contact_kind).toBe('organisation');
+    });
+
+    it('prefers displayName over display_name when both provided', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { displayName: 'CamelWins', display_name: 'SnakeLoses' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string };
+
+      const get = await app.inject({
+        method: 'GET',
+        url: `/api/contacts/${body.id}`,
+      });
+      const contact = get.json() as { display_name: string };
+      expect(contact.display_name).toBe('CamelWins');
+    });
+
+    it('rejects request when neither displayName nor display_name is provided', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { notes: 'No name provided' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
   describe('GET /api/contacts/:id', () => {
     it('returns 404 for non-existent contact', async () => {
       const res = await app.inject({
