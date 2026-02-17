@@ -304,7 +304,7 @@ describe('User email scoping (Issue #1172)', () => {
 
       // Relationship created (may not have user_email directly via this route,
       // but we can verify the listRelationships endpoint respects user_email filter)
-      if (relRes.status_code === 201) {
+      if (relRes.statusCode === 201) {
         // Insert user_email directly for test
         const relId = (relRes.json() as { id: string }).id;
         await pool.query('UPDATE relationship SET user_email = $1 WHERE id = $2', [USER_A, relId]);
@@ -358,7 +358,7 @@ describe('User email scoping (Issue #1172)', () => {
 
       // The relationship set may fail if 'knows' type doesn't exist,
       // that's expected in test environments without seed data
-      if (setRes.status_code === 200) {
+      if (setRes.statusCode === 200) {
         const relData = setRes.json() as { relationship: { id: string } };
 
         // Verify user_email was stored
