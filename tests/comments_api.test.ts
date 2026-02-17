@@ -25,9 +25,10 @@ describe('Comments API', () => {
     user_email = `test-${Date.now()}@example.com`;
 
     const workItemRes = await pool.query(
-      `INSERT INTO work_item (title, description, status)
-       VALUES ('Test Item', 'Test description', 'open')
+      `INSERT INTO work_item (title, description, status, user_email)
+       VALUES ('Test Item', 'Test description', 'open', $1)
        RETURNING id`,
+      [user_email],
     );
     work_item_id = workItemRes.rows[0].id;
   });

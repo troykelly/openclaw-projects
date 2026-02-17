@@ -58,9 +58,9 @@ describe('Analytics API', () => {
 
       const project = body.projects.find((p: { id: string }) => p.id === project_id);
       expect(project).toBeDefined();
-      expect(project.openCount).toBeGreaterThanOrEqual(1);
-      expect(project.inProgressCount).toBeGreaterThanOrEqual(1);
-      expect(project.closedCount).toBeGreaterThanOrEqual(1);
+      expect(project.open_count).toBeGreaterThanOrEqual(1);
+      expect(project.in_progress_count).toBeGreaterThanOrEqual(1);
+      expect(project.closed_count).toBeGreaterThanOrEqual(1);
     });
 
     it('filters by project_id', async () => {

@@ -208,7 +208,7 @@ describe('Notifications API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&unreadOnly=true`,
+        url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&unread_only=true`,
       });
 
       expect(response.statusCode).toBe(200);

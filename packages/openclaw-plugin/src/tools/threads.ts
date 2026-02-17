@@ -262,13 +262,13 @@ interface ThreadMessage {
 interface ThreadHistoryApiResponse {
   thread: ThreadInfo;
   messages: ThreadMessage[];
-  relatedWorkItems: Array<{
+  related_work_items: Array<{
     id: string;
     title: string;
     status: string;
-    workItemKind: string;
+    work_item_kind: string;
   }>;
-  contactMemories: Array<{
+  contact_memories: Array<{
     id: string;
     memory_type: string;
     title: string;
@@ -276,8 +276,8 @@ interface ThreadHistoryApiResponse {
   }>;
   pagination: {
     has_more: boolean;
-    oldestTimestamp?: string;
-    newestTimestamp?: string;
+    oldest_timestamp?: string;
+    newest_timestamp?: string;
   };
 }
 

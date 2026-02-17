@@ -204,13 +204,13 @@ describe('Graph-Aware Context Retrieval', () => {
 
       // Depth 1: only direct relationships
       const scopesDepth1 = await collectGraphScopes(pool, email, { max_depth: 1 });
-      expect(scopesDepth1.contactIds).toContain(friendContactId);
-      expect(scopesDepth1.contactIds).not.toContain(fofContactId);
+      expect(scopesDepth1.contact_ids).toContain(friendContactId);
+      expect(scopesDepth1.contact_ids).not.toContain(fofContactId);
 
       // Depth 0: no traversal
       const scopesDepth0 = await collectGraphScopes(pool, email, { max_depth: 0 });
-      expect(scopesDepth0.contactIds).toEqual([]);
-      expect(scopesDepth0.relationshipIds).toEqual([]);
+      expect(scopesDepth0.contact_ids).toEqual([]);
+      expect(scopesDepth0.relationship_ids).toEqual([]);
     });
 
     it('should include scope details with type attribution', async () => {
@@ -265,9 +265,9 @@ describe('Graph-Aware Context Retrieval', () => {
       expect(result).toHaveProperty('scopes');
       expect(result).toHaveProperty('metadata');
       expect(Array.isArray(result.memories)).toBe(true);
-      expect(result.metadata).toHaveProperty('queryTimeMs');
+      expect(result.metadata).toHaveProperty('query_time_ms');
       expect(typeof result.metadata.query_time_ms).toBe('number');
-      expect(result.metadata).toHaveProperty('scopeCount');
+      expect(result.metadata).toHaveProperty('scope_count');
       expect(result.metadata).toHaveProperty('search_type');
     });
 

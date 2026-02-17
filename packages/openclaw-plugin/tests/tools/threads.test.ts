@@ -250,7 +250,7 @@ describe('thread tools', () => {
         expect(result.success).toBe(true);
       });
 
-      it('should accept thread_id with messageLimit', () => {
+      it('should accept thread_id with message_limit', () => {
         const result = ThreadGetParamsSchema.safeParse({
           thread_id: '123e4567-e89b-12d3-a456-426614174000',
           message_limit: 100,
@@ -263,17 +263,17 @@ describe('thread tools', () => {
         expect(result.success).toBe(false);
       });
 
-      it('should use default messageLimit of 50', () => {
+      it('should use default message_limit of 50', () => {
         const result = ThreadGetParamsSchema.safeParse({
           thread_id: '123e4567-e89b-12d3-a456-426614174000',
         });
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.messageLimit).toBe(50);
+          expect(result.data.message_limit).toBe(50);
         }
       });
 
-      it('should reject messageLimit below 1', () => {
+      it('should reject message_limit below 1', () => {
         const result = ThreadGetParamsSchema.safeParse({
           thread_id: '123e4567-e89b-12d3-a456-426614174000',
           message_limit: 0,
@@ -281,7 +281,7 @@ describe('thread tools', () => {
         expect(result.success).toBe(false);
       });
 
-      it('should reject messageLimit above 200', () => {
+      it('should reject message_limit above 200', () => {
         const result = ThreadGetParamsSchema.safeParse({
           thread_id: '123e4567-e89b-12d3-a456-426614174000',
           message_limit: 201,
@@ -342,8 +342,8 @@ describe('thread tools', () => {
                 created_at: '2024-01-15T10:31:00Z',
               },
             ],
-            relatedWorkItems: [],
-            contactMemories: [],
+            related_work_items: [],
+            contact_memories: [],
             pagination: { has_more: false },
           },
         });
@@ -371,8 +371,8 @@ describe('thread tools', () => {
           data: {
             thread: { id: 'thread-1', channel: 'sms', external_thread_key: 'ext-1', contact: { id: 'c-1', display_name: 'Test' }, created_at: '2024-01-15T10:00:00Z', updated_at: '2024-01-15T10:00:00Z' },
             messages: [],
-            relatedWorkItems: [],
-            contactMemories: [],
+            related_work_items: [],
+            contact_memories: [],
             pagination: { has_more: false },
           },
         });
@@ -463,8 +463,8 @@ describe('thread tools', () => {
                 created_at: '2024-01-15T10:31:00Z',
               },
             ],
-            relatedWorkItems: [],
-            contactMemories: [],
+            related_work_items: [],
+            contact_memories: [],
             pagination: { has_more: false },
           },
         });

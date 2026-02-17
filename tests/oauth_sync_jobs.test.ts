@@ -328,12 +328,12 @@ describe('OAuth sync job infrastructure', () => {
       const result = await handleContactSyncJob(pool, {
         id: 'test-id',
         kind: 'oauth.sync.contacts',
-        runAt: new Date(),
+        run_at: new Date(),
         payload: {},
         attempts: 0,
-        lastError: null,
-        lockedAt: null,
-        lockedBy: null,
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
         completed_at: null,
         idempotency_key: null,
         created_at: new Date(),
@@ -382,8 +382,8 @@ describe('OAuth sync job infrastructure', () => {
         enabled_features: ['contacts'],
         sync_status: {
           contacts: {
-            lastSuccess: recentSync,
-            consecutiveFailures: 0,
+            last_success: recentSync,
+            consecutive_failures: 0,
           },
         },
       });
