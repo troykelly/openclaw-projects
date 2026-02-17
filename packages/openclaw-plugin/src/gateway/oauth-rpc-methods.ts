@@ -196,7 +196,7 @@ export interface OAuthFilesSearchResult {
 
 export interface OAuthFilesGetParams {
   connection_id: string;
-  fileId: string;
+  file_id: string;
 }
 
 export interface OAuthFilesGetResult {
@@ -418,9 +418,9 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
     async filesGet(params: OAuthFilesGetParams): Promise<OAuthFilesGetResult> {
       if (!params.connection_id) throw new Error('connection_id is required');
-      if (!params.fileId) throw new Error('fileId is required');
+      if (!params.file_id) throw new Error('file_id is required');
 
-      logger.debug('oauth.files.get', { user_id, connection_id: params.connection_id, fileId: params.fileId });
+      logger.debug('oauth.files.get', { user_id, connection_id: params.connection_id, file_id: params.file_id });
 
       const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
@@ -431,7 +431,7 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
 
       const qs = new URLSearchParams({ connection_id: params.connection_id });
       const response = await apiClient.get<Record<string, unknown>>(
-        `/api/drive/files/${encodeURIComponent(params.fileId)}?${qs}`,
+        `/api/drive/files/${encodeURIComponent(params.file_id)}?${qs}`,
         { user_id },
       );
 

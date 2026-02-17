@@ -10,24 +10,24 @@ import type { Logger } from '../logger.js';
 
 /** Parameters for file_share tool */
 export const FileShareParamsSchema = z.object({
-  fileId: z.string().uuid('File ID must be a valid UUID'),
-  expiresIn: z
+  file_id: z.string().uuid('File ID must be a valid UUID'),
+  expires_in: z
     .number()
     .int()
     .min(60, 'Expiry must be at least 60 seconds')
     .max(604800, 'Expiry must be at most 604800 seconds (7 days)')
     .optional()
     .default(3600),
-  maxDownloads: z.number().int().min(1, 'Max downloads must be at least 1').optional(),
+  max_downloads: z.number().int().min(1, 'Max downloads must be at least 1').optional(),
 });
 export type FileShareParams = z.infer<typeof FileShareParamsSchema>;
 
 /** File share response from API */
 interface FileShareApiResponse {
-  shareToken: string;
+  share_token: string;
   url: string;
   expires_at: string;
-  expiresIn: number;
+  expires_in: number;
   filename: string;
   content_type: string;
   size_bytes: number;
@@ -40,9 +40,9 @@ export interface FileShareSuccess {
     content: string;
     details: {
       url: string;
-      shareToken: string;
+      share_token: string;
       expires_at: string;
-      expiresIn: number;
+      expires_in: number;
       filename: string;
       content_type: string;
       size_bytes: number;
@@ -115,23 +115,23 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
         return { success: false, error: errorMessage };
       }
 
-      const { fileId, expiresIn, maxDownloads } = parseResult.data;
+      const { file_id, expires_in, max_downloads } = parseResult.data;
 
       // Log invocation
       logger.info('file_share invoked', {
         user_id,
-        fileId,
-        expiresIn,
-        maxDownloads,
+        file_id,
+        expires_in,
+        max_downloads,
       });
 
       try {
         // Call API
         const response = await client.post<FileShareApiResponse>(
-          `/api/files/${fileId}/share`,
+          `/api/files/${file_id}/share`,
           {
-            expiresIn,
-            maxDownloads,
+            expires_in,
+            max_downloads,
           },
           { user_id },
         );
@@ -139,7 +139,7 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
         if (!response.success) {
           logger.error('file_share API error', {
             user_id,
-            fileId,
+            file_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -149,18 +149,18 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
           };
         }
 
-        const { url, shareToken, expires_at, filename, content_type, size_bytes } = response.data;
+        const { url, share_token, expires_at, filename, content_type, size_bytes } = response.data;
 
         logger.debug('file_share completed', {
           user_id,
-          fileId,
-          shareToken,
+          file_id,
+          share_token,
           expires_at,
         });
 
-        const expiryText = formatDuration(expiresIn);
+        const expiryText = formatDuration(expires_in);
         const sizeText = formatFileSize(size_bytes);
-        const downloadLimit = maxDownloads ? ` (max ${maxDownloads} downloads)` : '';
+        const downloadLimit = max_downloads ? ` (max ${max_downloads} downloads)` : '';
 
         return {
           success: true,
@@ -168,9 +168,9 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
             content: `Share link created for "${filename}" (${sizeText}). ` + `Valid for ${expiryText}${downloadLimit}.\n\nURL: ${url}`,
             details: {
               url,
-              shareToken,
+              share_token,
               expires_at,
-              expiresIn,
+              expires_in,
               filename,
               content_type,
               size_bytes,
@@ -180,7 +180,7 @@ export function createFileShareTool(options: FileShareToolOptions): FileShareToo
       } catch (error) {
         logger.error('file_share failed', {
           user_id,
-          fileId,
+          file_id,
           error: error instanceof Error ? error.message : String(error),
         });
 

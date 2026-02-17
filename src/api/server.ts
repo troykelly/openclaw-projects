@@ -4228,8 +4228,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     if (expiresIn < 60 || expiresIn > 86400) {
       return reply.code(400).send({
-        error: 'Invalid expiresIn',
-        message: 'expiresIn must be between 60 and 86400 seconds',
+        error: 'Invalid expires_in',
+        message: 'expires_in must be between 60 and 86400 seconds',
       });
     }
 
@@ -4241,7 +4241,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       return reply.send({
         url: result.url,
-        expiresIn,
+        expires_in: expiresIn,
         filename: result.metadata.original_filename,
         content_type: result.metadata.content_type,
       });
@@ -4312,8 +4312,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Validate expiresIn range
     if (expiresIn < 60 || expiresIn > 604800) {
       return reply.code(400).send({
-        error: 'Invalid expiresIn',
-        message: 'expiresIn must be between 60 and 604800 seconds (1 minute to 7 days)',
+        error: 'Invalid expires_in',
+        message: 'expires_in must be between 60 and 604800 seconds (1 minute to 7 days)',
       });
     }
 

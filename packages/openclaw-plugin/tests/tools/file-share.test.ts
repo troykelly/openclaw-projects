@@ -32,9 +32,9 @@ describe('file_share tool', () => {
   describe('schema validation', () => {
     it('should accept valid params', () => {
       const params: FileShareParams = {
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
-        expiresIn: 3600,
-        maxDownloads: 10,
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
+        expires_in: 3600,
+        max_downloads: 10,
       };
       const result = FileShareParamsSchema.safeParse(params);
       expect(result.success).toBe(true);
@@ -42,34 +42,34 @@ describe('file_share tool', () => {
 
     it('should accept minimal params', () => {
       const params = {
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
       };
       const result = FileShareParamsSchema.safeParse(params);
       expect(result.success).toBe(true);
-      expect(result.data?.expiresIn).toBe(3600); // default
+      expect(result.data?.expires_in).toBe(3600); // default
     });
 
-    it('should reject invalid fileId', () => {
+    it('should reject invalid file_id', () => {
       const params = {
-        fileId: 'not-a-uuid',
+        file_id: 'not-a-uuid',
       };
       const result = FileShareParamsSchema.safeParse(params);
       expect(result.success).toBe(false);
     });
 
-    it('should reject expiresIn less than 60', () => {
+    it('should reject expires_in less than 60', () => {
       const params = {
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
-        expiresIn: 30,
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
+        expires_in: 30,
       };
       const result = FileShareParamsSchema.safeParse(params);
       expect(result.success).toBe(false);
     });
 
-    it('should reject expiresIn greater than 604800', () => {
+    it('should reject expires_in greater than 604800', () => {
       const params = {
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
-        expiresIn: 1000000,
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
+        expires_in: 1000000,
       };
       const result = FileShareParamsSchema.safeParse(params);
       expect(result.success).toBe(false);
@@ -87,10 +87,10 @@ describe('file_share tool', () => {
       const mockResponse = {
         success: true,
         data: {
-          shareToken: 'abc123xyz',
+          share_token: 'abc123xyz',
           url: 'https://example.com/api/files/shared/abc123xyz',
           expires_at: '2026-02-05T10:00:00Z',
-          expiresIn: 3600,
+          expires_in: 3600,
           filename: 'document.pdf',
           content_type: 'application/pdf',
           size_bytes: 1048576,
@@ -100,8 +100,8 @@ describe('file_share tool', () => {
       vi.mocked(mockClient.post).mockResolvedValue(mockResponse);
 
       const result = await tool.execute({
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
-        expiresIn: 3600,
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
+        expires_in: 3600,
       });
 
       expect(result.success).toBe(true);
@@ -128,14 +128,14 @@ describe('file_share tool', () => {
       });
 
       const result = await tool.execute({
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
       });
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('File not found');
     });
 
-    it('should include maxDownloads in message when specified', async () => {
+    it('should include max_downloads in message when specified', async () => {
       const tool = createFileShareTool({
         client: mockClient,
         logger: mockLogger,
@@ -145,10 +145,10 @@ describe('file_share tool', () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
         data: {
-          shareToken: 'abc123xyz',
+          share_token: 'abc123xyz',
           url: 'https://example.com/api/files/shared/abc123xyz',
           expires_at: '2026-02-05T10:00:00Z',
-          expiresIn: 3600,
+          expires_in: 3600,
           filename: 'document.pdf',
           content_type: 'application/pdf',
           size_bytes: 1048576,
@@ -156,9 +156,9 @@ describe('file_share tool', () => {
       });
 
       const result = await tool.execute({
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
-        expiresIn: 3600,
-        maxDownloads: 5,
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
+        expires_in: 3600,
+        max_downloads: 5,
       });
 
       expect(result.success).toBe(true);
@@ -175,10 +175,10 @@ describe('file_share tool', () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
         data: {
-          shareToken: 'abc123xyz',
+          share_token: 'abc123xyz',
           url: 'https://example.com/api/files/shared/abc123xyz',
           expires_at: '2026-02-05T10:00:00Z',
-          expiresIn: 3600,
+          expires_in: 3600,
           filename: 'document.pdf',
           content_type: 'application/pdf',
           size_bytes: 1048576,
@@ -186,14 +186,14 @@ describe('file_share tool', () => {
       });
 
       await tool.execute({
-        fileId: '550e8400-e29b-41d4-a716-446655440000',
+        file_id: '550e8400-e29b-41d4-a716-446655440000',
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         'file_share invoked',
         expect.objectContaining({
           user_id,
-          fileId: '550e8400-e29b-41d4-a716-446655440000',
+          file_id: '550e8400-e29b-41d4-a716-446655440000',
         }),
       );
     });

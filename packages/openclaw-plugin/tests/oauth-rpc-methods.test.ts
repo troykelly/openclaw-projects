@@ -303,17 +303,17 @@ describe('OAuth Gateway RPC Methods', () => {
         data: { id: 'f-1', name: 'photo.jpg', download_url: 'https://example.com/download' },
       });
 
-      const result = await methods.filesGet({ connection_id: 'conn-1', fileId: 'f-1' });
+      const result = await methods.filesGet({ connection_id: 'conn-1', file_id: 'f-1' });
 
       expect(result.connectionLabel).toBe('Work M365');
       expect(result.file).toMatchObject({ id: 'f-1', name: 'photo.jpg' });
       expect(result.availableActions).toContain('get_file');
     });
 
-    it('throws when fileId is missing', async () => {
+    it('throws when file_id is missing', async () => {
       await expect(
-        methods.filesGet({ connection_id: 'conn-1', fileId: '' }),
-      ).rejects.toThrow('fileId is required');
+        methods.filesGet({ connection_id: 'conn-1', file_id: '' }),
+      ).rejects.toThrow('file_id is required');
     });
   });
 });

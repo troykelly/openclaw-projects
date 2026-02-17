@@ -759,25 +759,25 @@ const relationshipQuerySchema: JSONSchema = {
 const fileShareSchema: JSONSchema = {
   type: 'object',
   properties: {
-    fileId: {
+    file_id: {
       type: 'string',
       description: 'The file ID to create a share link for',
       format: 'uuid',
     },
-    expiresIn: {
+    expires_in: {
       type: 'integer',
       description: 'Link expiry time in seconds (default: 3600, max: 604800)',
       minimum: 60,
       maximum: 604800,
       default: 3600,
     },
-    maxDownloads: {
+    max_downloads: {
       type: 'integer',
       description: 'Optional maximum number of downloads',
       minimum: 1,
     },
   },
-  required: ['fileId'],
+  required: ['file_id'],
 };
 
 /**
@@ -2634,48 +2634,48 @@ function createToolHandlers(state: PluginState) {
 
     async file_share(params: Record<string, unknown>): Promise<ToolResult> {
       const {
-        fileId,
-        expiresIn = 3600,
-        maxDownloads,
+        file_id: fileId,
+        expires_in: expiresIn = 3600,
+        max_downloads: maxDownloads,
       } = params as {
-        fileId: string;
-        expiresIn?: number;
-        maxDownloads?: number;
+        file_id: string;
+        expires_in?: number;
+        max_downloads?: number;
       };
 
       if (!fileId) {
         return {
           success: false,
-          error: 'fileId is required',
+          error: 'file_id is required',
         };
       }
 
-      // Validate expiresIn range
+      // Validate expires_in range
       if (expiresIn < 60 || expiresIn > 604800) {
         return {
           success: false,
-          error: 'expiresIn must be between 60 and 604800 seconds (1 minute to 7 days)',
+          error: 'expires_in must be between 60 and 604800 seconds (1 minute to 7 days)',
         };
       }
 
       logger.info('file_share invoked', {
         user_id,
-        fileId,
-        expiresIn,
-        maxDownloads,
+        file_id: fileId,
+        expires_in: expiresIn,
+        max_downloads: maxDownloads,
       });
 
       try {
-        const body: Record<string, unknown> = { expiresIn };
+        const body: Record<string, unknown> = { expires_in: expiresIn };
         if (maxDownloads !== undefined) {
-          body.maxDownloads = maxDownloads;
+          body.max_downloads = maxDownloads;
         }
 
         const response = await apiClient.post<{
-          shareToken: string;
+          share_token: string;
           url: string;
           expires_at: string;
-          expiresIn: number;
+          expires_in: number;
           filename: string;
           content_type: string;
           size_bytes: number;
@@ -2684,7 +2684,7 @@ function createToolHandlers(state: PluginState) {
         if (!response.success) {
           logger.error('file_share API error', {
             user_id,
-            fileId,
+            file_id: fileId,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2694,12 +2694,12 @@ function createToolHandlers(state: PluginState) {
           };
         }
 
-        const { url, shareToken, expires_at, filename, content_type, size_bytes } = response.data;
+        const { url, share_token, expires_at, filename, content_type, size_bytes } = response.data;
 
         logger.debug('file_share completed', {
           user_id,
-          fileId,
-          shareToken,
+          file_id: fileId,
+          share_token,
           expires_at,
         });
 
@@ -2729,9 +2729,9 @@ function createToolHandlers(state: PluginState) {
             content: `Share link created for "${filename}" (${sizeText}). ` + `Valid for ${expiryText}${downloadLimit}.\n\nURL: ${url}`,
             details: {
               url,
-              shareToken,
+              share_token,
               expires_at,
-              expiresIn,
+              expires_in: expiresIn,
               filename,
               content_type,
               size_bytes,
@@ -2742,7 +2742,7 @@ function createToolHandlers(state: PluginState) {
       } catch (error) {
         logger.error('file_share failed', {
           user_id,
-          fileId,
+          file_id: fileId,
           error: error instanceof Error ? error.message : String(error),
         });
 
