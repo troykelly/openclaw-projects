@@ -1369,6 +1369,18 @@ docker volume inspect openclaw-projects_db_data
 
 ## Breaking Changes
 
+### Fastify trustProxy enabled by default (v0.0.18+, #1413)
+
+**Changed in:** v0.0.18
+
+**What changed:** The Fastify API server now has `trustProxy: true` set in its configuration. This makes `request.protocol` respect `X-Forwarded-Proto` and `request.ip` respect `X-Forwarded-For` headers from the reverse proxy.
+
+**Why:** Without `trustProxy`, the API server sees the internal proxy connection protocol (`http`) instead of the public protocol (`https`). This caused webhook signature validation to fail (Twilio, Postmark, Cloudflare) because the reconstructed URL used `http://` while the webhook provider signed against `https://`. It also caused rate limiting to use the proxy's IP instead of the real client IP.
+
+**Who is affected:** All deployments behind a reverse proxy (the standard deployment model). Deployments not behind a proxy are unaffected — `request.protocol` falls back to the connection protocol.
+
+**Security note:** `trustProxy: true` means Fastify trusts `X-Forwarded-*` headers from all sources. This is safe when the API server is only reachable through the reverse proxy (the Docker network enforces this in standard deployments). If you expose the API port directly to the internet, clients could spoof their IP via `X-Forwarded-For`.
+
 ### PUBLIC_BASE_URL now refers to the app domain (v0.0.56+, #1328)
 
 **Changed in:** v0.0.56 (JWT auth epic #1322)
