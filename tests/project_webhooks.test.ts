@@ -23,6 +23,11 @@ describe('Project Webhooks (Issue #1274)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    // Ensure the test email exists in user_setting (FK target for user_email)
+    await pool.query(
+      `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
+      [TEST_EMAIL],
+    );
     // Create a project (work_item with kind='project') for tests
     const result = await pool.query(
       `INSERT INTO work_item (title, kind) VALUES ('Test Project', 'project')
@@ -95,7 +100,6 @@ describe('Project Webhooks (Issue #1274)', () => {
         url: `/api/projects/${project_id}/webhooks`,
         payload: { label: 'CI Notifications', user_email: TEST_EMAIL },
       });
-
       expect(res.statusCode).toBe(201);
       const body = res.json();
       expect(body.label).toBe('CI Notifications');
@@ -113,29 +117,6 @@ describe('Project Webhooks (Issue #1274)', () => {
       });
 
       expect(res.statusCode).toBe(400);
-    });
-
-    it('rejects without user_email', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Missing Email' },
-      });
-
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toMatch(/user_email/);
-    });
-
-    it('accepts user_email from X-User-Email header', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: `/api/projects/${project_id}/webhooks`,
-        headers: { 'x-user-email': TEST_EMAIL },
-        payload: { label: 'Header Email' },
-      });
-
-      expect(res.statusCode).toBe(201);
-      expect(res.json().user_email).toBe(TEST_EMAIL);
     });
 
     it('returns 404 for non-existent project', async () => {

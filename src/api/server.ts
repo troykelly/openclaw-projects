@@ -17850,17 +17850,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'label is required' });
     }
 
-    // Resolve user_email from body, query, or X-User-Email header
-    const user_email =
-      body.user_email?.trim() ||
-      (req.query as Record<string, string | undefined>)?.user_email?.trim() ||
-      (typeof req.headers['x-user-email'] === 'string' ? req.headers['x-user-email'].trim() : undefined) ||
-      null;
-
-    if (!user_email) {
-      return reply.code(400).send({ error: 'user_email is required (body, query param, or X-User-Email header)' });
-    }
-
     const pool = createPool();
 
     // Verify project exists
@@ -17875,7 +17864,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       `INSERT INTO project_webhook (project_id, user_email, label, token)
        VALUES ($1, $2, $3, $4)
        RETURNING id::text, project_id::text, user_email, label, token, is_active, last_received, created_at, updated_at`,
-      [id, user_email, body.label.trim(), token],
+      [id, body.user_email?.trim() || null, body.label.trim(), token],
     );
     await pool.end();
     return reply.code(201).send(result.rows[0]);
