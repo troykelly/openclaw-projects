@@ -1,6 +1,6 @@
 {
   "id": "openclaw-projects",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "name": "OpenClaw Projects Plugin",
   "description": "Memory provider with projects, todos, and contacts integration",
   "kind": "memory",
