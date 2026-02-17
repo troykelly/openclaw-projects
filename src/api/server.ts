@@ -145,7 +145,10 @@ export type ProjectsApiOptions = {
 };
 
 export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? false });
+  // trustProxy: true — this server is always deployed behind a reverse proxy
+  // (Traefik → ModSecurity → Fastify). Required for correct request.protocol
+  // (X-Forwarded-Proto) and request.ip (X-Forwarded-For). Issue #1413.
+  const app = Fastify({ logger: options.logger ?? false, trustProxy: true });
 
   // Validate OAuth startup configuration (Issue #1080)
   const oauthValidation = validateOAuthStartup();
