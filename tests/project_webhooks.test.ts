@@ -13,6 +13,7 @@ describe('Project Webhooks (Issue #1274)', () => {
   const app = buildServer();
   let pool: Pool;
   let project_id: string;
+  const TEST_EMAIL = 'webhook-test@example.com';
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -92,7 +93,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'CI Notifications' },
+        payload: { label: 'CI Notifications', user_email: TEST_EMAIL },
       });
 
       expect(res.statusCode).toBe(201);
@@ -114,11 +115,34 @@ describe('Project Webhooks (Issue #1274)', () => {
       expect(res.statusCode).toBe(400);
     });
 
+    it('rejects without user_email', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Missing Email' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/user_email/);
+    });
+
+    it('accepts user_email from X-User-Email header', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/projects/${project_id}/webhooks`,
+        headers: { 'x-user-email': TEST_EMAIL },
+        payload: { label: 'Header Email' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.json().user_email).toBe(TEST_EMAIL);
+    });
+
     it('returns 404 for non-existent project', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/projects/00000000-0000-0000-0000-000000000000/webhooks',
-        payload: { label: 'Test' },
+        payload: { label: 'Test', user_email: TEST_EMAIL },
       });
 
       expect(res.statusCode).toBe(404);
@@ -142,12 +166,12 @@ describe('Project Webhooks (Issue #1274)', () => {
       await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Hook A' },
+        payload: { label: 'Hook A', user_email: TEST_EMAIL },
       });
       await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Hook B' },
+        payload: { label: 'Hook B', user_email: TEST_EMAIL },
       });
 
       const res = await app.inject({
@@ -167,7 +191,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Delete Me' },
+        payload: { label: 'Delete Me', user_email: TEST_EMAIL },
       });
       const webhookId = createRes.json().id;
 
@@ -194,7 +218,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'GitHub Actions' },
+        payload: { label: 'GitHub Actions', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -220,7 +244,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Auth Test' },
+        payload: { label: 'Auth Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -238,7 +262,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'No Auth Test' },
+        payload: { label: 'No Auth Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -266,7 +290,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Timestamp Test' },
+        payload: { label: 'Timestamp Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
       expect(webhook.last_received).toBeNull();
@@ -305,7 +329,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Events Test' },
+        payload: { label: 'Events Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -338,7 +362,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const createRes = await app.inject({
         method: 'POST',
         url: `/api/projects/${project_id}/webhooks`,
-        payload: { label: 'Pagination Test' },
+        payload: { label: 'Pagination Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 

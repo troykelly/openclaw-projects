@@ -42,7 +42,58 @@ async function createContactDirect(pool: Pool, display_name: string, kind = 'per
 /** Helper: get relationship type ID by name */
 async function getTypeId(pool: Pool, name: string): Promise<string> {
   const result = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = $1`, [name]);
+  if (result.rows.length === 0) {
+    throw new Error(`Relationship type '${name}' not found in database`);
+  }
   return (result.rows[0] as { id: string }).id;
+}
+
+/**
+ * Ensure required relationship types exist in the database.
+ * Migration 046 seeds these, but if the table was ever truncated by another
+ * test run the seed data is lost. This function re-seeds only the types
+ * needed by the tests in this file (using ON CONFLICT DO NOTHING for safety).
+ */
+async function seedRequiredRelationshipTypes(pool: Pool): Promise<void> {
+  // Symmetric types used by tests
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('friend_of', 'Friend of', false, 'Friendship or close social bond.'),
+       ('colleague_of', 'Colleague of', false, 'Colleague or coworker.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+
+  // Directional pair: parent_of / child_of
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('parent_of', 'Parent of', true, 'Parent relationship.'),
+       ('child_of', 'Child of', true, 'Child relationship.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'child_of')
+     WHERE name = 'parent_of' AND inverse_type_id IS NULL`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'parent_of')
+     WHERE name = 'child_of' AND inverse_type_id IS NULL`,
+  );
+
+  // Directional pair: has_member / member_of
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('has_member', 'Has member', true, 'Group has a member.'),
+       ('member_of', 'Member of', true, 'Member of a group.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'member_of')
+     WHERE name = 'has_member' AND inverse_type_id IS NULL`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'has_member')
+     WHERE name = 'member_of' AND inverse_type_id IS NULL`,
+  );
 }
 
 describe('Relationships API (Epic #486, Issue #491)', () => {
@@ -57,6 +108,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await seedRequiredRelationshipTypes(pool);
   });
 
   afterAll(async () => {

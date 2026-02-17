@@ -37,13 +37,14 @@ describe('Embedding Settings Service', () => {
     // Reset singleton (Note: the settings table is a singleton, don't truncate)
     // Reset usage data
     await pool.query('DELETE FROM embedding_usage');
-    // Reset settings to defaults
+    // Reset settings to defaults (upsert to guarantee the singleton row exists)
     await pool.query(`
-      UPDATE embedding_settings
-      SET daily_limit_usd = 10.00,
-          monthly_limit_usd = 100.00,
-          pause_on_limit = true
-      WHERE id = 1
+      INSERT INTO embedding_settings (id, daily_limit_usd, monthly_limit_usd, pause_on_limit)
+      VALUES (1, 10.00, 100.00, true)
+      ON CONFLICT (id) DO UPDATE
+        SET daily_limit_usd = 10.00,
+            monthly_limit_usd = 100.00,
+            pause_on_limit = true
     `);
   });
 

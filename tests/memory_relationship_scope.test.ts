@@ -11,6 +11,21 @@ import { runMigrate } from './helpers/migrate.ts';
 import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { createMemory, getMemory, listMemories, searchMemories } from '../src/api/memory/index.ts';
 
+/**
+ * Ensure required relationship types exist in the database.
+ * Migration 046 seeds these, but if the table was ever truncated by another
+ * test run the seed data is lost. This function re-seeds only the types
+ * needed by the tests in this file (using ON CONFLICT DO NOTHING for safety).
+ */
+async function seedRequiredRelationshipTypes(pool: Pool): Promise<void> {
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('partner_of', 'Partner of', false, 'Romantic or life partner.'),
+       ('friend_of', 'Friend of', false, 'Friendship or close social bond.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+}
+
 describe('Memory Relationship Scope (Issue #493)', () => {
   const app = buildServer();
   let pool: Pool;
@@ -23,6 +38,7 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await seedRequiredRelationshipTypes(pool);
   });
 
   afterAll(async () => {

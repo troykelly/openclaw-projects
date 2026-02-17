@@ -21,6 +21,88 @@ import {
   findSemanticMatch,
 } from '../src/api/relationship-types/service.ts';
 
+/**
+ * Ensure all 32 pre-seeded relationship types exist in the database.
+ * Migration 046 seeds these, but if the table was ever truncated by another
+ * test run the seed data is lost. This function re-seeds all types
+ * (using ON CONFLICT DO NOTHING for safety).
+ */
+async function seedAllRelationshipTypes(pool: Pool): Promise<void> {
+  // Symmetric types (6)
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('partner_of', 'Partner of', false, 'Romantic or life partner.'),
+       ('sibling_of', 'Sibling of', false, 'Sibling relationship.'),
+       ('friend_of', 'Friend of', false, 'Friendship or close social bond.'),
+       ('colleague_of', 'Colleague of', false, 'Colleague or coworker.'),
+       ('housemate_of', 'Housemate of', false, 'Shares a dwelling.'),
+       ('co_parent_of', 'Co-parent of', false, 'Shares parenting responsibilities.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+
+  // Directional types (26)
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('parent_of', 'Parent of', true, 'Parent relationship.'),
+       ('child_of', 'Child of', true, 'Child relationship.'),
+       ('grandparent_of', 'Grandparent of', true, 'Grandparent relationship.'),
+       ('grandchild_of', 'Grandchild of', true, 'Grandchild relationship.'),
+       ('cares_for', 'Cares for', true, 'Provides care.'),
+       ('cared_for_by', 'Cared for by', true, 'Receives care.'),
+       ('employs', 'Employs', true, 'Employer relationship.'),
+       ('employed_by', 'Employed by', true, 'Employee relationship.'),
+       ('manages', 'Manages', true, 'Direct management.'),
+       ('managed_by', 'Managed by', true, 'Reports to.'),
+       ('mentor_of', 'Mentor of', true, 'Mentorship relationship.'),
+       ('mentee_of', 'Mentee of', true, 'Mentee relationship.'),
+       ('elder_of', 'Elder of', true, 'Elder figure.'),
+       ('junior_of', 'Junior of', true, 'Junior member.'),
+       ('member_of', 'Member of', true, 'Member of a group.'),
+       ('has_member', 'Has member', true, 'Group that has a member.'),
+       ('founder_of', 'Founder of', true, 'Founded an org.'),
+       ('founded_by', 'Founded by', true, 'Founded by someone.'),
+       ('client_of', 'Client of', true, 'Client of a service provider.'),
+       ('has_client', 'Has client', true, 'Has a client.'),
+       ('vendor_of', 'Vendor of', true, 'Vendor to a client.'),
+       ('has_vendor', 'Has vendor', true, 'Has a vendor.'),
+       ('assigned_to', 'Assigned to', true, 'Assigned to an agent.'),
+       ('manages_agent', 'Manages agent', true, 'Agent that manages a person.'),
+       ('owned_by', 'Owned by', true, 'Owned by a person.'),
+       ('owns', 'Owns', true, 'Owns an entity.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+
+  // Link inverse types for all 13 directional pairs
+  const inversePairs: [string, string][] = [
+    ['parent_of', 'child_of'],
+    ['grandparent_of', 'grandchild_of'],
+    ['cares_for', 'cared_for_by'],
+    ['employs', 'employed_by'],
+    ['manages', 'managed_by'],
+    ['mentor_of', 'mentee_of'],
+    ['elder_of', 'junior_of'],
+    ['has_member', 'member_of'],
+    ['founder_of', 'founded_by'],
+    ['client_of', 'has_client'],
+    ['vendor_of', 'has_vendor'],
+    ['assigned_to', 'manages_agent'],
+    ['owned_by', 'owns'],
+  ];
+
+  for (const [a, b] of inversePairs) {
+    await pool.query(
+      `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = $2)
+       WHERE name = $1 AND inverse_type_id IS NULL`,
+      [a, b],
+    );
+    await pool.query(
+      `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = $1)
+       WHERE name = $2 AND inverse_type_id IS NULL`,
+      [a, b],
+    );
+  }
+}
+
 describe('Relationship Type Service (Epic #486, Issue #490)', () => {
   let pool: Pool;
 
@@ -29,13 +111,16 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
     pool = createTestPool();
   });
 
+  // Re-seed all 32 pre-seeded relationship types before each test.
+  // Migration 046 seeds these, but if the table was truncated by another
+  // test file sharing the same database the seed data is lost.
+  beforeEach(async () => {
+    await seedAllRelationshipTypes(pool);
+  });
+
   afterAll(async () => {
     await pool.end();
   });
-
-  // NOTE: We do NOT truncate relationship_type in beforeEach because
-  // the pre-seeded data is part of the migration and should persist.
-  // Tests that create custom types clean up after themselves.
 
   describe('Pre-seeded types', () => {
     beforeEach(async () => {
