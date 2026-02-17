@@ -119,7 +119,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
         method: 'POST',
         url: `/api/files/${fileId}/share`,
         headers: { authorization: `Bearer ${token}` },
-        payload: { expiresIn: 3600 },
+        payload: { expires_in: 3600 },
       });
 
       expect(response.statusCode).toBe(200);
@@ -143,7 +143,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
         method: 'POST',
         url: `/api/files/${fileId}/share`,
         headers: { authorization: `Bearer ${attackerToken}` },
-        payload: { expiresIn: 3600 },
+        payload: { expires_in: 3600 },
       });
 
       expect(response.statusCode).toBe(403);
@@ -160,7 +160,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
         method: 'POST',
         url: `/api/files/${nonExistentFileId}/share`,
         headers: { authorization: `Bearer ${token}` },
-        payload: { expiresIn: 3600 },
+        payload: { expires_in: 3600 },
       });
 
       expect(response.statusCode).toBe(404);
@@ -180,7 +180,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 3600 },
+        payload: { expires_in: 3600 },
       });
 
       expect(response.statusCode).toBe(200);
@@ -203,7 +203,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 3600 },
+        payload: { expires_in: 3600 },
       });
 
       expect(response.statusCode).toBe(200);
@@ -217,7 +217,7 @@ describe('File Share Ownership Check (Issue #615)', () => {
       const response = await app.inject({
         method: 'POST',
         url: `/api/files/${fileId}/share`,
-        payload: { expiresIn: 3600 },
+        payload: { expires_in: 3600 },
         // No session cookie or bearer token
       });
 

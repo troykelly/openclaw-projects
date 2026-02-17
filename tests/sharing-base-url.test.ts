@@ -90,7 +90,7 @@ describe('Sharing modules use PUBLIC_BASE_URL', () => {
       };
 
       const result = await createFileShare(pool, storage, {
-        fileId: 'file-1',
+        file_id: 'file-1',
         expires_in: 3600,
       });
 
@@ -127,7 +127,7 @@ describe('Sharing modules use PUBLIC_BASE_URL', () => {
       };
 
       const result = await createFileShare(pool, storage, {
-        fileId: 'file-1',
+        file_id: 'file-1',
         expires_in: 3600,
       });
 

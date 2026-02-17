@@ -81,8 +81,8 @@ describe('createFileShare presigned mode', () => {
     );
 
     const result = await createFileShare(createMockPool(), storage, {
-      fileId: 'file-123',
-      expiresIn: 3600,
+      file_id: 'file-123',
+      expires_in: 3600,
     });
 
     // Should call getExternalSignedUrl, NOT getSignedUrl
@@ -106,8 +106,8 @@ describe('createFileShare presigned mode', () => {
     );
 
     const result = await createFileShare(createMockPool(), storage, {
-      fileId: 'file-123',
-      expiresIn: 3600,
+      file_id: 'file-123',
+      expires_in: 3600,
     });
 
     // URL should be exactly what getExternalSignedUrl returned (no manipulation)
@@ -134,8 +134,8 @@ describe('createFileShare presigned mode', () => {
     );
 
     const result = await createFileShare(createMockPool(), storage, {
-      fileId: 'file-123',
-      expiresIn: 3600,
+      file_id: 'file-123',
+      expires_in: 3600,
     });
 
     // URL should be exactly the external signed URL, not a string-replaced version
