@@ -409,7 +409,7 @@ describe('rate limit handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('RATE_LIMITED');
-      expect(oauthError.statusCode).toBe(429);
+      expect(oauthError.status_code).toBe(429);
       expect(oauthError.provider).toBe('microsoft');
     }
 
@@ -432,7 +432,7 @@ describe('rate limit handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('RATE_LIMITED');
-      expect(oauthError.statusCode).toBe(429);
+      expect(oauthError.status_code).toBe(429);
       expect(oauthError.provider).toBe('google');
     }
 
@@ -459,7 +459,7 @@ describe('not found handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('NOT_FOUND');
-      expect(oauthError.statusCode).toBe(404);
+      expect(oauthError.status_code).toBe(404);
     }
 
     vi.unstubAllGlobals();
@@ -481,7 +481,7 @@ describe('not found handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('NOT_FOUND');
-      expect(oauthError.statusCode).toBe(404);
+      expect(oauthError.status_code).toBe(404);
     }
 
     vi.unstubAllGlobals();

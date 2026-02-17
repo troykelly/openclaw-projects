@@ -117,13 +117,13 @@ describe('NoConnectionError overloads', () => {
     expect(err.message).toContain('test@example.com');
     expect(err.message).toContain('google');
     expect(err.code).toBe('NO_CONNECTION');
-    expect(err.statusCode).toBe(404);
+    expect(err.status_code).toBe(404);
   });
 
   it('constructs with connection_id only', () => {
     const err = new NoConnectionError('conn-uuid-123');
     expect(err.message).toContain('conn-uuid-123');
     expect(err.code).toBe('NO_CONNECTION');
-    expect(err.statusCode).toBe(404);
+    expect(err.status_code).toBe(404);
   });
 });
