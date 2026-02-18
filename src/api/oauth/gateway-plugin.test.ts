@@ -134,9 +134,9 @@ describe('OAuth Gateway Plugin', () => {
           expect.objectContaining({
             connection_id: 'conn-1',
             provider: 'microsoft',
-            connectionLabel: 'Work M365',
+            connection_label: 'Work M365',
             enabled_features: ['email', 'contacts'],
-            availableActions: expect.arrayContaining(['list_emails', 'list_contacts']),
+            available_actions: expect.arrayContaining(['list_emails', 'list_contacts']),
           }),
         ]),
       }));
@@ -220,7 +220,7 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
-        connectionLabel: 'Work',
+        connection_label: 'Work',
         contacts: expect.arrayContaining([
           expect.objectContaining({
             display_name: 'Alice',
@@ -294,7 +294,7 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: { connection_id: 'conn-1', max_results: 10 }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
-        connectionLabel: 'Work Gmail',
+        connection_label: 'Work Gmail',
         messages: expect.arrayContaining([
           expect.objectContaining({
             id: 'msg-1',
@@ -302,7 +302,7 @@ describe('OAuth Gateway Plugin', () => {
           }),
         ]),
         next_page_token: 'page2',
-        availableActions: expect.arrayContaining(['send_email', 'create_draft']),
+        available_actions: expect.arrayContaining(['send_email', 'create_draft']),
       }));
     });
 
@@ -333,9 +333,9 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: { connection_id: 'conn-1' }, respond });
 
       const payload = respond.mock.calls[0][1];
-      expect(payload.availableActions).not.toContain('send_email');
-      expect(payload.availableActions).not.toContain('create_draft');
-      expect(payload.availableActions).toContain('list_messages');
+      expect(payload.available_actions).not.toContain('send_email');
+      expect(payload.available_actions).not.toContain('create_draft');
+      expect(payload.available_actions).toContain('list_messages');
     });
   });
 
@@ -386,7 +386,7 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: { connection_id: 'conn-1', message_id: 'msg-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
-        connectionLabel: 'Work',
+        connection_label: 'Work',
         message: expect.objectContaining({
           id: 'msg-1',
           subject: 'Test',
@@ -454,7 +454,7 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: { connection_id: 'conn-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
-        connectionLabel: 'Work Drive',
+        connection_label: 'Work Drive',
         files: expect.arrayContaining([
           expect.objectContaining({
             id: 'f-1',
@@ -462,7 +462,7 @@ describe('OAuth Gateway Plugin', () => {
           }),
         ]),
         next_page_token: 'next',
-        availableActions: expect.arrayContaining(['list_files', 'search_files', 'get_file']),
+        available_actions: expect.arrayContaining(['list_files', 'search_files', 'get_file']),
       }));
     });
   });
@@ -573,7 +573,7 @@ describe('OAuth Gateway Plugin', () => {
       await handler({ params: { connection_id: 'conn-1', fileId: 'f-1' }, respond });
 
       expect(respond).toHaveBeenCalledWith(true, expect.objectContaining({
-        connectionLabel: 'Drive',
+        connection_label: 'Drive',
         file: expect.objectContaining({
           id: 'f-1',
           name: 'photo.jpg',
