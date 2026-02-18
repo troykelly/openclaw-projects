@@ -125,7 +125,12 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
       let count = 0;
       for (const r of toRollback) {
         const m = migrations.find((x) => x.version === r.version);
-        if (!m) throw new Error(`No migration files found for version ${r.version}`);
+        if (!m) {
+          // Orphan version in schema_migrations (file removed during development).
+          // Remove the row so future rollbacks don't fail.
+          await pool.query('DELETE FROM schema_migrations WHERE version = $1', [r.version]);
+          continue;
+        }
 
         await pool.query('BEGIN');
         try {
