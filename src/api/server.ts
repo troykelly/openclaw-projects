@@ -574,6 +574,590 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return reply.code(status_code).send(health);
   });
 
+  // ============================================================
+  // Namespace Management API (Issue #1473)
+  // Primary consumers: OpenClaw agents (M2M tokens) managing namespaces
+  // ============================================================
+
+  const NAMESPACE_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+  const RESERVED_NAMESPACES = new Set(['system']);
+  const MAX_NAMESPACE_LENGTH = 63;
+
+  function validateNamespaceName(ns: string): string | null {
+    if (!ns || ns.length === 0) return 'namespace name is required';
+    if (ns.length > MAX_NAMESPACE_LENGTH) return `namespace name must be at most ${MAX_NAMESPACE_LENGTH} characters`;
+    if (!NAMESPACE_PATTERN.test(ns)) return 'namespace name must match pattern: lowercase letters, digits, dots, hyphens, underscores; must start with letter or digit';
+    if (RESERVED_NAMESPACES.has(ns)) return `namespace name '${ns}' is reserved`;
+    return null;
+  }
+
+  // GET /api/namespaces — list namespaces accessible to current user (or all for M2M)
+  app.get('/api/namespaces', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const pool = createPool();
+    try {
+      if (identity.type === 'user') {
+        // User: return namespaces they have grants for
+        const result = await pool.query(
+          `SELECT DISTINCT ng.namespace, ng.role, ng.is_default, ng.created_at
+           FROM namespace_grant ng
+           WHERE ng.email = $1
+           ORDER BY ng.namespace`,
+          [identity.email],
+        );
+        return result.rows;
+      } else {
+        // M2M: return all distinct namespaces
+        const result = await pool.query(
+          `SELECT DISTINCT namespace, COUNT(*)::int as grant_count
+           FROM namespace_grant
+           GROUP BY namespace
+           ORDER BY namespace`,
+        );
+        return result.rows;
+      }
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/namespaces — create a new namespace
+  app.post('/api/namespaces', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const body = req.body as { name?: string; description?: string } | null;
+    const name = body?.name?.trim();
+    if (!name) {
+      return reply.code(400).send({ error: 'name is required' });
+    }
+
+    const validationError = validateNamespaceName(name);
+    if (validationError) {
+      return reply.code(400).send({ error: validationError });
+    }
+
+    const pool = createPool();
+    try {
+      // Check if namespace already exists (by checking if any grants reference it)
+      const existing = await pool.query(
+        `SELECT 1 FROM namespace_grant WHERE namespace = $1 LIMIT 1`,
+        [name],
+      );
+      if (existing.rows.length > 0) {
+        return reply.code(409).send({ error: `namespace '${name}' already exists` });
+      }
+
+      // If user token, create grant for the user as owner
+      if (identity.type === 'user') {
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, role, is_default)
+           VALUES ($1, $2, 'owner', false)`,
+          [identity.email, name],
+        );
+      }
+
+      return reply.code(201).send({ namespace: name, created: true });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/namespaces/:ns — get namespace details + member list
+  app.get('/api/namespaces/:ns', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { ns: string };
+    const pool = createPool();
+    try {
+      // For user tokens, verify they have a grant to this namespace
+      if (identity.type === 'user') {
+        const access = await pool.query(
+          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          [identity.email, params.ns],
+        );
+        if (access.rows.length === 0) {
+          return reply.code(403).send({ error: 'No access to namespace' });
+        }
+      }
+
+      const grants = await pool.query(
+        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+         FROM namespace_grant
+         WHERE namespace = $1
+         ORDER BY email`,
+        [params.ns],
+      );
+
+      return {
+        namespace: params.ns,
+        members: grants.rows,
+        member_count: grants.rows.length,
+      };
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/namespaces/:ns/grants — list grants for a namespace
+  app.get('/api/namespaces/:ns/grants', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { ns: string };
+    const pool = createPool();
+    try {
+      if (identity.type === 'user') {
+        const access = await pool.query(
+          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          [identity.email, params.ns],
+        );
+        if (access.rows.length === 0) {
+          return reply.code(403).send({ error: 'No access to namespace' });
+        }
+      }
+
+      const result = await pool.query(
+        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+         FROM namespace_grant
+         WHERE namespace = $1
+         ORDER BY email`,
+        [params.ns],
+      );
+      return result.rows;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // POST /api/namespaces/:ns/grants — grant access to a user
+  app.post('/api/namespaces/:ns/grants', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { ns: string };
+    const body = req.body as { email?: string; role?: string; is_default?: boolean } | null;
+
+    if (!body?.email) {
+      return reply.code(400).send({ error: 'email is required' });
+    }
+
+    const email = body.email.trim().toLowerCase();
+    const role = body.role || 'member';
+    const isDefault = body.is_default ?? false;
+
+    if (!['owner', 'admin', 'member', 'observer'].includes(role)) {
+      return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    }
+
+    const pool = createPool();
+    try {
+      // Verify user exists
+      const userExists = await pool.query(
+        `SELECT 1 FROM user_setting WHERE email = $1`,
+        [email],
+      );
+      if (userExists.rows.length === 0) {
+        return reply.code(404).send({ error: `user '${email}' not found` });
+      }
+
+      // For user tokens, verify they have a grant to this namespace
+      if (identity.type === 'user') {
+        const access = await pool.query(
+          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          [identity.email, params.ns],
+        );
+        if (access.rows.length === 0) {
+          return reply.code(403).send({ error: 'No access to namespace' });
+        }
+      }
+
+      // If setting as default, unset any existing default for this user first
+      if (isDefault) {
+        await pool.query(
+          `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true`,
+          [email],
+        );
+      }
+
+      const result = await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email, namespace) DO UPDATE SET role = $3, is_default = $4, updated_at = now()
+         RETURNING id::text, email, namespace, role, is_default, created_at, updated_at`,
+        [email, params.ns, role, isDefault],
+      );
+
+      return reply.code(201).send(result.rows[0]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/namespaces/:ns/grants/:id — update role or default flag
+  app.patch('/api/namespaces/:ns/grants/:id', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { ns: string; id: string };
+    const body = req.body as { role?: string; is_default?: boolean } | null;
+
+    if (!body || (body.role === undefined && body.is_default === undefined)) {
+      return reply.code(400).send({ error: 'role or is_default is required' });
+    }
+
+    if (body.role && !['owner', 'admin', 'member', 'observer'].includes(body.role)) {
+      return reply.code(400).send({ error: 'role must be one of: owner, admin, member, observer' });
+    }
+
+    const pool = createPool();
+    try {
+      if (identity.type === 'user') {
+        const access = await pool.query(
+          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          [identity.email, params.ns],
+        );
+        if (access.rows.length === 0) {
+          return reply.code(403).send({ error: 'No access to namespace' });
+        }
+      }
+
+      // Build dynamic update
+      const sets: string[] = [];
+      const values: unknown[] = [];
+      let paramIdx = 1;
+
+      if (body.role !== undefined) {
+        sets.push(`role = $${paramIdx++}`);
+        values.push(body.role);
+      }
+      if (body.is_default !== undefined) {
+        // If setting as default, unset any existing default for this user first
+        if (body.is_default) {
+          const grant = await pool.query(
+            `SELECT email FROM namespace_grant WHERE id = $1 AND namespace = $2`,
+            [params.id, params.ns],
+          );
+          if (grant.rows.length > 0) {
+            await pool.query(
+              `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true AND id != $2`,
+              [grant.rows[0].email, params.id],
+            );
+          }
+        }
+        sets.push(`is_default = $${paramIdx++}`);
+        values.push(body.is_default);
+      }
+
+      sets.push(`updated_at = now()`);
+      values.push(params.id, params.ns);
+
+      const result = await pool.query(
+        `UPDATE namespace_grant SET ${sets.join(', ')}
+         WHERE id = $${paramIdx++} AND namespace = $${paramIdx}
+         RETURNING id::text, email, namespace, role, is_default, created_at, updated_at`,
+        values,
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Grant not found' });
+      }
+
+      return result.rows[0];
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/namespaces/:ns/grants/:id — revoke access
+  app.delete('/api/namespaces/:ns/grants/:id', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { ns: string; id: string };
+    const pool = createPool();
+    try {
+      if (identity.type === 'user') {
+        const access = await pool.query(
+          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          [identity.email, params.ns],
+        );
+        if (access.rows.length === 0) {
+          return reply.code(403).send({ error: 'No access to namespace' });
+        }
+      }
+
+      const result = await pool.query(
+        `DELETE FROM namespace_grant WHERE id = $1 AND namespace = $2 RETURNING id::text`,
+        [params.id, params.ns],
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Grant not found' });
+      }
+
+      return { deleted: true };
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ============================================================
+  // User Provisioning API (Issue #1474)
+  // Primary consumers: OpenClaw agents (M2M tokens) managing dashboard users
+  // ============================================================
+
+  // POST /api/users — create a user (M2M only)
+  app.post('/api/users', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+    if (identity.type === 'user') {
+      return reply.code(403).send({ error: 'User provisioning requires M2M token' });
+    }
+
+    const body = req.body as { email?: string; display_name?: string; namespace?: string } | null;
+    if (!body?.email) {
+      return reply.code(400).send({ error: 'email is required' });
+    }
+
+    const email = body.email.trim().toLowerCase();
+    const displayName = body.display_name?.trim() || email.split('@')[0];
+
+    // Derive namespace from email local part or use provided namespace
+    const nsName = body.namespace?.trim()
+      || email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+    const nsValidation = validateNamespaceName(nsName);
+    if (nsValidation) {
+      return reply.code(400).send({ error: `Invalid namespace: ${nsValidation}` });
+    }
+
+    const pool = createPool();
+    try {
+      // Upsert user_setting
+      await pool.query(
+        `INSERT INTO user_setting (email, timezone)
+         VALUES ($1, 'UTC')
+         ON CONFLICT (email) DO NOTHING`,
+        [email],
+      );
+
+      // Create personal namespace grant (owner, default)
+      // First unset any existing default
+      await pool.query(
+        `UPDATE namespace_grant SET is_default = false WHERE email = $1 AND is_default = true`,
+        [email],
+      );
+
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+         VALUES ($1, $2, 'owner', true)
+         ON CONFLICT (email, namespace) DO UPDATE SET role = 'owner', is_default = true, updated_at = now()`,
+        [email, nsName],
+      );
+
+      // Also grant access to 'default' namespace
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+         VALUES ($1, 'default', 'member', false)
+         ON CONFLICT (email, namespace) DO NOTHING`,
+        [email],
+      );
+
+      // Load grants
+      const grants = await pool.query(
+        `SELECT id::text, email, namespace, role, is_default, created_at, updated_at
+         FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
+        [email],
+      );
+
+      return reply.code(201).send({
+        email,
+        display_name: displayName,
+        default_namespace: nsName,
+        grants: grants.rows,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/users — list users (M2M only)
+  app.get('/api/users', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+    if (identity.type === 'user') {
+      return reply.code(403).send({ error: 'User listing requires M2M token' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await pool.query(
+        `SELECT us.email, us.theme, us.timezone, us.created_at, us.updated_at,
+                (SELECT json_agg(json_build_object(
+                  'namespace', ng.namespace, 'role', ng.role, 'is_default', ng.is_default
+                ) ORDER BY ng.namespace)
+                FROM namespace_grant ng WHERE ng.email = us.email) as grants
+         FROM user_setting us
+         ORDER BY us.email`,
+      );
+      return result.rows;
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/users/:email — get user details + grants
+  app.get('/api/users/:email', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { email: string };
+    const targetEmail = decodeURIComponent(params.email).toLowerCase();
+
+    // User tokens can only view their own profile
+    if (identity.type === 'user' && identity.email !== targetEmail) {
+      return reply.code(403).send({ error: 'Can only view your own profile' });
+    }
+
+    const pool = createPool();
+    try {
+      const user = await pool.query(
+        `SELECT email, theme, default_view, timezone, created_at, updated_at
+         FROM user_setting WHERE email = $1`,
+        [targetEmail],
+      );
+      if (user.rows.length === 0) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      const grants = await pool.query(
+        `SELECT id::text, namespace, role, is_default, created_at, updated_at
+         FROM namespace_grant WHERE email = $1 ORDER BY namespace`,
+        [targetEmail],
+      );
+
+      return {
+        ...user.rows[0],
+        grants: grants.rows,
+      };
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PATCH /api/users/:email — update user settings
+  app.patch('/api/users/:email', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+
+    const params = req.params as { email: string };
+    const targetEmail = decodeURIComponent(params.email).toLowerCase();
+
+    // User tokens can only update their own profile
+    if (identity.type === 'user' && identity.email !== targetEmail) {
+      return reply.code(403).send({ error: 'Can only update your own profile' });
+    }
+
+    const body = req.body as {
+      theme?: string; default_view?: string; timezone?: string;
+      sidebar_collapsed?: boolean; show_completed_items?: boolean;
+    } | null;
+
+    if (!body) {
+      return reply.code(400).send({ error: 'Request body is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const sets: string[] = [];
+      const values: unknown[] = [];
+      let idx = 1;
+
+      if (body.theme !== undefined) { sets.push(`theme = $${idx++}`); values.push(body.theme); }
+      if (body.default_view !== undefined) { sets.push(`default_view = $${idx++}`); values.push(body.default_view); }
+      if (body.timezone !== undefined) { sets.push(`timezone = $${idx++}`); values.push(body.timezone); }
+      if (body.sidebar_collapsed !== undefined) { sets.push(`sidebar_collapsed = $${idx++}`); values.push(body.sidebar_collapsed); }
+      if (body.show_completed_items !== undefined) { sets.push(`show_completed_items = $${idx++}`); values.push(body.show_completed_items); }
+
+      if (sets.length === 0) {
+        return reply.code(400).send({ error: 'No updatable fields provided' });
+      }
+
+      values.push(targetEmail);
+      const result = await pool.query(
+        `UPDATE user_setting SET ${sets.join(', ')}, updated_at = now()
+         WHERE email = $${idx}
+         RETURNING email, theme, default_view, timezone, sidebar_collapsed, show_completed_items, created_at, updated_at`,
+        values,
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      return result.rows[0];
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/users/:email — deactivate user (M2M only)
+  app.delete('/api/users/:email', async (req, reply) => {
+    const identity = await getAuthIdentity(req);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+    if (identity.type === 'user') {
+      return reply.code(403).send({ error: 'User deletion requires M2M token' });
+    }
+
+    const params = req.params as { email: string };
+    const targetEmail = decodeURIComponent(params.email).toLowerCase();
+
+    const pool = createPool();
+    try {
+      // Delete user_setting (CASCADE will remove namespace_grants)
+      const result = await pool.query(
+        `DELETE FROM user_setting WHERE email = $1 RETURNING email`,
+        [targetEmail],
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      return { deleted: true, email: targetEmail };
+    } finally {
+      await pool.end();
+    }
+  });
+
   // Real-time WebSocket endpoint (Issue #213)
   // Create a new hub instance per server (not a singleton) for proper cleanup
   const realtimeHub = new RealtimeHub();
