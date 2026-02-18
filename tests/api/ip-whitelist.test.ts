@@ -123,23 +123,15 @@ describe('IP Whitelist', () => {
   });
 
   describe('getClientIP', () => {
-    it('should return request.ip when no X-Forwarded-For', () => {
+    it('should return request.ip (trusted by Fastify via trustProxy)', () => {
       const req = createMockRequest('192.168.1.1');
       expect(getClientIP(req)).toBe('192.168.1.1');
     });
 
-    it('should return first IP from X-Forwarded-For when present', () => {
-      const req = createMockRequest('127.0.0.1', '203.0.113.50, 70.41.3.18');
-      expect(getClientIP(req)).toBe('203.0.113.50');
-    });
-
-    it('should trim whitespace from X-Forwarded-For', () => {
-      const req = createMockRequest('127.0.0.1', '  203.0.113.50  ');
-      expect(getClientIP(req)).toBe('203.0.113.50');
-    });
-
-    it('should handle single IP in X-Forwarded-For', () => {
-      const req = createMockRequest('127.0.0.1', '203.0.113.50');
+    it('should use request.ip even when X-Forwarded-For is present', () => {
+      // With trustProxy enabled, Fastify resolves XFF into request.ip.
+      // getClientIP should not re-parse the raw header.
+      const req = createMockRequest('203.0.113.50', '10.0.0.1, 203.0.113.50');
       expect(getClientIP(req)).toBe('203.0.113.50');
     });
   });
@@ -241,7 +233,7 @@ describe('IP Whitelist', () => {
       warnSpy.mockRestore();
     });
 
-    it('should use X-Forwarded-For when available', async () => {
+    it('should use trusted request.ip (resolved from XFF by Fastify trustProxy)', async () => {
       delete process.env.WEBHOOK_IP_WHITELIST_DISABLED;
       process.env.TEST_WHITELIST = '203.0.113.0/24';
       const config: IPWhitelistConfig = {
@@ -249,12 +241,13 @@ describe('IP Whitelist', () => {
         whitelistEnvVar: 'TEST_WHITELIST',
       };
       const middleware = createIPWhitelistMiddleware(config);
-      const req = createMockRequest('127.0.0.1', '203.0.113.50');
+      // Simulate Fastify with trustProxy: request.ip is already the resolved client IP
+      const req = createMockRequest('203.0.113.50');
       const reply = createMockReply();
 
       await middleware(req, reply);
 
-      // Should allow because X-Forwarded-For IP is in whitelist
+      // Should allow because request.ip is in whitelist
       expect(reply.code).not.toHaveBeenCalled();
     });
   });

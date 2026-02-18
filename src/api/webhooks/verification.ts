@@ -162,10 +162,15 @@ export function verifyHmacSha256(request: FastifyRequest, secretEnvVar: string, 
 
 /**
  * Get the full URL from a Fastify request.
+ *
+ * Uses `request.host` (which respects trustProxy settings and includes
+ * the port) instead of the raw Host header. In multi-proxy setups the
+ * Host header may be rewritten, while Fastify resolves the trusted host
+ * from X-Forwarded-Host when trustProxy is enabled. See #1416.
  */
 function getFullUrl(request: FastifyRequest): string {
   const protocol = request.protocol || 'https';
-  const host = request.headers['host'] || request.hostname;
+  const host = request.host;
   const url = request.url;
   return `${protocol}://${host}${url}`;
 }
