@@ -15,7 +15,7 @@ Send an SMS message via Twilio. Messages are queued for async delivery.
 {
   "to": "+15551234567",
   "body": "Hello from OpenClaw!",
-  "idempotencyKey": "my-unique-key-123"
+  "idempotency_key": "my-unique-key-123"
 }
 ```
 
@@ -23,15 +23,15 @@ Send an SMS message via Twilio. Messages are queued for async delivery.
 |-------|------|----------|-------------|
 | `to` | string | Yes | Recipient phone number in E.164 format |
 | `body` | string | Yes | Message content (max 1600 chars) |
-| `idempotencyKey` | string | No | Unique key for deduplication |
+| `idempotency_key` | string | No | Unique key for deduplication |
 
 **Response (202 Accepted):**
 ```json
 {
-  "messageId": "019c1234-5678-7890-abcd-ef1234567890",
-  "threadId": "019c1234-5678-7890-abcd-ef1234567891",
+  "message_id": "019c1234-5678-7890-abcd-ef1234567890",
+  "thread_id": "019c1234-5678-7890-abcd-ef1234567891",
   "status": "queued",
-  "idempotencyKey": "my-unique-key-123"
+  "idempotency_key": "my-unique-key-123"
 }
 ```
 
@@ -94,9 +94,9 @@ Send an email via Postmark. Messages are queued for async delivery.
   "to": "user@example.com",
   "subject": "Welcome to Our Service",
   "body": "Thank you for signing up!",
-  "htmlBody": "<h1>Welcome!</h1><p>Thank you for signing up!</p>",
-  "replyToMessageId": "optional-message-id-for-threading",
-  "idempotencyKey": "email-unique-key-456"
+  "html_body": "<h1>Welcome!</h1><p>Thank you for signing up!</p>",
+  "reply_to_message_id": "optional-message-id-for-threading",
+  "idempotency_key": "email-unique-key-456"
 }
 ```
 
@@ -105,18 +105,18 @@ Send an email via Postmark. Messages are queued for async delivery.
 | `to` | string | Yes | Recipient email address |
 | `subject` | string | Yes | Email subject line |
 | `body` | string | Yes | Plain text body |
-| `htmlBody` | string | No | HTML body (optional) |
-| `threadId` | string | No | Existing thread ID for replies |
-| `replyToMessageId` | string | No | Message ID for threading |
-| `idempotencyKey` | string | No | Unique key for deduplication |
+| `html_body` | string | No | HTML body (optional) |
+| `thread_id` | string | No | Existing thread ID for replies |
+| `reply_to_message_id` | string | No | Message ID for threading |
+| `idempotency_key` | string | No | Unique key for deduplication |
 
 **Response (202 Accepted):**
 ```json
 {
-  "messageId": "019c1234-5678-7890-abcd-ef1234567892",
-  "threadId": "019c1234-5678-7890-abcd-ef1234567893",
+  "message_id": "019c1234-5678-7890-abcd-ef1234567892",
+  "thread_id": "019c1234-5678-7890-abcd-ef1234567893",
   "status": "queued",
-  "idempotencyKey": "email-unique-key-456"
+  "idempotency_key": "email-unique-key-456"
 }
 ```
 
@@ -134,7 +134,7 @@ curl -X POST https://api.example.com/api/postmark/email/send \
     "to": "user@example.com",
     "subject": "Order Confirmation",
     "body": "Your order #12345 has been confirmed.",
-    "htmlBody": "<h1>Order Confirmed</h1><p>Your order #12345 has been confirmed.</p>"
+    "html_body": "<h1>Order Confirmed</h1><p>Your order #12345 has been confirmed.</p>"
   }'
 ```
 
@@ -208,27 +208,27 @@ List all conversation threads with optional filtering by channel or contact.
     {
       "id": "019c1234-5678-7890-abcd-ef1234567890",
       "channel": "sms",
-      "externalThreadKey": "+15551234567",
+      "external_thread_key": "+15551234567",
       "contact": {
         "id": "019c1234-5678-7890-abcd-ef1234567891",
-        "displayName": "Jane Doe"
+        "display_name": "Jane Doe"
       },
-      "createdAt": "2026-01-15T12:00:00Z",
-      "updatedAt": "2026-02-14T09:30:00Z",
-      "lastMessage": {
+      "created_at": "2026-01-15T12:00:00Z",
+      "updated_at": "2026-02-14T09:30:00Z",
+      "last_message": {
         "id": "019c1234-5678-7890-abcd-ef1234567892",
         "direction": "inbound",
         "body": "Thanks for the reminder!",
-        "receivedAt": "2026-02-14T09:30:00Z"
+        "received_at": "2026-02-14T09:30:00Z"
       },
-      "messageCount": 12
+      "message_count": 12
     }
   ],
   "total": 42,
   "pagination": {
     "limit": 20,
     "offset": 0,
-    "hasMore": true
+    "has_more": true
   }
 }
 ```
@@ -263,8 +263,8 @@ Get full thread history including messages, related work items, and contact memo
 | `limit` | integer | No | Max messages to return (default 50, max 200) |
 | `before` | string | No | Messages before this ISO 8601 timestamp |
 | `after` | string | No | Messages after this ISO 8601 timestamp |
-| `includeWorkItems` | boolean | No | Include related work items (default true) |
-| `includeMemories` | boolean | No | Include contact memories (default true) |
+| `include_work_items` | boolean | No | Include related work items (default true) |
+| `include_memories` | boolean | No | Include contact memories (default true) |
 
 **Response (200 OK):**
 ```json
@@ -272,26 +272,26 @@ Get full thread history including messages, related work items, and contact memo
   "thread": {
     "id": "019c1234-...",
     "channel": "sms",
-    "externalThreadKey": "+15551234567",
-    "contact": { "id": "...", "displayName": "Jane Doe" },
-    "createdAt": "2026-01-15T12:00:00Z",
-    "updatedAt": "2026-02-14T09:30:00Z"
+    "external_thread_key": "+15551234567",
+    "contact": { "id": "...", "display_name": "Jane Doe" },
+    "created_at": "2026-01-15T12:00:00Z",
+    "updated_at": "2026-02-14T09:30:00Z"
   },
   "messages": [
     {
       "id": "...",
       "direction": "outbound",
       "body": "Don't forget your appointment tomorrow!",
-      "receivedAt": "2026-02-13T10:00:00Z",
-      "createdAt": "2026-02-13T10:00:00Z"
+      "received_at": "2026-02-13T10:00:00Z",
+      "created_at": "2026-02-13T10:00:00Z"
     }
   ],
-  "relatedWorkItems": [],
-  "contactMemories": [],
+  "related_work_items": [],
+  "contact_memories": [],
   "pagination": {
-    "hasMore": false,
-    "oldestTimestamp": "2026-02-13T10:00:00Z",
-    "newestTimestamp": "2026-02-14T09:30:00Z"
+    "has_more": false,
+    "oldest_timestamp": "2026-02-13T10:00:00Z",
+    "newest_timestamp": "2026-02-14T09:30:00Z"
   }
 }
 ```
@@ -334,7 +334,7 @@ Use idempotency keys to safely retry failed requests without sending duplicate m
 ```bash
 # Safe to retry - only sends once
 curl -X POST /api/twilio/sms/send \
-  -d '{"to": "+15551234567", "body": "Hello", "idempotencyKey": "retry-safe-123"}'
+  -d '{"to": "+15551234567", "body": "Hello", "idempotency_key": "retry-safe-123"}'
 ```
 
 ---

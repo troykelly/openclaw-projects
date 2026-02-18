@@ -25,12 +25,12 @@ const response = await fetch('/api/twilio/sms/send', {
   body: JSON.stringify({
     to: '+15551234567',
     body: 'Your appointment is confirmed for tomorrow at 2pm.',
-    idempotencyKey: `reminder:${appointmentId}:${Date.now()}`
+    idempotency_key: `reminder:${appointmentId}:${Date.now()}`
   })
 });
 
 const result = await response.json();
-// { messageId: '...', threadId: '...', status: 'queued', idempotencyKey: '...' }
+// { message_id: '...', thread_id: '...', status: 'queued', idempotency_key: '...' }
 ```
 
 ### Email Messages
@@ -47,8 +47,8 @@ const response = await fetch('/api/postmark/email/send', {
     to: 'user@example.com',
     subject: 'Order Confirmation',
     body: 'Your order #12345 has been confirmed and will ship within 2 business days.',
-    htmlBody: '<h1>Order Confirmed!</h1><p>Your order #12345 has been confirmed...</p>',
-    idempotencyKey: `order:${orderId}:confirmation`
+    html_body: '<h1>Order Confirmed!</h1><p>Your order #12345 has been confirmed...</p>',
+    idempotency_key: `order:${orderId}:confirmation`
   })
 });
 ```
@@ -59,13 +59,13 @@ Always use idempotency keys to prevent duplicate messages:
 
 ```typescript
 // Good: Unique key based on business context
-idempotencyKey: `appointment:${appointmentId}:reminder:24h`
+idempotency_key: `appointment:${appointmentId}:reminder:24h`
 
 // Good: Include timestamp for time-sensitive messages
-idempotencyKey: `daily-digest:${userId}:${formatDate(new Date())}`
+idempotency_key: `daily-digest:${userId}:${formatDate(new Date())}`
 
 // Bad: Random key - no deduplication benefit
-idempotencyKey: uuidv4()
+idempotency_key: uuidv4()
 
 // Bad: No key - duplicate requests create duplicate messages
 // (omitted)
@@ -95,7 +95,7 @@ Configure your Twilio and Postmark accounts to send delivery status webhooks to:
 
 ```typescript
 // Get message by ID
-const message = await fetch(`/api/messages/${messageId}`, {
+const message = await fetch(`/api/messages/${message_id}`, {
   headers: { 'Authorization': `Bearer ${apiToken}` }
 });
 
@@ -212,17 +212,17 @@ Messages are automatically threaded by conversation.
 const threads = await fetch('/api/threads?channel=sms&limit=20', {
   headers: { 'Authorization': `Bearer ${apiToken}` }
 });
-// Returns { threads: [...], total: N, pagination: { limit, offset, hasMore } }
+// Returns { threads: [...], total: N, pagination: { limit, offset, has_more } }
 ```
 
 ### Thread History
 
 ```typescript
 // Get full thread with messages, related work items, and contact memories
-const history = await fetch(`/api/threads/${threadId}/history?limit=50`, {
+const history = await fetch(`/api/threads/${thread_id}/history?limit=50`, {
   headers: { 'Authorization': `Bearer ${apiToken}` }
 });
-// Returns { thread, messages, relatedWorkItems, contactMemories, pagination }
+// Returns { thread, messages, related_work_items, contact_memories, pagination }
 ```
 
 ### Replying to Threads
@@ -236,7 +236,7 @@ const response = await fetch('/api/postmark/email/send', {
     to: 'user@example.com',
     subject: 'Re: Order Confirmation',
     body: 'Your order has shipped!',
-    threadId: existingThreadId  // Links to existing conversation
+    thread_id: existingThreadId  // Links to existing conversation
   })
 });
 ```
