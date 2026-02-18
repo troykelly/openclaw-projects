@@ -232,7 +232,7 @@ CREATE UNIQUE INDEX idx_namespace_grant_default
 | `member` | Full CRUD (default) |
 | `observer` | Read-only |
 
-Role enforcement is **future work** — initially all roles grant full access. The column exists for forward compatibility.
+Role enforcement is Phase 4 (#1485) — initially all roles grant full access during Phase 1-3. Enforcement is added after the basic namespace system is working.
 
 ### 4.3 Bootstrap
 
@@ -269,7 +269,7 @@ DELETE /api/namespaces/:ns/grants/:id   — revoke access
 - Set a user's default namespace
 - Query what namespaces exist and who has access
 
-For dashboard (user token) requests, restrict to namespaces the user has `owner` or `admin` role on (future — initially all roles can manage).
+For dashboard (user token) requests, restrict to namespaces the user has `owner` or `admin` role on (Phase 4 — #1486; initially all roles can manage during Phase 1-3).
 
 ### 4.5 User Provisioning by Agents
 
@@ -856,11 +856,14 @@ Each issue updates routes + tests to use namespace instead of user_email:
 12. **#1479** — File Storage (`file_attachment`, `file_share`)
 13. **#1480** — Notifications (namespace-aware routing + fanout logic)
 
-### Phase 4: Cleanup
+### Phase 4: Cleanup + Hardening
 - **#1481** — Drop `user_email` scoping columns (Migration 2 — see Section 9.2)
 - **#1481** — Deprecate sharing tables (`note_share`, `notebook_share`, `note_collaborator`)
 - **#1481** — Remove `user_email` from API contract (breaking change — plugin version bump)
 - **#1482** — Dashboard UX: namespace switcher, namespace indicator, namespace badges (Section 12.10)
+- **#1483** — Namespace move endpoint (`PATCH /api/<entity>/:id/namespace`)
+- **#1485** — Role-based access enforcement (observer=read-only, owner/admin=manage grants)
+- **#1486** — Restrict dashboard grant management to owner/admin roles
 
 ---
 
@@ -997,7 +1000,7 @@ The `notification.user_email` column stays as the explicit delivery target. The 
 
 **Problem:** "Record's namespace is immutable (delete + recreate to move)" creates friction. A user might want to move a shopping list from `troy` to `household` without losing history.
 
-**Resolution:** Add a `PATCH /api/<entity>/:id/namespace` endpoint (future work, not in this epic). For now, immutable is simpler and prevents accidental data movement. Document that namespace moves are planned post-MVP.
+**Resolution:** Add a `PATCH /api/<entity>/:id/namespace` endpoint in Phase 4 (#1483). During Phases 1-3, namespace is immutable (simpler, prevents accidental data movement). The move endpoint is added in Phase 4 after the core system is stable.
 
 ### 12.10 LOW: Dashboard UX — namespace switcher
 
