@@ -4,8 +4,8 @@
  *
  * Registers gateway methods that proxy requests to the openclaw-projects
  * backend API, exposing connected account data (contacts, email, files)
- * in an agent-friendly format with pagination, connectionLabel, and
- * availableActions metadata.
+ * in an agent-friendly format with pagination, connection_label, and
+ * available_actions metadata.
  *
  * Gateway methods registered:
  *   oauth.accounts.list  — List connected accounts with metadata
@@ -252,7 +252,7 @@ export function createOAuthGatewayPlugin() {
           accounts: connections.map((conn) => ({
             connection_id: conn.id,
             provider: conn.provider,
-            connectionLabel: conn.label,
+            connection_label: conn.label,
             provider_account_email: conn.provider_account_email,
             permission_level: conn.permission_level,
             enabled_features: conn.enabled_features,
@@ -261,7 +261,7 @@ export function createOAuthGatewayPlugin() {
             sync_status: conn.sync_status,
             created_at: conn.created_at,
             updated_at: conn.updated_at,
-            availableActions: buildAccountActions(conn),
+            available_actions: buildAccountActions(conn),
           })),
         });
       });
@@ -294,12 +294,12 @@ export function createOAuthGatewayPlugin() {
         const data = result.data as Record<string, unknown>;
 
         respond(true, {
-          connectionLabel: conn.label,
+          connection_label: conn.label,
           connection_id: conn.id,
           provider: conn.provider,
           contacts: data.contacts ?? [],
           next_page_token: data.next_page_token,
-          availableActions: ['list_contacts'],
+          available_actions: ['list_contacts'],
         });
       });
 
@@ -333,13 +333,13 @@ export function createOAuthGatewayPlugin() {
         const data = result.data as Record<string, unknown>;
 
         respond(true, {
-          connectionLabel: conn.label,
+          connection_label: conn.label,
           connection_id: conn.id,
           provider: conn.provider,
           messages: data.messages ?? [],
           next_page_token: data.next_page_token,
           result_size_estimate: data.result_size_estimate,
-          availableActions: buildEmailActions(conn.permission_level),
+          available_actions: buildEmailActions(conn.permission_level),
         });
       });
 
@@ -373,11 +373,11 @@ export function createOAuthGatewayPlugin() {
         }
 
         respond(true, {
-          connectionLabel: conn.label,
+          connection_label: conn.label,
           connection_id: conn.id,
           provider: conn.provider,
           message: result.data,
-          availableActions: buildEmailActions(conn.permission_level),
+          available_actions: buildEmailActions(conn.permission_level),
         });
       });
 
@@ -409,13 +409,13 @@ export function createOAuthGatewayPlugin() {
         const data = result.data as Record<string, unknown>;
 
         respond(true, {
-          connectionLabel: conn.label,
+          connection_label: conn.label,
           connection_id: conn.id,
           provider: conn.provider,
           files: data.files ?? [],
           next_page_token: data.next_page_token,
           total_count: data.total_count,
-          availableActions: buildFileActions(),
+          available_actions: buildFileActions(),
         });
       });
 
@@ -449,13 +449,13 @@ export function createOAuthGatewayPlugin() {
         const data = result.data as Record<string, unknown>;
 
         respond(true, {
-          connectionLabel: conn.label,
+          connection_label: conn.label,
           connection_id: conn.id,
           provider: conn.provider,
           files: data.files ?? [],
           next_page_token: data.next_page_token,
           total_count: data.total_count,
-          availableActions: buildFileActions(),
+          available_actions: buildFileActions(),
         });
       });
 
@@ -489,11 +489,11 @@ export function createOAuthGatewayPlugin() {
         }
 
         respond(true, {
-          connectionLabel: conn.label,
+          connection_label: conn.label,
           connection_id: conn.id,
           provider: conn.provider,
           file: result.data,
-          availableActions: buildFileActions(),
+          available_actions: buildFileActions(),
         });
       });
     },

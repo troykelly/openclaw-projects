@@ -4,8 +4,8 @@
  *
  * Registers gateway methods that proxy requests to the openclaw-projects
  * backend API, exposing connected account data (contacts, email, files)
- * in an agent-friendly format with pagination, connectionLabel, and
- * availableActions metadata.
+ * in an agent-friendly format with pagination, connection_label, and
+ * available_actions metadata.
  */
 
 import type { ApiClient } from '../api-client.js';
@@ -119,14 +119,14 @@ export interface OAuthAccountListResult {
   accounts: Array<{
     connection_id: string;
     provider: string;
-    connectionLabel: string;
+    connection_label: string;
     provider_account_email?: string;
     permission_level: string;
     enabled_features: string[];
     is_active: boolean;
     last_sync_at?: string;
     sync_status: Record<string, unknown>;
-    availableActions: string[];
+    available_actions: string[];
   }>;
 }
 
@@ -136,10 +136,10 @@ export interface OAuthContactsListParams {
 }
 
 export interface OAuthContactsListResult {
-  connectionLabel: string;
+  connection_label: string;
   contacts: Array<Record<string, unknown>>;
   next_page_token?: string;
-  availableActions: string[];
+  available_actions: string[];
 }
 
 export interface OAuthEmailListParams {
@@ -151,10 +151,10 @@ export interface OAuthEmailListParams {
 }
 
 export interface OAuthEmailListResult {
-  connectionLabel: string;
+  connection_label: string;
   messages: Array<Record<string, unknown>>;
   next_page_token?: string;
-  availableActions: string[];
+  available_actions: string[];
 }
 
 export interface OAuthEmailGetParams {
@@ -163,9 +163,9 @@ export interface OAuthEmailGetParams {
 }
 
 export interface OAuthEmailGetResult {
-  connectionLabel: string;
+  connection_label: string;
   message: Record<string, unknown>;
-  availableActions: string[];
+  available_actions: string[];
 }
 
 export interface OAuthFilesListParams {
@@ -175,10 +175,10 @@ export interface OAuthFilesListParams {
 }
 
 export interface OAuthFilesListResult {
-  connectionLabel: string;
+  connection_label: string;
   files: Array<Record<string, unknown>>;
   next_page_token?: string;
-  availableActions: string[];
+  available_actions: string[];
 }
 
 export interface OAuthFilesSearchParams {
@@ -188,10 +188,10 @@ export interface OAuthFilesSearchParams {
 }
 
 export interface OAuthFilesSearchResult {
-  connectionLabel: string;
+  connection_label: string;
   files: Array<Record<string, unknown>>;
   next_page_token?: string;
-  availableActions: string[];
+  available_actions: string[];
 }
 
 export interface OAuthFilesGetParams {
@@ -200,9 +200,9 @@ export interface OAuthFilesGetParams {
 }
 
 export interface OAuthFilesGetResult {
-  connectionLabel: string;
+  connection_label: string;
   file: Record<string, unknown>;
-  availableActions: string[];
+  available_actions: string[];
 }
 
 /** All OAuth gateway methods. */
@@ -241,14 +241,14 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
         accounts: response.data.connections.map((conn) => ({
           connection_id: conn.id,
           provider: conn.provider,
-          connectionLabel: conn.label ?? conn.provider,
+          connection_label: conn.label ?? conn.provider,
           provider_account_email: conn.provider_account_email,
           permission_level: conn.permission_level,
           enabled_features: conn.enabled_features,
           is_active: conn.is_active,
           last_sync_at: conn.last_sync_at,
           sync_status: conn.sync_status,
-          availableActions: buildAccountActions(conn),
+          available_actions: buildAccountActions(conn),
         })),
       };
     },
@@ -278,10 +278,10 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       }
 
       return {
-        connectionLabel: conn.label ?? conn.provider,
+        connection_label: conn.label ?? conn.provider,
         contacts: response.data.contacts ?? [],
         next_page_token: response.data.next_page_token,
-        availableActions: ['list_contacts'],
+        available_actions: ['list_contacts'],
       };
     },
 
@@ -313,10 +313,10 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       }
 
       return {
-        connectionLabel: conn.label ?? conn.provider,
+        connection_label: conn.label ?? conn.provider,
         messages: response.data.messages ?? [],
         next_page_token: response.data.next_page_token,
-        availableActions: buildEmailActions(conn.permission_level),
+        available_actions: buildEmailActions(conn.permission_level),
       };
     },
 
@@ -344,9 +344,9 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       }
 
       return {
-        connectionLabel: conn.label ?? conn.provider,
+        connection_label: conn.label ?? conn.provider,
         message: response.data,
-        availableActions: buildEmailActions(conn.permission_level),
+        available_actions: buildEmailActions(conn.permission_level),
       };
     },
 
@@ -376,10 +376,10 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       }
 
       return {
-        connectionLabel: conn.label ?? conn.provider,
+        connection_label: conn.label ?? conn.provider,
         files: response.data.files ?? [],
         next_page_token: response.data.next_page_token,
-        availableActions: buildFileActions(),
+        available_actions: buildFileActions(),
       };
     },
 
@@ -409,10 +409,10 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       }
 
       return {
-        connectionLabel: conn.label ?? conn.provider,
+        connection_label: conn.label ?? conn.provider,
         files: response.data.files ?? [],
         next_page_token: response.data.next_page_token,
-        availableActions: buildFileActions(),
+        available_actions: buildFileActions(),
       };
     },
 
@@ -440,9 +440,9 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       }
 
       return {
-        connectionLabel: conn.label ?? conn.provider,
+        connection_label: conn.label ?? conn.provider,
         file: response.data,
-        availableActions: buildFileActions(),
+        available_actions: buildFileActions(),
       };
     },
   };
