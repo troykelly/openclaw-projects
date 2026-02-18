@@ -162,9 +162,9 @@ export function useCreateNote(): UseMutationResult<Note, ApiRequestError, Create
         notebook_id: body.notebook_id,
         tags: body.tags,
         visibility: body.visibility,
-        hide_from_agents: body.hideFromAgents,
+        hide_from_agents: body.hide_from_agents,
         summary: body.summary,
-        is_pinned: body.isPinned,
+        is_pinned: body.is_pinned,
       };
       return apiClient.post<Note>('/api/notes', apiBody);
     },
@@ -244,10 +244,10 @@ export function useUpdateNote(): UseMutationResult<Note, ApiRequestError, Update
         notebook_id: body.notebook_id,
         tags: body.tags,
         visibility: body.visibility,
-        hide_from_agents: body.hideFromAgents,
+        hide_from_agents: body.hide_from_agents,
         summary: body.summary,
-        is_pinned: body.isPinned,
-        sort_order: body.sortOrder,
+        is_pinned: body.is_pinned,
+        sort_order: body.sort_order,
       };
       return apiClient.put<Note>(`/api/notes/${encodeURIComponent(id)}`, apiBody);
     },

@@ -133,7 +133,7 @@ export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNote
   const updateCursor = useCallback(
     async (position: { line: number; column: number }) => {
       try {
-        await apiClient.put(`/api/notes/${noteId}/presence/cursor`, { user_email, cursorPosition: position });
+        await apiClient.put(`/api/notes/${noteId}/presence/cursor`, { user_email, cursor_position: position });
       } catch (err) {
         // Don't throw on cursor update errors - cursor updates are non-critical
         // Log in development only to avoid information leakage in production (#693)

@@ -10,35 +10,35 @@ export interface Note {
   title: string;
   content: string;
   notebook_id?: string;
-  notebookTitle?: string;
+  notebook_title?: string;
   visibility: NoteVisibility;
-  hideFromAgents: boolean;
-  isPinned: boolean;
+  hide_from_agents: boolean;
+  is_pinned: boolean;
   tags?: string[];
   created_at: Date;
   updated_at: Date;
-  createdBy: string;
+  created_by: string;
   version: number;
 }
 
 export interface NoteVersion {
   id: string;
-  noteId: string;
+  note_id: string;
   version: number;
   title: string;
   content: string;
-  changedBy: string;
-  changedAt: Date;
-  changeReason?: string;
+  changed_by: string;
+  changed_at: Date;
+  change_reason?: string;
 }
 
 export interface NoteShare {
   id: string;
-  noteId: string;
-  sharedWithEmail: string;
+  note_id: string;
+  shared_with_email: string;
   permission: 'view' | 'edit';
   created_at: Date;
-  createdBy: string;
+  created_by: string;
 }
 
 export interface Notebook {
@@ -46,7 +46,7 @@ export interface Notebook {
   name: string;
   description?: string;
   color?: string;
-  noteCount: number;
+  note_count: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -56,7 +56,7 @@ export interface NoteFilter {
   notebook_id?: string;
   visibility?: NoteVisibility;
   tags?: string[];
-  isPinned?: boolean;
+  is_pinned?: boolean;
 }
 
 export interface NoteFormData {
@@ -64,7 +64,7 @@ export interface NoteFormData {
   content: string;
   notebook_id?: string;
   visibility?: NoteVisibility;
-  hideFromAgents?: boolean;
+  hide_from_agents?: boolean;
   tags?: string[];
 }
 

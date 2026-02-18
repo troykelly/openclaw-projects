@@ -449,10 +449,10 @@ describe('useNotes', () => {
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
-    renderHook(() => useNotes({ sortBy: 'title', sortOrder: 'asc' }), { wrapper: Wrapper });
+    renderHook(() => useNotes({ sort_by: 'title', sort_order: 'asc' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notes?user_email=test%40example.com&sortBy=title&sortOrder=asc', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notes?user_email=test%40example.com&sort_by=title&sort_order=asc', expect.any(Object));
     });
   });
 
@@ -675,15 +675,15 @@ describe('useNotebooks', () => {
     });
   });
 
-  it('should append includeArchived to query string', async () => {
+  it('should append include_archived to query string', async () => {
     const data = { notebooks: [], total: 0 };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
-    renderHook(() => useNotebooks({ includeArchived: true }), { wrapper: Wrapper });
+    renderHook(() => useNotebooks({ include_archived: true }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks?user_email=test%40example.com&includeArchived=true', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks?user_email=test%40example.com&include_archived=true', expect.any(Object));
     });
   });
 
@@ -758,7 +758,7 @@ describe('useNotebooksTree', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks/tree?user_email=test%40example.com', expect.any(Object));
   });
 
-  it('should append includeNoteCounts when true', async () => {
+  it('should append include_note_counts when true', async () => {
     const data = [];
     mockFetchResponse(data);
 
@@ -766,7 +766,7 @@ describe('useNotebooksTree', () => {
     renderHook(() => useNotebooksTree(true), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks/tree?user_email=test%40example.com&includeNoteCounts=true', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks/tree?user_email=test%40example.com&include_note_counts=true', expect.any(Object));
     });
   });
 });

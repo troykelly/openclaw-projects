@@ -76,13 +76,13 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
   // Transform to UI version format
   const versions = versionsData.versions.map((v) => ({
     id: v.id,
-    noteId: versionsData.noteId,
-    version: v.versionNumber,
+    note_id: versionsData.note_id,
+    version: v.version_number,
     title: v.title,
     content: '', // Content not in summary
-    changedBy: v.changedByEmail ?? 'Unknown',
-    changedAt: new Date(v.created_at),
-    changeReason: v.changeType,
+    changed_by: v.changed_by_email ?? 'Unknown',
+    changed_at: new Date(v.created_at),
+    change_reason: v.change_type,
   }));
 
   return (
@@ -100,7 +100,7 @@ export function NoteHistoryPanel({ noteId, onClose }: NoteHistoryPanelProps) {
         </div>
       )}
       <div className="flex-1 overflow-auto">
-        <VersionHistory versions={versions} currentVersion={versionsData.currentVersion} onRestore={handleRestore} className="h-full" />
+        <VersionHistory versions={versions} currentVersion={versionsData.current_version} onRestore={handleRestore} className="h-full" />
       </div>
     </div>
   );

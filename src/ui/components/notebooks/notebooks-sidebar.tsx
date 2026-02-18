@@ -50,7 +50,7 @@ export function NotebooksSidebar({
     }));
   };
 
-  const totalNotes = notebooks.reduce((sum, nb) => sum + nb.noteCount, 0);
+  const totalNotes = notebooks.reduce((sum, nb) => sum + nb.note_count, 0);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -130,7 +130,7 @@ export function NotebooksSidebar({
                       {!collapsed && (
                         <>
                           <span className="flex-1 text-left truncate">{notebook.name}</span>
-                          <span className="text-xs opacity-60">{notebook.noteCount}</span>
+                          <span className="text-xs opacity-60">{notebook.note_count}</span>
 
                           {/* Actions */}
                           {(onEditNotebook || onDeleteNotebook) && (
@@ -180,7 +180,7 @@ export function NotebooksSidebar({
                       <Tooltip key={notebook.id}>
                         <TooltipTrigger asChild>{notebookButton}</TooltipTrigger>
                         <TooltipContent side="right">
-                          {notebook.name} ({notebook.noteCount})
+                          {notebook.name} ({notebook.note_count})
                         </TooltipContent>
                       </Tooltip>
                     );

@@ -127,20 +127,20 @@ export function VersionHistory({ open, onOpenChange, note, versions, onPreviewVe
                             <Badge variant="outline" className="text-xs">
                               v{version.version}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">{formatDate(version.changedAt)}</span>
+                            <span className="text-xs text-muted-foreground">{formatDate(version.changed_at)}</span>
                           </div>
 
                           {/* Title change indicator */}
                           {version.title !== note.title && <div className="mt-1 text-sm truncate">Title: {version.title}</div>}
 
                           {/* Change reason */}
-                          {version.changeReason && <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{version.changeReason}</p>}
+                          {version.change_reason && <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{version.change_reason}</p>}
 
                           {/* Change stats */}
                           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <User className="size-3" />
-                              {version.changedBy}
+                              {version.changed_by}
                             </span>
                             {diff && (diff.added > 0 || diff.removed > 0) && (
                               <span className="flex items-center gap-1">

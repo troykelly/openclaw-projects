@@ -32,11 +32,11 @@ export function ShareDialogWrapper({ noteId, onClose, onShare, onRevoke, isShari
       .filter((s): s is Extract<typeof s, { type: 'user' }> => s.type === 'user')
       .map((s) => ({
         id: s.id,
-        noteId: s.noteId,
-        sharedWithEmail: s.sharedWithEmail,
+        note_id: s.note_id,
+        shared_with_email: s.shared_with_email,
         permission: s.permission === 'read_write' ? ('edit' as const) : ('view' as const),
         created_at: new Date(s.created_at),
-        createdBy: s.createdByEmail,
+        created_by: s.created_by_email,
       }));
   }, [sharesData?.shares]);
 
@@ -47,8 +47,8 @@ export function ShareDialogWrapper({ noteId, onClose, onShare, onRevoke, isShari
       title: noteData?.title ?? 'Note',
       content: noteData?.content ?? '',
       visibility: noteData?.visibility ?? 'private',
-      hideFromAgents: noteData?.hideFromAgents ?? false,
-      isPinned: noteData?.isPinned ?? false,
+      hide_from_agents: noteData?.hide_from_agents ?? false,
+      is_pinned: noteData?.is_pinned ?? false,
       created_at: noteData?.created_at ? new Date(noteData.created_at) : new Date(),
       updated_at: noteData?.updated_at ? new Date(noteData.updated_at) : new Date(),
     }),

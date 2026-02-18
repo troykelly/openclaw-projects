@@ -62,7 +62,7 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
       data-testid="note-card"
       className={cn(
         'group relative rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50',
-        note.isPinned && 'border-primary/30 bg-primary/5',
+        note.is_pinned && 'border-primary/30 bg-primary/5',
         onClick && 'cursor-pointer',
         className,
       )}
@@ -71,7 +71,7 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          {note.isPinned && <Pin className="size-3 text-primary shrink-0 fill-primary" />}
+          {note.is_pinned && <Pin className="size-3 text-primary shrink-0 fill-primary" />}
           <h3 className="font-medium leading-tight truncate">{note.title || 'Untitled'}</h3>
         </div>
 
@@ -89,7 +89,7 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
           </TooltipProvider>
 
           {/* Hidden from agents indicator */}
-          {note.hideFromAgents && (
+          {note.hide_from_agents && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -120,7 +120,7 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
                       onTogglePin(note);
                     }}
                   >
-                    {note.isPinned ? (
+                    {note.is_pinned ? (
                       <>
                         <PinOff className="mr-2 size-4" />
                         Unpin
@@ -182,10 +182,10 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
       {/* Footer */}
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          {note.notebookTitle && (
+          {note.notebook_title && (
             <span className="flex items-center gap-1 truncate max-w-[140px]">
               <FileText className="size-3" />
-              {note.notebookTitle}
+              {note.notebook_title}
             </span>
           )}
         </div>

@@ -205,7 +205,7 @@ function AuthenticatedLayout(): React.JSX.Element {
   // Fetch notes data only when on notes routes (for breadcrumb names)
   const isNotesRoute = location.pathname.startsWith('/notes') || location.pathname.startsWith('/notebooks');
   const { data: notesData } = useNotes({ notebook_id }, { enabled: isNotesRoute && Boolean(noteId) });
-  const { data: notebooksData } = useNotebooks({ includeNoteCounts: false }, { enabled: isNotesRoute && Boolean(notebook_id) });
+  const { data: notebooksData } = useNotebooks({ include_note_counts: false }, { enabled: isNotesRoute && Boolean(notebook_id) });
 
   // Build notes context for breadcrumbs
   const notesContext = useMemo<NotesBreadcrumbContext | undefined>(() => {
