@@ -28,7 +28,6 @@ const VALID_MEMORY_TYPES: MemoryType[] = ['preference', 'fact', 'note', 'decisio
 function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
   return {
     id: row.id as string,
-    user_email: row.user_email as string | null,
     work_item_id: row.work_item_id as string | null,
     contact_id: row.contact_id as string | null,
     relationship_id: row.relationship_id as string | null,
@@ -127,10 +126,10 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   }
 
   // At least one scope should be set
-  if (!input.user_email && !input.work_item_id && !input.contact_id && !input.relationship_id && !input.project_id) {
+  if (!input.work_item_id && !input.contact_id && !input.relationship_id && !input.project_id && !input.namespace) {
     // Default to requiring at least some scope for organization
     // For now, allow completely unscoped memories but log a warning
-    console.warn('[Memory] Creating memory without scope - consider adding user_email, work_item_id, contact_id, relationship_id, or project_id');
+    console.warn('[Memory] Creating memory without scope - consider adding work_item_id, contact_id, relationship_id, project_id, or namespace');
   }
 
   const tags = input.tags ?? [];
@@ -144,15 +143,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   const scopeParams: unknown[] = [normalizedContent];
   let paramIndex = 2;
 
-  // Only check within the same scope (same user_email, work_item_id, contact_id, relationship_id)
-  if (input.user_email !== undefined) {
-    scopeConditions.push(`user_email = $${paramIndex}`);
-    scopeParams.push(input.user_email);
-    paramIndex++;
-  } else {
-    scopeConditions.push('user_email IS NULL');
-  }
-
+  // Only check within the same scope (same work_item_id, contact_id, relationship_id, project_id)
   if (input.work_item_id !== undefined) {
     scopeConditions.push(`work_item_id = $${paramIndex}`);
     scopeParams.push(input.work_item_id);
@@ -185,11 +176,17 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
     scopeConditions.push('project_id IS NULL');
   }
 
+  // Epic #1418: namespace-based deduplication scope
+  const ns = input.namespace ?? 'default';
+  scopeConditions.push(`namespace = $${paramIndex}`);
+  scopeParams.push(ns);
+  paramIndex++;
+
   const scopeWhere = scopeConditions.join(' AND ');
 
   // Check for duplicate using normalized content comparison
   const duplicateCheck = await pool.query(
-    `SELECT id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+    `SELECT id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -207,7 +204,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       `UPDATE memory SET updated_at = NOW()
       WHERE id = $1
       RETURNING
-        id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+        id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
         title, content, memory_type::text, tags,
         created_by_agent, created_by_human, source_url,
         importance, confidence, expires_at, superseded_by::text,
@@ -221,21 +218,20 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
   // No duplicate - create new memory
   const result = await pool.query(
     `INSERT INTO memory (
-      user_email, work_item_id, contact_id, relationship_id, project_id,
+      work_item_id, contact_id, relationship_id, project_id,
       title, content, memory_type,
       tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at,
       lat, lng, address, place_label, namespace
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::memory_type, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7::memory_type, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     RETURNING
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
       embedding_status, lat, lng, address, place_label, created_at, updated_at`,
     [
-      input.user_email ?? null,
       input.work_item_id ?? null,
       input.contact_id ?? null,
       input.relationship_id ?? null,
@@ -267,7 +263,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
 export async function getMemory(pool: Pool, id: string): Promise<MemoryEntry | null> {
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -361,7 +357,7 @@ export async function updateMemory(pool: Pool, id: string, input: UpdateMemoryIn
     `UPDATE memory SET ${updates.join(', ')}, updated_at = NOW()
     WHERE id = $${paramIndex}
     RETURNING
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -392,12 +388,8 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418: user_email takes precedence during Phase 3 transition
-  if (options.user_email !== undefined) {
-    conditions.push(`user_email = $${paramIndex}`);
-    params.push(options.user_email);
-    paramIndex++;
-  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+  // Epic #1418 Phase 4: namespace-based scoping (user_email column dropped from memory table)
+  if (options.queryNamespaces && options.queryNamespaces.length > 0) {
     conditions.push(`namespace = ANY($${paramIndex}::text[])`);
     params.push(options.queryNamespaces);
     paramIndex++;
@@ -477,7 +469,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -500,7 +492,7 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
  */
 export async function getGlobalMemories(
   pool: Pool,
-  user_email: string,
+  _user_email: string,
   options: { memory_type?: MemoryType; limit?: number; offset?: number; queryNamespaces?: string[] } = {},
 ): Promise<ListMemoriesResult> {
   const conditions: string[] = [
@@ -514,12 +506,8 @@ export async function getGlobalMemories(
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418: user_email takes precedence during Phase 3 transition
-  if (user_email) {
-    conditions.push(`user_email = $${paramIndex}`);
-    params.push(user_email);
-    paramIndex++;
-  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+  // Epic #1418 Phase 4: namespace-based scoping (user_email column dropped from memory table)
+  if (options.queryNamespaces && options.queryNamespaces.length > 0) {
     conditions.push(`namespace = ANY($${paramIndex}::text[])`);
     params.push(options.queryNamespaces);
     paramIndex++;
@@ -545,7 +533,7 @@ export async function getGlobalMemories(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -697,12 +685,8 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
         const semanticParams: unknown[] = [];
         let semanticIdx = 3; // Start after embedding and min_similarity
 
-        // Epic #1418: user_email takes precedence during Phase 3 transition
-        if (options.user_email !== undefined) {
-          semanticConditions.push(`user_email = $${semanticIdx}`);
-          semanticParams.push(options.user_email);
-          semanticIdx++;
-        } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+        // Epic #1418 Phase 4: namespace-based scoping (user_email column dropped from memory table)
+        if (options.queryNamespaces && options.queryNamespaces.length > 0) {
           semanticConditions.push(`namespace = ANY($${semanticIdx}::text[])`);
           semanticParams.push(options.queryNamespaces);
           semanticIdx++;
@@ -755,7 +739,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
 
         const result = await pool.query(
           `SELECT
-            id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+            id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
             title, content, memory_type::text, tags,
             created_by_agent, created_by_human, source_url,
             importance, confidence, expires_at, superseded_by::text,
@@ -797,12 +781,8 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
   const textParams: unknown[] = [query];
   let textIdx = 2; // Start after query
 
-  // Epic #1418: user_email takes precedence during Phase 3 transition
-  if (options.user_email !== undefined) {
-    textConditions.push(`user_email = $${textIdx}`);
-    textParams.push(options.user_email);
-    textIdx++;
-  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+  // Epic #1418 Phase 4: namespace-based scoping (user_email column dropped from memory table)
+  if (options.queryNamespaces && options.queryNamespaces.length > 0) {
     textConditions.push(`namespace = ANY($${textIdx}::text[])`);
     textParams.push(options.queryNamespaces);
     textIdx++;
@@ -854,7 +834,7 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,

@@ -15,7 +15,7 @@ import type { MemoryEntry, MemoryType } from '../memory/types.ts';
 
 /** Options for hybrid search */
 export interface HybridSearchOptions {
-  /** User email to filter by */
+  /** @deprecated user_email column dropped from memory table in Phase 4 (Epic #1418) */
   user_email?: string;
   /** Work item ID to filter by */
   work_item_id?: string;
@@ -96,7 +96,6 @@ export function combineScores(vectorScore: number, text_score: number, vectorWei
 function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
   return {
     id: row.id as string,
-    user_email: row.user_email as string | null,
     work_item_id: row.work_item_id as string | null,
     contact_id: row.contact_id as string | null,
     relationship_id: row.relationship_id as string | null,
@@ -130,11 +129,8 @@ function buildFilterConditions(options: HybridSearchOptions, startIdx: number): 
   const params: unknown[] = [];
   let idx = startIdx;
 
-  if (options.user_email !== undefined) {
-    conditions.push(`user_email = $${idx}`);
-    params.push(options.user_email);
-    idx++;
-  }
+  // Epic #1418 Phase 4: user_email column dropped from memory table.
+  // Namespace scoping is handled at the route level.
   if (options.work_item_id !== undefined) {
     conditions.push(`work_item_id = $${idx}`);
     params.push(options.work_item_id);
@@ -172,7 +168,7 @@ async function vectorSearch(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,
@@ -216,7 +212,7 @@ async function textSearch(
 
   const result = await pool.query(
     `SELECT
-      id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
+      id::text, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at, superseded_by::text,

@@ -83,7 +83,6 @@ export interface UpdateMemoryInput {
 /** A memory entry from the database */
 export interface MemoryEntry {
   id: string;
-  user_email: string | null;
   work_item_id: string | null;
   contact_id: string | null;
   /** Relationship this memory is scoped to (e.g., anniversaries, interpersonal metadata) */

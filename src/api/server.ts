@@ -350,13 +350,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
-   * Verify that a parent entity belongs to the given user_email scope.
-   * Returns true if no scoping is requested (user_email is undefined/empty) or if the entity matches.
-   * Issue #1172: used by sub-resource routes to verify parent entity scope.
+   * Verify that an entity belongs to a namespace the caller can access.
+   * Returns true if no namespace context is available (unscoped) or if the entity matches.
+   * Replaces the old verifyUserEmailScope (Epic #1418, Phase 4).
    */
-  async function verifyUserEmailScope(pool: ReturnType<typeof createPool>, table: string, id: string, user_email?: string): Promise<boolean> {
-    if (!user_email) return true;
-    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND user_email = $2`, [id, user_email]);
+  async function verifyNamespaceScope(pool: ReturnType<typeof createPool>, table: string, id: string, req: FastifyRequest): Promise<boolean> {
+    const nsCtx = req.namespaceContext;
+    if (!nsCtx) return true;
+    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`, [id, nsCtx.queryNamespaces]);
     return result.rows.length > 0;
   }
 
@@ -1185,37 +1186,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // ============================================================
-  // Namespace Scoping Helpers (Epic #1418, Phase 3)
+  // Namespace Scoping Helpers (Epic #1418, Phase 4)
   // Used by entity routes to filter queries by namespace.
-  // During transition, routes accept both namespace and user_email.
+  // user_email scoping removed — namespace is the sole mechanism.
   // ============================================================
 
   /**
    * Adds namespace filtering to a query's WHERE conditions.
-   * If namespace context is available, filters by namespace.
-   * Falls back to user_email filtering for backward compatibility.
-   *
-   * @returns The namespace(s) being used for scoping (for INSERTs).
+   * Uses the namespace context from the request middleware.
    */
   function addNamespaceFilter(
     req: FastifyRequest,
     conditions: string[],
     params: unknown[],
-    userEmail?: string | null,
   ): { storeNamespace: string; queryNamespaces: string[] } {
-    // Phase 3 transition: explicit user_email takes precedence.
-    // This preserves backward compat for API callers using ?user_email=
-    // while the namespace system is being rolled out.
-    if (userEmail) {
-      params.push(userEmail);
-      conditions.push(`user_email = $${params.length}`);
-      const nsCtx = req.namespaceContext;
-      return {
-        storeNamespace: nsCtx?.storeNamespace ?? 'default',
-        queryNamespaces: nsCtx?.queryNamespaces ?? ['default'],
-      };
-    }
-    // No explicit user_email — use namespace context if available
     const nsCtx = req.namespaceContext;
     if (nsCtx) {
       params.push(nsCtx.queryNamespaces);
@@ -1361,7 +1345,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { getBootstrapContext } = await import('./bootstrap/index.ts');
 
     const query = req.query as {
-      user_email?: string;
       include?: string;
       exclude?: string;
     };
@@ -1379,7 +1362,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         .filter(Boolean);
 
       const result = await getBootstrapContext(pool, {
-        user_email: query.user_email,
         include,
         exclude,
       });
@@ -1486,7 +1468,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
       channel?: string;
       contact_id?: string;
-      user_email?: string;
     };
 
     const pool = createPool();
@@ -1497,7 +1478,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         channel: query.channel,
         contact_id: query.contact_id,
-        user_email: query.user_email,
         queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
@@ -1518,13 +1498,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       after?: string;
       include_work_items?: string;
       include_memories?: string;
-      user_email?: string;
     };
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent thread
-    if (!(await verifyUserEmailScope(pool, 'external_thread', params.id, query.user_email))) {
+    // Epic #1418: namespace scoping on parent thread
+    if (!(await verifyNamespaceScope(pool, 'external_thread', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -3193,7 +3172,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -3244,8 +3223,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       conditions.push(`kind = $${params.length}`);
     }
 
-    // Namespace scoping (Epic #1418) — prefer namespace, fall back to user_email
-    addNamespaceFilter(req, conditions, params, query.user_email);
+    // Namespace scoping (Epic #1418, Phase 4)
+    addNamespaceFilter(req, conditions, params);
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -3273,12 +3252,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // Work Items Tree API (issue #145)
   app.get('/api/work-items/tree', async (req, reply) => {
-    const query = req.query as { root_id?: string; depth?: string; user_email?: string };
+    const query = req.query as { root_id?: string; depth?: string };
     const maxDepth = Math.min(Number.parseInt(query.depth || '10', 10), 20);
 
     const pool = createPool();
 
-    // If root_id is specified, check it exists (Issue #1172: optional user_email scoping)
+    // If root_id is specified, check it exists
     if (query.root_id) {
       const exists = await pool.query('SELECT 1 FROM work_item WHERE id = $1', [query.root_id]);
       if (exists.rows.length === 0) {
@@ -3297,13 +3276,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     } else {
       baseConditions.push('wi.parent_work_item_id IS NULL');
     }
-    // Epic #1418: user_email takes precedence during Phase 3 transition
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
     let nsChildFilter = '';
-    if (query.user_email) {
-      treeParams.push(query.user_email);
-      baseConditions.push(`wi.user_email = $${treeParams.length}`);
-      nsChildFilter = ` AND wi.user_email = $${treeParams.length}`;
-    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+    if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
       treeParams.push(req.namespaceContext.queryNamespaces);
       baseConditions.push(`wi.namespace = ANY($${treeParams.length}::text[])`);
       nsChildFilter = ` AND wi.namespace = ANY($${treeParams.length}::text[])`;
@@ -3469,7 +3444,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.patch('/api/work-items/:id/status', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { status?: string };
 
     if (!body?.status) {
@@ -3478,21 +3452,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping
-    const statusParams: string[] = [params.id, body.status];
-    let statusUserEmailFilter = '';
-    if (query.user_email) {
-      statusParams.push(query.user_email);
-      statusUserEmailFilter = `AND user_email = $${statusParams.length}`;
-    }
-
     const result = await pool.query(
       `UPDATE work_item
           SET status = $2,
               updated_at = now()
-        WHERE id = $1 ${statusUserEmailFilter}
+        WHERE id = $1
       RETURNING id::text as id, title, status, priority::text as priority, updated_at`,
-      statusParams,
+      [params.id, body.status],
     );
 
     if (result.rows.length === 0) {
@@ -3543,7 +3509,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         not_before?: string | null; // Issue #1352: reminder date
         not_after?: string | null; // Issue #1352: deadline date
       }>;
-      user_email?: string; // Issue #1172: per-user scoping
     };
 
     if (!body?.items || !Array.isArray(body.items) || body.items.length === 0) {
@@ -3558,7 +3523,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       });
     }
 
-    const bulkUserEmail = body.user_email?.trim() || null;
     const bulkNs = getStoreNamespace(req);
 
     const pool = createPool();
@@ -3618,8 +3582,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         try {
           const result = await client.query(
-            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description, user_email, not_before, not_after, namespace)
-             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6, $7, $8::timestamptz, $9::timestamptz, $10)
+            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description, not_before, not_after, namespace)
+             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6, $7::timestamptz, $8::timestamptz, $9)
              RETURNING id::text as id`,
             [
               item.title,
@@ -3628,7 +3592,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               item.status || null,
               item.priority || null,
               item.description || null,
-              bulkUserEmail,
               notBefore,
               notAfter,
               bulkNs,
@@ -3697,7 +3660,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/work-items/bulk - Delete multiple work items (Issue #218)
   app.delete('/api/work-items/bulk', async (req, reply) => {
-    const query = req.query as { user_email?: string };
     const body = req.body as { ids: string[] };
 
     if (!body?.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
@@ -3722,16 +3684,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      // Issue #1172: optional user_email scoping
-      let bulkDeleteUserEmailFilter = '';
-      const bulkDeleteParams: (string | string[])[] = [body.ids];
-      if (query.user_email) {
-        bulkDeleteParams.push(query.user_email);
-        bulkDeleteUserEmailFilter = ` AND user_email = $${bulkDeleteParams.length}`;
-      }
       const result = await pool.query(
-        `DELETE FROM work_item WHERE id = ANY($1::uuid[])${bulkDeleteUserEmailFilter} RETURNING id::text as id`,
-        bulkDeleteParams,
+        `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
+        [body.ids],
       );
 
       await pool.end();
@@ -3753,7 +3708,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/work-items/bulk - Update multiple work items
   app.patch('/api/work-items/bulk', async (req, reply) => {
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       ids: string[];
       action: 'status' | 'priority' | 'parent' | 'delete';
@@ -3786,10 +3740,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     const client = await pool.connect();
 
-    // Issue #1172: optional user_email scoping for bulk operations
-    const bulkPatchUserEmailFilter = query.user_email ? ' AND user_email = $3' : '';
-    const bulkPatchExtraParams = query.user_email ? [query.user_email] : [];
-
     try {
       await client.query('BEGIN');
 
@@ -3807,9 +3757,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           result = await client.query(
             `UPDATE work_item
              SET status = $1, updated_at = now()
-             WHERE id = ANY($2::uuid[])${bulkPatchUserEmailFilter}
+             WHERE id = ANY($2::uuid[])
              RETURNING id::text as id, title, status`,
-            [body.value, ids, ...bulkPatchExtraParams],
+            [body.value, ids],
           );
 
           // Record activity for each item
@@ -3832,9 +3782,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           result = await client.query(
             `UPDATE work_item
              SET priority = $1, updated_at = now()
-             WHERE id = ANY($2::uuid[])${bulkPatchUserEmailFilter}
+             WHERE id = ANY($2::uuid[])
              RETURNING id::text as id, title, priority::text as priority`,
-            [body.value, ids, ...bulkPatchExtraParams],
+            [body.value, ids],
           );
           break;
 
@@ -3850,9 +3800,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           result = await client.query(
             `UPDATE work_item
              SET parent_work_item_id = $1, updated_at = now()
-             WHERE id = ANY($2::uuid[])${bulkPatchUserEmailFilter}
+             WHERE id = ANY($2::uuid[])
              RETURNING id::text as id, title, parent_work_item_id::text as parent_id`,
-            [parent_id, ids, ...bulkPatchExtraParams],
+            [parent_id, ids],
           );
           break;
         }
@@ -3860,13 +3810,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         case 'delete': {
           // First get titles for activity log
           const _itemsToDelete = await client.query(
-            `SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''}`,
-            query.user_email ? [ids, query.user_email] : [ids],
+            `SELECT id::text as id, title FROM work_item WHERE id = ANY($1::uuid[])`,
+            [ids],
           );
 
           result = await client.query(
-            `DELETE FROM work_item WHERE id = ANY($1::uuid[])${query.user_email ? ' AND user_email = $2' : ''} RETURNING id::text as id`,
-            query.user_email ? [ids, query.user_email] : [ids],
+            `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
+            [ids],
           );
 
           // Note: Activity entries will be cascade deleted along with work items
@@ -3946,7 +3896,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       recurrence_end?: string;
       not_before?: string | null; // Issue #1321: reminder date
       not_after?: string | null; // Issue #1321: deadline date
-      user_email?: string; // Issue #1172: per-user scoping
     };
     if (!body?.title || body.title.trim().length === 0) {
       return reply.code(400).send({ error: 'title is required' });
@@ -4073,12 +4022,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'not_before must be before or equal to not_after' });
     }
 
-    const user_email = body.user_email?.trim() || null;
     const namespace = getStoreNamespace(req);
 
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email, not_before, not_after, namespace)
-       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11, $12::timestamptz, $13::timestamptz, $14)
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, not_before, not_after, namespace)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11::timestamptz, $12::timestamptz, $13)
        RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, not_before, not_after, namespace`,
       [
         body.title.trim(),
@@ -4091,7 +4039,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         recurrenceRule,
         recurrenceEnd,
         isRecurrenceTemplate,
-        user_email,
         notBefore,
         notAfter,
         namespace,
@@ -4138,7 +4085,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -4204,19 +4151,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id - Get single work item (excludes soft-deleted, Issue #225)
   app.get('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { include_deleted?: string; user_email?: string };
+    const query = req.query as { include_deleted?: string };
     const pool = createPool();
 
     // By default, exclude soft-deleted items
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND wi.deleted_at IS NULL';
-
-    // Issue #1172: optional user_email scoping
-    const queryParams: string[] = [params.id];
-    let userEmailFilter = '';
-    if (query.user_email) {
-      queryParams.push(query.user_email);
-      userEmailFilter = `AND wi.user_email = $${queryParams.length}`;
-    }
 
     // Get main work item
     const result = await pool.query(
@@ -4237,8 +4176,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               wi.deleted_at,
               (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id AND c.deleted_at IS NULL) as children_count
          FROM work_item wi
-        WHERE wi.id = $1 ${deletedFilter} ${userEmailFilter}`,
-      queryParams,
+        WHERE wi.id = $1 ${deletedFilter}`,
+      [params.id],
     );
 
     if (result.rows.length === 0) {
@@ -4340,7 +4279,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.put('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       title?: string;
       description?: string | null;
@@ -4376,20 +4314,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping
-    const existingParams: string[] = [params.id];
-    let existingUserEmailFilter = '';
-    if (query.user_email) {
-      existingParams.push(query.user_email);
-      existingUserEmailFilter = `AND user_email = $${existingParams.length}`;
-    }
-
     // Fetch current row so we can validate hierarchy semantics on parent changes.
     const existing = await pool.query(
       `SELECT kind, parent_id::text as parent_id, estimate_minutes, actual_minutes
          FROM work_item
-        WHERE id = $1 ${existingUserEmailFilter}`,
-      existingParams,
+        WHERE id = $1`,
+      [params.id],
     );
 
     if (existing.rows.length === 0) {
@@ -4462,7 +4392,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    // Issue #1172: build user_email WHERE filter for the UPDATE
     const updateParams: unknown[] = [
       params.id,
       body.title.trim(),
@@ -4476,11 +4405,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       estimateMinutes,
       actualMinutes,
     ];
-    let updateUserEmailFilter = '';
-    if (query.user_email) {
-      updateParams.push(query.user_email);
-      updateUserEmailFilter = `AND user_email = $${updateParams.length}`;
-    }
 
     const result = await pool.query(
       `UPDATE work_item
@@ -4495,7 +4419,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               estimate_minutes = $10,
               actual_minutes = $11,
               updated_at = now()
-        WHERE id = $1 ${updateUserEmailFilter}
+        WHERE id = $1
       RETURNING id::text as id, title, description, status, priority::text as priority, task_type::text as task_type,
                 kind, parent_id::text as parent_id,
                 created_at, updated_at, not_before, not_after, estimate_minutes, actual_minutes`,
@@ -4527,20 +4451,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id - Soft delete by default (Issue #225)
   app.delete('/api/work-items/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { permanent?: string; user_email?: string };
+    const query = req.query as { permanent?: string };
     const pool = createPool();
-
-    // Issue #1172: optional user_email scoping
-    const deleteParams: string[] = [params.id];
-    let deleteUserEmailFilter = '';
-    if (query.user_email) {
-      deleteParams.push(query.user_email);
-      deleteUserEmailFilter = `AND user_email = $${deleteParams.length}`;
-    }
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
-      const result = await pool.query(`DELETE FROM work_item WHERE id = $1 ${deleteUserEmailFilter} RETURNING id::text as id`, deleteParams);
+      const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
       await pool.end();
       if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
       return reply.code(204).send();
@@ -4549,9 +4465,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Soft delete by default
     const result = await pool.query(
       `UPDATE work_item SET deleted_at = now()
-       WHERE id = $1 AND deleted_at IS NULL ${deleteUserEmailFilter}
+       WHERE id = $1 AND deleted_at IS NULL
        RETURNING id::text as id`,
-      deleteParams,
+      [params.id],
     );
     await pool.end();
     if (result.rows.length === 0) return reply.code(404).send({ error: 'not found' });
@@ -5081,7 +4997,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5129,7 +5045,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5171,7 +5087,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.work_item_id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.work_item_id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5198,7 +5114,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5239,7 +5155,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5316,7 +5232,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5350,7 +5266,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5578,7 +5494,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5655,7 +5571,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         date_from?: string;
         date_to?: string;
         semantic_weight?: string;
-        user_email?: string;
       };
 
       const searchTerm = query.q?.trim() || '';
@@ -5708,9 +5623,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
       const pool = createPool();
 
-      // Issue #1216: scope work item results to user_email if provided
-      const user_email = query.user_email?.trim() || undefined;
-
       try {
         const result = await unifiedSearch(pool, {
           query: searchTerm,
@@ -5721,7 +5633,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           date_from,
           date_to,
           semantic_weight,
-          user_email,
         });
 
         return reply.send(result);
@@ -5898,7 +5809,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -5974,7 +5885,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6143,7 +6054,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6170,7 +6081,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6192,7 +6103,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6221,7 +6132,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6243,7 +6154,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6265,7 +6176,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6329,7 +6240,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6372,7 +6283,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6413,7 +6324,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -6506,7 +6417,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/contacts', async (req, reply) => {
     const body = req.body as {
       display_name?: string; notes?: string | null;
-      contact_kind?: string; user_email?: string;
+      contact_kind?: string;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
       quiet_hours_timezone?: string | null; urgency_override_channel?: string | null; notification_notes?: string | null;
     };
@@ -6541,19 +6452,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const pool = createPool();
-    const contactUserEmail = body.user_email?.trim() || null;
     const namespace = getStoreNamespace(req);
     const result = await pool.query(
-      `INSERT INTO contact (display_name, notes, contact_kind, user_email,
+      `INSERT INTO contact (display_name, notes, contact_kind,
         preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
         urgency_override_channel, notification_notes, namespace)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
         preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
         urgency_override_channel::text, notification_notes, namespace,
         created_at, updated_at`,
       [
-        display_name.trim(), body.notes ?? null, contact_kind, contactUserEmail,
+        display_name.trim(), body.notes ?? null, contact_kind,
         body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
         body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
         namespace,
@@ -6577,7 +6487,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           metadata?: Record<string, unknown>;
         }>;
       }>;
-      user_email?: string; // Issue #1172: per-user scoping
     };
 
     if (!body?.contacts || !Array.isArray(body.contacts) || body.contacts.length === 0) {
@@ -6621,13 +6530,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             continue;
           }
 
-          const bulkContactUserEmail = body.user_email?.trim() || null;
           const bulkContactNs = getStoreNamespace(req);
           const contactResult = await client.query(
-            `INSERT INTO contact (display_name, notes, contact_kind, user_email, namespace)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO contact (display_name, notes, contact_kind, namespace)
+             VALUES ($1, $2, $3, $4)
              RETURNING id::text as id`,
-            [contact.display_name.trim(), contact.notes ?? null, bulkContactKind, bulkContactUserEmail, bulkContactNs],
+            [contact.display_name.trim(), contact.notes ?? null, bulkContactKind, bulkContactNs],
           );
           const contact_id = contactResult.rows[0].id;
 
@@ -6684,7 +6592,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts - List contacts with optional search and pagination
   // GET /api/contacts - List contacts (excludes soft-deleted, Issue #225)
   app.get('/api/contacts', async (req, reply) => {
-    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string; user_email?: string };
+    const query = req.query as { search?: string; limit?: string; offset?: string; include_deleted?: string; contact_kind?: string };
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const offset = Number.parseInt(query.offset || '0', 10);
     const search = query.search?.trim() || null;
@@ -6711,12 +6619,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    // Epic #1418: user_email takes precedence during Phase 3 transition
-    if (query.user_email) {
-      conditions.push(`c.user_email = $${paramIndex}`);
-      params.push(query.user_email);
-      paramIndex++;
-    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+    if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
       conditions.push(`c.namespace = ANY($${paramIndex}::text[])`);
       params.push(req.namespaceContext.queryNamespaces as unknown as string);
       paramIndex++;
@@ -6769,16 +6673,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/contacts/search - Alias for /api/contacts?search= (Issue #1141: prevent route collision with /:id)
   app.get('/api/contacts/search', async (req, reply) => {
-    const query = req.query as { q?: string; limit?: string; offset?: string; user_email?: string };
+    const query = req.query as { q?: string; limit?: string; offset?: string };
 
     // Redirect to the main contacts endpoint with search parameter
     const searchQuery = query.q || '';
     const limit = query.limit || '50';
     const offset = query.offset || '0';
-    // Issue #1172: pass through user_email scoping
-    const userEmailParam = query.user_email ? `&user_email=${encodeURIComponent(query.user_email)}` : '';
 
-    return reply.redirect(`/api/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}${userEmailParam}`, 301);
+    return reply.redirect(`/api/contacts?search=${encodeURIComponent(searchQuery)}&limit=${limit}&offset=${offset}`, 301);
   });
 
   // GET /api/contacts/suggest-match - Fuzzy contact matching (Issue #1270)
@@ -6788,7 +6690,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       email?: string;
       name?: string;
       limit?: string;
-      user_email?: string;
     };
 
     const phone = query.phone?.trim() || '';
@@ -6817,9 +6718,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              FROM contact_endpoint ce
              JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
              WHERE ce.endpoint_type = 'phone'
-               AND ce.normalized_value = $1
-               ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}`,
-            query.user_email ? [normalizedPhone, query.user_email] : [normalizedPhone],
+               AND ce.normalized_value = $1`,
+            [normalizedPhone],
           );
 
           for (const row of exactPhoneResult.rows) {
@@ -6839,9 +6739,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                WHERE ce.endpoint_type = 'phone'
                  AND ce.normalized_value LIKE $1 || '%'
                  AND ce.normalized_value != $2
-                 ${query.user_email ? 'AND (c.user_email = $3 OR c.user_email IS NULL)' : ''}
                LIMIT 20`,
-              query.user_email ? [prefix, normalizedPhone, query.user_email] : [prefix, normalizedPhone],
+              [prefix, normalizedPhone],
             );
 
             for (const row of partialPhoneResult.rows) {
@@ -6862,9 +6761,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM contact_endpoint ce
            JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
            WHERE ce.endpoint_type = 'email'
-             AND ce.normalized_value = $1
-             ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}`,
-          query.user_email ? [email, query.user_email] : [email],
+             AND ce.normalized_value = $1`,
+          [email],
         );
 
         for (const row of exactEmailResult.rows) {
@@ -6885,9 +6783,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              WHERE ce.endpoint_type = 'email'
                AND ce.normalized_value LIKE '%@' || $1
                AND ce.normalized_value != $2
-               ${query.user_email ? 'AND (c.user_email = $3 OR c.user_email IS NULL)' : ''}
              LIMIT 20`,
-            query.user_email ? [domain, email, query.user_email] : [domain, email],
+            [domain, email],
           );
 
           for (const row of domainEmailResult.rows) {
@@ -6911,9 +6808,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM contact c
            WHERE c.deleted_at IS NULL
              AND c.display_name ILIKE '%' || $1 || '%'
-             ${query.user_email ? 'AND (c.user_email = $2 OR c.user_email IS NULL)' : ''}
            LIMIT 20`,
-          query.user_email ? [name, query.user_email] : [name],
+          [name],
         );
 
         for (const row of nameResult.rows) {
@@ -6992,18 +6888,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts/:id - Get single contact with endpoints (excludes soft-deleted, Issue #225)
   app.get('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { include_deleted?: string; user_email?: string };
+    const query = req.query as { include_deleted?: string };
     const pool = createPool();
 
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
-
-    // Issue #1172: optional user_email scoping
-    const contactGetParams: string[] = [params.id];
-    let contactUserEmailFilter = '';
-    if (query.user_email) {
-      contactGetParams.push(query.user_email);
-      contactUserEmailFilter = `AND c.user_email = $${contactGetParams.length}`;
-    }
 
     const result = await pool.query(
       `SELECT c.id::text as id, c.display_name, c.notes, c.contact_kind::text as contact_kind,
@@ -7019,9 +6907,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               ) as endpoints
        FROM contact c
        LEFT JOIN contact_endpoint ce ON ce.contact_id = c.id
-       WHERE c.id = $1 ${deletedFilter} ${contactUserEmailFilter}
+       WHERE c.id = $1 ${deletedFilter}
        GROUP BY c.id`,
-      contactGetParams,
+      [params.id],
     );
 
     await pool.end();
@@ -7036,7 +6924,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/contacts/:id - Update contact
   app.patch('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       display_name?: string; notes?: string | null; contact_kind?: string;
       preferred_channel?: string | null; quiet_hours_start?: string | null; quiet_hours_end?: string | null;
@@ -7065,14 +6952,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     }
 
-    // Check if contact exists (Issue #1172: optional user_email scoping)
-    const existCheckParams: string[] = [params.id];
-    let existCheckUserEmailFilter = '';
-    if (query.user_email) {
-      existCheckParams.push(query.user_email);
-      existCheckUserEmailFilter = `AND user_email = $${existCheckParams.length}`;
-    }
-    const existing = await pool.query(`SELECT id FROM contact WHERE id = $1 ${existCheckUserEmailFilter}`, existCheckParams);
+    // Check if contact exists
+    const existing = await pool.query(`SELECT id FROM contact WHERE id = $1`, [params.id]);
     if (existing.rows.length === 0) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7143,16 +7024,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const idParamIndex = paramIndex;
     paramIndex++;
 
-    // Issue #1172: optional user_email scoping on UPDATE
-    let patchContactUserEmailFilter = '';
-    if (query.user_email) {
-      values.push(query.user_email);
-      patchContactUserEmailFilter = `AND user_email = $${paramIndex}`;
-      paramIndex++;
-    }
-
     const result = await pool.query(
-      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex} ${patchContactUserEmailFilter}
+      `UPDATE contact SET ${updates.join(', ')} WHERE id = $${idParamIndex}
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
         preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
         urgency_override_channel::text, notification_notes,
@@ -7167,20 +7040,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/contacts/:id - Soft delete by default (Issue #225)
   app.delete('/api/contacts/:id', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { permanent?: string; user_email?: string };
+    const query = req.query as { permanent?: string };
     const pool = createPool();
-
-    // Issue #1172: optional user_email scoping
-    const deleteContactParams: string[] = [params.id];
-    let deleteContactUserEmailFilter = '';
-    if (query.user_email) {
-      deleteContactParams.push(query.user_email);
-      deleteContactUserEmailFilter = `AND user_email = $${deleteContactParams.length}`;
-    }
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
-      const result = await pool.query(`DELETE FROM contact WHERE id = $1 ${deleteContactUserEmailFilter} RETURNING id::text as id`, deleteContactParams);
+      const result = await pool.query(`DELETE FROM contact WHERE id = $1 RETURNING id::text as id`, [params.id]);
       await pool.end();
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'not found' });
@@ -7191,9 +7056,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     // Soft delete by default
     const result = await pool.query(
       `UPDATE contact SET deleted_at = now()
-       WHERE id = $1 AND deleted_at IS NULL ${deleteContactUserEmailFilter}
+       WHERE id = $1 AND deleted_at IS NULL
        RETURNING id::text as id`,
-      deleteContactParams,
+      [params.id],
     );
 
     await pool.end();
@@ -7208,22 +7073,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/contacts/:id/restore - Restore soft-deleted contact (Issue #225)
   app.post('/api/contacts/:id/restore', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
-
-    // Issue #1172: optional user_email scoping
-    let restoreContactUserEmailFilter = '';
-    const restoreContactParams: string[] = [params.id];
-    if (query.user_email) {
-      restoreContactParams.push(query.user_email);
-      restoreContactUserEmailFilter = ` AND user_email = $${restoreContactParams.length}`;
-    }
 
     const result = await pool.query(
       `UPDATE contact SET deleted_at = NULL
-       WHERE id = $1 AND deleted_at IS NOT NULL${restoreContactUserEmailFilter}
+       WHERE id = $1 AND deleted_at IS NOT NULL
        RETURNING id::text as id, display_name`,
-      restoreContactParams,
+      [params.id],
     );
     await pool.end();
 
@@ -7245,7 +7101,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent contact
-    if (!(await verifyUserEmailScope(pool, 'contact', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7282,7 +7138,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7332,7 +7188,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7383,7 +7239,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -7420,7 +7276,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent contact
-    if (!(await verifyUserEmailScope(pool, 'contact', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -8789,7 +8645,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -8841,7 +8697,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9085,7 +8941,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent contact
-    if (!(await verifyUserEmailScope(pool, 'contact', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9365,7 +9221,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent contact
-    if (!(await verifyUserEmailScope(pool, 'contact', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9489,7 +9345,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9603,7 +9459,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9696,7 +9552,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9755,7 +9611,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9823,7 +9679,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9867,7 +9723,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9910,7 +9766,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -9993,7 +9849,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10039,7 +9895,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -10078,7 +9934,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/entity-links - Create an entity link
   app.post('/api/entity-links', async (req, reply) => {
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       source_type?: string; source_id?: string;
       target_type?: string; target_id?: string;
@@ -10106,11 +9961,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const linkType = body.link_type ?? 'related';
     const namespace = getStoreNamespace(req);
     const result = await pool.query(
-      `INSERT INTO entity_link (source_type, source_id, target_type, target_id, link_type, created_by, user_email, namespace)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO entity_link (source_type, source_id, target_type, target_id, link_type, created_by, namespace)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT ON CONSTRAINT uq_entity_link DO UPDATE SET created_by = EXCLUDED.created_by
        RETURNING id::text, source_type, source_id::text, target_type, target_id::text, link_type, created_by, created_at, namespace`,
-      [body.source_type, body.source_id, body.target_type, body.target_id, linkType, body.created_by ?? null, query.user_email ?? null, namespace],
+      [body.source_type, body.source_id, body.target_type, body.target_id, linkType, body.created_by ?? null, namespace],
     );
     await pool.end();
     return reply.code(201).send(result.rows[0]);
@@ -10121,7 +9976,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as {
       source_type?: string; source_id?: string;
       target_type?: string; target_id?: string;
-      link_type?: string; user_email?: string;
+      link_type?: string;
     };
 
     const hasSource = query.source_type && query.source_id;
@@ -10149,12 +10004,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       params.push(query.link_type);
       paramIdx++;
     }
-    // Epic #1418: user_email takes precedence during Phase 3 transition
-    if (query.user_email) {
-      conditions.push(`(user_email = $${paramIdx} OR user_email IS NULL)`);
-      params.push(query.user_email);
-      paramIdx++;
-    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+    if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
       conditions.push(`(namespace = ANY($${paramIdx}::text[]) OR namespace IS NULL)`);
       params.push(req.namespaceContext.queryNamespaces);
       paramIdx++;
@@ -10980,7 +10831,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11171,7 +11022,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11411,7 +11262,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11491,7 +11342,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11532,7 +11383,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11575,7 +11426,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11641,7 +11492,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11905,7 +11756,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -11979,7 +11830,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12031,7 +11882,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12087,7 +11938,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12124,7 +11975,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12172,7 +12023,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12204,7 +12055,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -12235,7 +12086,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     // Issue #1172: optional user_email scoping on parent work_item
-    if (!(await verifyUserEmailScope(pool, 'work_item', params.id, query.user_email))) {
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
     }
@@ -13835,7 +13686,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       end_date?: string;
       kind?: string;
       status?: string;
-      user_email?: string;
     };
     const pool = createPool();
 
@@ -13845,13 +13695,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       FROM work_item
       WHERE not_after IS NOT NULL
     `;
-    const params: string[] = [];
+    const params: unknown[] = [];
     let paramIndex = 1;
 
-    // Issue #1172: optional user_email scoping
-    if (query.user_email) {
-      sql += ` AND user_email = $${paramIndex}`;
-      params.push(query.user_email);
+    // Namespace scoping
+    const nsCtx = req.namespaceContext;
+    if (nsCtx) {
+      sql += ` AND namespace = ANY($${paramIndex}::text[])`;
+      params.push(nsCtx.queryNamespaces);
       paramIndex++;
     }
 
@@ -16163,10 +16014,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (query.offset !== undefined) {
         options.offset = Number.parseInt(query.offset, 10);
       }
-      // Epic #1418: user_email takes precedence during Phase 3 transition
-      if (query.user_email !== undefined) {
-        options.user_email = query.user_email;
-      } else if (req.namespaceContext) {
+      // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+      if (req.namespaceContext) {
         options.queryNamespaces = req.namespaceContext.queryNamespaces;
       }
 
@@ -16211,7 +16060,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         relationship_type: relationship_type.trim(),
         notes: (body.notes as string) ?? undefined,
         created_by_agent: (body.created_by_agent as string) ?? undefined,
-        user_email: (body.user_email as string)?.trim() || undefined,
         namespace: getStoreNamespace(req),
       });
 
@@ -16233,10 +16081,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const query = req.query as { user_email?: string };
 
-      // Issue #1172: optional user_email scoping
-      if (!(await verifyUserEmailScope(pool, 'relationship', params.id, query.user_email))) {
+      // Epic #1418: namespace scoping
+      if (!(await verifyNamespaceScope(pool, 'relationship', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -16285,7 +16132,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         relationship_type_id,
         notes: (body.notes as string) ?? undefined,
         created_by_agent: (body.created_by_agent as string) ?? undefined,
-        user_email: (body.user_email as string)?.trim() || undefined,
         namespace: getStoreNamespace(req),
       });
 
@@ -16312,11 +16158,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const query = req.query as { user_email?: string };
       const body = req.body as Record<string, unknown> | null;
 
-      // Issue #1172: optional user_email scoping
-      if (!(await verifyUserEmailScope(pool, 'relationship', params.id, query.user_email))) {
+      // Epic #1418: namespace scoping
+      if (!(await verifyNamespaceScope(pool, 'relationship', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -16346,10 +16191,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const query = req.query as { user_email?: string };
 
-      // Issue #1172: optional user_email scoping
-      if (!(await verifyUserEmailScope(pool, 'relationship', params.id, query.user_email))) {
+      // Epic #1418: namespace scoping
+      if (!(await verifyNamespaceScope(pool, 'relationship', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -16371,8 +16215,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const query = req.query as { user_email?: string };
-      const result = await getRelatedContacts(pool, params.id, query.user_email);
+      const result = await getRelatedContacts(pool, params.id);
       return reply.send(result);
     } finally {
       await pool.end();
@@ -16385,10 +16228,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const query = req.query as { user_email?: string };
 
-      // Issue #1172: optional user_email scoping on parent contact
-      if (!(await verifyUserEmailScope(pool, 'contact', params.id, query.user_email))) {
+      // Epic #1418: namespace scoping on parent contact
+      if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -16405,10 +16247,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
-      const query = req.query as { user_email?: string };
 
-      // Issue #1172: optional user_email scoping on parent contact
-      if (!(await verifyUserEmailScope(pool, 'contact', params.id, query.user_email))) {
+      // Epic #1418: namespace scoping on parent contact
+      if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
         return reply.code(404).send({ error: 'not found' });
       }
 
@@ -16452,7 +16293,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     expires_at,
     pinned,
     embedding_status,
-    user_email,
     created_by,
     deleted_at,
     created_at,
@@ -16485,7 +16325,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const mediaUrl = (body.media_url as string | undefined) ?? null;
     const mediaType = (body.media_type as string | undefined) ?? null;
     const source_url = (body.source_url as string | undefined) ?? null;
-    const user_email = (body.user_email as string | undefined) ?? null;
     const expires_at = (body.expires_at as string | undefined) ?? null;
     const pinned = typeof body.pinned === 'boolean' ? body.pinned : false;
     const namespace = getStoreNamespace(req);
@@ -16520,9 +16359,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const upsertResult = await pool.query(
           `INSERT INTO skill_store_item
              (skill_id, collection, key, title, summary, content, data, tags,
-              priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
+              priority, media_url, media_type, source_url, expires_at, pinned, namespace)
            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                   $9, $10, $11, $12, $13, $14, $15, $16)
+                   $9, $10, $11, $12, $13, $14, $15)
            ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
            DO UPDATE SET
              title = EXCLUDED.title,
@@ -16534,13 +16373,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              media_url = EXCLUDED.media_url,
              media_type = EXCLUDED.media_type,
              source_url = EXCLUDED.source_url,
-             user_email = EXCLUDED.user_email,
              expires_at = EXCLUDED.expires_at,
              pinned = EXCLUDED.pinned,
              namespace = EXCLUDED.namespace
            RETURNING ${SKILL_STORE_SELECT_COLS},
              (xmax = 0) AS _was_insert`,
-          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, namespace],
+          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, expires_at, pinned, namespace],
         );
 
         const row = upsertResult.rows[0];
@@ -16567,11 +16405,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const insertResult = await pool.query(
         `INSERT INTO skill_store_item
            (skill_id, collection, key, title, summary, content, data, tags,
-            priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
+            priority, media_url, media_type, source_url, expires_at, pinned, namespace)
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                 $9, $10, $11, $12, $13, $14, $15, $16)
+                 $9, $10, $11, $12, $13, $14, $15)
          RETURNING ${SKILL_STORE_SELECT_COLS}`,
-        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, namespace],
+        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, expires_at, pinned, namespace],
       );
 
       // Emit activity event (Issue #808)
@@ -16708,7 +16546,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           const mediaUrl = (item.media_url as string | undefined) ?? null;
           const mediaType = (item.media_type as string | undefined) ?? null;
           const source_url = (item.source_url as string | undefined) ?? null;
-          const user_email = (item.user_email as string | undefined) ?? null;
           const expires_at = (item.expires_at as string | undefined) ?? null;
           const pinned = typeof item.pinned === 'boolean' ? item.pinned : false;
           const bulkNs = getStoreNamespace(req);
@@ -16718,9 +16555,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             result = await pool.query(
               `INSERT INTO skill_store_item
                  (skill_id, collection, key, title, summary, content, data, tags,
-                  priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
+                  priority, media_url, media_type, source_url, expires_at, pinned, namespace)
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                       $9, $10, $11, $12, $13, $14, $15, $16)
+                       $9, $10, $11, $12, $13, $14, $15)
                ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
                DO UPDATE SET
                  title = EXCLUDED.title,
@@ -16732,22 +16569,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  media_url = EXCLUDED.media_url,
                  media_type = EXCLUDED.media_type,
                  source_url = EXCLUDED.source_url,
-                 user_email = EXCLUDED.user_email,
                  expires_at = EXCLUDED.expires_at,
                  pinned = EXCLUDED.pinned,
                  namespace = EXCLUDED.namespace
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, bulkNs],
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, expires_at, pinned, bulkNs],
             );
           } else {
             result = await pool.query(
               `INSERT INTO skill_store_item
                  (skill_id, collection, key, title, summary, content, data, tags,
-                  priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
+                  priority, media_url, media_type, source_url, expires_at, pinned, namespace)
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                       $9, $10, $11, $12, $13, $14, $15, $16)
+                       $9, $10, $11, $12, $13, $14, $15)
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, bulkNs],
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, expires_at, pinned, bulkNs],
             );
           }
           results.push(result.rows[0]);
@@ -16919,7 +16755,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       : null;
     const since = query.since;
     const until = query.until;
-    const user_email = query.user_email;
     const orderBy = query.order_by || 'created_at';
 
     const allowedOrderBy = ['created_at', 'updated_at', 'title', 'priority'];
@@ -16959,12 +16794,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIdx++;
     }
 
-    // Epic #1418: user_email takes precedence during Phase 3 transition
-    if (user_email) {
-      conditions.push(`user_email = $${paramIdx}`);
-      params.push(user_email);
-      paramIdx++;
-    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+    if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
       conditions.push(`namespace = ANY($${paramIdx}::text[])`);
       params.push(req.namespaceContext.queryNamespaces);
       paramIdx++;
@@ -17031,7 +16862,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       media_type: (v) => v,
       source_url: (v) => v,
       status: (v) => v,
-      user_email: (v) => v,
       expires_at: (v) => v,
       pinned: (v) => v,
     };
@@ -17128,7 +16958,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/skill-store/collections — List collections with counts
   app.get('/api/skill-store/collections', async (req, reply) => {
-    const query = req.query as { skill_id?: string; user_email?: string };
+    const query = req.query as { skill_id?: string };
     if (!query.skill_id) {
       return reply.code(400).send({ error: 'skill_id query parameter is required' });
     }
@@ -17137,13 +16967,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const conditions = ['skill_id = $1'];
       const values: string[] = [query.skill_id];
-      let paramIndex = 2;
-
-      if (query.user_email) {
-        conditions.push(`user_email = $${paramIndex}`);
-        values.push(query.user_email);
-        paramIndex++;
-      }
 
       const whereClause = conditions.join(' AND ');
 
@@ -17172,7 +16995,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       collection?: string;
       since?: string;
       until?: string;
-      user_email?: string;
     };
 
     if (!query.skill_id) {
@@ -17197,7 +17019,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         collection: query.collection,
         since: query.since,
         until: query.until,
-        user_email: query.user_email,
       });
       return reply.send({ result });
     } catch (err) {
@@ -19509,7 +19330,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // ── Pantry Inventory (Issue #1280) ────────────────────────────────
 
-  const PANTRY_COLUMNS = `id, user_email, name, location, quantity, category,
+  const PANTRY_COLUMNS = `id, name, location, quantity, category,
     is_leftover, leftover_dish, leftover_portions, meal_log_id,
     added_date, use_by_date, use_soon, notes, is_depleted, depleted_at,
     created_at, updated_at`;
@@ -19534,19 +19355,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'name and location are required' });
     }
 
-    const email = await getSessionEmail(req);
     const namespace = getStoreNamespace(req);
     const pool = createPool();
     try {
       const result = await pool.query(
         `INSERT INTO pantry_item (
-          user_email, name, location, quantity, category,
+          name, location, quantity, category,
           is_leftover, leftover_dish, leftover_portions, meal_log_id,
           use_by_date, use_soon, notes, namespace
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
         RETURNING ${PANTRY_COLUMNS}`,
         [
-          email,
           body.name,
           body.location,
           body.quantity ?? null,
@@ -19600,20 +19419,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       include_depleted?: string;
       limit?: string;
       offset?: string;
-      user_email?: string;
     };
 
     const conditions: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    // Epic #1418: namespace scoping (user_email takes precedence during Phase 3)
-    const email = query.user_email || (await getSessionEmail(req));
-    if (email) {
-      conditions.push(`user_email = $${paramIdx}`);
-      params.push(email);
-      paramIdx++;
-    } else if (req.namespaceContext) {
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+    if (req.namespaceContext) {
       conditions.push(`namespace = ANY($${paramIdx}::text[])`);
       params.push(req.namespaceContext.queryNamespaces);
       paramIdx++;
@@ -20003,9 +19816,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/recipes — Create a recipe with ingredients and steps
   app.post('/api/recipes', async (req, reply) => {
-    const email = getRecipeUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const body = req.body as Record<string, unknown> | null | undefined;
     if (!body || typeof body.title !== 'string' || !body.title.trim()) {
       return reply.code(400).send({ error: 'title is required' });
@@ -20016,13 +19826,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       // Insert recipe
       const recipeResult = await pool.query(
-        `INSERT INTO recipe (user_email, title, description, source_url, source_name,
+        `INSERT INTO recipe (title, description, source_url, source_name,
           prep_time_min, cook_time_min, total_time_min, servings, difficulty,
           cuisine, meal_type, tags, rating, notes, is_favourite, image_s3_key, namespace)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          RETURNING *`,
         [
-          email,
           body.title,
           body.description ?? null,
           body.source_url ?? null,
@@ -20096,18 +19905,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/recipes — List recipes with optional filters
   app.get('/api/recipes', async (req, reply) => {
-    const email = getRecipeUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const query = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    // Epic #1418: user_email takes precedence during Phase 3 transition
-    conditions.push(`user_email = $${paramIdx}`);
-    params.push(email);
-    paramIdx++;
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+    if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+      conditions.push(`namespace = ANY($${paramIdx}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
+      paramIdx++;
+    }
 
     if (query.cuisine) {
       conditions.push(`cuisine = $${paramIdx}`);
@@ -20136,7 +19944,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `SELECT * FROM recipe WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC`,
+        `SELECT * FROM recipe${conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''} ORDER BY created_at DESC`,
         params,
       );
       return reply.send({ recipes: result.rows });
@@ -20147,9 +19955,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/recipes/:id — Get recipe with ingredients and steps
   app.get('/api/recipes/:id', async (req, reply) => {
-    const email = getRecipeUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid recipe ID format' });
@@ -20158,8 +19963,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const recipeResult = await pool.query(
-        `SELECT * FROM recipe WHERE id = $1 AND user_email = $2`,
-        [params.id, email],
+        `SELECT * FROM recipe WHERE id = $1`,
+        [params.id],
       );
       if (recipeResult.rows.length === 0) {
         return reply.code(404).send({ error: 'Recipe not found' });
@@ -20186,8 +19991,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/recipes/:id — Update recipe fields
   app.patch('/api/recipes/:id', async (req, reply) => {
-    const email = getRecipeUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
@@ -20240,9 +20043,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await pool.query(
         `UPDATE recipe SET ${setClauses.join(', ')}
-         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         WHERE id = $${paramIdx}
          RETURNING *`,
-        [...queryParams, routeParams.id, email],
+        [...queryParams, routeParams.id],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Recipe not found' });
@@ -20255,9 +20058,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/recipes/:id — Delete a recipe (cascade deletes ingredients/steps)
   app.delete('/api/recipes/:id', async (req, reply) => {
-    const email = getRecipeUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
       return reply.code(400).send({ error: 'Invalid recipe ID format' });
@@ -20266,8 +20066,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `DELETE FROM recipe WHERE id = $1 AND user_email = $2`,
-        [routeParams.id, email],
+        `DELETE FROM recipe WHERE id = $1`,
+        [routeParams.id],
       );
       if (result.rowCount === 0) {
         return reply.code(404).send({ error: 'Recipe not found' });
@@ -20280,9 +20080,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/recipes/:id/to-shopping-list — Push ingredients to a shopping list
   app.post('/api/recipes/:id/to-shopping-list', async (req, reply) => {
-    const email = getRecipeUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const routeParams = req.params as { id: string };
     const body = req.body as Record<string, unknown> | null | undefined;
     const list_id = typeof body?.list_id === 'string' ? body.list_id : null;
@@ -20293,19 +20090,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      // Verify recipe exists and belongs to user
+      // Verify recipe exists
       const recipeCheck = await pool.query(
-        `SELECT id FROM recipe WHERE id = $1 AND user_email = $2`,
-        [routeParams.id, email],
+        `SELECT id FROM recipe WHERE id = $1`,
+        [routeParams.id],
       );
       if (recipeCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'Recipe not found' });
       }
 
-      // Verify list exists and belongs to user
+      // Verify list exists
       const listCheck = await pool.query(
-        `SELECT id FROM list WHERE id = $1 AND user_email = $2`,
-        [list_id, email],
+        `SELECT id FROM list WHERE id = $1`,
+        [list_id],
       );
       if (listCheck.rows.length === 0) {
         return reply.code(404).send({ error: 'List not found' });
@@ -20350,9 +20147,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // POST /api/meal-log — Log a meal
   app.post('/api/meal-log', async (req, reply) => {
-    const email = getMealLogUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const body = req.body as Record<string, unknown> | null | undefined;
     if (!body || typeof body.title !== 'string' || !body.title.trim()) {
       return reply.code(400).send({ error: 'title is required' });
@@ -20365,13 +20159,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `INSERT INTO meal_log (user_email, meal_date, meal_type, title, source, recipe_id,
+        `INSERT INTO meal_log (meal_date, meal_type, title, source, recipe_id,
           order_ref, restaurant, cuisine, who_ate, who_cooked, rating, notes,
           leftovers_stored, image_s3_key, namespace)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
         [
-          email,
           body.meal_date,
           body.meal_type,
           body.title.trim(),
@@ -20397,32 +20190,41 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/meal-log/stats — Meal statistics (must be before :id route)
   app.get('/api/meal-log/stats', async (req, reply) => {
-    const email = getMealLogUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const query = req.query as Record<string, string | undefined>;
     const days = query.days ? Number.parseInt(query.days, 10) : 30;
 
     const pool = createPool();
     try {
+      // Epic #1418 Phase 4: namespace scoping replaces user_email
+      const nsConds: string[] = [];
+      const nsParams: unknown[] = [];
+      let nsIdx = 1;
+      if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+        nsConds.push(`namespace = ANY($${nsIdx}::text[])`);
+        nsParams.push(req.namespaceContext.queryNamespaces);
+        nsIdx++;
+      }
+      nsConds.push(`meal_date >= CURRENT_DATE - $${nsIdx}::int`);
+      nsParams.push(days);
+      const statsWhere = nsConds.join(' AND ');
+
       const totalResult = await pool.query(
-        `SELECT COUNT(*)::int AS total FROM meal_log
-         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int`,
-        [email, days],
+        `SELECT COUNT(*)::int AS total FROM meal_log WHERE ${statsWhere}`,
+        nsParams,
       );
 
       const bySourceResult = await pool.query(
         `SELECT source, COUNT(*)::int AS count FROM meal_log
-         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int
+         WHERE ${statsWhere}
          GROUP BY source ORDER BY count DESC`,
-        [email, days],
+        nsParams,
       );
 
       const byCuisineResult = await pool.query(
         `SELECT cuisine, COUNT(*)::int AS count FROM meal_log
-         WHERE user_email = $1 AND meal_date >= CURRENT_DATE - $2::int AND cuisine IS NOT NULL
+         WHERE ${statsWhere} AND cuisine IS NOT NULL
          GROUP BY cuisine ORDER BY count DESC`,
-        [email, days],
+        nsParams,
       );
 
       return reply.send({
@@ -20438,19 +20240,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/meal-log — List meals with optional filters
   app.get('/api/meal-log', async (req, reply) => {
-    const email = getMealLogUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const query = req.query as Record<string, string | undefined>;
     const conditions: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    // Epic #1418: namespace scoping
-    // Epic #1418: user_email takes precedence during Phase 3 transition
-    conditions.push(`user_email = $${paramIdx}`);
-    params.push(email);
-    paramIdx++;
+    // Epic #1418 Phase 4: namespace is the sole scoping mechanism
+    if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+      conditions.push(`namespace = ANY($${paramIdx}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
+      paramIdx++;
+    }
 
     if (query.cuisine) {
       conditions.push(`cuisine = $${paramIdx}`);
@@ -20476,7 +20276,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `SELECT * FROM meal_log WHERE ${conditions.join(' AND ')} ORDER BY meal_date DESC, created_at DESC`,
+        `SELECT * FROM meal_log${conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''} ORDER BY meal_date DESC, created_at DESC`,
         params,
       );
       return reply.send({ meals: result.rows });
@@ -20487,9 +20287,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/meal-log/:id — Get a specific meal entry
   app.get('/api/meal-log/:id', async (req, reply) => {
-    const email = getMealLogUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const params = req.params as { id: string };
     if (!isValidUUID(params.id)) {
       return reply.code(400).send({ error: 'Invalid meal ID format' });
@@ -20498,8 +20295,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `SELECT * FROM meal_log WHERE id = $1 AND user_email = $2`,
-        [params.id, email],
+        `SELECT * FROM meal_log WHERE id = $1`,
+        [params.id],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Meal not found' });
@@ -20512,8 +20309,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // PATCH /api/meal-log/:id — Update a meal entry
   app.patch('/api/meal-log/:id', async (req, reply) => {
-    const email = getMealLogUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
@@ -20563,9 +20358,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       const result = await pool.query(
         `UPDATE meal_log SET ${setClauses.join(', ')}
-         WHERE id = $${paramIdx} AND user_email = $${paramIdx + 1}
+         WHERE id = $${paramIdx}
          RETURNING *`,
-        [...queryParams, routeParams.id, email],
+        [...queryParams, routeParams.id],
       );
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Meal not found' });
@@ -20578,9 +20373,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // DELETE /api/meal-log/:id — Delete a meal entry
   app.delete('/api/meal-log/:id', async (req, reply) => {
-    const email = getMealLogUserEmail(req);
-    if (!email) return reply.code(401).send({ error: 'Unauthorized' });
-
     const routeParams = req.params as { id: string };
     if (!isValidUUID(routeParams.id)) {
       return reply.code(400).send({ error: 'Invalid meal ID format' });
@@ -20589,8 +20381,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `DELETE FROM meal_log WHERE id = $1 AND user_email = $2`,
-        [routeParams.id, email],
+        `DELETE FROM meal_log WHERE id = $1`,
+        [routeParams.id],
       );
       if (result.rowCount === 0) {
         return reply.code(404).send({ error: 'Meal not found' });

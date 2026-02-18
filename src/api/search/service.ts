@@ -34,11 +34,8 @@ async function searchWorkItemsText(
   const params: (string | number | Date)[] = [query];
   let paramIndex = 2;
 
-  if (options.user_email) {
-    conditions.push(`user_email = $${paramIndex}`);
-    params.push(options.user_email);
-    paramIndex++;
-  }
+  // Epic #1418 Phase 4: user_email column dropped from work_item table.
+  // Namespace scoping is handled at the route level.
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -91,11 +88,8 @@ async function searchWorkItemsSemantic(
   const params: (string | number | Date)[] = [embeddingStr];
   let paramIndex = 2;
 
-  if (options.user_email) {
-    conditions.push(`user_email = $${paramIndex}`);
-    params.push(options.user_email);
-    paramIndex++;
-  }
+  // Epic #1418 Phase 4: user_email column dropped from work_item table.
+  // Namespace scoping is handled at the route level.
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);

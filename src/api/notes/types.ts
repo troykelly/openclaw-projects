@@ -15,7 +15,8 @@ export type EmbeddingStatus = 'pending' | 'complete' | 'failed' | 'skipped';
 export interface Note {
   id: string;
   notebook_id: string | null;
-  user_email: string;
+  /** @deprecated user_email column dropped from note table in Phase 4 (Epic #1418) */
+  user_email?: string;
   title: string;
   content: string;
   summary: string | null;

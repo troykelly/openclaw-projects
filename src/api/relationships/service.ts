@@ -108,8 +108,8 @@ export async function createRelationship(pool: Pool, input: CreateRelationshipIn
   const result = await pool.query(
     `INSERT INTO relationship (
       contact_a_id, contact_b_id, relationship_type_id,
-      notes, created_by_agent, user_email, namespace
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      notes, created_by_agent, namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING
       id::text as id,
       contact_a_id::text as contact_a_id,
@@ -117,7 +117,7 @@ export async function createRelationship(pool: Pool, input: CreateRelationshipIn
       relationship_type_id::text as relationship_type_id,
       notes, created_by_agent, embedding_status,
       created_at, updated_at`,
-    [input.contact_a_id, input.contact_b_id, input.relationship_type_id, input.notes ?? null, input.created_by_agent ?? null, input.user_email ?? null, input.namespace ?? 'default'],
+    [input.contact_a_id, input.contact_b_id, input.relationship_type_id, input.notes ?? null, input.created_by_agent ?? null, input.namespace ?? 'default'],
   );
 
   return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
@@ -219,12 +219,8 @@ export async function listRelationships(pool: Pool, options: ListRelationshipsOp
     paramIndex++;
   }
 
-  // Epic #1418: user_email takes precedence during Phase 3 transition
-  if (options.user_email !== undefined) {
-    conditions.push(`r.user_email = $${paramIndex}`);
-    params.push(options.user_email);
-    paramIndex++;
-  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+  // Epic #1418 Phase 4: namespace-based scoping (user_email column dropped from relationship table)
+  if (options.queryNamespaces && options.queryNamespaces.length > 0) {
     conditions.push(`r.namespace = ANY($${paramIndex}::text[])`);
     params.push(options.queryNamespaces as unknown as string);
     paramIndex++;
@@ -280,13 +276,8 @@ export async function getRelatedContacts(pool: Pool, contact_id: string, user_em
   const hasContactKind = kindColCheck.rows.length > 0;
   const contactKindSelect = hasContactKind ? `c_ref.contact_kind::text as contact_kind` : `'person' as contact_kind`;
 
-  // Issue #1172: optional user_email scoping for graph traversal
+  // Epic #1418 Phase 4: user_email column dropped from relationship table; scoping is now by namespace
   const graphParams: string[] = [contact_id];
-  let graphUserEmailFilter = '';
-  if (user_email) {
-    graphParams.push(user_email);
-    graphUserEmailFilter = `AND r.user_email = $${graphParams.length}`;
-  }
 
   // Query 1: Contact is on the A side -> type as-is, related contact is B
   const aSideResult = await pool.query(
@@ -302,7 +293,7 @@ export async function getRelatedContacts(pool: Pool, contact_id: string, user_em
     FROM relationship r
     JOIN contact cb ON r.contact_b_id = cb.id
     JOIN relationship_type rt ON r.relationship_type_id = rt.id
-    WHERE r.contact_a_id = $1 ${graphUserEmailFilter}`,
+    WHERE r.contact_a_id = $1`,
     graphParams,
   );
 
@@ -331,7 +322,7 @@ export async function getRelatedContacts(pool: Pool, contact_id: string, user_em
     JOIN contact ca ON r.contact_a_id = ca.id
     JOIN relationship_type rt ON r.relationship_type_id = rt.id
     LEFT JOIN relationship_type inv ON rt.inverse_type_id = inv.id
-    WHERE r.contact_b_id = $1 ${graphUserEmailFilter}`,
+    WHERE r.contact_b_id = $1`,
     graphParams,
   );
 
@@ -444,16 +435,15 @@ export async function getContactGroups(pool: Pool, contact_id: string): Promise<
  * Resolves a contact identifier (UUID or display name) to a contact ID and name.
  * Returns null if the contact cannot be found.
  */
-async function resolveContact(pool: Pool, identifier: string, user_email?: string): Promise<{ id: string; display_name: string } | null> {
-  // Issue #1172: optional user_email scoping for contact resolution
-  const userEmailFilter = user_email ? `AND user_email = $2` : '';
-  const baseParams = user_email ? [identifier, user_email] : [identifier];
+async function resolveContact(pool: Pool, identifier: string, _user_email?: string): Promise<{ id: string; display_name: string } | null> {
+  // Epic #1418 Phase 4: user_email column dropped from contact table; scoping is now by namespace
+  const baseParams = [identifier];
 
   // Try as UUID first
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   if (uuidPattern.test(identifier)) {
-    const result = await pool.query(`SELECT id::text as id, display_name FROM contact WHERE id = $1 ${userEmailFilter}`, baseParams);
+    const result = await pool.query(`SELECT id::text as id, display_name FROM contact WHERE id = $1`, baseParams);
     if (result.rows.length > 0) {
       const row = result.rows[0] as { id: string; display_name: string };
       return { id: row.id, display_name: row.display_name };
@@ -463,7 +453,7 @@ async function resolveContact(pool: Pool, identifier: string, user_email?: strin
   // Try as display name (exact match, case-insensitive)
   const nameResult = await pool.query(
     `SELECT id::text as id, display_name FROM contact
-     WHERE lower(display_name) = lower($1) ${userEmailFilter}
+     WHERE lower(display_name) = lower($1)
      ORDER BY created_at ASC
      LIMIT 1`,
     baseParams,

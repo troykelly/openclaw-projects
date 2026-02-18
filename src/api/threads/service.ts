@@ -286,12 +286,9 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
     paramIndex++;
   }
 
-  // Epic #1418: user_email takes precedence during Phase 3 transition
-  if (options.user_email) {
-    whereClauses.push(`et.user_email = $${paramIndex}`);
-    params.push(options.user_email);
-    paramIndex++;
-  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+  // Epic #1418 Phase 4: user_email column dropped from external_thread table.
+  // Namespace scoping via queryNamespaces only.
+  if (options.queryNamespaces && options.queryNamespaces.length > 0) {
     whereClauses.push(`et.namespace = ANY($${paramIndex}::text[])`);
     params.push(options.queryNamespaces as unknown as string);
     paramIndex++;

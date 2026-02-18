@@ -8,7 +8,8 @@
 /** A notebook from the database */
 export interface Notebook {
   id: string;
-  user_email: string;
+  /** @deprecated user_email column dropped from notebook table in Phase 4 (Epic #1418) */
+  user_email?: string;
   name: string;
   description: string | null;
   icon: string | null;

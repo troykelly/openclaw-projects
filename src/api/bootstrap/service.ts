@@ -82,18 +82,19 @@ async function fetchUser(pool: Pool, user_email: string): Promise<BootstrapUser 
 
 /**
  * Fetches user preferences (preference-type memories).
+ * Phase 4 (Epic #1418): user_email column dropped from memory table.
+ * Namespace scoping is handled at the route level.
  */
-async function fetchPreferences(pool: Pool, user_email: string, limit: number): Promise<BootstrapPreference[]> {
+async function fetchPreferences(pool: Pool, _user_email: string, limit: number): Promise<BootstrapPreference[]> {
   const result = await pool.query(
     `SELECT id::text, memory_type as type, title, content, importance, created_at
      FROM memory
-     WHERE user_email = $1
-       AND memory_type IN ('preference', 'fact')
+     WHERE memory_type IN ('preference', 'fact')
        AND (expires_at IS NULL OR expires_at > NOW())
        AND superseded_by IS NULL
      ORDER BY importance DESC, created_at DESC
-     LIMIT $2`,
-    [user_email, limit],
+     LIMIT $1`,
+    [limit],
   );
 
   return result.rows.map((row) => {

@@ -16,7 +16,8 @@ export interface SearchOptions {
   date_from?: Date;
   date_to?: Date;
   semantic_weight?: number; // 0-1, weight for semantic vs text search in hybrid mode
-  user_email?: string; // Scope work item results to this user (Issue #1216 review fix)
+  /** @deprecated user_email column dropped from work_item table in Phase 4 (Epic #1418) */
+  user_email?: string;
 }
 
 export interface SearchResult {

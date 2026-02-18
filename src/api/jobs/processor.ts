@@ -82,15 +82,14 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
   const work_item_id = job.payload.work_item_id as string;
   const notBefore = new Date(job.payload.not_before as string);
 
-  // Fetch work item details
+  // Fetch work item details (Phase 4: user_email column dropped from work_item table)
   const workItemResult = await pool.query(
     `SELECT
        id::text as id,
        title,
        description,
        work_item_kind::text as kind,
-       status,
-       user_email
+       status
      FROM work_item
      WHERE id = $1`,
     [work_item_id],
@@ -109,7 +108,6 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
     description: string | null;
     kind: string;
     status: string;
-    user_email: string | null;
   };
 
   // Skip if already completed
@@ -124,7 +122,7 @@ async function handleReminderJob(pool: Pool, job: InternalJob): Promise<JobProce
     work_item_description: workItem.description || undefined,
     work_item_kind: workItem.kind,
     not_before: notBefore,
-    agent_id: workItem.user_email || undefined,
+    agent_id: undefined,
   });
 
   const destination = getWebhookDestination('reminder_due');
@@ -146,14 +144,13 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
   const work_item_id = job.payload.work_item_id as string;
   const notAfter = new Date(job.payload.not_after as string);
 
-  // Fetch work item details
+  // Fetch work item details (Phase 4: user_email column dropped from work_item table)
   const workItemResult = await pool.query(
     `SELECT
        id::text as id,
        title,
        work_item_kind::text as kind,
-       status,
-       user_email
+       status
      FROM work_item
      WHERE id = $1`,
     [work_item_id],
@@ -171,7 +168,6 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
     title: string;
     kind: string;
     status: string;
-    user_email: string | null;
   };
 
   // Skip if already completed
@@ -189,7 +185,7 @@ async function handleNudgeJob(pool: Pool, job: InternalJob): Promise<JobProcesso
     work_item_kind: workItem.kind,
     not_after: notAfter,
     hours_remaining: hoursRemaining,
-    agent_id: workItem.user_email || undefined,
+    agent_id: undefined,
   });
 
   const destination = getWebhookDestination('deadline_approaching');

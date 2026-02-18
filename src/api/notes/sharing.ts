@@ -367,9 +367,9 @@ export async function accessSharedNote(pool: Pool, token: string): Promise<Share
     throw new Error(validation.error_message ?? 'INVALID_LINK');
   }
 
-  // Get the note
+  // Get the note (Phase 4: user_email column dropped from note table)
   const noteResult = await pool.query(
-    `SELECT n.id::text, n.title, n.content, n.updated_at, n.user_email
+    `SELECT n.id::text, n.title, n.content, n.updated_at
      FROM note n
      WHERE n.id = $1 AND n.deleted_at IS NULL`,
     [validation.note_id],
@@ -381,6 +381,13 @@ export async function accessSharedNote(pool: Pool, token: string): Promise<Share
 
   const note = noteResult.rows[0];
 
+  // Get the share creator email for the shared_by field
+  const shareCreatorResult = await pool.query(
+    `SELECT created_by_email FROM note_share WHERE share_link_token = $1`,
+    [token],
+  );
+  const sharedBy = (shareCreatorResult.rows[0]?.created_by_email as string) ?? '';
+
   return {
     note: {
       id: note.id,
@@ -389,7 +396,7 @@ export async function accessSharedNote(pool: Pool, token: string): Promise<Share
       updated_at: new Date(note.updated_at),
     },
     permission: validation.permission as SharePermission,
-    shared_by: note.user_email,
+    shared_by: sharedBy,
   };
 }
 

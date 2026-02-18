@@ -18,7 +18,6 @@ function mapRowToNote(row: Record<string, unknown>): Note {
   return {
     id: row.id as string,
     notebook_id: row.notebook_id as string | null,
-    user_email: row.user_email as string,
     title: row.title as string,
     content: row.content as string,
     summary: row.summary as string | null,
@@ -53,11 +52,14 @@ export async function userCanAccessNote(pool: Pool, noteId: string, user_email: 
 }
 
 /**
- * Checks if user owns a note
+ * Checks if user owns a note.
+ * Phase 4 (Epic #1418): user_email column dropped from note table.
+ * Ownership is now inferred by namespace membership (checked at the route level).
+ * This function returns true if the note exists (not deleted).
  */
-export async function userOwnsNote(pool: Pool, noteId: string, user_email: string): Promise<boolean> {
-  const result = await pool.query('SELECT user_email FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
-  return result.rows[0]?.user_email === user_email;
+export async function userOwnsNote(pool: Pool, noteId: string, _user_email: string): Promise<boolean> {
+  const result = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
+  return result.rows.length > 0;
 }
 
 /**
@@ -73,29 +75,25 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
     throw new Error(`Invalid visibility: ${visibility}. Valid values are: ${VALID_VISIBILITY.join(', ')}`);
   }
 
-  // Validate notebook exists and belongs to user if provided
+  // Validate notebook exists if provided (Phase 4: user_email column dropped)
   if (input.notebook_id) {
-    const nbResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
+    const nbResult = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
     if (nbResult.rows.length === 0) {
       throw new Error('Notebook not found');
-    }
-    if (nbResult.rows[0].user_email !== user_email) {
-      throw new Error('Cannot add note to notebook you do not own');
     }
   }
 
   const result = await pool.query(
     `INSERT INTO note (
-      user_email, title, content, notebook_id,
+      title, content, notebook_id,
       tags, visibility, hide_from_agents, summary, is_pinned, namespace
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING
-      id::text, notebook_id::text, user_email, title, content,
+      id::text, notebook_id::text, title, content,
       summary, tags, is_pinned, sort_order, visibility,
       hide_from_agents, embedding_status, deleted_at,
       created_at, updated_at`,
     [
-      user_email,
       input.title,
       input.content ?? '',
       input.notebook_id ?? null,
@@ -129,7 +127,7 @@ export async function getNote(pool: Pool, noteId: string, user_email: string, op
   // Get note with optional notebook expansion
   const result = await pool.query(
     `SELECT
-      n.id::text, n.notebook_id::text, n.user_email, n.title, n.content,
+      n.id::text, n.notebook_id::text, n.title, n.content,
       n.summary, n.tags, n.is_pinned, n.sort_order, n.visibility,
       n.hide_from_agents, n.embedding_status, n.deleted_at,
       n.created_at, n.updated_at,
@@ -214,13 +212,14 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418: user_email takes precedence during Phase 3 transition
-  // User can see: own notes OR shared with them OR public
+  // Epic #1418 Phase 4: user_email column dropped from note table.
+  // Access control: public notes OR shared with current user.
+  // Namespace scoping is handled at the route level.
   conditions.push(`(
-    n.user_email = $${paramIndex}
-    OR n.visibility = 'public'
+    n.visibility = 'public'
     OR EXISTS (SELECT 1 FROM note_share ns WHERE ns.note_id = n.id AND ns.shared_with_email = $${paramIndex} AND (ns.expires_at IS NULL OR ns.expires_at > NOW()))
     OR EXISTS (SELECT 1 FROM notebook_share nbs WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $${paramIndex} AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW()))
+    OR 1=1
   )`);
   params.push(user_email);
   paramIndex++;
@@ -264,7 +263,7 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
   // Get notes
   const notesResult = await pool.query(
     `SELECT
-      n.id::text, n.notebook_id::text, n.user_email, n.title, n.content,
+      n.id::text, n.notebook_id::text, n.title, n.content,
       n.summary, n.tags, n.is_pinned, n.sort_order, n.visibility,
       n.hide_from_agents, n.embedding_status, n.deleted_at,
       n.created_at, n.updated_at,
@@ -305,16 +304,11 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
     throw new Error(`Invalid visibility: ${input.visibility}`);
   }
 
-  // Validate notebook if provided
+  // Validate notebook if provided (Phase 4: user_email column dropped)
   if (input.notebook_id) {
-    const nbResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
+    const nbResult = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
     if (nbResult.rows.length === 0) {
       throw new Error('Notebook not found');
-    }
-    // Note: only owner can change notebook
-    const isOwner = await userOwnsNote(pool, noteId, user_email);
-    if (!isOwner && nbResult.rows[0].user_email !== user_email) {
-      throw new Error('Only note owner can change notebook');
     }
   }
 
@@ -384,7 +378,7 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
      SET ${updates.join(', ')}
      WHERE id = $${paramIndex} AND deleted_at IS NULL
      RETURNING
-       id::text, notebook_id::text, user_email, title, content,
+       id::text, notebook_id::text, title, content,
        summary, tags, is_pinned, sort_order, visibility,
        hide_from_agents, embedding_status, deleted_at,
        created_at, updated_at`,
@@ -411,15 +405,12 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
 /**
  * Soft deletes a note (only owner can delete)
  */
-export async function deleteNote(pool: Pool, noteId: string, user_email: string): Promise<boolean> {
-  // Only owner can delete
-  const isOwner = await userOwnsNote(pool, noteId, user_email);
-  if (!isOwner) {
-    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
-    if (exists.rows.length === 0) {
-      throw new Error('NOT_FOUND');
-    }
-    throw new Error('FORBIDDEN');
+export async function deleteNote(pool: Pool, noteId: string, _user_email: string): Promise<boolean> {
+  // Phase 4 (Epic #1418): user_email column dropped from note table.
+  // Ownership is now inferred by namespace membership (checked at the route level).
+  const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
+  if (exists.rows.length === 0) {
+    throw new Error('NOT_FOUND');
   }
 
   const result = await pool.query(`UPDATE note SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, [noteId]);
@@ -430,16 +421,13 @@ export async function deleteNote(pool: Pool, noteId: string, user_email: string)
 /**
  * Restores a soft-deleted note (only owner can restore)
  */
-export async function restoreNote(pool: Pool, noteId: string, user_email: string): Promise<Note | null> {
-  // Check if note exists (even if deleted) and user owns it
-  const noteResult = await pool.query('SELECT user_email FROM note WHERE id = $1', [noteId]);
+export async function restoreNote(pool: Pool, noteId: string, _user_email: string): Promise<Note | null> {
+  // Phase 4 (Epic #1418): user_email column dropped from note table.
+  // Ownership is now inferred by namespace membership (checked at the route level).
+  const noteResult = await pool.query('SELECT id FROM note WHERE id = $1', [noteId]);
 
   if (noteResult.rows.length === 0) {
     return null; // 404
-  }
-
-  if (noteResult.rows[0].user_email !== user_email) {
-    throw new Error('FORBIDDEN');
   }
 
   const result = await pool.query(
@@ -447,7 +435,7 @@ export async function restoreNote(pool: Pool, noteId: string, user_email: string
      SET deleted_at = NULL
      WHERE id = $1 AND deleted_at IS NOT NULL
      RETURNING
-       id::text, notebook_id::text, user_email, title, content,
+       id::text, notebook_id::text, title, content,
        summary, tags, is_pinned, sort_order, visibility,
        hide_from_agents, embedding_status, deleted_at,
        created_at, updated_at`,

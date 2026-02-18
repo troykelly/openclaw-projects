@@ -168,14 +168,8 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
   // Fetch active projects if requested
   if (includeProjects) {
     try {
-      // Issue #1172: optional user_email scoping
-      const projectParams: string[] = [];
-      let projectUserEmailFilter = '';
-      if (input.user_id) {
-        projectParams.push(input.user_id);
-        projectUserEmailFilter = ` AND user_email = $${projectParams.length}`;
-      }
-
+      // Epic #1418 Phase 4: user_email column dropped from work_item table.
+      // Namespace scoping is handled at the route level.
       const projectResult = await pool.query(
         `SELECT
            id::text,
@@ -184,10 +178,9 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
            status::text
          FROM work_item
          WHERE kind = 'project'
-           AND status NOT IN ('completed', 'archived', 'deleted')${projectUserEmailFilter}
+           AND status NOT IN ('completed', 'archived', 'deleted')
          ORDER BY updated_at DESC
          LIMIT 5`,
-        projectParams,
       );
 
       sources.projects = projectResult.rows.map((row) => ({
@@ -204,14 +197,8 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
   // Fetch pending todos if requested
   if (includeTodos) {
     try {
-      // Issue #1172: optional user_email scoping
-      const todoParams: string[] = [];
-      let todoUserEmailFilter = '';
-      if (input.user_id) {
-        todoParams.push(input.user_id);
-        todoUserEmailFilter = ` AND user_email = $${todoParams.length}`;
-      }
-
+      // Epic #1418 Phase 4: user_email column dropped from work_item table.
+      // Namespace scoping is handled at the route level.
       const todoResult = await pool.query(
         `SELECT
            id::text,
@@ -220,13 +207,12 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
            status::text
          FROM work_item
          WHERE kind IN ('task', 'issue')
-           AND status NOT IN ('completed', 'archived', 'deleted')${todoUserEmailFilter}
+           AND status NOT IN ('completed', 'archived', 'deleted')
          ORDER BY
            CASE WHEN not_after IS NOT NULL THEN 0 ELSE 1 END,
            not_after ASC,
            updated_at DESC
          LIMIT 10`,
-        todoParams,
       );
 
       sources.todos = todoResult.rows.map((row) => ({

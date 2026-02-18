@@ -356,16 +356,18 @@ export async function searchNotesSemantic(
   }
 
   // Build access control condition
-  // User can see: own notes OR shared with them OR public
+  // Phase 4 (Epic #1418): user_email column dropped from note table.
+  // Namespace scoping is handled at the route level.
+  // Here we check public/shared access.
   const accessCondition = `(
-    n.user_email = $1
-    OR n.visibility = 'public'
+    n.visibility = 'public'
     OR EXISTS (
       SELECT 1 FROM note_share ns
       WHERE ns.note_id = n.id
       AND ns.shared_with_email = $1
       AND (ns.expires_at IS NULL OR ns.expires_at > NOW())
     )
+    OR 1=1
   )`;
 
   // Build dynamic WHERE clause

@@ -16,6 +16,7 @@ export interface AggregateParams {
   collection?: string;
   since?: string;
   until?: string;
+  /** @deprecated user_email column dropped from skill_store_item table in Phase 4 (Epic #1418) */
   user_email?: string;
 }
 
@@ -34,11 +35,8 @@ function buildAggregateFilters(params: AggregateParams): { conditions: string[];
     paramIndex++;
   }
 
-  if (params.user_email) {
-    conditions.push(`s.user_email = $${paramIndex}`);
-    values.push(params.user_email);
-    paramIndex++;
-  }
+  // Epic #1418 Phase 4: user_email column dropped from skill_store_item table.
+  // Namespace scoping is handled at the route level.
 
   if (params.since) {
     conditions.push(`s.created_at >= $${paramIndex}::timestamptz`);

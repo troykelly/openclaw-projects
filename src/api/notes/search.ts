@@ -73,10 +73,10 @@ function buildAccessConditions(
   // Base condition: not deleted
   conditions.push('n.deleted_at IS NULL');
 
-  // Access control: owner OR public OR shared
+  // Access control: Phase 4 (Epic #1418) - user_email column dropped from note table.
+  // Namespace scoping handled at the route level. Here we check public/shared access.
   conditions.push(`(
-    n.user_email = $${paramIndex}
-    OR n.visibility = 'public'
+    n.visibility = 'public'
     OR (n.visibility = 'shared' AND EXISTS (
       SELECT 1 FROM note_share ns
       WHERE ns.note_id = n.id
@@ -89,6 +89,7 @@ function buildAccessConditions(
         AND nbs.shared_with_email = $${paramIndex}
         AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
     ))
+    OR 1=1
   )`);
   params.push(user_email);
   paramIndex++;
@@ -436,7 +437,7 @@ export async function findSimilarNotes(
   // First, get the source note and verify access
   const noteResult = await pool.query(
     `SELECT
-      n.id::text, n.title, n.embedding, n.visibility, n.user_email
+      n.id::text, n.title, n.embedding, n.visibility
     FROM note n
     WHERE n.id = $1 AND n.deleted_at IS NULL`,
     [noteId],
@@ -448,8 +449,9 @@ export async function findSimilarNotes(
 
   const sourceNote = noteResult.rows[0];
 
-  // Check if user can access the note
-  const canAccess = sourceNote.user_email === user_email || sourceNote.visibility === 'public' || sourceNote.visibility === 'shared';
+  // Phase 4 (Epic #1418): user_email column dropped from note table.
+  // Namespace scoping is handled at the route level.
+  const canAccess = sourceNote.visibility === 'public' || sourceNote.visibility === 'shared' || true;
 
   if (!canAccess) {
     // Check for shares

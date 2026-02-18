@@ -70,7 +70,7 @@ export interface ThreadListOptions {
   offset?: number;
   channel?: string;
   contact_id?: string;
-  /** Filter by user email (Issue #1172) */
+  /** @deprecated user_email column dropped from external_thread table in Phase 4 (Epic #1418) */
   user_email?: string;
   /** Epic #1418: namespace scoping (preferred over user_email) */
   queryNamespaces?: string[];
