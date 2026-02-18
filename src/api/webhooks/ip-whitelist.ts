@@ -172,23 +172,17 @@ export function parseIPWhitelist(value: string | undefined | null): string[] {
 }
 
 /**
- * Get the client IP address from a request, handling X-Forwarded-For.
+ * Get the client IP address from a request.
+ *
+ * With `trustProxy: true`, Fastify already resolves the real client IP
+ * from X-Forwarded-For into `request.ip`. Manual header parsing is
+ * redundant and could be spoofed if the upstream proxy appends rather
+ * than replaces the XFF header. See #1415.
  *
  * @param request - Fastify request
  * @returns Client IP address
  */
 export function getClientIP(request: FastifyRequest): string {
-  // Check X-Forwarded-For header (set by proxies/load balancers)
-  const forwardedFor = request.headers['x-forwarded-for'] as string | undefined;
-
-  if (forwardedFor) {
-    // X-Forwarded-For can contain multiple IPs: client, proxy1, proxy2, ...
-    // The first IP is the original client
-    const firstIP = forwardedFor.split(',')[0].trim();
-    if (firstIP) return firstIP;
-  }
-
-  // Fall back to direct request IP
   return request.ip;
 }
 

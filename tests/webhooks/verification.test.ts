@@ -25,13 +25,16 @@ function createMockRequest(options: {
   url?: string;
   protocol?: string;
   hostname?: string;
+  host?: string;
 }): FastifyRequest {
+  const hostname = options.hostname || 'example.com';
   return {
     headers: options.headers || {},
     body: options.body,
     url: options.url || '/api/webhooks/test',
     protocol: options.protocol || 'https',
-    hostname: options.hostname || 'example.com',
+    hostname,
+    host: options.host || hostname,
   } as unknown as FastifyRequest;
 }
 
@@ -83,6 +86,31 @@ describe('Webhook Verification', () => {
       });
 
       expect(verifyTwilioSignature(request)).toBe(false);
+    });
+
+    it('uses request.host instead of raw Host header for signature check (#1416)', () => {
+      process.env.TWILIO_AUTH_TOKEN = authToken;
+
+      const body = { From: '+1234567890', Body: 'Hello' };
+      // Signature computed against the trusted host
+      const url = 'https://public.example.com/api/webhooks/twilio';
+      const signature = calculateTwilioSignature(url, body, authToken);
+
+      const request = createMockRequest({
+        headers: {
+          'x-twilio-signature': signature,
+          // In a multi-proxy setup the raw Host header may differ
+          host: 'internal-lb.local',
+        },
+        body,
+        url: '/api/webhooks/twilio',
+        protocol: 'https',
+        // Fastify resolves the trusted host from X-Forwarded-Host
+        hostname: 'public.example.com',
+        host: 'public.example.com',
+      });
+
+      expect(verifyTwilioSignature(request)).toBe(true);
     });
 
     it('returns true for valid signature', () => {
