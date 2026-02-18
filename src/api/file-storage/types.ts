@@ -53,6 +53,8 @@ export interface UploadRequest {
   content_type: string;
   data: Buffer;
   uploaded_by?: string;
+  /** Namespace for data partitioning (Epic #1418) */
+  namespace?: string;
 }
 
 /**

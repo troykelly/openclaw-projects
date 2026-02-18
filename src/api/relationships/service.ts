@@ -108,8 +108,8 @@ export async function createRelationship(pool: Pool, input: CreateRelationshipIn
   const result = await pool.query(
     `INSERT INTO relationship (
       contact_a_id, contact_b_id, relationship_type_id,
-      notes, created_by_agent, user_email
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+      notes, created_by_agent, user_email, namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING
       id::text as id,
       contact_a_id::text as contact_a_id,
@@ -117,7 +117,7 @@ export async function createRelationship(pool: Pool, input: CreateRelationshipIn
       relationship_type_id::text as relationship_type_id,
       notes, created_by_agent, embedding_status,
       created_at, updated_at`,
-    [input.contact_a_id, input.contact_b_id, input.relationship_type_id, input.notes ?? null, input.created_by_agent ?? null, input.user_email ?? null],
+    [input.contact_a_id, input.contact_b_id, input.relationship_type_id, input.notes ?? null, input.created_by_agent ?? null, input.user_email ?? null, input.namespace ?? 'default'],
   );
 
   return mapRowToRelationship(result.rows[0] as Record<string, unknown>);
@@ -219,10 +219,14 @@ export async function listRelationships(pool: Pool, options: ListRelationshipsOp
     paramIndex++;
   }
 
-  // Issue #1172: optional user_email scoping
+  // Epic #1418: user_email takes precedence during Phase 3 transition
   if (options.user_email !== undefined) {
     conditions.push(`r.user_email = $${paramIndex}`);
     params.push(options.user_email);
+    paramIndex++;
+  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+    conditions.push(`r.namespace = ANY($${paramIndex}::text[])`);
+    params.push(options.queryNamespaces as unknown as string);
     paramIndex++;
   }
 
@@ -561,6 +565,7 @@ export async function relationshipSet(pool: Pool, input: RelationshipSetInput): 
     notes: input.notes,
     created_by_agent: input.created_by_agent,
     user_email: input.user_email,
+    namespace: input.namespace,
   });
 
   return {

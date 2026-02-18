@@ -64,6 +64,8 @@ export interface CreateRelationshipInput {
   created_by_agent?: string;
   /** User email for scoping (Issue #1172) */
   user_email?: string;
+  /** Namespace for data partitioning (Epic #1418) */
+  namespace?: string;
 }
 
 /**
@@ -92,6 +94,8 @@ export interface ListRelationshipsOptions {
   offset?: number;
   /** Filter by user email (Issue #1172) */
   user_email?: string;
+  /** Filter by namespaces (Epic #1418) */
+  queryNamespaces?: string[];
 }
 
 /**
@@ -154,6 +158,8 @@ export interface RelationshipSetInput {
   created_by_agent?: string;
   /** User email for scoping (Issue #1172) */
   user_email?: string;
+  /** Namespace for data partitioning (Epic #1418) */
+  namespace?: string;
 }
 
 /**

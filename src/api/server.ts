@@ -1589,10 +1589,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Create or get the contact endpoint for this sender
         const endpoint_type = channel === 'phone' ? 'phone' : 'email';
         await pool.query(
-          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
-           VALUES ($1, $2::contact_endpoint_type, $3)
+          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, namespace)
+           VALUES ($1, $2::contact_endpoint_type, $3, $4)
            ON CONFLICT (endpoint_type, normalized_value) DO NOTHING`,
-          [body.contact_id, endpoint_type, senderAddress],
+          [body.contact_id, endpoint_type, senderAddress, getStoreNamespace(req)],
         );
       }
 
@@ -3543,6 +3543,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const bulkUserEmail = body.user_email?.trim() || null;
+    const bulkNs = getStoreNamespace(req);
 
     const pool = createPool();
     const client = await pool.connect();
@@ -3601,8 +3602,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         try {
           const result = await client.query(
-            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description, user_email, not_before, not_after)
-             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6, $7, $8::timestamptz, $9::timestamptz)
+            `INSERT INTO work_item (title, work_item_kind, parent_work_item_id, status, priority, description, user_email, not_before, not_after, namespace)
+             VALUES ($1, $2, $3, COALESCE($4, 'backlog'), COALESCE($5::work_item_priority, 'P2'), $6, $7, $8::timestamptz, $9::timestamptz, $10)
              RETURNING id::text as id`,
             [
               item.title,
@@ -3614,6 +3615,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               bulkUserEmail,
               notBefore,
               notAfter,
+              bulkNs,
             ],
           );
           const work_item_id = result.rows[0].id;
@@ -4754,6 +4756,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             content_type: mimetype || 'application/octet-stream',
             data: buffer,
             uploaded_by: email || undefined,
+            namespace: getStoreNamespace(req),
           },
           maxFileSize,
         );
@@ -4990,6 +4993,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         expires_in: expiresIn,
         max_downloads: maxDownloads,
         created_by: email ?? 'agent',
+        namespace: getStoreNamespace(req),
       });
       await pool.end();
 
@@ -6602,11 +6606,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           }
 
           const bulkContactUserEmail = body.user_email?.trim() || null;
+          const bulkContactNs = getStoreNamespace(req);
           const contactResult = await client.query(
-            `INSERT INTO contact (display_name, notes, contact_kind, user_email)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO contact (display_name, notes, contact_kind, user_email, namespace)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING id::text as id`,
-            [contact.display_name.trim(), contact.notes ?? null, bulkContactKind, bulkContactUserEmail],
+            [contact.display_name.trim(), contact.notes ?? null, bulkContactKind, bulkContactUserEmail, bulkContactNs],
           );
           const contact_id = contactResult.rows[0].id;
 
@@ -6615,9 +6620,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             for (const ep of contact.endpoints) {
               if (ep.endpoint_type && ep.endpoint_value) {
                 await client.query(
-                  `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
-                   VALUES ($1, $2, $3, $4::jsonb)`,
-                  [contact_id, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {})],
+                  `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
+                   VALUES ($1, $2, $3, $4::jsonb, $5)`,
+                  [contact_id, ep.endpoint_type, ep.endpoint_value, JSON.stringify(ep.metadata || {}), bulkContactNs],
                 );
               }
             }
@@ -7405,11 +7410,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const inserted = await pool.query(
-      `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
-       VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb))
+      `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata, namespace)
+       VALUES ($1, $2::contact_endpoint_type, $3, COALESCE($4::jsonb, '{}'::jsonb), $5)
        RETURNING id::text as id, contact_id::text as contact_id, endpoint_type::text as endpoint_type,
                  endpoint_value, normalized_value, metadata`,
-      [params.id, body.endpoint_type, body.endpoint_value, body.metadata ? JSON.stringify(body.metadata) : null],
+      [params.id, body.endpoint_type, body.endpoint_value, body.metadata ? JSON.stringify(body.metadata) : null, getStoreNamespace(req)],
     );
 
     await pool.end();
@@ -7446,6 +7451,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const conditions: string[] = [];
     const params: (string | number | string[])[] = [];
     let paramIndex = 1;
+
+    // Epic #1418: namespace scoping for legacy memory API
+    if (req.namespaceContext) {
+      conditions.push(`m.namespace = ANY($${paramIndex}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
 
     if (search) {
       conditions.push(`(m.title ILIKE $${paramIndex} OR m.content ILIKE $${paramIndex})`);
@@ -7560,8 +7572,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const tags = body.tags ?? [];
 
     const result = await pool.query(
-      `INSERT INTO memory (work_item_id, title, content, memory_type, tags)
-       VALUES ($1, $2, $3, $4::memory_type, $5)
+      `INSERT INTO memory (work_item_id, title, content, memory_type, tags, namespace)
+       VALUES ($1, $2, $3, $4::memory_type, $5, $6)
        RETURNING id::text as id,
                  title,
                  content,
@@ -7570,7 +7582,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  work_item_id::text as "linked_item_id",
                  created_at as "created_at",
                  embedding_status`,
-      [body.linked_item_id, body.title.trim(), body.content.trim(), memory_type, tags],
+      [body.linked_item_id, body.title.trim(), body.content.trim(), memory_type, tags, getStoreNamespace(req)],
     );
 
     const row = result.rows[0] as {
@@ -8826,15 +8838,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const result = await pool.query(
-      `INSERT INTO memory (work_item_id, title, content, memory_type)
-       VALUES ($1, $2, $3, $4::memory_type)
+      `INSERT INTO memory (work_item_id, title, content, memory_type, namespace)
+       VALUES ($1, $2, $3, $4::memory_type, $5)
        RETURNING id::text as id,
                  title,
                  content,
                  memory_type::text as type,
                  created_at,
                  updated_at`,
-      [params.id, body.title.trim(), body.content.trim(), memory_type],
+      [params.id, body.title.trim(), body.content.trim(), memory_type, getStoreNamespace(req)],
     );
 
     await pool.end();
@@ -10216,6 +10228,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await client.query('BEGIN');
 
       const display_name = (body.contact_display_name || 'Unknown').trim();
+      const ingestNs = getStoreNamespace(req);
 
       // Try to find an existing endpoint (unique on (endpoint_type, normalized_value))
       const existingEndpoint = await client.query(
@@ -10235,39 +10248,39 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         contact_id = existingEndpoint.rows[0].contact_id;
       } else {
         const contact = await client.query(
-          `INSERT INTO contact (display_name)
-           VALUES ($1)
+          `INSERT INTO contact (display_name, namespace)
+           VALUES ($1, $2)
            RETURNING id::text as id`,
-          [display_name.length > 0 ? display_name : 'Unknown'],
+          [display_name.length > 0 ? display_name : 'Unknown', ingestNs],
         );
         contact_id = contact.rows[0].id;
 
         const endpoint = await client.query(
-          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
-           VALUES ($1, $2::contact_endpoint_type, $3)
+          `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, namespace)
+           VALUES ($1, $2::contact_endpoint_type, $3, $4)
            RETURNING id::text as id`,
-          [contact_id, body.endpoint_type, body.endpoint_value],
+          [contact_id, body.endpoint_type, body.endpoint_value, ingestNs],
         );
         endpointId = endpoint.rows[0].id;
       }
 
       const thread = await client.query(
-        `INSERT INTO external_thread (endpoint_id, channel, external_thread_key)
-         VALUES ($1, $2::contact_endpoint_type, $3)
+        `INSERT INTO external_thread (endpoint_id, channel, external_thread_key, namespace)
+         VALUES ($1, $2::contact_endpoint_type, $3, $4)
          ON CONFLICT (channel, external_thread_key)
          DO UPDATE SET endpoint_id = EXCLUDED.endpoint_id, updated_at = now()
          RETURNING id::text as id`,
-        [endpointId, body.endpoint_type, body.external_thread_key],
+        [endpointId, body.endpoint_type, body.external_thread_key, ingestNs],
       );
       const thread_id = thread.rows[0].id as string;
 
       const message = await client.query(
-        `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw, received_at)
-         VALUES ($1, $2, $3::message_direction, $4, COALESCE($5::jsonb, '{}'::jsonb), COALESCE($6::timestamptz, now()))
+        `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw, received_at, namespace)
+         VALUES ($1, $2, $3::message_direction, $4, COALESCE($5::jsonb, '{}'::jsonb), COALESCE($6::timestamptz, now()), $7)
          ON CONFLICT (thread_id, external_message_key)
          DO UPDATE SET body = EXCLUDED.body
          RETURNING id::text as id`,
-        [thread_id, body.external_message_key, body.direction, body.message_body ?? null, body.raw ? JSON.stringify(body.raw) : null, body.received_at ?? null],
+        [thread_id, body.external_message_key, body.direction, body.message_body ?? null, body.raw ? JSON.stringify(body.raw) : null, body.received_at ?? null, ingestNs],
       );
       const message_id = message.rows[0].id as string;
 
@@ -13551,10 +13564,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Create work item
     const workItemResult = await pool.query(
-      `INSERT INTO work_item (title, status, work_item_kind, description)
-       VALUES ($1, 'open', 'issue', $2)
+      `INSERT INTO work_item (title, status, work_item_kind, description, namespace)
+       VALUES ($1, 'open', 'issue', $2, $3)
        RETURNING id::text as id, title, status, work_item_kind`,
-      [title, message.body],
+      [title, message.body, getStoreNamespace(req)],
     );
 
     // Link to communication
@@ -16134,9 +16147,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (query.offset !== undefined) {
         options.offset = Number.parseInt(query.offset, 10);
       }
-      // Issue #1172: optional user_email scoping
+      // Epic #1418: user_email takes precedence during Phase 3 transition
       if (query.user_email !== undefined) {
         options.user_email = query.user_email;
+      } else if (req.namespaceContext) {
+        options.queryNamespaces = req.namespaceContext.queryNamespaces;
       }
 
       const result = await listRelationships(pool, options);
@@ -16181,6 +16196,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         notes: (body.notes as string) ?? undefined,
         created_by_agent: (body.created_by_agent as string) ?? undefined,
         user_email: (body.user_email as string)?.trim() || undefined,
+        namespace: getStoreNamespace(req),
       });
 
       return reply.send(result);
@@ -16254,6 +16270,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         notes: (body.notes as string) ?? undefined,
         created_by_agent: (body.created_by_agent as string) ?? undefined,
         user_email: (body.user_email as string)?.trim() || undefined,
+        namespace: getStoreNamespace(req),
       });
 
       return reply.code(201).send(relationship);
@@ -18287,10 +18304,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `INSERT INTO context (label, content, content_type)
-         VALUES ($1, $2, $3)
+        `INSERT INTO context (label, content, content_type, namespace)
+         VALUES ($1, $2, $3, $4)
          RETURNING id::text as id, label, content, content_type, is_active, created_at, updated_at`,
-        [body.label.trim(), body.content, body.content_type || 'text'],
+        [body.label.trim(), body.content, body.content_type || 'text', getStoreNamespace(req)],
       );
       return reply.code(201).send(result.rows[0]);
     } finally {
@@ -18305,8 +18322,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const offset = parseInt(query.offset || '0', 10);
 
     const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const params: (string | number | string[])[] = [];
     let paramIndex = 1;
+
+    // Epic #1418: namespace scoping for contexts
+    if (req.namespaceContext) {
+      conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
 
     // By default only return active contexts
     if (query.include_inactive !== 'true') {
@@ -19044,10 +19068,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const result = await pool.query(
-        `INSERT INTO list (name, list_type, is_shared)
-         VALUES ($1, $2, $3)
+        `INSERT INTO list (name, list_type, is_shared, namespace)
+         VALUES ($1, $2, $3, $4)
          RETURNING id::text as id, name, list_type, is_shared, created_at, updated_at`,
-        [body.name.trim(), body.list_type || 'shopping', body.is_shared !== false],
+        [body.name.trim(), body.list_type || 'shopping', body.is_shared !== false, getStoreNamespace(req)],
       );
       return reply.code(201).send(result.rows[0]);
     } finally {
@@ -19062,8 +19086,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const offset = parseInt(query.offset || '0', 10);
 
     const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const params: (string | number | string[])[] = [];
     let paramIndex = 1;
+
+    // Epic #1418: namespace scoping for lists
+    if (req.namespaceContext) {
+      conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
+      paramIndex++;
+    }
 
     if (query.list_type) {
       conditions.push(`list_type = $${paramIndex}`);
@@ -19553,11 +19584,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       include_depleted?: string;
       limit?: string;
       offset?: string;
+      user_email?: string;
     };
 
     const conditions: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
+
+    // Epic #1418: namespace scoping (user_email takes precedence during Phase 3)
+    const email = query.user_email || (await getSessionEmail(req));
+    if (email) {
+      conditions.push(`user_email = $${paramIdx}`);
+      params.push(email);
+      paramIdx++;
+    } else if (req.namespaceContext) {
+      conditions.push(`namespace = ANY($${paramIdx}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
+      paramIdx++;
+    }
 
     if (query.include_depleted !== 'true') {
       conditions.push('NOT is_depleted');
