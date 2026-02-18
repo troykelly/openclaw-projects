@@ -65,7 +65,7 @@ function generateAutoTitle(): string {
 export interface NoteDetailProps {
   note?: Note;
   notebooks?: Notebook[];
-  onSave?: (data: { title: string; content: string; notebook_id?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => Promise<void>;
+  onSave?: (data: { title: string; content: string; notebook_id?: string; visibility: NoteVisibility; hide_from_agents: boolean }) => Promise<void>;
   onBack?: () => void;
   onShare?: () => void;
   onViewHistory?: () => void;
@@ -96,7 +96,7 @@ export function NoteDetail({
   const [content, setContent] = useState(note?.content || '');
   const [notebook_id, setNotebookId] = useState(note?.notebook_id);
   const [visibility, setVisibility] = useState<NoteVisibility>(note?.visibility || 'private');
-  const [hideFromAgents, setHideFromAgents] = useState(note?.hideFromAgents || false);
+  const [hide_from_agents, setHideFromAgents] = useState(note?.hide_from_agents || false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -111,7 +111,7 @@ export function NoteDetail({
     content: string;
     notebook_id?: string;
     visibility: NoteVisibility;
-    hideFromAgents: boolean;
+    hide_from_agents: boolean;
   } | null>(
     note
       ? {
@@ -119,7 +119,7 @@ export function NoteDetail({
           content: note.content,
           notebook_id: note.notebook_id,
           visibility: note.visibility,
-          hideFromAgents: note.hideFromAgents,
+          hide_from_agents: note.hide_from_agents,
         }
       : null,
   );
@@ -135,9 +135,9 @@ export function NoteDetail({
       content !== lastSavedRef.current.content ||
       notebook_id !== lastSavedRef.current.notebook_id ||
       visibility !== lastSavedRef.current.visibility ||
-      hideFromAgents !== lastSavedRef.current.hideFromAgents
+      hide_from_agents !== lastSavedRef.current.hide_from_agents
     );
-  }, [title, content, notebook_id, visibility, hideFromAgents]);
+  }, [title, content, notebook_id, visibility, hide_from_agents]);
 
   // Reset when note changes (e.g., navigating to different note)
   useEffect(() => {
@@ -146,14 +146,14 @@ export function NoteDetail({
       setContent(note.content);
       setNotebookId(note.notebook_id);
       setVisibility(note.visibility);
-      setHideFromAgents(note.hideFromAgents);
+      setHideFromAgents(note.hide_from_agents);
       setNoteCreated(true);
       lastSavedRef.current = {
         title: note.title,
         content: note.content,
         notebook_id: note.notebook_id,
         visibility: note.visibility,
-        hideFromAgents: note.hideFromAgents,
+        hide_from_agents: note.hide_from_agents,
       };
       setSaveStatus('idle');
       setSaveError(null);
@@ -170,7 +170,7 @@ export function NoteDetail({
       content,
       notebook_id,
       visibility,
-      hideFromAgents,
+      hide_from_agents,
     };
 
     setSaveStatus('saving');
@@ -195,7 +195,7 @@ export function NoteDetail({
       setSaveError('Unable to save. Please try again.');
       setSaveStatus('error');
     }
-  }, [onSave, title, content, notebook_id, visibility, hideFromAgents, autoTitle]);
+  }, [onSave, title, content, notebook_id, visibility, hide_from_agents, autoTitle]);
 
   // Cleanup status reset timer on unmount
   useEffect(() => {
@@ -406,7 +406,7 @@ export function NoteDetail({
               <DropdownMenuContent align="end">
                 {onTogglePin && (
                   <DropdownMenuItem onClick={onTogglePin}>
-                    {note?.isPinned ? (
+                    {note?.is_pinned ? (
                       <>
                         <PinOff className="mr-2 size-4" />
                         Unpin note
@@ -458,9 +458,9 @@ export function NoteDetail({
 
         {/* Hide from agents toggle */}
         <div className="flex items-center gap-2">
-          <Switch id="hide-from-agents" checked={hideFromAgents} onCheckedChange={setHideFromAgents} className="h-4 w-7" />
+          <Switch id="hide-from-agents" checked={hide_from_agents} onCheckedChange={setHideFromAgents} className="h-4 w-7" />
           <Label htmlFor="hide-from-agents" className="text-xs text-muted-foreground cursor-pointer">
-            {hideFromAgents ? (
+            {hide_from_agents ? (
               <span className="flex items-center gap-1">
                 <EyeOff className="size-3" />
                 Hidden from AI

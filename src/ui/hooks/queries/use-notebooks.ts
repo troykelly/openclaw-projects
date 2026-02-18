@@ -48,14 +48,14 @@ function buildNotebooksQueryString(user_email: string | null, params?: ListNoteb
   if (params?.parent_id !== undefined) {
     searchParams.set('parent_id', params.parent_id ?? 'null');
   }
-  if (params?.includeArchived) {
-    searchParams.set('includeArchived', 'true');
+  if (params?.include_archived) {
+    searchParams.set('include_archived', 'true');
   }
-  if (params?.includeNoteCounts !== undefined) {
-    searchParams.set('includeNoteCounts', String(params.includeNoteCounts));
+  if (params?.include_note_counts !== undefined) {
+    searchParams.set('include_note_counts', String(params.include_note_counts));
   }
-  if (params?.includeChildCounts !== undefined) {
-    searchParams.set('includeChildCounts', String(params.includeChildCounts));
+  if (params?.include_child_counts !== undefined) {
+    searchParams.set('include_child_counts', String(params.include_child_counts));
   }
   if (params?.limit !== undefined) {
     searchParams.set('limit', String(params.limit));
@@ -130,18 +130,18 @@ export function useNotebook(
 /**
  * Fetch notebooks as a tree structure.
  *
- * @param includeNoteCounts - Whether to include note counts
+ * @param include_note_counts - Whether to include note counts
  * @param options - Optional query options
  * @returns TanStack Query result with array of `NotebookTreeNode`
  */
-export function useNotebooksTree(includeNoteCounts = false, options?: { staleTime?: number }) {
+export function useNotebooksTree(include_note_counts = false, options?: { staleTime?: number }) {
   const user_email = useUserEmail();
   const searchParams = new URLSearchParams();
   if (user_email) {
     searchParams.set('user_email', user_email);
   }
-  if (includeNoteCounts) {
-    searchParams.set('includeNoteCounts', 'true');
+  if (include_note_counts) {
+    searchParams.set('include_note_counts', 'true');
   }
   const queryString = searchParams.toString();
 

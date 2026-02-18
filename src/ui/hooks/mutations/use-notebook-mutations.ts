@@ -339,7 +339,7 @@ export function useArchiveNotebook(): UseMutationResult<Notebook, ApiRequestErro
       if (previousNotebook) {
         queryClient.setQueryData<Notebook>(notebookKeys.detail(id), {
           ...previousNotebook,
-          isArchived: true,
+          is_archived: true,
           updated_at: new Date().toISOString(),
         });
       }

@@ -397,7 +397,7 @@ describe('useNotePresence hook', () => {
       '/api/notes/cursor-test-note/presence/cursor',
       {
         user_email: 'user@example.com',
-        cursorPosition: { line: 10, column: 5 },
+        cursor_position: { line: 10, column: 5 },
       },
     );
   });

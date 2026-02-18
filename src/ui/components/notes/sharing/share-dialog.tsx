@@ -219,10 +219,10 @@ export function ShareDialog({ open, onOpenChange, note, shares = [], onAddShare,
                         <div key={share.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                              {share.sharedWithEmail.charAt(0).toUpperCase()}
+                              {share.shared_with_email.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <div className="truncate text-sm">{share.sharedWithEmail}</div>
+                              <div className="truncate text-sm">{share.shared_with_email}</div>
                               <Badge variant="secondary" className="text-xs">
                                 {share.permission === 'edit' ? 'Can edit' : 'Can view'}
                               </Badge>
@@ -249,7 +249,7 @@ export function ShareDialog({ open, onOpenChange, note, shares = [], onAddShare,
           )}
 
           {/* Privacy notice */}
-          {note.hideFromAgents && (
+          {note.hide_from_agents && (
             <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 p-3 text-xs text-amber-700 dark:text-amber-400">
               This note is hidden from AI agents regardless of sharing settings.
             </div>

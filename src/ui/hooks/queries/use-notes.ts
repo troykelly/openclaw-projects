@@ -68,11 +68,11 @@ function buildNotesQueryString(user_email: string | null, params?: ListNotesPara
   if (params?.search) {
     searchParams.set('search', params.search);
   }
-  if (params?.isPinned !== undefined) {
-    searchParams.set('isPinned', String(params.isPinned));
+  if (params?.is_pinned !== undefined) {
+    searchParams.set('is_pinned', String(params.is_pinned));
   }
-  if (params?.includeDeleted) {
-    searchParams.set('includeDeleted', 'true');
+  if (params?.include_deleted) {
+    searchParams.set('include_deleted', 'true');
   }
   if (params?.limit !== undefined) {
     searchParams.set('limit', String(params.limit));
@@ -80,11 +80,11 @@ function buildNotesQueryString(user_email: string | null, params?: ListNotesPara
   if (params?.offset !== undefined) {
     searchParams.set('offset', String(params.offset));
   }
-  if (params?.sortBy) {
-    searchParams.set('sortBy', params.sortBy);
+  if (params?.sort_by) {
+    searchParams.set('sort_by', params.sort_by);
   }
-  if (params?.sortOrder) {
-    searchParams.set('sortOrder', params.sortOrder);
+  if (params?.sort_order) {
+    searchParams.set('sort_order', params.sort_order);
   }
 
   const queryString = searchParams.toString();

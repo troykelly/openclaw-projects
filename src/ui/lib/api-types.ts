@@ -449,8 +449,8 @@ export interface MemoryAttachment {
   content_type: string;
   size_bytes: number;
   created_at: string;
-  attachedAt: string;
-  attachedBy?: string | null;
+  attached_at: string;
+  attached_by?: string | null;
 }
 
 /** Response from GET /api/memories/:id/attachments */
@@ -694,16 +694,16 @@ export interface Note {
   content: string;
   summary: string | null;
   tags: string[];
-  isPinned: boolean;
-  sortOrder: number;
+  is_pinned: boolean;
+  sort_order: number;
   visibility: NoteVisibility;
-  hideFromAgents: boolean;
+  hide_from_agents: boolean;
   embedding_status: NoteEmbeddingStatus;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
   notebook?: { id: string; name: string } | null;
-  versionCount?: number;
+  version_count?: number;
 }
 
 /** Response from GET /api/notes */
@@ -720,12 +720,12 @@ export interface ListNotesParams {
   tags?: string[];
   visibility?: NoteVisibility;
   search?: string;
-  isPinned?: boolean;
-  includeDeleted?: boolean;
+  is_pinned?: boolean;
+  include_deleted?: boolean;
   limit?: number;
   offset?: number;
-  sortBy?: 'created_at' | 'updated_at' | 'title';
-  sortOrder?: 'asc' | 'desc';
+  sort_by?: 'created_at' | 'updated_at' | 'title';
+  sort_order?: 'asc' | 'desc';
 }
 
 /** Body for POST /api/notes */
@@ -735,9 +735,9 @@ export interface CreateNoteBody {
   notebook_id?: string;
   tags?: string[];
   visibility?: NoteVisibility;
-  hideFromAgents?: boolean;
+  hide_from_agents?: boolean;
   summary?: string;
-  isPinned?: boolean;
+  is_pinned?: boolean;
 }
 
 /** Body for PUT /api/notes/:id */
@@ -747,10 +747,10 @@ export interface UpdateNoteBody {
   notebook_id?: string | null;
   tags?: string[];
   visibility?: NoteVisibility;
-  hideFromAgents?: boolean;
+  hide_from_agents?: boolean;
   summary?: string | null;
-  isPinned?: boolean;
-  sortOrder?: number;
+  is_pinned?: boolean;
+  sort_order?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -760,32 +760,32 @@ export interface UpdateNoteBody {
 /** Summary of a note version */
 export interface NoteVersionSummary {
   id: string;
-  versionNumber: number;
+  version_number: number;
   title: string;
-  changedByEmail: string | null;
-  changeType: string;
-  contentLength: number;
+  changed_by_email: string | null;
+  change_type: string;
+  content_length: number;
   created_at: string;
 }
 
 /** Full note version with content */
 export interface NoteVersion {
   id: string;
-  noteId: string;
-  versionNumber: number;
+  note_id: string;
+  version_number: number;
   title: string;
   content: string;
   summary: string | null;
-  changedByEmail: string | null;
-  changeType: string;
-  contentLength: number;
+  changed_by_email: string | null;
+  change_type: string;
+  content_length: number;
   created_at: string;
 }
 
 /** Response from GET /api/notes/:id/versions */
 export interface NoteVersionsResponse {
-  noteId: string;
-  currentVersion: number;
+  note_id: string;
+  current_version: number;
   versions: NoteVersionSummary[];
   total: number;
 }
@@ -799,23 +799,23 @@ export interface DiffStats {
 
 /** Diff result between versions */
 export interface DiffResult {
-  titleChanged: boolean;
-  titleDiff: string | null;
-  contentChanged: boolean;
-  contentDiff: string;
+  title_changed: boolean;
+  title_diff: string | null;
+  content_changed: boolean;
+  content_diff: string;
   stats: DiffStats;
 }
 
 /** Response from GET /api/notes/:id/versions/compare */
 export interface CompareVersionsResponse {
-  noteId: string;
+  note_id: string;
   from: {
-    versionNumber: number;
+    version_number: number;
     title: string;
     created_at: string;
   };
   to: {
-    versionNumber: number;
+    version_number: number;
     title: string;
     created_at: string;
   };
@@ -824,9 +824,9 @@ export interface CompareVersionsResponse {
 
 /** Response from POST /api/notes/:id/versions/:versionNumber/restore */
 export interface RestoreVersionResponse {
-  noteId: string;
-  restoredFromVersion: number;
-  newVersion: number;
+  note_id: string;
+  restored_from_version: number;
+  new_version: number;
   title: string;
   message: string;
 }
@@ -841,27 +841,27 @@ export type SharePermission = 'read' | 'read_write';
 /** Base share record */
 interface BaseNoteShare {
   id: string;
-  noteId: string;
+  note_id: string;
   permission: SharePermission;
   expires_at: string | null;
-  createdByEmail: string;
+  created_by_email: string;
   created_at: string;
-  lastAccessedAt: string | null;
+  last_accessed_at: string | null;
 }
 
 /** User share record */
 export interface NoteUserShare extends BaseNoteShare {
   type: 'user';
-  sharedWithEmail: string;
+  shared_with_email: string;
 }
 
 /** Link share record */
 export interface NoteLinkShare extends BaseNoteShare {
   type: 'link';
   token: string;
-  isSingleView: boolean;
-  viewCount: number;
-  maxViews: number | null;
+  is_single_view: boolean;
+  view_count: number;
+  max_views: number | null;
 }
 
 /** Union of share types */
@@ -869,7 +869,7 @@ export type NoteShare = NoteUserShare | NoteLinkShare;
 
 /** Response from GET /api/notes/:id/shares */
 export interface NoteSharesResponse {
-  noteId: string;
+  note_id: string;
   shares: NoteShare[];
 }
 
@@ -883,8 +883,8 @@ export interface CreateUserShareBody {
 /** Body for POST /api/notes/:id/share/link */
 export interface CreateLinkShareBody {
   permission?: SharePermission;
-  isSingleView?: boolean;
-  maxViews?: number | null;
+  is_single_view?: boolean;
+  max_views?: number | null;
   expires_at?: string | null;
 }
 
@@ -903,9 +903,9 @@ export interface UpdateShareBody {
 export interface SharedWithMeEntry {
   id: string;
   title: string;
-  sharedByEmail: string;
+  shared_by_email: string;
   permission: SharePermission;
-  sharedAt: string;
+  shared_at: string;
 }
 
 /** Response from GET /api/notes/shared-with-me */
@@ -932,14 +932,14 @@ export interface Notebook {
   description: string | null;
   icon: string | null;
   color: string | null;
-  parentNotebookId: string | null;
-  sortOrder: number;
-  isArchived: boolean;
+  parent_notebook_id: string | null;
+  sort_order: number;
+  is_archived: boolean;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
-  noteCount?: number;
-  childCount?: number;
+  note_count?: number;
+  child_count?: number;
   parent?: { id: string; name: string } | null;
   children?: Notebook[];
   notes?: NotebookNote[];
@@ -954,9 +954,9 @@ export interface NotebooksResponse {
 /** Query params for GET /api/notebooks */
 export interface ListNotebooksParams {
   parent_id?: string | null;
-  includeArchived?: boolean;
-  includeNoteCounts?: boolean;
-  includeChildCounts?: boolean;
+  include_archived?: boolean;
+  include_note_counts?: boolean;
+  include_child_counts?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -967,7 +967,7 @@ export interface NotebookTreeNode {
   name: string;
   icon: string | null;
   color: string | null;
-  noteCount?: number;
+  note_count?: number;
   children: NotebookTreeNode[];
 }
 
@@ -982,7 +982,7 @@ export interface CreateNotebookBody {
   description?: string;
   icon?: string;
   color?: string;
-  parentNotebookId?: string;
+  parent_notebook_id?: string;
 }
 
 /** Body for PUT /api/notebooks/:id */
@@ -991,13 +991,13 @@ export interface UpdateNotebookBody {
   description?: string | null;
   icon?: string | null;
   color?: string | null;
-  parentNotebookId?: string | null;
-  sortOrder?: number;
+  parent_notebook_id?: string | null;
+  sort_order?: number;
 }
 
 /** Body for POST /api/notebooks/:id/notes (move/copy notes) */
 export interface MoveNotesBody {
-  noteIds: string[];
+  note_ids: string[];
   action: 'move' | 'copy';
 }
 
@@ -1017,15 +1017,15 @@ interface BaseNotebookShare {
   notebook_id: string;
   permission: SharePermission;
   expires_at: string | null;
-  createdByEmail: string;
+  created_by_email: string;
   created_at: string;
-  lastAccessedAt: string | null;
+  last_accessed_at: string | null;
 }
 
 /** Notebook user share record */
 export interface NotebookUserShare extends BaseNotebookShare {
   type: 'user';
-  sharedWithEmail: string;
+  shared_with_email: string;
 }
 
 /** Notebook link share record */
@@ -1071,9 +1071,9 @@ export interface UpdateNotebookShareBody {
 export interface NotebookSharedWithMeEntry {
   id: string;
   name: string;
-  sharedByEmail: string;
+  shared_by_email: string;
   permission: SharePermission;
-  sharedAt: string;
+  shared_at: string;
 }
 
 /** Response from GET /api/notebooks/shared-with-me */
@@ -1258,7 +1258,7 @@ export interface ProposeIdentityChangeBody {
 export interface AppBootstrap {
   route?: { kind?: string; id?: string };
   me?: { email?: string };
-  workItems?: WorkItemSummary[];
+  work_items?: WorkItemSummary[];
   workItem?: { id?: string; title?: string } | null;
   participants?: Array<{ participant?: string; role?: string }>;
 }

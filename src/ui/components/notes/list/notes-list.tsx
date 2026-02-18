@@ -74,21 +74,21 @@ export function NotesList({
     }
 
     // Pinned filter
-    if (filter.isPinned !== undefined) {
-      result = result.filter((n) => n.isPinned === filter.isPinned);
+    if (filter.is_pinned !== undefined) {
+      result = result.filter((n) => n.is_pinned === filter.is_pinned);
     }
 
     // Sort: pinned first, then by updated date
     result = [...result].sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
       return b.updated_at.getTime() - a.updated_at.getTime();
     });
 
     return result;
   }, [notes, filter]);
 
-  const activeFilterCount = [filter.visibility, filter.isPinned !== undefined, filter.tags?.length].filter(Boolean).length;
+  const activeFilterCount = [filter.visibility, filter.is_pinned !== undefined, filter.tags?.length].filter(Boolean).length;
 
   const clearFilters = () => {
     setFilter({ search: filter.search, notebook_id: filter.notebook_id });
@@ -191,11 +191,11 @@ export function NotesList({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="pinned"
-                  checked={filter.isPinned === true}
+                  checked={filter.is_pinned === true}
                   onCheckedChange={(checked) =>
                     setFilter((prev) => ({
                       ...prev,
-                      isPinned: checked ? true : undefined,
+                      is_pinned: checked ? true : undefined,
                     }))
                   }
                 />
@@ -227,10 +227,10 @@ export function NotesList({
               </button>
             </Badge>
           )}
-          {filter.isPinned && (
+          {filter.is_pinned && (
             <Badge variant="secondary" className="text-xs">
               Pinned
-              <button className="ml-1 hover:text-foreground" onClick={() => setFilter((prev) => ({ ...prev, isPinned: undefined }))}>
+              <button className="ml-1 hover:text-foreground" onClick={() => setFilter((prev) => ({ ...prev, is_pinned: undefined }))}>
                 <X className="size-3" />
               </button>
             </Badge>

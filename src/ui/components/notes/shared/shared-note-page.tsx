@@ -190,7 +190,7 @@ export function SharedNotePage({ status, note, canEdit = false, onSave, onReques
               <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <User className="size-4" />
-                  {note.createdBy}
+                  {note.created_by}
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="size-4" />

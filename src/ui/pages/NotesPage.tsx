@@ -159,7 +159,7 @@ function NotesPageContent(): React.JSX.Element {
     isError: notebooksError,
     error: notebooksErrorObj,
     refetch: refetchNotebooks,
-  } = useNotebooks({ includeNoteCounts: true });
+  } = useNotebooks({ include_note_counts: true });
 
   // Mutation hooks
   const createNoteMutation = useCreateNote();
@@ -256,7 +256,7 @@ function NotesPageContent(): React.JSX.Element {
   }, [navigateInternal, buildNotePath]);
 
   const handleSaveNote = useCallback(
-    async (data: { title: string; content: string; notebook_id?: string; visibility: NoteVisibility; hideFromAgents: boolean }) => {
+    async (data: { title: string; content: string; notebook_id?: string; visibility: NoteVisibility; hide_from_agents: boolean }) => {
       // Client-side validation before API call (#656)
       const validation = validateNote({
         title: data.title,
@@ -275,7 +275,7 @@ function NotesPageContent(): React.JSX.Element {
           content: data.content,
           notebook_id: data.notebook_id ?? selectedNotebookId,
           visibility: data.visibility,
-          hideFromAgents: data.hideFromAgents,
+          hide_from_agents: data.hide_from_agents,
         };
         const newNote = await createNoteMutation.mutateAsync(body);
         setView({ type: 'detail', noteId: newNote.id });
@@ -287,7 +287,7 @@ function NotesPageContent(): React.JSX.Element {
           content: data.content,
           notebook_id: data.notebook_id,
           visibility: data.visibility,
-          hideFromAgents: data.hideFromAgents,
+          hide_from_agents: data.hide_from_agents,
         };
         await updateNoteMutation.mutateAsync({ id: currentApiNote.id, body });
       }
@@ -317,7 +317,7 @@ function NotesPageContent(): React.JSX.Element {
     async (note: UINote) => {
       await updateNoteMutation.mutateAsync({
         id: note.id,
-        body: { isPinned: !note.isPinned },
+        body: { is_pinned: !note.is_pinned },
       });
     },
     [updateNoteMutation],
