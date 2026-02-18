@@ -20,21 +20,21 @@ interface BackendConnection {
   id: string;
   provider: string;
   label?: string;
-  providerAccountEmail?: string;
-  permissionLevel: string;
-  enabledFeatures: string[];
-  isActive: boolean;
-  lastSyncAt?: string;
-  syncStatus: Record<string, unknown>;
-  createdAt?: string;
-  updatedAt?: string;
+  provider_account_email?: string;
+  permission_level: string;
+  enabled_features: string[];
+  is_active: boolean;
+  last_sync_at?: string;
+  sync_status: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /** Options for creating OAuth gateway methods. */
 export interface OAuthGatewayMethodsOptions {
   logger: Logger;
   apiClient: ApiClient;
-  userId: string;
+  user_id: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -44,28 +44,28 @@ export interface OAuthGatewayMethodsOptions {
 /** Build available actions for an account listing based on features and permissions. */
 function buildAccountActions(conn: BackendConnection): string[] {
   const actions: string[] = [];
-  if (conn.enabledFeatures.includes('contacts')) {
+  if (conn.enabled_features.includes('contacts')) {
     actions.push('list_contacts');
   }
-  if (conn.enabledFeatures.includes('email')) {
+  if (conn.enabled_features.includes('email')) {
     actions.push('list_emails', 'get_email');
-    if (conn.permissionLevel === 'read_write') {
+    if (conn.permission_level === 'read_write') {
       actions.push('send_email', 'create_draft', 'update_email', 'delete_email');
     }
   }
-  if (conn.enabledFeatures.includes('files')) {
+  if (conn.enabled_features.includes('files')) {
     actions.push('list_files', 'search_files', 'get_file');
   }
-  if (conn.enabledFeatures.includes('calendar')) {
+  if (conn.enabled_features.includes('calendar')) {
     actions.push('list_events');
   }
   return actions;
 }
 
 /** Build email-specific available actions based on permission level. */
-function buildEmailActions(permissionLevel: string): string[] {
+function buildEmailActions(permission_level: string): string[] {
   const actions = ['list_messages', 'get_message', 'list_threads', 'list_folders'];
-  if (permissionLevel === 'read_write') {
+  if (permission_level === 'read_write') {
     actions.push('send_email', 'create_draft', 'update_draft', 'update_message', 'delete_message');
   }
   return actions;
@@ -82,24 +82,24 @@ function buildFileActions(): string[] {
  */
 async function resolveConnection(
   apiClient: ApiClient,
-  userId: string,
+  user_id: string,
   logger: Logger,
-  connectionId: string,
+  connection_id: string,
 ): Promise<BackendConnection | null> {
-  const response = await apiClient.get<{ connections: BackendConnection[] }>('/api/oauth/connections', { userId });
+  const response = await apiClient.get<{ connections: BackendConnection[] }>('/api/oauth/connections', { user_id });
   if (!response.success) {
-    logger.error('Failed to fetch OAuth connections', { userId, error: response.error.message });
+    logger.error('Failed to fetch OAuth connections', { user_id, error: response.error.message });
     return null;
   }
 
-  const conn = response.data.connections.find((c) => c.id === connectionId);
+  const conn = response.data.connections.find((c) => c.id === connection_id);
   if (!conn) {
-    logger.debug('OAuth connection not found', { userId, connectionId });
+    logger.debug('OAuth connection not found', { user_id, connection_id });
     return null;
   }
 
-  if (!conn.isActive) {
-    logger.debug('OAuth connection is disabled', { userId, connectionId });
+  if (!conn.is_active) {
+    logger.debug('OAuth connection is disabled', { user_id, connection_id });
     return null;
   }
 
@@ -111,55 +111,55 @@ async function resolveConnection(
 // ---------------------------------------------------------------------------
 
 export interface OAuthAccountListParams {
-  userEmail?: string;
+  user_email?: string;
   provider?: string;
 }
 
 export interface OAuthAccountListResult {
   accounts: Array<{
-    connectionId: string;
+    connection_id: string;
     provider: string;
     connectionLabel: string;
-    providerAccountEmail?: string;
-    permissionLevel: string;
-    enabledFeatures: string[];
-    isActive: boolean;
-    lastSyncAt?: string;
-    syncStatus: Record<string, unknown>;
+    provider_account_email?: string;
+    permission_level: string;
+    enabled_features: string[];
+    is_active: boolean;
+    last_sync_at?: string;
+    sync_status: Record<string, unknown>;
     availableActions: string[];
   }>;
 }
 
 export interface OAuthContactsListParams {
-  connectionId: string;
-  pageToken?: string;
+  connection_id: string;
+  page_token?: string;
 }
 
 export interface OAuthContactsListResult {
   connectionLabel: string;
   contacts: Array<Record<string, unknown>>;
-  nextPageToken?: string;
+  next_page_token?: string;
   availableActions: string[];
 }
 
 export interface OAuthEmailListParams {
-  connectionId: string;
-  folderId?: string;
+  connection_id: string;
+  folder_id?: string;
   q?: string;
-  maxResults?: number;
-  pageToken?: string;
+  max_results?: number;
+  page_token?: string;
 }
 
 export interface OAuthEmailListResult {
   connectionLabel: string;
   messages: Array<Record<string, unknown>>;
-  nextPageToken?: string;
+  next_page_token?: string;
   availableActions: string[];
 }
 
 export interface OAuthEmailGetParams {
-  connectionId: string;
-  messageId: string;
+  connection_id: string;
+  message_id: string;
 }
 
 export interface OAuthEmailGetResult {
@@ -169,34 +169,34 @@ export interface OAuthEmailGetResult {
 }
 
 export interface OAuthFilesListParams {
-  connectionId: string;
-  folderId?: string;
-  pageToken?: string;
+  connection_id: string;
+  folder_id?: string;
+  page_token?: string;
 }
 
 export interface OAuthFilesListResult {
   connectionLabel: string;
   files: Array<Record<string, unknown>>;
-  nextPageToken?: string;
+  next_page_token?: string;
   availableActions: string[];
 }
 
 export interface OAuthFilesSearchParams {
-  connectionId: string;
+  connection_id: string;
   query: string;
-  pageToken?: string;
+  page_token?: string;
 }
 
 export interface OAuthFilesSearchResult {
   connectionLabel: string;
   files: Array<Record<string, unknown>>;
-  nextPageToken?: string;
+  next_page_token?: string;
   availableActions: string[];
 }
 
 export interface OAuthFilesGetParams {
-  connectionId: string;
-  fileId: string;
+  connection_id: string;
+  file_id: string;
 }
 
 export interface OAuthFilesGetResult {
@@ -220,57 +220,57 @@ export interface OAuthGatewayMethods {
  * Create OAuth gateway RPC method handlers.
  */
 export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): OAuthGatewayMethods {
-  const { logger, apiClient, userId } = options;
+  const { logger, apiClient, user_id } = options;
 
   return {
     async accountsList(params: OAuthAccountListParams): Promise<OAuthAccountListResult> {
-      logger.debug('oauth.accounts.list', { userId });
+      logger.debug('oauth.accounts.list', { user_id });
 
       const qs = new URLSearchParams();
-      if (params.userEmail) qs.set('userEmail', params.userEmail);
+      if (params.user_email) qs.set('user_email', params.user_email);
       if (params.provider) qs.set('provider', params.provider);
       const qsStr = qs.toString();
       const path = `/api/oauth/connections${qsStr ? `?${qsStr}` : ''}`;
 
-      const response = await apiClient.get<{ connections: BackendConnection[] }>(path, { userId });
+      const response = await apiClient.get<{ connections: BackendConnection[] }>(path, { user_id });
       if (!response.success) {
         throw new Error(response.error.message || 'Failed to list accounts');
       }
 
       return {
         accounts: response.data.connections.map((conn) => ({
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           connectionLabel: conn.label ?? conn.provider,
-          providerAccountEmail: conn.providerAccountEmail,
-          permissionLevel: conn.permissionLevel,
-          enabledFeatures: conn.enabledFeatures,
-          isActive: conn.isActive,
-          lastSyncAt: conn.lastSyncAt,
-          syncStatus: conn.syncStatus,
+          provider_account_email: conn.provider_account_email,
+          permission_level: conn.permission_level,
+          enabled_features: conn.enabled_features,
+          is_active: conn.is_active,
+          last_sync_at: conn.last_sync_at,
+          sync_status: conn.sync_status,
           availableActions: buildAccountActions(conn),
         })),
       };
     },
 
     async contactsList(params: OAuthContactsListParams): Promise<OAuthContactsListResult> {
-      if (!params.connectionId) throw new Error('connectionId is required');
+      if (!params.connection_id) throw new Error('connection_id is required');
 
-      logger.debug('oauth.contacts.list', { userId, connectionId: params.connectionId });
+      logger.debug('oauth.contacts.list', { user_id, connection_id: params.connection_id });
 
-      const conn = await resolveConnection(apiClient, userId, logger, params.connectionId);
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
 
-      if (!conn.enabledFeatures.includes('contacts')) {
+      if (!conn.enabled_features.includes('contacts')) {
         throw new Error('Contacts feature is not enabled on this connection');
       }
 
-      const qs = new URLSearchParams({ connectionId: params.connectionId });
-      if (params.pageToken) qs.set('pageToken', params.pageToken);
+      const qs = new URLSearchParams({ connection_id: params.connection_id });
+      if (params.page_token) qs.set('page_token', params.page_token);
 
-      const response = await apiClient.get<{ contacts: Array<Record<string, unknown>>; nextPageToken?: string }>(
+      const response = await apiClient.get<{ contacts: Array<Record<string, unknown>>; next_page_token?: string }>(
         `/api/contacts?${qs}`,
-        { userId },
+        { user_id },
       );
 
       if (!response.success) {
@@ -280,32 +280,32 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       return {
         connectionLabel: conn.label ?? conn.provider,
         contacts: response.data.contacts ?? [],
-        nextPageToken: response.data.nextPageToken,
+        next_page_token: response.data.next_page_token,
         availableActions: ['list_contacts'],
       };
     },
 
     async emailList(params: OAuthEmailListParams): Promise<OAuthEmailListResult> {
-      if (!params.connectionId) throw new Error('connectionId is required');
+      if (!params.connection_id) throw new Error('connection_id is required');
 
-      logger.debug('oauth.email.list', { userId, connectionId: params.connectionId });
+      logger.debug('oauth.email.list', { user_id, connection_id: params.connection_id });
 
-      const conn = await resolveConnection(apiClient, userId, logger, params.connectionId);
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
 
-      if (!conn.enabledFeatures.includes('email')) {
+      if (!conn.enabled_features.includes('email')) {
         throw new Error('Email feature is not enabled on this connection');
       }
 
-      const qs = new URLSearchParams({ connectionId: params.connectionId });
-      if (params.folderId) qs.set('folderId', params.folderId);
+      const qs = new URLSearchParams({ connection_id: params.connection_id });
+      if (params.folder_id) qs.set('folder_id', params.folder_id);
       if (params.q) qs.set('q', params.q);
-      if (params.maxResults) qs.set('maxResults', String(params.maxResults));
-      if (params.pageToken) qs.set('pageToken', params.pageToken);
+      if (params.max_results) qs.set('max_results', String(params.max_results));
+      if (params.page_token) qs.set('page_token', params.page_token);
 
-      const response = await apiClient.get<{ messages: Array<Record<string, unknown>>; nextPageToken?: string }>(
+      const response = await apiClient.get<{ messages: Array<Record<string, unknown>>; next_page_token?: string }>(
         `/api/email/messages?${qs}`,
-        { userId },
+        { user_id },
       );
 
       if (!response.success) {
@@ -315,28 +315,28 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       return {
         connectionLabel: conn.label ?? conn.provider,
         messages: response.data.messages ?? [],
-        nextPageToken: response.data.nextPageToken,
-        availableActions: buildEmailActions(conn.permissionLevel),
+        next_page_token: response.data.next_page_token,
+        availableActions: buildEmailActions(conn.permission_level),
       };
     },
 
     async emailGet(params: OAuthEmailGetParams): Promise<OAuthEmailGetResult> {
-      if (!params.connectionId) throw new Error('connectionId is required');
-      if (!params.messageId) throw new Error('messageId is required');
+      if (!params.connection_id) throw new Error('connection_id is required');
+      if (!params.message_id) throw new Error('message_id is required');
 
-      logger.debug('oauth.email.get', { userId, connectionId: params.connectionId, messageId: params.messageId });
+      logger.debug('oauth.email.get', { user_id, connection_id: params.connection_id, message_id: params.message_id });
 
-      const conn = await resolveConnection(apiClient, userId, logger, params.connectionId);
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
 
-      if (!conn.enabledFeatures.includes('email')) {
+      if (!conn.enabled_features.includes('email')) {
         throw new Error('Email feature is not enabled on this connection');
       }
 
-      const qs = new URLSearchParams({ connectionId: params.connectionId });
+      const qs = new URLSearchParams({ connection_id: params.connection_id });
       const response = await apiClient.get<Record<string, unknown>>(
-        `/api/email/messages/${encodeURIComponent(params.messageId)}?${qs}`,
-        { userId },
+        `/api/email/messages/${encodeURIComponent(params.message_id)}?${qs}`,
+        { user_id },
       );
 
       if (!response.success) {
@@ -346,29 +346,29 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       return {
         connectionLabel: conn.label ?? conn.provider,
         message: response.data,
-        availableActions: buildEmailActions(conn.permissionLevel),
+        availableActions: buildEmailActions(conn.permission_level),
       };
     },
 
     async filesList(params: OAuthFilesListParams): Promise<OAuthFilesListResult> {
-      if (!params.connectionId) throw new Error('connectionId is required');
+      if (!params.connection_id) throw new Error('connection_id is required');
 
-      logger.debug('oauth.files.list', { userId, connectionId: params.connectionId });
+      logger.debug('oauth.files.list', { user_id, connection_id: params.connection_id });
 
-      const conn = await resolveConnection(apiClient, userId, logger, params.connectionId);
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
 
-      if (!conn.enabledFeatures.includes('files')) {
+      if (!conn.enabled_features.includes('files')) {
         throw new Error('Files feature is not enabled on this connection');
       }
 
-      const qs = new URLSearchParams({ connectionId: params.connectionId });
-      if (params.folderId) qs.set('folderId', params.folderId);
-      if (params.pageToken) qs.set('pageToken', params.pageToken);
+      const qs = new URLSearchParams({ connection_id: params.connection_id });
+      if (params.folder_id) qs.set('folder_id', params.folder_id);
+      if (params.page_token) qs.set('page_token', params.page_token);
 
-      const response = await apiClient.get<{ files: Array<Record<string, unknown>>; nextPageToken?: string }>(
+      const response = await apiClient.get<{ files: Array<Record<string, unknown>>; next_page_token?: string }>(
         `/api/drive/files?${qs}`,
-        { userId },
+        { user_id },
       );
 
       if (!response.success) {
@@ -378,30 +378,30 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       return {
         connectionLabel: conn.label ?? conn.provider,
         files: response.data.files ?? [],
-        nextPageToken: response.data.nextPageToken,
+        next_page_token: response.data.next_page_token,
         availableActions: buildFileActions(),
       };
     },
 
     async filesSearch(params: OAuthFilesSearchParams): Promise<OAuthFilesSearchResult> {
-      if (!params.connectionId) throw new Error('connectionId is required');
+      if (!params.connection_id) throw new Error('connection_id is required');
       if (!params.query) throw new Error('query is required');
 
-      logger.debug('oauth.files.search', { userId, connectionId: params.connectionId });
+      logger.debug('oauth.files.search', { user_id, connection_id: params.connection_id });
 
-      const conn = await resolveConnection(apiClient, userId, logger, params.connectionId);
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
 
-      if (!conn.enabledFeatures.includes('files')) {
+      if (!conn.enabled_features.includes('files')) {
         throw new Error('Files feature is not enabled on this connection');
       }
 
-      const qs = new URLSearchParams({ connectionId: params.connectionId, q: params.query });
-      if (params.pageToken) qs.set('pageToken', params.pageToken);
+      const qs = new URLSearchParams({ connection_id: params.connection_id, q: params.query });
+      if (params.page_token) qs.set('page_token', params.page_token);
 
-      const response = await apiClient.get<{ files: Array<Record<string, unknown>>; nextPageToken?: string }>(
+      const response = await apiClient.get<{ files: Array<Record<string, unknown>>; next_page_token?: string }>(
         `/api/drive/files/search?${qs}`,
-        { userId },
+        { user_id },
       );
 
       if (!response.success) {
@@ -411,28 +411,28 @@ export function createOAuthGatewayMethods(options: OAuthGatewayMethodsOptions): 
       return {
         connectionLabel: conn.label ?? conn.provider,
         files: response.data.files ?? [],
-        nextPageToken: response.data.nextPageToken,
+        next_page_token: response.data.next_page_token,
         availableActions: buildFileActions(),
       };
     },
 
     async filesGet(params: OAuthFilesGetParams): Promise<OAuthFilesGetResult> {
-      if (!params.connectionId) throw new Error('connectionId is required');
-      if (!params.fileId) throw new Error('fileId is required');
+      if (!params.connection_id) throw new Error('connection_id is required');
+      if (!params.file_id) throw new Error('file_id is required');
 
-      logger.debug('oauth.files.get', { userId, connectionId: params.connectionId, fileId: params.fileId });
+      logger.debug('oauth.files.get', { user_id, connection_id: params.connection_id, file_id: params.file_id });
 
-      const conn = await resolveConnection(apiClient, userId, logger, params.connectionId);
+      const conn = await resolveConnection(apiClient, user_id, logger, params.connection_id);
       if (!conn) throw new Error('Connection not found or inactive');
 
-      if (!conn.enabledFeatures.includes('files')) {
+      if (!conn.enabled_features.includes('files')) {
         throw new Error('Files feature is not enabled on this connection');
       }
 
-      const qs = new URLSearchParams({ connectionId: params.connectionId });
+      const qs = new URLSearchParams({ connection_id: params.connection_id });
       const response = await apiClient.get<Record<string, unknown>>(
-        `/api/drive/files/${encodeURIComponent(params.fileId)}?${qs}`,
-        { userId },
+        `/api/drive/files/${encodeURIComponent(params.file_id)}?${qs}`,
+        { user_id },
       );
 
       if (!response.success) {

@@ -73,17 +73,17 @@ function createRawClient(baseUrl: string) {
  * Client that uses per-user JWTs for testing principal binding.
  * Each request is signed with a JWT for the specified user email.
  */
-function createUserClient(baseUrl: string, userEmail: string) {
+function createUserClient(baseUrl: string, user_email: string) {
   return {
     async get(path: string): Promise<Response> {
-      const token = await signTestJwt(userEmail);
+      const token = await signTestJwt(user_email);
       return fetch(`${baseUrl}${path}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
       });
     },
     async post(path: string, body: unknown): Promise<Response> {
-      const token = await signTestJwt(userEmail);
+      const token = await signTestJwt(user_email);
       return fetch(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -91,7 +91,7 @@ function createUserClient(baseUrl: string, userEmail: string) {
       });
     },
     async patch(path: string, body: unknown): Promise<Response> {
-      const token = await signTestJwt(userEmail);
+      const token = await signTestJwt(user_email);
       return fetch(`${baseUrl}${path}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -99,7 +99,7 @@ function createUserClient(baseUrl: string, userEmail: string) {
       });
     },
     async delete(path: string): Promise<Response> {
-      const token = await signTestJwt(userEmail);
+      const token = await signTestJwt(user_email);
       return fetch(`${baseUrl}${path}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -210,7 +210,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
 
     beforeAll(async () => {
       const res = await postWithRetry(api, '/api/contacts', {
-        displayName: `E2E Scoped Contact ${Date.now()}`,
+        display_name: `E2E Scoped Contact ${Date.now()}`,
         user_email: USER_A,
       });
       expect(res.status).toBe(201);
@@ -262,7 +262,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
 
       // Create two contacts for user A
       const c1 = await postWithRetry(api, '/api/contacts', {
-        displayName: `E2E RelA1 ${uniqueTag}`,
+        display_name: `E2E RelA1 ${uniqueTag}`,
         user_email: USER_A,
       });
       expect(c1.status).toBe(201);
@@ -270,7 +270,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
       cleanupContacts.push(contactA1);
 
       const c2 = await postWithRetry(api, '/api/contacts', {
-        displayName: `E2E RelA2 ${uniqueTag}`,
+        display_name: `E2E RelA2 ${uniqueTag}`,
         user_email: USER_A,
       });
       expect(c2.status).toBe(201);
@@ -330,7 +330,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
 
     it('contacts created without user_email are visible to all', async () => {
       const res = await postWithRetry(api, '/api/contacts', {
-        displayName: `E2E Unscoped Contact ${Date.now()}`,
+        display_name: `E2E Unscoped Contact ${Date.now()}`,
       });
       expect(res.status).toBe(201);
       unscopedContactId = ((await res.json()) as { id: string }).id;
@@ -401,7 +401,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
 
       beforeAll(async () => {
         const res = await postWithRetry(api, '/api/contacts', {
-          displayName: `E2E Protected Contact ${Date.now()}`,
+          display_name: `E2E Protected Contact ${Date.now()}`,
           user_email: USER_A,
         });
         expect(res.status).toBe(201);
@@ -412,7 +412,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
       it('user B cannot update user A contact', async () => {
         const res = await api.patch(
           `/api/contacts/${protectedContactId}?user_email=${encodeURIComponent(USER_B)}`,
-          { displayName: 'Hacked' },
+          { display_name: 'Hacked' },
         );
         expect(res.status).toBe(404);
       });
@@ -427,7 +427,7 @@ describe.skipIf(!RUN_E2E)('User-email cross-scope isolation (E2E)', () => {
       it('user A can update their own contact', async () => {
         const res = await api.patch(
           `/api/contacts/${protectedContactId}?user_email=${encodeURIComponent(USER_A)}`,
-          { displayName: 'Updated Name' },
+          { display_name: 'Updated Name' },
         );
         expect(res.status).toBe(200);
       });

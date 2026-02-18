@@ -76,8 +76,8 @@ export function KanbanPage(): React.JSX.Element {
     updateFilters({ ...filters, [type]: updated });
   };
 
-  const handleDragStart = (e: React.DragEvent, itemId: string) => {
-    setDraggedItem(itemId);
+  const handleDragStart = (e: React.DragEvent, item_id: string) => {
+    setDraggedItem(item_id);
     e.dataTransfer.effectAllowed = 'move';
   };
   const handleDragOver = (e: React.DragEvent, status: string) => {

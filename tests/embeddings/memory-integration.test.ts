@@ -32,19 +32,19 @@ describe('Memory Embedding Integration', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create a memory
       const memory = await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'User Preference', 'User prefers dark mode', 'note')
          RETURNING id::text as id`,
-        [workItemId],
+        [work_item_id],
       );
-      const memoryId = (memory.rows[0] as { id: string }).id;
+      const memory_id = (memory.rows[0] as { id: string }).id;
 
       // Generate embedding
-      const status = await generateMemoryEmbedding(pool, memoryId, 'User Preference\n\nUser prefers dark mode');
+      const status = await generateMemoryEmbedding(pool, memory_id, 'User Preference\n\nUser prefers dark mode');
 
       expect(status).toBe('complete');
 
@@ -52,7 +52,7 @@ describe('Memory Embedding Integration', () => {
       const result = await pool.query(
         `SELECT embedding_status, embedding_provider, embedding_model, embedding
          FROM memory WHERE id = $1`,
-        [memoryId],
+        [memory_id],
       );
 
       expect(result.rows[0]).toMatchObject({
@@ -80,24 +80,24 @@ describe('Memory Embedding Integration', () => {
            VALUES ('Test Project', 'Test description', 'project')
            RETURNING id::text as id`,
         );
-        const workItemId = (workItem.rows[0] as { id: string }).id;
+        const work_item_id = (workItem.rows[0] as { id: string }).id;
 
         // Create a memory
         const memory = await pool.query(
           `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, 'Test Memory', 'Test content', 'note')
            RETURNING id::text as id`,
-          [workItemId],
+          [work_item_id],
         );
-        const memoryId = (memory.rows[0] as { id: string }).id;
+        const memory_id = (memory.rows[0] as { id: string }).id;
 
         // Try to generate embedding (should return pending)
-        const status = await generateMemoryEmbedding(pool, memoryId, 'Test Memory\n\nTest content');
+        const status = await generateMemoryEmbedding(pool, memory_id, 'Test Memory\n\nTest content');
 
         expect(status).toBe('pending');
 
         // Verify status was updated
-        const result = await pool.query(`SELECT embedding_status FROM memory WHERE id = $1`, [memoryId]);
+        const result = await pool.query(`SELECT embedding_status FROM memory WHERE id = $1`, [memory_id]);
         expect((result.rows[0] as { embedding_status: string }).embedding_status).toBe('pending');
       } finally {
         // Restore API keys
@@ -117,7 +117,7 @@ describe('Memory Embedding Integration', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create memories with embeddings
       const memories = [
@@ -131,16 +131,16 @@ describe('Memory Embedding Integration', () => {
           `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, $2, $3, 'note')
            RETURNING id::text as id`,
-          [workItemId, mem.title, mem.content],
+          [work_item_id, mem.title, mem.content],
         );
-        const memoryId = (result.rows[0] as { id: string }).id;
-        await generateMemoryEmbedding(pool, memoryId, `${mem.title}\n\n${mem.content}`);
+        const memory_id = (result.rows[0] as { id: string }).id;
+        await generateMemoryEmbedding(pool, memory_id, `${mem.title}\n\n${mem.content}`);
       }
 
       // Search for theme-related memories
       const searchResult = await searchMemoriesSemantic(pool, 'user interface theme settings');
 
-      expect(searchResult.searchType).toBe('semantic');
+      expect(searchResult.search_type).toBe('semantic');
       expect(searchResult.results.length).toBeGreaterThan(0);
 
       // Dark mode should be most relevant to theme query
@@ -164,19 +164,19 @@ describe('Memory Embedding Integration', () => {
            VALUES ('Test Project', 'Test description', 'project')
            RETURNING id::text as id`,
         );
-        const workItemId = (workItem.rows[0] as { id: string }).id;
+        const work_item_id = (workItem.rows[0] as { id: string }).id;
 
         // Create a memory (no embedding)
         await pool.query(
           `INSERT INTO memory (work_item_id, title, content, memory_type)
            VALUES ($1, 'Test Memory with Keyword', 'Contains the keyword searchterm', 'note')`,
-          [workItemId],
+          [work_item_id],
         );
 
         // Search (should fall back to text)
         const searchResult = await searchMemoriesSemantic(pool, 'searchterm');
 
-        expect(searchResult.searchType).toBe('text');
+        expect(searchResult.search_type).toBe('text');
         expect(searchResult.results.length).toBe(1);
         expect(searchResult.results[0].title).toContain('Keyword');
       } finally {
@@ -197,25 +197,25 @@ describe('Memory Embedding Integration', () => {
          VALUES ('Test Project', 'Test description', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       // Create memories without embeddings
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type, embedding_status)
          VALUES ($1, 'Memory 1', 'Content 1', 'note', 'pending'),
                 ($1, 'Memory 2', 'Content 2', 'note', 'pending')`,
-        [workItemId],
+        [work_item_id],
       );
 
       // Run backfill
-      const result = await backfillMemoryEmbeddings(pool, { batchSize: 10 });
+      const result = await backfillMemoryEmbeddings(pool, { batch_size: 10 });
 
       expect(result.processed).toBe(2);
       expect(result.succeeded).toBe(2);
       expect(result.failed).toBe(0);
 
       // Verify embeddings were created
-      const memories = await pool.query(`SELECT embedding_status FROM memory WHERE work_item_id = $1`, [workItemId]);
+      const memories = await pool.query(`SELECT embedding_status FROM memory WHERE work_item_id = $1`, [work_item_id]);
       for (const row of memories.rows as Array<{ embedding_status: string }>) {
         expect(row.embedding_status).toBe('complete');
       }

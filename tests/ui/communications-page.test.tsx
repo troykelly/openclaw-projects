@@ -30,7 +30,7 @@ const mockEmails: LinkedEmail[] = [
     snippet: 'Here are the notes from our sprint planning session...',
     body: 'Full body of sprint planning notes.',
     hasAttachments: false,
-    isRead: true,
+    is_read: true,
   },
   {
     id: 'email-2',
@@ -40,7 +40,7 @@ const mockEmails: LinkedEmail[] = [
     date: new Date('2026-01-16T14:30:00Z'),
     snippet: 'Great work on the design mockups! A few suggestions...',
     hasAttachments: true,
-    isRead: false,
+    is_read: false,
   },
   {
     id: 'email-3',
@@ -49,7 +49,7 @@ const mockEmails: LinkedEmail[] = [
     to: [{ name: 'Finance Team', email: 'finance@example.com' }],
     date: new Date('2026-01-14T09:00:00Z'),
     snippet: 'Please review and approve the Q1 budget...',
-    isRead: true,
+    is_read: true,
   },
 ];
 

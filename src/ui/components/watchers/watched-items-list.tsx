@@ -11,8 +11,8 @@ import { getNotificationLevelLabel, type WatchedItem } from './types';
 
 export interface WatchedItemsListProps {
   items: WatchedItem[];
-  onItemClick: (itemId: string) => void;
-  onUnwatch: (itemId: string) => void;
+  onItemClick: (item_id: string) => void;
+  onUnwatch: (item_id: string) => void;
   filterType?: WatchedItem['type'];
   loading?: boolean;
   className?: string;
@@ -76,7 +76,7 @@ export function WatchedItemsList({ items, onItemClick, onUnwatch, filterType, lo
               <Badge variant={getStatusVariant(item.status)} className="text-xs">
                 {formatStatus(item.status)}
               </Badge>
-              {item.unreadCount > 0 && <Badge className="text-xs bg-primary">{item.unreadCount}</Badge>}
+              {item.unread_count > 0 && <Badge className="text-xs bg-primary">{item.unread_count}</Badge>}
             </div>
 
             <h4 className="font-medium text-sm truncate">{item.title}</h4>

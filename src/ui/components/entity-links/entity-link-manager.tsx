@@ -17,26 +17,26 @@ import { EntityLinkBadge } from './entity-link-badge';
 
 interface EntityLinkManagerProps {
   /** The type of the current entity. */
-  entityType: EntityLinkSourceType | EntityLinkTargetType;
+  entity_type: EntityLinkSourceType | EntityLinkTargetType;
   /** The ID of the current entity. */
-  entityId: string;
+  entity_id: string;
   /** Whether to query as source or target. */
   direction: 'source' | 'target';
   /** Called when a linked entity badge is clicked. */
-  onLinkClick?: (entityType: string, entityId: string) => void;
+  onLinkClick?: (entity_type: string, entity_id: string) => void;
 }
 
-export function EntityLinkManager({ entityType, entityId, direction, onLinkClick }: EntityLinkManagerProps) {
+export function EntityLinkManager({ entity_type, entity_id, direction, onLinkClick }: EntityLinkManagerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const sourceQuery = useEntityLinksFromSource(entityType, entityId);
-  const targetQuery = useEntityLinksToTarget(entityType, entityId);
+  const sourceQuery = useEntityLinksFromSource(entity_type, entity_id);
+  const targetQuery = useEntityLinksToTarget(entity_type, entity_id);
   const query = direction === 'source' ? sourceQuery : targetQuery;
   const links = query.data?.links ?? [];
 
-  const handleRemove = async (linkId: string) => {
+  const handleRemove = async (link_id: string) => {
     try {
-      await apiClient.delete(`/api/entity-links/${linkId}`);
+      await apiClient.delete(`/api/entity-links/${link_id}`);
       query.refetch();
     } catch (err) {
       console.error('Failed to remove entity link:', err);
@@ -79,8 +79,8 @@ export function EntityLinkManager({ entityType, entityId, direction, onLinkClick
       <CreateEntityLinkDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        entityType={entityType}
-        entityId={entityId}
+        entity_type={entity_type}
+        entity_id={entity_id}
         direction={direction}
         onCreated={() => query.refetch()}
       />
@@ -109,13 +109,13 @@ const LINK_TYPE_OPTIONS: Array<{ value: EntityLinkRelType; label: string }> = [
 interface CreateEntityLinkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entityType: string;
-  entityId: string;
+  entity_type: string;
+  entity_id: string;
   direction: 'source' | 'target';
   onCreated: () => void;
 }
 
-function CreateEntityLinkDialog({ open, onOpenChange, entityType, entityId, direction, onCreated }: CreateEntityLinkDialogProps) {
+function CreateEntityLinkDialog({ open, onOpenChange, entity_type, entity_id, direction, onCreated }: CreateEntityLinkDialogProps) {
   const [targetType, setTargetType] = useState<EntityLinkTargetType>('project');
   const [targetId, setTargetId] = useState('');
   const [linkType, setLinkType] = useState<EntityLinkRelType>('related');
@@ -130,8 +130,8 @@ function CreateEntityLinkDialog({ open, onOpenChange, entityType, entityId, dire
       const body: CreateEntityLinkBody =
         direction === 'source'
           ? {
-              source_type: entityType as EntityLinkSourceType,
-              source_id: entityId,
+              source_type: entity_type as EntityLinkSourceType,
+              source_id: entity_id,
               target_type: targetType,
               target_id: targetId.trim(),
               link_type: linkType,
@@ -139,8 +139,8 @@ function CreateEntityLinkDialog({ open, onOpenChange, entityType, entityId, dire
           : {
               source_type: targetType as EntityLinkSourceType,
               source_id: targetId.trim(),
-              target_type: entityType as EntityLinkTargetType,
-              target_id: entityId,
+              target_type: entity_type as EntityLinkTargetType,
+              target_id: entity_id,
               link_type: linkType,
             };
 

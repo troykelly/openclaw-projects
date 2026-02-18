@@ -1,6 +1,8 @@
 /**
  * Notebook service for the notebooks API.
  * Part of Epic #337, Issue #345
+ *
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
 import type { Pool } from 'pg';
@@ -23,20 +25,20 @@ import type {
 function mapRowToNotebook(row: Record<string, unknown>): Notebook {
   return {
     id: row.id as string,
-    userEmail: row.user_email as string,
+    user_email: row.user_email as string,
     name: row.name as string,
     description: row.description as string | null,
     icon: row.icon as string | null,
     color: row.color as string | null,
-    parentNotebookId: row.parent_notebook_id as string | null,
-    sortOrder: (row.sort_order as number) ?? 0,
-    isArchived: (row.is_archived as boolean) ?? false,
-    deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    parent_notebook_id: row.parent_notebook_id as string | null,
+    sort_order: (row.sort_order as number) ?? 0,
+    is_archived: (row.is_archived as boolean) ?? false,
+    deleted_at: row.deleted_at ? new Date(row.deleted_at as string) : null,
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
     // Optional fields
-    noteCount: row.note_count !== undefined ? Number(row.note_count) : undefined,
-    childCount: row.child_count !== undefined ? Number(row.child_count) : undefined,
+    note_count: row.note_count !== undefined ? Number(row.note_count) : undefined,
+    child_count: row.child_count !== undefined ? Number(row.child_count) : undefined,
     parent: row.parent_name ? { id: row.parent_notebook_id as string, name: row.parent_name as string } : null,
   };
 }
@@ -44,21 +46,21 @@ function mapRowToNotebook(row: Record<string, unknown>): Notebook {
 /**
  * Checks if user owns a notebook
  */
-export async function userOwnsNotebook(pool: Pool, notebookId: string, userEmail: string): Promise<boolean> {
-  const result = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
-  return result.rows[0]?.user_email === userEmail;
+export async function userOwnsNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<boolean> {
+  const result = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
+  return result.rows[0]?.user_email === user_email;
 }
 
 /**
  * Checks if a notebook would create a circular reference
  */
-async function wouldCreateCircularReference(pool: Pool, notebookId: string, newParentId: string): Promise<boolean> {
+async function wouldCreateCircularReference(pool: Pool, notebook_id: string, newParentId: string): Promise<boolean> {
   // Check if newParentId is the notebook itself
-  if (notebookId === newParentId) {
+  if (notebook_id === newParentId) {
     return true;
   }
 
-  // Check if newParentId is a descendant of notebookId
+  // Check if newParentId is a descendant of notebook_id
   const result = await pool.query(
     `WITH RECURSIVE ancestors AS (
       SELECT id, parent_notebook_id FROM notebook WHERE id = $1
@@ -68,7 +70,7 @@ async function wouldCreateCircularReference(pool: Pool, notebookId: string, newP
       JOIN ancestors a ON n.id = a.parent_notebook_id
     )
     SELECT 1 FROM ancestors WHERE id = $2 LIMIT 1`,
-    [newParentId, notebookId],
+    [newParentId, notebook_id],
   );
 
   return result.rows.length > 0;
@@ -77,14 +79,14 @@ async function wouldCreateCircularReference(pool: Pool, notebookId: string, newP
 /**
  * Creates a new notebook
  */
-export async function createNotebook(pool: Pool, input: CreateNotebookInput, userEmail: string): Promise<Notebook> {
+export async function createNotebook(pool: Pool, input: CreateNotebookInput, user_email: string): Promise<Notebook> {
   // Validate parent notebook exists and belongs to user if provided
-  if (input.parentNotebookId) {
-    const parentResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parentNotebookId]);
+  if (input.parent_notebook_id) {
+    const parentResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parent_notebook_id]);
     if (parentResult.rows.length === 0) {
       throw new Error('Parent notebook not found');
     }
-    if (parentResult.rows[0].user_email !== userEmail) {
+    if (parentResult.rows[0].user_email !== user_email) {
       throw new Error('Cannot create notebook under a notebook you do not own');
     }
   }
@@ -97,19 +99,19 @@ export async function createNotebook(pool: Pool, input: CreateNotebookInput, use
       id::text, user_email, name, description, icon, color,
       parent_notebook_id::text, sort_order, is_archived, deleted_at,
       created_at, updated_at`,
-    [userEmail, input.name, input.description ?? null, input.icon ?? null, input.color ?? null, input.parentNotebookId ?? null],
+    [user_email, input.name, input.description ?? null, input.icon ?? null, input.color ?? null, input.parent_notebook_id ?? null],
   );
 
   const notebook = mapRowToNotebook(result.rows[0]);
-  notebook.noteCount = 0;
-  notebook.childCount = 0;
+  notebook.note_count = 0;
+  notebook.child_count = 0;
   return notebook;
 }
 
 /**
  * Gets a notebook by ID
  */
-export async function getNotebook(pool: Pool, notebookId: string, userEmail: string, options: GetNotebookOptions = {}): Promise<Notebook | null> {
+export async function getNotebook(pool: Pool, notebook_id: string, user_email: string, options: GetNotebookOptions = {}): Promise<Notebook | null> {
   // Get notebook with optional note count
   const result = await pool.query(
     `SELECT
@@ -122,7 +124,7 @@ export async function getNotebook(pool: Pool, notebookId: string, userEmail: str
     FROM notebook nb
     LEFT JOIN notebook pnb ON nb.parent_notebook_id = pnb.id
     WHERE nb.id = $1 AND nb.deleted_at IS NULL AND nb.user_email = $2`,
-    [notebookId, userEmail],
+    [notebook_id, user_email],
   );
 
   if (result.rows.length === 0) {
@@ -132,24 +134,24 @@ export async function getNotebook(pool: Pool, notebookId: string, userEmail: str
   const notebook = mapRowToNotebook(result.rows[0]);
 
   // Include notes if requested
-  if (options.includeNotes) {
+  if (options.include_notes) {
     const notesResult = await pool.query(
       `SELECT id::text, title, updated_at
        FROM note
        WHERE notebook_id = $1 AND deleted_at IS NULL
        ORDER BY sort_order ASC, updated_at DESC
        LIMIT 100`,
-      [notebookId],
+      [notebook_id],
     );
     notebook.notes = notesResult.rows.map((n) => ({
       id: n.id as string,
       title: n.title as string,
-      updatedAt: new Date(n.updated_at as string),
+      updated_at: new Date(n.updated_at as string),
     }));
   }
 
   // Include children if requested
-  if (options.includeChildren) {
+  if (options.include_children) {
     const childrenResult = await pool.query(
       `SELECT
         nb.id::text, nb.user_email, nb.name, nb.description, nb.icon, nb.color,
@@ -160,7 +162,7 @@ export async function getNotebook(pool: Pool, notebookId: string, userEmail: str
       FROM notebook nb
       WHERE nb.parent_notebook_id = $1 AND nb.deleted_at IS NULL
       ORDER BY nb.sort_order ASC, nb.name ASC`,
-      [notebookId],
+      [notebook_id],
     );
     notebook.children = childrenResult.rows.map(mapRowToNotebook);
   }
@@ -171,26 +173,26 @@ export async function getNotebook(pool: Pool, notebookId: string, userEmail: str
 /**
  * Lists notebooks with filters and pagination
  */
-export async function listNotebooks(pool: Pool, userEmail: string, options: ListNotebooksOptions = {}): Promise<ListNotebooksResult> {
+export async function listNotebooks(pool: Pool, user_email: string, options: ListNotebooksOptions = {}): Promise<ListNotebooksResult> {
   const limit = Math.min(options.limit ?? 100, 200);
   const offset = options.offset ?? 0;
 
   // Build WHERE clause
   const conditions: string[] = ['nb.deleted_at IS NULL', 'nb.user_email = $1'];
-  const params: (string | boolean | number)[] = [userEmail];
+  const params: (string | boolean | number)[] = [user_email];
   let paramIndex = 2;
 
   // Filter by parent (null means root notebooks)
-  if (options.parentId === null) {
+  if (options.parent_id === null) {
     conditions.push('nb.parent_notebook_id IS NULL');
-  } else if (options.parentId) {
+  } else if (options.parent_id) {
     conditions.push(`nb.parent_notebook_id = $${paramIndex}`);
-    params.push(options.parentId);
+    params.push(options.parent_id);
     paramIndex++;
   }
 
   // Include archived notebooks
-  if (!options.includeArchived) {
+  if (!options.include_archived) {
     conditions.push('nb.is_archived = false');
   }
 
@@ -202,10 +204,10 @@ export async function listNotebooks(pool: Pool, userEmail: string, options: List
 
   // Build select with optional counts
   let selectCounts = '';
-  if (options.includeNoteCounts !== false) {
+  if (options.include_note_counts !== false) {
     selectCounts += ', (SELECT COUNT(*) FROM note WHERE notebook_id = nb.id AND deleted_at IS NULL) as note_count';
   }
-  if (options.includeChildCounts !== false) {
+  if (options.include_child_counts !== false) {
     selectCounts += ', (SELECT COUNT(*) FROM notebook WHERE parent_notebook_id = nb.id AND deleted_at IS NULL) as child_count';
   }
 
@@ -235,7 +237,7 @@ export async function listNotebooks(pool: Pool, userEmail: string, options: List
 /**
  * Gets notebooks as a tree structure
  */
-export async function getNotebooksTree(pool: Pool, userEmail: string, includeNoteCounts = false): Promise<NotebookTreeNode[]> {
+export async function getNotebooksTree(pool: Pool, user_email: string, includeNoteCounts = false): Promise<NotebookTreeNode[]> {
   // Get all notebooks for the user
   let selectCounts = '';
   if (includeNoteCounts) {
@@ -249,11 +251,11 @@ export async function getNotebooksTree(pool: Pool, userEmail: string, includeNot
     FROM notebook nb
     WHERE nb.user_email = $1 AND nb.deleted_at IS NULL AND nb.is_archived = false
     ORDER BY nb.sort_order ASC, nb.name ASC`,
-    [userEmail],
+    [user_email],
   );
 
   // Build tree structure
-  const notebooksById = new Map<string, NotebookTreeNode & { parentId: string | null }>();
+  const notebooksById = new Map<string, NotebookTreeNode & { parent_id: string | null }>();
   const rootNodes: NotebookTreeNode[] = [];
 
   // First pass: create all nodes
@@ -263,18 +265,18 @@ export async function getNotebooksTree(pool: Pool, userEmail: string, includeNot
       name: row.name as string,
       icon: row.icon as string | null,
       color: row.color as string | null,
-      noteCount: row.note_count !== undefined ? Number(row.note_count) : undefined,
+      note_count: row.note_count !== undefined ? Number(row.note_count) : undefined,
       children: [],
-      parentId: row.parent_notebook_id as string | null,
+      parent_id: row.parent_notebook_id as string | null,
     });
   }
 
   // Second pass: build tree
   for (const node of notebooksById.values()) {
-    if (node.parentId === null) {
+    if (node.parent_id === null) {
       rootNodes.push(node);
     } else {
-      const parent = notebooksById.get(node.parentId);
+      const parent = notebooksById.get(node.parent_id);
       if (parent) {
         parent.children.push(node);
       } else {
@@ -284,9 +286,9 @@ export async function getNotebooksTree(pool: Pool, userEmail: string, includeNot
     }
   }
 
-  // Remove parentId from result
-  const cleanNode = (node: NotebookTreeNode & { parentId?: string | null }): NotebookTreeNode => {
-    const { parentId: _, ...clean } = node;
+  // Remove parent_id from result
+  const cleanNode = (node: NotebookTreeNode & { parent_id?: string | null }): NotebookTreeNode => {
+    const { parent_id: _, ...clean } = node;
     return {
       ...clean,
       children: node.children.map(cleanNode),
@@ -299,11 +301,11 @@ export async function getNotebooksTree(pool: Pool, userEmail: string, includeNot
 /**
  * Updates a notebook
  */
-export async function updateNotebook(pool: Pool, notebookId: string, input: UpdateNotebookInput, userEmail: string): Promise<Notebook | null> {
+export async function updateNotebook(pool: Pool, notebook_id: string, input: UpdateNotebookInput, user_email: string): Promise<Notebook | null> {
   // Check ownership
-  const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
   if (!isOwner) {
-    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
       return null; // 404
     }
@@ -311,18 +313,18 @@ export async function updateNotebook(pool: Pool, notebookId: string, input: Upda
   }
 
   // Validate new parent if provided
-  if (input.parentNotebookId !== undefined && input.parentNotebookId !== null) {
+  if (input.parent_notebook_id !== undefined && input.parent_notebook_id !== null) {
     // Check parent exists and belongs to user
-    const parentResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parentNotebookId]);
+    const parentResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parent_notebook_id]);
     if (parentResult.rows.length === 0) {
       throw new Error('Parent notebook not found');
     }
-    if (parentResult.rows[0].user_email !== userEmail) {
+    if (parentResult.rows[0].user_email !== user_email) {
       throw new Error('Cannot move notebook under a notebook you do not own');
     }
 
     // Check for circular reference
-    const wouldBeCircular = await wouldCreateCircularReference(pool, notebookId, input.parentNotebookId);
+    const wouldBeCircular = await wouldCreateCircularReference(pool, notebook_id, input.parent_notebook_id);
     if (wouldBeCircular) {
       throw new Error('Cannot create circular notebook hierarchy');
     }
@@ -353,23 +355,23 @@ export async function updateNotebook(pool: Pool, notebookId: string, input: Upda
     params.push(input.color);
     paramIndex++;
   }
-  if (input.parentNotebookId !== undefined) {
+  if (input.parent_notebook_id !== undefined) {
     updates.push(`parent_notebook_id = $${paramIndex}`);
-    params.push(input.parentNotebookId);
+    params.push(input.parent_notebook_id);
     paramIndex++;
   }
-  if (input.sortOrder !== undefined) {
+  if (input.sort_order !== undefined) {
     updates.push(`sort_order = $${paramIndex}`);
-    params.push(input.sortOrder);
+    params.push(input.sort_order);
     paramIndex++;
   }
 
   if (updates.length === 0) {
     // Nothing to update, just return current notebook
-    return getNotebook(pool, notebookId, userEmail);
+    return getNotebook(pool, notebook_id, user_email);
   }
 
-  params.push(notebookId);
+  params.push(notebook_id);
 
   const result = await pool.query(
     `UPDATE notebook
@@ -392,10 +394,10 @@ export async function updateNotebook(pool: Pool, notebookId: string, input: Upda
 /**
  * Archives a notebook
  */
-export async function archiveNotebook(pool: Pool, notebookId: string, userEmail: string): Promise<Notebook | null> {
-  const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
+export async function archiveNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<Notebook | null> {
+  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
   if (!isOwner) {
-    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
       return null;
     }
@@ -410,7 +412,7 @@ export async function archiveNotebook(pool: Pool, notebookId: string, userEmail:
        id::text, user_email, name, description, icon, color,
        parent_notebook_id::text, sort_order, is_archived, deleted_at,
        created_at, updated_at`,
-    [notebookId],
+    [notebook_id],
   );
 
   if (result.rows.length === 0) {
@@ -423,10 +425,10 @@ export async function archiveNotebook(pool: Pool, notebookId: string, userEmail:
 /**
  * Unarchives a notebook
  */
-export async function unarchiveNotebook(pool: Pool, notebookId: string, userEmail: string): Promise<Notebook | null> {
-  const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
+export async function unarchiveNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<Notebook | null> {
+  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
   if (!isOwner) {
-    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
       return null;
     }
@@ -441,7 +443,7 @@ export async function unarchiveNotebook(pool: Pool, notebookId: string, userEmai
        id::text, user_email, name, description, icon, color,
        parent_notebook_id::text, sort_order, is_archived, deleted_at,
        created_at, updated_at`,
-    [notebookId],
+    [notebook_id],
   );
 
   if (result.rows.length === 0) {
@@ -454,10 +456,10 @@ export async function unarchiveNotebook(pool: Pool, notebookId: string, userEmai
 /**
  * Soft deletes a notebook
  */
-export async function deleteNotebook(pool: Pool, notebookId: string, userEmail: string, deleteNotes = false): Promise<boolean> {
-  const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
+export async function deleteNotebook(pool: Pool, notebook_id: string, user_email: string, deleteNotes = false): Promise<boolean> {
+  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
   if (!isOwner) {
-    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
       throw new Error('NOT_FOUND');
     }
@@ -467,20 +469,20 @@ export async function deleteNotebook(pool: Pool, notebookId: string, userEmail: 
   // Handle notes in the notebook
   if (deleteNotes) {
     // Soft delete all notes in the notebook
-    await pool.query(`UPDATE note SET deleted_at = NOW() WHERE notebook_id = $1 AND deleted_at IS NULL`, [notebookId]);
+    await pool.query(`UPDATE note SET deleted_at = NOW() WHERE notebook_id = $1 AND deleted_at IS NULL`, [notebook_id]);
   } else {
     // Move notes to root (null notebook)
-    await pool.query(`UPDATE note SET notebook_id = NULL WHERE notebook_id = $1 AND deleted_at IS NULL`, [notebookId]);
+    await pool.query(`UPDATE note SET notebook_id = NULL WHERE notebook_id = $1 AND deleted_at IS NULL`, [notebook_id]);
   }
 
   // Move child notebooks to parent of deleted notebook (or root)
-  const notebookResult = await pool.query('SELECT parent_notebook_id FROM notebook WHERE id = $1', [notebookId]);
-  const parentId = notebookResult.rows[0]?.parent_notebook_id ?? null;
+  const notebookResult = await pool.query('SELECT parent_notebook_id FROM notebook WHERE id = $1', [notebook_id]);
+  const parent_id = notebookResult.rows[0]?.parent_notebook_id ?? null;
 
-  await pool.query(`UPDATE notebook SET parent_notebook_id = $1 WHERE parent_notebook_id = $2 AND deleted_at IS NULL`, [parentId, notebookId]);
+  await pool.query(`UPDATE notebook SET parent_notebook_id = $1 WHERE parent_notebook_id = $2 AND deleted_at IS NULL`, [parent_id, notebook_id]);
 
   // Soft delete the notebook
-  const result = await pool.query(`UPDATE notebook SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, [notebookId]);
+  const result = await pool.query(`UPDATE notebook SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, [notebook_id]);
 
   return (result.rowCount ?? 0) > 0;
 }
@@ -488,11 +490,11 @@ export async function deleteNotebook(pool: Pool, notebookId: string, userEmail: 
 /**
  * Moves or copies notes to a notebook
  */
-export async function moveNotesToNotebook(pool: Pool, notebookId: string, input: MoveNotesInput, userEmail: string): Promise<MoveNotesResult> {
+export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input: MoveNotesInput, user_email: string): Promise<MoveNotesResult> {
   // Verify user owns target notebook
-  const isOwner = await userOwnsNotebook(pool, notebookId, userEmail);
+  const isOwner = await userOwnsNotebook(pool, notebook_id, user_email);
   if (!isOwner) {
-    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebookId]);
+    const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
     if (exists.rows.length === 0) {
       throw new Error('NOT_FOUND');
     }
@@ -502,7 +504,7 @@ export async function moveNotesToNotebook(pool: Pool, notebookId: string, input:
   const moved: string[] = [];
   const failed: string[] = [];
 
-  for (const noteId of input.noteIds) {
+  for (const noteId of input.note_ids) {
     try {
       // Check if user owns the note
       const noteResult = await pool.query(
@@ -515,14 +517,14 @@ export async function moveNotesToNotebook(pool: Pool, notebookId: string, input:
         continue;
       }
 
-      if (noteResult.rows[0].user_email !== userEmail) {
+      if (noteResult.rows[0].user_email !== user_email) {
         failed.push(noteId);
         continue;
       }
 
       if (input.action === 'move') {
         // Move: update notebook_id
-        await pool.query(`UPDATE note SET notebook_id = $1 WHERE id = $2`, [notebookId, noteId]);
+        await pool.query(`UPDATE note SET notebook_id = $1 WHERE id = $2`, [notebook_id, noteId]);
         moved.push(noteId);
       } else {
         // Copy: insert new note
@@ -531,7 +533,7 @@ export async function moveNotesToNotebook(pool: Pool, notebookId: string, input:
           `INSERT INTO note (user_email, notebook_id, title, content, tags, visibility, hide_from_agents, summary, is_pinned)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            RETURNING id::text`,
-          [userEmail, notebookId, note.title, note.content, note.tags, note.visibility, note.hide_from_agents, note.summary, note.is_pinned],
+          [user_email, notebook_id, note.title, note.content, note.tags, note.visibility, note.hide_from_agents, note.summary, note.is_pinned],
         );
         moved.push(copyResult.rows[0].id);
       }

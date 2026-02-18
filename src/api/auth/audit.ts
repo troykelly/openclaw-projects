@@ -62,7 +62,7 @@ export function maskEmail(email: string): string {
  * @param metadata - Additional event-specific metadata
  */
 export async function logAuthEvent(pool: Pool, event: AuthAuditEvent, ip: string | null, email: string | null, metadata: AuditMetadata = {}): Promise<void> {
-  const actorId = email ? hashEmail(email) : null;
+  const actor_id = email ? hashEmail(email) : null;
 
   // Include masked email and IP in metadata
   const fullMetadata: Record<string, unknown> = { ...metadata };
@@ -77,7 +77,7 @@ export async function logAuthEvent(pool: Pool, event: AuthAuditEvent, ip: string
     await pool.query(
       `INSERT INTO audit_log (actor_type, actor_id, action, entity_type, metadata)
        VALUES ('system', $1, 'auth', $2, $3)`,
-      [actorId, event, JSON.stringify(fullMetadata)],
+      [actor_id, event, JSON.stringify(fullMetadata)],
     );
   } catch (err) {
     // Best-effort: audit failures must not break auth flows

@@ -172,9 +172,9 @@ describe('geolocation/ingestion', () => {
       const current = validUpdate({ lat: -33.8688, lng: 151.2093, timestamp: new Date() });
       const previous: GeoLocation = {
         time: new Date(Date.now() - 10_000), // 10s ago
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         providerId: 'p1',
-        entityId: 'person.john',
+        entity_id: 'person.john',
         lat: -33.8688,
         lng: 151.2093,
         accuracyM: 10,
@@ -183,10 +183,10 @@ describe('geolocation/ingestion', () => {
         bearing: null,
         indoorZone: null,
         address: null,
-        placeLabel: null,
+        place_label: null,
         rawPayload: null,
         locationEmbedding: null,
-        embeddingStatus: 'pending',
+        embedding_status: 'pending',
       };
       expect(shouldDedup(current, previous, 5, 30)).toBe(true);
     });
@@ -195,9 +195,9 @@ describe('geolocation/ingestion', () => {
       const current = validUpdate({ lat: -33.87, lng: 151.21, timestamp: new Date() });
       const previous: GeoLocation = {
         time: new Date(Date.now() - 10_000),
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         providerId: 'p1',
-        entityId: 'person.john',
+        entity_id: 'person.john',
         lat: -33.86,
         lng: 151.20,
         accuracyM: 10,
@@ -206,10 +206,10 @@ describe('geolocation/ingestion', () => {
         bearing: null,
         indoorZone: null,
         address: null,
-        placeLabel: null,
+        place_label: null,
         rawPayload: null,
         locationEmbedding: null,
-        embeddingStatus: 'pending',
+        embedding_status: 'pending',
       };
       // Distance of ~1.4km, well above default 5m threshold
       expect(shouldDedup(current, previous, 5, 30)).toBe(false);
@@ -219,9 +219,9 @@ describe('geolocation/ingestion', () => {
       const current = validUpdate({ lat: -33.8688, lng: 151.2093, timestamp: new Date() });
       const previous: GeoLocation = {
         time: new Date(Date.now() - 60_000), // 60s ago
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         providerId: 'p1',
-        entityId: 'person.john',
+        entity_id: 'person.john',
         lat: -33.8688,
         lng: 151.2093,
         accuracyM: 10,
@@ -230,10 +230,10 @@ describe('geolocation/ingestion', () => {
         bearing: null,
         indoorZone: null,
         address: null,
-        placeLabel: null,
+        place_label: null,
         rawPayload: null,
         locationEmbedding: null,
-        embeddingStatus: 'pending',
+        embedding_status: 'pending',
       };
       expect(shouldDedup(current, previous, 5, 30)).toBe(false);
     });

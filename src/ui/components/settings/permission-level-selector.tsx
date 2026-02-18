@@ -15,7 +15,7 @@ import type { OAuthFeature, OAuthPermissionLevel } from './types';
 export interface PermissionLevelSelectorProps {
   value: OAuthPermissionLevel;
   onChange: (level: OAuthPermissionLevel) => void;
-  enabledFeatures?: OAuthFeature[];
+  enabled_features?: OAuthFeature[];
   isDisabled?: boolean;
 }
 
@@ -30,7 +30,7 @@ function formatFeatureList(features: OAuthFeature[]): string {
 export function PermissionLevelSelector({
   value,
   onChange,
-  enabledFeatures = [],
+  enabled_features = [],
   isDisabled,
 }: PermissionLevelSelectorProps) {
   return (
@@ -76,14 +76,14 @@ export function PermissionLevelSelector({
         </button>
       </div>
 
-      {value === 'read_write' && enabledFeatures.length > 0 && (
+      {value === 'read_write' && enabled_features.length > 0 && (
         <div
           className="mt-2 flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
           data-testid="write-access-warning"
         >
           <ShieldAlert className="size-3 shrink-0" />
           <span>
-            This will grant OpenClaw write access to your {formatFeatureList(enabledFeatures)}
+            This will grant OpenClaw write access to your {formatFeatureList(enabled_features)}
           </span>
         </div>
       )}

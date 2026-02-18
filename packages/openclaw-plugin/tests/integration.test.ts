@@ -219,11 +219,11 @@ describe('Integration Tests', () => {
 
         const _instance = register(ctx);
 
-        // The plugin should register and log with some userId
+        // The plugin should register and log with some user_id
         expect(mockLogger.info).toHaveBeenCalledWith(
           'Plugin registered',
           expect.objectContaining({
-            userId: expect.any(String),
+            user_id: expect.any(String),
           }),
         );
       });
@@ -243,11 +243,11 @@ describe('Integration Tests', () => {
 
         const _instance = register(ctx);
 
-        // With session scoping, userId should include session info
+        // With session scoping, user_id should include session info
         expect(mockLogger.info).toHaveBeenCalledWith(
           'Plugin registered',
           expect.objectContaining({
-            userId: expect.any(String),
+            user_id: expect.any(String),
           }),
         );
       });

@@ -26,22 +26,22 @@ describe('Webhook Payloads', () => {
   describe('buildSmsReceivedPayload', () => {
     it('builds correct payload structure', () => {
       const payload = buildSmsReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'John Doe',
-        endpointType: 'phone',
-        endpointValue: '+15551234567',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Hello, this is a test message.',
+        contact_id: 'contact-123',
+        contact_name: 'John Doe',
+        endpoint_type: 'phone',
+        endpoint_value: '+15551234567',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Hello, this is a test message.',
       });
 
       expect(payload.name).toBe('SMS Handler');
-      expect(payload.wakeMode).toBe('now');
+      expect(payload.wake_mode).toBe('now');
       expect(payload.deliver).toBe(true);
       expect(payload.channel).toBe('last');
       expect(payload.message).toContain('John Doe');
       expect(payload.message).toContain('Hello, this is a test message.');
-      expect(payload.sessionKey).toBe('sms:contact:contact-123:thread:thread-456');
+      expect(payload.session_key).toBe('sms:contact:contact-123:thread:thread-456');
       expect(payload.context.event_type).toBe('sms_received');
       expect(payload.context.contact_id).toBe('contact-123');
       expect(payload.context.message_body).toBe('Hello, this is a test message.');
@@ -49,14 +49,14 @@ describe('Webhook Payloads', () => {
 
     it('includes optional m365_contact_id', () => {
       const payload = buildSmsReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'John Doe',
-        endpointType: 'phone',
-        endpointValue: '+15551234567',
-        m365ContactId: 'ms-contact-id',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Test',
+        contact_id: 'contact-123',
+        contact_name: 'John Doe',
+        endpoint_type: 'phone',
+        endpoint_value: '+15551234567',
+        m365_contact_id: 'ms-contact-id',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Test',
       });
 
       expect(payload.context.m365_contact_id).toBe('ms-contact-id');
@@ -66,22 +66,22 @@ describe('Webhook Payloads', () => {
   describe('buildEmailReceivedPayload', () => {
     it('builds correct payload structure', () => {
       const payload = buildEmailReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'Jane Smith',
-        fromEmail: 'jane@example.com',
-        toEmail: 'me@example.com',
+        contact_id: 'contact-123',
+        contact_name: 'Jane Smith',
+        from_email: 'jane@example.com',
+        to_email: 'me@example.com',
         subject: 'Meeting tomorrow',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Hi, can we meet tomorrow at 3pm?',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Hi, can we meet tomorrow at 3pm?',
       });
 
       expect(payload.name).toBe('Email Handler');
-      expect(payload.wakeMode).toBe('now');
+      expect(payload.wake_mode).toBe('now');
       expect(payload.message).toContain('Jane Smith');
       expect(payload.message).toContain('jane@example.com');
       expect(payload.message).toContain('Meeting tomorrow');
-      expect(payload.sessionKey).toBe('email:contact:contact-123:thread:thread-456');
+      expect(payload.session_key).toBe('email:contact:contact-123:thread:thread-456');
       expect(payload.context.event_type).toBe('email_received');
       expect(payload.context.from_email).toBe('jane@example.com');
       expect(payload.context.subject).toBe('Meeting tomorrow');
@@ -89,12 +89,12 @@ describe('Webhook Payloads', () => {
 
     it('handles missing subject', () => {
       const payload = buildEmailReceivedPayload({
-        contactId: 'contact-123',
-        contactName: 'Jane Smith',
-        fromEmail: 'jane@example.com',
-        threadId: 'thread-456',
-        messageId: 'msg-789',
-        messageBody: 'Test',
+        contact_id: 'contact-123',
+        contact_name: 'Jane Smith',
+        from_email: 'jane@example.com',
+        thread_id: 'thread-456',
+        message_id: 'msg-789',
+        message_body: 'Test',
       });
 
       expect(payload.message).toContain('(no subject)');
@@ -103,19 +103,19 @@ describe('Webhook Payloads', () => {
 
   describe('buildReminderDuePayload', () => {
     it('builds correct payload structure', () => {
-      const notBefore = new Date('2026-02-03T10:00:00Z');
+      const not_before = new Date('2026-02-03T10:00:00Z');
       const payload = buildReminderDuePayload({
-        workItemId: 'work-item-123',
-        workItemTitle: 'Call mom',
-        workItemDescription: 'Wish her happy birthday',
-        workItemKind: 'issue',
-        notBefore,
+        work_item_id: 'work-item-123',
+        work_item_title: 'Call mom',
+        work_item_description: 'Wish her happy birthday',
+        work_item_kind: 'issue',
+        not_before,
       });
 
       expect(payload.name).toBe('Reminder Handler');
       expect(payload.message).toContain('Call mom');
       expect(payload.message).toContain('Wish her happy birthday');
-      expect(payload.sessionKey).toBe('reminder:work_item:work-item-123');
+      expect(payload.session_key).toBe('reminder:work_item:work-item-123');
       expect(payload.context.event_type).toBe('reminder_due');
       expect(payload.context.work_item_id).toBe('work-item-123');
       expect(payload.context.not_before).toBe('2026-02-03T10:00:00.000Z');
@@ -124,13 +124,13 @@ describe('Webhook Payloads', () => {
 
   describe('buildDeadlineApproachingPayload', () => {
     it('builds correct payload structure', () => {
-      const notAfter = new Date('2026-02-03T18:00:00Z');
+      const not_after = new Date('2026-02-03T18:00:00Z');
       const payload = buildDeadlineApproachingPayload({
-        workItemId: 'work-item-123',
-        workItemTitle: 'Submit report',
-        workItemKind: 'issue',
-        notAfter,
-        hoursRemaining: 24,
+        work_item_id: 'work-item-123',
+        work_item_title: 'Submit report',
+        work_item_kind: 'issue',
+        not_after,
+        hours_remaining: 24,
       });
 
       expect(payload.text).toContain('Submit report');

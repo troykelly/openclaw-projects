@@ -199,7 +199,7 @@ export function CommunicationsPage({
     setSearchQuery('');
   }, []);
 
-  const totalCount = emails.length + calendarEvents.length;
+  const total_count = emails.length + calendarEvents.length;
   const filteredCount = filteredEmails.length + filteredEvents.length;
   const hasActiveFilters = searchQuery.trim().length > 0 || linkFilter !== 'all';
 
@@ -241,8 +241,8 @@ export function CommunicationsPage({
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Communications</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {totalCount} item{totalCount !== 1 ? 's' : ''}
-            {hasActiveFilters && filteredCount !== totalCount && <span> ({filteredCount} shown)</span>}
+            {total_count} item{total_count !== 1 ? 's' : ''}
+            {hasActiveFilters && filteredCount !== total_count && <span> ({filteredCount} shown)</span>}
           </p>
         </div>
       </div>
@@ -362,7 +362,7 @@ export function CommunicationsPage({
           <TabsTrigger value="all" className="gap-1.5" data-testid="tab-all">
             <MessageSquare className="size-3.5" />
             All
-            {totalCount > 0 && (
+            {total_count > 0 && (
               <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">
                 {filteredCount}
               </Badge>

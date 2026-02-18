@@ -40,7 +40,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
   });
 
   describe('POST /api/notes/:id/presence - Type Validation', () => {
-    it('returns 400 when userEmail is missing', async () => {
+    it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
@@ -48,14 +48,14 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('userEmail');
+      expect(res.json().error).toContain('user_email');
     });
 
-    it('returns 400 when userEmail is not a string', async () => {
+    it('returns 400 when user_email is not a string', async () => {
       const res = await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: 123 },
+        payload: { user_email: 123 },
       });
 
       expect(res.statusCode).toBe(400);
@@ -67,8 +67,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: 'invalid',
+          user_email: testUserEmail,
+          cursor_position: 'invalid',
         },
       });
 
@@ -81,8 +81,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 'not-a-number', column: 5 },
+          user_email: testUserEmail,
+          cursor_position: { line: 'not-a-number', column: 5 },
         },
       });
 
@@ -95,8 +95,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 1.5, column: 5 },
+          user_email: testUserEmail,
+          cursor_position: { line: 1.5, column: 5 },
         },
       });
 
@@ -109,8 +109,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: -1, column: 5 },
+          user_email: testUserEmail,
+          cursor_position: { line: -1, column: 5 },
         },
       });
 
@@ -123,8 +123,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 10, column: 5 },
+          user_email: testUserEmail,
+          cursor_position: { line: 10, column: 5 },
         },
       });
 
@@ -137,7 +137,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
         payload: {
-          userEmail: testUserEmail,
+          user_email: testUserEmail,
         },
       });
 
@@ -214,26 +214,26 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
   });
 
   describe('PUT /api/notes/:id/presence/cursor - Type Validation', () => {
-    it('returns 400 when userEmail is missing', async () => {
+    it('returns 400 when user_email is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          cursorPosition: { line: 1, column: 1 },
+          cursor_position: { line: 1, column: 1 },
         },
       });
 
       expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('userEmail');
+      expect(res.json().error).toContain('user_email');
     });
 
-    it('returns 400 when userEmail is not a string', async () => {
+    it('returns 400 when user_email is not a string', async () => {
       const res = await app.inject({
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: 12345,
-          cursorPosition: { line: 1, column: 1 },
+          user_email: 12345,
+          cursor_position: { line: 1, column: 1 },
         },
       });
 
@@ -246,7 +246,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
+          user_email: testUserEmail,
         },
       });
 
@@ -259,8 +259,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: 'invalid',
+          user_email: testUserEmail,
+          cursor_position: 'invalid',
         },
       });
 
@@ -273,8 +273,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: null,
+          user_email: testUserEmail,
+          cursor_position: null,
         },
       });
 
@@ -287,8 +287,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 'invalid', column: 1 },
+          user_email: testUserEmail,
+          cursor_position: { line: 'invalid', column: 1 },
         },
       });
 
@@ -301,8 +301,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 1, column: 'invalid' },
+          user_email: testUserEmail,
+          cursor_position: { line: 1, column: 'invalid' },
         },
       });
 
@@ -315,8 +315,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 1.5, column: 2.5 },
+          user_email: testUserEmail,
+          cursor_position: { line: 1.5, column: 2.5 },
         },
       });
 
@@ -329,8 +329,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: -1, column: 5 },
+          user_email: testUserEmail,
+          cursor_position: { line: -1, column: 5 },
         },
       });
 
@@ -343,8 +343,8 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 2000000, column: 5 },
+          user_email: testUserEmail,
+          cursor_position: { line: 2000000, column: 5 },
         },
       });
 
@@ -357,15 +357,15 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
       await app.inject({
         method: 'POST',
         url: `/api/notes/${noteId}/presence`,
-        payload: { userEmail: testUserEmail },
+        payload: { user_email: testUserEmail },
       });
 
       const res = await app.inject({
         method: 'PUT',
         url: `/api/notes/${noteId}/presence/cursor`,
         payload: {
-          userEmail: testUserEmail,
-          cursorPosition: { line: 10, column: 20 },
+          user_email: testUserEmail,
+          cursor_position: { line: 10, column: 20 },
         },
       });
 

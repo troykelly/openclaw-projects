@@ -12,15 +12,15 @@ export type EntityType = 'project' | 'initiative' | 'epic' | 'issue' | 'task' | 
 export type TimeRange = 'today' | 'this_week' | 'this_month' | 'custom';
 
 export interface ActivityFilters {
-  actorType?: ActorType;
+  actor_type?: ActorType;
   actionType?: ActionType[];
-  entityType?: EntityType[];
+  entity_type?: EntityType[];
   timeRange?: TimeRange;
   startDate?: string;
   endDate?: string;
   myActivityOnly?: boolean;
-  projectId?: string;
-  contactId?: string;
+  project_id?: string;
+  contact_id?: string;
   excludeActions?: ActionType[];
 }
 
@@ -33,13 +33,13 @@ export interface ActivityChange {
 export interface ActivityItem {
   id: string;
   action: ActionType;
-  entityType: EntityType;
-  entityId: string;
+  entity_type: EntityType;
+  entity_id: string;
   entityTitle: string;
-  actorId: string;
+  actor_id: string;
   actorName: string;
   actorAvatar?: string;
-  actorType: ActorType;
+  actor_type: ActorType;
   timestamp: string;
   changes?: ActivityChange[];
   comment?: string;
@@ -96,13 +96,13 @@ export const TIME_RANGES: { value: TimeRange; label: string }[] = [
 
 export function countActiveFilters(filters: ActivityFilters): number {
   let count = 0;
-  if (filters.actorType && filters.actorType !== 'all') count++;
+  if (filters.actor_type && filters.actor_type !== 'all') count++;
   if (filters.actionType && filters.actionType.length > 0) count++;
-  if (filters.entityType && filters.entityType.length > 0) count++;
+  if (filters.entity_type && filters.entity_type.length > 0) count++;
   if (filters.timeRange) count++;
   if (filters.myActivityOnly) count++;
-  if (filters.projectId) count++;
-  if (filters.contactId) count++;
+  if (filters.project_id) count++;
+  if (filters.contact_id) count++;
   if (filters.excludeActions && filters.excludeActions.length > 0) count++;
   return count;
 }

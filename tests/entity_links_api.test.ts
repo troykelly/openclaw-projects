@@ -317,15 +317,15 @@ describe('Entity Links API (Issue #1276)', () => {
           target_id: '00000000-0000-0000-0000-000000000020',
         },
       });
-      const linkId = createRes.json().id;
+      const link_id = createRes.json().id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/entity-links/${linkId}`,
+        url: `/api/entity-links/${link_id}`,
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().id).toBe(linkId);
+      expect(res.json().id).toBe(link_id);
       expect(res.json().source_type).toBe('todo');
     });
 
@@ -360,18 +360,18 @@ describe('Entity Links API (Issue #1276)', () => {
           target_id: '00000000-0000-0000-0000-000000000040',
         },
       });
-      const linkId = createRes.json().id;
+      const link_id = createRes.json().id;
 
       const delRes = await app.inject({
         method: 'DELETE',
-        url: `/api/entity-links/${linkId}`,
+        url: `/api/entity-links/${link_id}`,
       });
       expect(delRes.statusCode).toBe(204);
 
       // Verify it's gone
       const getRes = await app.inject({
         method: 'GET',
-        url: `/api/entity-links/${linkId}`,
+        url: `/api/entity-links/${link_id}`,
       });
       expect(getRes.statusCode).toBe(404);
     });

@@ -25,8 +25,8 @@ export interface ListItem {
   priority?: string | null;
   assignee?: string | null;
   dueDate?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   estimate?: number | null;
   [key: string]: unknown;
 }

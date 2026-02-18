@@ -104,7 +104,7 @@ export function Sidebar({
           <nav className="flex flex-col gap-1" role="navigation" aria-label="Main navigation">
             {items.map((item) => {
               const Icon = item.icon;
-              const isActive = activeItem === item.id;
+              const is_active = activeItem === item.id;
 
               const navButton = (
                 <button
@@ -116,11 +116,11 @@ export function Sidebar({
                   className={cn(
                     'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                     collapsed && 'justify-center px-0',
-                    isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    is_active ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
-                  aria-current={isActive ? 'page' : undefined}
+                  aria-current={is_active ? 'page' : undefined}
                 >
-                  <Icon className={cn('size-[18px] shrink-0 transition-transform duration-150', !isActive && 'group-hover:scale-110')} />
+                  <Icon className={cn('size-[18px] shrink-0 transition-transform duration-150', !is_active && 'group-hover:scale-110')} />
                   {!collapsed && <span>{item.label}</span>}
                 </button>
               );

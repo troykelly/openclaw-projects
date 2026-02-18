@@ -46,13 +46,13 @@ describe('Project Tree', () => {
          VALUES ('Project Alpha', 'project', 'in_progress')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       // Create child issues
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Issue 1', 'issue', $1), ('Issue 2', 'issue', $1)`,
-        [projectId],
+        [project_id],
       );
 
       const res = await app.inject({
@@ -86,13 +86,13 @@ describe('Project Tree', () => {
          VALUES ('Project Beta', 'project')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       const epic = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Epic 1', 'epic', $1)
          RETURNING id::text as id`,
-        [projectId],
+        [project_id],
       );
       const epicId = (epic.rows[0] as { id: string }).id;
 
@@ -156,12 +156,12 @@ describe('Project Tree', () => {
          VALUES ('Project 1', 'project')
          RETURNING id::text as id`,
       );
-      const projectId = (project.rows[0] as { id: string }).id;
+      const project_id = (project.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Epic 1', 'epic', $1)`,
-        [projectId],
+        [project_id],
       );
 
       // Another standalone project
@@ -173,7 +173,7 @@ describe('Project Tree', () => {
       // Get tree from specific root
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/tree?root_id=${projectId}`,
+        url: `/api/work-items/tree?root_id=${project_id}`,
       });
 
       expect(res.statusCode).toBe(200);

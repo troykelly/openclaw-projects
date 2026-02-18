@@ -49,20 +49,20 @@ const mockGetValidAccessToken = getValidAccessToken as Mock;
 function makeConnection(overrides: Partial<OAuthConnection> = {}): OAuthConnection {
   return {
     id: 'conn-123',
-    userEmail: 'user@example.com',
+    user_email: 'user@example.com',
     provider: 'microsoft',
-    accessToken: 'access-token',
-    refreshToken: 'refresh-token',
+    access_token: 'access-token',
+    refresh_token: 'refresh-token',
     scopes: ['Files.Read'],
-    expiresAt: new Date(Date.now() + 3600 * 1000),
-    tokenMetadata: {},
+    expires_at: new Date(Date.now() + 3600 * 1000),
+    token_metadata: {},
     label: 'Work OneDrive',
-    permissionLevel: 'read',
-    enabledFeatures: ['files'],
-    isActive: true,
-    syncStatus: {},
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    permission_level: 'read',
+    enabled_features: ['files'],
+    is_active: true,
+    sync_status: {},
+    created_at: new Date(),
+    updated_at: new Date(),
     ...overrides,
   };
 }
@@ -72,13 +72,13 @@ const sampleMicrosoftFile: DriveFile = {
   name: 'document.docx',
   mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   size: 12345,
-  createdAt: new Date('2025-01-01'),
-  modifiedAt: new Date('2025-06-15'),
-  webUrl: 'https://onedrive.live.com/item-1',
-  downloadUrl: 'https://download.example.com/item-1',
-  isFolder: false,
+  created_at: new Date('2025-01-01'),
+  modified_at: new Date('2025-06-15'),
+  web_url: 'https://onedrive.live.com/item-1',
+  download_url: 'https://download.example.com/item-1',
+  is_folder: false,
   provider: 'microsoft',
-  connectionId: 'conn-123',
+  connection_id: 'conn-123',
   metadata: {},
 };
 
@@ -87,12 +87,12 @@ const sampleGoogleFile: DriveFile = {
   name: 'spreadsheet.xlsx',
   mimeType: 'application/vnd.google-apps.spreadsheet',
   size: 9876,
-  createdAt: new Date('2025-02-01'),
-  modifiedAt: new Date('2025-07-01'),
-  webUrl: 'https://docs.google.com/spreadsheets/d/file-abc',
-  isFolder: false,
+  created_at: new Date('2025-02-01'),
+  modified_at: new Date('2025-07-01'),
+  web_url: 'https://docs.google.com/spreadsheets/d/file-abc',
+  is_folder: false,
   provider: 'google',
-  connectionId: 'conn-456',
+  connection_id: 'conn-456',
   metadata: {},
 };
 
@@ -108,7 +108,7 @@ describe('files service — listFiles', () => {
 
     const expected: DriveListResult = {
       files: [sampleMicrosoftFile],
-      nextPageToken: 'page2',
+      next_page_token: 'page2',
     };
     (microsoft.listDriveItems as Mock).mockResolvedValue(expected);
 
@@ -117,7 +117,7 @@ describe('files service — listFiles', () => {
     expect(microsoft.listDriveItems).toHaveBeenCalledWith('access-token', 'conn-123', undefined, undefined);
     expect(result.files).toHaveLength(1);
     expect(result.files[0].name).toBe('document.docx');
-    expect(result.nextPageToken).toBe('page2');
+    expect(result.next_page_token).toBe('page2');
   });
 
   it('should list files from Google Drive for a google connection', async () => {
@@ -137,7 +137,7 @@ describe('files service — listFiles', () => {
     expect(result.files[0].provider).toBe('google');
   });
 
-  it('should pass folderId and pageToken to provider', async () => {
+  it('should pass folder_id and page_token to provider', async () => {
     const conn = makeConnection();
     mockGetConnection.mockResolvedValue(conn);
     mockGetValidAccessToken.mockResolvedValue('tok');
@@ -156,24 +156,24 @@ describe('files service — listFiles', () => {
   });
 
   it('should throw 403 when files feature is not enabled', async () => {
-    const conn = makeConnection({ enabledFeatures: ['contacts'] });
+    const conn = makeConnection({ enabled_features: ['contacts'] });
     mockGetConnection.mockResolvedValue(conn);
 
     await expect(listFiles({} as never, 'conn-123')).rejects.toThrow(OAuthError);
     await expect(listFiles({} as never, 'conn-123')).rejects.toMatchObject({
       code: 'FILES_NOT_ENABLED',
-      statusCode: 403,
+      status_code: 403,
     });
   });
 
   it('should throw 403 when connection is inactive', async () => {
-    const conn = makeConnection({ isActive: false });
+    const conn = makeConnection({ is_active: false });
     mockGetConnection.mockResolvedValue(conn);
 
     await expect(listFiles({} as never, 'conn-123')).rejects.toThrow(OAuthError);
     await expect(listFiles({} as never, 'conn-123')).rejects.toMatchObject({
       code: 'CONNECTION_DISABLED',
-      statusCode: 403,
+      status_code: 403,
     });
   });
 });
@@ -211,7 +211,7 @@ describe('files service — searchFiles', () => {
     expect(result.files).toHaveLength(1);
   });
 
-  it('should pass pageToken for paginated search', async () => {
+  it('should pass page_token for paginated search', async () => {
     const conn = makeConnection();
     mockGetConnection.mockResolvedValue(conn);
     mockGetValidAccessToken.mockResolvedValue('tok');
@@ -224,12 +224,12 @@ describe('files service — searchFiles', () => {
   });
 
   it('should throw 403 when files not enabled', async () => {
-    const conn = makeConnection({ enabledFeatures: ['email'] });
+    const conn = makeConnection({ enabled_features: ['email'] });
     mockGetConnection.mockResolvedValue(conn);
 
     await expect(searchFiles({} as never, 'conn-123', 'test')).rejects.toMatchObject({
       code: 'FILES_NOT_ENABLED',
-      statusCode: 403,
+      status_code: 403,
     });
   });
 });
@@ -270,12 +270,12 @@ describe('files service — getFile', () => {
   });
 
   it('should throw 403 when files not enabled', async () => {
-    const conn = makeConnection({ enabledFeatures: [] });
+    const conn = makeConnection({ enabled_features: [] });
     mockGetConnection.mockResolvedValue(conn);
 
     await expect(getFile({} as never, 'conn-123', 'file-1')).rejects.toMatchObject({
       code: 'FILES_NOT_ENABLED',
-      statusCode: 403,
+      status_code: 403,
     });
   });
 });

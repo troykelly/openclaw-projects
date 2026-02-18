@@ -122,7 +122,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
   it('calls POST /api/auth/consume with the token', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=magic-token-123');
@@ -141,7 +141,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
   it('stores access token and redirects to /work-items on success', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=valid-token');
@@ -160,7 +160,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     sessionStorageMock.auth_return_to = '/contacts';
 
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=valid-token');
@@ -209,7 +209,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
   it('calls POST /api/auth/exchange with the code parameter', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.oauth.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.oauth.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?code=oauth-code-123');
@@ -228,7 +228,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
   it('stores access token and redirects on OAuth code exchange success', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.oauth.access' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.oauth.access' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?code=valid-oauth-code');
@@ -256,7 +256,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
 
   it('prefers token over code when both are present', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.token.here' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=magic-token&code=oauth-code');
@@ -315,7 +315,7 @@ describe('AuthConsumePage (issues #1333, #1335)', () => {
     sessionStorageMock.auth_return_to = '/auth/consume';
 
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ accessToken: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ access_token: 'jwt.access.token' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     );
 
     await renderConsumePage('?token=valid-token');

@@ -68,8 +68,8 @@ describe('notebook tools', () => {
               description: 'Notes for work',
               isArchived: false,
               noteCount: 5,
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
+              created_at: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
             },
           ],
           total: 1,
@@ -82,7 +82,7 @@ describe('notebook tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({});
@@ -101,7 +101,7 @@ describe('notebook tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'New Notebook',
           description: null,
-          createdAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
         },
       });
 
@@ -109,7 +109,7 @@ describe('notebook tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({ name: 'New Notebook' });
@@ -130,8 +130,8 @@ describe('notebook tools', () => {
           description: null,
           isArchived: false,
           noteCount: 2,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         },
       });
 
@@ -139,11 +139,11 @@ describe('notebook tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({
-        notebookId: '123e4567-e89b-12d3-a456-426614174000',
+        notebook_id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result.success).toBe(true);
@@ -162,9 +162,9 @@ describe('notebook tools', () => {
           description: null,
           isArchived: false,
           noteCount: 1,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
-          notes: [{ id: 'note-1', title: 'Note 1', visibility: 'private', updatedAt: '2024-01-01' }],
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+          notes: [{ id: 'note-1', title: 'Note 1', visibility: 'private', updated_at: '2024-01-01' }],
         },
       });
 
@@ -172,11 +172,11 @@ describe('notebook tools', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: noBaseUrlConfig,
-        userId: 'user@example.com',
+        user_id: 'user@example.com',
       });
 
       const result = await tool.execute({
-        notebookId: '123e4567-e89b-12d3-a456-426614174000',
+        notebook_id: '123e4567-e89b-12d3-a456-426614174000',
         includeNotes: true,
       });
 
@@ -197,7 +197,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('notebook_list');
       });
@@ -207,7 +207,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.description).toBeDefined();
         expect(tool.description).toContain('notebook');
@@ -218,7 +218,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.parameters).toBeDefined();
       });
@@ -234,8 +234,8 @@ describe('notebook tools', () => {
               description: 'Notes for work',
               isArchived: false,
               noteCount: 5,
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
+              created_at: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
             },
             {
               id: '223e4567-e89b-12d3-a456-426614174001',
@@ -243,8 +243,8 @@ describe('notebook tools', () => {
               description: null,
               isArchived: false,
               noteCount: 10,
-              createdAt: '2024-01-01T00:00:00Z',
-              updatedAt: '2024-01-01T00:00:00Z',
+              created_at: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
             },
           ],
           total: 2,
@@ -261,7 +261,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({});
@@ -284,7 +284,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({});
@@ -302,7 +302,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         await tool.execute({ limit: 10, offset: 5 });
@@ -320,7 +320,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('notebook_create');
       });
@@ -332,7 +332,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({} as NotebookCreateParams);
@@ -347,7 +347,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({ name: 'a'.repeat(201) });
@@ -361,7 +361,7 @@ describe('notebook tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'New Notebook',
           description: 'A test notebook',
-          createdAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
         };
 
         (mockApiClient.post as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -373,7 +373,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
@@ -396,7 +396,7 @@ describe('notebook tools', () => {
             id: '123e4567-e89b-12d3-a456-426614174000',
             name: 'Test Notebook',
             description: null,
-            createdAt: '2024-01-01T00:00:00Z',
+            created_at: '2024-01-01T00:00:00Z',
           },
         });
 
@@ -404,7 +404,7 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         await tool.execute({ name: 'Test\x00Notebook' });
@@ -427,22 +427,22 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
         expect(tool.name).toBe('notebook_get');
       });
     });
 
     describe('parameter validation', () => {
-      it('should require valid UUID for notebookId', async () => {
+      it('should require valid UUID for notebook_id', async () => {
         const tool = createNotebookGetTool({
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
-        const result = await tool.execute({ notebookId: 'invalid' } as NotebookGetParams);
+        const result = await tool.execute({ notebook_id: 'invalid' } as NotebookGetParams);
         expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error).toContain('UUID');
@@ -458,8 +458,8 @@ describe('notebook tools', () => {
           description: 'Notes for work',
           isArchived: false,
           noteCount: 5,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
         };
 
         (mockApiClient.get as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -471,11 +471,11 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
-          notebookId: '123e4567-e89b-12d3-a456-426614174000',
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
         });
 
         expect(result.success).toBe(true);
@@ -496,11 +496,11 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
-          notebookId: '123e4567-e89b-12d3-a456-426614174000',
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
         });
 
         expect(result.success).toBe(false);
@@ -516,11 +516,11 @@ describe('notebook tools', () => {
           description: null,
           isArchived: false,
           noteCount: 2,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
           notes: [
-            { id: 'note-1', title: 'Note 1', visibility: 'private', updatedAt: '2024-01-01' },
-            { id: 'note-2', title: 'Note 2', visibility: 'public', updatedAt: '2024-01-01' },
+            { id: 'note-1', title: 'Note 1', visibility: 'private', updated_at: '2024-01-01' },
+            { id: 'note-2', title: 'Note 2', visibility: 'public', updated_at: '2024-01-01' },
           ],
         };
 
@@ -533,11 +533,11 @@ describe('notebook tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'user@example.com',
+          user_id: 'user@example.com',
         });
 
         const result = await tool.execute({
-          notebookId: '123e4567-e89b-12d3-a456-426614174000',
+          notebook_id: '123e4567-e89b-12d3-a456-426614174000',
           includeNotes: true,
         });
 

@@ -45,8 +45,8 @@ describe('OAuth Service', () => {
 
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('test-client-id');
-      expect(config?.clientSecret).toBe('test-client-secret');
+      expect(config?.client_id).toBe('test-client-id');
+      expect(config?.client_secret).toBe('test-client-secret');
     });
 
     it('returns null when Google not configured', async () => {
@@ -69,8 +69,8 @@ describe('OAuth Service', () => {
 
       const config = getGoogleConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('test-google-id');
-      expect(config?.clientSecret).toBe('test-google-secret');
+      expect(config?.client_id).toBe('test-google-id');
+      expect(config?.client_secret).toBe('test-google-secret');
     });
 
     it('lists configured providers', async () => {
@@ -144,19 +144,19 @@ describe('OAuth Service', () => {
       const { saveConnection } = await import('../../src/api/oauth/service.ts');
 
       const tokens = {
-        accessToken: 'test-access-token',
-        refreshToken: 'test-refresh-token',
-        expiresAt: new Date(Date.now() + 3600000),
-        tokenType: 'Bearer',
+        access_token: 'test-access-token',
+        refresh_token: 'test-refresh-token',
+        expires_at: new Date(Date.now() + 3600000),
+        token_type: 'Bearer',
         scopes: ['contacts', 'email'],
       };
 
       const connection = await saveConnection(pool, 'test@example.com', 'google', tokens);
 
-      expect(connection.userEmail).toBe('test@example.com');
+      expect(connection.user_email).toBe('test@example.com');
       expect(connection.provider).toBe('google');
-      expect(connection.accessToken).toBe('test-access-token');
-      expect(connection.refreshToken).toBe('test-refresh-token');
+      expect(connection.access_token).toBe('test-access-token');
+      expect(connection.refresh_token).toBe('test-refresh-token');
       expect(connection.scopes).toEqual(['contacts', 'email']);
     });
 
@@ -164,26 +164,26 @@ describe('OAuth Service', () => {
       const { saveConnection, getConnection } = await import('../../src/api/oauth/service.ts');
 
       const tokens1 = {
-        accessToken: 'old-token',
-        refreshToken: 'old-refresh',
-        tokenType: 'Bearer',
+        access_token: 'old-token',
+        refresh_token: 'old-refresh',
+        token_type: 'Bearer',
         scopes: ['contacts'],
       };
 
       const saved = await saveConnection(pool, 'test@example.com', 'google', tokens1);
 
       const tokens2 = {
-        accessToken: 'new-token',
-        refreshToken: 'new-refresh',
-        tokenType: 'Bearer',
+        access_token: 'new-token',
+        refresh_token: 'new-refresh',
+        token_type: 'Bearer',
         scopes: ['contacts', 'email'],
       };
 
       await saveConnection(pool, 'test@example.com', 'google', tokens2);
 
       const connection = await getConnection(pool, saved.id);
-      expect(connection?.accessToken).toBe('new-token');
-      expect(connection?.refreshToken).toBe('new-refresh');
+      expect(connection?.access_token).toBe('new-token');
+      expect(connection?.refresh_token).toBe('new-refresh');
       expect(connection?.scopes).toEqual(['contacts', 'email']);
     });
 
@@ -191,8 +191,8 @@ describe('OAuth Service', () => {
       const { saveConnection, getConnection } = await import('../../src/api/oauth/service.ts');
 
       const tokens = {
-        accessToken: 'test-token',
-        tokenType: 'Bearer',
+        access_token: 'test-token',
+        token_type: 'Bearer',
         scopes: ['contacts'],
       };
 
@@ -200,7 +200,7 @@ describe('OAuth Service', () => {
 
       const connection = await getConnection(pool, saved.id);
       expect(connection).not.toBeNull();
-      expect(connection?.accessToken).toBe('test-token');
+      expect(connection?.access_token).toBe('test-token');
 
       const noConnection = await getConnection(pool, '00000000-0000-0000-0000-000000000000');
       expect(noConnection).toBeNull();
@@ -215,7 +215,7 @@ describe('OAuth Service', () => {
       expect(error.message).toBe('Test error');
       expect(error.code).toBe('TEST_CODE');
       expect(error.provider).toBe('google');
-      expect(error.statusCode).toBe(401);
+      expect(error.status_code).toBe(401);
       expect(error.name).toBe('OAuthError');
     });
 
@@ -226,7 +226,7 @@ describe('OAuth Service', () => {
       expect(error.message).toContain('test@example.com');
       expect(error.code).toBe('NO_CONNECTION');
       expect(error.provider).toBe('google');
-      expect(error.statusCode).toBe(404);
+      expect(error.status_code).toBe(404);
     });
 
     it('ProviderNotConfiguredError has correct properties', async () => {
@@ -235,7 +235,7 @@ describe('OAuth Service', () => {
       const error = new ProviderNotConfiguredError('microsoft');
       expect(error.message).toContain('microsoft');
       expect(error.code).toBe('PROVIDER_NOT_CONFIGURED');
-      expect(error.statusCode).toBe(500);
+      expect(error.status_code).toBe(500);
     });
   });
 });

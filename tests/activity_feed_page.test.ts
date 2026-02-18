@@ -69,19 +69,19 @@ describe('Activity Feed Page', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Insert some activity
       await pool.query(
         `INSERT INTO work_item_activity (work_item_id, activity_type, description)
          VALUES ($1, 'created', 'Created work item: Test Item')`,
-        [itemId],
+        [item_id],
       );
 
       await pool.query(
         `INSERT INTO work_item_activity (work_item_id, activity_type, description)
          VALUES ($1, 'status_change', 'Status changed to in_progress')`,
-        [itemId],
+        [item_id],
       );
 
       const res = await app.inject({

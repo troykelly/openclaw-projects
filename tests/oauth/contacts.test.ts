@@ -56,7 +56,7 @@ describe('Contact Sync Service', () => {
          VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
          RETURNING id::text`,
       );
-      const connectionId = connResult.rows[0].id;
+      const connection_id = connResult.rows[0].id;
 
       // Mock provider response
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -64,25 +64,25 @@ describe('Contact Sync Service', () => {
         contacts: [
           {
             id: 'contact-1',
-            displayName: 'John Doe',
-            givenName: 'John',
-            familyName: 'Doe',
-            emailAddresses: ['john@example.com'],
-            phoneNumbers: ['+1234567890'],
+            display_name: 'John Doe',
+            given_name: 'John',
+            family_name: 'Doe',
+            email_addresses: ['john@example.com'],
+            phone_numbers: ['+1234567890'],
             company: 'Acme Inc',
-            jobTitle: 'Engineer',
+            job_title: 'Engineer',
             metadata: { provider: 'google' },
           },
         ],
-        syncCursor: 'next-sync-token',
+        sync_cursor: 'next-sync-token',
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      const result = await syncContacts(pool, connectionId);
+      const result = await syncContacts(pool, connection_id);
 
-      expect(result.syncedCount).toBe(1);
-      expect(result.createdCount).toBe(1);
-      expect(result.updatedCount).toBe(0);
+      expect(result.synced_count).toBe(1);
+      expect(result.created_count).toBe(1);
+      expect(result.updated_count).toBe(0);
 
       // Verify contact was created
       const contacts = await pool.query('SELECT * FROM contact');
@@ -106,12 +106,12 @@ describe('Contact Sync Service', () => {
          VALUES ('Old Name')
          RETURNING id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'email', 'john@example.com')`,
-        [contactId],
+        [contact_id],
       );
 
       // Set up OAuth connection
@@ -120,7 +120,7 @@ describe('Contact Sync Service', () => {
          VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
          RETURNING id::text`,
       );
-      const connectionId = connResult.rows[0].id;
+      const connection_id = connResult.rows[0].id;
 
       // Mock provider response with same email
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -128,24 +128,24 @@ describe('Contact Sync Service', () => {
         contacts: [
           {
             id: 'contact-1',
-            displayName: 'John Doe',
-            givenName: 'John',
-            familyName: 'Doe',
-            emailAddresses: ['john@example.com'],
-            phoneNumbers: [],
+            display_name: 'John Doe',
+            given_name: 'John',
+            family_name: 'Doe',
+            email_addresses: ['john@example.com'],
+            phone_numbers: [],
             metadata: { provider: 'google' },
           },
         ],
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      const result = await syncContacts(pool, connectionId);
+      const result = await syncContacts(pool, connection_id);
 
-      expect(result.createdCount).toBe(0);
-      expect(result.updatedCount).toBe(1);
+      expect(result.created_count).toBe(0);
+      expect(result.updated_count).toBe(1);
 
       // Verify contact was updated (display_name changes, but notes preserved)
-      const contacts = await pool.query('SELECT * FROM contact WHERE id = $1', [contactId]);
+      const contacts = await pool.query('SELECT * FROM contact WHERE id = $1', [contact_id]);
       expect(contacts.rows[0].display_name).toBe('John Doe');
     });
 
@@ -156,12 +156,12 @@ describe('Contact Sync Service', () => {
          VALUES ('John Doe')
          RETURNING id`,
       );
-      const contactId = contactResult.rows[0].id;
+      const contact_id = contactResult.rows[0].id;
 
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
          VALUES ($1, 'email', 'john@example.com')`,
-        [contactId],
+        [contact_id],
       );
 
       // Set up OAuth connection
@@ -170,7 +170,7 @@ describe('Contact Sync Service', () => {
          VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
          RETURNING id::text`,
       );
-      const connectionId = connResult.rows[0].id;
+      const connection_id = connResult.rows[0].id;
 
       // Mock provider with additional phone number
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
@@ -178,19 +178,19 @@ describe('Contact Sync Service', () => {
         contacts: [
           {
             id: 'contact-1',
-            displayName: 'John Doe',
-            emailAddresses: ['john@example.com'],
-            phoneNumbers: ['+1234567890'],
+            display_name: 'John Doe',
+            email_addresses: ['john@example.com'],
+            phone_numbers: ['+1234567890'],
             metadata: { provider: 'google' },
           },
         ],
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      await syncContacts(pool, connectionId);
+      await syncContacts(pool, connection_id);
 
       // Verify new endpoint was added
-      const endpoints = await pool.query('SELECT * FROM contact_endpoint WHERE contact_id = $1 ORDER BY endpoint_type', [contactId]);
+      const endpoints = await pool.query('SELECT * FROM contact_endpoint WHERE contact_id = $1 ORDER BY endpoint_type', [contact_id]);
       expect(endpoints.rows).toHaveLength(2);
       expect(endpoints.rows.some((e) => e.endpoint_type === 'phone')).toBe(true);
     });
@@ -201,26 +201,26 @@ describe('Contact Sync Service', () => {
          VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
          RETURNING id::text`,
       );
-      const connectionId = connResult.rows[0].id;
+      const connection_id = connResult.rows[0].id;
 
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
       (fetchAllContacts as ReturnType<typeof vi.fn>).mockResolvedValue({
         contacts: [
           {
             id: 'contact-no-info',
-            displayName: 'No Contact Info',
-            emailAddresses: [],
-            phoneNumbers: [],
+            display_name: 'No Contact Info',
+            email_addresses: [],
+            phone_numbers: [],
             metadata: { provider: 'google' },
           },
         ],
       });
 
       const { syncContacts } = await import('../../src/api/oauth/contacts.ts');
-      const result = await syncContacts(pool, connectionId);
+      const result = await syncContacts(pool, connection_id);
 
-      expect(result.syncedCount).toBe(1);
-      expect(result.createdCount).toBe(0);
+      expect(result.synced_count).toBe(1);
+      expect(result.created_count).toBe(0);
 
       const contacts = await pool.query('SELECT * FROM contact');
       expect(contacts.rows).toHaveLength(0);
@@ -232,18 +232,18 @@ describe('Contact Sync Service', () => {
          VALUES ('test@example.com', 'google', 'valid-token', ARRAY['contacts'], NOW() + INTERVAL '1 hour')
          RETURNING id::text`,
       );
-      const connectionId = connResult.rows[0].id;
+      const connection_id = connResult.rows[0].id;
 
       const { fetchAllContacts } = await import('../../src/api/oauth/google.ts');
       (fetchAllContacts as ReturnType<typeof vi.fn>).mockResolvedValue({
         contacts: [],
-        syncCursor: 'new-sync-cursor-123',
+        sync_cursor: 'new-sync-cursor-123',
       });
 
       const { syncContacts, getContactSyncCursor } = await import('../../src/api/oauth/contacts.ts');
-      await syncContacts(pool, connectionId);
+      await syncContacts(pool, connection_id);
 
-      const cursor = await getContactSyncCursor(pool, connectionId);
+      const cursor = await getContactSyncCursor(pool, connection_id);
       expect(cursor).toBe('new-sync-cursor-123');
     });
   });

@@ -19,8 +19,8 @@ import { ChevronRight, Network } from 'lucide-react';
 
 export function DependencyGraphPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
-  const itemId = id ?? '';
-  const { data, isLoading, error, refetch } = useDependencyGraph(itemId);
+  const item_id = id ?? '';
+  const { data, isLoading, error, refetch } = useDependencyGraph(item_id);
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });

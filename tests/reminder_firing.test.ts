@@ -28,7 +28,7 @@ describe('Reminder firing hook (Issue #222)', () => {
          RETURNING id::text as id`,
         ['Call mom'],
       );
-      const workItemId = wi.rows[0].id as string;
+      const work_item_id = wi.rows[0].id as string;
 
       // Run the enqueue function
       await pool.query(`SELECT enqueue_due_reminders()`);
@@ -43,7 +43,7 @@ describe('Reminder firing hook (Issue #222)', () => {
       expect(jobs.rows).toEqual([
         {
           kind: 'reminder.work_item.not_before',
-          work_item_id: workItemId,
+          work_item_id: work_item_id,
         },
       ]);
     });

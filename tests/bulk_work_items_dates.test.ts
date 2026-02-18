@@ -174,14 +174,14 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
     expect(res.statusCode).toBe(200);
     const body = res.json() as { created: number; results: Array<{ id: string; status: string }> };
     expect(body.created).toBe(1);
-    const itemId = body.results[0].id;
+    const item_id = body.results[0].id;
 
     const reminderJobs = await queryWithRetry(
       pool,
       `SELECT kind FROM internal_job
         WHERE kind = 'reminder.work_item.not_before'
           AND payload->>'work_item_id' = $1`,
-      [itemId],
+      [item_id],
     );
     expect(reminderJobs.rows.length).toBe(1);
 
@@ -190,7 +190,7 @@ describe('POST /api/work-items/bulk — not_before/not_after (Issue #1352)', () 
       `SELECT kind FROM internal_job
         WHERE kind = 'nudge.work_item.not_after'
           AND payload->>'work_item_id' = $1`,
-      [itemId],
+      [item_id],
     );
     expect(nudgeJobs.rows.length).toBe(1);
   });

@@ -85,7 +85,7 @@ describe('ApiClient', () => {
       );
     });
 
-    it('should include user scoping header when userId provided', async () => {
+    it('should include user scoping header when user_id provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -93,7 +93,7 @@ describe('ApiClient', () => {
       });
 
       const client = createApiClient({ config: defaultConfig, logger: mockLogger });
-      await client.get('/test', { userId: 'user-123' });
+      await client.get('/test', { user_id: 'user-123' });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),

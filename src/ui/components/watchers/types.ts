@@ -7,7 +7,7 @@ export type NotificationLevel = 'all' | 'mentions' | 'status_changes';
 
 export interface Watcher {
   id: string;
-  userId: string;
+  user_id: string;
   name: string;
   avatar?: string;
   notificationLevel: NotificationLevel;
@@ -21,7 +21,7 @@ export interface WatchedItem {
   status: string;
   notificationLevel: NotificationLevel;
   lastActivity: string;
-  unreadCount: number;
+  unread_count: number;
 }
 
 export interface AutoWatchSettings {

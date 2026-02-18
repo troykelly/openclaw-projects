@@ -21,13 +21,13 @@ describe('Contacts + endpoints + trust model', () => {
 
   it('normalizes email endpoints and enforces uniqueness on normalized value', async () => {
     const c = await pool.query(`INSERT INTO contact (display_name) VALUES ('Troy') RETURNING id`);
-    const contactId = c.rows[0].id as string;
+    const contact_id = c.rows[0].id as string;
 
     const e1 = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, 'email', $2)
        RETURNING normalized_value`,
-      [contactId, '  Troy@Example.COM  '],
+      [contact_id, '  Troy@Example.COM  '],
     );
     expect(e1.rows[0].normalized_value).toBe('troy@example.com');
 
@@ -46,13 +46,13 @@ describe('Contacts + endpoints + trust model', () => {
 
   it('normalizes telegram handles by stripping @ and lowercasing', async () => {
     const c = await pool.query(`INSERT INTO contact (display_name) VALUES ('Matty') RETURNING id`);
-    const contactId = c.rows[0].id as string;
+    const contact_id = c.rows[0].id as string;
 
     const e1 = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, 'telegram', $2)
        RETURNING normalized_value`,
-      [contactId, ' @SomeUser '],
+      [contact_id, ' @SomeUser '],
     );
 
     expect(e1.rows[0].normalized_value).toBe('someuser');
@@ -60,13 +60,13 @@ describe('Contacts + endpoints + trust model', () => {
 
   it('disallows privileged actions via SMS/phone endpoints by policy', async () => {
     const c = await pool.query(`INSERT INTO contact (display_name) VALUES ('Ops') RETURNING id`);
-    const contactId = c.rows[0].id as string;
+    const contact_id = c.rows[0].id as string;
 
     await expect(
       pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, allow_privileged_actions)
          VALUES ($1, 'phone', $2, true)`,
-        [contactId, '+1 (555) 123-4567'],
+        [contact_id, '+1 (555) 123-4567'],
       ),
     ).rejects.toThrow(/no_privileged_via_phone/);
   });

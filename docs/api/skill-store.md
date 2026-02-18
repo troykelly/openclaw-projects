@@ -1100,7 +1100,7 @@ Returns quota usage vs. configured limits for a skill.
     "current": 2,
     "limit": 20
   },
-  "maxItemSizeBytes": 1048576
+  "max_item_size_bytes": 1048576
 }
 ```
 
@@ -1157,7 +1157,7 @@ Returns embedding generation statistics across all skill store items.
 ```json
 {
   "total": 1250,
-  "byStatus": {
+  "by_status": {
     "complete": 1200,
     "pending": 30,
     "failed": 20

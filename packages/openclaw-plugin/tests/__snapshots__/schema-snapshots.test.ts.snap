@@ -219,7 +219,7 @@ exports[`Schema Snapshots > Manifest configSchema > full manifest structure (exc
   "skills": [
     "skills",
   ],
-  "version": "0.0.17",
+  "version": "0.0.18",
 }
 `;
 
@@ -381,7 +381,7 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > contact_create parameter schema should match snapshot 1`] = `
 {
   "properties": {
-    "contactKind": {
+    "contact_kind": {
       "maxLength": 50,
       "type": "string",
     },
@@ -478,10 +478,10 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
-    "htmlBody": {
+    "html_body": {
       "type": "string",
     },
-    "idempotencyKey": {
+    "idempotency_key": {
       "type": "string",
     },
     "subject": {
@@ -489,7 +489,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
-    "threadId": {
+    "thread_id": {
       "type": "string",
     },
     "to": {
@@ -509,23 +509,23 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > file_share parameter schema should match snapshot 1`] = `
 {
   "properties": {
-    "expiresIn": {
+    "expires_in": {
       "default": 3600,
       "maximum": 604800,
       "minimum": 60,
       "type": "integer",
     },
-    "fileId": {
+    "file_id": {
       "format": "uuid",
       "type": "string",
     },
-    "maxDownloads": {
+    "max_downloads": {
       "minimum": 1,
       "type": "integer",
     },
   },
   "required": [
-    "fileId",
+    "file_id",
   ],
   "type": "object",
 }
@@ -755,7 +755,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       ],
       "type": "string",
     },
-    "contactId": {
+    "contact_id": {
       "format": "uuid",
       "type": "string",
     },
@@ -789,7 +789,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
-    "notebookId": {
+    "notebook_id": {
       "format": "uuid",
       "type": "string",
     },
@@ -869,7 +869,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minimum": 1,
       "type": "number",
     },
-    "notebookId": {
+    "notebook_id": {
       "format": "uuid",
       "type": "string",
     },
@@ -883,7 +883,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
-    "searchType": {
+    "search_type": {
       "default": "hybrid",
       "enum": [
         "hybrid",
@@ -929,7 +929,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "format": "uuid",
       "type": "string",
     },
-    "notebookId": {
+    "notebook_id": {
       "format": "uuid",
       "type": "string",
     },
@@ -991,13 +991,13 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "default": false,
       "type": "boolean",
     },
-    "notebookId": {
+    "notebook_id": {
       "format": "uuid",
       "type": "string",
     },
   },
   "required": [
-    "notebookId",
+    "notebook_id",
   ],
   "type": "object",
 }
@@ -1456,7 +1456,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
-    "idempotencyKey": {
+    "idempotency_key": {
       "type": "string",
     },
     "to": {
@@ -1475,19 +1475,19 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > thread_get parameter schema should match snapshot 1`] = `
 {
   "properties": {
-    "messageLimit": {
+    "message_limit": {
       "default": 50,
       "maximum": 200,
       "minimum": 1,
       "type": "integer",
     },
-    "threadId": {
+    "thread_id": {
       "minLength": 1,
       "type": "string",
     },
   },
   "required": [
-    "threadId",
+    "thread_id",
   ],
   "type": "object",
 }
@@ -1503,7 +1503,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       ],
       "type": "string",
     },
-    "contactId": {
+    "contact_id": {
       "format": "uuid",
       "type": "string",
     },
@@ -1539,7 +1539,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
     "dueDate": {
       "type": "string",
     },
-    "projectId": {
+    "project_id": {
       "type": "string",
     },
     "title": {
@@ -1570,7 +1570,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minimum": 0,
       "type": "integer",
     },
-    "projectId": {
+    "project_id": {
       "type": "string",
     },
   },

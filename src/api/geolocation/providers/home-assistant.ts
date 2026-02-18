@@ -24,10 +24,10 @@ import { registerProvider } from '../registry.ts';
 const TRACKED_PREFIXES = ['device_tracker.', 'person.'];
 const BERMUDA_PREFIX = 'sensor.bermuda_';
 
-function isTrackedEntity(entityId: string): boolean {
+function isTrackedEntity(entity_id: string): boolean {
   return (
-    TRACKED_PREFIXES.some((p) => entityId.startsWith(p)) ||
-    entityId.startsWith(BERMUDA_PREFIX)
+    TRACKED_PREFIXES.some((p) => entity_id.startsWith(p)) ||
+    entity_id.startsWith(BERMUDA_PREFIX)
   );
 }
 
@@ -47,8 +47,8 @@ interface HaState {
  * Returns null if the entity is not tracked or lacks location data.
  */
 export function parseStatePayload(state: HaState): LocationUpdate | null {
-  const entityId = state.entity_id;
-  if (!isTrackedEntity(entityId)) return null;
+  const entity_id = state.entity_id;
+  if (!isTrackedEntity(entity_id)) return null;
 
   const attrs = state.attributes;
   if (!attrs) return null;
@@ -60,7 +60,7 @@ export function parseStatePayload(state: HaState): LocationUpdate | null {
   if (lat === undefined || lng === undefined) return null;
 
   const update: LocationUpdate = {
-    entity_id: entityId,
+    entity_id: entity_id,
     lat,
     lng,
     raw_payload: state,
@@ -80,7 +80,7 @@ export function parseStatePayload(state: HaState): LocationUpdate | null {
   }
 
   // Bermuda indoor tracking
-  if (entityId.startsWith(BERMUDA_PREFIX) && typeof attrs.area_name === 'string') {
+  if (entity_id.startsWith(BERMUDA_PREFIX) && typeof attrs.area_name === 'string') {
     update.indoor_zone = attrs.area_name;
   }
 
@@ -186,11 +186,11 @@ function connectWs(
     const event = msg.event as { event_type?: string; data?: { entity_id?: string; new_state?: HaState } } | undefined;
     if (!event?.data?.new_state) return;
 
-    const entityId = event.data.entity_id ?? event.data.new_state.entity_id;
-    if (!entityId) return;
+    const entity_id = event.data.entity_id ?? event.data.new_state.entity_id;
+    if (!entity_id) return;
 
     // If we have a tracked entity set, filter to only those
-    if (ctx.trackedEntities.size > 0 && !ctx.trackedEntities.has(entityId)) return;
+    if (ctx.trackedEntities.size > 0 && !ctx.trackedEntities.has(entity_id)) return;
 
     const update = parseStatePayload(event.data.new_state);
     if (update) {

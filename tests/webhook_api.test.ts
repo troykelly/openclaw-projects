@@ -204,8 +204,8 @@ describe('Webhook API', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.configured).toBe(false);
-      expect(body.gatewayUrl).toBeNull();
-      expect(body.hasToken).toBe(false);
+      expect(body.gateway_url).toBeNull();
+      expect(body.has_token).toBe(false);
     });
 
     it('returns configuration status when configured', async () => {
@@ -221,8 +221,8 @@ describe('Webhook API', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.configured).toBe(true);
-      expect(body.gatewayUrl).toBe('http://localhost:18789');
-      expect(body.hasToken).toBe(true);
+      expect(body.gateway_url).toBe('http://localhost:18789');
+      expect(body.has_token).toBe(true);
     });
 
     it('returns webhook stats', async () => {

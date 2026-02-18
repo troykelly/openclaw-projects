@@ -63,9 +63,9 @@ describe('auth-manager', () => {
     it('should not store tokens in localStorage or sessionStorage', () => {
       const token = fakeJwt({ sub: 'user@example.com', exp: Math.floor(Date.now() / 1000) + 900 });
       setAccessToken(token);
-      expect(window.localStorage.getItem('accessToken')).toBeNull();
+      expect(window.localStorage.getItem('access_token')).toBeNull();
       expect(window.localStorage.getItem('token')).toBeNull();
-      expect(window.sessionStorage.getItem('accessToken')).toBeNull();
+      expect(window.sessionStorage.getItem('access_token')).toBeNull();
       expect(window.sessionStorage.getItem('token')).toBeNull();
     });
   });
@@ -110,7 +110,7 @@ describe('auth-manager', () => {
       const fetchMock = mockFetch({
         ok: true,
         status: 200,
-        json: async () => ({ accessToken: newToken }),
+        json: async () => ({ access_token: newToken }),
       });
 
       const result = await refreshAccessToken();
@@ -160,7 +160,7 @@ describe('auth-manager', () => {
       resolvePromise!({
         ok: true,
         status: 200,
-        json: async () => ({ accessToken: newToken }),
+        json: async () => ({ access_token: newToken }),
       } as Response);
 
       // All three promises should resolve with the same token
@@ -182,12 +182,12 @@ describe('auth-manager', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ accessToken: token1 }),
+          json: async () => ({ access_token: token1 }),
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ accessToken: token2 }),
+          json: async () => ({ access_token: token2 }),
         } as Response);
       globalThis.fetch = fetchMock;
 

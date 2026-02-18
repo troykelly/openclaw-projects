@@ -21,13 +21,13 @@ export interface NoteForEmbedding {
   title: string;
   content: string;
   visibility: NoteVisibility;
-  hideFromAgents: boolean;
+  hide_from_agents: boolean;
 }
 
 export interface BackfillOptions {
   limit?: number;
-  onlyPending?: boolean;
-  batchSize?: number;
+  only_pending?: boolean;
+  batch_size?: number;
 }
 
 export interface BackfillResult {
@@ -40,7 +40,7 @@ export interface BackfillResult {
 
 export interface EmbeddingStatsResult {
   total: number;
-  byStatus: {
+  by_status: {
     complete: number;
     pending: number;
     failed: number;
@@ -54,12 +54,12 @@ export interface EmbeddingStatsResult {
  * Determine if a note should be embedded based on privacy settings.
  *
  * Embedding rules:
- * - Private notes with hideFromAgents: SKIP (no semantic search needed)
- * - Private notes without hideFromAgents: EMBED (owner can search)
+ * - Private notes with hide_from_agents: SKIP (no semantic search needed)
+ * - Private notes without hide_from_agents: EMBED (owner can search)
  * - Shared/public notes: EMBED (searchable by authorized users)
  */
 export function shouldEmbed(note: NoteForEmbedding): boolean {
-  if (note.visibility === 'private' && note.hideFromAgents) {
+  if (note.visibility === 'private' && note.hide_from_agents) {
     // Completely private - no semantic search needed
     return false;
   }
@@ -85,7 +85,7 @@ export async function embedNote(pool: Pool, noteId: string): Promise<NoteEmbeddi
   const result = await pool.query(
     `SELECT
       id::text as id, title, content, visibility,
-      hide_from_agents as "hideFromAgents"
+      hide_from_agents
     FROM note
     WHERE id = $1 AND deleted_at IS NULL`,
     [noteId],
@@ -174,19 +174,19 @@ export function triggerNoteEmbedding(pool: Pool, noteId: string): void {
  * @returns Backfill results
  */
 export async function backfillNoteEmbeddings(pool: Pool, options: BackfillOptions = {}): Promise<BackfillResult> {
-  const { limit = 100, onlyPending = true, batchSize = 10 } = options;
+  const { limit = 100, only_pending = true, batch_size = 10 } = options;
 
   if (!embeddingService.isConfigured()) {
     throw new Error('No embedding provider configured');
   }
 
   // Find notes needing embeddings
-  const statusFilter = onlyPending ? "embedding_status IN ('pending', 'failed')" : "embedding IS NULL OR embedding_status != 'complete'";
+  const statusFilter = only_pending ? "embedding_status IN ('pending', 'failed')" : "embedding IS NULL OR embedding_status != 'complete'";
 
   const notesResult = await pool.query(
     `SELECT
       id::text as id, title, content, visibility,
-      hide_from_agents as "hideFromAgents"
+      hide_from_agents
     FROM note
     WHERE deleted_at IS NULL AND (${statusFilter})
     ORDER BY updated_at DESC
@@ -205,8 +205,8 @@ export async function backfillNoteEmbeddings(pool: Pool, options: BackfillOption
   };
 
   // Process in batches to respect rate limits
-  for (let i = 0; i < notes.length; i += batchSize) {
-    const batch = notes.slice(i, i + batchSize);
+  for (let i = 0; i < notes.length; i += batch_size) {
+    const batch = notes.slice(i, i + batch_size);
 
     await Promise.all(
       batch.map(async (note) => {
@@ -241,7 +241,7 @@ export async function backfillNoteEmbeddings(pool: Pool, options: BackfillOption
     );
 
     // Rate limit: wait between batches
-    if (i + batchSize < notes.length) {
+    if (i + batch_size < notes.length) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
@@ -266,7 +266,7 @@ export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsR
     GROUP BY embedding_status
   `);
 
-  const byStatus = {
+  const by_status = {
     complete: 0,
     pending: 0,
     failed: 0,
@@ -280,14 +280,14 @@ export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsR
     total += count;
 
     if (status === 'complete') {
-      byStatus.complete = count;
+      by_status.complete = count;
     } else if (status === 'failed') {
-      byStatus.failed = count;
+      by_status.failed = count;
     } else if (status === 'skipped') {
-      byStatus.skipped = count;
+      by_status.skipped = count;
     } else {
       // null or 'pending'
-      byStatus.pending += count;
+      by_status.pending += count;
     }
   }
 
@@ -296,7 +296,7 @@ export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsR
 
   return {
     total,
-    byStatus,
+    by_status,
     provider: configSummary?.provider ?? null,
     model: configSummary?.model ?? null,
   };
@@ -309,18 +309,18 @@ export async function getNoteEmbeddingStats(pool: Pool): Promise<EmbeddingStatsR
  *
  * @param pool Database pool
  * @param query Search query text
- * @param userEmail User making the query (for access control)
+ * @param user_email User making the query (for access control)
  * @param options Search options
  * @returns Search results with similarity scores
  */
 export async function searchNotesSemantic(
   pool: Pool,
   query: string,
-  userEmail: string,
+  user_email: string,
   options: {
     limit?: number;
     offset?: number;
-    notebookId?: string;
+    notebook_id?: string;
     tags?: string[];
   } = {},
 ): Promise<{
@@ -329,12 +329,12 @@ export async function searchNotesSemantic(
     title: string;
     content: string;
     similarity: number;
-    updatedAt: Date;
+    updated_at: Date;
   }>;
-  searchType: 'semantic' | 'text';
-  queryEmbeddingProvider?: string;
+  search_type: 'semantic' | 'text';
+  query_embedding_provider?: string;
 }> {
-  const { limit = 20, offset = 0, notebookId, tags } = options;
+  const { limit = 20, offset = 0, notebook_id, tags } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -370,12 +370,12 @@ export async function searchNotesSemantic(
 
   // Build dynamic WHERE clause
   const conditions: string[] = ['n.deleted_at IS NULL', accessCondition];
-  const params: (string | string[] | number)[] = [userEmail];
+  const params: (string | string[] | number)[] = [user_email];
   let paramIndex = 2;
 
-  if (notebookId) {
+  if (notebook_id) {
     conditions.push(`n.notebook_id = $${paramIndex}`);
-    params.push(notebookId);
+    params.push(notebook_id);
     paramIndex++;
   }
 
@@ -405,7 +405,7 @@ export async function searchNotesSemantic(
         n.id::text as id,
         n.title,
         n.content,
-        n.updated_at as "updatedAt",
+        n.updated_at as "updated_at",
         1 - (n.embedding <=> $${embeddingParamIndex}::vector) as similarity
       FROM note n
       WHERE ${whereClause}
@@ -420,10 +420,10 @@ export async function searchNotesSemantic(
         title: row.title,
         content: row.content,
         similarity: parseFloat(row.similarity),
-        updatedAt: new Date(row.updatedAt),
+        updated_at: new Date(row.updated_at),
       })),
-      searchType: 'semantic',
-      queryEmbeddingProvider: queryProvider,
+      search_type: 'semantic',
+      query_embedding_provider: queryProvider,
     };
   }
 
@@ -445,7 +445,7 @@ export async function searchNotesSemantic(
       n.id::text as id,
       n.title,
       n.content,
-      n.updated_at as "updatedAt",
+      n.updated_at as "updated_at",
       0.5 as similarity
     FROM note n
     WHERE ${whereClause}
@@ -460,8 +460,8 @@ export async function searchNotesSemantic(
       title: row.title,
       content: row.content,
       similarity: parseFloat(row.similarity),
-      updatedAt: new Date(row.updatedAt),
+      updated_at: new Date(row.updated_at),
     })),
-    searchType: 'text',
+    search_type: 'text',
   };
 }

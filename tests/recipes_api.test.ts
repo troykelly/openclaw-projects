@@ -314,7 +314,7 @@ describe('Recipes API (Issue #1278)', () => {
          RETURNING id`,
         [TEST_EMAIL],
       );
-      const listId = listResult.rows[0].id;
+      const list_id = listResult.rows[0].id;
 
       // Create a recipe with ingredients
       const recipeRes = await app.inject({
@@ -335,7 +335,7 @@ describe('Recipes API (Issue #1278)', () => {
         method: 'POST',
         url: `/api/recipes/${recipeId}/to-shopping-list`,
         headers: { 'content-type': 'application/json', 'x-user-email': TEST_EMAIL },
-        payload: { list_id: listId },
+        payload: { list_id: list_id },
       });
 
       expect(res.statusCode).toBe(200);
@@ -345,7 +345,7 @@ describe('Recipes API (Issue #1278)', () => {
       // Verify items in list directly via DB
       const itemsResult = await pool.query(
         `SELECT name FROM list_item WHERE list_id = $1 ORDER BY name`,
-        [listId],
+        [list_id],
       );
       expect(itemsResult.rows.length).toBe(2);
       expect(itemsResult.rows.map((r) => r.name)).toContain('Chicken');

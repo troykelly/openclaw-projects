@@ -275,9 +275,9 @@ Generate a shareable download link for a file. Use when you need to share a file
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| fileId | string (uuid) | Yes | | The file ID to create a share link for |
-| expiresIn | integer | No | 3600 | Link expiry time in seconds (60-604800) |
-| maxDownloads | integer | No | | Optional maximum number of downloads (min 1) |
+| file_id | string (uuid) | Yes | | The file ID to create a share link for |
+| expires_in | integer | No | 3600 | Link expiry time in seconds (60-604800) |
+| max_downloads | integer | No | | Optional maximum number of downloads (min 1) |
 
 **Notes:**
 

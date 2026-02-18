@@ -87,10 +87,10 @@ export interface ParsedEmailAddress {
  * Result of processing a Postmark inbound email.
  */
 export interface PostmarkEmailResult {
-  contactId: string;
+  contact_id: string;
   endpointId: string;
-  threadId: string;
-  messageId: string;
+  thread_id: string;
+  message_id: string;
   isNewContact: boolean;
   isNewThread: boolean;
 }
@@ -100,7 +100,7 @@ export interface PostmarkEmailResult {
  */
 export interface AttachmentMetadata {
   name: string;
-  contentType: string;
+  content_type: string;
   size: number;
   contentId?: string;
 }

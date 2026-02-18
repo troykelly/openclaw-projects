@@ -30,7 +30,7 @@ export interface SavedFilter {
   id: string;
   name: string;
   filters: FilterState;
-  createdAt?: string;
+  created_at?: string;
   isDefault?: boolean;
 }
 

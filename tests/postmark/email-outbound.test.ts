@@ -40,20 +40,20 @@ describe('Postmark email outbound sending (#293)', () => {
         to: 'test@example.com',
         subject: 'Test Subject',
         body: 'Hello from openclaw!',
-        threadId: thread.rows[0].id,
+        thread_id: thread.rows[0].id,
       });
 
-      expect(result.messageId).toBeDefined();
-      expect(result.threadId).toBe(thread.rows[0].id);
+      expect(result.message_id).toBeDefined();
+      expect(result.thread_id).toBe(thread.rows[0].id);
       expect(result.status).toBe('queued');
-      expect(result.idempotencyKey).toBeDefined();
+      expect(result.idempotency_key).toBeDefined();
 
       // Verify message was created in DB with pending status
       const msg = await pool.query(
         `SELECT direction::text as direction, delivery_status::text as status,
                 body, subject
          FROM external_message WHERE id = $1`,
-        [result.messageId],
+        [result.message_id],
       );
       expect(msg.rows[0].direction).toBe('outbound');
       expect(msg.rows[0].status).toBe('pending');
@@ -61,7 +61,7 @@ describe('Postmark email outbound sending (#293)', () => {
       expect(msg.rows[0].subject).toBe('Test Subject');
     });
 
-    it('creates new thread if threadId not provided', async () => {
+    it('creates new thread if thread_id not provided', async () => {
       const { enqueueEmailMessage } = await import('../../src/api/postmark/email-outbound.js');
 
       // Create contact and endpoint but no thread
@@ -78,12 +78,12 @@ describe('Postmark email outbound sending (#293)', () => {
         body: 'Starting a new thread!',
       });
 
-      expect(result.messageId).toBeDefined();
-      expect(result.threadId).toBeDefined();
+      expect(result.message_id).toBeDefined();
+      expect(result.thread_id).toBeDefined();
       expect(result.status).toBe('queued');
 
       // Verify thread was created
-      const thread = await pool.query(`SELECT id FROM external_thread WHERE id = $1`, [result.threadId]);
+      const thread = await pool.query(`SELECT id FROM external_thread WHERE id = $1`, [result.thread_id]);
       expect(thread.rows.length).toBe(1);
     });
 
@@ -96,8 +96,8 @@ describe('Postmark email outbound sending (#293)', () => {
         body: 'Nice to meet you!',
       });
 
-      expect(result.messageId).toBeDefined();
-      expect(result.threadId).toBeDefined();
+      expect(result.message_id).toBeDefined();
+      expect(result.thread_id).toBeDefined();
 
       // Verify contact was created
       const contact = await pool.query(
@@ -125,32 +125,32 @@ describe('Postmark email outbound sending (#293)', () => {
          WHERE kind = 'message.send.email'`,
       );
       expect(job.rows.length).toBe(1);
-      expect(job.rows[0].payload.message_id).toBe(result.messageId);
-      expect(job.rows[0].idempotency_key).toBe(result.idempotencyKey);
+      expect(job.rows[0].payload.message_id).toBe(result.message_id);
+      expect(job.rows[0].idempotency_key).toBe(result.idempotency_key);
     });
 
     it('is idempotent when using same idempotency key', async () => {
       const { enqueueEmailMessage } = await import('../../src/api/postmark/email-outbound.js');
 
-      const idempotencyKey = 'test-idempotency-email-123';
+      const idempotency_key = 'test-idempotency-email-123';
 
       const result1 = await enqueueEmailMessage(pool, {
         to: 'idempotent@example.com',
         subject: 'Same Email',
         body: 'First send',
-        idempotencyKey,
+        idempotency_key,
       });
 
       const result2 = await enqueueEmailMessage(pool, {
         to: 'idempotent@example.com',
         subject: 'Same Email',
         body: 'First send',
-        idempotencyKey,
+        idempotency_key,
       });
 
       // Should return same message ID
-      expect(result1.messageId).toBe(result2.messageId);
-      expect(result1.idempotencyKey).toBe(result2.idempotencyKey);
+      expect(result1.message_id).toBe(result2.message_id);
+      expect(result1.idempotency_key).toBe(result2.idempotency_key);
 
       // Should only have one message and one job
       const messages = await pool.query(`SELECT COUNT(*) as count FROM external_message WHERE subject = 'Same Email'`);
@@ -204,17 +204,17 @@ describe('Postmark email outbound sending (#293)', () => {
         to: 'html@example.com',
         subject: 'HTML Email',
         body: 'Plain text version',
-        htmlBody: '<h1>Hello</h1><p>HTML version</p>',
+        html_body: '<h1>Hello</h1><p>HTML version</p>',
       });
 
-      expect(result.messageId).toBeDefined();
+      expect(result.message_id).toBeDefined();
 
       // Verify HTML body stored in raw
-      const msg = await pool.query(`SELECT raw FROM external_message WHERE id = $1`, [result.messageId]);
-      expect(msg.rows[0].raw.htmlBody).toBe('<h1>Hello</h1><p>HTML version</p>');
+      const msg = await pool.query(`SELECT raw FROM external_message WHERE id = $1`, [result.message_id]);
+      expect(msg.rows[0].raw.html_body).toBe('<h1>Hello</h1><p>HTML version</p>');
     });
 
-    it('supports reply threading with replyToMessageId', async () => {
+    it('supports reply threading with reply_to_message_id', async () => {
       const { enqueueEmailMessage } = await import('../../src/api/postmark/email-outbound.js');
 
       // Original message ID for threading
@@ -224,14 +224,14 @@ describe('Postmark email outbound sending (#293)', () => {
         to: 'reply@example.com',
         subject: 'Re: Original Subject',
         body: 'This is a reply',
-        replyToMessageId: originalMessageId,
+        reply_to_message_id: originalMessageId,
       });
 
-      expect(result.messageId).toBeDefined();
+      expect(result.message_id).toBeDefined();
 
       // Verify threading info stored in raw
-      const msg = await pool.query(`SELECT raw FROM external_message WHERE id = $1`, [result.messageId]);
-      expect(msg.rows[0].raw.replyToMessageId).toBe(originalMessageId);
+      const msg = await pool.query(`SELECT raw FROM external_message WHERE id = $1`, [result.message_id]);
+      expect(msg.rows[0].raw.reply_to_message_id).toBe(originalMessageId);
     });
   });
 

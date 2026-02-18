@@ -30,15 +30,15 @@ describe('Communications API', () => {
   async function createTestThread(
     channel: string = 'email',
     threadKey: string = 'test-thread',
-  ): Promise<{ contactId: string; endpointId: string; threadId: string; messageId: string }> {
+  ): Promise<{ contact_id: string; endpointId: string; thread_id: string; message_id: string }> {
     const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text as id`);
-    const contactId = (contact.rows[0] as { id: string }).id;
+    const contact_id = (contact.rows[0] as { id: string }).id;
 
     const endpoint = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value)
        VALUES ($1, $2::contact_endpoint_type, 'test@example.com')
        RETURNING id::text as id`,
-      [contactId, channel],
+      [contact_id, channel],
     );
     const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -48,17 +48,17 @@ describe('Communications API', () => {
        RETURNING id::text as id`,
       [endpointId, channel, threadKey],
     );
-    const threadId = (thread.rows[0] as { id: string }).id;
+    const thread_id = (thread.rows[0] as { id: string }).id;
 
     const message = await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
        VALUES ($1, 'msg-1', 'inbound', 'Test message body', '2024-03-01T10:00:00Z')
        RETURNING id::text as id`,
-      [threadId],
+      [thread_id],
     );
-    const messageId = (message.rows[0] as { id: string }).id;
+    const message_id = (message.rows[0] as { id: string }).id;
 
-    return { contactId, endpointId, threadId, messageId };
+    return { contact_id, endpointId, thread_id, message_id };
   }
 
   describe('GET /api/work-items/:id/communications', () => {
@@ -77,11 +77,11 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}/communications`,
+        url: `/api/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -97,21 +97,21 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Create thread and message
-      const { threadId, messageId } = await createTestThread('email', 'email-thread');
+      const { thread_id, message_id } = await createTestThread('email', 'email-thread');
 
       // Link to work item
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [itemId, threadId, messageId],
+        [item_id, thread_id, message_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}/communications`,
+        url: `/api/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -127,7 +127,7 @@ describe('Communications API', () => {
       };
 
       expect(body.emails.length).toBe(1);
-      expect(body.emails[0].id).toBe(messageId);
+      expect(body.emails[0].id).toBe(message_id);
       expect(body.emails[0].body).toBe('Test message body');
       expect(body.emails[0].direction).toBe('inbound');
       expect(body.calendar_events).toEqual([]);
@@ -140,10 +140,10 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Create first email thread
-      const { threadId, messageId } = await createTestThread('email', 'email-thread-1');
+      const { thread_id, message_id } = await createTestThread('email', 'email-thread-1');
 
       // Update message with some raw metadata
       await pool.query(
@@ -155,7 +155,7 @@ describe('Communications API', () => {
             subject: 'Project Update',
             from: 'alice@example.com',
           }),
-          messageId,
+          message_id,
         ],
       );
 
@@ -163,12 +163,12 @@ describe('Communications API', () => {
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'follow_up')`,
-        [itemId, threadId, messageId],
+        [item_id, thread_id, message_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}/communications`,
+        url: `/api/work-items/${item_id}/communications`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -186,7 +186,7 @@ describe('Communications API', () => {
       };
 
       expect(body.emails.length).toBe(1);
-      expect(body.emails[0].id).toBe(messageId);
+      expect(body.emails[0].id).toBe(message_id);
       expect(body.emails[0].body).toBe('First email');
       expect(body.emails[0].raw.subject).toBe('Project Update');
       expect(body.calendar_events).toEqual([]);
@@ -198,23 +198,23 @@ describe('Communications API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/work-items/00000000-0000-0000-0000-000000000000/communications',
-        payload: { threadId: '00000000-0000-0000-0000-000000000001' },
+        payload: { thread_id: '00000000-0000-0000-0000-000000000001' },
       });
 
       expect(res.statusCode).toBe(404);
     });
 
-    it('returns 400 when threadId is missing', async () => {
+    it('returns 400 when thread_id is missing', async () => {
       const item = await pool.query(
         `INSERT INTO work_item (title, work_item_kind)
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${itemId}/communications`,
+        url: `/api/work-items/${item_id}/communications`,
         payload: {},
       });
 
@@ -227,12 +227,12 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${itemId}/communications`,
-        payload: { threadId: '00000000-0000-0000-0000-000000000001' },
+        url: `/api/work-items/${item_id}/communications`,
+        payload: { thread_id: '00000000-0000-0000-0000-000000000001' },
       });
 
       expect(res.statusCode).toBe(400);
@@ -245,15 +245,15 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Create thread
-      const { threadId, messageId } = await createTestThread();
+      const { thread_id, message_id } = await createTestThread();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${itemId}/communications`,
-        payload: { threadId, messageId, action: 'follow_up' },
+        url: `/api/work-items/${item_id}/communications`,
+        payload: { thread_id: thread_id, message_id: message_id, action: 'follow_up' },
       });
 
       expect(res.statusCode).toBe(201);
@@ -263,9 +263,9 @@ describe('Communications API', () => {
         message_id: string;
         action: string;
       };
-      expect(body.work_item_id).toBe(itemId);
-      expect(body.thread_id).toBe(threadId);
-      expect(body.message_id).toBe(messageId);
+      expect(body.work_item_id).toBe(item_id);
+      expect(body.thread_id).toBe(thread_id);
+      expect(body.message_id).toBe(message_id);
       expect(body.action).toBe('follow_up');
     });
 
@@ -275,14 +275,14 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
-      const { threadId } = await createTestThread();
+      const { thread_id } = await createTestThread();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${itemId}/communications`,
-        payload: { threadId },
+        url: `/api/work-items/${item_id}/communications`,
+        payload: { thread_id: thread_id },
       });
 
       expect(res.statusCode).toBe(201);
@@ -307,11 +307,11 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${itemId}/communications/00000000-0000-0000-0000-000000000001`,
+        url: `/api/work-items/${item_id}/communications/00000000-0000-0000-0000-000000000001`,
       });
 
       expect(res.statusCode).toBe(404);
@@ -324,14 +324,14 @@ describe('Communications API', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Create and link thread
-      const { threadId, messageId } = await createTestThread();
+      const { thread_id, message_id } = await createTestThread();
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
          VALUES ($1, $2, $3, 'reply_required')`,
-        [itemId, threadId, messageId],
+        [item_id, thread_id, message_id],
       );
 
       // Get the communication link ID (it's the work_item_id since it's a 1:1 table)
@@ -339,13 +339,13 @@ describe('Communications API', () => {
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${itemId}/communications/${threadId}`,
+        url: `/api/work-items/${item_id}/communications/${thread_id}`,
       });
 
       expect(res.statusCode).toBe(204);
 
       // Verify it's deleted
-      const check = await pool.query(`SELECT * FROM work_item_communication WHERE work_item_id = $1`, [itemId]);
+      const check = await pool.query(`SELECT * FROM work_item_communication WHERE work_item_id = $1`, [item_id]);
       expect(check.rows.length).toBe(0);
     });
   });

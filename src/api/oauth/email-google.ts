@@ -44,8 +44,8 @@ interface GmailMessagePart {
 
 interface GmailMessage {
   id: string;
-  threadId: string;
-  labelIds: string[];
+  thread_id: string;
+  label_ids: string[];
   snippet: string;
   payload: GmailMessagePart;
   internalDate: string;
@@ -53,9 +53,9 @@ interface GmailMessage {
 }
 
 interface GmailMessageListResponse {
-  messages?: Array<{ id: string; threadId: string }>;
-  nextPageToken?: string;
-  resultSizeEstimate?: number;
+  messages?: Array<{ id: string; thread_id: string }>;
+  next_page_token?: string;
+  result_size_estimate?: number;
 }
 
 interface GmailThread {
@@ -67,8 +67,8 @@ interface GmailThread {
 
 interface GmailThreadListResponse {
   threads?: Array<{ id: string; snippet: string; historyId: string }>;
-  nextPageToken?: string;
-  resultSizeEstimate?: number;
+  next_page_token?: string;
+  result_size_estimate?: number;
 }
 
 interface GmailLabel {
@@ -109,11 +109,11 @@ const LABEL_TYPE_MAP: Record<string, EmailFolder['type']> = {
 
 // ---- Helpers ----
 
-async function gmailFetch<T>(accessToken: string, url: string, options?: RequestInit): Promise<T> {
+async function gmailFetch<T>(access_token: string, url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${access_token}`,
       'Content-Type': 'application/json',
       ...options?.headers,
     },
@@ -213,9 +213,9 @@ function extractAttachments(part: GmailMessagePart): EmailAttachment[] {
     attachments.push({
       id: part.body.attachmentId,
       name: part.filename,
-      contentType: part.mimeType,
+      content_type: part.mimeType,
       size: part.body.size,
-      isInline: getHeader(part, 'Content-Disposition')?.startsWith('inline') || false,
+      is_inline: getHeader(part, 'Content-Disposition')?.startsWith('inline') || false,
     });
   }
 
@@ -238,20 +238,20 @@ function mapGmailMessage(msg: GmailMessage): EmailMessage {
 
   return {
     id: msg.id,
-    threadId: msg.threadId,
+    thread_id: msg.thread_id,
     subject: subject || '',
     from: from ? parseEmailAddress(from) : { email: '' },
     to: parseAddressList(to),
     cc: parseAddressList(cc),
     bcc: parseAddressList(bcc),
-    bodyText: body.text,
-    bodyHtml: body.html,
+    body_text: body.text,
+    body_html: body.html,
     snippet: msg.snippet,
-    receivedAt: new Date(parseInt(msg.internalDate, 10)).toISOString(),
-    isRead: !msg.labelIds.includes('UNREAD'),
-    isStarred: msg.labelIds.includes('STARRED'),
-    isDraft: msg.labelIds.includes('DRAFT'),
-    labels: msg.labelIds,
+    received_at: new Date(parseInt(msg.internalDate, 10)).toISOString(),
+    is_read: !msg.label_ids.includes('UNREAD'),
+    is_starred: msg.label_ids.includes('STARRED'),
+    is_draft: msg.label_ids.includes('DRAFT'),
+    labels: msg.label_ids,
     attachments: extractAttachments(msg.payload),
     provider: 'google',
   };
@@ -285,19 +285,19 @@ function buildRawEmail(params: EmailSendParams | EmailDraftParams): string {
 
   headers.push(`Subject: ${sanitizeHeaderValue(params.subject || '')}`);
 
-  if ('replyToMessageId' in params && params.replyToMessageId) {
-    headers.push(`In-Reply-To: ${sanitizeHeaderValue(params.replyToMessageId)}`);
-    headers.push(`References: ${sanitizeHeaderValue(params.replyToMessageId)}`);
+  if ('reply_to_message_id' in params && params.reply_to_message_id) {
+    headers.push(`In-Reply-To: ${sanitizeHeaderValue(params.reply_to_message_id)}`);
+    headers.push(`References: ${sanitizeHeaderValue(params.reply_to_message_id)}`);
   }
 
-  if (params.bodyHtml) {
+  if (params.body_html) {
     headers.push('Content-Type: text/html; charset=utf-8');
     headers.push('');
-    headers.push(params.bodyHtml);
+    headers.push(params.body_html);
   } else {
     headers.push('Content-Type: text/plain; charset=utf-8');
     headers.push('');
-    headers.push(params.bodyText || '');
+    headers.push(params.body_text || '');
   }
 
   const raw = headers.join('\r\n');
@@ -307,40 +307,40 @@ function buildRawEmail(params: EmailSendParams | EmailDraftParams): string {
 // ---- Provider implementation ----
 
 export const googleEmailProvider: EmailProvider = {
-  async listMessages(accessToken: string, params: EmailListParams): Promise<EmailListResult> {
-    const maxResults = Math.min(params.maxResults || 25, 100);
+  async listMessages(access_token: string, params: EmailListParams): Promise<EmailListResult> {
+    const max_results = Math.min(params.max_results || 25, 100);
     const queryParams = new URLSearchParams({
-      maxResults: String(maxResults),
+      max_results: String(max_results),
     });
 
     if (params.query) {
       queryParams.set('q', params.query);
     }
 
-    if (params.pageToken) {
-      queryParams.set('pageToken', params.pageToken);
+    if (params.page_token) {
+      queryParams.set('page_token', params.page_token);
     }
 
-    if (params.labelIds && params.labelIds.length > 0) {
-      for (const label of params.labelIds) {
-        queryParams.append('labelIds', label);
+    if (params.label_ids && params.label_ids.length > 0) {
+      for (const label of params.label_ids) {
+        queryParams.append('label_ids', label);
       }
-    } else if (params.folderId) {
-      queryParams.append('labelIds', params.folderId);
+    } else if (params.folder_id) {
+      queryParams.append('label_ids', params.folder_id);
     }
 
-    if (params.includeSpamTrash) {
-      queryParams.set('includeSpamTrash', 'true');
+    if (params.include_spam_trash) {
+      queryParams.set('include_spam_trash', 'true');
     }
 
     // First, list message IDs
     const listData = await gmailFetch<GmailMessageListResponse>(
-      accessToken,
+      access_token,
       `${GMAIL_BASE}/users/me/messages?${queryParams.toString()}`,
     );
 
     if (!listData.messages || listData.messages.length === 0) {
-      return { messages: [], nextPageToken: listData.nextPageToken, resultSizeEstimate: listData.resultSizeEstimate };
+      return { messages: [], next_page_token: listData.next_page_token, result_size_estimate: listData.result_size_estimate };
     }
 
     // Fetch each message's full content in parallel. Use allSettled so one
@@ -348,7 +348,7 @@ export const googleEmailProvider: EmailProvider = {
     const messageResults = await Promise.allSettled(
       listData.messages.map((m) =>
         gmailFetch<GmailMessage>(
-          accessToken,
+          access_token,
           `${GMAIL_BASE}/users/me/messages/${m.id}?format=full`,
         ),
       ),
@@ -360,53 +360,53 @@ export const googleEmailProvider: EmailProvider = {
 
     return {
       messages: fullMessages.map(mapGmailMessage),
-      nextPageToken: listData.nextPageToken,
-      resultSizeEstimate: listData.resultSizeEstimate,
+      next_page_token: listData.next_page_token,
+      result_size_estimate: listData.result_size_estimate,
     };
   },
 
-  async getMessage(accessToken: string, messageId: string): Promise<EmailMessage> {
+  async getMessage(access_token: string, message_id: string): Promise<EmailMessage> {
     const msg = await gmailFetch<GmailMessage>(
-      accessToken,
-      `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(messageId)}?format=full`,
+      access_token,
+      `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(message_id)}?format=full`,
     );
     return mapGmailMessage(msg);
   },
 
-  async listThreads(accessToken: string, params: EmailListParams): Promise<EmailThreadListResult> {
-    const maxResults = Math.min(params.maxResults || 25, 100);
+  async listThreads(access_token: string, params: EmailListParams): Promise<EmailThreadListResult> {
+    const max_results = Math.min(params.max_results || 25, 100);
     const queryParams = new URLSearchParams({
-      maxResults: String(maxResults),
+      max_results: String(max_results),
     });
 
     if (params.query) queryParams.set('q', params.query);
-    if (params.pageToken) queryParams.set('pageToken', params.pageToken);
+    if (params.page_token) queryParams.set('page_token', params.page_token);
 
-    if (params.labelIds && params.labelIds.length > 0) {
-      for (const label of params.labelIds) {
-        queryParams.append('labelIds', label);
+    if (params.label_ids && params.label_ids.length > 0) {
+      for (const label of params.label_ids) {
+        queryParams.append('label_ids', label);
       }
-    } else if (params.folderId) {
-      queryParams.append('labelIds', params.folderId);
+    } else if (params.folder_id) {
+      queryParams.append('label_ids', params.folder_id);
     }
 
-    if (params.includeSpamTrash) {
-      queryParams.set('includeSpamTrash', 'true');
+    if (params.include_spam_trash) {
+      queryParams.set('include_spam_trash', 'true');
     }
 
     const listData = await gmailFetch<GmailThreadListResponse>(
-      accessToken,
+      access_token,
       `${GMAIL_BASE}/users/me/threads?${queryParams.toString()}`,
     );
 
     if (!listData.threads || listData.threads.length === 0) {
-      return { threads: [], nextPageToken: listData.nextPageToken, resultSizeEstimate: listData.resultSizeEstimate };
+      return { threads: [], next_page_token: listData.next_page_token, result_size_estimate: listData.result_size_estimate };
     }
 
     // Fetch each thread's metadata (we only need the last message for the listing)
     const threadPromises = listData.threads.map((t) =>
       gmailFetch<GmailThread>(
-        accessToken,
+        access_token,
         `${GMAIL_BASE}/users/me/threads/${t.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
       ),
     );
@@ -431,11 +431,11 @@ export const googleEmailProvider: EmailProvider = {
         id: t.id,
         subject: firstMsg ? (getHeader(firstMsg.payload, 'Subject') || '') : '',
         snippet: t.snippet,
-        messageCount: messages.length,
-        messageIds: messages.map((m) => m.id),
-        lastMessageAt: lastMsg ? new Date(parseInt(lastMsg.internalDate, 10)).toISOString() : '',
-        isRead: messages.every((m) => !m.labelIds.includes('UNREAD')),
-        labels: lastMsg?.labelIds || [],
+        message_count: messages.length,
+        message_ids: messages.map((m) => m.id),
+        last_message_at: lastMsg ? new Date(parseInt(lastMsg.internalDate, 10)).toISOString() : '',
+        is_read: messages.every((m) => !m.label_ids.includes('UNREAD')),
+        labels: lastMsg?.label_ids || [],
         participants: [...allParticipants.values()],
         provider: 'google',
       };
@@ -443,15 +443,15 @@ export const googleEmailProvider: EmailProvider = {
 
     return {
       threads,
-      nextPageToken: listData.nextPageToken,
-      resultSizeEstimate: listData.resultSizeEstimate,
+      next_page_token: listData.next_page_token,
+      result_size_estimate: listData.result_size_estimate,
     };
   },
 
-  async getThread(accessToken: string, threadId: string): Promise<EmailThread & { messages: EmailMessage[] }> {
+  async getThread(access_token: string, thread_id: string): Promise<EmailThread & { messages: EmailMessage[] }> {
     const thread = await gmailFetch<GmailThread>(
-      accessToken,
-      `${GMAIL_BASE}/users/me/threads/${encodeURIComponent(threadId)}?format=full`,
+      access_token,
+      `${GMAIL_BASE}/users/me/threads/${encodeURIComponent(thread_id)}?format=full`,
     );
 
     const messages = (thread.messages || []).map(mapGmailMessage);
@@ -472,10 +472,10 @@ export const googleEmailProvider: EmailProvider = {
       id: thread.id,
       subject: messages[0].subject,
       snippet: thread.snippet,
-      messageCount: messages.length,
-      messageIds: messages.map((m) => m.id),
-      lastMessageAt: lastMsg.receivedAt,
-      isRead: messages.every((m) => m.isRead),
+      message_count: messages.length,
+      message_ids: messages.map((m) => m.id),
+      last_message_at: lastMsg.received_at,
+      is_read: messages.every((m) => m.is_read),
       labels: lastMsg.labels,
       participants: [...allParticipants.values()],
       provider: 'google',
@@ -483,9 +483,9 @@ export const googleEmailProvider: EmailProvider = {
     };
   },
 
-  async listFolders(accessToken: string): Promise<EmailFolder[]> {
+  async listFolders(access_token: string): Promise<EmailFolder[]> {
     const data = await gmailFetch<GmailLabelsListResponse>(
-      accessToken,
+      access_token,
       `${GMAIL_BASE}/users/me/labels`,
     );
 
@@ -493,100 +493,100 @@ export const googleEmailProvider: EmailProvider = {
       id: label.id,
       name: label.name,
       type: LABEL_TYPE_MAP[label.id] || 'other',
-      messageCount: label.messagesTotal,
-      unreadCount: label.messagesUnread,
+      message_count: label.messagesTotal,
+      unread_count: label.messagesUnread,
       provider: 'google',
     }));
   },
 
-  async sendMessage(accessToken: string, params: EmailSendParams): Promise<EmailSendResult> {
+  async sendMessage(access_token: string, params: EmailSendParams): Promise<EmailSendResult> {
     const body: Record<string, unknown> = {
       raw: buildRawEmail(params),
     };
 
-    if (params.threadId) {
-      body.threadId = params.threadId;
+    if (params.thread_id) {
+      body.thread_id = params.thread_id;
     }
 
     const result = await gmailFetch<GmailMessage>(
-      accessToken,
+      access_token,
       `${GMAIL_BASE}/users/me/messages/send`,
       { method: 'POST', body: JSON.stringify(body) },
     );
 
     return {
-      messageId: result.id,
-      threadId: result.threadId,
+      message_id: result.id,
+      thread_id: result.thread_id,
       provider: 'google',
     };
   },
 
-  async createDraft(accessToken: string, params: EmailDraftParams): Promise<EmailMessage> {
+  async createDraft(access_token: string, params: EmailDraftParams): Promise<EmailMessage> {
     const draftBody: Record<string, unknown> = {
       message: {
         raw: buildRawEmail(params as EmailSendParams),
       },
     };
 
-    if (params.threadId) {
-      (draftBody.message as Record<string, unknown>).threadId = params.threadId;
+    if (params.thread_id) {
+      (draftBody.message as Record<string, unknown>).thread_id = params.thread_id;
     }
 
     const draft = await gmailFetch<GmailDraftResponse>(
-      accessToken,
+      access_token,
       `${GMAIL_BASE}/users/me/drafts`,
       { method: 'POST', body: JSON.stringify(draftBody) },
     );
 
     // Fetch the full message
-    return this.getMessage(accessToken, draft.message.id);
+    return this.getMessage(access_token, draft.message.id);
   },
 
-  async updateDraft(accessToken: string, draftId: string, params: EmailDraftParams): Promise<EmailMessage> {
+  async updateDraft(access_token: string, draftId: string, params: EmailDraftParams): Promise<EmailMessage> {
     const draftBody: Record<string, unknown> = {
       message: {
         raw: buildRawEmail(params as EmailSendParams),
       },
     };
 
-    if (params.threadId) {
-      (draftBody.message as Record<string, unknown>).threadId = params.threadId;
+    if (params.thread_id) {
+      (draftBody.message as Record<string, unknown>).thread_id = params.thread_id;
     }
 
     const draft = await gmailFetch<GmailDraftResponse>(
-      accessToken,
+      access_token,
       `${GMAIL_BASE}/users/me/drafts/${encodeURIComponent(draftId)}`,
       { method: 'PUT', body: JSON.stringify(draftBody) },
     );
 
-    return this.getMessage(accessToken, draft.message.id);
+    return this.getMessage(access_token, draft.message.id);
   },
 
-  async updateMessage(accessToken: string, messageId: string, params: EmailUpdateParams): Promise<void> {
+  async updateMessage(access_token: string, message_id: string, params: EmailUpdateParams): Promise<void> {
     const addLabelIds: string[] = [];
     const removeLabelIds: string[] = [];
 
-    if (params.isRead === true) removeLabelIds.push('UNREAD');
-    if (params.isRead === false) addLabelIds.push('UNREAD');
+    if (params.is_read === true) removeLabelIds.push('UNREAD');
+    if (params.is_read === false) addLabelIds.push('UNREAD');
 
-    if (params.isStarred === true) addLabelIds.push('STARRED');
-    if (params.isStarred === false) removeLabelIds.push('STARRED');
+    if (params.is_starred === true) addLabelIds.push('STARRED');
+    if (params.is_starred === false) removeLabelIds.push('STARRED');
 
-    if (params.addLabels) addLabelIds.push(...params.addLabels);
-    if (params.removeLabels) removeLabelIds.push(...params.removeLabels);
+    if (params.add_labels) addLabelIds.push(...params.add_labels);
+    if (params.remove_labels) removeLabelIds.push(...params.remove_labels);
 
-    // Handle moveTo by adding new label and removing INBOX (standard Gmail move pattern)
-    if (params.moveTo) {
-      addLabelIds.push(params.moveTo);
-      if (params.moveTo !== 'INBOX') {
+    // Handle move_to by adding new label and removing INBOX (standard Gmail move pattern)
+    if (params.move_to) {
+      addLabelIds.push(params.move_to);
+      if (params.move_to !== 'INBOX') {
         removeLabelIds.push('INBOX');
       }
     }
 
     if (addLabelIds.length > 0 || removeLabelIds.length > 0) {
       await gmailFetch<GmailMessage>(
-        accessToken,
-        `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(messageId)}/modify`,
+        access_token,
+        `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(message_id)}/modify`,
         {
           method: 'POST',
           body: JSON.stringify({ addLabelIds, removeLabelIds }),
@@ -595,26 +595,26 @@ export const googleEmailProvider: EmailProvider = {
     }
   },
 
-  async deleteMessage(accessToken: string, messageId: string, permanent?: boolean): Promise<void> {
+  async deleteMessage(access_token: string, message_id: string, permanent?: boolean): Promise<void> {
     if (permanent) {
       await gmailFetch<undefined>(
-        accessToken,
-        `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(messageId)}`,
+        access_token,
+        `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(message_id)}`,
         { method: 'DELETE' },
       );
     } else {
       await gmailFetch<undefined>(
-        accessToken,
-        `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(messageId)}/trash`,
+        access_token,
+        `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(message_id)}/trash`,
         { method: 'POST' },
       );
     }
   },
 
-  async getAttachment(accessToken: string, messageId: string, attachmentId: string): Promise<EmailAttachmentContent> {
+  async getAttachment(access_token: string, message_id: string, attachmentId: string): Promise<EmailAttachmentContent> {
     const att = await gmailFetch<GmailAttachmentResponse>(
-      accessToken,
-      `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      access_token,
+      `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(message_id)}/attachments/${encodeURIComponent(attachmentId)}`,
     );
 
     // Gmail returns base64url-encoded content; convert to standard base64
@@ -623,9 +623,9 @@ export const googleEmailProvider: EmailProvider = {
     return {
       id: att.attachmentId,
       name: '', // Gmail attachment endpoint doesn't return the name
-      contentType: '', // Nor the content type — caller already has this from the message
+      content_type: '', // Nor the content type — caller already has this from the message
       size: att.size,
-      contentBase64: base64,
+      content_base64: base64,
     };
   },
 };

@@ -18,78 +18,78 @@ import type {
 /**
  * Emit work item created event
  */
-export async function emitWorkItemCreated(data: WorkItemEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('work_item:created', data, userId);
+export async function emitWorkItemCreated(data: WorkItemEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('work_item:created', data, user_id);
 }
 
 /**
  * Emit work item updated event
  */
-export async function emitWorkItemUpdated(data: WorkItemEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('work_item:updated', data, userId);
+export async function emitWorkItemUpdated(data: WorkItemEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('work_item:updated', data, user_id);
 }
 
 /**
  * Emit work item deleted event
  */
-export async function emitWorkItemDeleted(data: WorkItemEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('work_item:deleted', data, userId);
+export async function emitWorkItemDeleted(data: WorkItemEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('work_item:deleted', data, user_id);
 }
 
 /**
  * Emit memory created event
  */
-export async function emitMemoryCreated(data: MemoryEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('memory:created', data, userId);
+export async function emitMemoryCreated(data: MemoryEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('memory:created', data, user_id);
 }
 
 /**
  * Emit memory updated event
  */
-export async function emitMemoryUpdated(data: MemoryEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('memory:updated', data, userId);
+export async function emitMemoryUpdated(data: MemoryEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('memory:updated', data, user_id);
 }
 
 /**
  * Emit memory deleted event
  */
-export async function emitMemoryDeleted(data: MemoryEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('memory:deleted', data, userId);
+export async function emitMemoryDeleted(data: MemoryEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('memory:deleted', data, user_id);
 }
 
 /**
  * Emit contact created event
  */
-export async function emitContactCreated(data: ContactEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('contact:created', data, userId);
+export async function emitContactCreated(data: ContactEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('contact:created', data, user_id);
 }
 
 /**
  * Emit contact updated event
  */
-export async function emitContactUpdated(data: ContactEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('contact:updated', data, userId);
+export async function emitContactUpdated(data: ContactEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('contact:updated', data, user_id);
 }
 
 /**
  * Emit contact deleted event
  */
-export async function emitContactDeleted(data: ContactEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('contact:deleted', data, userId);
+export async function emitContactDeleted(data: ContactEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('contact:deleted', data, user_id);
 }
 
 /**
  * Emit message received event
  */
-export async function emitMessageReceived(data: MessageEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('message:received', data, userId);
+export async function emitMessageReceived(data: MessageEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('message:received', data, user_id);
 }
 
 /**
  * Emit notification created event
  */
-export async function emitNotificationCreated(data: NotificationEventData, userId?: string): Promise<void> {
-  await getRealtimeHub().emit('notification:created', data, userId);
+export async function emitNotificationCreated(data: NotificationEventData, user_id?: string): Promise<void> {
+  await getRealtimeHub().emit('notification:created', data, user_id);
 }
 
 // ============================================================================
@@ -114,9 +114,9 @@ export async function emitNotePresenceLeft(data: NotePresenceEventData): Promise
 /**
  * Emit note presence list (current viewers of a note)
  */
-export async function emitNotePresenceList(data: NotePresenceListEventData, userId?: string): Promise<void> {
+export async function emitNotePresenceList(data: NotePresenceListEventData, user_id?: string): Promise<void> {
   // Send to specific user who requested the list
-  await getRealtimeHub().emit('note:presence_list', data, userId);
+  await getRealtimeHub().emit('note:presence_list', data, user_id);
 }
 
 /**

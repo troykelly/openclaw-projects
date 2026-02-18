@@ -61,13 +61,13 @@ export function ListView({
     }
   };
 
-  const handleSelectItem = (itemId: string) => {
+  const handleSelectItem = (item_id: string) => {
     if (!onSelectionChange) return;
 
-    if (selectedIds.includes(itemId)) {
-      onSelectionChange(selectedIds.filter((id) => id !== itemId));
+    if (selectedIds.includes(item_id)) {
+      onSelectionChange(selectedIds.filter((id) => id !== item_id));
     } else {
-      onSelectionChange([...selectedIds, itemId]);
+      onSelectionChange([...selectedIds, item_id]);
     }
   };
 

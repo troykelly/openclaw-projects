@@ -9,14 +9,14 @@ export interface Note {
   id: string;
   title: string;
   content: string;
-  notebookId?: string;
+  notebook_id?: string;
   notebookTitle?: string;
   visibility: NoteVisibility;
   hideFromAgents: boolean;
   isPinned: boolean;
   tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
   createdBy: string;
   version: number;
 }
@@ -37,7 +37,7 @@ export interface NoteShare {
   noteId: string;
   sharedWithEmail: string;
   permission: 'view' | 'edit';
-  createdAt: Date;
+  created_at: Date;
   createdBy: string;
 }
 
@@ -47,13 +47,13 @@ export interface Notebook {
   description?: string;
   color?: string;
   noteCount: number;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface NoteFilter {
   search?: string;
-  notebookId?: string;
+  notebook_id?: string;
   visibility?: NoteVisibility;
   tags?: string[];
   isPinned?: boolean;
@@ -62,7 +62,7 @@ export interface NoteFilter {
 export interface NoteFormData {
   title: string;
   content: string;
-  notebookId?: string;
+  notebook_id?: string;
   visibility?: NoteVisibility;
   hideFromAgents?: boolean;
   tags?: string[];

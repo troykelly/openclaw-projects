@@ -194,14 +194,14 @@ describe('Search API', () => {
          VALUES ('Test Item', 'project')
          RETURNING id::text as id`,
       );
-      const workItemId = (workItem.rows[0] as { id: string }).id;
+      const work_item_id = (workItem.rows[0] as { id: string }).id;
 
       const contact = await pool.query(
         `INSERT INTO contact (display_name)
          VALUES ('Test Contact')
          RETURNING id::text as id`,
       );
-      const contactId = (contact.rows[0] as { id: string }).id;
+      const contact_id = (contact.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
@@ -214,8 +214,8 @@ describe('Search API', () => {
       const workItemResult = body.results.find((r: { type: string }) => r.type === 'work_item');
       const contactResult = body.results.find((r: { type: string }) => r.type === 'contact');
 
-      expect(workItemResult?.url).toBe(`/app/work-items/${workItemId}`);
-      expect(contactResult?.url).toBe(`/app/contacts/${contactId}`);
+      expect(workItemResult?.url).toBe(`/app/work-items/${work_item_id}`);
+      expect(contactResult?.url).toBe(`/app/contacts/${contact_id}`);
     });
 
     it('respects limit parameter', async () => {

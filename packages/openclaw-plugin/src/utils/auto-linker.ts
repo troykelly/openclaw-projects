@@ -42,7 +42,7 @@ const TODO_KINDS = new Set(['task', 'issue', 'epic', 'initiative']);
 /** Inbound message data for auto-linking */
 export interface AutoLinkMessage {
   /** Thread ID (UUID) for the inbound message thread */
-  threadId: string;
+  thread_id: string;
   /** Sender email address, if known */
   senderEmail?: string;
   /** Sender phone number, if known */
@@ -58,7 +58,7 @@ export interface AutoLinkOptions {
   /** Logger instance */
   logger: Logger;
   /** User ID for scoping API calls */
-  userId: string;
+  user_id: string;
   /** Inbound message data */
   message: AutoLinkMessage;
   /** Similarity threshold for content matching (default: 0.75) */
@@ -116,8 +116,8 @@ interface SkillStoreItem {
  * and does not yet include a 'message_thread' type.
  * TODO(#1223): Add a proper 'message_thread' entity type to entity-links schema.
  */
-function buildThreadRef(threadId: string): string {
-  return `thread:${threadId}`;
+function buildThreadRef(thread_id: string): string {
+  return `thread:${thread_id}`;
 }
 
 /**
@@ -130,8 +130,8 @@ function buildLinkKey(sourceType: string, sourceRef: string, targetType: string,
 /**
  * Build a tag for source-entity lookup (matches entity-links.ts pattern).
  */
-function buildSourceTag(entityType: string, entityRef: string): string {
-  return `src:${entityType}:${entityRef}`;
+function buildSourceTag(entity_type: string, entityRef: string): string {
+  return `src:${entity_type}:${entityRef}`;
 }
 
 /**
@@ -140,7 +140,7 @@ function buildSourceTag(entityType: string, entityRef: string): string {
  */
 async function createEntityLink(
   client: ApiClient,
-  userId: string,
+  user_id: string,
   logger: Logger,
   sourceType: string,
   sourceId: string,
@@ -183,12 +183,12 @@ async function createEntityLink(
       data: forwardData,
       tags: [buildSourceTag(sourceType, sourceId)],
     },
-    { userId },
+    { user_id },
   );
 
   if (!forwardResponse.success) {
     logger.error('auto-linker: forward link creation failed', {
-      userId,
+      user_id,
       sourceType,
       targetType,
       status: forwardResponse.error.status,
@@ -206,12 +206,12 @@ async function createEntityLink(
       data: reverseData,
       tags: [buildSourceTag(targetType, targetRef)],
     },
-    { userId },
+    { user_id },
   );
 
   if (!reverseResponse.success) {
     logger.error('auto-linker: reverse link creation failed', {
-      userId,
+      user_id,
       sourceType,
       targetType,
       status: reverseResponse.error.status,
@@ -220,12 +220,12 @@ async function createEntityLink(
     // Best-effort rollback of orphaned forward link
     const rollbackResponse = await client.delete(
       `/api/skill-store/items/${forwardResponse.data.id}`,
-      { userId },
+      { user_id },
     );
 
     if (!rollbackResponse.success) {
       logger.error('auto-linker: rollback of orphaned forward link failed — partial state', {
-        userId,
+        user_id,
         forwardId: forwardResponse.data.id,
         rollbackStatus: rollbackResponse.error.status,
       });
@@ -248,8 +248,8 @@ async function createEntityLink(
 async function matchSenderToContacts(
   client: ApiClient,
   logger: Logger,
-  userId: string,
-  threadId: string,
+  user_id: string,
+  thread_id: string,
   senderEmail?: string,
   senderPhone?: string,
 ): Promise<string[]> {
@@ -269,18 +269,18 @@ async function matchSenderToContacts(
     const queryParams = new URLSearchParams({
       search: searchQuery,
       limit: '5',
-      user_email: userId,
+      user_email: user_id,
     });
 
     const response = await client.get<{
       contacts?: ContactResult[];
       items?: ContactResult[];
       total?: number;
-    }>(`/api/contacts?${queryParams.toString()}`, { userId });
+    }>(`/api/contacts?${queryParams.toString()}`, { user_id });
 
     if (!response.success) {
       logger.error('auto-linker: contact search failed', {
-        userId,
+        user_id,
         status: response.error.status,
         code: response.error.code,
       });
@@ -311,7 +311,7 @@ async function matchSenderToContacts(
     }
   }
 
-  const threadRef = buildThreadRef(threadId);
+  const threadRef = buildThreadRef(thread_id);
   const linkedContactIds: string[] = [];
 
   for (const contact of matchedContacts) {
@@ -320,7 +320,7 @@ async function matchSenderToContacts(
       // a 'message_thread' type yet. See buildThreadRef() for details.
       const linked = await createEntityLink(
         client,
-        userId,
+        user_id,
         logger,
         'contact',
         contact.id,
@@ -334,8 +334,8 @@ async function matchSenderToContacts(
       }
     } catch (error) {
       logger.error('auto-linker: failed to create contact link', {
-        userId,
-        contactId: contact.id,
+        user_id,
+        contact_id: contact.id,
         error: sanitizeErrorMessage(error),
       });
     }
@@ -353,8 +353,8 @@ async function matchSenderToContacts(
 async function matchContentToWorkItems(
   client: ApiClient,
   logger: Logger,
-  userId: string,
-  threadId: string,
+  user_id: string,
+  thread_id: string,
   content: string,
   similarityThreshold: number,
 ): Promise<{ projects: string[]; todos: string[] }> {
@@ -374,18 +374,18 @@ async function matchContentToWorkItems(
     types: 'work_item',
     limit: '10',
     semantic: 'true',
-    user_email: userId,
+    user_email: user_id,
   });
 
   const response = await client.get<{
     results: SearchResultItem[];
     search_type: string;
     total: number;
-  }>(`/api/search?${queryParams.toString()}`, { userId });
+  }>(`/api/search?${queryParams.toString()}`, { user_id });
 
   if (!response.success) {
     logger.error('auto-linker: content search failed', {
-      userId,
+      user_id,
       status: response.error.status,
       code: response.error.code,
     });
@@ -399,7 +399,7 @@ async function matchContentToWorkItems(
 
   if (highConfidenceResults.length === 0) {
     logger.debug('auto-linker: no content matches above threshold', {
-      userId,
+      user_id,
       threshold: similarityThreshold,
       totalResults: results.length,
       topScore: results[0]?.score ?? 0,
@@ -407,7 +407,7 @@ async function matchContentToWorkItems(
     return { projects: [], todos: [] };
   }
 
-  const threadRef = buildThreadRef(threadId);
+  const threadRef = buildThreadRef(thread_id);
   const linkedProjects: string[] = [];
   const linkedTodos: string[] = [];
 
@@ -427,7 +427,7 @@ async function matchContentToWorkItems(
       // a 'message_thread' type yet. See buildThreadRef() for details.
       const linked = await createEntityLink(
         client,
-        userId,
+        user_id,
         logger,
         sourceType,
         item.id,
@@ -445,8 +445,8 @@ async function matchContentToWorkItems(
       }
     } catch (error) {
       logger.error('auto-linker: failed to create work item link', {
-        userId,
-        itemId: item.id,
+        user_id,
+        item_id: item.id,
         itemKind: kind,
         error: sanitizeErrorMessage(error),
       });
@@ -474,7 +474,7 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
   const {
     client,
     logger,
-    userId,
+    user_id,
     message,
     similarityThreshold = DEFAULT_SIMILARITY_THRESHOLD,
   } = options;
@@ -486,8 +486,8 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
 
   try {
     logger.info('auto-linker: processing inbound message', {
-      userId,
-      threadId: message.threadId,
+      user_id,
+      thread_id: message.thread_id,
       hasSenderEmail: !!message.senderEmail,
       hasSenderPhone: !!message.senderPhone,
       contentLength: message.content.length,
@@ -497,13 +497,13 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
     const contactMatches = await matchSenderToContacts(
       client,
       logger,
-      userId,
-      message.threadId,
+      user_id,
+      message.thread_id,
       message.senderEmail,
       message.senderPhone,
     ).catch((error) => {
       logger.error('auto-linker: sender matching failed', {
-        userId,
+        user_id,
         error: sanitizeErrorMessage(error),
       });
       return [] as string[];
@@ -519,21 +519,21 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
       contentMatches = await matchContentToWorkItems(
         client,
         logger,
-        userId,
-        message.threadId,
+        user_id,
+        message.thread_id,
         message.content,
         similarityThreshold,
       ).catch((error) => {
         logger.error('auto-linker: content matching failed', {
-          userId,
+          user_id,
           error: sanitizeErrorMessage(error),
         });
         return { projects: [] as string[], todos: [] as string[] };
       });
     } else {
       logger.debug('auto-linker: skipping content matching — no known sender contact', {
-        userId,
-        threadId: message.threadId,
+        user_id,
+        thread_id: message.thread_id,
       });
     }
 
@@ -547,8 +547,8 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
     };
 
     logger.info('auto-linker: completed', {
-      userId,
-      threadId: message.threadId,
+      user_id,
+      thread_id: message.thread_id,
       linksCreated: result.linksCreated,
       contactMatches: result.matches.contacts.length,
       projectMatches: result.matches.projects.length,
@@ -558,7 +558,7 @@ export async function autoLinkInboundMessage(options: AutoLinkOptions): Promise<
     return result;
   } catch (error) {
     logger.error('auto-linker: unexpected failure', {
-      userId,
+      user_id,
       error: sanitizeErrorMessage(error),
     });
     return emptyResult;

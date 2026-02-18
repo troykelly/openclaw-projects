@@ -13,7 +13,7 @@ import { createTestPool, truncateAllTables } from './helpers/db.ts';
 
 /** Helper: create a test contact directly in the DB.
  *  Works whether or not contact_kind column exists (separate 044 migration). */
-async function createContactDirect(pool: Pool, displayName: string, kind = 'person'): Promise<string> {
+async function createContactDirect(pool: Pool, display_name: string, kind = 'person'): Promise<string> {
   const colCheck = await pool.query(
     `SELECT column_name FROM information_schema.columns
      WHERE table_name = 'contact' AND column_name = 'contact_kind'`,
@@ -25,7 +25,7 @@ async function createContactDirect(pool: Pool, displayName: string, kind = 'pers
       `INSERT INTO contact (display_name, contact_kind)
        VALUES ($1, $2::contact_kind)
        RETURNING id::text as id`,
-      [displayName, kind],
+      [display_name, kind],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -34,7 +34,7 @@ async function createContactDirect(pool: Pool, displayName: string, kind = 'pers
     `INSERT INTO contact (display_name)
      VALUES ($1)
      RETURNING id::text as id`,
-    [displayName],
+    [display_name],
   );
   return (result.rows[0] as { id: string }).id;
 }
@@ -42,7 +42,58 @@ async function createContactDirect(pool: Pool, displayName: string, kind = 'pers
 /** Helper: get relationship type ID by name */
 async function getTypeId(pool: Pool, name: string): Promise<string> {
   const result = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = $1`, [name]);
+  if (result.rows.length === 0) {
+    throw new Error(`Relationship type '${name}' not found in database`);
+  }
   return (result.rows[0] as { id: string }).id;
+}
+
+/**
+ * Ensure required relationship types exist in the database.
+ * Migration 046 seeds these, but if the table was ever truncated by another
+ * test run the seed data is lost. This function re-seeds only the types
+ * needed by the tests in this file (using ON CONFLICT DO NOTHING for safety).
+ */
+async function seedRequiredRelationshipTypes(pool: Pool): Promise<void> {
+  // Symmetric types used by tests
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('friend_of', 'Friend of', false, 'Friendship or close social bond.'),
+       ('colleague_of', 'Colleague of', false, 'Colleague or coworker.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+
+  // Directional pair: parent_of / child_of
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('parent_of', 'Parent of', true, 'Parent relationship.'),
+       ('child_of', 'Child of', true, 'Child relationship.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'child_of')
+     WHERE name = 'parent_of' AND inverse_type_id IS NULL`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'parent_of')
+     WHERE name = 'child_of' AND inverse_type_id IS NULL`,
+  );
+
+  // Directional pair: has_member / member_of
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('has_member', 'Has member', true, 'Group has a member.'),
+       ('member_of', 'Member of', true, 'Member of a group.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'member_of')
+     WHERE name = 'has_member' AND inverse_type_id IS NULL`,
+  );
+  await pool.query(
+    `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = 'has_member')
+     WHERE name = 'member_of' AND inverse_type_id IS NULL`,
+  );
 }
 
 describe('Relationships API (Epic #486, Issue #491)', () => {
@@ -57,6 +108,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await seedRequiredRelationshipTypes(pool);
   });
 
   afterAll(async () => {
@@ -85,9 +137,9 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       expect(res.statusCode).toBe(201);
       const body = res.json();
       expect(body.id).toBeDefined();
-      expect(body.contactAId).toBe(aliceId);
-      expect(body.contactBId).toBe(bobId);
-      expect(body.relationshipTypeId).toBe(friendTypeId);
+      expect(body.contact_a_id).toBe(aliceId);
+      expect(body.contact_b_id).toBe(bobId);
+      expect(body.relationship_type_id).toBe(friendTypeId);
       expect(body.notes).toBe('Good friends');
     });
 
@@ -193,9 +245,9 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.id).toBe(relId);
-      expect(body.contactAName).toBe('Alice');
-      expect(body.contactBName).toBe('Bob');
-      expect(body.relationshipType.name).toBe('friend_of');
+      expect(body.contact_a_name).toBe('Alice');
+      expect(body.contact_b_name).toBe('Bob');
+      expect(body.relationship_type.name).toBe('friend_of');
     });
 
     it('returns 404 for non-existent ID', async () => {
@@ -397,14 +449,14 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.contactId).toBe(aliceId);
-      expect(body.relatedContacts.length).toBe(1);
-      expect(body.relatedContacts[0].contactName).toBe('Bob');
-      expect(body.relatedContacts[0].relationshipTypeName).toBe('friend_of');
+      expect(body.contact_id).toBe(aliceId);
+      expect(body.related_contacts.length).toBe(1);
+      expect(body.related_contacts[0].contact_name).toBe('Bob');
+      expect(body.related_contacts[0].relationship_type_name).toBe('friend_of');
     });
 
     it('resolves directional inverse types', async () => {
-      const parentId = await createContactDirect(pool, 'Parent');
+      const parent_id = await createContactDirect(pool, 'Parent');
       const childId = await createContactDirect(pool, 'Child');
       const parentTypeId = await getTypeId(pool, 'parent_of');
 
@@ -412,7 +464,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
         method: 'POST',
         url: '/api/relationships',
         payload: {
-          contact_a_id: parentId,
+          contact_a_id: parent_id,
           contact_b_id: childId,
           relationship_type_id: parentTypeId,
         },
@@ -426,15 +478,15 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.relatedContacts.length).toBe(1);
-      expect(body.relatedContacts[0].contactName).toBe('Parent');
-      expect(body.relatedContacts[0].relationshipTypeName).toBe('child_of');
+      expect(body.related_contacts.length).toBe(1);
+      expect(body.related_contacts[0].contact_name).toBe('Parent');
+      expect(body.related_contacts[0].relationship_type_name).toBe('child_of');
     });
   });
 
   describe('GET /api/contacts/:id/groups', () => {
     it('returns groups the contact belongs to', async () => {
-      const groupId = await createContactDirect(pool, 'Team', 'group');
+      const group_id = await createContactDirect(pool, 'Team', 'group');
       const aliceId = await createContactDirect(pool, 'Alice');
       const hasMemberTypeId = await getTypeId(pool, 'has_member');
 
@@ -442,7 +494,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
         method: 'POST',
         url: '/api/relationships',
         payload: {
-          contact_a_id: groupId,
+          contact_a_id: group_id,
           contact_b_id: aliceId,
           relationship_type_id: hasMemberTypeId,
         },
@@ -456,13 +508,13 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.groups.length).toBe(1);
-      expect(body.groups[0].groupName).toBe('Team');
+      expect(body.groups[0].group_name).toBe('Team');
     });
   });
 
   describe('GET /api/contacts/:id/members', () => {
     it('returns members of a group contact', async () => {
-      const groupId = await createContactDirect(pool, 'Team', 'group');
+      const group_id = await createContactDirect(pool, 'Team', 'group');
       const aliceId = await createContactDirect(pool, 'Alice');
       const bobId = await createContactDirect(pool, 'Bob');
       const hasMemberTypeId = await getTypeId(pool, 'has_member');
@@ -471,7 +523,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
         method: 'POST',
         url: '/api/relationships',
         payload: {
-          contact_a_id: groupId,
+          contact_a_id: group_id,
           contact_b_id: aliceId,
           relationship_type_id: hasMemberTypeId,
         },
@@ -480,7 +532,7 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
         method: 'POST',
         url: '/api/relationships',
         payload: {
-          contact_a_id: groupId,
+          contact_a_id: group_id,
           contact_b_id: bobId,
           relationship_type_id: hasMemberTypeId,
         },
@@ -488,13 +540,13 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${groupId}/members`,
+        url: `/api/contacts/${group_id}/members`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.members.length).toBe(2);
-      const names = body.members.map((m: { memberName: string }) => m.memberName);
+      const names = body.members.map((m: { member_name: string }) => m.member_name);
       expect(names).toContain('Alice');
       expect(names).toContain('Bob');
     });
@@ -520,9 +572,9 @@ describe('Relationships API (Epic #486, Issue #491)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.created).toBe(true);
-      expect(body.contactA.displayName).toBe('Alice');
-      expect(body.contactB.displayName).toBe('Bob');
-      expect(body.relationshipType.name).toBe('friend_of');
+      expect(body.contact_a.display_name).toBe('Alice');
+      expect(body.contact_b.display_name).toBe('Bob');
+      expect(body.relationship_type.name).toBe('friend_of');
     });
 
     it('returns 400 when contact_a is missing', async () => {

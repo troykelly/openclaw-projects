@@ -716,7 +716,7 @@ Returns:
   "items": { "current": 4500, "limit": 100000 },
   "collections": { "current": 8, "limit": 1000 },
   "schedules": { "current": 2, "limit": 20 },
-  "maxItemSizeBytes": 1048576
+  "max_item_size_bytes": 1048576
 }
 ```
 

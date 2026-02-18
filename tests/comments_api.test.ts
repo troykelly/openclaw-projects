@@ -10,8 +10,8 @@ import { buildServer } from '../src/api/server.ts';
 describe('Comments API', () => {
   const app = buildServer();
   let pool: Pool;
-  let userEmail: string;
-  let workItemId: string;
+  let user_email: string;
+  let work_item_id: string;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -22,14 +22,15 @@ describe('Comments API', () => {
   beforeEach(async () => {
     await truncateAllTables(pool);
 
-    userEmail = `test-${Date.now()}@example.com`;
+    user_email = `test-${Date.now()}@example.com`;
 
     const workItemRes = await pool.query(
-      `INSERT INTO work_item (title, description, status)
-       VALUES ('Test Item', 'Test description', 'open')
+      `INSERT INTO work_item (title, description, status, user_email)
+       VALUES ('Test Item', 'Test description', 'open', $1)
        RETURNING id`,
+      [user_email],
     );
-    workItemId = workItemRes.rows[0].id;
+    work_item_id = workItemRes.rows[0].id;
   });
 
   afterAll(async () => {
@@ -43,12 +44,12 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'This is a comment')
          RETURNING *`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
 
       expect(result.rows[0]).toMatchObject({
-        work_item_id: workItemId,
-        user_email: userEmail,
+        work_item_id: work_item_id,
+        user_email: user_email,
         content: 'This is a comment',
       });
       expect(result.rows[0].mentions).toEqual([]);
@@ -60,18 +61,18 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Parent comment')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
-      const parentId = parentResult.rows[0].id;
+      const parent_id = parentResult.rows[0].id;
 
       const childResult = await pool.query(
         `INSERT INTO work_item_comment (work_item_id, user_email, content, parent_id)
          VALUES ($1, $2, 'Reply to parent', $3)
          RETURNING *`,
-        [workItemId, userEmail, parentId],
+        [work_item_id, user_email, parent_id],
       );
 
-      expect(childResult.rows[0].parent_id).toBe(parentId);
+      expect(childResult.rows[0].parent_id).toBe(parent_id);
     });
 
     it('stores mentions array', async () => {
@@ -80,7 +81,7 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content, mentions)
          VALUES ($1, $2, 'Hey @alice and @bob!', $3)
          RETURNING *`,
-        [workItemId, userEmail, mentions],
+        [work_item_id, user_email, mentions],
       );
 
       expect(result.rows[0].mentions).toEqual(mentions);
@@ -90,12 +91,12 @@ describe('Comments API', () => {
       await pool.query(
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment')`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
 
-      await pool.query(`DELETE FROM work_item WHERE id = $1`, [workItemId]);
+      await pool.query(`DELETE FROM work_item WHERE id = $1`, [work_item_id]);
 
-      const result = await pool.query(`SELECT COUNT(*) FROM work_item_comment WHERE work_item_id = $1`, [workItemId]);
+      const result = await pool.query(`SELECT COUNT(*) FROM work_item_comment WHERE work_item_id = $1`, [work_item_id]);
       expect(parseInt(result.rows[0].count)).toBe(0);
     });
   });
@@ -106,7 +107,7 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
@@ -114,7 +115,7 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
          VALUES ($1, $2, '👍')
          RETURNING *`,
-        [commentId, userEmail],
+        [commentId, user_email],
       );
 
       expect(result.rows[0].emoji).toBe('👍');
@@ -125,21 +126,21 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
          VALUES ($1, $2, '👍')`,
-        [commentId, userEmail],
+        [commentId, user_email],
       );
 
       await expect(
         pool.query(
           `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
            VALUES ($1, $2, '👍')`,
-          [commentId, userEmail],
+          [commentId, user_email],
         ),
       ).rejects.toThrow(/duplicate key/);
     });
@@ -149,21 +150,21 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
          VALUES ($1, $2, '👍')`,
-        [commentId, userEmail],
+        [commentId, user_email],
       );
 
       const result = await pool.query(
         `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
          VALUES ($1, $2, '❤️')
          RETURNING *`,
-        [commentId, userEmail],
+        [commentId, user_email],
       );
 
       expect(result.rows[0].emoji).toBe('❤️');
@@ -176,25 +177,25 @@ describe('Comments API', () => {
         `INSERT INTO user_presence (user_email, work_item_id)
          VALUES ($1, $2)
          RETURNING *`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
-      expect(result.rows[0].user_email).toBe(userEmail);
-      expect(result.rows[0].work_item_id).toBe(workItemId);
+      expect(result.rows[0].user_email).toBe(user_email);
+      expect(result.rows[0].work_item_id).toBe(work_item_id);
     });
 
     it('enforces unique user+work_item', async () => {
       await pool.query(
         `INSERT INTO user_presence (user_email, work_item_id)
          VALUES ($1, $2)`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       await expect(
         pool.query(
           `INSERT INTO user_presence (user_email, work_item_id)
            VALUES ($1, $2)`,
-          [userEmail, workItemId],
+          [user_email, work_item_id],
         ),
       ).rejects.toThrow(/duplicate key/);
     });
@@ -204,7 +205,7 @@ describe('Comments API', () => {
         `INSERT INTO user_presence (user_email, work_item_id)
          VALUES ($1, $2)
          ON CONFLICT (user_email, work_item_id) DO UPDATE SET last_seen_at = now()`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       const result = await pool.query(
@@ -212,10 +213,10 @@ describe('Comments API', () => {
          VALUES ($1, $2)
          ON CONFLICT (user_email, work_item_id) DO UPDATE SET last_seen_at = now()
          RETURNING *`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
-      expect(result.rows[0].user_email).toBe(userEmail);
+      expect(result.rows[0].user_email).toBe(user_email);
     });
   });
 
@@ -223,7 +224,7 @@ describe('Comments API', () => {
     it('returns empty array when no comments', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/comments`,
+        url: `/api/work-items/${work_item_id}/comments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -236,12 +237,12 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'First comment'),
                 ($1, $2, 'Second comment')`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/comments`,
+        url: `/api/work-items/${work_item_id}/comments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -254,19 +255,19 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment with reactions')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
          VALUES ($1, $2, '👍'), ($1, 'other@example.com', '❤️')`,
-        [commentId, userEmail],
+        [commentId, user_email],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/comments`,
+        url: `/api/work-items/${work_item_id}/comments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -290,9 +291,9 @@ describe('Comments API', () => {
     it('creates a new comment', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/comments`,
+        url: `/api/work-items/${work_item_id}/comments`,
         payload: {
-          userEmail,
+          user_email,
           content: 'New comment',
         },
       });
@@ -308,31 +309,31 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Parent')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
-      const parentId = parentRes.rows[0].id;
+      const parent_id = parentRes.rows[0].id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/comments`,
+        url: `/api/work-items/${work_item_id}/comments`,
         payload: {
-          userEmail,
+          user_email,
           content: 'Reply',
-          parentId,
+          parent_id,
         },
       });
 
       expect(response.statusCode).toBe(201);
       const body = response.json();
-      expect(body.parentId).toBe(parentId);
+      expect(body.parent_id).toBe(parent_id);
     });
 
     it('extracts mentions from content', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/comments`,
+        url: `/api/work-items/${work_item_id}/comments`,
         payload: {
-          userEmail,
+          user_email,
           content: 'Hey @alice@example.com and @bob@example.com!',
         },
       });
@@ -350,15 +351,15 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Original')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${workItemId}/comments/${commentId}`,
+        url: `/api/work-items/${work_item_id}/comments/${commentId}`,
         payload: {
-          userEmail,
+          user_email,
           content: 'Updated content',
         },
       });
@@ -366,7 +367,7 @@ describe('Comments API', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.content).toBe('Updated content');
-      expect(body.editedAt).toBeDefined();
+      expect(body.edited_at).toBeDefined();
     });
 
     it('prevents updating other user comments', async () => {
@@ -374,15 +375,15 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, 'other@example.com', 'Other user comment')
          RETURNING id`,
-        [workItemId],
+        [work_item_id],
       );
       const commentId = commentRes.rows[0].id;
 
       const response = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${workItemId}/comments/${commentId}`,
+        url: `/api/work-items/${work_item_id}/comments/${commentId}`,
         payload: {
-          userEmail,
+          user_email,
           content: 'Trying to update',
         },
       });
@@ -397,13 +398,13 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'To delete')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}/comments/${commentId}?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/work-items/${work_item_id}/comments/${commentId}?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -417,13 +418,13 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, 'other@example.com', 'Other comment')
          RETURNING id`,
-        [workItemId],
+        [work_item_id],
       );
       const commentId = commentRes.rows[0].id;
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}/comments/${commentId}?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/work-items/${work_item_id}/comments/${commentId}?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(403);
@@ -436,15 +437,15 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/comments/${commentId}/reactions`,
+        url: `/api/work-items/${work_item_id}/comments/${commentId}/reactions`,
         payload: {
-          userEmail,
+          user_email,
           emoji: '👍',
         },
       });
@@ -457,28 +458,28 @@ describe('Comments API', () => {
         `INSERT INTO work_item_comment (work_item_id, user_email, content)
          VALUES ($1, $2, 'Comment')
          RETURNING id`,
-        [workItemId, userEmail],
+        [work_item_id, user_email],
       );
       const commentId = commentRes.rows[0].id;
 
       await pool.query(
         `INSERT INTO work_item_comment_reaction (comment_id, user_email, emoji)
          VALUES ($1, $2, '👍')`,
-        [commentId, userEmail],
+        [commentId, user_email],
       );
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/comments/${commentId}/reactions`,
+        url: `/api/work-items/${work_item_id}/comments/${commentId}/reactions`,
         payload: {
-          userEmail,
+          user_email,
           emoji: '👍',
         },
       });
 
       expect(response.statusCode).toBe(200);
 
-      const checkRes = await pool.query('SELECT COUNT(*) FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2', [commentId, userEmail]);
+      const checkRes = await pool.query('SELECT COUNT(*) FROM work_item_comment_reaction WHERE comment_id = $1 AND user_email = $2', [commentId, user_email]);
       expect(parseInt(checkRes.rows[0].count)).toBe(0);
     });
   });
@@ -487,7 +488,7 @@ describe('Comments API', () => {
     it('returns empty array when no presence', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/presence`,
+        url: `/api/work-items/${work_item_id}/presence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -499,30 +500,30 @@ describe('Comments API', () => {
       await pool.query(
         `INSERT INTO user_presence (user_email, work_item_id, last_seen_at)
          VALUES ($1, $2, now())`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/presence`,
+        url: `/api/work-items/${work_item_id}/presence`,
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.users).toHaveLength(1);
-      expect(body.users[0].email).toBe(userEmail);
+      expect(body.users[0].email).toBe(user_email);
     });
 
     it('excludes stale presence (>5 minutes old)', async () => {
       await pool.query(
         `INSERT INTO user_presence (user_email, work_item_id, last_seen_at)
          VALUES ($1, $2, now() - interval '10 minutes')`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/presence`,
+        url: `/api/work-items/${work_item_id}/presence`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -535,15 +536,15 @@ describe('Comments API', () => {
     it('updates user presence', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/presence`,
+        url: `/api/work-items/${work_item_id}/presence`,
         payload: {
-          userEmail,
+          user_email,
         },
       });
 
       expect(response.statusCode).toBe(200);
 
-      const checkRes = await pool.query('SELECT COUNT(*) FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [userEmail, workItemId]);
+      const checkRes = await pool.query('SELECT COUNT(*) FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [user_email, work_item_id]);
       expect(parseInt(checkRes.rows[0].count)).toBe(1);
     });
 
@@ -551,14 +552,14 @@ describe('Comments API', () => {
       await pool.query(
         `INSERT INTO user_presence (user_email, work_item_id, last_seen_at)
          VALUES ($1, $2, now() - interval '1 minute')`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/presence`,
+        url: `/api/work-items/${work_item_id}/presence`,
         payload: {
-          userEmail,
+          user_email,
         },
       });
 
@@ -567,7 +568,7 @@ describe('Comments API', () => {
       const checkRes = await pool.query(
         `SELECT last_seen_at FROM user_presence
          WHERE user_email = $1 AND work_item_id = $2`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
       const lastSeen = new Date(checkRes.rows[0].last_seen_at);
       const now = new Date();
@@ -580,17 +581,17 @@ describe('Comments API', () => {
       await pool.query(
         `INSERT INTO user_presence (user_email, work_item_id)
          VALUES ($1, $2)`,
-        [userEmail, workItemId],
+        [user_email, work_item_id],
       );
 
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}/presence?userEmail=${encodeURIComponent(userEmail)}`,
+        url: `/api/work-items/${work_item_id}/presence?user_email=${encodeURIComponent(user_email)}`,
       });
 
       expect(response.statusCode).toBe(200);
 
-      const checkRes = await pool.query('SELECT COUNT(*) FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [userEmail, workItemId]);
+      const checkRes = await pool.query('SELECT COUNT(*) FROM user_presence WHERE user_email = $1 AND work_item_id = $2', [user_email, work_item_id]);
       expect(parseInt(checkRes.rows[0].count)).toBe(0);
     });
   });
@@ -603,7 +604,7 @@ describe('Comments API', () => {
          VALUES ($1, 'alice@example.com', 'Comment 1'),
                 ($1, 'bob@example.com', 'Comment 2'),
                 ($1, 'alice.smith@company.com', 'Comment 3')`,
-        [workItemId],
+        [work_item_id],
       );
 
       const response = await app.inject({
@@ -622,7 +623,7 @@ describe('Comments API', () => {
         await pool.query(
           `INSERT INTO work_item_comment (work_item_id, user_email, content)
            VALUES ($1, $2, 'Comment')`,
-          [workItemId, `user${i}@example.com`],
+          [work_item_id, `user${i}@example.com`],
         );
       }
 

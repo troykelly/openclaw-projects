@@ -43,15 +43,15 @@ describe('Work items core model', () => {
 
   it('supports participants with roles', async () => {
     const wi = await pool.query(`INSERT INTO work_item (title) VALUES ('With participant') RETURNING id`);
-    const workItemId = wi.rows[0].id as string;
+    const work_item_id = wi.rows[0].id as string;
 
     await pool.query(
       `INSERT INTO work_item_participant (work_item_id, participant, role)
        VALUES ($1, $2, $3)`,
-      [workItemId, 'troy', 'owner'],
+      [work_item_id, 'troy', 'owner'],
     );
 
-    const rows = await pool.query(`SELECT participant, role FROM work_item_participant WHERE work_item_id = $1`, [workItemId]);
+    const rows = await pool.query(`SELECT participant, role FROM work_item_participant WHERE work_item_id = $1`, [work_item_id]);
     expect(rows.rows).toEqual([{ participant: 'troy', role: 'owner' }]);
   });
 

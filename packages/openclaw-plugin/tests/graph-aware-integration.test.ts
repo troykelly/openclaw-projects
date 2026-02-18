@@ -64,7 +64,7 @@ describe('Graph-Aware Integration', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(typeof hook).toBe('function');
     });
@@ -74,7 +74,7 @@ describe('Graph-Aware Integration', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: { ...mockConfig, autoRecall: false },
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await hook({ prompt: 'What food does Alex like?' });
@@ -91,7 +91,7 @@ describe('Graph-Aware Integration', () => {
               id: 'mem-1',
               title: 'Food',
               content: 'Prefers sushi',
-              memoryType: 'preference',
+              memory_type: 'preference',
               similarity: 0.9,
               importance: 8,
               confidence: 1.0,
@@ -104,7 +104,7 @@ describe('Graph-Aware Integration', () => {
             queryTimeMs: 42,
             scopeCount: 3,
             totalMemoriesFound: 1,
-            searchType: 'semantic',
+            search_type: 'semantic',
             maxDepth: 1,
           },
         },
@@ -115,7 +115,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await hook({ prompt: 'What food does Alex like?' });
@@ -151,7 +151,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await hook({ prompt: 'Tell me about my preferences' });
@@ -173,7 +173,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
         timeoutMs: 100,
       });
 
@@ -190,7 +190,7 @@ describe('Graph-Aware Integration', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await hook({ prompt: 'Hello' });
@@ -219,7 +219,7 @@ describe('Graph-Aware Integration', () => {
                   id: 'mem-1',
                   title: 'Food Preference',
                   content: 'Prefers sushi',
-                  memoryType: 'preference',
+                  memory_type: 'preference',
                   similarity: 0.92,
                   importance: 8,
                   confidence: 1.0,
@@ -232,7 +232,7 @@ describe('Graph-Aware Integration', () => {
                 queryTimeMs: 35,
                 scopeCount: 3,
                 totalMemoriesFound: 1,
-                searchType: 'semantic',
+                search_type: 'semantic',
                 maxDepth: 1,
               },
             }),
@@ -327,7 +327,7 @@ describe('Graph-Aware Integration', () => {
                   id: 'mem-personal',
                   title: 'Food',
                   content: 'User prefers sushi',
-                  memoryType: 'preference',
+                  memory_type: 'preference',
                   similarity: 0.9,
                   importance: 8,
                   confidence: 1.0,
@@ -339,7 +339,7 @@ describe('Graph-Aware Integration', () => {
                   id: 'mem-relationship',
                   title: 'Anniversary',
                   content: 'Wedding anniversary is June 15',
-                  memoryType: 'fact',
+                  memory_type: 'fact',
                   similarity: 0.85,
                   importance: 9,
                   confidence: 1.0,
@@ -352,7 +352,7 @@ describe('Graph-Aware Integration', () => {
                 queryTimeMs: 50,
                 scopeCount: 4,
                 totalMemoriesFound: 2,
-                searchType: 'semantic',
+                search_type: 'semantic',
                 maxDepth: 1,
               },
             }),

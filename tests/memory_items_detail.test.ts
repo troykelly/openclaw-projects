@@ -35,19 +35,19 @@ describe('Memory Items in Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Create some memories
       await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Decision Note', 'We decided to use TypeScript', 'decision'),
                 ($1, 'Context Info', 'This is background information', 'context')`,
-        [itemId],
+        [item_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}/memories`,
+        url: `/api/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -64,11 +64,11 @@ describe('Memory Items in Work Item Detail', () => {
          VALUES ('Empty Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}/memories`,
+        url: `/api/work-items/${item_id}/memories`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -93,11 +93,11 @@ describe('Memory Items in Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${itemId}/memories`,
+        url: `/api/work-items/${item_id}/memories`,
         payload: {
           title: 'New Memory',
           content: 'Memory content here',
@@ -118,11 +118,11 @@ describe('Memory Items in Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${itemId}/memories`,
+        url: `/api/work-items/${item_id}/memories`,
         payload: {},
       });
 
@@ -138,19 +138,19 @@ describe('Memory Items in Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const memory = await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'Original Title', 'Original content', 'note')
          RETURNING id::text as id`,
-        [itemId],
+        [item_id],
       );
-      const memoryId = (memory.rows[0] as { id: string }).id;
+      const memory_id = (memory.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memoryId}`,
+        url: `/api/memories/${memory_id}`,
         payload: {
           title: 'Updated Title',
           content: 'Updated content',
@@ -181,19 +181,19 @@ describe('Memory Items in Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const memory = await pool.query(
         `INSERT INTO memory (work_item_id, title, content, memory_type)
          VALUES ($1, 'To Delete', 'Delete me', 'note')
          RETURNING id::text as id`,
-        [itemId],
+        [item_id],
       );
-      const memoryId = (memory.rows[0] as { id: string }).id;
+      const memory_id = (memory.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memoryId}`,
+        url: `/api/memories/${memory_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -201,7 +201,7 @@ describe('Memory Items in Work Item Detail', () => {
       // Verify deleted
       const checkRes = await app.inject({
         method: 'PATCH',
-        url: `/api/memories/${memoryId}`,
+        url: `/api/memories/${memory_id}`,
         payload: { title: 'Test' },
       });
       expect(checkRes.statusCode).toBe(404);

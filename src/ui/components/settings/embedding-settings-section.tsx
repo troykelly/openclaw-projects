@@ -113,7 +113,7 @@ function ProviderStatus({ provider }: ProviderStatusProps) {
       </div>
       <div className="text-right text-xs text-muted-foreground">
         <p>Key source</p>
-        <p className="font-medium">{formatKeySource(provider.keySource)}</p>
+        <p className="font-medium">{formatKeySource(provider.key_source)}</p>
       </div>
     </div>
   );
@@ -162,7 +162,7 @@ function TestResultDisplay({ result, onDismiss }: TestResultDisplayProps) {
           {result.success ? (
             <>
               Connection successful
-              {result.latencyMs && <span className="ml-1 text-muted-foreground">({result.latencyMs}ms)</span>}
+              {result.latency_ms && <span className="ml-1 text-muted-foreground">({result.latency_ms}ms)</span>}
             </>
           ) : (
             result.error || 'Connection failed'
@@ -327,7 +327,7 @@ export function EmbeddingSettingsSection() {
     );
   }
 
-  const { provider, availableProviders, budget, usage } = state.data;
+  const { provider, available_providers, budget, usage } = state.data;
 
   return (
     <>
@@ -346,7 +346,7 @@ export function EmbeddingSettingsSection() {
           {testResult && <TestResultDisplay result={testResult} onDismiss={clearTestResult} />}
 
           <div className="flex items-center justify-between">
-            <ProviderList providers={availableProviders} />
+            <ProviderList providers={available_providers} />
             <Button variant="outline" size="sm" onClick={testConnection} disabled={!provider || isTesting}>
               {isTesting ? (
                 <>
@@ -379,8 +379,8 @@ export function EmbeddingSettingsSection() {
         <CardContent className="space-y-6">
           {/* Spend Progress */}
           <div className="space-y-3">
-            <BudgetProgress label="Today" spent={budget.todaySpendUsd} limit={budget.dailyLimitUsd} />
-            <BudgetProgress label="This Month" spent={budget.monthSpendUsd} limit={budget.monthlyLimitUsd} />
+            <BudgetProgress label="Today" spent={budget.today_spend_usd} limit={budget.daily_limit_usd} />
+            <BudgetProgress label="This Month" spent={budget.month_spend_usd} limit={budget.monthly_limit_usd} />
           </div>
 
           {/* Budget Limits */}
@@ -388,22 +388,22 @@ export function EmbeddingSettingsSection() {
             <BudgetInput
               label="Daily Limit"
               description="Maximum spend per day"
-              value={budget.dailyLimitUsd}
-              onChange={(v) => updateBudget({ dailyLimitUsd: v })}
+              value={budget.daily_limit_usd}
+              onChange={(v) => updateBudget({ daily_limit_usd: v })}
               max={10000}
             />
             <BudgetInput
               label="Monthly Limit"
               description="Maximum spend per month"
-              value={budget.monthlyLimitUsd}
-              onChange={(v) => updateBudget({ monthlyLimitUsd: v })}
+              value={budget.monthly_limit_usd}
+              onChange={(v) => updateBudget({ monthly_limit_usd: v })}
               max={100000}
             />
             <SettingRow label="Pause on Limit" description="Stop generating embeddings when budget is exceeded" htmlFor="pause-on-limit">
               <Switch
                 id="pause-on-limit"
-                checked={budget.pauseOnLimit}
-                onCheckedChange={(checked) => updateBudget({ pauseOnLimit: checked })}
+                checked={budget.pause_on_limit}
+                onCheckedChange={(checked) => updateBudget({ pause_on_limit: checked })}
                 aria-label="Pause on limit"
               />
             </SettingRow>

@@ -51,7 +51,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('todo_list');
       });
@@ -61,7 +61,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.description.length).toBeGreaterThan(10);
       });
@@ -79,7 +79,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({});
@@ -87,7 +87,7 @@ describe('todo tools', () => {
         expect(result.success).toBe(true);
       });
 
-      it('should accept valid projectId filter', async () => {
+      it('should accept valid project_id filter', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: { items: [], total: 0 },
@@ -98,22 +98,22 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
-        await tool.execute({ projectId: '123e4567-e89b-12d3-a456-426614174000' });
+        await tool.execute({ project_id: '123e4567-e89b-12d3-a456-426614174000' });
         expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('parent_work_item_id=123e4567-e89b-12d3-a456-426614174000'), expect.any(Object));
       });
 
-      it('should reject invalid projectId format', async () => {
+      it('should reject invalid project_id format', async () => {
         const tool = createTodoListTool({
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
-        const result = await tool.execute({ projectId: 'not-a-uuid' });
+        const result = await tool.execute({ project_id: 'not-a-uuid' });
         expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error).toContain('UUID');
@@ -131,7 +131,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ completed: true });
@@ -149,7 +149,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ limit: 100 });
@@ -161,7 +161,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ limit: 201 });
@@ -187,7 +187,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({});
@@ -213,7 +213,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({});
@@ -238,7 +238,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({});
@@ -258,7 +258,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('todo_create');
       });
@@ -270,7 +270,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({} as TodoCreateParams);
@@ -282,7 +282,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ title: '' });
@@ -294,14 +294,14 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ title: 'a'.repeat(501) });
         expect(result.success).toBe(false);
       });
 
-      it('should accept valid projectId', async () => {
+      it('should accept valid project_id', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
           data: { id: 'new-123', title: 'New Todo' },
@@ -312,12 +312,12 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
           title: 'New Todo',
-          projectId: '123e4567-e89b-12d3-a456-426614174000',
+          project_id: '123e4567-e89b-12d3-a456-426614174000',
         });
 
         expect(mockPost).toHaveBeenCalledWith(
@@ -329,17 +329,17 @@ describe('todo tools', () => {
         );
       });
 
-      it('should reject invalid projectId format', async () => {
+      it('should reject invalid project_id format', async () => {
         const tool = createTodoCreateTool({
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
           title: 'New Todo',
-          projectId: 'invalid-uuid',
+          project_id: 'invalid-uuid',
         });
         expect(result.success).toBe(false);
         if (!result.success) {
@@ -358,7 +358,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
@@ -380,7 +380,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -406,7 +406,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ title: 'Buy groceries' });
@@ -417,7 +417,7 @@ describe('todo tools', () => {
             title: 'Buy groceries',
             item_type: 'task',
           }),
-          expect.objectContaining({ userId: 'agent-1' }),
+          expect.objectContaining({ user_id: 'agent-1' }),
         );
       });
     });
@@ -434,7 +434,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ title: 'Buy groceries' });
@@ -459,7 +459,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ title: '<script>alert("xss")</script>Buy groceries' });
@@ -482,7 +482,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('todo_complete');
       });
@@ -494,7 +494,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({} as TodoCompleteParams);
@@ -506,7 +506,7 @@ describe('todo tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: 'not-a-uuid' });
@@ -527,7 +527,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -547,12 +547,12 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
 
-        expect(mockPatch).toHaveBeenCalledWith('/api/work-items/123e4567-e89b-12d3-a456-426614174000/status', { status: 'completed' }, expect.objectContaining({ userId: 'agent-1' }));
+        expect(mockPatch).toHaveBeenCalledWith('/api/work-items/123e4567-e89b-12d3-a456-426614174000/status', { status: 'completed' }, expect.objectContaining({ user_id: 'agent-1' }));
       });
     });
 
@@ -568,7 +568,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -590,7 +590,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -612,7 +612,7 @@ describe('todo tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -634,7 +634,7 @@ describe('todo tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({});
@@ -649,7 +649,7 @@ describe('todo tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({});
@@ -664,7 +664,7 @@ describe('todo tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ title: 'Test todo' });
@@ -678,7 +678,7 @@ describe('todo tools', () => {
   });
 
   describe('user scoping', () => {
-    it('should include userId in all API calls', async () => {
+    it('should include user_id in all API calls', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { items: [], total: 0 },
@@ -689,12 +689,12 @@ describe('todo tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'custom-user',
+        user_id: 'custom-user',
       });
 
       await tool.execute({});
 
-      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ userId: 'custom-user' }));
+      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ user_id: 'custom-user' }));
     });
   });
 });

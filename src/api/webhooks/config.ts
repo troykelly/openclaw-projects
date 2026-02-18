@@ -31,7 +31,7 @@ export function getOpenClawConfig(): OpenClawConfig | null {
     gatewayUrl: gatewayUrl.replace(/\/$/, ''), // Remove trailing slash
     apiToken,
     defaultModel: process.env.OPENCLAW_DEFAULT_MODEL || 'anthropic/claude-sonnet-4-20250514',
-    timeoutSeconds: parseInt(process.env.OPENCLAW_TIMEOUT_SECONDS || '120', 10),
+    timeout_seconds: parseInt(process.env.OPENCLAW_TIMEOUT_SECONDS || '120', 10),
   };
 
   return cachedConfig;
@@ -93,28 +93,28 @@ export function validateOpenClawConfig(): { valid: boolean; errors: string[] } {
  */
 export function getConfigSummary(): {
   configured: boolean;
-  gatewayUrl: string | null;
-  hasToken: boolean;
-  defaultModel: string | null;
-  timeoutSeconds: number | null;
+  gateway_url: string | null;
+  has_token: boolean;
+  default_model: string | null;
+  timeout_seconds: number | null;
 } {
   const config = getOpenClawConfig();
 
   if (!config) {
     return {
       configured: false,
-      gatewayUrl: null,
-      hasToken: false,
-      defaultModel: null,
-      timeoutSeconds: null,
+      gateway_url: null,
+      has_token: false,
+      default_model: null,
+      timeout_seconds: null,
     };
   }
 
   return {
     configured: true,
-    gatewayUrl: config.gatewayUrl,
-    hasToken: !!config.apiToken,
-    defaultModel: config.defaultModel || null,
-    timeoutSeconds: config.timeoutSeconds || null,
+    gateway_url: config.gatewayUrl,
+    has_token: !!config.apiToken,
+    default_model: config.defaultModel || null,
+    timeout_seconds: config.timeout_seconds || null,
   };
 }

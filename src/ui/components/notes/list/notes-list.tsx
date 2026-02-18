@@ -43,13 +43,13 @@ export function NotesList({
   className,
 }: NotesListProps) {
   const [filter, setFilter] = useState<NoteFilter>({
-    notebookId: selectedNotebookId,
+    notebook_id: selectedNotebookId,
   });
   const [showFilters, setShowFilters] = useState(false);
 
   // Update filter when selectedNotebookId changes
   React.useEffect(() => {
-    setFilter((prev) => ({ ...prev, notebookId: selectedNotebookId }));
+    setFilter((prev) => ({ ...prev, notebook_id: selectedNotebookId }));
   }, [selectedNotebookId]);
 
   const filteredNotes = useMemo(() => {
@@ -64,8 +64,8 @@ export function NotesList({
     }
 
     // Notebook filter
-    if (filter.notebookId) {
-      result = result.filter((n) => n.notebookId === filter.notebookId);
+    if (filter.notebook_id) {
+      result = result.filter((n) => n.notebook_id === filter.notebook_id);
     }
 
     // Visibility filter
@@ -82,7 +82,7 @@ export function NotesList({
     result = [...result].sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      return b.updatedAt.getTime() - a.updatedAt.getTime();
+      return b.updated_at.getTime() - a.updated_at.getTime();
     });
 
     return result;
@@ -91,14 +91,14 @@ export function NotesList({
   const activeFilterCount = [filter.visibility, filter.isPinned !== undefined, filter.tags?.length].filter(Boolean).length;
 
   const clearFilters = () => {
-    setFilter({ search: filter.search, notebookId: filter.notebookId });
+    setFilter({ search: filter.search, notebook_id: filter.notebook_id });
   };
 
   return (
     <div className={cn('flex h-full flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
-        <h2 className="text-lg font-semibold">{filter.notebookId ? notebooks.find((nb) => nb.id === filter.notebookId)?.name || 'Notes' : 'All Notes'}</h2>
+        <h2 className="text-lg font-semibold">{filter.notebook_id ? notebooks.find((nb) => nb.id === filter.notebook_id)?.name || 'Notes' : 'All Notes'}</h2>
         {onAddNote && (
           <Button size="sm" onClick={onAddNote}>
             <Plus className="mr-1 size-4" />
@@ -122,11 +122,11 @@ export function NotesList({
         {/* Notebook selector (when not already filtered) */}
         {!selectedNotebookId && notebooks.length > 0 && (
           <Select
-            value={filter.notebookId ?? 'all'}
+            value={filter.notebook_id ?? 'all'}
             onValueChange={(v) =>
               setFilter((prev) => ({
                 ...prev,
-                notebookId: v === 'all' ? undefined : v,
+                notebook_id: v === 'all' ? undefined : v,
               }))
             }
           >

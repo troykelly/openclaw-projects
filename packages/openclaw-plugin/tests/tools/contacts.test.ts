@@ -58,7 +58,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('contact_search');
       });
@@ -68,7 +68,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.description.length).toBeGreaterThan(10);
       });
@@ -80,7 +80,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({} as ContactSearchParams);
@@ -92,7 +92,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ query: '' });
@@ -104,7 +104,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ query: 'a'.repeat(201) });
@@ -122,7 +122,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ query: 'john' });
@@ -140,7 +140,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ query: 'john', limit: 30 });
@@ -152,7 +152,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ query: 'john', limit: 51 });
@@ -178,7 +178,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ query: 'john' });
@@ -203,7 +203,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ query: 'nonexistent' });
@@ -223,7 +223,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('contact_get');
       });
@@ -235,7 +235,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({} as ContactGetParams);
@@ -247,7 +247,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: 'not-a-uuid' });
@@ -268,7 +268,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -295,7 +295,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -321,7 +321,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ id: '123e4567-e89b-12d3-a456-426614174000' });
@@ -341,7 +341,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('contact_create');
       });
@@ -353,7 +353,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({} as ContactCreateParams);
@@ -365,7 +365,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ name: '' });
@@ -377,14 +377,14 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ name: 'a'.repeat(201) });
         expect(result.success).toBe(false);
       });
 
-      it('should accept optional contactKind', async () => {
+      it('should accept optional contact_kind', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
           data: { id: 'new-123', display_name: 'Acme Corp' },
@@ -395,10 +395,10 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
-        await tool.execute({ name: 'Acme Corp', contactKind: 'organisation' });
+        await tool.execute({ name: 'Acme Corp', contact_kind: 'organisation' });
 
         expect(mockPost).toHaveBeenCalledWith(
           '/api/contacts',
@@ -415,7 +415,7 @@ describe('contact tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -438,7 +438,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
@@ -452,7 +452,7 @@ describe('contact tools', () => {
             display_name: 'John Doe',
             notes: 'Important client',
           }),
-          expect.objectContaining({ userId: 'agent-1' }),
+          expect.objectContaining({ user_id: 'agent-1' }),
         );
         // API does not accept email/phone directly
         const body = mockPost.mock.calls[0][1];
@@ -474,7 +474,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ name: 'John Doe' });
@@ -499,7 +499,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ name: '<script>alert("xss")</script>John Doe' });
@@ -524,7 +524,7 @@ describe('contact tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ name: 'John Doe', notes: '<b>Important</b> client' });
@@ -552,7 +552,7 @@ describe('contact tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'john' });
@@ -567,7 +567,7 @@ describe('contact tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ query: 'john' });
@@ -582,7 +582,7 @@ describe('contact tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ name: 'John Doe' });
@@ -610,7 +610,7 @@ describe('contact tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'john' });
@@ -625,7 +625,7 @@ describe('contact tools', () => {
   });
 
   describe('user scoping', () => {
-    it('should include userId in all API calls', async () => {
+    it('should include user_id in all API calls', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { contacts: [], total: 0 },
@@ -636,12 +636,12 @@ describe('contact tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'custom-user',
+        user_id: 'custom-user',
       });
 
       await tool.execute({ query: 'john' });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ userId: 'custom-user' }));
+      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ user_id: 'custom-user' }));
     });
   });
 });

@@ -36,7 +36,7 @@ export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId,
     const payload: WorkItemCreatePayload = {
       title: title.trim(),
       kind,
-      parentId: defaultParentId ?? null,
+      parent_id: defaultParentId ?? null,
     };
 
     try {

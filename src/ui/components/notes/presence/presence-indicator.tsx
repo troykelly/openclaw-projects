@@ -27,12 +27,12 @@ interface PresenceIndicatorProps {
  * Get initials from email or display name
  */
 function getInitials(user: NotePresenceUser): string {
-  if (user.displayName) {
-    const parts = user.displayName.split(' ');
+  if (user.display_name) {
+    const parts = user.display_name.split(' ');
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
-    return user.displayName.slice(0, 2).toUpperCase();
+    return user.display_name.slice(0, 2).toUpperCase();
   }
   // Use email prefix
   const emailPrefix = user.email.split('@')[0];
@@ -107,7 +107,7 @@ function Avatar({ user, size = 'md', className }: { user: NotePresenceUser; size
     return (
       <img
         src={user.avatarUrl}
-        alt={user.displayName || user.email}
+        alt={user.display_name || user.email}
         referrerPolicy="no-referrer"
         className={cn('rounded-full border-2 border-background object-cover', sizeClasses[size], className)}
       />
@@ -118,7 +118,7 @@ function Avatar({ user, size = 'md', className }: { user: NotePresenceUser; size
     <div
       className={cn('flex items-center justify-center rounded-full border-2 border-background font-medium text-white', sizeClasses[size], className)}
       style={{ backgroundColor: bgColor }}
-      aria-label={user.displayName || user.email}
+      aria-label={user.display_name || user.email}
     >
       {initials}
     </div>
@@ -153,7 +153,7 @@ export function PresenceIndicator({ viewers, maxAvatars = 3, size = 'md', curren
       <p className="font-medium">{otherViewers.length === 1 ? '1 person viewing' : `${otherViewers.length} people viewing`}</p>
       <ul className="text-sm text-muted-foreground">
         {otherViewers.map((viewer) => (
-          <li key={viewer.email}>{viewer.displayName || viewer.email}</li>
+          <li key={viewer.email}>{viewer.display_name || viewer.email}</li>
         ))}
       </ul>
     </div>

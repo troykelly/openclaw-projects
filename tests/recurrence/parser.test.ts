@@ -10,19 +10,19 @@ describe('Natural Language Parser', () => {
   describe('Daily Patterns', () => {
     it('parses "every day"', () => {
       const result = parseNaturalLanguage('every day');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=DAILY');
     });
 
     it('parses "daily"', () => {
       const result = parseNaturalLanguage('daily');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=DAILY');
     });
 
     it('parses "every day at 9am"', () => {
       const result = parseNaturalLanguage('every day at 9am');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=DAILY');
       expect(result.rrule).toContain('BYHOUR=9');
       expect(result.rrule).toContain('BYMINUTE=0');
@@ -30,7 +30,7 @@ describe('Natural Language Parser', () => {
 
     it('parses "every 2 days"', () => {
       const result = parseNaturalLanguage('every 2 days');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=DAILY');
       expect(result.rrule).toContain('INTERVAL=2');
     });
@@ -39,26 +39,26 @@ describe('Natural Language Parser', () => {
   describe('Weekly Patterns', () => {
     it('parses "every week"', () => {
       const result = parseNaturalLanguage('every week');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
     });
 
     it('parses "weekly"', () => {
       const result = parseNaturalLanguage('weekly');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
     });
 
     it('parses "every Monday"', () => {
       const result = parseNaturalLanguage('every Monday');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
       expect(result.rrule).toContain('BYDAY=MO');
     });
 
     it('parses "every Monday and Friday"', () => {
       const result = parseNaturalLanguage('every Monday and Friday');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
       expect(result.rrule).toMatch(/BYDAY=.*MO/);
       expect(result.rrule).toMatch(/BYDAY=.*FR/);
@@ -66,14 +66,14 @@ describe('Natural Language Parser', () => {
 
     it('parses "every weekday"', () => {
       const result = parseNaturalLanguage('every weekday');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
       expect(result.rrule).toContain('BYDAY=MO,TU,WE,TH,FR');
     });
 
     it('parses "weekdays at 9am"', () => {
       const result = parseNaturalLanguage('weekdays at 9am');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
       expect(result.rrule).toContain('BYDAY=MO,TU,WE,TH,FR');
       expect(result.rrule).toContain('BYHOUR=9');
@@ -81,14 +81,14 @@ describe('Natural Language Parser', () => {
 
     it('parses "every weekend"', () => {
       const result = parseNaturalLanguage('every weekend');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
       expect(result.rrule).toContain('BYDAY=SA,SU');
     });
 
     it('parses "every 2 weeks"', () => {
       const result = parseNaturalLanguage('every 2 weeks');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=WEEKLY');
       expect(result.rrule).toContain('INTERVAL=2');
     });
@@ -97,40 +97,40 @@ describe('Natural Language Parser', () => {
   describe('Monthly Patterns', () => {
     it('parses "every month"', () => {
       const result = parseNaturalLanguage('every month');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=MONTHLY');
     });
 
     it('parses "monthly"', () => {
       const result = parseNaturalLanguage('monthly');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=MONTHLY');
     });
 
     it('parses "first of every month"', () => {
       const result = parseNaturalLanguage('first of every month');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=MONTHLY');
       expect(result.rrule).toContain('BYMONTHDAY=1');
     });
 
     it('parses "1st of the month"', () => {
       const result = parseNaturalLanguage('1st of the month');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=MONTHLY');
       expect(result.rrule).toContain('BYMONTHDAY=1');
     });
 
     it('parses "last of the month"', () => {
       const result = parseNaturalLanguage('last of the month');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=MONTHLY');
       expect(result.rrule).toContain('BYMONTHDAY=-1');
     });
 
     it('parses "15th of every month"', () => {
       const result = parseNaturalLanguage('15th of every month');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=MONTHLY');
       expect(result.rrule).toContain('BYMONTHDAY=15');
     });
@@ -139,19 +139,19 @@ describe('Natural Language Parser', () => {
   describe('Yearly Patterns', () => {
     it('parses "every year"', () => {
       const result = parseNaturalLanguage('every year');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=YEARLY');
     });
 
     it('parses "yearly"', () => {
       const result = parseNaturalLanguage('yearly');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=YEARLY');
     });
 
     it('parses "annually"', () => {
       const result = parseNaturalLanguage('annually');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=YEARLY');
     });
   });
@@ -189,19 +189,19 @@ describe('Natural Language Parser', () => {
   describe('Non-Recurring Patterns', () => {
     it('identifies "tomorrow" as non-recurring', () => {
       const result = parseNaturalLanguage('tomorrow');
-      expect(result.isRecurring).toBe(false);
+      expect(result.is_recurring).toBe(false);
       expect(result.rrule).toBeNull();
     });
 
     it('identifies "next Monday" as non-recurring', () => {
       const result = parseNaturalLanguage('next Monday');
-      expect(result.isRecurring).toBe(false);
+      expect(result.is_recurring).toBe(false);
       expect(result.rrule).toBeNull();
     });
 
     it('identifies "in 2 days" as non-recurring', () => {
       const result = parseNaturalLanguage('in 2 days');
-      expect(result.isRecurring).toBe(false);
+      expect(result.is_recurring).toBe(false);
       expect(result.rrule).toBeNull();
     });
   });
@@ -209,17 +209,17 @@ describe('Natural Language Parser', () => {
   describe('Edge Cases', () => {
     it('handles empty string', () => {
       const result = parseNaturalLanguage('');
-      expect(result.isRecurring).toBe(false);
+      expect(result.is_recurring).toBe(false);
     });
 
     it('handles unparseable text', () => {
       const result = parseNaturalLanguage('random text here');
-      expect(result.isRecurring).toBe(false);
+      expect(result.is_recurring).toBe(false);
     });
 
     it('is case insensitive', () => {
       const result = parseNaturalLanguage('EVERY DAY');
-      expect(result.isRecurring).toBe(true);
+      expect(result.is_recurring).toBe(true);
       expect(result.rrule).toContain('FREQ=DAILY');
     });
   });

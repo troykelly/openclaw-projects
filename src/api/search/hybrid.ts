@@ -16,33 +16,33 @@ import type { MemoryEntry, MemoryType } from '../memory/types.ts';
 /** Options for hybrid search */
 export interface HybridSearchOptions {
   /** User email to filter by */
-  userEmail?: string;
+  user_email?: string;
   /** Work item ID to filter by */
-  workItemId?: string;
+  work_item_id?: string;
   /** Contact ID to filter by */
-  contactId?: string;
+  contact_id?: string;
   /** Memory type to filter by */
-  memoryType?: MemoryType;
+  memory_type?: MemoryType;
   /** Maximum results to return (default: 10) */
   limit?: number;
   /** Offset for pagination (default: 0) */
   offset?: number;
   /** Minimum combined score threshold (0-1, default: 0.3) */
-  minScore?: number;
+  min_score?: number;
   /** Weight for vector (semantic) search (default: 0.7) */
-  vectorWeight?: number;
+  vector_weight?: number;
   /** Weight for text (BM25) search (default: 0.3) */
-  textWeight?: number;
+  text_weight?: number;
 }
 
 /** A memory with search scores */
 export interface HybridSearchMemory extends MemoryEntry {
   /** Vector similarity score (0-1) */
-  vectorScore?: number;
+  vector_score?: number;
   /** Text search score (normalized 0-1) */
-  textScore?: number;
+  text_score?: number;
   /** Combined weighted score */
-  combinedScore: number;
+  combined_score: number;
 }
 
 /** Result of hybrid search */
@@ -50,14 +50,14 @@ export interface HybridSearchResult {
   /** Matched memories with scores */
   results: HybridSearchMemory[];
   /** Type of search performed */
-  searchType: 'hybrid' | 'vector' | 'text';
+  search_type: 'hybrid' | 'vector' | 'text';
   /** Weights used for scoring */
   weights: {
-    vectorWeight: number;
-    textWeight: number;
+    vector_weight: number;
+    text_weight: number;
   };
   /** Embedding provider if vector search was used */
-  queryEmbeddingProvider?: string;
+  query_embedding_provider?: string;
 }
 
 /**
@@ -81,13 +81,13 @@ export function normalizeScore(score: number | null | undefined, min: number, ma
  * Combine vector and text scores using weighted average.
  *
  * @param vectorScore - Normalized vector similarity score (0-1)
- * @param textScore - Normalized text search score (0-1)
+ * @param text_score - Normalized text search score (0-1)
  * @param vectorWeight - Weight for vector score (default 0.7)
  * @param textWeight - Weight for text score (default 0.3)
  * @returns Combined score
  */
-export function combineScores(vectorScore: number, textScore: number, vectorWeight: number = 0.7, textWeight: number = 0.3): number {
-  return vectorScore * vectorWeight + textScore * textWeight;
+export function combineScores(vectorScore: number, text_score: number, vectorWeight: number = 0.7, textWeight: number = 0.3): number {
+  return vectorScore * vectorWeight + text_score * textWeight;
 }
 
 /**
@@ -96,29 +96,29 @@ export function combineScores(vectorScore: number, textScore: number, vectorWeig
 function mapRowToMemory(row: Record<string, unknown>): MemoryEntry {
   return {
     id: row.id as string,
-    userEmail: row.user_email as string | null,
-    workItemId: row.work_item_id as string | null,
-    contactId: row.contact_id as string | null,
-    relationshipId: row.relationship_id as string | null,
-    projectId: row.project_id as string | null,
+    user_email: row.user_email as string | null,
+    work_item_id: row.work_item_id as string | null,
+    contact_id: row.contact_id as string | null,
+    relationship_id: row.relationship_id as string | null,
+    project_id: row.project_id as string | null,
     title: row.title as string,
     content: row.content as string,
-    memoryType: row.memory_type as MemoryType,
+    memory_type: row.memory_type as MemoryType,
     tags: (row.tags as string[]) ?? [],
-    createdByAgent: row.created_by_agent as string | null,
-    createdByHuman: (row.created_by_human as boolean) ?? false,
-    sourceUrl: row.source_url as string | null,
+    created_by_agent: row.created_by_agent as string | null,
+    created_by_human: (row.created_by_human as boolean) ?? false,
+    source_url: row.source_url as string | null,
     importance: row.importance as number,
     confidence: row.confidence as number,
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
-    supersededBy: row.superseded_by as string | null,
-    embeddingStatus: row.embedding_status as 'pending' | 'complete' | 'failed',
+    expires_at: row.expires_at ? new Date(row.expires_at as string) : null,
+    superseded_by: row.superseded_by as string | null,
+    embedding_status: row.embedding_status as 'pending' | 'complete' | 'failed',
     lat: (row.lat as number) ?? null,
     lng: (row.lng as number) ?? null,
     address: (row.address as string) ?? null,
-    placeLabel: (row.place_label as string) ?? null,
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    place_label: (row.place_label as string) ?? null,
+    created_at: new Date(row.created_at as string),
+    updated_at: new Date(row.updated_at as string),
   };
 }
 
@@ -130,24 +130,24 @@ function buildFilterConditions(options: HybridSearchOptions, startIdx: number): 
   const params: unknown[] = [];
   let idx = startIdx;
 
-  if (options.userEmail !== undefined) {
+  if (options.user_email !== undefined) {
     conditions.push(`user_email = $${idx}`);
-    params.push(options.userEmail);
+    params.push(options.user_email);
     idx++;
   }
-  if (options.workItemId !== undefined) {
+  if (options.work_item_id !== undefined) {
     conditions.push(`work_item_id = $${idx}`);
-    params.push(options.workItemId);
+    params.push(options.work_item_id);
     idx++;
   }
-  if (options.contactId !== undefined) {
+  if (options.contact_id !== undefined) {
     conditions.push(`contact_id = $${idx}`);
-    params.push(options.contactId);
+    params.push(options.contact_id);
     idx++;
   }
-  if (options.memoryType !== undefined) {
+  if (options.memory_type !== undefined) {
     conditions.push(`memory_type = $${idx}::memory_type`);
-    params.push(options.memoryType);
+    params.push(options.memory_type);
     idx++;
   }
 
@@ -207,7 +207,7 @@ async function textSearch(
   query: string,
   options: HybridSearchOptions,
   candidateLimit: number,
-): Promise<Map<string, { memory: MemoryEntry; textScore: number }>> {
+): Promise<Map<string, { memory: MemoryEntry; text_score: number }>> {
   const { conditions, params, nextIdx } = buildFilterConditions(options, 2);
 
   const allParams = [query, ...params, candidateLimit];
@@ -230,13 +230,13 @@ async function textSearch(
     allParams,
   );
 
-  const results = new Map<string, { memory: MemoryEntry; textScore: number }>();
+  const results = new Map<string, { memory: MemoryEntry; text_score: number }>();
 
   for (const row of result.rows) {
     const memory = mapRowToMemory(row as Record<string, unknown>);
     results.set(memory.id, {
       memory,
-      textScore: Number.parseFloat(row.ts_rank as string),
+      text_score: Number.parseFloat(row.ts_rank as string),
     });
   }
 
@@ -258,13 +258,13 @@ async function textSearch(
  * @returns Hybrid search results
  */
 export async function searchMemoriesHybrid(pool: Pool, query: string, options: HybridSearchOptions = {}): Promise<HybridSearchResult> {
-  const { limit = 10, minScore = 0.3, vectorWeight = 0.7, textWeight = 0.3 } = options;
+  const { limit = 10, min_score = 0.3, vector_weight = 0.7, text_weight = 0.3 } = options;
 
   // Get more candidates than needed to allow for deduplication and filtering
   const candidateLimit = Math.min(limit * 4, 100);
 
   let vectorResults: Map<string, { memory: MemoryEntry; vectorScore: number }> = new Map();
-  let queryEmbeddingProvider: string | undefined;
+  let query_embedding_provider: string | undefined;
   let vectorSearchEnabled = false;
 
   // Try vector search
@@ -276,7 +276,7 @@ export async function searchMemoriesHybrid(pool: Pool, query: string, options: H
 
       if (embeddingResult) {
         vectorSearchEnabled = true;
-        queryEmbeddingProvider = embeddingResult.provider;
+        query_embedding_provider = embeddingResult.provider;
         vectorResults = await vectorSearch(pool, embeddingResult.embedding, options, candidateLimit);
       }
     }
@@ -290,26 +290,26 @@ export async function searchMemoriesHybrid(pool: Pool, query: string, options: H
 
     // Find max ts_rank for normalization
     let maxTextScore = 0;
-    for (const { textScore } of textResults.values()) {
-      maxTextScore = Math.max(maxTextScore, textScore);
+    for (const { text_score } of textResults.values()) {
+      maxTextScore = Math.max(maxTextScore, text_score);
     }
 
     const results: HybridSearchMemory[] = [];
-    for (const { memory, textScore } of textResults.values()) {
-      const normalizedTextScore = maxTextScore > 0 ? textScore / maxTextScore : 0;
+    for (const { memory, text_score } of textResults.values()) {
+      const normalizedTextScore = maxTextScore > 0 ? text_score / maxTextScore : 0;
       results.push({
         ...memory,
-        textScore: normalizedTextScore,
-        combinedScore: normalizedTextScore, // Only text score available
+        text_score: normalizedTextScore,
+        combined_score: normalizedTextScore, // Only text score available
       });
     }
 
-    results.sort((a, b) => b.combinedScore - a.combinedScore);
+    results.sort((a, b) => b.combined_score - a.combined_score);
 
     return {
       results: results.slice(0, limit),
-      searchType: 'text',
-      weights: { vectorWeight, textWeight },
+      search_type: 'text',
+      weights: { vector_weight, text_weight },
     };
   }
 
@@ -318,8 +318,8 @@ export async function searchMemoriesHybrid(pool: Pool, query: string, options: H
 
   // Find max ts_rank for normalization (ts_rank is not normalized like cosine similarity)
   let maxTextScore = 0;
-  for (const { textScore } of textResults.values()) {
-    maxTextScore = Math.max(maxTextScore, textScore);
+  for (const { text_score } of textResults.values()) {
+    maxTextScore = Math.max(maxTextScore, text_score);
   }
 
   // Combine results
@@ -328,41 +328,41 @@ export async function searchMemoriesHybrid(pool: Pool, query: string, options: H
   // Add vector results
   for (const [id, { memory, vectorScore }] of vectorResults) {
     const textResult = textResults.get(id);
-    const rawTextScore = textResult?.textScore ?? 0;
+    const rawTextScore = textResult?.text_score ?? 0;
     const normalizedTextScore = maxTextScore > 0 ? rawTextScore / maxTextScore : 0;
 
     combinedMap.set(id, {
       ...memory,
-      vectorScore,
-      textScore: normalizedTextScore,
-      combinedScore: combineScores(vectorScore, normalizedTextScore, vectorWeight, textWeight),
+      vector_score: vectorScore,
+      text_score: normalizedTextScore,
+      combined_score: combineScores(vectorScore, normalizedTextScore, vector_weight, text_weight),
     });
   }
 
   // Add text-only results (not in vector results)
-  for (const [id, { memory, textScore }] of textResults) {
+  for (const [id, { memory, text_score }] of textResults) {
     if (!combinedMap.has(id)) {
-      const normalizedTextScore = maxTextScore > 0 ? textScore / maxTextScore : 0;
+      const normalizedTextScore = maxTextScore > 0 ? text_score / maxTextScore : 0;
 
       combinedMap.set(id, {
         ...memory,
-        vectorScore: 0,
-        textScore: normalizedTextScore,
-        combinedScore: combineScores(0, normalizedTextScore, vectorWeight, textWeight),
+        vector_score: 0,
+        text_score: normalizedTextScore,
+        combined_score: combineScores(0, normalizedTextScore, vector_weight, text_weight),
       });
     }
   }
 
   // Convert to array, filter, and sort
   const results = Array.from(combinedMap.values())
-    .filter((m) => m.combinedScore >= minScore)
-    .sort((a, b) => b.combinedScore - a.combinedScore)
+    .filter((m) => m.combined_score >= min_score)
+    .sort((a, b) => b.combined_score - a.combined_score)
     .slice(0, limit);
 
   return {
     results,
-    searchType: 'hybrid',
-    weights: { vectorWeight, textWeight },
-    queryEmbeddingProvider,
+    search_type: 'hybrid',
+    weights: { vector_weight, text_weight },
+    query_embedding_provider: query_embedding_provider,
   };
 }

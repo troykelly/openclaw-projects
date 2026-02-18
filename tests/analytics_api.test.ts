@@ -34,7 +34,7 @@ describe('Analytics API', () => {
          VALUES ('Test Project', 'open', 'project')
          RETURNING id`,
       );
-      const projectId = projectRes.rows[0].id;
+      const project_id = projectRes.rows[0].id;
 
       // Create issues under the project
       await pool.query(
@@ -43,7 +43,7 @@ describe('Analytics API', () => {
            ('Issue 1', 'open', 'issue', $1),
            ('Issue 2', 'in_progress', 'issue', $1),
            ('Issue 3', 'closed', 'issue', $1)`,
-        [projectId],
+        [project_id],
       );
 
       const response = await app.inject({
@@ -56,14 +56,14 @@ describe('Analytics API', () => {
       expect(body.projects).toBeDefined();
       expect(body.projects.length).toBeGreaterThan(0);
 
-      const project = body.projects.find((p: { id: string }) => p.id === projectId);
+      const project = body.projects.find((p: { id: string }) => p.id === project_id);
       expect(project).toBeDefined();
-      expect(project.openCount).toBeGreaterThanOrEqual(1);
-      expect(project.inProgressCount).toBeGreaterThanOrEqual(1);
-      expect(project.closedCount).toBeGreaterThanOrEqual(1);
+      expect(project.open_count).toBeGreaterThanOrEqual(1);
+      expect(project.in_progress_count).toBeGreaterThanOrEqual(1);
+      expect(project.closed_count).toBeGreaterThanOrEqual(1);
     });
 
-    it('filters by projectId', async () => {
+    it('filters by project_id', async () => {
       // Create two projects
       const project1Res = await pool.query(
         `INSERT INTO work_item (title, status, work_item_kind)
@@ -86,7 +86,7 @@ describe('Analytics API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/analytics/project-health?projectId=${project1Id}`,
+        url: `/api/analytics/project-health?project_id=${project1Id}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -142,8 +142,8 @@ describe('Analytics API', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.totalEstimated).toBeDefined();
-      expect(typeof body.totalEstimated).toBe('number');
+      expect(body.total_estimated).toBeDefined();
+      expect(typeof body.total_estimated).toBe('number');
     });
 
     it('groups effort by status', async () => {
@@ -161,7 +161,7 @@ describe('Analytics API', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.byStatus).toBeDefined();
+      expect(body.by_status).toBeDefined();
     });
   });
 
@@ -191,9 +191,9 @@ describe('Analytics API', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.totalScope).toBeDefined();
-      expect(body.completedScope).toBeDefined();
-      expect(body.remainingScope).toBeDefined();
+      expect(body.total_scope).toBeDefined();
+      expect(body.completed_scope).toBeDefined();
+      expect(body.remaining_scope).toBeDefined();
     });
 
     it('returns 404 for non-existent work item', async () => {

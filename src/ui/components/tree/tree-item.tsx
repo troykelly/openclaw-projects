@@ -57,7 +57,7 @@ export interface TreeItemRowProps {
   isSelected: boolean;
   onToggleExpand: (id: string) => void;
   onSelect: (id: string) => void;
-  onAddChild?: (parentId: string, kind: TreeItemKind) => void;
+  onAddChild?: (parent_id: string, kind: TreeItemKind) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   /** Called when user requests to move the item via "Move to..." menu */
@@ -82,9 +82,9 @@ export function TreeItemRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: {
-      itemId: item.id,
+      item_id: item.id,
       kind: item.kind,
-      parentId: item.parentId,
+      parent_id: item.parent_id,
     },
   });
 

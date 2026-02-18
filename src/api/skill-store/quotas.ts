@@ -11,18 +11,18 @@ import type { Pool } from 'pg';
 
 /** Default quota values. */
 const DEFAULTS = {
-  maxItemsPerSkill: 100_000,
-  maxCollectionsPerSkill: 1_000,
-  maxSchedulesPerSkill: 20,
-  maxItemSizeBytes: 1_048_576, // 1MB
+  max_items_per_skill: 100_000,
+  max_collections_per_skill: 1_000,
+  max_schedules_per_skill: 20,
+  max_item_size_bytes: 1_048_576, // 1MB
 } as const;
 
 /** Quota configuration. */
 export interface SkillStoreQuotaConfig {
-  maxItemsPerSkill: number;
-  maxCollectionsPerSkill: number;
-  maxSchedulesPerSkill: number;
-  maxItemSizeBytes: number;
+  max_items_per_skill: number;
+  max_collections_per_skill: number;
+  max_schedules_per_skill: number;
+  max_item_size_bytes: number;
 }
 
 /** Quota check result. */
@@ -38,7 +38,7 @@ export interface SkillStoreQuotaUsage {
   items: { current: number; limit: number };
   collections: { current: number; limit: number };
   schedules: { current: number; limit: number };
-  maxItemSizeBytes: number;
+  max_item_size_bytes: number;
 }
 
 /**
@@ -57,10 +57,10 @@ function envInt(name: string, fallback: number): number {
  */
 export function getSkillStoreQuotaConfig(overrides?: Partial<SkillStoreQuotaConfig>): SkillStoreQuotaConfig {
   return {
-    maxItemsPerSkill: overrides?.maxItemsPerSkill ?? envInt('SKILL_STORE_MAX_ITEMS_PER_SKILL', DEFAULTS.maxItemsPerSkill),
-    maxCollectionsPerSkill: overrides?.maxCollectionsPerSkill ?? envInt('SKILL_STORE_MAX_COLLECTIONS_PER_SKILL', DEFAULTS.maxCollectionsPerSkill),
-    maxSchedulesPerSkill: overrides?.maxSchedulesPerSkill ?? envInt('SKILL_STORE_MAX_SCHEDULES_PER_SKILL', DEFAULTS.maxSchedulesPerSkill),
-    maxItemSizeBytes: overrides?.maxItemSizeBytes ?? envInt('SKILL_STORE_MAX_ITEM_SIZE_BYTES', DEFAULTS.maxItemSizeBytes),
+    max_items_per_skill: overrides?.max_items_per_skill ?? envInt('SKILL_STORE_MAX_ITEMS_PER_SKILL', DEFAULTS.max_items_per_skill),
+    max_collections_per_skill: overrides?.max_collections_per_skill ?? envInt('SKILL_STORE_MAX_COLLECTIONS_PER_SKILL', DEFAULTS.max_collections_per_skill),
+    max_schedules_per_skill: overrides?.max_schedules_per_skill ?? envInt('SKILL_STORE_MAX_SCHEDULES_PER_SKILL', DEFAULTS.max_schedules_per_skill),
+    max_item_size_bytes: overrides?.max_item_size_bytes ?? envInt('SKILL_STORE_MAX_ITEM_SIZE_BYTES', DEFAULTS.max_item_size_bytes),
   };
 }
 
@@ -70,8 +70,8 @@ export function getSkillStoreQuotaConfig(overrides?: Partial<SkillStoreQuotaConf
  * Uses exact COUNT for correctness (the skill_id filter means the query
  * won't scan the whole table, just rows matching the index on skill_id).
  */
-export async function checkItemQuota(pool: Pool, skillId: string, config?: Pick<SkillStoreQuotaConfig, 'maxItemsPerSkill'>): Promise<QuotaCheckResult> {
-  const limit = config?.maxItemsPerSkill ?? getSkillStoreQuotaConfig().maxItemsPerSkill;
+export async function checkItemQuota(pool: Pool, skillId: string, config?: Pick<SkillStoreQuotaConfig, 'max_items_per_skill'>): Promise<QuotaCheckResult> {
+  const limit = config?.max_items_per_skill ?? getSkillStoreQuotaConfig().max_items_per_skill;
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count
@@ -98,9 +98,9 @@ export async function checkCollectionQuota(
   pool: Pool,
   skillId: string,
   collection: string,
-  config?: Pick<SkillStoreQuotaConfig, 'maxCollectionsPerSkill'>,
+  config?: Pick<SkillStoreQuotaConfig, 'max_collections_per_skill'>,
 ): Promise<QuotaCheckResult> {
-  const limit = config?.maxCollectionsPerSkill ?? getSkillStoreQuotaConfig().maxCollectionsPerSkill;
+  const limit = config?.max_collections_per_skill ?? getSkillStoreQuotaConfig().max_collections_per_skill;
 
   // Check if collection already exists for this skill
   const existsResult = await pool.query(
@@ -134,8 +134,8 @@ export async function checkCollectionQuota(
 /**
  * Check if a skill has room for more schedules.
  */
-export async function checkScheduleQuota(pool: Pool, skillId: string, config?: Pick<SkillStoreQuotaConfig, 'maxSchedulesPerSkill'>): Promise<QuotaCheckResult> {
-  const limit = config?.maxSchedulesPerSkill ?? getSkillStoreQuotaConfig().maxSchedulesPerSkill;
+export async function checkScheduleQuota(pool: Pool, skillId: string, config?: Pick<SkillStoreQuotaConfig, 'max_schedules_per_skill'>): Promise<QuotaCheckResult> {
+  const limit = config?.max_schedules_per_skill ?? getSkillStoreQuotaConfig().max_schedules_per_skill;
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count
@@ -184,16 +184,16 @@ export async function getSkillStoreQuotaUsage(pool: Pool, skillId: string, confi
     skill_id: skillId,
     items: {
       current: itemsResult.rows[0].count,
-      limit: quotaConfig.maxItemsPerSkill,
+      limit: quotaConfig.max_items_per_skill,
     },
     collections: {
       current: collectionsResult.rows[0].count,
-      limit: quotaConfig.maxCollectionsPerSkill,
+      limit: quotaConfig.max_collections_per_skill,
     },
     schedules: {
       current: schedulesResult.rows[0].count,
-      limit: quotaConfig.maxSchedulesPerSkill,
+      limit: quotaConfig.max_schedules_per_skill,
     },
-    maxItemSizeBytes: quotaConfig.maxItemSizeBytes,
+    max_item_size_bytes: quotaConfig.max_item_size_bytes,
   };
 }

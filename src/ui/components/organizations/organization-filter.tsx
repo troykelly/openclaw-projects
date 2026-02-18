@@ -14,7 +14,7 @@ export interface OrganizationFilterProps {
   selectedOrganizationId: string | null;
   selectedGroupId: string | null;
   onOrganizationChange: (organizationId: string | null) => void;
-  onGroupChange: (groupId: string | null) => void;
+  onGroupChange: (group_id: string | null) => void;
   className?: string;
 }
 

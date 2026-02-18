@@ -25,16 +25,16 @@ export function SavedViewsList({ views, activeViewId, onSelectView, onEditView, 
   return (
     <div className="space-y-2">
       {views.map((view) => {
-        const isActive = activeViewId === view.id;
+        const is_active = activeViewId === view.id;
 
         return (
           <div
             key={view.id}
             data-testid={`saved-view-${view.id}`}
-            data-active={isActive}
+            data-active={is_active}
             className={cn(
               'flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors',
-              isActive ? 'bg-accent border-accent-foreground/20' : 'hover:bg-muted/50',
+              is_active ? 'bg-accent border-accent-foreground/20' : 'hover:bg-muted/50',
             )}
             onClick={() => onSelectView(view)}
           >

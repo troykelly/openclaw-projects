@@ -14,7 +14,7 @@ export function IdentitySettings() {
   const saveMutation = useSaveAgentIdentity();
 
   const [name, setName] = React.useState('');
-  const [displayName, setDisplayName] = React.useState('');
+  const [display_name, setDisplayName] = React.useState('');
   const [emoji, setEmoji] = React.useState('');
   const [persona, setPersona] = React.useState('');
   const [principles, setPrinciples] = React.useState('');
@@ -34,7 +34,7 @@ export function IdentitySettings() {
   const handleSave = () => {
     saveMutation.mutate({
       name,
-      display_name: displayName,
+      display_name: display_name,
       emoji: emoji || undefined,
       persona,
       principles: principles.split('\n').filter(Boolean),
@@ -63,7 +63,7 @@ export function IdentitySettings() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="identity-display-name">Display Name</Label>
-            <Input id="identity-display-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Quasar" />
+            <Input id="identity-display-name" value={display_name} onChange={(e) => setDisplayName(e.target.value)} placeholder="Quasar" />
           </div>
         </div>
 

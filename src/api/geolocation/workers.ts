@@ -18,14 +18,14 @@ const NOMINATIM_USER_AGENT = 'openclaw-projects/1.0';
  *
  * @returns Number of successfully geocoded records.
  */
-export async function processGeoGeocode(pool: Pool, batchSize: number = DEFAULT_BATCH_SIZE): Promise<number> {
+export async function processGeoGeocode(pool: Pool, batch_size: number = DEFAULT_BATCH_SIZE): Promise<number> {
   const result = await pool.query(
     `SELECT time, user_email, provider_id, entity_id, lat, lng
      FROM geo_location
      WHERE address IS NULL AND lat IS NOT NULL
      ORDER BY time DESC
      LIMIT $1`,
-    [batchSize],
+    [batch_size],
   );
 
   if (result.rows.length === 0) return 0;
@@ -51,13 +51,13 @@ export async function processGeoGeocode(pool: Pool, batchSize: number = DEFAULT_
 
       const data = await response.json() as { display_name?: string; name?: string };
       const address = data.display_name ?? null;
-      const placeLabel = data.name ?? null;
+      const place_label = data.name ?? null;
 
       await pool.query(
         `UPDATE geo_location
          SET address = $1, place_label = $2
          WHERE time = $3 AND user_email = $4 AND provider_id = $5 AND entity_id IS NOT DISTINCT FROM $6`,
-        [address, placeLabel, row.time, row.user_email, row.provider_id, row.entity_id],
+        [address, place_label, row.time, row.user_email, row.provider_id, row.entity_id],
       );
 
       processed++;
@@ -79,14 +79,14 @@ export async function processGeoGeocode(pool: Pool, batchSize: number = DEFAULT_
  *
  * @returns Number of processed records (including skipped).
  */
-export async function processGeoEmbeddings(pool: Pool, batchSize: number = DEFAULT_BATCH_SIZE): Promise<number> {
+export async function processGeoEmbeddings(pool: Pool, batch_size: number = DEFAULT_BATCH_SIZE): Promise<number> {
   const result = await pool.query(
     `SELECT time, user_email, provider_id, entity_id, address
      FROM geo_location
      WHERE embedding_status = 'pending' AND address IS NOT NULL
      ORDER BY time DESC
      LIMIT $1`,
-    [batchSize],
+    [batch_size],
   );
 
   if (result.rows.length === 0) return 0;

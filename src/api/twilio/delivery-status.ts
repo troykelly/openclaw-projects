@@ -49,11 +49,11 @@ export interface DeliveryStatusResult {
   /** Whether processing succeeded */
   success: boolean;
   /** Our internal message ID (if found) */
-  messageId?: string;
+  message_id?: string;
   /** Whether message was not found */
-  notFound?: boolean;
+  not_found?: boolean;
   /** Whether status was unchanged (already at or past this status) */
-  statusUnchanged?: boolean;
+  status_unchanged?: boolean;
   /** Error message if failed */
   error?: string;
 }
@@ -161,11 +161,11 @@ export async function processDeliveryStatus(pool: Pool, callback: TwilioStatusCa
     console.warn(`[Twilio] Status callback for unknown MessageSid: ${MessageSid}`);
     return {
       success: false,
-      notFound: true,
+      not_found: true,
     };
   }
 
-  const messageId = message.rows[0].id;
+  const message_id = message.rows[0].id;
   const currentStatus = message.rows[0].current_status as DeliveryStatus;
   const newStatus = mapTwilioStatus(MessageStatus);
 
@@ -174,8 +174,8 @@ export async function processDeliveryStatus(pool: Pool, callback: TwilioStatusCa
     console.log(`[Twilio] Status unchanged for ${MessageSid}: ${currentStatus} -> ${MessageStatus} (mapped: ${newStatus})`);
     return {
       success: true,
-      messageId,
-      statusUnchanged: true,
+      message_id,
+      status_unchanged: true,
     };
   }
 
@@ -186,14 +186,14 @@ export async function processDeliveryStatus(pool: Pool, callback: TwilioStatusCa
        SET delivery_status = $2::message_delivery_status,
            provider_status_raw = $3::jsonb
        WHERE id = $1`,
-      [messageId, newStatus, JSON.stringify(callback)],
+      [message_id, newStatus, JSON.stringify(callback)],
     );
 
     console.log(`[Twilio] Status updated for ${MessageSid}: ${currentStatus} -> ${newStatus}`);
 
     return {
       success: true,
-      messageId,
+      message_id,
     };
   } catch (error) {
     const err = error as Error;
@@ -203,8 +203,8 @@ export async function processDeliveryStatus(pool: Pool, callback: TwilioStatusCa
       console.warn(`[Twilio] Status transition rejected by DB: ${currentStatus} -> ${newStatus}`);
       return {
         success: true,
-        messageId,
-        statusUnchanged: true,
+        message_id,
+        status_unchanged: true,
       };
     }
 

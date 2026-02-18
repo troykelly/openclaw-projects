@@ -66,28 +66,28 @@ describe('Context Retrieval API', () => {
         expect(body.error).toContain('2000');
       });
 
-      it('should reject invalid maxMemories value', async () => {
+      it('should reject invalid max_memories value', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', maxMemories: 100 },
+          payload: { prompt: 'test', max_memories: 100 },
         });
 
         expect(response.statusCode).toBe(400);
         const body = JSON.parse(response.payload);
-        expect(body.error).toContain('maxMemories');
+        expect(body.error).toContain('max_memories');
       });
 
-      it('should reject invalid maxContextLength value', async () => {
+      it('should reject invalid max_context_length value', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', maxContextLength: 50 },
+          payload: { prompt: 'test', max_context_length: 50 },
         });
 
         expect(response.statusCode).toBe(400);
         const body = JSON.parse(response.payload);
-        expect(body.error).toContain('maxContextLength');
+        expect(body.error).toContain('max_context_length');
       });
     });
 
@@ -112,8 +112,8 @@ describe('Context Retrieval API', () => {
         expect(Array.isArray(body.sources.memories)).toBe(true);
 
         // Metadata should have query time
-        expect(body.metadata).toHaveProperty('queryTimeMs');
-        expect(typeof body.metadata.queryTimeMs).toBe('number');
+        expect(body.metadata).toHaveProperty('query_time_ms');
+        expect(typeof body.metadata.query_time_ms).toBe('number');
       });
 
       it('should return null context when nothing relevant found', async () => {
@@ -129,14 +129,14 @@ describe('Context Retrieval API', () => {
         // Context can be null
         expect(body).toHaveProperty('context');
         // Metadata should still be present
-        expect(body.metadata.memoryCount).toBe(0);
+        expect(body.metadata.memory_count).toBe(0);
       });
 
-      it('should respect maxMemories parameter', async () => {
+      it('should respect max_memories parameter', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', maxMemories: 3 },
+          payload: { prompt: 'test', max_memories: 3 },
         });
 
         expect(response.statusCode).toBe(200);
@@ -144,11 +144,11 @@ describe('Context Retrieval API', () => {
         expect(body.sources.memories.length).toBeLessThanOrEqual(3);
       });
 
-      it('should respect maxContextLength parameter', async () => {
+      it('should respect max_context_length parameter', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', maxContextLength: 500 },
+          payload: { prompt: 'test', max_context_length: 500 },
         });
 
         expect(response.statusCode).toBe(200);
@@ -159,11 +159,11 @@ describe('Context Retrieval API', () => {
         }
       });
 
-      it('should include projects when includeProjects is true', async () => {
+      it('should include projects when include_projects is true', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', includeProjects: true },
+          payload: { prompt: 'test', include_projects: true },
         });
 
         expect(response.statusCode).toBe(200);
@@ -172,11 +172,11 @@ describe('Context Retrieval API', () => {
         expect(Array.isArray(body.sources.projects)).toBe(true);
       });
 
-      it('should include todos when includeTodos is true', async () => {
+      it('should include todos when include_todos is true', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', includeTodos: true },
+          payload: { prompt: 'test', include_todos: true },
         });
 
         expect(response.statusCode).toBe(200);
@@ -187,11 +187,11 @@ describe('Context Retrieval API', () => {
     });
 
     describe('user scoping', () => {
-      it('should accept userId in request body', async () => {
+      it('should accept user_id in request body', async () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/v1/context',
-          payload: { prompt: 'test', userId: 'test-user-123' },
+          payload: { prompt: 'test', user_id: 'test-user-123' },
         });
 
         expect(response.statusCode).toBe(200);
@@ -208,8 +208,8 @@ describe('Context Retrieval API', () => {
 
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.payload);
-        expect(body.metadata).toHaveProperty('searchType');
-        expect(['semantic', 'text']).toContain(body.metadata.searchType);
+        expect(body.metadata).toHaveProperty('search_type');
+        expect(['semantic', 'text']).toContain(body.metadata.search_type);
       });
 
       it('should include truncated flag in metadata', async () => {

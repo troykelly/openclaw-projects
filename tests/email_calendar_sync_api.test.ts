@@ -59,7 +59,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/connections?userEmail=user@example.com',
+          url: '/api/oauth/connections?user_email=user@example.com',
         });
 
         expect(response.statusCode).toBe(200);
@@ -74,7 +74,7 @@ describe('Email & Calendar Sync API', () => {
       it('redirects to authorization URL for google', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/google?userEmail=user@example.com&scopes=email,calendar',
+          url: '/api/oauth/authorize/google?user_email=user@example.com&scopes=email,calendar',
         });
 
         expect(response.statusCode).toBe(302);
@@ -85,7 +85,7 @@ describe('Email & Calendar Sync API', () => {
       it('redirects to authorization URL for microsoft', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/microsoft?userEmail=user@example.com&scopes=email,calendar',
+          url: '/api/oauth/authorize/microsoft?user_email=user@example.com&scopes=email,calendar',
         });
 
         expect(response.statusCode).toBe(302);
@@ -96,7 +96,7 @@ describe('Email & Calendar Sync API', () => {
       it('returns 400 for unknown provider', async () => {
         const response = await app.inject({
           method: 'GET',
-          url: '/api/oauth/authorize/unknown?userEmail=user@example.com',
+          url: '/api/oauth/authorize/unknown?user_email=user@example.com',
         });
 
         expect(response.statusCode).toBe(400);
@@ -110,16 +110,16 @@ describe('Email & Calendar Sync API', () => {
            VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')
            RETURNING id`,
         );
-        const connectionId = insertRes.rows[0].id;
+        const connection_id = insertRes.rows[0].id;
 
         const response = await app.inject({
           method: 'DELETE',
-          url: `/api/oauth/connections/${connectionId}`,
+          url: `/api/oauth/connections/${connection_id}`,
         });
 
         expect(response.statusCode).toBe(204);
 
-        const checkRes = await pool.query(`SELECT id FROM oauth_connection WHERE id = $1`, [connectionId]);
+        const checkRes = await pool.query(`SELECT id FROM oauth_connection WHERE id = $1`, [connection_id]);
         expect(checkRes.rows).toHaveLength(0);
       });
 
@@ -143,20 +143,20 @@ describe('Email & Calendar Sync API', () => {
            VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour')
            RETURNING id::text`,
         );
-        const connectionId = connResult.rows[0].id;
+        const connection_id = connResult.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/sync/emails',
           payload: {
-            connectionId,
+            connection_id,
           },
         });
 
         expect(response.statusCode).toBe(200);
         const body = response.json();
         expect(body.status).toBe('live_api');
-        expect(body.connectionId).toBe(connectionId);
+        expect(body.connection_id).toBe(connection_id);
         expect(body.provider).toBe('google');
       });
 
@@ -165,7 +165,7 @@ describe('Email & Calendar Sync API', () => {
           method: 'POST',
           url: '/api/sync/emails',
           payload: {
-            connectionId: '00000000-0000-0000-0000-000000000000',
+            connection_id: '00000000-0000-0000-0000-000000000000',
           },
         });
 
@@ -177,13 +177,13 @@ describe('Email & Calendar Sync API', () => {
       it('returns synced emails for a user', async () => {
         // Create contact and endpoint
         const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
-        const contactId = contactRes.rows[0].id;
+        const contact_id = contactRes.rows[0].id;
 
         const endpointRes = await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
            VALUES ($1, 'email', 'test@example.com', 'test@example.com')
            RETURNING id`,
-          [contactId],
+          [contact_id],
         );
         const endpointId = endpointRes.rows[0].id;
 
@@ -194,12 +194,12 @@ describe('Email & Calendar Sync API', () => {
            RETURNING id`,
           [endpointId],
         );
-        const threadId = threadRes.rows[0].id;
+        const thread_id = threadRes.rows[0].id;
 
         await pool.query(
           `INSERT INTO external_message (thread_id, external_message_key, direction, body, subject)
            VALUES ($1, 'msg-123', 'inbound', 'Hello!', 'Test Subject')`,
-          [threadId],
+          [thread_id],
         );
 
         const response = await app.inject({
@@ -225,13 +225,13 @@ describe('Email & Calendar Sync API', () => {
 
         // Create contact and thread
         const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
-        const contactId = contactRes.rows[0].id;
+        const contact_id = contactRes.rows[0].id;
 
         const endpointRes = await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
            VALUES ($1, 'email', 'recipient@example.com', 'recipient@example.com')
            RETURNING id`,
-          [contactId],
+          [contact_id],
         );
         const endpointId = endpointRes.rows[0].id;
 
@@ -241,14 +241,14 @@ describe('Email & Calendar Sync API', () => {
            RETURNING id`,
           [endpointId],
         );
-        const threadId = threadRes.rows[0].id;
+        const thread_id = threadRes.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/emails/send',
           payload: {
-            userEmail: 'user@example.com',
-            threadId: threadId,
+            user_email: 'user@example.com',
+            thread_id: thread_id,
             body: 'This is my reply',
           },
         });
@@ -263,13 +263,13 @@ describe('Email & Calendar Sync API', () => {
       it('creates a work item from an email', async () => {
         // Create contact and endpoint
         const contactRes = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test User') RETURNING id`);
-        const contactId = contactRes.rows[0].id;
+        const contact_id = contactRes.rows[0].id;
 
         const endpointRes = await pool.query(
           `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
            VALUES ($1, 'email', 'test@example.com', 'test@example.com')
            RETURNING id`,
-          [contactId],
+          [contact_id],
         );
         const endpointId = endpointRes.rows[0].id;
 
@@ -280,30 +280,30 @@ describe('Email & Calendar Sync API', () => {
            RETURNING id`,
           [endpointId],
         );
-        const threadId = threadRes.rows[0].id;
+        const thread_id = threadRes.rows[0].id;
 
         const messageRes = await pool.query(
           `INSERT INTO external_message (thread_id, external_message_key, direction, body, subject)
            VALUES ($1, 'msg-789', 'inbound', 'Please review the document.', 'Action Required: Review')
            RETURNING id`,
-          [threadId],
+          [thread_id],
         );
-        const messageId = messageRes.rows[0].id;
+        const message_id = messageRes.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/emails/create-work-item',
           payload: {
-            messageId: messageId,
+            message_id: message_id,
             title: 'Review document from email',
           },
         });
 
         expect(response.statusCode).toBe(201);
         const body = response.json();
-        expect(body.workItem).toBeDefined();
-        expect(body.workItem.id).toBeDefined();
-        expect(body.workItem.title).toBe('Review document from email');
+        expect(body.work_item).toBeDefined();
+        expect(body.work_item.id).toBeDefined();
+        expect(body.work_item.title).toBe('Review document from email');
       });
     });
   });
@@ -316,13 +316,13 @@ describe('Email & Calendar Sync API', () => {
            VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')
            RETURNING id::text`,
         );
-        const connectionId = connResult.rows[0].id;
+        const connection_id = connResult.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/sync/calendar',
           payload: {
-            connectionId,
+            connection_id,
           },
         });
 
@@ -342,7 +342,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: '/api/calendar/events?userEmail=user@example.com',
+          url: '/api/calendar/events?user_email=user@example.com',
         });
 
         expect(response.statusCode).toBe(200);
@@ -364,7 +364,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/calendar/events?userEmail=user@example.com&startAfter=${now.toISOString()}`,
+          url: `/api/calendar/events?user_email=user@example.com&start_after=${now.toISOString()}`,
         });
 
         expect(response.statusCode).toBe(200);
@@ -387,11 +387,11 @@ describe('Email & Calendar Sync API', () => {
           method: 'POST',
           url: '/api/calendar/events',
           payload: {
-            userEmail: 'user@example.com',
+            user_email: 'user@example.com',
             provider: 'google',
             title: 'New Meeting',
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
           },
         });
 
@@ -416,22 +416,22 @@ describe('Email & Calendar Sync API', () => {
            RETURNING id`,
           [deadline.toISOString()],
         );
-        const workItemId = workItemRes.rows[0].id;
+        const work_item_id = workItemRes.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/calendar/events/from-work-item',
           payload: {
-            userEmail: 'user@example.com',
+            user_email: 'user@example.com',
             provider: 'google',
-            workItemId: workItemId,
+            work_item_id: work_item_id,
           },
         });
 
         expect(response.statusCode).toBe(201);
         const body = response.json();
         expect(body.event).toBeDefined();
-        expect(body.event.workItemId).toBe(workItemId);
+        expect(body.event.work_item_id).toBe(work_item_id);
       });
 
       it('returns 404 for non-existent work item', async () => {
@@ -444,9 +444,9 @@ describe('Email & Calendar Sync API', () => {
           method: 'POST',
           url: '/api/calendar/events/from-work-item',
           payload: {
-            userEmail: 'user@example.com',
+            user_email: 'user@example.com',
             provider: 'google',
-            workItemId: '00000000-0000-0000-0000-000000000000',
+            work_item_id: '00000000-0000-0000-0000-000000000000',
           },
         });
 
@@ -464,15 +464,15 @@ describe('Email & Calendar Sync API', () => {
            VALUES ('Task without deadline', 'open', 'issue')
            RETURNING id`,
         );
-        const workItemId = workItemRes.rows[0].id;
+        const work_item_id = workItemRes.rows[0].id;
 
         const response = await app.inject({
           method: 'POST',
           url: '/api/calendar/events/from-work-item',
           payload: {
-            userEmail: 'user@example.com',
+            user_email: 'user@example.com',
             provider: 'google',
-            workItemId: workItemId,
+            work_item_id: work_item_id,
           },
         });
 
@@ -533,7 +533,7 @@ describe('Email & Calendar Sync API', () => {
 
         const response = await app.inject({
           method: 'GET',
-          url: `/api/work-items/calendar?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+          url: `/api/work-items/calendar?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`,
         });
 
         expect(response.statusCode).toBe(200);

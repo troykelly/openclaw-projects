@@ -214,9 +214,9 @@ async function verifyWith(token: string, secret: string): Promise<JwtPayload> {
   );
 
   const raw = payload as Record<string, unknown>;
-  const tokenType = raw.type;
-  if (tokenType !== 'user' && tokenType !== 'm2m') {
-    throw new Error(`[JWT] Invalid token type: ${String(tokenType)}`);
+  const token_type = raw.type;
+  if (token_type !== 'user' && token_type !== 'm2m') {
+    throw new Error(`[JWT] Invalid token type: ${String(token_type)}`);
   }
 
   if (typeof protectedHeader.kid !== 'string') {
@@ -224,13 +224,13 @@ async function verifyWith(token: string, secret: string): Promise<JwtPayload> {
   }
 
   // Enforce issuer on M2M tokens
-  if (tokenType === 'm2m' && payload.iss !== M2M_ISSUER) {
+  if (token_type === 'm2m' && payload.iss !== M2M_ISSUER) {
     throw new Error(`[JWT] M2M token has invalid issuer: ${String(payload.iss)}`);
   }
 
   return {
     sub: payload.sub!,
-    type: tokenType,
+    type: token_type,
     iat: payload.iat!,
     exp: payload.exp!,
     jti: payload.jti!,

@@ -50,7 +50,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.name).toBe('memory_store');
     });
@@ -60,7 +60,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -71,7 +71,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -83,7 +83,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({} as MemoryStoreParams);
@@ -101,7 +101,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ text: 'User prefers dark mode' });
@@ -124,7 +124,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: 'User prefers dark mode' });
@@ -137,7 +137,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: '' });
@@ -149,7 +149,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const longText = 'a'.repeat(10001);
@@ -168,7 +168,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'User prefers oat milk', category: 'preference' });
@@ -180,7 +180,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -201,7 +201,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'Important fact', importance: 0.9 });
@@ -213,7 +213,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: 'test', importance: 1.5 });
@@ -225,7 +225,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: 'test', importance: -0.1 });
@@ -245,7 +245,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'test\x00\x1F text' });
@@ -270,7 +270,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: '  test text  ' });
@@ -295,7 +295,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // Use a longer key that matches the pattern (20+ chars after sk-)
@@ -317,7 +317,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({
@@ -333,7 +333,7 @@ describe('memory_store tool', () => {
           memory_type: 'preference',
           importance: 0.8,
         }),
-        expect.objectContaining({ userId: 'agent-1' }),
+        expect.objectContaining({ user_id: 'agent-1' }),
       );
     });
 
@@ -348,7 +348,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'Some info' });
@@ -373,7 +373,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'Some info' });
@@ -398,7 +398,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'test', category: 'decision' });
@@ -428,7 +428,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -441,7 +441,7 @@ describe('memory_store tool', () => {
       if (result.success) {
         expect(result.data.content).toContain('Stored memory');
         expect(result.data.details.id).toBe('mem-123');
-        expect(result.data.details.userId).toBe('agent-1');
+        expect(result.data.details.user_id).toBe('agent-1');
       }
     });
 
@@ -457,7 +457,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: longContent });
@@ -482,7 +482,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: 'test' });
@@ -501,7 +501,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: 'test' });
@@ -517,7 +517,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({ content: 'test' });
@@ -542,7 +542,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'Sensitive information here', category: 'fact' });
@@ -550,7 +550,7 @@ describe('memory_store tool', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'memory_store invoked',
         expect.objectContaining({
-          userId: 'agent-1',
+          user_id: 'agent-1',
           category: 'fact',
           contentLength: expect.any(Number),
         }),
@@ -572,7 +572,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ content: 'test' });
@@ -593,7 +593,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -624,7 +624,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -651,7 +651,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -666,7 +666,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -681,7 +681,7 @@ describe('memory_store tool', () => {
         client: mockApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const result = await tool.execute({
@@ -702,7 +702,7 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ text: 'no location' });
@@ -713,7 +713,7 @@ describe('memory_store tool', () => {
   });
 
   describe('user scoping', () => {
-    it('should use provided userId for API calls', async () => {
+    it('should use provided user_id for API calls', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
         data: { id: 'mem-123', content: 'test' },
@@ -724,15 +724,15 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'custom-user-456',
+        user_id: 'custom-user-456',
       });
 
       await tool.execute({ content: 'test' });
 
-      expect(mockPost).toHaveBeenCalledWith(expect.any(String), expect.any(Object), expect.objectContaining({ userId: 'custom-user-456' }));
+      expect(mockPost).toHaveBeenCalledWith(expect.any(String), expect.any(Object), expect.objectContaining({ user_id: 'custom-user-456' }));
     });
 
-    it('should include userId in response details', async () => {
+    it('should include user_id in response details', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
         data: { id: 'mem-123', content: 'test' },
@@ -743,14 +743,14 @@ describe('memory_store tool', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'my-agent',
+        user_id: 'my-agent',
       });
 
       const result = await tool.execute({ content: 'test' });
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.details.userId).toBe('my-agent');
+        expect(result.data.details.user_id).toBe('my-agent');
       }
     });
   });

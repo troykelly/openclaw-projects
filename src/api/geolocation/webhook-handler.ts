@@ -40,9 +40,9 @@ export type WebhookResult = WebhookSuccess | WebhookError;
  * Extract Bearer token from Authorization header.
  * Returns null if the header is missing, empty, or not a Bearer token.
  */
-export function extractBearerToken(authHeader: string | undefined): string | null {
-  if (!authHeader) return null;
-  const parts = authHeader.split(' ');
+export function extractBearerToken(auth_header: string | undefined): string | null {
+  if (!auth_header) return null;
+  const parts = auth_header.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') return null;
   const token = parts[1];
   if (!token || token.length === 0) return null;
@@ -53,11 +53,11 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
 
 export interface WebhookHandlerOptions {
   /** The expected token (plaintext) to compare against. */
-  expectedToken: string;
+  expected_token: string;
   /** The Authorization header value from the request. */
-  authHeader: string | undefined;
+  auth_header: string | undefined;
   /** The Content-Type header value from the request. */
-  contentType: string | undefined;
+  content_type: string | undefined;
   /** The raw body as a string. */
   body: string;
 }
@@ -75,20 +75,20 @@ export interface WebhookHandlerOptions {
  * Returns `{ ok: true }` response shape only — no internal state is leaked.
  */
 export function handleWebhookRequest(options: WebhookHandlerOptions): WebhookResult {
-  const { expectedToken, authHeader, contentType, body } = options;
+  const { expected_token, auth_header, content_type, body } = options;
 
   // 1. Authenticate — extract and compare Bearer token
-  const providedToken = extractBearerToken(authHeader);
+  const providedToken = extractBearerToken(auth_header);
   if (!providedToken) {
     return { ok: false, status: 401, message: 'Missing or invalid Authorization header' };
   }
 
-  if (!timingSafeTokenCompare(providedToken, expectedToken)) {
+  if (!timingSafeTokenCompare(providedToken, expected_token)) {
     return { ok: false, status: 401, message: 'Invalid token' };
   }
 
   // 2. Validate Content-Type
-  const ct = contentType?.toLowerCase().split(';')[0]?.trim();
+  const ct = content_type?.toLowerCase().split(';')[0]?.trim();
   if (ct !== REQUIRED_CONTENT_TYPE) {
     return { ok: false, status: 415, message: 'Content-Type must be application/json' };
   }

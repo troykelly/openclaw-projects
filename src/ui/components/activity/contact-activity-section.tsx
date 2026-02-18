@@ -12,20 +12,20 @@ import { ActivityStats } from './activity-stats';
 import type { Activity, ActivityType, DateRange, ActivitySourceType } from './types';
 
 export interface ContactActivitySectionProps {
-  contactId: string;
+  contact_id: string;
   activities: Activity[];
   loading?: boolean;
-  hasMore?: boolean;
+  has_more?: boolean;
   onActivityClick?: (activityId: string, sourceType: ActivitySourceType, sourceId: string) => void;
   onLoadMore?: () => void;
   className?: string;
 }
 
 export function ContactActivitySection({
-  contactId,
+  contact_id,
   activities,
   loading = false,
-  hasMore,
+  has_more,
   onActivityClick,
   onLoadMore,
   className,
@@ -101,7 +101,7 @@ export function ContactActivitySection({
 
       {/* Timeline */}
       {!loading || activities.length > 0 ? (
-        <ActivityTimeline activities={filteredActivities} onActivityClick={onActivityClick} hasMore={hasMore} onLoadMore={onLoadMore} loading={loading} />
+        <ActivityTimeline activities={filteredActivities} onActivityClick={onActivityClick} has_more={has_more} onLoadMore={onLoadMore} loading={loading} />
       ) : null}
     </div>
   );

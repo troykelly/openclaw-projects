@@ -116,16 +116,16 @@ describe('Shared lists API (Issue #1277)', () => {
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       // Add an item
       await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Milk', quantity: '2L', category: 'dairy' },
       });
 
-      const res = await app.inject({ method: 'GET', url: `/api/lists/${listId}` });
+      const res = await app.inject({ method: 'GET', url: `/api/lists/${list_id}` });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
@@ -216,11 +216,11 @@ describe('Shared lists API (Issue #1277)', () => {
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: {
           name: 'Bread',
           quantity: '1 loaf',
@@ -281,25 +281,25 @@ describe('Shared lists API (Issue #1277)', () => {
     });
   });
 
-  describe('PATCH /api/lists/:listId/items/:itemId', () => {
+  describe('PATCH /api/lists/:list_id/items/:item_id', () => {
     it('updates item fields', async () => {
       const listRes = await app.inject({
         method: 'POST',
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       const itemRes = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Eggs', quantity: '6' },
       });
-      const itemId = itemRes.json().id;
+      const item_id = itemRes.json().id;
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/lists/${listId}/items/${itemId}`,
+        url: `/api/lists/${list_id}/items/${item_id}`,
         payload: { quantity: '12', category: 'dairy' },
       });
 
@@ -309,30 +309,30 @@ describe('Shared lists API (Issue #1277)', () => {
     });
   });
 
-  describe('DELETE /api/lists/:listId/items/:itemId', () => {
+  describe('DELETE /api/lists/:list_id/items/:item_id', () => {
     it('removes an item', async () => {
       const listRes = await app.inject({
         method: 'POST',
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       const itemRes = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Butter' },
       });
-      const itemId = itemRes.json().id;
+      const item_id = itemRes.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/lists/${listId}/items/${itemId}`,
+        url: `/api/lists/${list_id}/items/${item_id}`,
       });
       expect(res.statusCode).toBe(204);
 
       // Verify it's gone
-      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${listId}` });
+      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${list_id}` });
       expect(getRes.json().items).toHaveLength(0);
     });
   });
@@ -346,22 +346,22 @@ describe('Shared lists API (Issue #1277)', () => {
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       const item1 = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Milk' },
       });
       const item2 = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Bread' },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items/check`,
+        url: `/api/lists/${list_id}/items/check`,
         payload: { item_ids: [item1.json().id, item2.json().id] },
       });
 
@@ -369,7 +369,7 @@ describe('Shared lists API (Issue #1277)', () => {
       expect(res.json().checked).toBe(2);
 
       // Verify items are checked
-      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${listId}` });
+      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${list_id}` });
       const items = getRes.json().items;
       expect(items.every((i: { is_checked: boolean }) => i.is_checked)).toBe(true);
     });
@@ -382,33 +382,33 @@ describe('Shared lists API (Issue #1277)', () => {
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       const itemRes = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Milk' },
       });
-      const itemId = itemRes.json().id;
+      const item_id = itemRes.json().id;
 
       // Check it first
       await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items/check`,
-        payload: { item_ids: [itemId] },
+        url: `/api/lists/${list_id}/items/check`,
+        payload: { item_ids: [item_id] },
       });
 
       // Then uncheck
       const res = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items/uncheck`,
-        payload: { item_ids: [itemId] },
+        url: `/api/lists/${list_id}/items/uncheck`,
+        payload: { item_ids: [item_id] },
       });
 
       expect(res.statusCode).toBe(200);
       expect(res.json().unchecked).toBe(1);
 
-      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${listId}` });
+      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${list_id}` });
       expect(getRes.json().items[0].is_checked).toBe(false);
     });
   });
@@ -422,12 +422,12 @@ describe('Shared lists API (Issue #1277)', () => {
         url: '/api/lists',
         payload: { name: 'Weekly shop' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       // Add recurring item (milk — always need it)
       const recurringRes = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Milk', is_recurring: true },
       });
       const milkId = recurringRes.json().id;
@@ -435,7 +435,7 @@ describe('Shared lists API (Issue #1277)', () => {
       // Add non-recurring item (special occasion cake)
       const oneOffRes = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Birthday cake', is_recurring: false },
       });
       const cakeId = oneOffRes.json().id;
@@ -443,21 +443,21 @@ describe('Shared lists API (Issue #1277)', () => {
       // Add unchecked non-recurring (should survive reset)
       await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Unchecked item', is_recurring: false },
       });
 
       // Check both milk and cake
       await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items/check`,
+        url: `/api/lists/${list_id}/items/check`,
         payload: { item_ids: [milkId, cakeId] },
       });
 
       // Reset the list
       const res = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/reset`,
+        url: `/api/lists/${list_id}/reset`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -466,7 +466,7 @@ describe('Shared lists API (Issue #1277)', () => {
       expect(body.unchecked).toBe(1); // milk unchecked
 
       // Verify: milk still there but unchecked, cake gone, unchecked item still there
-      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${listId}` });
+      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${list_id}` });
       const items = getRes.json().items;
       expect(items).toHaveLength(2);
       const names = items.map((i: { name: string }) => i.name);
@@ -487,19 +487,19 @@ describe('Shared lists API (Issue #1277)', () => {
         url: '/api/lists',
         payload: { name: 'Shopping' },
       });
-      const listId = listRes.json().id;
+      const list_id = listRes.json().id;
 
       // Add existing item
       await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/items`,
+        url: `/api/lists/${list_id}/items`,
         payload: { name: 'Onions', quantity: '2', category: 'produce' },
       });
 
       // Merge: update onions quantity, add new item
       const res = await app.inject({
         method: 'POST',
-        url: `/api/lists/${listId}/merge`,
+        url: `/api/lists/${list_id}/merge`,
         payload: {
           items: [
             { name: 'Onions', quantity: '5', category: 'produce' },
@@ -514,7 +514,7 @@ describe('Shared lists API (Issue #1277)', () => {
       expect(body.updated).toBe(1);
 
       // Verify
-      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${listId}` });
+      const getRes = await app.inject({ method: 'GET', url: `/api/lists/${list_id}` });
       const items = getRes.json().items;
       expect(items).toHaveLength(2);
       const onions = items.find((i: { name: string }) => i.name === 'Onions');

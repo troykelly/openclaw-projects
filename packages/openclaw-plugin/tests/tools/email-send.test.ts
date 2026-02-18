@@ -8,7 +8,7 @@ describe('email_send tool', () => {
   let mockClient: ApiClient;
   let mockLogger: Logger;
   let mockConfig: PluginConfig;
-  const userId = 'test-user-id';
+  const user_id = 'test-user-id';
 
   beforeEach(() => {
     mockClient = {
@@ -65,9 +65,9 @@ describe('email_send tool', () => {
         to: 'recipient@example.com',
         subject: 'Test Subject',
         body: 'This is a test email body.',
-        htmlBody: '<p>This is a test email body.</p>',
-        threadId: 'thread-123',
-        idempotencyKey: 'unique-key-123',
+        html_body: '<p>This is a test email body.</p>',
+        thread_id: 'thread-123',
+        idempotency_key: 'unique-key-123',
       });
       expect(result.success).toBe(true);
     });
@@ -152,7 +152,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.name).toBe('email_send');
     });
@@ -162,7 +162,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -173,7 +173,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -184,8 +184,8 @@ describe('email_send tool', () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
         data: {
-          messageId: 'MSG123456',
-          threadId: 'TH789',
+          message_id: 'MSG123456',
+          thread_id: 'TH789',
           status: 'sent',
         },
       });
@@ -194,7 +194,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -205,30 +205,30 @@ describe('email_send tool', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
-      expect(result.data?.details?.messageId).toBe('MSG123456');
+      expect(result.data?.details?.message_id).toBe('MSG123456');
       expect(result.data?.details?.status).toBe('sent');
     });
 
     it('should call API with correct parameters', async () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
-        data: { messageId: 'MSG123', status: 'sent' },
+        data: { message_id: 'MSG123', status: 'sent' },
       });
 
       const tool = createEmailSendTool({
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
         to: 'recipient@example.com',
         subject: 'Test Subject',
         body: 'Test message',
-        htmlBody: '<p>Test message</p>',
-        threadId: 'thread-123',
-        idempotencyKey: 'key-123',
+        html_body: '<p>Test message</p>',
+        thread_id: 'thread-123',
+        idempotency_key: 'key-123',
       });
 
       expect(mockClient.post).toHaveBeenCalledWith(
@@ -237,11 +237,11 @@ describe('email_send tool', () => {
           to: 'recipient@example.com',
           subject: 'Test Subject',
           body: 'Test message',
-          htmlBody: '<p>Test message</p>',
-          threadId: 'thread-123',
-          idempotencyKey: 'key-123',
+          html_body: '<p>Test message</p>',
+          thread_id: 'thread-123',
+          idempotency_key: 'key-123',
         },
-        { userId },
+        { user_id },
       );
     });
 
@@ -259,7 +259,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -279,7 +279,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -297,7 +297,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -316,7 +316,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -343,8 +343,8 @@ describe('email_send tool', () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
         data: {
-          messageId: 'MSG-NO-CONFIG',
-          threadId: 'TH-NO-CONFIG',
+          message_id: 'MSG-NO-CONFIG',
+          thread_id: 'TH-NO-CONFIG',
           status: 'sent',
         },
       });
@@ -353,7 +353,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: configWithoutPostmark,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -371,7 +371,7 @@ describe('email_send tool', () => {
           subject: 'Test Subject',
           body: 'Test message',
         }),
-        { userId },
+        { user_id },
       );
     });
 
@@ -383,14 +383,14 @@ describe('email_send tool', () => {
 
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
-        data: { messageId: 'MSG-PARTIAL', status: 'sent' },
+        data: { message_id: 'MSG-PARTIAL', status: 'sent' },
       });
 
       const tool = createEmailSendTool({
         client: mockClient,
         logger: mockLogger,
         config: configPartial,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -411,14 +411,14 @@ describe('email_send tool', () => {
 
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
-        data: { messageId: 'MSG-PARTIAL2', status: 'sent' },
+        data: { message_id: 'MSG-PARTIAL2', status: 'sent' },
       });
 
       const tool = createEmailSendTool({
         client: mockClient,
         logger: mockLogger,
         config: configPartial,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -434,14 +434,14 @@ describe('email_send tool', () => {
     it('should log successful sends', async () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
-        data: { messageId: 'MSG123', status: 'sent' },
+        data: { message_id: 'MSG123', status: 'sent' },
       });
 
       const tool = createEmailSendTool({
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
@@ -450,7 +450,7 @@ describe('email_send tool', () => {
         body: 'Test message',
       });
 
-      expect(mockLogger.info).toHaveBeenCalledWith('email_send invoked', expect.objectContaining({ userId }));
+      expect(mockLogger.info).toHaveBeenCalledWith('email_send invoked', expect.objectContaining({ user_id }));
     });
 
     it('should not log email address in errors', async () => {
@@ -460,7 +460,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -488,7 +488,7 @@ describe('email_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({

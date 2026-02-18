@@ -314,14 +314,14 @@ describe('Context entities API (Issue #1275)', () => {
       const wiRes = await pool.query(
         `INSERT INTO work_item (title, status) VALUES ('Test project', 'open') RETURNING id::text as id`,
       );
-      const workItemId = (wiRes.rows[0] as { id: string }).id;
+      const work_item_id = (wiRes.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'POST',
         url: `/api/contexts/${contextId}/links`,
         payload: {
           target_type: 'project',
-          target_id: workItemId,
+          target_id: work_item_id,
         },
       });
 
@@ -330,7 +330,7 @@ describe('Context entities API (Issue #1275)', () => {
       expect(body.id).toBeDefined();
       expect(body.context_id).toBe(contextId);
       expect(body.target_type).toBe('project');
-      expect(body.target_id).toBe(workItemId);
+      expect(body.target_id).toBe(work_item_id);
     });
 
     it('creates a link with optional priority', async () => {
@@ -437,7 +437,7 @@ describe('Context entities API (Issue #1275)', () => {
     });
   });
 
-  describe('DELETE /api/contexts/:id/links/:linkId', () => {
+  describe('DELETE /api/contexts/:id/links/:link_id', () => {
     it('removes a link', async () => {
       const ctxRes = await app.inject({
         method: 'POST',
@@ -451,11 +451,11 @@ describe('Context entities API (Issue #1275)', () => {
         url: `/api/contexts/${contextId}/links`,
         payload: { target_type: 'project', target_id: '00000000-0000-0000-0000-000000000001' },
       });
-      const linkId = linkRes.json().id;
+      const link_id = linkRes.json().id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contexts/${contextId}/links/${linkId}`,
+        url: `/api/contexts/${contextId}/links/${link_id}`,
       });
 
       expect(res.statusCode).toBe(204);

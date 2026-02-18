@@ -1,6 +1,7 @@
 /**
  * Email API types for live provider access.
  * Part of Issue #1048.
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  *
  * These types define the unified interface for email operations across
  * Microsoft Graph Mail and Gmail APIs. Operations proxy through provider
@@ -19,9 +20,9 @@ export interface EmailAddress {
 export interface EmailAttachment {
   id: string;
   name: string;
-  contentType: string;
+  content_type: string;
   size: number;
-  isInline: boolean;
+  is_inline: boolean;
 }
 
 /** A single email message as returned by provider APIs. */
@@ -29,30 +30,30 @@ export interface EmailMessage {
   /** Provider-side message ID. */
   id: string;
   /** Provider-side thread/conversation ID. */
-  threadId?: string;
+  thread_id?: string;
   subject: string;
   from: EmailAddress;
   to: EmailAddress[];
   cc: EmailAddress[];
   bcc: EmailAddress[];
   /** Plain text body (preferred when available). */
-  bodyText?: string;
+  body_text?: string;
   /** HTML body. */
-  bodyHtml?: string;
+  body_html?: string;
   /** Short text snippet/preview. */
   snippet?: string;
-  receivedAt: string;
-  isRead: boolean;
-  isStarred: boolean;
-  isDraft: boolean;
+  received_at: string;
+  is_read: boolean;
+  is_starred: boolean;
+  is_draft: boolean;
   /** Provider-specific labels/categories. */
   labels: string[];
   /** Attachment metadata (content not included). */
   attachments: EmailAttachment[];
   /** Provider-specific folder or label ID. */
-  folderId?: string;
+  folder_id?: string;
   /** Direct web link to view in provider's UI. */
-  webLink?: string;
+  web_link?: string;
   provider: OAuthProvider;
 }
 
@@ -61,11 +62,11 @@ export interface EmailThread {
   id: string;
   subject: string;
   snippet?: string;
-  messageCount: number;
+  message_count: number;
   /** IDs of messages in this thread. */
-  messageIds: string[];
-  lastMessageAt: string;
-  isRead: boolean;
+  message_ids: string[];
+  last_message_at: string;
+  is_read: boolean;
   labels: string[];
   participants: EmailAddress[];
   provider: OAuthProvider;
@@ -78,41 +79,41 @@ export interface EmailFolder {
   /** Well-known folder type if applicable. */
   type?: 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam' | 'archive' | 'other';
   /** Number of messages in the folder (if available). */
-  messageCount?: number;
+  message_count?: number;
   /** Number of unread messages (if available). */
-  unreadCount?: number;
+  unread_count?: number;
   provider: OAuthProvider;
 }
 
 /** Parameters for listing/searching emails. */
 export interface EmailListParams {
   /** Folder ID or well-known name to filter by. */
-  folderId?: string;
+  folder_id?: string;
   /** Search query (provider-native syntax). */
   query?: string;
   /** Maximum number of results to return. */
-  maxResults?: number;
+  max_results?: number;
   /** Pagination token from a previous response. */
-  pageToken?: string;
+  page_token?: string;
   /** Whether to include spam and trash in results (default false). */
-  includeSpamTrash?: boolean;
+  include_spam_trash?: boolean;
   /** Label IDs to filter by (Gmail-specific). */
-  labelIds?: string[];
+  label_ids?: string[];
 }
 
 /** Paginated result for email listing. */
 export interface EmailListResult {
   messages: EmailMessage[];
-  nextPageToken?: string;
+  next_page_token?: string;
   /** Estimated total count (not always available). */
-  resultSizeEstimate?: number;
+  result_size_estimate?: number;
 }
 
 /** Paginated result for thread listing. */
 export interface EmailThreadListResult {
   threads: EmailThread[];
-  nextPageToken?: string;
-  resultSizeEstimate?: number;
+  next_page_token?: string;
+  result_size_estimate?: number;
 }
 
 /** Parameters for sending a new email. */
@@ -121,18 +122,18 @@ export interface EmailSendParams {
   cc?: EmailAddress[];
   bcc?: EmailAddress[];
   subject: string;
-  bodyText?: string;
-  bodyHtml?: string;
+  body_text?: string;
+  body_html?: string;
   /** Message ID to reply to (sets In-Reply-To and References headers). */
-  replyToMessageId?: string;
+  reply_to_message_id?: string;
   /** Thread ID when replying. */
-  threadId?: string;
+  thread_id?: string;
 }
 
 /** Result of sending an email. */
 export interface EmailSendResult {
-  messageId: string;
-  threadId?: string;
+  message_id: string;
+  thread_id?: string;
   provider: OAuthProvider;
 }
 
@@ -142,34 +143,34 @@ export interface EmailDraftParams {
   cc?: EmailAddress[];
   bcc?: EmailAddress[];
   subject?: string;
-  bodyText?: string;
-  bodyHtml?: string;
-  replyToMessageId?: string;
-  threadId?: string;
+  body_text?: string;
+  body_html?: string;
+  reply_to_message_id?: string;
+  thread_id?: string;
 }
 
 /** Parameters for updating message state. */
 export interface EmailUpdateParams {
   /** Mark as read or unread. */
-  isRead?: boolean;
+  is_read?: boolean;
   /** Star or unstar. */
-  isStarred?: boolean;
+  is_starred?: boolean;
   /** Add label/category IDs. */
-  addLabels?: string[];
+  add_labels?: string[];
   /** Remove label/category IDs. */
-  removeLabels?: string[];
+  remove_labels?: string[];
   /** Move to folder (Microsoft) or add/remove INBOX label (Gmail). */
-  moveTo?: string;
+  move_to?: string;
 }
 
 /** Attachment content download result. */
 export interface EmailAttachmentContent {
   id: string;
   name: string;
-  contentType: string;
+  content_type: string;
   size: number;
   /** Base64-encoded content. */
-  contentBase64: string;
+  content_base64: string;
 }
 
 /**
@@ -178,25 +179,25 @@ export interface EmailAttachmentContent {
  */
 export interface EmailProvider {
   /** List or search messages. */
-  listMessages(accessToken: string, params: EmailListParams): Promise<EmailListResult>;
+  listMessages(access_token: string, params: EmailListParams): Promise<EmailListResult>;
   /** Get a single message by ID. */
-  getMessage(accessToken: string, messageId: string): Promise<EmailMessage>;
+  getMessage(access_token: string, message_id: string): Promise<EmailMessage>;
   /** List conversation threads. */
-  listThreads(accessToken: string, params: EmailListParams): Promise<EmailThreadListResult>;
+  listThreads(access_token: string, params: EmailListParams): Promise<EmailThreadListResult>;
   /** Get a full thread with all messages. */
-  getThread(accessToken: string, threadId: string): Promise<EmailThread & { messages: EmailMessage[] }>;
+  getThread(access_token: string, thread_id: string): Promise<EmailThread & { messages: EmailMessage[] }>;
   /** List folders/labels. */
-  listFolders(accessToken: string): Promise<EmailFolder[]>;
+  listFolders(access_token: string): Promise<EmailFolder[]>;
   /** Send a new email. */
-  sendMessage(accessToken: string, params: EmailSendParams): Promise<EmailSendResult>;
+  sendMessage(access_token: string, params: EmailSendParams): Promise<EmailSendResult>;
   /** Create a draft. */
-  createDraft(accessToken: string, params: EmailDraftParams): Promise<EmailMessage>;
+  createDraft(access_token: string, params: EmailDraftParams): Promise<EmailMessage>;
   /** Update a draft. */
-  updateDraft(accessToken: string, draftId: string, params: EmailDraftParams): Promise<EmailMessage>;
+  updateDraft(access_token: string, draftId: string, params: EmailDraftParams): Promise<EmailMessage>;
   /** Update message state (read, starred, labels, move). */
-  updateMessage(accessToken: string, messageId: string, params: EmailUpdateParams): Promise<void>;
+  updateMessage(access_token: string, message_id: string, params: EmailUpdateParams): Promise<void>;
   /** Delete a message (move to trash or permanent delete). */
-  deleteMessage(accessToken: string, messageId: string, permanent?: boolean): Promise<void>;
+  deleteMessage(access_token: string, message_id: string, permanent?: boolean): Promise<void>;
   /** Download attachment content. */
-  getAttachment(accessToken: string, messageId: string, attachmentId: string): Promise<EmailAttachmentContent>;
+  getAttachment(access_token: string, message_id: string, attachmentId: string): Promise<EmailAttachmentContent>;
 }

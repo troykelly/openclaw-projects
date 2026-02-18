@@ -54,8 +54,8 @@ export function MoveToDialog({ open, onOpenChange, item, items, potentialParents
     });
   }, [potentialParents, itemKind, searchQuery]);
 
-  const handleSelect = (parentId: string) => {
-    setSelectedParentId(parentId);
+  const handleSelect = (parent_id: string) => {
+    setSelectedParentId(parent_id);
   };
 
   const handleMove = () => {

@@ -19,9 +19,9 @@ export interface SendSmsRequest {
   /** Message body */
   body: string;
   /** Optional: link to existing thread */
-  threadId?: string;
+  thread_id?: string;
   /** Optional: client-provided idempotency key */
-  idempotencyKey?: string;
+  idempotency_key?: string;
 }
 
 /**
@@ -29,13 +29,13 @@ export interface SendSmsRequest {
  */
 export interface SendSmsResponse {
   /** Our internal message ID */
-  messageId: string;
+  message_id: string;
   /** Thread ID for the conversation */
-  threadId: string;
+  thread_id: string;
   /** Always 'queued' (async) */
   status: 'queued';
   /** Idempotency key for duplicate detection */
-  idempotencyKey: string;
+  idempotency_key: string;
 }
 
 /**
@@ -65,7 +65,7 @@ function validateMessageBody(body: string): void {
 /**
  * Find or create contact endpoint for a phone number.
  */
-async function findOrCreateEndpoint(client: PoolClient, phone: E164PhoneNumber): Promise<{ contactId: string; endpointId: string; isNew: boolean }> {
+async function findOrCreateEndpoint(client: PoolClient, phone: E164PhoneNumber): Promise<{ contact_id: string; endpointId: string; isNew: boolean }> {
   // Try to find existing endpoint
   const existing = await client.query(
     `SELECT ce.id::text as endpoint_id, ce.contact_id::text as contact_id
@@ -78,7 +78,7 @@ async function findOrCreateEndpoint(client: PoolClient, phone: E164PhoneNumber):
 
   if (existing.rows.length > 0) {
     return {
-      contactId: existing.rows[0].contact_id,
+      contact_id: existing.rows[0].contact_id,
       endpointId: existing.rows[0].endpoint_id,
       isNew: false,
     };
@@ -91,18 +91,18 @@ async function findOrCreateEndpoint(client: PoolClient, phone: E164PhoneNumber):
      RETURNING id::text as id`,
     [phone],
   );
-  const contactId = contact.rows[0].id;
+  const contact_id = contact.rows[0].id;
 
   // Create endpoint
   const endpoint = await client.query(
     `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
      VALUES ($1, 'phone', $2, $3::jsonb)
      RETURNING id::text as id`,
-    [contactId, phone, JSON.stringify({ source: 'outbound_sms' })],
+    [contact_id, phone, JSON.stringify({ source: 'outbound_sms' })],
   );
   const endpointId = endpoint.rows[0].id;
 
-  return { contactId, endpointId, isNew: true };
+  return { contact_id, endpointId, isNew: true };
 }
 
 /**
@@ -126,13 +126,13 @@ async function findOrCreateThread(client: PoolClient, endpointId: string, fromPh
 /**
  * Check for existing message with same idempotency key.
  */
-async function findExistingMessage(client: PoolClient, idempotencyKey: string): Promise<{ messageId: string; threadId: string } | null> {
+async function findExistingMessage(client: PoolClient, idempotency_key: string): Promise<{ message_id: string; thread_id: string } | null> {
   const result = await client.query(
     `SELECT em.id::text as message_id, em.thread_id::text as thread_id
      FROM external_message em
      WHERE em.raw->>'idempotency_key' = $1
      LIMIT 1`,
-    [idempotencyKey],
+    [idempotency_key],
   );
 
   if (result.rows.length === 0) {
@@ -140,8 +140,8 @@ async function findExistingMessage(client: PoolClient, idempotencyKey: string): 
   }
 
   return {
-    messageId: result.rows[0].message_id,
-    threadId: result.rows[0].thread_id,
+    message_id: result.rows[0].message_id,
+    thread_id: result.rows[0].thread_id,
   };
 }
 
@@ -166,7 +166,7 @@ export async function enqueueSmsMessage(pool: Pool, request: SendSmsRequest): Pr
   const fromPhone = isTwilioConfigured() ? normalizePhoneNumber(getTwilioConfig().fromNumber) : '+10000000000'; // Placeholder for tests
 
   // Generate idempotency key if not provided
-  const idempotencyKey = request.idempotencyKey || `sms:${uuidv4()}`;
+  const idempotency_key = request.idempotency_key || `sms:${uuidv4()}`;
 
   const client = await pool.connect();
 
@@ -174,14 +174,14 @@ export async function enqueueSmsMessage(pool: Pool, request: SendSmsRequest): Pr
     await client.query('BEGIN');
 
     // Check for existing message with same idempotency key
-    const existing = await findExistingMessage(client, idempotencyKey);
+    const existing = await findExistingMessage(client, idempotency_key);
     if (existing) {
       await client.query('COMMIT');
       return {
-        messageId: existing.messageId,
-        threadId: existing.threadId,
+        message_id: existing.message_id,
+        thread_id: existing.thread_id,
         status: 'queued',
-        idempotencyKey,
+        idempotency_key,
       };
     }
 
@@ -189,16 +189,16 @@ export async function enqueueSmsMessage(pool: Pool, request: SendSmsRequest): Pr
     const { endpointId } = await findOrCreateEndpoint(client, toPhone);
 
     // Find or create thread
-    let threadId: string;
-    if (request.threadId) {
+    let thread_id: string;
+    if (request.thread_id) {
       // Verify thread exists
-      const thread = await client.query(`SELECT id FROM external_thread WHERE id = $1`, [request.threadId]);
+      const thread = await client.query(`SELECT id FROM external_thread WHERE id = $1`, [request.thread_id]);
       if (thread.rows.length === 0) {
-        throw new Error(`Thread not found: ${request.threadId}`);
+        throw new Error(`Thread not found: ${request.thread_id}`);
       }
-      threadId = request.threadId;
+      thread_id = request.thread_id;
     } else {
-      threadId = await findOrCreateThread(client, endpointId, fromPhone, toPhone);
+      thread_id = await findOrCreateThread(client, endpointId, fromPhone, toPhone);
     }
 
     // Generate message key
@@ -212,37 +212,37 @@ export async function enqueueSmsMessage(pool: Pool, request: SendSmsRequest): Pr
        VALUES ($1, $2, 'outbound', $3, 'pending', $4::jsonb)
        RETURNING id::text as id`,
       [
-        threadId,
+        thread_id,
         messageKey,
         request.body,
         JSON.stringify({
           to: toPhone,
           from: fromPhone,
-          idempotency_key: idempotencyKey,
+          idempotency_key: idempotency_key,
         }),
       ],
     );
-    const messageId = message.rows[0].id;
+    const message_id = message.rows[0].id;
 
     // Enqueue job for sending
     await client.query(`SELECT internal_job_enqueue($1, now(), $2, $3)`, [
       'message.send.sms',
       JSON.stringify({
-        message_id: messageId,
+        message_id: message_id,
         to: toPhone,
         from: fromPhone,
         body: request.body,
       }),
-      idempotencyKey,
+      idempotency_key,
     ]);
 
     await client.query('COMMIT');
 
     return {
-      messageId,
-      threadId,
+      message_id,
+      thread_id,
       status: 'queued',
-      idempotencyKey,
+      idempotency_key,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -322,7 +322,7 @@ export async function handleSmsSendJob(pool: Pool, job: InternalJob): Promise<Jo
       ],
     );
 
-    console.log(`[Twilio] SMS sent: messageId=${payload.message_id}, sid=${twilioMessage.sid}`);
+    console.log(`[Twilio] SMS sent: message_id=${payload.message_id}, sid=${twilioMessage.sid}`);
 
     return { success: true };
   } catch (error) {
@@ -337,7 +337,7 @@ export async function handleSmsSendJob(pool: Pool, job: InternalJob): Promise<Jo
       [payload.message_id, JSON.stringify({ error: err.message })],
     );
 
-    console.error(`[Twilio] SMS send failed: messageId=${payload.message_id}`, err);
+    console.error(`[Twilio] SMS send failed: message_id=${payload.message_id}`, err);
 
     return {
       success: false,

@@ -152,14 +152,14 @@ describe('ActivityTimeline', () => {
     expect(screen.getAllByTestId('timeline-connector').length).toBeGreaterThan(0);
   });
 
-  it('should show load more button when hasMore', () => {
-    render(<ActivityTimeline {...defaultProps} hasMore onLoadMore={vi.fn()} />);
+  it('should show load more button when has_more', () => {
+    render(<ActivityTimeline {...defaultProps} has_more onLoadMore={vi.fn()} />);
     expect(screen.getByRole('button', { name: /load more/i })).toBeInTheDocument();
   });
 
   it('should call onLoadMore when load more clicked', () => {
     const onLoadMore = vi.fn();
-    render(<ActivityTimeline {...defaultProps} hasMore onLoadMore={onLoadMore} />);
+    render(<ActivityTimeline {...defaultProps} has_more onLoadMore={onLoadMore} />);
 
     fireEvent.click(screen.getByRole('button', { name: /load more/i }));
 
@@ -290,7 +290,7 @@ describe('ContactActivitySection', () => {
   ];
 
   const defaultProps: ContactActivitySectionProps = {
-    contactId: 'contact-1',
+    contact_id: 'contact-1',
     activities: mockActivities,
     loading: false,
     onActivityClick: vi.fn(),

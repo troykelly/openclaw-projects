@@ -38,9 +38,9 @@ interface GraphEmailAddress {
 interface GraphAttachment {
   id: string;
   name: string;
-  contentType: string;
+  content_type: string;
   size: number;
-  isInline: boolean;
+  is_inline: boolean;
   contentBytes?: string;
 }
 
@@ -52,17 +52,17 @@ interface GraphMessage {
   toRecipients: GraphEmailAddress[];
   ccRecipients: GraphEmailAddress[];
   bccRecipients: GraphEmailAddress[];
-  body: { contentType: string; content: string };
+  body: { content_type: string; content: string };
   bodyPreview?: string;
   receivedDateTime: string;
-  isRead: boolean;
+  is_read: boolean;
   flag?: { flagStatus: string };
-  isDraft: boolean;
+  is_draft: boolean;
   categories: string[];
   hasAttachments: boolean;
   attachments?: GraphAttachment[];
   parentFolderId?: string;
-  webLink?: string;
+  web_link?: string;
 }
 
 interface GraphMessageListResponse {
@@ -73,7 +73,7 @@ interface GraphMessageListResponse {
 
 interface GraphMailFolder {
   id: string;
-  displayName: string;
+  display_name: string;
   totalItemCount: number;
   unreadItemCount: number;
   isHidden: boolean;
@@ -110,32 +110,32 @@ function mapAttachment(att: GraphAttachment): EmailAttachment {
   return {
     id: att.id,
     name: att.name,
-    contentType: att.contentType,
+    content_type: att.content_type,
     size: att.size,
-    isInline: att.isInline,
+    is_inline: att.is_inline,
   };
 }
 
 function mapMessage(msg: GraphMessage): EmailMessage {
   return {
     id: msg.id,
-    threadId: msg.conversationId,
+    thread_id: msg.conversationId,
     subject: msg.subject || '',
     from: msg.from ? mapAddress(msg.from) : { email: '' },
     to: (msg.toRecipients || []).map(mapAddress),
     cc: (msg.ccRecipients || []).map(mapAddress),
     bcc: (msg.bccRecipients || []).map(mapAddress),
-    bodyText: msg.body.contentType === 'text' ? msg.body.content : undefined,
-    bodyHtml: msg.body.contentType === 'html' ? msg.body.content : undefined,
+    body_text: msg.body.content_type === 'text' ? msg.body.content : undefined,
+    body_html: msg.body.content_type === 'html' ? msg.body.content : undefined,
     snippet: msg.bodyPreview,
-    receivedAt: msg.receivedDateTime,
-    isRead: msg.isRead,
-    isStarred: msg.flag?.flagStatus === 'flagged',
-    isDraft: msg.isDraft,
+    received_at: msg.receivedDateTime,
+    is_read: msg.is_read,
+    is_starred: msg.flag?.flagStatus === 'flagged',
+    is_draft: msg.is_draft,
     labels: msg.categories || [],
     attachments: (msg.attachments || []).map(mapAttachment),
-    folderId: msg.parentFolderId,
-    webLink: msg.webLink,
+    folder_id: msg.parentFolderId,
+    web_link: msg.web_link,
     provider: 'microsoft',
   };
 }
@@ -143,10 +143,10 @@ function mapMessage(msg: GraphMessage): EmailMessage {
 function mapFolder(folder: GraphMailFolder): EmailFolder {
   return {
     id: folder.id,
-    name: folder.displayName,
-    type: FOLDER_TYPE_MAP[folder.displayName] || 'other',
-    messageCount: folder.totalItemCount,
-    unreadCount: folder.unreadItemCount,
+    name: folder.display_name,
+    type: FOLDER_TYPE_MAP[folder.display_name] || 'other',
+    message_count: folder.totalItemCount,
+    unread_count: folder.unreadItemCount,
     provider: 'microsoft',
   };
 }
@@ -160,11 +160,11 @@ function toGraphRecipient(addr: EmailAddress): GraphEmailAddress {
   };
 }
 
-async function graphFetch<T>(accessToken: string, url: string, options?: RequestInit): Promise<T> {
+async function graphFetch<T>(access_token: string, url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${access_token}`,
       'Content-Type': 'application/json',
       // Request immutable IDs so message IDs are stable across moves/copies
       Prefer: 'IdType="ImmutableId"',
@@ -212,13 +212,13 @@ async function graphFetch<T>(accessToken: string, url: string, options?: Request
 
 const MESSAGE_SELECT = [
   'id', 'conversationId', 'subject', 'from', 'toRecipients', 'ccRecipients',
-  'bccRecipients', 'body', 'bodyPreview', 'receivedDateTime', 'isRead',
-  'flag', 'isDraft', 'categories', 'hasAttachments', 'parentFolderId', 'webLink',
+  'bccRecipients', 'body', 'bodyPreview', 'receivedDateTime', 'is_read',
+  'flag', 'is_draft', 'categories', 'hasAttachments', 'parentFolderId', 'web_link',
 ].join(',');
 
 export const microsoftEmailProvider: EmailProvider = {
-  async listMessages(accessToken: string, params: EmailListParams): Promise<EmailListResult> {
-    const top = Math.min(params.maxResults || 25, 100);
+  async listMessages(access_token: string, params: EmailListParams): Promise<EmailListResult> {
+    const top = Math.min(params.max_results || 25, 100);
     const queryParams = new URLSearchParams({
       $top: String(top),
       $select: MESSAGE_SELECT,
@@ -234,48 +234,48 @@ export const microsoftEmailProvider: EmailProvider = {
     }
 
     let baseUrl = `${GRAPH_BASE}/me/messages`;
-    if (params.folderId) {
-      baseUrl = `${GRAPH_BASE}/me/mailFolders/${encodeURIComponent(params.folderId)}/messages`;
+    if (params.folder_id) {
+      baseUrl = `${GRAPH_BASE}/me/mailFolders/${encodeURIComponent(params.folder_id)}/messages`;
     }
 
-    const url = params.pageToken || `${baseUrl}?${queryParams.toString()}`;
+    const url = params.page_token || `${baseUrl}?${queryParams.toString()}`;
 
-    const data = await graphFetch<GraphMessageListResponse>(accessToken, url);
+    const data = await graphFetch<GraphMessageListResponse>(access_token, url);
 
     return {
       messages: data.value.map(mapMessage),
-      nextPageToken: data['@odata.nextLink'],
-      resultSizeEstimate: data['@odata.count'],
+      next_page_token: data['@odata.nextLink'],
+      result_size_estimate: data['@odata.count'],
     };
   },
 
-  async getMessage(accessToken: string, messageId: string): Promise<EmailMessage> {
-    const url = `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}?$select=${MESSAGE_SELECT}&$expand=attachments($select=id,name,contentType,size,isInline)`;
-    const msg = await graphFetch<GraphMessage>(accessToken, url);
+  async getMessage(access_token: string, message_id: string): Promise<EmailMessage> {
+    const url = `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}?$select=${MESSAGE_SELECT}&$expand=attachments($select=id,name,content_type,size,is_inline)`;
+    const msg = await graphFetch<GraphMessage>(access_token, url);
     return mapMessage(msg);
   },
 
-  async listThreads(accessToken: string, params: EmailListParams): Promise<EmailThreadListResult> {
+  async listThreads(access_token: string, params: EmailListParams): Promise<EmailThreadListResult> {
     // Microsoft Graph doesn't have a native "threads" endpoint. We approximate
     // by listing messages grouped by conversationId. For efficiency we list
     // messages and group client-side.
-    const listResult = await this.listMessages(accessToken, params);
+    const listResult = await this.listMessages(access_token, params);
 
     const threadMap = new Map<string, {
       messages: EmailMessage[];
-      lastMessageAt: string;
+      last_message_at: string;
     }>();
 
     for (const msg of listResult.messages) {
-      const tid = msg.threadId || msg.id;
+      const tid = msg.thread_id || msg.id;
       const existing = threadMap.get(tid);
       if (existing) {
         existing.messages.push(msg);
-        if (msg.receivedAt > existing.lastMessageAt) {
-          existing.lastMessageAt = msg.receivedAt;
+        if (msg.received_at > existing.last_message_at) {
+          existing.last_message_at = msg.received_at;
         }
       } else {
-        threadMap.set(tid, { messages: [msg], lastMessageAt: msg.receivedAt });
+        threadMap.set(tid, { messages: [msg], last_message_at: msg.received_at });
       }
     }
 
@@ -292,10 +292,10 @@ export const microsoftEmailProvider: EmailProvider = {
         id,
         subject: firstMsg.subject,
         snippet: firstMsg.snippet,
-        messageCount: data.messages.length,
-        messageIds: data.messages.map((m) => m.id),
-        lastMessageAt: data.lastMessageAt,
-        isRead: data.messages.every((m) => m.isRead),
+        message_count: data.messages.length,
+        message_ids: data.messages.map((m) => m.id),
+        last_message_at: data.last_message_at,
+        is_read: data.messages.every((m) => m.is_read),
         labels: firstMsg.labels,
         participants: [...allParticipants.values()],
         provider: 'microsoft',
@@ -304,17 +304,17 @@ export const microsoftEmailProvider: EmailProvider = {
 
     return {
       threads,
-      nextPageToken: listResult.nextPageToken,
-      resultSizeEstimate: listResult.resultSizeEstimate,
+      next_page_token: listResult.next_page_token,
+      result_size_estimate: listResult.result_size_estimate,
     };
   },
 
-  async getThread(accessToken: string, threadId: string): Promise<EmailThread & { messages: EmailMessage[] }> {
+  async getThread(access_token: string, thread_id: string): Promise<EmailThread & { messages: EmailMessage[] }> {
     // Fetch all messages in this conversation
-    // Sanitize threadId for OData $filter to prevent injection
-    const sanitizedThreadId = threadId.replace(/'/g, "''");
-    const url = `${GRAPH_BASE}/me/messages?$filter=conversationId eq '${sanitizedThreadId}'&$select=${MESSAGE_SELECT}&$orderby=receivedDateTime asc&$top=100&$expand=attachments($select=id,name,contentType,size,isInline)`;
-    const data = await graphFetch<GraphMessageListResponse>(accessToken, url);
+    // Sanitize thread_id for OData $filter to prevent injection
+    const sanitizedThreadId = thread_id.replace(/'/g, "''");
+    const url = `${GRAPH_BASE}/me/messages?$filter=conversationId eq '${sanitizedThreadId}'&$select=${MESSAGE_SELECT}&$orderby=receivedDateTime asc&$top=100&$expand=attachments($select=id,name,content_type,size,is_inline)`;
+    const data = await graphFetch<GraphMessageListResponse>(access_token, url);
     const messages = data.value.map(mapMessage);
 
     if (messages.length === 0) {
@@ -330,13 +330,13 @@ export const microsoftEmailProvider: EmailProvider = {
     const lastMsg = messages[messages.length - 1];
 
     return {
-      id: threadId,
+      id: thread_id,
       subject: messages[0].subject,
       snippet: lastMsg.snippet,
-      messageCount: messages.length,
-      messageIds: messages.map((m) => m.id),
-      lastMessageAt: lastMsg.receivedAt,
-      isRead: messages.every((m) => m.isRead),
+      message_count: messages.length,
+      message_ids: messages.map((m) => m.id),
+      last_message_at: lastMsg.received_at,
+      is_read: messages.every((m) => m.is_read),
       labels: messages[0].labels,
       participants: [...allParticipants.values()],
       provider: 'microsoft',
@@ -344,12 +344,12 @@ export const microsoftEmailProvider: EmailProvider = {
     };
   },
 
-  async listFolders(accessToken: string): Promise<EmailFolder[]> {
+  async listFolders(access_token: string): Promise<EmailFolder[]> {
     const folders: EmailFolder[] = [];
     let url: string | undefined = `${GRAPH_BASE}/me/mailFolders?$top=100`;
 
     while (url) {
-      const data: GraphMailFolderListResponse = await graphFetch<GraphMailFolderListResponse>(accessToken, url);
+      const data: GraphMailFolderListResponse = await graphFetch<GraphMailFolderListResponse>(access_token, url);
       folders.push(...data.value.filter((f: GraphMailFolder) => !f.isHidden).map(mapFolder));
       url = data['@odata.nextLink'];
     }
@@ -357,12 +357,12 @@ export const microsoftEmailProvider: EmailProvider = {
     return folders;
   },
 
-  async sendMessage(accessToken: string, params: EmailSendParams): Promise<EmailSendResult> {
+  async sendMessage(access_token: string, params: EmailSendParams): Promise<EmailSendResult> {
     const message: Record<string, unknown> = {
       subject: params.subject,
       body: {
-        contentType: params.bodyHtml ? 'html' : 'text',
-        content: params.bodyHtml || params.bodyText || '',
+        content_type: params.body_html ? 'html' : 'text',
+        content: params.body_html || params.body_text || '',
       },
       toRecipients: params.to.map(toGraphRecipient),
     };
@@ -375,31 +375,31 @@ export const microsoftEmailProvider: EmailProvider = {
     }
 
     // For replies, create as reply then send
-    if (params.replyToMessageId) {
+    if (params.reply_to_message_id) {
       // Create a reply draft
       const replyDraft = await graphFetch<GraphMessage>(
-        accessToken,
-        `${GRAPH_BASE}/me/messages/${encodeURIComponent(params.replyToMessageId)}/createReply`,
+        access_token,
+        `${GRAPH_BASE}/me/messages/${encodeURIComponent(params.reply_to_message_id)}/createReply`,
         { method: 'POST', body: JSON.stringify({ message }) },
       );
 
       // Send the reply
       await graphFetch<undefined>(
-        accessToken,
+        access_token,
         `${GRAPH_BASE}/me/messages/${encodeURIComponent(replyDraft.id)}/send`,
         { method: 'POST' },
       );
 
       return {
-        messageId: replyDraft.id,
-        threadId: replyDraft.conversationId,
+        message_id: replyDraft.id,
+        thread_id: replyDraft.conversationId,
         provider: 'microsoft',
       };
     }
 
     // New message — use sendMail endpoint
     await graphFetch<undefined>(
-      accessToken,
+      access_token,
       `${GRAPH_BASE}/me/sendMail`,
       {
         method: 'POST',
@@ -409,18 +409,18 @@ export const microsoftEmailProvider: EmailProvider = {
 
     // sendMail doesn't return the message ID. Return a placeholder.
     return {
-      messageId: '',
-      threadId: undefined,
+      message_id: '',
+      thread_id: undefined,
       provider: 'microsoft',
     };
   },
 
-  async createDraft(accessToken: string, params: EmailDraftParams): Promise<EmailMessage> {
+  async createDraft(access_token: string, params: EmailDraftParams): Promise<EmailMessage> {
     const message: Record<string, unknown> = {
       subject: params.subject || '',
       body: {
-        contentType: params.bodyHtml ? 'html' : 'text',
-        content: params.bodyHtml || params.bodyText || '',
+        content_type: params.body_html ? 'html' : 'text',
+        content: params.body_html || params.body_text || '',
       },
     };
 
@@ -429,11 +429,11 @@ export const microsoftEmailProvider: EmailProvider = {
     if (params.bcc) message.bccRecipients = params.bcc.map(toGraphRecipient);
 
     let url = `${GRAPH_BASE}/me/messages`;
-    if (params.replyToMessageId) {
-      url = `${GRAPH_BASE}/me/messages/${encodeURIComponent(params.replyToMessageId)}/createReply`;
+    if (params.reply_to_message_id) {
+      url = `${GRAPH_BASE}/me/messages/${encodeURIComponent(params.reply_to_message_id)}/createReply`;
     }
 
-    const draft = await graphFetch<GraphMessage>(accessToken, url, {
+    const draft = await graphFetch<GraphMessage>(access_token, url, {
       method: 'POST',
       body: JSON.stringify(message),
     });
@@ -441,14 +441,14 @@ export const microsoftEmailProvider: EmailProvider = {
     return mapMessage(draft);
   },
 
-  async updateDraft(accessToken: string, draftId: string, params: EmailDraftParams): Promise<EmailMessage> {
+  async updateDraft(access_token: string, draftId: string, params: EmailDraftParams): Promise<EmailMessage> {
     const updates: Record<string, unknown> = {};
 
     if (params.subject !== undefined) updates.subject = params.subject;
-    if (params.bodyHtml || params.bodyText) {
+    if (params.body_html || params.body_text) {
       updates.body = {
-        contentType: params.bodyHtml ? 'html' : 'text',
-        content: params.bodyHtml || params.bodyText,
+        content_type: params.body_html ? 'html' : 'text',
+        content: params.body_html || params.body_text,
       };
     }
     if (params.to) updates.toRecipients = params.to.map(toGraphRecipient);
@@ -456,7 +456,7 @@ export const microsoftEmailProvider: EmailProvider = {
     if (params.bcc) updates.bccRecipients = params.bcc.map(toGraphRecipient);
 
     const updated = await graphFetch<GraphMessage>(
-      accessToken,
+      access_token,
       `${GRAPH_BASE}/me/messages/${encodeURIComponent(draftId)}`,
       { method: 'PATCH', body: JSON.stringify(updates) },
     );
@@ -464,77 +464,77 @@ export const microsoftEmailProvider: EmailProvider = {
     return mapMessage(updated);
   },
 
-  async updateMessage(accessToken: string, messageId: string, params: EmailUpdateParams): Promise<void> {
+  async updateMessage(access_token: string, message_id: string, params: EmailUpdateParams): Promise<void> {
     const updates: Record<string, unknown> = {};
 
-    if (params.isRead !== undefined) {
-      updates.isRead = params.isRead;
+    if (params.is_read !== undefined) {
+      updates.is_read = params.is_read;
     }
 
-    if (params.isStarred !== undefined) {
-      updates.flag = { flagStatus: params.isStarred ? 'flagged' : 'notFlagged' };
+    if (params.is_starred !== undefined) {
+      updates.flag = { flagStatus: params.is_starred ? 'flagged' : 'notFlagged' };
     }
 
-    if (params.addLabels || params.removeLabels) {
+    if (params.add_labels || params.remove_labels) {
       // Microsoft uses categories, not labels. Map label operations to category changes.
       // Fetch current categories first
       const current = await graphFetch<GraphMessage>(
-        accessToken,
-        `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}?$select=categories`,
+        access_token,
+        `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}?$select=categories`,
       );
       const categories = new Set(current.categories || []);
-      if (params.addLabels) params.addLabels.forEach((l) => categories.add(l));
-      if (params.removeLabels) params.removeLabels.forEach((l) => categories.delete(l));
+      if (params.add_labels) params.add_labels.forEach((l) => categories.add(l));
+      if (params.remove_labels) params.remove_labels.forEach((l) => categories.delete(l));
       updates.categories = [...categories];
     }
 
     if (Object.keys(updates).length > 0) {
       await graphFetch<undefined>(
-        accessToken,
-        `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}`,
+        access_token,
+        `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}`,
         { method: 'PATCH', body: JSON.stringify(updates) },
       );
     }
 
     // Move to folder if requested
-    if (params.moveTo) {
+    if (params.move_to) {
       await graphFetch<GraphMessage>(
-        accessToken,
-        `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}/move`,
-        { method: 'POST', body: JSON.stringify({ destinationId: params.moveTo }) },
+        access_token,
+        `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}/move`,
+        { method: 'POST', body: JSON.stringify({ destinationId: params.move_to }) },
       );
     }
   },
 
-  async deleteMessage(accessToken: string, messageId: string, permanent?: boolean): Promise<void> {
+  async deleteMessage(access_token: string, message_id: string, permanent?: boolean): Promise<void> {
     if (permanent) {
       await graphFetch<undefined>(
-        accessToken,
-        `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}`,
+        access_token,
+        `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}`,
         { method: 'DELETE' },
       );
     } else {
       // Move to Deleted Items
       await graphFetch<GraphMessage>(
-        accessToken,
-        `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}/move`,
+        access_token,
+        `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}/move`,
         { method: 'POST', body: JSON.stringify({ destinationId: 'DeletedItems' }) },
       );
     }
   },
 
-  async getAttachment(accessToken: string, messageId: string, attachmentId: string): Promise<EmailAttachmentContent> {
+  async getAttachment(access_token: string, message_id: string, attachmentId: string): Promise<EmailAttachmentContent> {
     const att = await graphFetch<GraphAttachment>(
-      accessToken,
-      `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      access_token,
+      `${GRAPH_BASE}/me/messages/${encodeURIComponent(message_id)}/attachments/${encodeURIComponent(attachmentId)}`,
     );
 
     return {
       id: att.id,
       name: att.name,
-      contentType: att.contentType,
+      content_type: att.content_type,
       size: att.size,
-      contentBase64: att.contentBytes || '',
+      content_base64: att.contentBytes || '',
     };
   },
 };

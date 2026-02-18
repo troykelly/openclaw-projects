@@ -107,7 +107,7 @@ describe('Hybrid Search', () => {
         limit: 10,
       });
 
-      expect(result.searchType).toBe('hybrid');
+      expect(result.search_type).toBe('hybrid');
       expect(result.results.length).toBeGreaterThan(0);
       // mem-1 should appear (it's in both vector and text results)
       expect(result.results.some((r) => r.id === 'mem-1')).toBe(true);
@@ -123,12 +123,12 @@ describe('Hybrid Search', () => {
         });
 
       const result = await searchMemoriesHybrid(mockPool, 'test query', {
-        vectorWeight: 0.5,
-        textWeight: 0.5,
+        vector_weight: 0.5,
+        text_weight: 0.5,
       });
 
-      expect(result.weights.vectorWeight).toBe(0.5);
-      expect(result.weights.textWeight).toBe(0.5);
+      expect(result.weights.vector_weight).toBe(0.5);
+      expect(result.weights.text_weight).toBe(0.5);
     });
 
     it('should fall back to text-only when embedding service unavailable', async () => {
@@ -141,7 +141,7 @@ describe('Hybrid Search', () => {
 
       const result = await searchMemoriesHybrid(mockPool, 'test query', {});
 
-      expect(result.searchType).toBe('text');
+      expect(result.search_type).toBe('text');
     });
 
     it('should respect limit parameter', async () => {
@@ -162,11 +162,11 @@ describe('Hybrid Search', () => {
       expect(result.results.length).toBeLessThanOrEqual(5);
     });
 
-    it('should filter by userEmail when provided', async () => {
+    it('should filter by user_email when provided', async () => {
       (mockPool.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
 
       await searchMemoriesHybrid(mockPool, 'test query', {
-        userEmail: 'test@example.com',
+        user_email: 'test@example.com',
       });
 
       const vectorCall = (mockPool.query as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -190,7 +190,7 @@ describe('Hybrid Search', () => {
       const mem1Entries = result.results.filter((r) => r.id === 'mem-1');
       expect(mem1Entries.length).toBe(1);
       // Combined score should be higher than either individual score
-      expect(mem1Entries[0].combinedScore).toBeGreaterThan(0);
+      expect(mem1Entries[0].combined_score).toBeGreaterThan(0);
     });
 
     it('should return results with both scores when available', async () => {
@@ -205,9 +205,9 @@ describe('Hybrid Search', () => {
       const result = await searchMemoriesHybrid(mockPool, 'test query', {});
 
       const mem1 = result.results.find((r) => r.id === 'mem-1')!;
-      expect(mem1.vectorScore).toBeDefined();
-      expect(mem1.textScore).toBeDefined();
-      expect(mem1.combinedScore).toBeDefined();
+      expect(mem1.vector_score).toBeDefined();
+      expect(mem1.text_score).toBeDefined();
+      expect(mem1.combined_score).toBeDefined();
     });
   });
 });

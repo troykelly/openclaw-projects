@@ -10,10 +10,10 @@ import { CommentThread } from './comment-thread';
 import type { Comment } from './types';
 
 export interface CommentsSectionProps {
-  workItemId: string;
+  work_item_id: string;
   comments: Comment[];
   currentUserId: string;
-  onAddComment: (workItemId: string, content: string) => void;
+  onAddComment: (work_item_id: string, content: string) => void;
   onEditComment: (commentId: string, content: string) => void;
   onDeleteComment: (commentId: string) => void;
   onAddReply: (commentId: string, content: string) => void;
@@ -24,7 +24,7 @@ export interface CommentsSectionProps {
 }
 
 export function CommentsSection({
-  workItemId,
+  work_item_id,
   comments,
   currentUserId,
   onAddComment,
@@ -45,35 +45,35 @@ export function CommentsSection({
     const repliesByParent: Map<string, Comment[]> = new Map();
 
     for (const comment of comments) {
-      if (comment.parentId) {
-        const existing = repliesByParent.get(comment.parentId) || [];
+      if (comment.parent_id) {
+        const existing = repliesByParent.get(comment.parent_id) || [];
         existing.push(comment);
-        repliesByParent.set(comment.parentId, existing);
+        repliesByParent.set(comment.parent_id, existing);
       } else {
         topLevel.push(comment);
       }
     }
 
-    // Sort by createdAt
-    topLevel.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    // Sort by created_at
+    topLevel.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     for (const [, replies] of repliesByParent) {
-      replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      replies.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     }
 
     return { topLevel, repliesByParent };
   }, [comments]);
 
   const handleSubmitComment = (content: string) => {
-    onAddComment(workItemId, content);
+    onAddComment(work_item_id, content);
   };
 
   const handleReply = (commentId: string) => {
     setReplyingTo(commentId);
   };
 
-  const handleSubmitReply = (parentId: string, content: string) => {
-    onAddReply(parentId, content);
+  const handleSubmitReply = (parent_id: string, content: string) => {
+    onAddReply(parent_id, content);
     setReplyingTo(null);
   };
 

@@ -38,46 +38,46 @@ export function getFileShareMode(): FileShareMode {
  */
 export interface FileShare {
   id: string;
-  fileAttachmentId: string;
-  shareToken: string;
-  expiresAt: Date;
-  downloadCount: number;
-  maxDownloads: number | null;
-  createdBy: string | null;
-  createdAt: Date;
-  lastAccessedAt: Date | null;
+  file_attachment_id: string;
+  share_token: string;
+  expires_at: Date;
+  download_count: number;
+  max_downloads: number | null;
+  created_by: string | null;
+  created_at: Date;
+  last_accessed_at: Date | null;
 }
 
 /**
  * Input for creating a file share
  */
 export interface CreateFileShareInput {
-  fileId: string;
-  expiresIn?: number; // seconds, default 3600 (1 hour)
-  maxDownloads?: number;
-  createdBy?: string;
+  file_id: string;
+  expires_in?: number; // seconds, default 3600 (1 hour)
+  max_downloads?: number;
+  created_by?: string;
 }
 
 /**
  * Result of creating a file share
  */
 export interface FileShareResult {
-  shareToken: string;
+  share_token: string;
   url: string;
-  expiresAt: Date;
-  expiresIn: number;
+  expires_at: Date;
+  expires_in: number;
   filename: string;
-  contentType: string;
-  sizeBytes: number;
+  content_type: string;
+  size_bytes: number;
 }
 
 /**
  * Result of validating a share token
  */
 export interface ValidateShareTokenResult {
-  fileAttachmentId: string;
-  isValid: boolean;
-  errorMessage: string | null;
+  file_attachment_id: string;
+  is_valid: boolean;
+  error_message: string | null;
 }
 
 /**
@@ -113,21 +113,21 @@ export function sanitizeFilenameForHeader(filename: string): string {
  */
 export async function createFileShare(pool: Pool, storage: FileStorage, input: CreateFileShareInput): Promise<FileShareResult> {
   // Default expiry is 1 hour
-  const expiresIn = input.expiresIn ?? 3600;
+  const expiresIn = input.expires_in ?? 3600;
 
-  // Validate expiresIn range (60 seconds to 7 days)
+  // Validate expires_in range (60 seconds to 7 days)
   if (expiresIn < 60 || expiresIn > 604800) {
-    throw new Error('expiresIn must be between 60 and 604800 seconds (1 minute to 7 days)');
+    throw new Error('expires_in must be between 60 and 604800 seconds (1 minute to 7 days)');
   }
 
   // Get file metadata to verify it exists
-  const metadata = await getFileMetadata(pool, input.fileId);
+  const metadata = await getFileMetadata(pool, input.file_id);
   if (!metadata) {
-    throw new FileNotFoundError(input.fileId);
+    throw new FileNotFoundError(input.file_id);
   }
 
   const mode = getFileShareMode();
-  const expiresAt = new Date(Date.now() + expiresIn * 1000);
+  const expires_at = new Date(Date.now() + expiresIn * 1000);
 
   if (mode === 'presigned') {
     // Generate S3 presigned URL for external access.
@@ -135,16 +135,16 @@ export async function createFileShare(pool: Pool, storage: FileStorage, input: C
     // endpoint (when set) so that the Signature V4 Host header matches the
     // endpoint the browser actually hits. Falls back to the internal client
     // when no external endpoint is configured.
-    const url = await storage.getExternalSignedUrl(metadata.storageKey, expiresIn);
+    const url = await storage.getExternalSignedUrl(metadata.storage_key, expiresIn);
 
     return {
-      shareToken: '', // No token for presigned URLs
+      share_token: '', // No token for presigned URLs
       url,
-      expiresAt,
-      expiresIn,
-      filename: metadata.originalFilename,
-      contentType: metadata.contentType,
-      sizeBytes: metadata.sizeBytes,
+      expires_at: expires_at,
+      expires_in: expiresIn,
+      filename: metadata.original_filename,
+      content_type: metadata.content_type,
+      size_bytes: metadata.size_bytes,
     };
   }
 
@@ -162,7 +162,7 @@ export async function createFileShare(pool: Pool, storage: FileStorage, input: C
       max_downloads,
       created_by
     ) VALUES ($1, $2, $3, $4, $5)`,
-    [input.fileId, shareToken, expiresAt, input.maxDownloads ?? null, input.createdBy ?? null],
+    [input.file_id, shareToken, expires_at, input.max_downloads ?? null, input.created_by ?? null],
   );
 
   // Build the share URL
@@ -170,13 +170,13 @@ export async function createFileShare(pool: Pool, storage: FileStorage, input: C
   const url = `${baseUrl}/api/files/shared/${shareToken}`;
 
   return {
-    shareToken,
+    share_token: shareToken,
     url,
-    expiresAt,
-    expiresIn,
-    filename: metadata.originalFilename,
-    contentType: metadata.contentType,
-    sizeBytes: metadata.sizeBytes,
+    expires_at: expires_at,
+    expires_in: expiresIn,
+    filename: metadata.original_filename,
+    content_type: metadata.content_type,
+    size_bytes: metadata.size_bytes,
   };
 }
 
@@ -188,9 +188,9 @@ export async function validateShareToken(pool: Pool, token: string, incrementDow
 
   const row = result.rows[0];
   return {
-    fileAttachmentId: row.file_attachment_id,
-    isValid: row.is_valid,
-    errorMessage: row.error_message,
+    file_attachment_id: row.file_attachment_id,
+    is_valid: row.is_valid,
+    error_message: row.error_message,
   };
 }
 
@@ -201,18 +201,18 @@ export async function downloadFileByShareToken(pool: Pool, storage: FileStorage,
   // Validate token (this increments download count)
   const validation = await validateShareToken(pool, token, true);
 
-  if (!validation.isValid) {
-    throw new ShareLinkError(validation.errorMessage ?? 'Invalid share link');
+  if (!validation.is_valid) {
+    throw new ShareLinkError(validation.error_message ?? 'Invalid share link');
   }
 
   // Get file metadata
-  const metadata = await getFileMetadata(pool, validation.fileAttachmentId);
+  const metadata = await getFileMetadata(pool, validation.file_attachment_id);
   if (!metadata) {
-    throw new FileNotFoundError(validation.fileAttachmentId);
+    throw new FileNotFoundError(validation.file_attachment_id);
   }
 
   // Download from storage
-  const data = await storage.download(metadata.storageKey);
+  const data = await storage.download(metadata.storage_key);
 
   return { data, metadata };
 }
@@ -250,13 +250,13 @@ export async function listFileShares(pool: Pool, fileId: string): Promise<FileSh
 
   return result.rows.map((row) => ({
     id: row.id,
-    fileAttachmentId: row.file_attachment_id,
-    shareToken: row.share_token,
-    expiresAt: new Date(row.expires_at),
-    downloadCount: row.download_count,
-    maxDownloads: row.max_downloads,
-    createdBy: row.created_by,
-    createdAt: new Date(row.created_at),
-    lastAccessedAt: row.last_accessed_at ? new Date(row.last_accessed_at) : null,
+    file_attachment_id: row.file_attachment_id,
+    share_token: row.share_token,
+    expires_at: new Date(row.expires_at),
+    download_count: row.download_count,
+    max_downloads: row.max_downloads,
+    created_by: row.created_by,
+    created_at: new Date(row.created_at),
+    last_accessed_at: row.last_accessed_at ? new Date(row.last_accessed_at) : null,
   }));
 }

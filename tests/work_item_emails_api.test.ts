@@ -7,8 +7,8 @@ import { buildServer } from '../src/api/server.ts';
 describe('Work Item Emails API (issue #124)', () => {
   const app = buildServer();
   let pool: Pool;
-  let workItemId: string;
-  let contactId: string;
+  let work_item_id: string;
+  let contact_id: string;
   let endpointId: string;
 
   beforeAll(async () => {
@@ -26,20 +26,20 @@ describe('Work Item Emails API (issue #124)', () => {
       url: '/api/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
-    workItemId = (wi.json() as { id: string }).id;
+    work_item_id = (wi.json() as { id: string }).id;
 
     // Create a contact with an email endpoint
     const contact = await app.inject({
       method: 'POST',
       url: '/api/contacts',
-      payload: { displayName: 'John Doe' },
+      payload: { display_name: 'John Doe' },
     });
-    contactId = (contact.json() as { id: string }).id;
+    contact_id = (contact.json() as { id: string }).id;
 
     const endpoint = await app.inject({
       method: 'POST',
-      url: `/api/contacts/${contactId}/endpoints`,
-      payload: { endpointType: 'email', endpointValue: 'john@example.com' },
+      url: `/api/contacts/${contact_id}/endpoints`,
+      payload: { endpoint_type: 'email', endpoint_value: 'john@example.com' },
     });
     endpointId = (endpoint.json() as { id: string }).id;
   });
@@ -60,15 +60,15 @@ describe('Work Item Emails API (issue #124)', () => {
   }
 
   async function createEmailMessage(
-    threadId: string,
+    thread_id: string,
     emailData: {
       subject?: string;
       from?: string;
       to?: string;
       snippet?: string;
       body?: string;
-      hasAttachments?: boolean;
-      isRead?: boolean;
+      has_attachments?: boolean;
+      is_read?: boolean;
     },
   ): Promise<string> {
     const raw = {
@@ -76,23 +76,23 @@ describe('Work Item Emails API (issue #124)', () => {
       from: emailData.from ?? 'sender@example.com',
       to: emailData.to ?? 'recipient@example.com',
       snippet: emailData.snippet ?? 'This is a preview...',
-      hasAttachments: emailData.hasAttachments ?? false,
-      isRead: emailData.isRead ?? true,
+      has_attachments: emailData.has_attachments ?? false,
+      is_read: emailData.is_read ?? true,
     };
     const result = await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
        VALUES ($1, $2, 'inbound', $3, $4)
        RETURNING id::text as id`,
-      [threadId, `msg-${Date.now()}`, emailData.body ?? 'Email body content', JSON.stringify(raw)],
+      [thread_id, `msg-${Date.now()}`, emailData.body ?? 'Email body content', JSON.stringify(raw)],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
-  async function linkEmailToWorkItem(wiId: string, threadId: string, messageId: string): Promise<void> {
+  async function linkEmailToWorkItem(wiId: string, thread_id: string, message_id: string): Promise<void> {
     await pool.query(
       `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
        VALUES ($1, $2, $3, 'reply_required')`,
-      [wiId, threadId, messageId],
+      [wiId, thread_id, message_id],
     );
   }
 
@@ -100,28 +100,28 @@ describe('Work Item Emails API (issue #124)', () => {
     it('returns empty array when no emails linked', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/emails`,
+        url: `/api/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ emails: [] });
     });
 
     it('returns linked emails with all required fields', async () => {
-      const threadId = await createEmailThread();
-      const messageId = await createEmailMessage(threadId, {
+      const thread_id = await createEmailThread();
+      const message_id = await createEmailMessage(thread_id, {
         subject: 'Meeting Tomorrow',
         from: 'alice@example.com',
         to: 'bob@example.com',
         snippet: "Let's discuss the project...",
         body: 'Full email body here',
-        hasAttachments: true,
-        isRead: false,
+        has_attachments: true,
+        is_read: false,
       });
-      await linkEmailToWorkItem(workItemId, threadId, messageId);
+      await linkEmailToWorkItem(work_item_id, thread_id, message_id);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/emails`,
+        url: `/api/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -134,32 +134,32 @@ describe('Work Item Emails API (issue #124)', () => {
           date: string;
           snippet: string;
           body: string;
-          hasAttachments: boolean;
-          isRead: boolean;
+          has_attachments: boolean;
+          is_read: boolean;
         }>;
       };
       expect(body.emails.length).toBe(1);
 
       const email = body.emails[0];
-      expect(email.id).toBe(messageId);
+      expect(email.id).toBe(message_id);
       expect(email.subject).toBe('Meeting Tomorrow');
       expect(email.from).toBe('alice@example.com');
       expect(email.to).toBe('bob@example.com');
       expect(email.snippet).toBe("Let's discuss the project...");
       expect(email.body).toBe('Full email body here');
-      expect(email.hasAttachments).toBe(true);
-      expect(email.isRead).toBe(false);
+      expect(email.has_attachments).toBe(true);
+      expect(email.is_read).toBe(false);
       expect(email.date).toBeDefined();
     });
 
     it('returns multiple emails ordered by date descending', async () => {
-      const threadId = await createEmailThread();
+      const thread_id = await createEmailThread();
 
       // Create older email
-      const olderId = await createEmailMessage(threadId, {
+      const olderId = await createEmailMessage(thread_id, {
         subject: 'Older Email',
       });
-      await linkEmailToWorkItem(workItemId, threadId, olderId);
+      await linkEmailToWorkItem(work_item_id, thread_id, olderId);
 
       // Wait a bit to ensure different timestamps
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -173,15 +173,15 @@ describe('Work Item Emails API (issue #124)', () => {
       const workItemId2 = (wi2.json() as { id: string }).id;
 
       // Create newer email
-      const newerId = await createEmailMessage(threadId, {
+      const newerId = await createEmailMessage(thread_id, {
         subject: 'Newer Email',
       });
-      await linkEmailToWorkItem(workItemId2, threadId, newerId);
+      await linkEmailToWorkItem(workItemId2, thread_id, newerId);
 
       // Test the first work item - only has older email
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/emails`,
+        url: `/api/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -207,7 +207,7 @@ describe('Work Item Emails API (issue #124)', () => {
       const emailId = await createEmailMessage(emailThreadId, {
         subject: 'Email Message',
       });
-      await linkEmailToWorkItem(workItemId, emailThreadId, emailId);
+      await linkEmailToWorkItem(work_item_id, emailThreadId, emailId);
 
       // Create a calendar event thread in a separate work item
       const wi2 = await app.inject({
@@ -220,8 +220,8 @@ describe('Work Item Emails API (issue #124)', () => {
       // Create calendar endpoint
       const calendarEndpoint = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${contactId}/endpoints`,
-        payload: { endpointType: 'webhook', endpointValue: 'calendar-webhook' },
+        url: `/api/contacts/${contact_id}/endpoints`,
+        payload: { endpoint_type: 'webhook', endpoint_value: 'calendar-webhook' },
       });
       const calendarEndpointId = (calendarEndpoint.json() as { id: string }).id;
 
@@ -230,7 +230,7 @@ describe('Work Item Emails API (issue #124)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/emails`,
+        url: `/api/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -240,21 +240,21 @@ describe('Work Item Emails API (issue #124)', () => {
     });
 
     it('handles missing optional fields in raw data', async () => {
-      const threadId = await createEmailThread();
+      const thread_id = await createEmailThread();
 
       // Create message with minimal raw data
       const result = await pool.query(
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
          VALUES ($1, $2, 'inbound', 'Body text', $3)
          RETURNING id::text as id`,
-        [threadId, `msg-minimal-${Date.now()}`, JSON.stringify({ subject: 'Just Subject' })],
+        [thread_id, `msg-minimal-${Date.now()}`, JSON.stringify({ subject: 'Just Subject' })],
       );
-      const messageId = (result.rows[0] as { id: string }).id;
-      await linkEmailToWorkItem(workItemId, threadId, messageId);
+      const message_id = (result.rows[0] as { id: string }).id;
+      await linkEmailToWorkItem(work_item_id, thread_id, message_id);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/emails`,
+        url: `/api/work-items/${work_item_id}/emails`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -264,16 +264,16 @@ describe('Work Item Emails API (issue #124)', () => {
           from: string | null;
           to: string | null;
           snippet: string | null;
-          hasAttachments: boolean;
-          isRead: boolean;
+          has_attachments: boolean;
+          is_read: boolean;
         }>;
       };
       expect(body.emails.length).toBe(1);
       expect(body.emails[0].subject).toBe('Just Subject');
       expect(body.emails[0].from).toBeNull();
       expect(body.emails[0].to).toBeNull();
-      expect(body.emails[0].hasAttachments).toBe(false);
-      expect(body.emails[0].isRead).toBe(false);
+      expect(body.emails[0].has_attachments).toBe(false);
+      expect(body.emails[0].is_read).toBe(false);
     });
   });
 });

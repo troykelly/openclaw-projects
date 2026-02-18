@@ -6,7 +6,7 @@ import { Button } from '@/ui/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/components/ui/dropdown-menu';
 import type { MemoryItem } from './types';
 
-function getLinkedItemIcon(kind: MemoryItem['linkedItemKind']) {
+function getLinkedItemIcon(kind: MemoryItem['linked_item_kind']) {
   switch (kind) {
     case 'project':
       return <Folder className="size-3" />;
@@ -84,15 +84,15 @@ export function MemoryCard({ memory, onClick, onEdit, onDelete, className }: Mem
       {/* Footer */}
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          {memory.linkedItemKind && memory.linkedItemTitle && (
+          {memory.linked_item_kind && memory.linked_item_title && (
             <span className="flex items-center gap-1">
-              {getLinkedItemIcon(memory.linkedItemKind)}
-              <span className="truncate max-w-[120px]">{memory.linkedItemTitle}</span>
+              {getLinkedItemIcon(memory.linked_item_kind)}
+              <span className="truncate max-w-[120px]">{memory.linked_item_title}</span>
             </span>
           )}
         </div>
 
-        <span>{memory.updatedAt.toLocaleDateString()}</span>
+        <span>{memory.updated_at.toLocaleDateString()}</span>
       </div>
 
       {/* Tags */}

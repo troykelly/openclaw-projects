@@ -12,21 +12,21 @@ import { searchMemoriesSemantic } from '../embeddings/memory-integration.ts';
 /** Input for context retrieval */
 export interface ContextRetrievalInput {
   /** User identifier for scoping */
-  userId?: string;
+  user_id?: string;
   /** The prompt/query to find relevant context for */
   prompt: string;
   /** Maximum number of memories to include (1-20, default 5) */
-  maxMemories?: number;
+  max_memories?: number;
   /** Maximum length of the context string (100-10000, default 2000) */
-  maxContextLength?: number;
+  max_context_length?: number;
   /** Whether to include active projects (default false) */
-  includeProjects?: boolean;
+  include_projects?: boolean;
   /** Whether to include pending todos (default false) */
-  includeTodos?: boolean;
+  include_todos?: boolean;
   /** Whether to include contacts (default false) */
-  includeContacts?: boolean;
+  include_contacts?: boolean;
   /** Minimum similarity score for memories (0-1, default 0.5) */
-  minSimilarity?: number;
+  min_similarity?: number;
 }
 
 /** Memory source in context response */
@@ -50,7 +50,7 @@ export interface ProjectSource {
 export interface TodoSource {
   id: string;
   title: string;
-  dueDate?: string;
+  due_date?: string;
   completed: boolean;
 }
 
@@ -63,12 +63,12 @@ export interface ContextSources {
 
 /** Metadata about the context retrieval */
 export interface ContextMetadata {
-  queryTimeMs: number;
-  memoryCount: number;
-  projectCount?: number;
-  todoCount?: number;
+  query_time_ms: number;
+  memory_count: number;
+  project_count?: number;
+  todo_count?: number;
   truncated: boolean;
-  searchType: 'semantic' | 'text';
+  search_type: 'semantic' | 'text';
 }
 
 /** Result of context retrieval */
@@ -97,24 +97,24 @@ export function validateContextInput(input: ContextRetrievalInput): string | nul
     return 'prompt must be 2000 characters or less';
   }
 
-  // maxMemories validation
-  if (input.maxMemories !== undefined) {
-    if (typeof input.maxMemories !== 'number' || input.maxMemories < 1 || input.maxMemories > 20) {
-      return 'maxMemories must be between 1 and 20';
+  // max_memories validation
+  if (input.max_memories !== undefined) {
+    if (typeof input.max_memories !== 'number' || input.max_memories < 1 || input.max_memories > 20) {
+      return 'max_memories must be between 1 and 20';
     }
   }
 
-  // maxContextLength validation
-  if (input.maxContextLength !== undefined) {
-    if (typeof input.maxContextLength !== 'number' || input.maxContextLength < 100 || input.maxContextLength > 10000) {
-      return 'maxContextLength must be between 100 and 10000';
+  // max_context_length validation
+  if (input.max_context_length !== undefined) {
+    if (typeof input.max_context_length !== 'number' || input.max_context_length < 100 || input.max_context_length > 10000) {
+      return 'max_context_length must be between 100 and 10000';
     }
   }
 
-  // minSimilarity validation
-  if (input.minSimilarity !== undefined) {
-    if (typeof input.minSimilarity !== 'number' || input.minSimilarity < 0 || input.minSimilarity > 1) {
-      return 'minSimilarity must be between 0 and 1';
+  // min_similarity validation
+  if (input.min_similarity !== undefined) {
+    if (typeof input.min_similarity !== 'number' || input.min_similarity < 0 || input.min_similarity > 1) {
+      return 'min_similarity must be between 0 and 1';
     }
   }
 
@@ -130,7 +130,7 @@ export function validateContextInput(input: ContextRetrievalInput): string | nul
 export async function retrieveContext(pool: Pool, input: ContextRetrievalInput): Promise<ContextRetrievalResult> {
   const startTime = Date.now();
 
-  const { prompt, maxMemories = 5, maxContextLength = 2000, includeProjects = false, includeTodos = false, minSimilarity = 0.5 } = input;
+  const { prompt, max_memories: maxMemories = 5, max_context_length: maxContextLength = 2000, include_projects: includeProjects = false, include_todos: includeTodos = false, min_similarity: min_similarity = 0.5 } = input;
 
   // Initialize result
   const sources: ContextSources = {
@@ -139,7 +139,7 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
     todos: includeTodos ? [] : undefined,
   };
 
-  let searchType: 'semantic' | 'text' = 'text';
+  let search_type: 'semantic' | 'text' = 'text';
   let truncated = false;
 
   // Fetch memories using semantic search
@@ -148,11 +148,11 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
       limit: maxMemories,
     });
 
-    searchType = searchResult.searchType;
+    search_type = searchResult.search_type;
 
     // Filter by similarity threshold
     sources.memories = searchResult.results
-      .filter((m) => m.similarity >= minSimilarity)
+      .filter((m) => m.similarity >= min_similarity)
       .map((m) => ({
         id: m.id,
         title: m.title,
@@ -171,8 +171,8 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
       // Issue #1172: optional user_email scoping
       const projectParams: string[] = [];
       let projectUserEmailFilter = '';
-      if (input.userId) {
-        projectParams.push(input.userId);
+      if (input.user_id) {
+        projectParams.push(input.user_id);
         projectUserEmailFilter = ` AND user_email = $${projectParams.length}`;
       }
 
@@ -207,8 +207,8 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
       // Issue #1172: optional user_email scoping
       const todoParams: string[] = [];
       let todoUserEmailFilter = '';
-      if (input.userId) {
-        todoParams.push(input.userId);
+      if (input.user_id) {
+        todoParams.push(input.user_id);
         todoUserEmailFilter = ` AND user_email = $${todoParams.length}`;
       }
 
@@ -232,7 +232,7 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
       sources.todos = todoResult.rows.map((row) => ({
         id: row.id,
         title: row.title,
-        dueDate: row.dueDate ? new Date(row.dueDate).toISOString() : undefined,
+        due_date: row.dueDate ? new Date(row.dueDate).toISOString() : undefined,
         completed: row.status === 'completed',
       }));
     } catch (error) {
@@ -261,12 +261,12 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
     context: context || null,
     sources,
     metadata: {
-      queryTimeMs,
-      memoryCount: sources.memories.length,
-      projectCount: sources.projects?.length,
-      todoCount: sources.todos?.length,
+      query_time_ms: queryTimeMs,
+      memory_count: sources.memories.length,
+      project_count: sources.projects?.length,
+      todo_count: sources.todos?.length,
       truncated,
-      searchType,
+      search_type: search_type,
     },
   };
 }
@@ -300,7 +300,7 @@ function buildContextString(sources: ContextSources, maxLength: number): string 
   if (sources.todos && sources.todos.length > 0) {
     parts.push('## Pending Tasks\n');
     for (const todo of sources.todos) {
-      const due = todo.dueDate ? ` (due: ${todo.dueDate.split('T')[0]})` : '';
+      const due = todo.due_date ? ` (due: ${todo.due_date.split('T')[0]})` : '';
       const checkbox = todo.completed ? '[x]' : '[ ]';
       parts.push(`- ${checkbox} ${todo.title}${due}\n`);
     }

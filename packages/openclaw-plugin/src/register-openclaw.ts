@@ -61,7 +61,7 @@ interface PluginState {
   config: PluginConfig;
   logger: Logger;
   apiClient: ApiClient;
-  userId: string;
+  user_id: string;
 }
 
 /**
@@ -232,7 +232,7 @@ const memoryStoreSchema: JSONSchema = {
 const memoryForgetSchema: JSONSchema = {
   type: 'object',
   properties: {
-    memoryId: {
+    memory_id: {
       type: 'string',
       description: 'ID of the memory to forget',
       format: 'uuid',
@@ -272,13 +272,13 @@ const projectListSchema: JSONSchema = {
 const projectGetSchema: JSONSchema = {
   type: 'object',
   properties: {
-    projectId: {
+    project_id: {
       type: 'string',
       description: 'Project ID to retrieve',
       format: 'uuid',
     },
   },
-  required: ['projectId'],
+  required: ['project_id'],
 };
 
 /**
@@ -314,7 +314,7 @@ const projectCreateSchema: JSONSchema = {
 const todoListSchema: JSONSchema = {
   type: 'object',
   properties: {
-    projectId: {
+    project_id: {
       type: 'string',
       description: 'Filter by project ID',
       format: 'uuid',
@@ -356,7 +356,7 @@ const todoCreateSchema: JSONSchema = {
       description: 'Todo description',
       maxLength: 5000,
     },
-    projectId: {
+    project_id: {
       type: 'string',
       description: 'Project to add the todo to',
       format: 'uuid',
@@ -512,13 +512,13 @@ const contactSearchSchema: JSONSchema = {
 const contactGetSchema: JSONSchema = {
   type: 'object',
   properties: {
-    contactId: {
+    contact_id: {
       type: 'string',
       description: 'Contact ID to retrieve',
       format: 'uuid',
     },
   },
-  required: ['contactId'],
+  required: ['contact_id'],
 };
 
 /**
@@ -568,7 +568,7 @@ const smsSendSchema: JSONSchema = {
       minLength: 1,
       maxLength: 1600,
     },
-    idempotencyKey: {
+    idempotency_key: {
       type: 'string',
       description: 'Optional key to prevent duplicate sends',
     },
@@ -598,15 +598,15 @@ const emailSendSchema: JSONSchema = {
       description: 'Plain text email body',
       minLength: 1,
     },
-    htmlBody: {
+    html_body: {
       type: 'string',
       description: 'Optional HTML email body',
     },
-    threadId: {
+    thread_id: {
       type: 'string',
       description: 'Optional thread ID for replies',
     },
-    idempotencyKey: {
+    idempotency_key: {
       type: 'string',
       description: 'Optional unique key to prevent duplicate sends',
     },
@@ -631,7 +631,7 @@ const messageSearchSchema: JSONSchema = {
       enum: ['sms', 'email', 'all'],
       default: 'all',
     },
-    contactId: {
+    contact_id: {
       type: 'string',
       description: 'Filter by contact ID',
       format: 'uuid',
@@ -663,7 +663,7 @@ const threadListSchema: JSONSchema = {
       description: 'Filter by channel type',
       enum: ['sms', 'email'],
     },
-    contactId: {
+    contact_id: {
       type: 'string',
       description: 'Filter by contact ID',
       format: 'uuid',
@@ -684,11 +684,11 @@ const threadListSchema: JSONSchema = {
 const threadGetSchema: JSONSchema = {
   type: 'object',
   properties: {
-    threadId: {
+    thread_id: {
       type: 'string',
       description: 'Thread ID to retrieve',
     },
-    messageLimit: {
+    message_limit: {
       type: 'integer',
       description: 'Maximum messages to return',
       minimum: 1,
@@ -696,7 +696,7 @@ const threadGetSchema: JSONSchema = {
       default: 50,
     },
   },
-  required: ['threadId'],
+  required: ['thread_id'],
 };
 
 /**
@@ -759,25 +759,25 @@ const relationshipQuerySchema: JSONSchema = {
 const fileShareSchema: JSONSchema = {
   type: 'object',
   properties: {
-    fileId: {
+    file_id: {
       type: 'string',
       description: 'The file ID to create a share link for',
       format: 'uuid',
     },
-    expiresIn: {
+    expires_in: {
       type: 'integer',
       description: 'Link expiry time in seconds (default: 3600, max: 604800)',
       minimum: 60,
       maximum: 604800,
       default: 3600,
     },
-    maxDownloads: {
+    max_downloads: {
       type: 'integer',
       description: 'Optional maximum number of downloads',
       minimum: 1,
     },
   },
-  required: ['fileId'],
+  required: ['file_id'],
 };
 
 /**
@@ -1191,7 +1191,7 @@ const linksRemoveSchema: JSONSchema = {
  * Create tool execution handlers
  */
 function createToolHandlers(state: PluginState) {
-  const { config, logger, apiClient, userId } = state;
+  const { config, logger, apiClient, user_id } = state;
 
   return {
     async memory_recall(params: Record<string, unknown>): Promise<ToolResult> {
@@ -1235,7 +1235,7 @@ function createToolHandlers(state: PluginState) {
             address?: string | null;
             place_label?: string | null;
           }>;
-        }>(`/api/memories/search?${queryParams}`, { userId });
+        }>(`/api/memories/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1280,7 +1280,7 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { count: memories.length, memories, userId },
+            details: { count: memories.length, memories, user_id },
           },
         };
       } catch (error) {
@@ -1333,8 +1333,8 @@ function createToolHandlers(state: PluginState) {
             const geocoded = await reverseGeocode(location.lat, location.lng, config.nominatimUrl);
             if (geocoded) {
               payload.address = geocoded.address;
-              if (!location.place_label && geocoded.placeLabel) {
-                payload.place_label = geocoded.placeLabel;
+              if (!location.place_label && geocoded.place_label) {
+                payload.place_label = geocoded.place_label;
               }
             }
           }
@@ -1343,7 +1343,7 @@ function createToolHandlers(state: PluginState) {
           if (location.place_label) payload.place_label = location.place_label;
         }
 
-        const response = await apiClient.post<{ id: string }>('/api/memories/unified', payload, { userId });
+        const response = await apiClient.post<{ id: string }>('/api/memories/unified', payload, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1363,17 +1363,17 @@ function createToolHandlers(state: PluginState) {
     },
 
     async memory_forget(params: Record<string, unknown>): Promise<ToolResult> {
-      const { memoryId, query } = params as { memoryId?: string; query?: string };
+      const { memory_id, query } = params as { memory_id?: string; query?: string };
 
       try {
-        if (memoryId) {
-          const response = await apiClient.delete(`/api/memories/${memoryId}`, { userId });
+        if (memory_id) {
+          const response = await apiClient.delete(`/api/memories/${memory_id}`, { user_id });
           if (!response.success) {
             return { success: false, error: response.error.message };
           }
           return {
             success: true,
-            data: { content: `Memory ${memoryId} forgotten successfully` },
+            data: { content: `Memory ${memory_id} forgotten successfully` },
           };
         }
 
@@ -1382,7 +1382,7 @@ function createToolHandlers(state: PluginState) {
           // Search → single high-confidence match auto-deletes, multiple returns candidates.
           const searchResponse = await apiClient.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
             `/api/memories/search?q=${encodeURIComponent(query)}&limit=5`,
-            { userId },
+            { user_id },
           );
           if (!searchResponse.success) {
             return { success: false, error: searchResponse.error.message };
@@ -1397,7 +1397,7 @@ function createToolHandlers(state: PluginState) {
 
           // Single high-confidence match → auto-delete
           if (matches.length === 1 && (matches[0].similarity ?? 0) > 0.9) {
-            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, { userId });
+            const delResponse = await apiClient.delete(`/api/memories/${matches[0].id}`, { user_id });
             if (!delResponse.success) {
               return { success: false, error: delResponse.error.message };
             }
@@ -1415,13 +1415,13 @@ function createToolHandlers(state: PluginState) {
           return {
             success: true,
             data: {
-              content: `Found ${matches.length} candidates. Specify memoryId:\n${list}`,
+              content: `Found ${matches.length} candidates. Specify memory_id:\n${list}`,
               details: { action: 'candidates', candidates: matches.map((m) => ({ id: m.id, content: m.content, similarity: m.similarity })) },
             },
           };
         }
 
-        return { success: false, error: 'Either memoryId or query is required' };
+        return { success: false, error: 'Either memory_id or query is required' };
       } catch (error) {
         logger.error('memory_forget failed', { error });
         return { success: false, error: 'Failed to forget memory' };
@@ -1434,9 +1434,9 @@ function createToolHandlers(state: PluginState) {
       try {
         const queryParams = new URLSearchParams({ item_type: 'project', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
-        queryParams.set('user_email', userId); // Issue #1172: scope by user
+        queryParams.set('user_email', user_id); // Issue #1172: scope by user
 
-        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { userId });
+        const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1456,12 +1456,12 @@ function createToolHandlers(state: PluginState) {
     },
 
     async project_get(params: Record<string, unknown>): Promise<ToolResult> {
-      const { projectId } = params as { projectId: string };
+      const { project_id } = params as { project_id: string };
 
       try {
         const response = await apiClient.get<{ id: string; title: string; description?: string; status: string }>(
-          `/api/work-items/${projectId}?user_email=${encodeURIComponent(userId)}`,
-          { userId },
+          `/api/work-items/${project_id}?user_email=${encodeURIComponent(user_id)}`,
+          { user_id },
         );
 
         if (!response.success) {
@@ -1496,8 +1496,8 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.post<{ id: string }>(
           '/api/work-items',
-          { title: name, description, item_type: 'project', status, user_email: userId },
-          { userId },
+          { title: name, description, item_type: 'project', status, user_email: user_id },
+          { user_id },
         );
 
         if (!response.success) {
@@ -1519,12 +1519,12 @@ function createToolHandlers(state: PluginState) {
 
     async todo_list(params: Record<string, unknown>): Promise<ToolResult> {
       const {
-        projectId,
+        project_id,
         completed,
         limit = 50,
         offset = 0,
       } = params as {
-        projectId?: string;
+        project_id?: string;
         completed?: boolean;
         limit?: number;
         offset?: number;
@@ -1535,9 +1535,9 @@ function createToolHandlers(state: PluginState) {
           item_type: 'task',
           limit: String(limit),
           offset: String(offset),
-          user_email: userId, // Issue #1172: scope by user
+          user_email: user_id, // Issue #1172: scope by user
         });
-        if (projectId) queryParams.set('parent_work_item_id', projectId);
+        if (project_id) queryParams.set('parent_work_item_id', project_id);
         if (completed !== undefined) {
           queryParams.set('status', completed ? 'completed' : 'active');
         }
@@ -1545,7 +1545,7 @@ function createToolHandlers(state: PluginState) {
         const response = await apiClient.get<{
           items?: Array<{ id: string; title: string; status: string; completed?: boolean; dueDate?: string }>;
           total?: number;
-        }>(`/api/work-items?${queryParams}`, { userId });
+        }>(`/api/work-items?${queryParams}`, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1583,23 +1583,23 @@ function createToolHandlers(state: PluginState) {
       const {
         title,
         description,
-        projectId,
+        project_id,
         priority = 'medium',
         dueDate,
       } = params as {
         title: string;
         description?: string;
-        projectId?: string;
+        project_id?: string;
         priority?: string;
         dueDate?: string;
       };
 
       try {
-        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: userId };
-        if (projectId) body.parent_work_item_id = projectId;
+        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: user_id };
+        if (project_id) body.parent_work_item_id = project_id;
         if (dueDate) body.not_after = dueDate;
 
-        const response = await apiClient.post<{ id: string }>('/api/work-items', body, { userId });
+        const response = await apiClient.post<{ id: string }>('/api/work-items', body, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1623,9 +1623,9 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const response = await apiClient.patch<{ id: string }>(
-          `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(userId)}`,
+          `/api/work-items/${todoId}/status?user_email=${encodeURIComponent(user_id)}`,
           { status: 'completed' },
-          { userId },
+          { user_id },
         );
 
         if (!response.success) {
@@ -1668,7 +1668,7 @@ function createToolHandlers(state: PluginState) {
           types: 'work_item',
           limit: String(fetchLimit),
           semantic: 'true',
-          user_email: userId, // Issue #1216: scope results to current user
+          user_email: user_id, // Issue #1216: scope results to current user
         });
 
         const response = await apiClient.get<{
@@ -1682,7 +1682,7 @@ function createToolHandlers(state: PluginState) {
           }>;
           search_type: string;
           total: number;
-        }>(`/api/search?${queryParams}`, { userId });
+        }>(`/api/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1704,7 +1704,7 @@ function createToolHandlers(state: PluginState) {
             success: true,
             data: {
               content: 'No matching work items found.',
-              details: { count: 0, results: [], searchType: response.data.search_type },
+              details: { count: 0, results: [], search_type: response.data.search_type },
             },
           };
         }
@@ -1732,7 +1732,7 @@ function createToolHandlers(state: PluginState) {
                 kind: r.metadata?.kind,
                 status: r.metadata?.status,
               })),
-              searchType: response.data.search_type,
+              search_type: response.data.search_type,
             },
           },
         };
@@ -1743,12 +1743,12 @@ function createToolHandlers(state: PluginState) {
     },
 
     async project_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createProjectSearchTool({ client: apiClient, logger, config, userId });
+      const tool = createProjectSearchTool({ client: apiClient, logger, config, user_id });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
     async context_search(params: Record<string, unknown>): Promise<ToolResult> {
-      const tool = createContextSearchTool({ client: apiClient, logger, config, userId });
+      const tool = createContextSearchTool({ client: apiClient, logger, config, user_id });
       return tool.execute(params as Parameters<typeof tool.execute>[0]);
     },
 
@@ -1756,9 +1756,9 @@ function createToolHandlers(state: PluginState) {
       const { query, limit = 10 } = params as { query: string; limit?: number };
 
       try {
-        const queryParams = new URLSearchParams({ search: query, limit: String(limit), user_email: userId });
-        const response = await apiClient.get<{ contacts: Array<{ id: string; displayName: string; email?: string }> }>(`/api/contacts?${queryParams}`, {
-          userId,
+        const queryParams = new URLSearchParams({ search: query, limit: String(limit), user_email: user_id });
+        const response = await apiClient.get<{ contacts: Array<{ id: string; display_name: string; email?: string }> }>(`/api/contacts?${queryParams}`, {
+          user_id,
         });
 
         if (!response.success) {
@@ -1766,7 +1766,7 @@ function createToolHandlers(state: PluginState) {
         }
 
         const contacts = response.data.contacts ?? [];
-        const content = contacts.length > 0 ? contacts.map((c) => `- ${c.displayName}${c.email ? ` (${c.email})` : ''}`).join('\n') : 'No contacts found.';
+        const content = contacts.length > 0 ? contacts.map((c) => `- ${c.display_name}${c.email ? ` (${c.email})` : ''}`).join('\n') : 'No contacts found.';
 
         return {
           success: true,
@@ -1779,12 +1779,12 @@ function createToolHandlers(state: PluginState) {
     },
 
     async contact_get(params: Record<string, unknown>): Promise<ToolResult> {
-      const { contactId } = params as { contactId: string };
+      const { contact_id } = params as { contact_id: string };
 
       try {
         const response = await apiClient.get<{ id: string; name: string; email?: string; phone?: string; notes?: string }>(
-          `/api/contacts/${contactId}?user_email=${encodeURIComponent(userId)}`,
-          { userId },
+          `/api/contacts/${contact_id}?user_email=${encodeURIComponent(user_id)}`,
+          { user_id },
         );
 
         if (!response.success) {
@@ -1814,8 +1814,8 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        // API requires displayName, not name. Email/phone are stored as separate contact_endpoint records.
-        const response = await apiClient.post<{ id: string }>('/api/contacts', { displayName: name, notes, user_email: userId }, { userId });
+        // API requires display_name, not name. Email/phone are stored as separate contact_endpoint records.
+        const response = await apiClient.post<{ id: string }>('/api/contacts', { display_name: name, notes, user_email: user_id }, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -1835,10 +1835,10 @@ function createToolHandlers(state: PluginState) {
     },
 
     async sms_send(params: Record<string, unknown>): Promise<ToolResult> {
-      const { to, body, idempotencyKey } = params as {
+      const { to, body, idempotency_key } = params as {
         to: string;
         body: string;
-        idempotencyKey?: string;
+        idempotency_key?: string;
       };
 
       // Check Twilio configuration
@@ -1873,21 +1873,21 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('sms_send invoked', {
-        userId,
+        user_id,
         bodyLength: body.length,
-        hasIdempotencyKey: !!idempotencyKey,
+        hasIdempotencyKey: !!idempotency_key,
       });
 
       try {
         const response = await apiClient.post<{
-          messageId: string;
-          threadId?: string;
+          message_id: string;
+          thread_id?: string;
           status: string;
-        }>('/api/twilio/sms/send', { to, body, idempotencyKey }, { userId });
+        }>('/api/twilio/sms/send', { to, body, idempotency_key }, { user_id });
 
         if (!response.success) {
           logger.error('sms_send API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -1897,24 +1897,24 @@ function createToolHandlers(state: PluginState) {
           };
         }
 
-        const { messageId, threadId, status } = response.data;
+        const { message_id, thread_id, status } = response.data;
 
         logger.debug('sms_send completed', {
-          userId,
-          messageId,
+          user_id,
+          message_id,
           status,
         });
 
         return {
           success: true,
           data: {
-            content: `SMS sent successfully (ID: ${messageId}, Status: ${status})`,
-            details: { messageId, threadId, status, userId },
+            content: `SMS sent successfully (ID: ${message_id}, Status: ${status})`,
+            details: { message_id, thread_id, status, user_id },
           },
         };
       } catch (error) {
         logger.error('sms_send failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -1932,13 +1932,13 @@ function createToolHandlers(state: PluginState) {
     },
 
     async email_send(params: Record<string, unknown>): Promise<ToolResult> {
-      const { to, subject, body, htmlBody, threadId, idempotencyKey } = params as {
+      const { to, subject, body, html_body, thread_id, idempotency_key } = params as {
         to: string;
         subject: string;
         body: string;
-        htmlBody?: string;
-        threadId?: string;
-        idempotencyKey?: string;
+        html_body?: string;
+        thread_id?: string;
+        idempotency_key?: string;
       };
 
       // Validate email format
@@ -1973,24 +1973,24 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('email_send invoked', {
-        userId,
+        user_id,
         subjectLength: subject.length,
         bodyLength: body.length,
-        hasHtmlBody: !!htmlBody,
-        hasThreadId: !!threadId,
-        hasIdempotencyKey: !!idempotencyKey,
+        hasHtmlBody: !!html_body,
+        hasThreadId: !!thread_id,
+        hasIdempotencyKey: !!idempotency_key,
       });
 
       try {
         const response = await apiClient.post<{
-          messageId: string;
-          threadId?: string;
+          message_id: string;
+          thread_id?: string;
           status: string;
-        }>('/api/postmark/email/send', { to, subject, body, htmlBody, threadId, idempotencyKey }, { userId });
+        }>('/api/postmark/email/send', { to, subject, body, html_body, thread_id, idempotency_key }, { user_id });
 
         if (!response.success) {
           logger.error('email_send API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2000,24 +2000,24 @@ function createToolHandlers(state: PluginState) {
           };
         }
 
-        const { messageId, threadId: responseThreadId, status } = response.data;
+        const { message_id, thread_id: responseThreadId, status } = response.data;
 
         logger.debug('email_send completed', {
-          userId,
-          messageId,
+          user_id,
+          message_id,
           status,
         });
 
         return {
           success: true,
           data: {
-            content: `Email sent successfully (ID: ${messageId}, Status: ${status})`,
-            details: { messageId, threadId: responseThreadId, status, userId },
+            content: `Email sent successfully (ID: ${message_id}, Status: ${status})`,
+            details: { message_id, thread_id: responseThreadId, status, user_id },
           },
         };
       } catch (error) {
         logger.error('email_send failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2038,13 +2038,13 @@ function createToolHandlers(state: PluginState) {
       const {
         query,
         channel = 'all',
-        contactId,
+        contact_id,
         limit = 10,
         includeThread = false,
       } = params as {
         query: string;
         channel?: string;
-        contactId?: string;
+        contact_id?: string;
         limit?: number;
         includeThread?: boolean;
       };
@@ -2058,10 +2058,10 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('message_search invoked', {
-        userId,
+        user_id,
         queryLength: query.length,
         channel,
-        hasContactId: !!contactId,
+        hasContactId: !!contact_id,
         limit,
         includeThread,
       });
@@ -2076,8 +2076,8 @@ function createToolHandlers(state: PluginState) {
         if (channel !== 'all') {
           queryParams.set('channel', channel);
         }
-        if (contactId) {
-          queryParams.set('contactId', contactId);
+        if (contact_id) {
+          queryParams.set('contact_id', contact_id);
         }
         if (includeThread) {
           queryParams.set('includeThread', 'true');
@@ -2095,15 +2095,15 @@ function createToolHandlers(state: PluginState) {
               channel?: string;
               direction?: string;
               received_at?: string;
-              contactName?: string;
+              contact_name?: string;
             };
           }>;
           total: number;
-        }>(`/api/search?${queryParams}`, { userId });
+        }>(`/api/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('message_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2121,13 +2121,13 @@ function createToolHandlers(state: PluginState) {
           body: r.snippet,
           direction: (r.metadata?.direction as 'inbound' | 'outbound') || 'inbound',
           channel: r.metadata?.channel || 'unknown',
-          contactName: r.metadata?.contactName,
+          contact_name: r.metadata?.contact_name,
           timestamp: r.metadata?.received_at || '',
           similarity: r.score,
         }));
 
         logger.debug('message_search completed', {
-          userId,
+          user_id,
           resultCount: messages.length,
           total,
         });
@@ -2143,13 +2143,13 @@ function createToolHandlers(state: PluginState) {
               promptGuardUrl: config.promptGuardUrl,
             });
             if (detection.detected) {
-              const logDecision = injectionLogLimiter.shouldLog(userId);
+              const logDecision = injectionLogLimiter.shouldLog(user_id);
               if (logDecision.log) {
                 logger.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in message_search result',
                   {
-                    userId,
-                    messageId: m.id,
+                    user_id,
+                    message_id: m.id,
                     patterns: detection.patterns,
                     source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
@@ -2169,18 +2169,18 @@ function createToolHandlers(state: PluginState) {
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const contact = sanitizeMetadataField(m.contactName || 'Unknown', nonce);
+                  const contact = sanitizeMetadataField(m.contact_name || 'Unknown', nonce);
                   const safeChannel = sanitizeMetadataField(m.channel, nonce);
                   const similarity = `(${Math.round(m.similarity * 100)}%)`;
                   const rawBody = m.body || '';
                   const truncatedBody = rawBody.substring(0, 100) + (rawBody.length > 100 ? '...' : '');
-                  const bodyText = sanitizeMessageForContext(truncatedBody, {
+                  const body_text = sanitizeMessageForContext(truncatedBody, {
                     direction: m.direction,
                     channel: m.channel,
-                    sender: m.contactName || 'Unknown',
+                    sender: m.contact_name || 'Unknown',
                     nonce,
                   });
-                  return `${prefix} [${safeChannel}] ${contact} ${similarity}: ${bodyText}`;
+                  return `${prefix} [${safeChannel}] ${contact} ${similarity}: ${body_text}`;
                 })
                 .join('\n')
             : 'No messages found matching your query.';
@@ -2189,12 +2189,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { messages, total, userId },
+            details: { messages, total, user_id },
           },
         };
       } catch (error) {
         logger.error('message_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2208,18 +2208,18 @@ function createToolHandlers(state: PluginState) {
     async thread_list(params: Record<string, unknown>): Promise<ToolResult> {
       const {
         channel,
-        contactId,
+        contact_id,
         limit = 20,
       } = params as {
         channel?: string;
-        contactId?: string;
+        contact_id?: string;
         limit?: number;
       };
 
       logger.info('thread_list invoked', {
-        userId,
+        user_id,
         channel,
-        hasContactId: !!contactId,
+        hasContactId: !!contact_id,
         limit,
       });
 
@@ -2232,18 +2232,18 @@ function createToolHandlers(state: PluginState) {
         if (channel) {
           queryParams.set('channel', channel);
         }
-        if (contactId) {
-          queryParams.set('contactId', contactId);
+        if (contact_id) {
+          queryParams.set('contact_id', contact_id);
         }
 
         const response = await apiClient.get<{
           threads: Array<{
             id: string;
             channel: string;
-            contactName?: string;
-            endpointValue: string;
-            messageCount: number;
-            lastMessageAt?: string;
+            contact_name?: string;
+            endpoint_value: string;
+            message_count: number;
+            last_message_at?: string;
           }>;
           results: Array<{
             id: string;
@@ -2252,11 +2252,11 @@ function createToolHandlers(state: PluginState) {
             snippet?: string;
           }>;
           total: number;
-        }>(`/api/search?${queryParams}`, { userId });
+        }>(`/api/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_list API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2271,7 +2271,7 @@ function createToolHandlers(state: PluginState) {
         const total = response.data.total ?? results.length;
 
         logger.debug('thread_list completed', {
-          userId,
+          user_id,
           threadCount: results.length,
           total,
         });
@@ -2286,10 +2286,10 @@ function createToolHandlers(state: PluginState) {
                 .map((r) => {
                   // Handle both thread and search result formats
                   if ('channel' in r) {
-                    const t = r as { channel: string; contactName?: string; endpointValue?: string; messageCount?: number };
-                    const safeContact = sanitizeMetadataField(t.contactName || t.endpointValue || 'Unknown', threadListNonce);
+                    const t = r as { channel: string; contact_name?: string; endpoint_value?: string; message_count?: number };
+                    const safeContact = sanitizeMetadataField(t.contact_name || t.endpoint_value || 'Unknown', threadListNonce);
                     const safeChannel = sanitizeMetadataField(t.channel, threadListNonce);
-                    const msgCount = t.messageCount ? `${t.messageCount} message${t.messageCount !== 1 ? 's' : ''}` : '';
+                    const msgCount = t.message_count ? `${t.message_count} message${t.message_count !== 1 ? 's' : ''}` : '';
                     return `[${safeChannel}] ${safeContact}${msgCount ? ` - ${msgCount}` : ''}`;
                   }
                   const safeTitle = r.title ? sanitizeMetadataField(r.title, threadListNonce) : '';
@@ -2303,12 +2303,12 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { threads: results, total, userId },
+            details: { threads: results, total, user_id },
           },
         };
       } catch (error) {
         logger.error('thread_list failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2320,35 +2320,35 @@ function createToolHandlers(state: PluginState) {
     },
 
     async thread_get(params: Record<string, unknown>): Promise<ToolResult> {
-      const { threadId, messageLimit = 50 } = params as {
-        threadId: string;
-        messageLimit?: number;
+      const { thread_id, message_limit = 50 } = params as {
+        thread_id: string;
+        message_limit?: number;
       };
 
-      // Validate threadId
-      if (!threadId || threadId.length === 0) {
+      // Validate thread_id
+      if (!thread_id || thread_id.length === 0) {
         return {
           success: false,
-          error: 'threadId: Thread ID is required',
+          error: 'thread_id: Thread ID is required',
         };
       }
 
       logger.info('thread_get invoked', {
-        userId,
-        threadId,
-        messageLimit,
+        user_id,
+        thread_id,
+        message_limit,
       });
 
       try {
         const queryParams = new URLSearchParams();
-        queryParams.set('limit', String(messageLimit));
+        queryParams.set('limit', String(message_limit));
 
         const response = await apiClient.get<{
           thread: {
             id: string;
             channel: string;
-            contactName?: string;
-            endpointValue?: string;
+            contact_name?: string;
+            endpoint_value?: string;
           };
           messages: Array<{
             id: string;
@@ -2356,14 +2356,14 @@ function createToolHandlers(state: PluginState) {
             body: string;
             subject?: string;
             deliveryStatus?: string;
-            createdAt: string;
+            created_at: string;
           }>;
-        }>(`/api/threads/${threadId}/history?${queryParams}`, { userId });
+        }>(`/api/threads/${thread_id}/history?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_get API error', {
-            userId,
-            threadId,
+            user_id,
+            thread_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2376,14 +2376,14 @@ function createToolHandlers(state: PluginState) {
         const { thread, messages } = response.data;
 
         logger.debug('thread_get completed', {
-          userId,
-          threadId,
-          messageCount: messages.length,
+          user_id,
+          thread_id,
+          message_count: messages.length,
         });
 
         // Generate a per-invocation nonce for boundary markers (#1255)
         const { nonce: threadGetNonce } = createBoundaryMarkers();
-        const contact = sanitizeMetadataField(thread.contactName || thread.endpointValue || 'Unknown', threadGetNonce);
+        const contact = sanitizeMetadataField(thread.contact_name || thread.endpoint_value || 'Unknown', threadGetNonce);
         const safeChannel = sanitizeMetadataField(thread.channel, threadGetNonce);
         const header = `Thread with ${contact} [${safeChannel}]`;
 
@@ -2395,14 +2395,14 @@ function createToolHandlers(state: PluginState) {
               promptGuardUrl: config.promptGuardUrl,
             });
             if (detection.detected) {
-              const logDecision = injectionLogLimiter.shouldLog(userId);
+              const logDecision = injectionLogLimiter.shouldLog(user_id);
               if (logDecision.log) {
                 logger.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in thread_get result',
                   {
-                    userId,
-                    threadId,
-                    messageId: m.id,
+                    user_id,
+                    thread_id,
+                    message_id: m.id,
                     patterns: detection.patterns,
                     source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
@@ -2418,7 +2418,7 @@ function createToolHandlers(state: PluginState) {
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const timestamp = new Date(m.createdAt).toLocaleString();
+                  const timestamp = new Date(m.created_at).toLocaleString();
                   const body = sanitizeMessageForContext(m.body || '', {
                     direction: m.direction,
                     channel: thread.channel,
@@ -2436,13 +2436,13 @@ function createToolHandlers(state: PluginState) {
           success: true,
           data: {
             content,
-            details: { thread, messages, userId },
+            details: { thread, messages, user_id },
           },
         };
       } catch (error) {
         logger.error('thread_get failed', {
-          userId,
-          threadId,
+          user_id,
+          thread_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2469,7 +2469,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('relationship_set invoked', {
-        userId,
+        user_id,
         contactALength: contact_a.length,
         contactBLength: contact_b.length,
         relationshipLength: relationship.length,
@@ -2481,7 +2481,7 @@ function createToolHandlers(state: PluginState) {
           contact_a,
           contact_b,
           relationship_type: relationship,
-          user_email: userId, // Issue #1172: scope by user
+          user_email: user_id, // Issue #1172: scope by user
         };
         if (notes) {
           body.notes = notes;
@@ -2489,32 +2489,32 @@ function createToolHandlers(state: PluginState) {
 
         const response = await apiClient.post<{
           relationship: { id: string };
-          contactA: { id: string; displayName: string };
-          contactB: { id: string; displayName: string };
-          relationshipType: { id: string; name: string; label: string };
+          contact_a: { id: string; display_name: string };
+          contact_b: { id: string; display_name: string };
+          relationship_type: { id: string; name: string; label: string };
           created: boolean;
-        }>('/api/relationships/set', body, { userId });
+        }>('/api/relationships/set', body, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
         }
 
-        const { relationship: rel, contactA, contactB, relationshipType, created } = response.data;
+        const { relationship: rel, contact_a: respA, contact_b: respB, relationship_type, created } = response.data;
         const content = created
-          ? `Recorded: ${contactA.displayName} [${relationshipType.label}] ${contactB.displayName}`
-          : `Relationship already exists: ${contactA.displayName} [${relationshipType.label}] ${contactB.displayName}`;
+          ? `Recorded: ${respA.display_name} [${relationship_type.label}] ${respB.display_name}`
+          : `Relationship already exists: ${respA.display_name} [${relationship_type.label}] ${respB.display_name}`;
 
         return {
           success: true,
           data: {
             content,
             details: {
-              relationshipId: rel.id,
+              relationship_id: rel.id,
               created,
-              contactA,
-              contactB,
-              relationshipType,
-              userId,
+              contact_a: respA,
+              contact_b: respB,
+              relationship_type,
+              user_id,
             },
           },
         };
@@ -2538,7 +2538,7 @@ function createToolHandlers(state: PluginState) {
       }
 
       logger.info('relationship_query invoked', {
-        userId,
+        user_id,
         contactLength: contact.length,
         hasTypeFilter: !!type_filter,
       });
@@ -2546,16 +2546,16 @@ function createToolHandlers(state: PluginState) {
       try {
         // Resolve contact to a UUID — accept UUID directly or search by name
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        let contactId: string;
+        let contact_id: string;
 
         if (uuidRegex.test(contact)) {
-          contactId = contact;
+          contact_id = contact;
         } else {
           // Search for contact by name (Issue #1172: scope by user_email)
-          const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: userId });
+          const searchParams = new URLSearchParams({ search: contact, limit: '1', user_email: user_id });
           const searchResponse = await apiClient.get<{
             contacts: Array<{ id: string; display_name: string }>;
-          }>(`/api/contacts?${searchParams}`, { userId });
+          }>(`/api/contacts?${searchParams}`, { user_id });
 
           if (!searchResponse.success) {
             return { success: false, error: searchResponse.error.message };
@@ -2565,24 +2565,24 @@ function createToolHandlers(state: PluginState) {
           if (contacts.length === 0) {
             return { success: false, error: 'Contact not found.' };
           }
-          contactId = contacts[0].id;
+          contact_id = contacts[0].id;
         }
 
-        // Use graph traversal endpoint which returns relatedContacts
+        // Use graph traversal endpoint which returns related_contacts
         const response = await apiClient.get<{
-          contactId: string;
-          contactName: string;
-          relatedContacts: Array<{
-            contactId: string;
-            contactName: string;
-            contactKind: string;
-            relationshipId: string;
-            relationshipTypeName: string;
-            relationshipTypeLabel: string;
-            isDirectional: boolean;
+          contact_id: string;
+          contact_name: string;
+          related_contacts: Array<{
+            contact_id: string;
+            contact_name: string;
+            contact_kind: string;
+            relationship_id: string;
+            relationship_type_name: string;
+            relationship_type_label: string;
+            is_directional: boolean;
             notes: string | null;
           }>;
-        }>(`/api/contacts/${contactId}/relationships?user_email=${encodeURIComponent(userId)}`, { userId });
+        }>(`/api/contacts/${contact_id}/relationships?user_email=${encodeURIComponent(user_id)}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
@@ -2591,39 +2591,39 @@ function createToolHandlers(state: PluginState) {
           return { success: false, error: response.error.message };
         }
 
-        let { relatedContacts } = response.data;
-        const { contactName } = response.data;
+        let { related_contacts } = response.data;
+        const { contact_name } = response.data;
 
         // Apply type_filter client-side if provided
-        if (type_filter && relatedContacts.length > 0) {
+        if (type_filter && related_contacts.length > 0) {
           const filterLower = type_filter.toLowerCase();
-          relatedContacts = relatedContacts.filter(
-            (rel) => rel.relationshipTypeName.toLowerCase().includes(filterLower) || rel.relationshipTypeLabel.toLowerCase().includes(filterLower),
+          related_contacts = related_contacts.filter(
+            (rel) => rel.relationship_type_name.toLowerCase().includes(filterLower) || rel.relationship_type_label.toLowerCase().includes(filterLower),
           );
         }
 
-        if (relatedContacts.length === 0) {
+        if (related_contacts.length === 0) {
           return {
             success: true,
             data: {
-              content: `No relationships found for ${contactName}.`,
-              details: { contactId, contactName, relatedContacts: [], userId },
+              content: `No relationships found for ${contact_name}.`,
+              details: { contact_id, contact_name, related_contacts: [], user_id },
             },
           };
         }
 
-        const lines = [`Relationships for ${contactName}:`];
-        for (const rel of relatedContacts) {
-          const kindTag = rel.contactKind !== 'person' ? ` [${rel.contactKind}]` : '';
+        const lines = [`Relationships for ${contact_name}:`];
+        for (const rel of related_contacts) {
+          const kindTag = rel.contact_kind !== 'person' ? ` [${rel.contact_kind}]` : '';
           const notesTag = rel.notes ? ` -- ${rel.notes}` : '';
-          lines.push(`- ${rel.relationshipTypeLabel}: ${rel.contactName}${kindTag}${notesTag}`);
+          lines.push(`- ${rel.relationship_type_label}: ${rel.contact_name}${kindTag}${notesTag}`);
         }
 
         return {
           success: true,
           data: {
             content: lines.join('\n'),
-            details: { contactId, contactName, relatedContacts, userId },
+            details: { contact_id, contact_name, related_contacts, user_id },
           },
         };
       } catch (error) {
@@ -2634,57 +2634,57 @@ function createToolHandlers(state: PluginState) {
 
     async file_share(params: Record<string, unknown>): Promise<ToolResult> {
       const {
-        fileId,
-        expiresIn = 3600,
-        maxDownloads,
+        file_id: fileId,
+        expires_in: expiresIn = 3600,
+        max_downloads: maxDownloads,
       } = params as {
-        fileId: string;
-        expiresIn?: number;
-        maxDownloads?: number;
+        file_id: string;
+        expires_in?: number;
+        max_downloads?: number;
       };
 
       if (!fileId) {
         return {
           success: false,
-          error: 'fileId is required',
+          error: 'file_id is required',
         };
       }
 
-      // Validate expiresIn range
+      // Validate expires_in range
       if (expiresIn < 60 || expiresIn > 604800) {
         return {
           success: false,
-          error: 'expiresIn must be between 60 and 604800 seconds (1 minute to 7 days)',
+          error: 'expires_in must be between 60 and 604800 seconds (1 minute to 7 days)',
         };
       }
 
       logger.info('file_share invoked', {
-        userId,
-        fileId,
-        expiresIn,
-        maxDownloads,
+        user_id,
+        file_id: fileId,
+        expires_in: expiresIn,
+        max_downloads: maxDownloads,
       });
 
       try {
-        const body: Record<string, unknown> = { expiresIn };
+        const body: Record<string, unknown> = { expires_in: expiresIn };
         if (maxDownloads !== undefined) {
-          body.maxDownloads = maxDownloads;
+          body.max_downloads = maxDownloads;
         }
 
         const response = await apiClient.post<{
-          shareToken: string;
+          share_token: string;
           url: string;
-          expiresAt: string;
-          expiresIn: number;
+          expires_at: string;
+          expires_in: number;
           filename: string;
-          contentType: string;
-          sizeBytes: number;
-        }>(`/api/files/${fileId}/share`, body, { userId });
+          content_type: string;
+          size_bytes: number;
+        }>(`/api/files/${fileId}/share`, body, { user_id });
 
         if (!response.success) {
           logger.error('file_share API error', {
-            userId,
-            fileId,
+            user_id,
+            file_id: fileId,
             status: response.error.status,
             code: response.error.code,
           });
@@ -2694,13 +2694,13 @@ function createToolHandlers(state: PluginState) {
           };
         }
 
-        const { url, shareToken, expiresAt, filename, contentType, sizeBytes } = response.data;
+        const { url, share_token, expires_at, filename, content_type, size_bytes } = response.data;
 
         logger.debug('file_share completed', {
-          userId,
-          fileId,
-          shareToken,
-          expiresAt,
+          user_id,
+          file_id: fileId,
+          share_token,
+          expires_at,
         });
 
         // Format file size
@@ -2720,7 +2720,7 @@ function createToolHandlers(state: PluginState) {
         };
 
         const expiryText = formatDuration(expiresIn);
-        const sizeText = formatSize(sizeBytes);
+        const sizeText = formatSize(size_bytes);
         const downloadLimit = maxDownloads ? ` (max ${maxDownloads} downloads)` : '';
 
         return {
@@ -2729,20 +2729,20 @@ function createToolHandlers(state: PluginState) {
             content: `Share link created for "${filename}" (${sizeText}). ` + `Valid for ${expiryText}${downloadLimit}.\n\nURL: ${url}`,
             details: {
               url,
-              shareToken,
-              expiresAt,
-              expiresIn,
+              share_token,
+              expires_at,
+              expires_in: expiresIn,
               filename,
-              contentType,
-              sizeBytes,
-              userId,
+              content_type,
+              size_bytes,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('file_share failed', {
-          userId,
-          fileId,
+          user_id,
+          file_id: fileId,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -2756,7 +2756,7 @@ function createToolHandlers(state: PluginState) {
     // Skill store tools: delegate to tool modules for Zod validation,
     // credential detection, text sanitization, and error sanitization (Issue #824)
     ...(() => {
-      const toolOptions = { client: apiClient, logger, config, userId };
+      const toolOptions = { client: apiClient, logger, config, user_id };
       const putTool = createSkillStorePutTool(toolOptions);
       const getTool = createSkillStoreGetTool(toolOptions);
       const listTool = createSkillStoreListTool(toolOptions);
@@ -2778,7 +2778,7 @@ function createToolHandlers(state: PluginState) {
 
     // Entity link tools: delegate to tool modules (Issue #1220)
     ...(() => {
-      const toolOptions = { client: apiClient, logger, config, userId };
+      const toolOptions = { client: apiClient, logger, config, user_id };
       const setTool = createLinksSetTool(toolOptions);
       const queryTool = createLinksQueryTool(toolOptions);
       const removeTool = createLinksRemoveTool(toolOptions);
@@ -2834,7 +2834,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
 
   // Extract context and user ID
   const context = extractContext(api.runtime);
-  const userId = getUserScopeKey(
+  const user_id = getUserScopeKey(
     {
       agentId: context.agent.agentId,
       sessionKey: context.session.sessionId,
@@ -2843,7 +2843,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   );
 
   // Store plugin state
-  const state: PluginState = { config, logger, apiClient, userId };
+  const state: PluginState = { config, logger, apiClient, user_id };
 
   // Create tool handlers
   const handlers = createToolHandlers(state);
@@ -3185,7 +3185,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
       timeoutMs: HOOK_TIMEOUT_MS,
     });
 
@@ -3236,7 +3236,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       client: apiClient,
       logger,
       config,
-      userId,
+      user_id,
       timeoutMs: HOOK_TIMEOUT_MS * 2, // Allow more time for capture (10s)
     });
 
@@ -3246,7 +3246,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      */
     const agentEndHandler = async (event: PluginHookAgentEndEvent, _ctx: PluginHookAgentContext): Promise<void> => {
       logger.debug('Auto-capture hook triggered', {
-        messageCount: event.messages?.length ?? 0,
+        message_count: event.messages?.length ?? 0,
         success: event.success,
       });
 
@@ -3295,8 +3295,8 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
      */
     const messageReceivedHandler = async (event: PluginHookMessageReceivedEvent, _ctx: PluginHookAgentContext): Promise<void> => {
       // Skip if no thread ID (nothing to link to)
-      if (!event.threadId) {
-        logger.debug('Auto-link skipped: no threadId in message_received event');
+      if (!event.thread_id) {
+        logger.debug('Auto-link skipped: no thread_id in message_received event');
         return;
       }
 
@@ -3310,9 +3310,9 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
         await autoLinkInboundMessage({
           client: apiClient,
           logger,
-          userId,
+          user_id,
           message: {
-            threadId: event.threadId,
+            thread_id: event.thread_id,
             senderEmail: event.senderEmail ?? (event.sender?.includes('@') ? event.sender : undefined),
             senderPhone: event.senderPhone ?? (event.sender && !event.sender.includes('@') ? event.sender : undefined),
             content: event.content ?? '',
@@ -3337,7 +3337,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const gatewayMethods = createGatewayMethods({
     logger,
     apiClient,
-    userId,
+    user_id,
   });
   registerGatewayRpcMethods(api, gatewayMethods);
 
@@ -3345,7 +3345,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const oauthGatewayMethods = createOAuthGatewayMethods({
     logger,
     apiClient,
-    userId,
+    user_id,
   });
   registerOAuthGatewayRpcMethods(api, oauthGatewayMethods);
 
@@ -3368,7 +3368,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   const notificationService = createNotificationService({
     logger,
     apiClient,
-    userId,
+    user_id,
     events: eventEmitter,
     config: {
       enabled: config.autoRecall, // Only enable if auto-recall is enabled
@@ -3385,7 +3385,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       .description('Show plugin status and statistics')
       .action(async () => {
         try {
-          const response = await apiClient.get('/api/health', { userId });
+          const response = await apiClient.get('/api/health', { user_id });
           if (response.success) {
             console.log('Plugin Status: Connected');
           } else {
@@ -3418,7 +3418,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
   logger.info('OpenClaw Projects plugin registered', {
     agentId: context.agent.agentId,
     sessionId: context.session.sessionId,
-    userId,
+    user_id,
     toolCount: tools.length,
     config: redactConfig(config),
   });

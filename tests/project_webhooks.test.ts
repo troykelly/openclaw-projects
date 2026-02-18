@@ -12,7 +12,8 @@ import { runMigrate } from './helpers/migrate.ts';
 describe('Project Webhooks (Issue #1274)', () => {
   const app = buildServer();
   let pool: Pool;
-  let projectId: string;
+  let project_id: string;
+  const TEST_EMAIL = 'webhook-test@example.com';
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -22,12 +23,17 @@ describe('Project Webhooks (Issue #1274)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    // Ensure the test email exists in user_setting (FK target for user_email)
+    await pool.query(
+      `INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO NOTHING`,
+      [TEST_EMAIL],
+    );
     // Create a project (work_item with kind='project') for tests
     const result = await pool.query(
       `INSERT INTO work_item (title, kind) VALUES ('Test Project', 'project')
        RETURNING id::text as id`,
     );
-    projectId = (result.rows[0] as { id: string }).id;
+    project_id = (result.rows[0] as { id: string }).id;
   });
 
   afterAll(async () => {
@@ -91,23 +97,22 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('creates a webhook and returns it with a token', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'CI Notifications' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'CI Notifications', user_email: TEST_EMAIL },
       });
-
       expect(res.statusCode).toBe(201);
       const body = res.json();
       expect(body.label).toBe('CI Notifications');
       expect(body.token).toBeDefined();
       expect(body.token.length).toBeGreaterThan(20);
-      expect(body.project_id).toBe(projectId);
+      expect(body.project_id).toBe(project_id);
       expect(body.is_active).toBe(true);
     });
 
     it('rejects without a label', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
+        url: `/api/projects/${project_id}/webhooks`,
         payload: {},
       });
 
@@ -118,7 +123,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/projects/00000000-0000-0000-0000-000000000000/webhooks',
-        payload: { label: 'Test' },
+        payload: { label: 'Test', user_email: TEST_EMAIL },
       });
 
       expect(res.statusCode).toBe(404);
@@ -131,7 +136,7 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('returns empty array when no webhooks exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/webhooks`,
+        url: `/api/projects/${project_id}/webhooks`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -141,18 +146,18 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('returns created webhooks', async () => {
       await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Hook A' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Hook A', user_email: TEST_EMAIL },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Hook B' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Hook B', user_email: TEST_EMAIL },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/webhooks`,
+        url: `/api/projects/${project_id}/webhooks`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -166,14 +171,14 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('deletes a webhook', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Delete Me' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Delete Me', user_email: TEST_EMAIL },
       });
       const webhookId = createRes.json().id;
 
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/projects/${projectId}/webhooks/${webhookId}`,
+        url: `/api/projects/${project_id}/webhooks/${webhookId}`,
       });
 
       expect(deleteRes.statusCode).toBe(204);
@@ -181,7 +186,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       // Confirm it's gone
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/webhooks`,
+        url: `/api/projects/${project_id}/webhooks`,
       });
       expect(listRes.json().length).toBe(0);
     });
@@ -193,8 +198,8 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('ingests a payload with valid bearer token', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'GitHub Actions' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'GitHub Actions', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -213,14 +218,14 @@ describe('Project Webhooks (Issue #1274)', () => {
       const body = ingestRes.json();
       expect(body.event_type).toBe('webhook');
       expect(body.raw_payload).toBeDefined();
-      expect(body.project_id).toBe(projectId);
+      expect(body.project_id).toBe(project_id);
     });
 
     it('rejects with invalid token', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Auth Test' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Auth Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -237,8 +242,8 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('rejects with no authorization header', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'No Auth Test' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'No Auth Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -265,8 +270,8 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('updates last_received timestamp on ingestion', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Timestamp Test' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Timestamp Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
       expect(webhook.last_received).toBeNull();
@@ -281,7 +286,7 @@ describe('Project Webhooks (Issue #1274)', () => {
       // Verify via list
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/webhooks`,
+        url: `/api/projects/${project_id}/webhooks`,
       });
       const updated = listRes.json().find((w: { id: string }) => w.id === webhook.id);
       expect(updated.last_received).not.toBeNull();
@@ -294,7 +299,7 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('returns empty array when no events exist', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/events`,
+        url: `/api/projects/${project_id}/events`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -304,8 +309,8 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('returns events after webhook ingestion', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Events Test' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Events Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -325,7 +330,7 @@ describe('Project Webhooks (Issue #1274)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/events`,
+        url: `/api/projects/${project_id}/events`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -337,8 +342,8 @@ describe('Project Webhooks (Issue #1274)', () => {
     it('supports pagination with limit and offset', async () => {
       const createRes = await app.inject({
         method: 'POST',
-        url: `/api/projects/${projectId}/webhooks`,
-        payload: { label: 'Pagination Test' },
+        url: `/api/projects/${project_id}/webhooks`,
+        payload: { label: 'Pagination Test', user_email: TEST_EMAIL },
       });
       const webhook = createRes.json();
 
@@ -354,7 +359,7 @@ describe('Project Webhooks (Issue #1274)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/events?limit=2&offset=0`,
+        url: `/api/projects/${project_id}/events?limit=2&offset=0`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -362,7 +367,7 @@ describe('Project Webhooks (Issue #1274)', () => {
 
       const res2 = await app.inject({
         method: 'GET',
-        url: `/api/projects/${projectId}/events?limit=2&offset=2`,
+        url: `/api/projects/${project_id}/events?limit=2&offset=2`,
       });
 
       expect(res2.statusCode).toBe(200);

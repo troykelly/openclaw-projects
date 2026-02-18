@@ -58,15 +58,15 @@ function formatRelativeTime(date: Date): string {
 
 export function WorkItemDetailPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
-  const itemId = id ?? '';
+  const item_id = id ?? '';
   const queryClient = useQueryClient();
   const bootstrap = readBootstrap<AppBootstrap>();
   const participants = bootstrap?.participants ?? [];
 
   // Data queries
-  const { data: apiDetail, isLoading, error: itemError } = useWorkItem(itemId);
-  const { data: memoriesData, isLoading: memoriesLoading } = useWorkItemMemories(itemId);
-  const { data: commsData, isLoading: communicationsLoading } = useWorkItemCommunications(itemId);
+  const { data: apiDetail, isLoading, error: itemError } = useWorkItem(item_id);
+  const { data: memoriesData, isLoading: memoriesLoading } = useWorkItemMemories(item_id);
+  const { data: commsData, isLoading: communicationsLoading } = useWorkItemCommunications(item_id);
   const { data: activityData, isLoading: activityLoading } = useActivity(50);
 
   // Mutations
@@ -124,14 +124,14 @@ export function WorkItemDetailPage(): React.JSX.Element {
           status: (apiDetail.status as WorkItemStatus) || 'not_started',
           priority: mapApiPriority(apiDetail.priority),
           description: apiDetail.description || undefined,
-          parentId: apiDetail.parent_id || undefined,
+          parent_id: apiDetail.parent_id || undefined,
           parentTitle: apiDetail.parent?.title,
           estimateMinutes: apiDetail.estimate_minutes || undefined,
           actualMinutes: apiDetail.actual_minutes || undefined,
           dueDate: apiDetail.not_after ? new Date(apiDetail.not_after) : undefined,
           startDate: apiDetail.not_before ? new Date(apiDetail.not_before) : undefined,
-          createdAt: new Date(apiDetail.created_at),
-          updatedAt: new Date(apiDetail.updated_at),
+          created_at: new Date(apiDetail.created_at),
+          updated_at: new Date(apiDetail.updated_at),
           todos: [],
           attachments: [],
           dependencies: deps,
@@ -144,11 +144,11 @@ export function WorkItemDetailPage(): React.JSX.Element {
     id: m.id,
     title: m.title,
     content: m.content,
-    linkedItemId: itemId,
-    linkedItemTitle: workItem?.title || undefined,
-    linkedItemKind: (workItem?.kind || 'issue') as 'issue',
-    createdAt: new Date(m.created_at),
-    updatedAt: new Date(m.updated_at),
+    linked_item_id: item_id,
+    linked_item_title: workItem?.title || undefined,
+    linked_item_kind: (workItem?.kind || 'issue') as 'issue',
+    created_at: new Date(m.created_at),
+    updated_at: new Date(m.updated_at),
   }));
 
   // Map communications
@@ -171,14 +171,14 @@ export function WorkItemDetailPage(): React.JSX.Element {
   }));
 
   // Filter activity for this work item
-  const itemActivity = (activityData?.items ?? []).filter((a) => a.work_item_id === itemId);
+  const itemActivity = (activityData?.items ?? []).filter((a) => a.work_item_id === item_id);
 
   // Handlers
   const handleUpdate = useCallback(
     (body: Record<string, unknown>) => {
-      updateMutation.mutate({ id: itemId, body: body as Parameters<typeof updateMutation.mutate>[0]['body'] });
+      updateMutation.mutate({ id: item_id, body: body as Parameters<typeof updateMutation.mutate>[0]['body'] });
     },
-    [itemId, updateMutation],
+    [item_id, updateMutation],
   );
 
   const handleTitleChange = (title: string) => handleUpdate({ title });
@@ -196,8 +196,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
     handleUpdate({ actualMinutes: isNaN(value) ? null : value });
   };
   const handleParentClick = () => {
-    if (workItem?.parentId) {
-      window.location.href = `/app/work-items/${workItem.parentId}`;
+    if (workItem?.parent_id) {
+      window.location.href = `/app/work-items/${workItem.parent_id}`;
     }
   };
   const handleDependencyClick = (dep: WorkItemDependency) => {
@@ -215,14 +215,14 @@ export function WorkItemDetailPage(): React.JSX.Element {
   };
   const handleCreateMemory = (data: MemoryFormData) => {
     createMemoryMutation.mutate(
-      { workItemId: itemId, body: { title: data.title, content: data.content, type: 'note' } },
+      { work_item_id: item_id, body: { title: data.title, content: data.content, type: 'note' } },
       { onSuccess: () => setMemoryEditorOpen(false) },
     );
   };
   const handleUpdateMemory = (data: MemoryFormData) => {
     if (!editingMemory) return;
     updateMemoryMutation.mutate(
-      { id: editingMemory.id, body: { title: data.title, content: data.content }, workItemId: itemId },
+      { id: editingMemory.id, body: { title: data.title, content: data.content }, work_item_id: item_id },
       {
         onSuccess: () => {
           setMemoryEditorOpen(false);
@@ -235,7 +235,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
     if (!confirm(`Delete memory "${memory.title}"?`)) return;
     try {
       await apiClient.delete(`/api/memories/${memory.id}`);
-      queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(itemId) });
+      queryClient.invalidateQueries({ queryKey: memoryKeys.forWorkItem(item_id) });
     } catch {
       // Silently fail
     }
@@ -245,8 +245,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleUnlinkEmail = async (email: LinkedEmail) => {
     if (!confirm('Unlink this email from the work item?')) return;
     try {
-      await apiClient.delete(`/api/work-items/${itemId}/communications/${email.id}`);
-      queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(itemId) });
+      await apiClient.delete(`/api/work-items/${item_id}/communications/${email.id}`);
+      queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(item_id) });
     } catch {
       // Silently fail
     }
@@ -254,8 +254,8 @@ export function WorkItemDetailPage(): React.JSX.Element {
   const handleUnlinkEvent = async (event: LinkedCalendarEvent) => {
     if (!confirm('Unlink this event from the work item?')) return;
     try {
-      await apiClient.delete(`/api/work-items/${itemId}/communications/${event.id}`);
-      queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(itemId) });
+      await apiClient.delete(`/api/work-items/${item_id}/communications/${event.id}`);
+      queryClient.invalidateQueries({ queryKey: communicationsKeys.forWorkItem(item_id) });
     } catch {
       // Silently fail
     }
@@ -326,13 +326,13 @@ export function WorkItemDetailPage(): React.JSX.Element {
         </Button>
         <div className="flex gap-2 ml-auto">
           <Button variant="outline" size="sm" asChild>
-            <Link to={`/work-items/${itemId}/timeline`}>
+            <Link to={`/work-items/${item_id}/timeline`}>
               <Calendar className="mr-2 size-4" />
               Timeline
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link to={`/work-items/${itemId}/graph`}>
+            <Link to={`/work-items/${item_id}/graph`}>
               <Network className="mr-2 size-4" />
               Dependencies
             </Link>
@@ -358,11 +358,11 @@ export function WorkItemDetailPage(): React.JSX.Element {
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="size-3" />
-              Created {formatRelativeTime(workItem.createdAt)}
+              Created {formatRelativeTime(workItem.created_at)}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="size-3" />
-              Updated {formatRelativeTime(workItem.updatedAt)}
+              Updated {formatRelativeTime(workItem.updated_at)}
             </span>
             {updateMutation.isPending && (
               <Badge variant="outline" className="text-xs animate-pulse">

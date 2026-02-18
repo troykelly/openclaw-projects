@@ -13,7 +13,7 @@ export interface ListRowProps {
   onClick?: (item: ListItem) => void;
   selected?: boolean;
   selectable?: boolean;
-  onSelect?: (itemId: string) => void;
+  onSelect?: (item_id: string) => void;
 }
 
 function formatCellValue(value: unknown): string {

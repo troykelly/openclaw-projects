@@ -19,49 +19,49 @@ import type { OAuthConnectionSummary, OAuthFeature } from '@/ui/components/setti
 
 const mockConnection: OAuthConnectionSummary = {
   id: 'conn-1',
-  userEmail: 'user@example.com',
+  user_email: 'user@example.com',
   provider: 'google',
   scopes: [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/contacts.readonly',
     'https://www.googleapis.com/auth/gmail.readonly',
   ],
-  expiresAt: '2026-03-01T00:00:00Z',
+  expires_at: '2026-03-01T00:00:00Z',
   label: 'Work Gmail',
-  providerAccountId: '12345',
-  providerAccountEmail: 'work@gmail.com',
-  permissionLevel: 'read',
-  enabledFeatures: ['contacts', 'email'],
-  isActive: true,
-  lastSyncAt: '2026-02-10T12:00:00Z',
-  syncStatus: {
-    contacts: { lastSyncAt: '2026-02-10T12:00:00Z', status: 'idle' },
-    email: { lastSyncAt: '2026-02-09T08:00:00Z', status: 'idle' },
+  provider_account_id: '12345',
+  provider_account_email: 'work@gmail.com',
+  permission_level: 'read',
+  enabled_features: ['contacts', 'email'],
+  is_active: true,
+  last_sync_at: '2026-02-10T12:00:00Z',
+  sync_status: {
+    contacts: { last_sync_at: '2026-02-10T12:00:00Z', status: 'idle' },
+    email: { last_sync_at: '2026-02-09T08:00:00Z', status: 'idle' },
   },
-  createdAt: '2026-01-01T00:00:00Z',
-  updatedAt: '2026-02-10T12:00:00Z',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-02-10T12:00:00Z',
 };
 
 const mockMicrosoftConnection: OAuthConnectionSummary = {
   id: 'conn-2',
-  userEmail: 'user@example.com',
+  user_email: 'user@example.com',
   provider: 'microsoft',
   scopes: [
     'https://graph.microsoft.com/User.Read',
     'offline_access',
     'https://graph.microsoft.com/Mail.Read',
   ],
-  expiresAt: null,
+  expires_at: null,
   label: 'Personal Outlook',
-  providerAccountId: '67890',
-  providerAccountEmail: 'me@outlook.com',
-  permissionLevel: 'read',
-  enabledFeatures: ['email'],
-  isActive: true,
-  lastSyncAt: null,
-  syncStatus: {},
-  createdAt: '2026-02-05T00:00:00Z',
-  updatedAt: '2026-02-05T00:00:00Z',
+  provider_account_id: '67890',
+  provider_account_email: 'me@outlook.com',
+  permission_level: 'read',
+  enabled_features: ['email'],
+  is_active: true,
+  last_sync_at: null,
+  sync_status: {},
+  created_at: '2026-02-05T00:00:00Z',
+  updated_at: '2026-02-05T00:00:00Z',
 };
 
 // ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ describe('FeatureToggle', () => {
         enabled={false}
         currentScopes={[]}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
       />,
     );
@@ -129,7 +129,7 @@ describe('FeatureToggle', () => {
         enabled={true}
         currentScopes={['https://www.googleapis.com/auth/contacts.readonly']}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
       />,
     );
@@ -145,7 +145,7 @@ describe('FeatureToggle', () => {
         enabled={false}
         currentScopes={[]}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
       />,
     );
@@ -162,7 +162,7 @@ describe('FeatureToggle', () => {
         enabled={false}
         currentScopes={[]}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={onToggle}
       />,
     );
@@ -178,7 +178,7 @@ describe('FeatureToggle', () => {
         enabled={false}
         currentScopes={['https://www.googleapis.com/auth/contacts.readonly']}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
       />,
     );
@@ -194,7 +194,7 @@ describe('FeatureToggle', () => {
         enabled={true}
         currentScopes={['https://www.googleapis.com/auth/contacts.readonly']}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
       />,
     );
@@ -218,7 +218,7 @@ describe('FeatureToggle', () => {
           enabled={false}
           currentScopes={[]}
           provider="google"
-          permissionLevel="read"
+          permission_level="read"
           onToggle={vi.fn()}
         />,
       );
@@ -235,7 +235,7 @@ describe('FeatureToggle', () => {
         enabled={false}
         currentScopes={['https://graph.microsoft.com/User.Read', 'offline_access']}
         provider="microsoft"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
       />,
     );
@@ -250,7 +250,7 @@ describe('FeatureToggle', () => {
         enabled={true}
         currentScopes={[]}
         provider="google"
-        permissionLevel="read"
+        permission_level="read"
         onToggle={vi.fn()}
         isDisabled={true}
       />,
@@ -321,7 +321,7 @@ describe('PermissionLevelSelector', () => {
       <PermissionLevelSelector
         value="read_write"
         onChange={vi.fn()}
-        enabledFeatures={['contacts', 'email']}
+        enabled_features={['contacts', 'email']}
       />,
     );
 
@@ -334,7 +334,7 @@ describe('PermissionLevelSelector', () => {
       <PermissionLevelSelector
         value="read"
         onChange={vi.fn()}
-        enabledFeatures={['contacts']}
+        enabled_features={['contacts']}
       />,
     );
 
@@ -362,10 +362,10 @@ describe('SyncStatusDisplay', () => {
   it('renders sync status for enabled features', () => {
     render(
       <SyncStatusDisplay
-        enabledFeatures={['contacts', 'email']}
-        syncStatus={{
-          contacts: { lastSyncAt: '2026-02-10T12:00:00Z', status: 'idle' },
-          email: { lastSyncAt: '2026-02-09T08:00:00Z', status: 'idle' },
+        enabled_features={['contacts', 'email']}
+        sync_status={{
+          contacts: { last_sync_at: '2026-02-10T12:00:00Z', status: 'idle' },
+          email: { last_sync_at: '2026-02-09T08:00:00Z', status: 'idle' },
         }}
         onSyncNow={vi.fn()}
       />,
@@ -375,11 +375,11 @@ describe('SyncStatusDisplay', () => {
     expect(screen.getByTestId('sync-status-email')).toBeInTheDocument();
   });
 
-  it('shows "Never synced" when lastSyncAt is null', () => {
+  it('shows "Never synced" when last_sync_at is null', () => {
     render(
       <SyncStatusDisplay
-        enabledFeatures={['contacts']}
-        syncStatus={{}}
+        enabled_features={['contacts']}
+        sync_status={{}}
         onSyncNow={vi.fn()}
       />,
     );
@@ -390,10 +390,10 @@ describe('SyncStatusDisplay', () => {
   it('shows sync now button for each feature', () => {
     render(
       <SyncStatusDisplay
-        enabledFeatures={['contacts', 'email']}
-        syncStatus={{
-          contacts: { lastSyncAt: '2026-02-10T12:00:00Z', status: 'idle' },
-          email: { lastSyncAt: null, status: 'idle' },
+        enabled_features={['contacts', 'email']}
+        sync_status={{
+          contacts: { last_sync_at: '2026-02-10T12:00:00Z', status: 'idle' },
+          email: { last_sync_at: null, status: 'idle' },
         }}
         onSyncNow={vi.fn()}
       />,
@@ -407,9 +407,9 @@ describe('SyncStatusDisplay', () => {
     const onSyncNow = vi.fn();
     render(
       <SyncStatusDisplay
-        enabledFeatures={['contacts']}
-        syncStatus={{
-          contacts: { lastSyncAt: '2026-02-10T12:00:00Z', status: 'idle' },
+        enabled_features={['contacts']}
+        sync_status={{
+          contacts: { last_sync_at: '2026-02-10T12:00:00Z', status: 'idle' },
         }}
         onSyncNow={onSyncNow}
       />,
@@ -422,9 +422,9 @@ describe('SyncStatusDisplay', () => {
   it('shows syncing indicator when status is syncing', () => {
     render(
       <SyncStatusDisplay
-        enabledFeatures={['contacts']}
-        syncStatus={{
-          contacts: { lastSyncAt: '2026-02-10T12:00:00Z', status: 'syncing' },
+        enabled_features={['contacts']}
+        sync_status={{
+          contacts: { last_sync_at: '2026-02-10T12:00:00Z', status: 'syncing' },
         }}
         onSyncNow={vi.fn()}
       />,
@@ -437,9 +437,9 @@ describe('SyncStatusDisplay', () => {
   it('disables sync button while syncing', () => {
     render(
       <SyncStatusDisplay
-        enabledFeatures={['contacts']}
-        syncStatus={{
-          contacts: { lastSyncAt: '2026-02-10T12:00:00Z', status: 'syncing' },
+        enabled_features={['contacts']}
+        sync_status={{
+          contacts: { last_sync_at: '2026-02-10T12:00:00Z', status: 'syncing' },
         }}
         onSyncNow={vi.fn()}
       />,
@@ -452,8 +452,8 @@ describe('SyncStatusDisplay', () => {
   it('shows nothing when no features enabled', () => {
     const { container } = render(
       <SyncStatusDisplay
-        enabledFeatures={[]}
-        syncStatus={{}}
+        enabled_features={[]}
+        sync_status={{}}
         onSyncNow={vi.fn()}
       />,
     );
@@ -591,7 +591,7 @@ describe('ConnectionManagePanel', () => {
   });
 
   it('saves active status toggle optimistically', async () => {
-    const updatedConn = { ...mockConnection, isActive: false };
+    const updatedConn = { ...mockConnection, is_active: false };
     globalThis.fetch = createFetchMock({
       patchResponse: { connection: updatedConn },
     }) as typeof globalThis.fetch;
@@ -618,7 +618,7 @@ describe('ConnectionManagePanel', () => {
 
   it('shows re-auth button when scope upgrade is needed', async () => {
     const patchResponse = {
-      connection: { ...mockConnection, enabledFeatures: ['contacts', 'email', 'files'] },
+      connection: { ...mockConnection, enabled_features: ['contacts', 'email', 'files'] },
       reAuthRequired: true,
       reAuthUrl: 'https://accounts.google.com/o/oauth2/auth?scope=...',
       missingScopes: ['https://www.googleapis.com/auth/drive.readonly'],

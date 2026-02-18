@@ -127,7 +127,7 @@ describe('ThemeProvider', () => {
     }
 
     render(
-      <ThemeProvider storageKey="test-theme">
+      <ThemeProvider storage_key="test-theme">
         <ThemeSetter />
       </ThemeProvider>,
     );
@@ -140,7 +140,7 @@ describe('ThemeProvider', () => {
     localStorageMock.setItem('test-theme', 'dark');
 
     render(
-      <ThemeProvider storageKey="test-theme">
+      <ThemeProvider storage_key="test-theme">
         <TestConsumer />
       </ThemeProvider>,
     );

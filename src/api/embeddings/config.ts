@@ -174,18 +174,18 @@ export function clearCachedProvider(): void {
  */
 export function getConfigSummary(): {
   provider: EmbeddingProviderName | null;
-  configuredProviders: EmbeddingProviderName[];
+  configured_providers: EmbeddingProviderName[];
   model: string | null;
   dimensions: number | null;
 } {
   const provider = getCachedProvider();
   const details = provider ? PROVIDER_DETAILS[provider] : null;
 
-  const configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
+  const configured_providers = PROVIDER_PRIORITY.filter(isProviderConfigured);
 
   return {
     provider,
-    configuredProviders,
+    configured_providers,
     model: details?.model ?? null,
     dimensions: details?.dimensions ?? null,
   };

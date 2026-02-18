@@ -317,7 +317,7 @@ describe('Skill Store Admin API (Issue #804)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body).toHaveProperty('total');
-      expect(body).toHaveProperty('byStatus');
+      expect(body).toHaveProperty('by_status');
     });
   });
 

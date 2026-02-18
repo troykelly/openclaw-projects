@@ -1,6 +1,8 @@
 /**
  * Note versions API service.
  * Part of Epic #337, Issue #347
+ *
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  */
 
 import type { Pool } from 'pg';
@@ -9,34 +11,34 @@ import { userCanAccessNote } from './service.ts';
 /** A note version from the database */
 export interface NoteVersion {
   id: string;
-  noteId: string;
-  versionNumber: number;
+  note_id: string;
+  version_number: number;
   title: string;
   content: string;
   summary: string | null;
-  changedByEmail: string | null;
-  changeType: string;
-  contentLength: number;
-  createdAt: Date;
+  changed_by_email: string | null;
+  change_type: string;
+  content_length: number;
+  created_at: Date;
 }
 
 /** Brief version info for listings */
 export interface NoteVersionSummary {
   id: string;
-  versionNumber: number;
+  version_number: number;
   title: string;
-  changedByEmail: string | null;
-  changeType: string;
-  contentLength: number;
-  createdAt: Date;
+  changed_by_email: string | null;
+  change_type: string;
+  content_length: number;
+  created_at: Date;
 }
 
 /** Diff result between versions */
 export interface DiffResult {
-  titleChanged: boolean;
-  titleDiff: string | null;
-  contentChanged: boolean;
-  contentDiff: string;
+  title_changed: boolean;
+  title_diff: string | null;
+  content_changed: boolean;
+  content_diff: string;
   stats: {
     additions: number;
     deletions: number;
@@ -52,33 +54,33 @@ export interface ListVersionsOptions {
 
 /** Result of listing versions */
 export interface ListVersionsResult {
-  noteId: string;
-  currentVersion: number;
+  note_id: string;
+  current_version: number;
   versions: NoteVersionSummary[];
   total: number;
 }
 
 /** Result of comparing versions */
 export interface CompareVersionsResult {
-  noteId: string;
+  note_id: string;
   from: {
-    versionNumber: number;
+    version_number: number;
     title: string;
-    createdAt: Date;
+    created_at: Date;
   };
   to: {
-    versionNumber: number;
+    version_number: number;
     title: string;
-    createdAt: Date;
+    created_at: Date;
   };
   diff: DiffResult;
 }
 
 /** Result of restoring a version */
 export interface RestoreVersionResult {
-  noteId: string;
-  restoredFromVersion: number;
-  newVersion: number;
+  note_id: string;
+  restored_from_version: number;
+  new_version: number;
   title: string;
   message: string;
 }
@@ -89,15 +91,15 @@ export interface RestoreVersionResult {
 function mapRowToVersion(row: Record<string, unknown>): NoteVersion {
   return {
     id: row.id as string,
-    noteId: row.note_id as string,
-    versionNumber: row.version_number as number,
+    note_id: row.note_id as string,
+    version_number: row.version_number as number,
     title: row.title as string,
     content: row.content as string,
     summary: row.summary as string | null,
-    changedByEmail: row.changed_by_email as string | null,
-    changeType: row.change_type as string,
-    contentLength: (row.content as string)?.length ?? 0,
-    createdAt: new Date(row.created_at as string),
+    changed_by_email: row.changed_by_email as string | null,
+    change_type: row.change_type as string,
+    content_length: (row.content as string)?.length ?? 0,
+    created_at: new Date(row.created_at as string),
   };
 }
 
@@ -107,12 +109,12 @@ function mapRowToVersion(row: Record<string, unknown>): NoteVersion {
 function mapRowToVersionSummary(row: Record<string, unknown>): NoteVersionSummary {
   return {
     id: row.id as string,
-    versionNumber: row.version_number as number,
+    version_number: row.version_number as number,
     title: row.title as string,
-    changedByEmail: row.changed_by_email as string | null,
-    changeType: row.change_type as string,
-    contentLength: row.content_length !== undefined ? Number(row.content_length) : ((row.content as string)?.length ?? 0),
-    createdAt: new Date(row.created_at as string),
+    changed_by_email: row.changed_by_email as string | null,
+    change_type: row.change_type as string,
+    content_length: row.content_length !== undefined ? Number(row.content_length) : ((row.content as string)?.length ?? 0),
+    created_at: new Date(row.created_at as string),
   };
 }
 
@@ -127,9 +129,9 @@ async function getCurrentVersionNumber(pool: Pool, noteId: string): Promise<numb
 /**
  * Lists versions for a note with pagination
  */
-export async function listVersions(pool: Pool, noteId: string, userEmail: string, options: ListVersionsOptions = {}): Promise<ListVersionsResult | null> {
+export async function listVersions(pool: Pool, noteId: string, user_email: string, options: ListVersionsOptions = {}): Promise<ListVersionsResult | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, userEmail, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
   if (!canAccess) {
     return null;
   }
@@ -157,8 +159,8 @@ export async function listVersions(pool: Pool, noteId: string, userEmail: string
   );
 
   return {
-    noteId,
-    currentVersion,
+    note_id: noteId,
+    current_version: currentVersion,
     versions: result.rows.map(mapRowToVersionSummary),
     total,
   };
@@ -167,9 +169,9 @@ export async function listVersions(pool: Pool, noteId: string, userEmail: string
 /**
  * Gets a specific version with full content
  */
-export async function getVersion(pool: Pool, noteId: string, versionNumber: number, userEmail: string): Promise<NoteVersion | null> {
+export async function getVersion(pool: Pool, noteId: string, versionNumber: number, user_email: string): Promise<NoteVersion | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, userEmail, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
   if (!canAccess) {
     return null;
   }
@@ -290,10 +292,10 @@ export async function compareVersions(
   noteId: string,
   fromVersionNum: number,
   toVersionNum: number,
-  userEmail: string,
+  user_email: string,
 ): Promise<CompareVersionsResult | null> {
   // Check access
-  const canAccess = await userCanAccessNote(pool, noteId, userEmail, 'read');
+  const canAccess = await userCanAccessNote(pool, noteId, user_email, 'read');
   if (!canAccess) {
     return null;
   }
@@ -323,27 +325,27 @@ export async function compareVersions(
 
   const titleDiff = titleChanged ? generateUnifiedDiff(fromVersion.title, toVersion.title, 'from', 'to') : null;
 
-  const contentDiff = generateUnifiedDiff(fromVersion.content, toVersion.content, `v${fromVersion.versionNumber}`, `v${toVersion.versionNumber}`);
+  const contentDiff = generateUnifiedDiff(fromVersion.content, toVersion.content, `v${fromVersion.version_number}`, `v${toVersion.version_number}`);
 
   const stats = calculateDiffStats(fromVersion.content, toVersion.content);
 
   return {
-    noteId,
+    note_id: noteId,
     from: {
-      versionNumber: fromVersion.versionNumber,
+      version_number: fromVersion.version_number,
       title: fromVersion.title,
-      createdAt: fromVersion.createdAt,
+      created_at: fromVersion.created_at,
     },
     to: {
-      versionNumber: toVersion.versionNumber,
+      version_number: toVersion.version_number,
       title: toVersion.title,
-      createdAt: toVersion.createdAt,
+      created_at: toVersion.created_at,
     },
     diff: {
-      titleChanged,
-      titleDiff,
-      contentChanged,
-      contentDiff,
+      title_changed: titleChanged,
+      title_diff: titleDiff,
+      content_changed: contentChanged,
+      content_diff: contentDiff,
       stats,
     },
   };
@@ -353,9 +355,9 @@ export async function compareVersions(
  * Restores a note to a previous version
  * This creates a new version with the old content (non-destructive)
  */
-export async function restoreVersion(pool: Pool, noteId: string, versionNumber: number, userEmail: string): Promise<RestoreVersionResult | null> {
+export async function restoreVersion(pool: Pool, noteId: string, versionNumber: number, user_email: string): Promise<RestoreVersionResult | null> {
   // Check write access
-  const canWrite = await userCanAccessNote(pool, noteId, userEmail, 'read_write');
+  const canWrite = await userCanAccessNote(pool, noteId, user_email, 'read_write');
   if (!canWrite) {
     // Check if note exists
     const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
@@ -378,7 +380,7 @@ export async function restoreVersion(pool: Pool, noteId: string, versionNumber: 
   const version = versionResult.rows[0];
 
   // Set session user for version tracking
-  await pool.query(`SELECT set_config('app.current_user_email', $1, true)`, [userEmail]);
+  await pool.query(`SELECT set_config('app.current_user_email', $1, true)`, [user_email]);
 
   // Update the note with version content
   // This will trigger the version creation trigger automatically
@@ -391,9 +393,9 @@ export async function restoreVersion(pool: Pool, noteId: string, versionNumber: 
   await pool.query(`UPDATE note_version SET change_type = 'restore' WHERE note_id = $1 AND version_number = $2`, [noteId, newVersion]);
 
   return {
-    noteId,
-    restoredFromVersion: versionNumber,
-    newVersion,
+    note_id: noteId,
+    restored_from_version: versionNumber,
+    new_version: newVersion,
     title: version.title,
     message: `Note restored to version ${versionNumber}`,
   };

@@ -48,16 +48,16 @@ export const noteKeys = {
 /**
  * Build query string from ListNotesParams and user email.
  */
-function buildNotesQueryString(userEmail: string | null, params?: ListNotesParams): string {
+function buildNotesQueryString(user_email: string | null, params?: ListNotesParams): string {
   const searchParams = new URLSearchParams();
 
   // user_email is required by the API
-  if (userEmail) {
-    searchParams.set('user_email', userEmail);
+  if (user_email) {
+    searchParams.set('user_email', user_email);
   }
 
-  if (params?.notebookId) {
-    searchParams.set('notebookId', params.notebookId);
+  if (params?.notebook_id) {
+    searchParams.set('notebook_id', params.notebook_id);
   }
   if (params?.tags && params.tags.length > 0) {
     params.tags.forEach((tag) => searchParams.append('tags', tag));
@@ -99,14 +99,14 @@ function buildNotesQueryString(userEmail: string | null, params?: ListNotesParam
  * @returns TanStack Query result with `NotesResponse`
  */
 export function useNotes(params?: ListNotesParams, options?: { enabled?: boolean; staleTime?: number }) {
-  const userEmail = useUserEmail();
-  const queryString = buildNotesQueryString(userEmail, params);
+  const user_email = useUserEmail();
+  const queryString = buildNotesQueryString(user_email, params);
 
   return useQuery({
     queryKey: noteKeys.list(params),
     queryFn: ({ signal }) => apiClient.get<NotesResponse>(`/api/notes${queryString}`, { signal }),
     // Only fetch if we have a user email (authenticated)
-    enabled: (options?.enabled ?? true) && !!userEmail,
+    enabled: (options?.enabled ?? true) && !!user_email,
     staleTime: options?.staleTime ?? NOTE_LIST_STALE_TIME,
   });
 }
@@ -119,13 +119,13 @@ export function useNotes(params?: ListNotesParams, options?: { enabled?: boolean
  * @returns TanStack Query result with `Note`
  */
 export function useNote(id: string, options?: { staleTime?: number; enabled?: boolean }) {
-  const userEmail = useUserEmail();
-  const queryString = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : '';
+  const user_email = useUserEmail();
+  const queryString = user_email ? `?user_email=${encodeURIComponent(user_email)}` : '';
 
   return useQuery({
     queryKey: noteKeys.detail(id),
     queryFn: ({ signal }) => apiClient.get<Note>(`/api/notes/${encodeURIComponent(id)}${queryString}`, { signal }),
-    enabled: (options?.enabled ?? true) && !!id && !!userEmail,
+    enabled: (options?.enabled ?? true) && !!id && !!user_email,
     staleTime: options?.staleTime ?? NOTE_STALE_TIME,
   });
 }

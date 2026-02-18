@@ -12,7 +12,7 @@ export interface Organization {
   domain?: string;
   logo?: string;
   description?: string;
-  parentId?: string;
+  parent_id?: string;
   contactCount: number;
 }
 

@@ -32,8 +32,8 @@ export interface ActivityFeedFiltersProps {
 export function ActivityFeedFilters({ filters, onChange, currentUserId, className }: ActivityFeedFiltersProps) {
   const activeCount = countActiveFilters(filters);
 
-  const handleActorChange = (actorType: ActorType) => {
-    onChange({ ...filters, actorType });
+  const handleActorChange = (actor_type: ActorType) => {
+    onChange({ ...filters, actor_type });
   };
 
   const handleActionToggle = (action: ActionType) => {
@@ -43,9 +43,9 @@ export function ActivityFeedFilters({ filters, onChange, currentUserId, classNam
   };
 
   const handleEntityToggle = (entity: EntityType) => {
-    const current = filters.entityType || [];
+    const current = filters.entity_type || [];
     const newEntities = current.includes(entity) ? current.filter((e) => e !== entity) : [...current, entity];
-    onChange({ ...filters, entityType: newEntities.length > 0 ? newEntities : undefined });
+    onChange({ ...filters, entity_type: newEntities.length > 0 ? newEntities : undefined });
   };
 
   const handleTimeChange = (timeRange: TimeRange) => {
@@ -67,7 +67,7 @@ export function ActivityFeedFilters({ filters, onChange, currentUserId, classNam
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm">
             Actor
-            {filters.actorType && filters.actorType !== 'all' && (
+            {filters.actor_type && filters.actor_type !== 'all' && (
               <Badge variant="secondary" className="ml-1.5 px-1">
                 1
               </Badge>
@@ -81,7 +81,7 @@ export function ActivityFeedFilters({ filters, onChange, currentUserId, classNam
                 key={type.value}
                 className={cn(
                   'w-full text-left px-2 py-1.5 rounded text-sm',
-                  filters.actorType === type.value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
+                  filters.actor_type === type.value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
                 )}
                 onClick={() => handleActorChange(type.value)}
               >
@@ -121,9 +121,9 @@ export function ActivityFeedFilters({ filters, onChange, currentUserId, classNam
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm">
             Entity
-            {filters.entityType && filters.entityType.length > 0 && (
+            {filters.entity_type && filters.entity_type.length > 0 && (
               <Badge variant="secondary" className="ml-1.5 px-1">
-                {filters.entityType.length}
+                {filters.entity_type.length}
               </Badge>
             )}
           </Button>
@@ -132,7 +132,7 @@ export function ActivityFeedFilters({ filters, onChange, currentUserId, classNam
           <div className="space-y-2">
             {ENTITY_TYPES.map((type) => (
               <label key={type.value} className="flex items-center gap-2 cursor-pointer">
-                <Checkbox checked={filters.entityType?.includes(type.value) || false} onCheckedChange={() => handleEntityToggle(type.value)} />
+                <Checkbox checked={filters.entity_type?.includes(type.value) || false} onCheckedChange={() => handleEntityToggle(type.value)} />
                 <span className="text-sm">{type.label}</span>
               </label>
             ))}

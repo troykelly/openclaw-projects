@@ -133,7 +133,7 @@ describe('Embeddings Config', () => {
       expect(summary.provider).toBeNull();
       expect(summary.model).toBeNull();
       expect(summary.dimensions).toBeNull();
-      expect(summary.configuredProviders).toEqual([]);
+      expect(summary.configured_providers).toEqual([]);
     });
 
     it('returns correct details when voyageai configured', () => {
@@ -147,7 +147,7 @@ describe('Embeddings Config', () => {
       expect(summary.provider).toBe('voyageai');
       expect(summary.model).toBe('voyage-3-large');
       expect(summary.dimensions).toBe(1024);
-      expect(summary.configuredProviders).toEqual(['voyageai']);
+      expect(summary.configured_providers).toEqual(['voyageai']);
     });
 
     it('lists all configured providers', () => {
@@ -158,7 +158,7 @@ describe('Embeddings Config', () => {
 
       const summary = getConfigSummary();
 
-      expect(summary.configuredProviders).toEqual(['voyageai', 'openai', 'gemini']);
+      expect(summary.configured_providers).toEqual(['voyageai', 'openai', 'gemini']);
     });
   });
 });

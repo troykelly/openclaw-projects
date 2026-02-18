@@ -96,10 +96,10 @@ export function parseOwnTracksLocation(payload: Record<string, unknown>, topic: 
   if (lat === undefined || lon === undefined) return null;
 
   // Entity ID: derive from topic (owntracks/user/device -> user/device)
-  const entityId = deriveEntityIdFromTopic(topic);
+  const entity_id = deriveEntityIdFromTopic(topic);
 
   const update: LocationUpdate = {
-    entity_id: entityId,
+    entity_id: entity_id,
     lat,
     lng: lon,
     raw_payload: payload,
@@ -128,12 +128,12 @@ export function parseOwnTracksTransition(payload: Record<string, unknown>, topic
   const lon = typeof payload.lon === 'number' ? payload.lon : undefined;
   if (lat === undefined || lon === undefined) return null;
 
-  const entityId = deriveEntityIdFromTopic(topic);
+  const entity_id = deriveEntityIdFromTopic(topic);
   const event = payload.event as string | undefined;
   const desc = payload.desc as string | undefined;
 
   const update: LocationUpdate = {
-    entity_id: entityId,
+    entity_id: entity_id,
     lat,
     lng: lon,
     raw_payload: payload,
@@ -163,10 +163,10 @@ export function parseHaMqttPayload(payload: Record<string, unknown>, topic: stri
   if (lat === undefined || lng === undefined) return null;
 
   // Entity ID: use the last segment of the topic
-  const entityId = topic.split('/').pop() ?? topic;
+  const entity_id = topic.split('/').pop() ?? topic;
 
   const update: LocationUpdate = {
-    entity_id: entityId,
+    entity_id: entity_id,
     lat,
     lng,
     raw_payload: payload,
@@ -190,16 +190,16 @@ export function parseCustomPayload(payload: Record<string, unknown>, topic: stri
   if (typeof lat !== 'number' || typeof lng !== 'number') return null;
 
   // Entity ID: from mapping or fallback to last topic segment
-  let entityId: string;
+  let entity_id: string;
   if (mapping.entity_id) {
     const extracted = extractByPath(payload, mapping.entity_id);
-    entityId = typeof extracted === 'string' ? extracted : (topic.split('/').pop() ?? topic);
+    entity_id = typeof extracted === 'string' ? extracted : (topic.split('/').pop() ?? topic);
   } else {
-    entityId = topic.split('/').pop() ?? topic;
+    entity_id = topic.split('/').pop() ?? topic;
   }
 
   const update: LocationUpdate = {
-    entity_id: entityId,
+    entity_id: entity_id,
     lat,
     lng,
     raw_payload: payload,

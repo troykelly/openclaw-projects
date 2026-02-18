@@ -33,8 +33,8 @@ export interface Project {
   title?: string;
   status?: string;
   description?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /** Successful list result */
@@ -45,7 +45,7 @@ export interface ProjectListSuccess {
     details: {
       projects: Project[];
       total: number;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -63,7 +63,7 @@ export interface ProjectToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -98,7 +98,7 @@ function truncate(text: string, maxLength = 100): string {
  * Creates the project_list tool.
  */
 export function createProjectListTool(options: ProjectToolOptions): ProjectListTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'project_list',
@@ -114,7 +114,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
 
       const { status, limit = 20, offset = 0 } = parseResult.data;
 
-      logger.info('project_list invoked', { userId, status, limit, offset });
+      logger.info('project_list invoked', { user_id, status, limit, offset });
 
       try {
         const queryParams = new URLSearchParams({
@@ -126,11 +126,11 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
           queryParams.set('status', status);
         }
 
-        const response = await client.get<{ items?: Project[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { userId });
+        const response = await client.get<{ items?: Project[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('project_list API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -148,7 +148,7 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
             success: true,
             data: {
               content: 'No projects found.',
-              details: { projects: [], total: 0, userId },
+              details: { projects: [], total: 0, user_id },
             },
           };
         }
@@ -161,18 +161,18 @@ export function createProjectListTool(options: ProjectToolOptions): ProjectListT
           })
           .join('\n');
 
-        logger.debug('project_list completed', { userId, count: projects.length });
+        logger.debug('project_list completed', { user_id, count: projects.length });
 
         return {
           success: true,
           data: {
             content,
-            details: { projects, total, userId },
+            details: { projects, total, user_id },
           },
         };
       } catch (error) {
         logger.error('project_list failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -196,7 +196,7 @@ export interface ProjectGetSuccess {
     content: string;
     details: {
       project: Project;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -214,7 +214,7 @@ export interface ProjectGetTool {
  * Creates the project_get tool.
  */
 export function createProjectGetTool(options: ProjectToolOptions): ProjectGetTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'project_get',
@@ -235,18 +235,18 @@ export function createProjectGetTool(options: ProjectToolOptions): ProjectGetToo
         return { success: false, error: 'Invalid project ID format. Expected UUID.' };
       }
 
-      logger.info('project_get invoked', { userId, projectId: id });
+      logger.info('project_get invoked', { user_id, project_id: id });
 
       try {
-        const response = await client.get<Project>(`/api/work-items/${id}`, { userId });
+        const response = await client.get<Project>(`/api/work-items/${id}`, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
             return { success: false, error: 'Project not found.' };
           }
           logger.error('project_get API error', {
-            userId,
-            projectId: id,
+            user_id,
+            project_id: id,
             status: response.error.status,
           });
           return {
@@ -259,19 +259,19 @@ export function createProjectGetTool(options: ProjectToolOptions): ProjectGetToo
         const name = project.name ?? project.title ?? 'Untitled';
         const content = `**${name}** [${project.status ?? 'unknown'}]\n\n${project.description ?? 'No description.'}`;
 
-        logger.debug('project_get completed', { userId, projectId: id });
+        logger.debug('project_get completed', { user_id, project_id: id });
 
         return {
           success: true,
           data: {
             content,
-            details: { project, userId },
+            details: { project, user_id },
           },
         };
       } catch (error) {
         logger.error('project_get failed', {
-          userId,
-          projectId: id,
+          user_id,
+          project_id: id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -297,7 +297,7 @@ export interface ProjectCreateSuccess {
     details: {
       id: string;
       name: string;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -315,7 +315,7 @@ export interface ProjectCreateTool {
  * Creates the project_create tool.
  */
 export function createProjectCreateTool(options: ProjectToolOptions): ProjectCreateTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'project_create',
@@ -340,7 +340,7 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
       }
 
       logger.info('project_create invoked', {
-        userId,
+        user_id,
         nameLength: sanitizedName.length,
       });
 
@@ -352,12 +352,12 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
             description: sanitizedDescription,
             item_type: 'project',
           },
-          { userId },
+          { user_id },
         );
 
         if (!response.success) {
           logger.error('project_create API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -370,8 +370,8 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
         const newProject = response.data;
 
         logger.debug('project_create completed', {
-          userId,
-          projectId: newProject.id,
+          user_id,
+          project_id: newProject.id,
         });
 
         return {
@@ -381,13 +381,13 @@ export function createProjectCreateTool(options: ProjectToolOptions): ProjectCre
             details: {
               id: newProject.id,
               name: sanitizedName,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('project_create failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

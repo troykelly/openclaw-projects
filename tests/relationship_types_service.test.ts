@@ -21,6 +21,88 @@ import {
   findSemanticMatch,
 } from '../src/api/relationship-types/service.ts';
 
+/**
+ * Ensure all 32 pre-seeded relationship types exist in the database.
+ * Migration 046 seeds these, but if the table was ever truncated by another
+ * test run the seed data is lost. This function re-seeds all types
+ * (using ON CONFLICT DO NOTHING for safety).
+ */
+async function seedAllRelationshipTypes(pool: Pool): Promise<void> {
+  // Symmetric types (6)
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('partner_of', 'Partner of', false, 'Romantic or life partner.'),
+       ('sibling_of', 'Sibling of', false, 'Sibling relationship.'),
+       ('friend_of', 'Friend of', false, 'Friendship or close social bond.'),
+       ('colleague_of', 'Colleague of', false, 'Colleague or coworker.'),
+       ('housemate_of', 'Housemate of', false, 'Shares a dwelling.'),
+       ('co_parent_of', 'Co-parent of', false, 'Shares parenting responsibilities.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+
+  // Directional types (26)
+  await pool.query(
+    `INSERT INTO relationship_type (name, label, is_directional, description) VALUES
+       ('parent_of', 'Parent of', true, 'Parent relationship.'),
+       ('child_of', 'Child of', true, 'Child relationship.'),
+       ('grandparent_of', 'Grandparent of', true, 'Grandparent relationship.'),
+       ('grandchild_of', 'Grandchild of', true, 'Grandchild relationship.'),
+       ('cares_for', 'Cares for', true, 'Provides care.'),
+       ('cared_for_by', 'Cared for by', true, 'Receives care.'),
+       ('employs', 'Employs', true, 'Employer relationship.'),
+       ('employed_by', 'Employed by', true, 'Employee relationship.'),
+       ('manages', 'Manages', true, 'Direct management.'),
+       ('managed_by', 'Managed by', true, 'Reports to.'),
+       ('mentor_of', 'Mentor of', true, 'Mentorship relationship.'),
+       ('mentee_of', 'Mentee of', true, 'Mentee relationship.'),
+       ('elder_of', 'Elder of', true, 'Elder figure.'),
+       ('junior_of', 'Junior of', true, 'Junior member.'),
+       ('member_of', 'Member of', true, 'Member of a group.'),
+       ('has_member', 'Has member', true, 'Group that has a member.'),
+       ('founder_of', 'Founder of', true, 'Founded an org.'),
+       ('founded_by', 'Founded by', true, 'Founded by someone.'),
+       ('client_of', 'Client of', true, 'Client of a service provider.'),
+       ('has_client', 'Has client', true, 'Has a client.'),
+       ('vendor_of', 'Vendor of', true, 'Vendor to a client.'),
+       ('has_vendor', 'Has vendor', true, 'Has a vendor.'),
+       ('assigned_to', 'Assigned to', true, 'Assigned to an agent.'),
+       ('manages_agent', 'Manages agent', true, 'Agent that manages a person.'),
+       ('owned_by', 'Owned by', true, 'Owned by a person.'),
+       ('owns', 'Owns', true, 'Owns an entity.')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+
+  // Link inverse types for all 13 directional pairs
+  const inversePairs: [string, string][] = [
+    ['parent_of', 'child_of'],
+    ['grandparent_of', 'grandchild_of'],
+    ['cares_for', 'cared_for_by'],
+    ['employs', 'employed_by'],
+    ['manages', 'managed_by'],
+    ['mentor_of', 'mentee_of'],
+    ['elder_of', 'junior_of'],
+    ['has_member', 'member_of'],
+    ['founder_of', 'founded_by'],
+    ['client_of', 'has_client'],
+    ['vendor_of', 'has_vendor'],
+    ['assigned_to', 'manages_agent'],
+    ['owned_by', 'owns'],
+  ];
+
+  for (const [a, b] of inversePairs) {
+    await pool.query(
+      `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = $2)
+       WHERE name = $1 AND inverse_type_id IS NULL`,
+      [a, b],
+    );
+    await pool.query(
+      `UPDATE relationship_type SET inverse_type_id = (SELECT id FROM relationship_type WHERE name = $1)
+       WHERE name = $2 AND inverse_type_id IS NULL`,
+      [a, b],
+    );
+  }
+}
+
 describe('Relationship Type Service (Epic #486, Issue #490)', () => {
   let pool: Pool;
 
@@ -29,13 +111,16 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
     pool = createTestPool();
   });
 
+  // Re-seed all 32 pre-seeded relationship types before each test.
+  // Migration 046 seeds these, but if the table was truncated by another
+  // test file sharing the same database the seed data is lost.
+  beforeEach(async () => {
+    await seedAllRelationshipTypes(pool);
+  });
+
   afterAll(async () => {
     await pool.end();
   });
-
-  // NOTE: We do NOT truncate relationship_type in beforeEach because
-  // the pre-seeded data is part of the migration and should persist.
-  // Tests that create custom types clean up after themselves.
 
   describe('Pre-seeded types', () => {
     beforeEach(async () => {
@@ -63,9 +148,9 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       for (const name of symmetricNames) {
         const type = await getRelationshipTypeByName(pool, name);
         expect(type, `Expected symmetric type '${name}' to exist`).not.toBeNull();
-        expect(type!.isDirectional).toBe(false);
-        expect(type!.inverseTypeId).toBeNull();
-        expect(type!.createdByAgent).toBeNull();
+        expect(type!.is_directional).toBe(false);
+        expect(type!.inverse_type_id).toBeNull();
+        expect(type!.created_by_agent).toBeNull();
       }
     });
 
@@ -93,12 +178,12 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
         expect(type, `Expected directional type '${name}' to exist`).not.toBeNull();
         expect(inverse, `Expected directional type '${inverseName}' to exist`).not.toBeNull();
 
-        expect(type!.isDirectional).toBe(true);
-        expect(inverse!.isDirectional).toBe(true);
+        expect(type!.is_directional).toBe(true);
+        expect(inverse!.is_directional).toBe(true);
 
         // They should reference each other
-        expect(type!.inverseTypeId).toBe(inverse!.id);
-        expect(inverse!.inverseTypeId).toBe(type!.id);
+        expect(type!.inverse_type_id).toBe(inverse!.id);
+        expect(inverse!.inverse_type_id).toBe(type!.id);
       }
     });
 
@@ -111,31 +196,31 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
     });
 
     it('filters by directional', async () => {
-      const directional = await listRelationshipTypes(pool, { isDirectional: true });
+      const directional = await listRelationshipTypes(pool, { is_directional: true });
       expect(directional.total).toBe(26); // 13 pairs = 26 types
 
-      const symmetric = await listRelationshipTypes(pool, { isDirectional: false });
+      const symmetric = await listRelationshipTypes(pool, { is_directional: false });
       expect(symmetric.total).toBe(6);
     });
 
     it('filters by pre-seeded only', async () => {
-      const preSeeded = await listRelationshipTypes(pool, { preSeededOnly: true });
+      const preSeeded = await listRelationshipTypes(pool, { pre_seeded_only: true });
       expect(preSeeded.total).toBe(32);
 
-      // All pre-seeded types should have null createdByAgent
+      // All pre-seeded types should have null created_by_agent
       for (const type of preSeeded.types) {
-        expect(type.createdByAgent).toBeNull();
+        expect(type.created_by_agent).toBeNull();
       }
     });
 
     it('includes inverse type details in list results', async () => {
-      const result = await listRelationshipTypes(pool, { isDirectional: true, limit: 5 });
+      const result = await listRelationshipTypes(pool, { is_directional: true, limit: 5 });
 
       for (const type of result.types) {
-        expect(type.inverseType).not.toBeNull();
-        expect(type.inverseType!.id).toBe(type.inverseTypeId);
-        expect(type.inverseType!.name).toBeDefined();
-        expect(type.inverseType!.label).toBeDefined();
+        expect(type.inverse_type).not.toBeNull();
+        expect(type.inverse_type!.id).toBe(type.inverse_type_id);
+        expect(type.inverse_type!.name).toBeDefined();
+        expect(type.inverse_type!.label).toBeDefined();
       }
     });
 
@@ -152,7 +237,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const result = await listRelationshipTypes(pool);
 
       for (const type of result.types) {
-        expect(type.embeddingStatus).toBe('pending');
+        expect(type.embedding_status).toBe('pending');
       }
     });
   });
@@ -179,7 +264,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const type = await getRelationshipTypeByName(pool, 'parent_of');
       expect(type).not.toBeNull();
       expect(type!.name).toBe('parent_of');
-      expect(type!.isDirectional).toBe(true);
+      expect(type!.is_directional).toBe(true);
     });
 
     it('returns null for non-existent name', async () => {
@@ -193,19 +278,19 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const type = await createRelationshipType(pool, {
         name: 'test_neighbor_of',
         label: 'Neighbor of',
-        isDirectional: false,
+        is_directional: false,
         description: 'Lives nearby',
-        createdByAgent: 'test-agent',
+        created_by_agent: 'test-agent',
       });
 
       expect(type.id).toBeDefined();
       expect(type.name).toBe('test_neighbor_of');
       expect(type.label).toBe('Neighbor of');
-      expect(type.isDirectional).toBe(false);
-      expect(type.inverseTypeId).toBeNull();
+      expect(type.is_directional).toBe(false);
+      expect(type.inverse_type_id).toBeNull();
       expect(type.description).toBe('Lives nearby');
-      expect(type.createdByAgent).toBe('test-agent');
-      expect(type.embeddingStatus).toBe('pending');
+      expect(type.created_by_agent).toBe('test-agent');
+      expect(type.embedding_status).toBe('pending');
 
       // Clean up
       await deleteRelationshipType(pool, type.id);
@@ -215,13 +300,13 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const type = await createRelationshipType(pool, {
         name: 'test_teacher_of',
         label: 'Teacher of',
-        isDirectional: true,
+        is_directional: true,
         description: 'Teaches someone',
-        createdByAgent: 'test-agent',
+        created_by_agent: 'test-agent',
       });
 
-      expect(type.isDirectional).toBe(true);
-      expect(type.inverseTypeId).toBeNull(); // No inverse yet
+      expect(type.is_directional).toBe(true);
+      expect(type.inverse_type_id).toBeNull(); // No inverse yet
 
       // Clean up
       await deleteRelationshipType(pool, type.id);
@@ -232,24 +317,24 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const teacher = await createRelationshipType(pool, {
         name: 'test_teaches',
         label: 'Teaches',
-        isDirectional: true,
-        createdByAgent: 'test-agent',
+        is_directional: true,
+        created_by_agent: 'test-agent',
       });
 
       // Create inverse, linking to first
       const student = await createRelationshipType(pool, {
         name: 'test_taught_by',
         label: 'Taught by',
-        isDirectional: true,
-        inverseTypeName: 'test_teaches',
-        createdByAgent: 'test-agent',
+        is_directional: true,
+        inverse_type_name: 'test_teaches',
+        created_by_agent: 'test-agent',
       });
 
-      expect(student.inverseTypeId).toBe(teacher.id);
+      expect(student.inverse_type_id).toBe(teacher.id);
 
       // The first type should also now point back
       const refreshedTeacher = await getRelationshipType(pool, teacher.id);
-      expect(refreshedTeacher!.inverseTypeId).toBe(student.id);
+      expect(refreshedTeacher!.inverse_type_id).toBe(student.id);
 
       // Clean up
       await deleteRelationshipType(pool, student.id);
@@ -290,7 +375,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
         name: 'test_update_me',
         label: 'Original Label',
         description: 'Original description',
-        createdByAgent: 'test-agent',
+        created_by_agent: 'test-agent',
       });
 
       const updated = await updateRelationshipType(pool, type.id, {
@@ -316,7 +401,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const type = await createRelationshipType(pool, {
         name: 'test_no_update',
         label: 'No Change',
-        createdByAgent: 'test-agent',
+        created_by_agent: 'test-agent',
       });
 
       const result = await updateRelationshipType(pool, type.id, {});
@@ -333,7 +418,7 @@ describe('Relationship Type Service (Epic #486, Issue #490)', () => {
       const type = await createRelationshipType(pool, {
         name: 'test_delete_me',
         label: 'Delete Me',
-        createdByAgent: 'test-agent',
+        created_by_agent: 'test-agent',
       });
 
       const deleted = await deleteRelationshipType(pool, type.id);

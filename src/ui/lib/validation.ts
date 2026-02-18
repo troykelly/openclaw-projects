@@ -44,7 +44,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * @param data - Note data to validate
  * @returns Validation result with any errors
  */
-export function validateNote(data: { title: string; content?: string; notebookId?: string; tags?: string[] }): ValidationResult {
+export function validateNote(data: { title: string; content?: string; notebook_id?: string; tags?: string[] }): ValidationResult {
   const errors: string[] = [];
 
   // Title validation
@@ -61,8 +61,8 @@ export function validateNote(data: { title: string; content?: string; notebookId
   }
 
   // Notebook ID validation (if provided, must be non-empty)
-  if (data.notebookId !== undefined && data.notebookId !== null) {
-    const trimmedNotebookId = data.notebookId.trim();
+  if (data.notebook_id !== undefined && data.notebook_id !== null) {
+    const trimmedNotebookId = data.notebook_id.trim();
     if (trimmedNotebookId.length === 0) {
       errors.push('Notebook ID cannot be empty');
     }

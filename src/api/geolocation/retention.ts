@@ -8,9 +8,9 @@
 import type { Pool } from 'pg';
 
 export interface RetentionResult {
-  usersProcessed: number;
-  recordsDownsampled: number;
-  recordsExpired: number;
+  users_processed: number;
+  records_downsampled: number;
+  records_expired: number;
 }
 
 /**
@@ -31,12 +31,12 @@ export async function runRetentionCleanup(pool: Pool): Promise<RetentionResult> 
 
   const row = rows[0];
   if (!row) {
-    return { usersProcessed: 0, recordsDownsampled: 0, recordsExpired: 0 };
+    return { users_processed: 0, records_downsampled: 0, records_expired: 0 };
   }
 
   return {
-    usersProcessed: row.users_processed,
-    recordsDownsampled: Number(row.records_downsampled),
-    recordsExpired: Number(row.records_expired),
+    users_processed: row.users_processed,
+    records_downsampled: Number(row.records_downsampled),
+    records_expired: Number(row.records_expired),
   };
 }

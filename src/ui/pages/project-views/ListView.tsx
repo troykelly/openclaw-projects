@@ -30,7 +30,7 @@ export interface ListViewItem {
 interface ListViewProps {
   items: ListViewItem[];
   isLoading: boolean;
-  projectId: string;
+  project_id: string;
 }
 
 /** Status icons mapped by status key. */
@@ -83,7 +83,7 @@ const priorityOrder: Record<string, number> = {
   P4: 4,
 };
 
-export function ListView({ items, isLoading, projectId }: ListViewProps): React.JSX.Element {
+export function ListView({ items, isLoading, project_id }: ListViewProps): React.JSX.Element {
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 

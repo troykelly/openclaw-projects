@@ -2,7 +2,7 @@
  * Feature-to-scope mapping for granular OAuth permissions.
  * Part of Issue #1050.
  *
- * Maps each OAuthFeature + permissionLevel to the required OAuth scopes
+ * Maps each OAuthFeature + permission_level to the required OAuth scopes
  * for each provider. Used to build incremental authorization URLs.
  */
 
@@ -71,13 +71,13 @@ const BASE_SCOPES: Record<OAuthProvider, string[]> = {
 export function getRequiredScopes(
   provider: OAuthProvider,
   features: OAuthFeature[],
-  permissionLevel: OAuthPermissionLevel = 'read',
+  permission_level: OAuthPermissionLevel = 'read',
 ): string[] {
   const scopes = new Set<string>(BASE_SCOPES[provider]);
 
   for (const feature of features) {
     const featureScopes = SCOPE_MAP[provider][feature];
-    for (const scope of featureScopes[permissionLevel]) {
+    for (const scope of featureScopes[permission_level]) {
       scopes.add(scope);
     }
   }

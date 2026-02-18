@@ -47,8 +47,8 @@ function flattenItems(
 ): Array<{ item: TimelineItem; depth: number; hasChildren: boolean }> {
   const result: Array<{ item: TimelineItem; depth: number; hasChildren: boolean }> = [];
 
-  function traverse(parentId: string | undefined, depth: number) {
-    const children = parentId ? parentMap.get(parentId) || [] : items.filter((i) => !i.parentId);
+  function traverse(parent_id: string | undefined, depth: number) {
+    const children = parent_id ? parentMap.get(parent_id) || [] : items.filter((i) => !i.parent_id);
 
     for (const item of children) {
       const hasChildren = parentMap.has(item.id);
@@ -67,10 +67,10 @@ function flattenItems(
 function buildParentMap(items: TimelineItem[]): Map<string, TimelineItem[]> {
   const map = new Map<string, TimelineItem[]>();
   for (const item of items) {
-    if (item.parentId) {
-      const existing = map.get(item.parentId) || [];
+    if (item.parent_id) {
+      const existing = map.get(item.parent_id) || [];
       existing.push(item);
-      map.set(item.parentId, existing);
+      map.set(item.parent_id, existing);
     }
   }
   return map;

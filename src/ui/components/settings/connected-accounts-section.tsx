@@ -101,8 +101,8 @@ function ProviderIcon({ provider }: { provider: string }) {
 
 interface EditFormState {
   label: string;
-  permissionLevel: OAuthPermissionLevel;
-  enabledFeatures: OAuthFeature[];
+  permission_level: OAuthPermissionLevel;
+  enabled_features: OAuthFeature[];
 }
 
 interface ConnectionEditFormProps {
@@ -115,16 +115,16 @@ interface ConnectionEditFormProps {
 function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: ConnectionEditFormProps) {
   const [form, setForm] = useState<EditFormState>({
     label: connection.label,
-    permissionLevel: connection.permissionLevel,
-    enabledFeatures: [...connection.enabledFeatures],
+    permission_level: connection.permission_level,
+    enabled_features: [...connection.enabled_features],
   });
 
   const toggleFeature = useCallback((feature: OAuthFeature) => {
     setForm((prev) => ({
       ...prev,
-      enabledFeatures: prev.enabledFeatures.includes(feature)
-        ? prev.enabledFeatures.filter((f) => f !== feature)
-        : [...prev.enabledFeatures, feature],
+      enabled_features: prev.enabled_features.includes(feature)
+        ? prev.enabled_features.filter((f) => f !== feature)
+        : [...prev.enabled_features, feature],
     }));
   }, []);
 
@@ -145,8 +145,8 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
       <div className="space-y-2">
         <label className="text-sm font-medium">Permission Level</label>
         <Select
-          value={form.permissionLevel}
-          onValueChange={(v) => setForm((prev) => ({ ...prev, permissionLevel: v as OAuthPermissionLevel }))}
+          value={form.permission_level}
+          onValueChange={(v) => setForm((prev) => ({ ...prev, permission_level: v as OAuthPermissionLevel }))}
         >
           <SelectTrigger className="w-full" data-testid="permission-select">
             <SelectValue />
@@ -164,7 +164,7 @@ function ConnectionEditForm({ connection, onSave, onCancel, isSaving }: Connecti
           {ALL_FEATURES.map((feature) => (
             <label key={feature} className="flex items-center gap-2 text-sm">
               <Checkbox
-                checked={form.enabledFeatures.includes(feature)}
+                checked={form.enabled_features.includes(feature)}
                 onCheckedChange={() => toggleFeature(feature)}
                 data-testid={`feature-checkbox-${feature}`}
               />
@@ -219,8 +219,8 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
     async (form: EditFormState) => {
       const success = await onUpdate(connection.id, {
         label: form.label.trim(),
-        permissionLevel: form.permissionLevel,
-        enabledFeatures: form.enabledFeatures,
+        permission_level: form.permission_level,
+        enabled_features: form.enabled_features,
       });
       if (success) {
         setIsEditing(false);
@@ -231,7 +231,7 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
 
   const handleToggleActive = useCallback(
     (checked: boolean) => {
-      onUpdate(connection.id, { isActive: checked });
+      onUpdate(connection.id, { is_active: checked });
     },
     [connection.id, onUpdate],
   );
@@ -248,20 +248,20 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
               <Badge variant="outline" className="text-xs">
                 {formatProviderName(connection.provider)}
               </Badge>
-              {connection.isActive ? (
+              {connection.is_active ? (
                 <Badge variant="default" className="text-xs bg-green-600">Active</Badge>
               ) : (
                 <Badge variant="secondary" className="text-xs">Inactive</Badge>
               )}
             </div>
-            {connection.providerAccountEmail && (
-              <p className="mt-0.5 text-sm text-muted-foreground">{connection.providerAccountEmail}</p>
+            {connection.provider_account_email && (
+              <p className="mt-0.5 text-sm text-muted-foreground">{connection.provider_account_email}</p>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>{formatPermission(connection.permissionLevel)}</span>
+              <span>{formatPermission(connection.permission_level)}</span>
               <span className="text-border">|</span>
-              {connection.enabledFeatures.length > 0 ? (
-                connection.enabledFeatures.map((f) => (
+              {connection.enabled_features.length > 0 ? (
+                connection.enabled_features.map((f) => (
                   <Badge key={f} variant="outline" className="text-xs">
                     {formatFeature(f)}
                   </Badge>
@@ -271,7 +271,7 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Last synced: {formatDate(connection.lastSyncAt)} &middot; Connected: {formatDate(connection.createdAt)}
+              Last synced: {formatDate(connection.last_sync_at)} &middot; Connected: {formatDate(connection.created_at)}
             </p>
           </div>
         </div>
@@ -279,7 +279,7 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
         {/* Right: actions */}
         <div className="flex shrink-0 items-center gap-2">
           <Switch
-            checked={connection.isActive}
+            checked={connection.is_active}
             onCheckedChange={handleToggleActive}
             disabled={isUpdating}
             aria-label={`Toggle ${connection.label || connection.provider} active`}
@@ -320,7 +320,7 @@ function ConnectionCard({ connection, onUpdate, onDelete, isUpdating }: Connecti
                 <AlertDialogTitle>Remove connection?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This will permanently remove the {formatProviderName(connection.provider)} connection
-                  {connection.providerAccountEmail ? ` (${connection.providerAccountEmail})` : ''}.
+                  {connection.provider_account_email ? ` (${connection.provider_account_email})` : ''}.
                   You will need to re-authorize to reconnect.
                 </AlertDialogDescription>
               </AlertDialogHeader>

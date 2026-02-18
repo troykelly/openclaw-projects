@@ -131,7 +131,7 @@ describe('ContactGroupManager', () => {
   ];
 
   const defaultProps: ContactGroupManagerProps = {
-    contactId: 'contact-1',
+    contact_id: 'contact-1',
     assignedGroups: [mockGroups[0]],
     availableGroups: mockGroups,
     onAddToGroup: vi.fn(),

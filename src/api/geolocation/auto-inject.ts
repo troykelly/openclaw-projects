@@ -54,7 +54,7 @@ export function geoAutoInjectHook(createPool: () => Pool) {
       body.lat = location.lat;
       body.lng = location.lng;
       if (location.address) body.address = location.address;
-      if (location.placeLabel) body.place_label = location.placeLabel;
+      if (location.place_label) body.place_label = location.place_label;
 
       req.headers['x-geo-source'] = 'auto';
     } finally {

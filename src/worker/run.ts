@@ -124,7 +124,7 @@ async function main(): Promise<void> {
 
   // 7. Startup banner
   console.log('[Worker] Starting worker process');
-  console.log(`[Worker]   Gateway URL: ${configSummary.gatewayUrl ?? '(not set)'}`);
+  console.log(`[Worker]   Gateway URL: ${configSummary.gateway_url ?? '(not set)'}`);
   console.log(`[Worker]   Gateway configured: ${configSummary.configured ? 'yes' : 'no'}`);
   console.log(`[Worker]   Pool max: ${WORKER_POOL_MAX}`);
   console.log(`[Worker]   Poll interval: ${WORKER_POLL_INTERVAL_MS}ms`);

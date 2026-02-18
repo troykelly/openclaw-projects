@@ -12,8 +12,8 @@ import type { ContactRelationship, Contact } from './types';
 export interface RelationshipCardProps {
   relationship: ContactRelationship;
   contact: Contact;
-  onEdit?: (relationshipId: string) => void;
-  onRemove?: (relationshipId: string) => void;
+  onEdit?: (relationship_id: string) => void;
+  onRemove?: (relationship_id: string) => void;
   className?: string;
 }
 

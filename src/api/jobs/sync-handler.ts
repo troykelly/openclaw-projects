@@ -13,22 +13,22 @@ import { executeContactSync } from '../oauth/sync.ts';
  * Extracts connection_id from the job payload and delegates to executeContactSync.
  */
 export async function handleContactSyncJob(pool: Pool, job: InternalJob): Promise<JobProcessorResult> {
-  const connectionId = job.payload.connection_id as string;
+  const connection_id = job.payload.connection_id as string;
 
-  if (!connectionId) {
+  if (!connection_id) {
     return {
       success: false,
       error: 'Invalid job payload: missing connection_id',
     };
   }
 
-  const result = await executeContactSync(pool, connectionId);
+  const result = await executeContactSync(pool, connection_id);
 
   if (result.success) {
-    if (result.syncedCount !== undefined) {
+    if (result.synced_count !== undefined) {
       console.log(
-        `[OAuthSync] Contact sync completed for connection ${connectionId}: ` +
-        `${result.syncedCount} synced, ${result.createdCount} created, ${result.updatedCount} updated`,
+        `[OAuthSync] Contact sync completed for connection ${connection_id}: ` +
+        `${result.synced_count} synced, ${result.created_count} created, ${result.updated_count} updated`,
       );
     }
     return { success: true };

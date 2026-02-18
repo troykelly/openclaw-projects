@@ -61,7 +61,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('relationship_set');
       });
@@ -71,7 +71,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.description.length).toBeGreaterThan(20);
         expect(tool.description).toContain('relationship');
@@ -82,7 +82,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.parameters).toBe(RelationshipSetParamsSchema);
       });
@@ -94,7 +94,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -109,7 +109,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -124,7 +124,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -139,7 +139,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -155,7 +155,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -171,7 +171,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -187,9 +187,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -199,7 +199,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -217,7 +217,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -233,7 +233,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -251,9 +251,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -263,7 +263,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
@@ -281,7 +281,7 @@ describe('relationship tools', () => {
             relationship_type: 'partner',
             notes: 'Since 2020',
           }),
-          expect.objectContaining({ userId: 'agent-1' }),
+          expect.objectContaining({ user_id: 'agent-1' }),
         );
       });
     });
@@ -292,9 +292,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -304,7 +304,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -318,10 +318,10 @@ describe('relationship tools', () => {
           expect(result.data.content).toContain('Troy');
           expect(result.data.content).toContain('Alex');
           expect(result.data.content).toContain('Partner');
-          expect(result.data.details.relationshipId).toBe('rel-1');
+          expect(result.data.details.relationship_id).toBe('rel-1');
           expect(result.data.details.created).toBe(true);
-          expect(result.data.details.contactA.id).toBe('ca-1');
-          expect(result.data.details.contactB.id).toBe('cb-1');
+          expect(result.data.details.contact_a.id).toBe('ca-1');
+          expect(result.data.details.contact_b.id).toBe('cb-1');
         }
       });
 
@@ -330,9 +330,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-existing' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: false,
           },
         });
@@ -342,7 +342,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -371,7 +371,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -397,7 +397,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -419,7 +419,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -438,7 +438,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({
@@ -461,9 +461,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -473,7 +473,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
@@ -496,9 +496,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -508,7 +508,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
@@ -534,9 +534,9 @@ describe('relationship tools', () => {
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -546,7 +546,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({
@@ -564,14 +564,14 @@ describe('relationship tools', () => {
     });
 
     describe('user scoping', () => {
-      it('should include userId in API calls', async () => {
+      it('should include user_id in API calls', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
           data: {
             relationship: { id: 'rel-1' },
-            contactA: { id: 'ca-1', displayName: 'Troy' },
-            contactB: { id: 'cb-1', displayName: 'Alex' },
-            relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+            contact_a: { id: 'ca-1', display_name: 'Troy' },
+            contact_b: { id: 'cb-1', display_name: 'Alex' },
+            relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
             created: true,
           },
         });
@@ -581,7 +581,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'custom-user',
+          user_id: 'custom-user',
         });
 
         await tool.execute({
@@ -590,7 +590,7 @@ describe('relationship tools', () => {
           relationship: 'partner',
         });
 
-        expect(mockPost).toHaveBeenCalledWith(expect.any(String), expect.any(Object), expect.objectContaining({ userId: 'custom-user' }));
+        expect(mockPost).toHaveBeenCalledWith(expect.any(String), expect.any(Object), expect.objectContaining({ user_id: 'custom-user' }));
       });
     });
   });
@@ -604,7 +604,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.name).toBe('relationship_query');
       });
@@ -614,7 +614,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.description.length).toBeGreaterThan(20);
         expect(tool.description).toContain('relationship');
@@ -625,7 +625,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
         expect(tool.parameters).toBe(RelationshipQueryParamsSchema);
       });
@@ -637,7 +637,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({} as RelationshipQueryParams);
@@ -649,7 +649,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: '' });
@@ -660,9 +660,9 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [],
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -671,7 +671,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ contact: 'Troy' });
@@ -682,9 +682,9 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: '123e4567-e89b-12d3-a456-426614174000',
-            contactName: 'Troy',
-            relatedContacts: [],
+            contact_id: '123e4567-e89b-12d3-a456-426614174000',
+            contact_name: 'Troy',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -693,7 +693,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ contact: '123e4567-e89b-12d3-a456-426614174000' });
@@ -704,9 +704,9 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [],
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -715,7 +715,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ contact: 'Troy', type_filter: 'partner' });
@@ -727,7 +727,7 @@ describe('relationship tools', () => {
           client: mockApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'a'.repeat(201) });
@@ -740,9 +740,9 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [],
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -751,12 +751,12 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ contact: 'Troy' });
 
-        expect(mockGet).toHaveBeenCalledWith('/api/relationships?contact=Troy', expect.objectContaining({ userId: 'agent-1' }));
+        expect(mockGet).toHaveBeenCalledWith('/api/relationships?contact=Troy', expect.objectContaining({ user_id: 'agent-1' }));
       });
     });
 
@@ -765,27 +765,27 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [
               {
-                contactId: 'c-2',
-                contactName: 'Alex',
-                contactKind: 'person',
-                relationshipId: 'r-1',
-                relationshipTypeName: 'partner',
-                relationshipTypeLabel: 'Partner',
-                isDirectional: false,
+                contact_id: 'c-2',
+                contact_name: 'Alex',
+                contact_kind: 'person',
+                relationship_id: 'r-1',
+                relationship_type_name: 'partner',
+                relationship_type_label: 'Partner',
+                is_directional: false,
                 notes: null,
               },
               {
-                contactId: 'c-3',
-                contactName: 'Sam',
-                contactKind: 'person',
-                relationshipId: 'r-2',
-                relationshipTypeName: 'parent_of',
-                relationshipTypeLabel: 'Parent Of',
-                isDirectional: true,
+                contact_id: 'c-3',
+                contact_name: 'Sam',
+                contact_kind: 'person',
+                relationship_id: 'r-2',
+                relationship_type_name: 'parent_of',
+                relationship_type_label: 'Parent Of',
+                is_directional: true,
                 notes: null,
               },
             ],
@@ -797,7 +797,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Troy' });
@@ -809,8 +809,8 @@ describe('relationship tools', () => {
           expect(result.data.content).toContain('Partner');
           expect(result.data.content).toContain('Sam');
           expect(result.data.content).toContain('Parent Of');
-          expect(result.data.details.contactId).toBe('c-1');
-          expect(result.data.details.relatedContacts).toHaveLength(2);
+          expect(result.data.details.contact_id).toBe('c-1');
+          expect(result.data.details.related_contacts).toHaveLength(2);
         }
       });
 
@@ -818,9 +818,9 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [],
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -829,7 +829,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Troy' });
@@ -844,17 +844,17 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [
               {
-                contactId: 'g-1',
-                contactName: 'The Kelly Household',
-                contactKind: 'group',
-                relationshipId: 'r-1',
-                relationshipTypeName: 'member_of',
-                relationshipTypeLabel: 'Member Of',
-                isDirectional: true,
+                contact_id: 'g-1',
+                contact_name: 'The Kelly Household',
+                contact_kind: 'group',
+                relationship_id: 'r-1',
+                relationship_type_name: 'member_of',
+                relationship_type_label: 'Member Of',
+                is_directional: true,
                 notes: null,
               },
             ],
@@ -866,7 +866,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Troy' });
@@ -882,17 +882,17 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-2',
-            contactName: 'Sam',
-            relatedContacts: [
+            contact_id: 'c-2',
+            contact_name: 'Sam',
+            related_contacts: [
               {
-                contactId: 'c-1',
-                contactName: 'Troy',
-                contactKind: 'person',
-                relationshipId: 'r-2',
-                relationshipTypeName: 'child_of',
-                relationshipTypeLabel: 'Child Of',
-                isDirectional: true,
+                contact_id: 'c-1',
+                contact_name: 'Troy',
+                contact_kind: 'person',
+                relationship_id: 'r-2',
+                relationship_type_name: 'child_of',
+                relationship_type_label: 'Child Of',
+                is_directional: true,
                 notes: null,
               },
             ],
@@ -904,7 +904,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Sam' });
@@ -929,7 +929,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Troy' });
@@ -951,7 +951,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Unknown' });
@@ -969,7 +969,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Troy' });
@@ -984,7 +984,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         const result = await tool.execute({ contact: 'Troy' });
@@ -1002,9 +1002,9 @@ describe('relationship tools', () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy Kelly',
-            relatedContacts: [],
+            contact_id: 'c-1',
+            contact_name: 'Troy Kelly',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -1013,7 +1013,7 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'agent-1',
+          user_id: 'agent-1',
         });
 
         await tool.execute({ contact: 'Troy Kelly' });
@@ -1026,13 +1026,13 @@ describe('relationship tools', () => {
     });
 
     describe('user scoping', () => {
-      it('should include userId in API calls', async () => {
+      it('should include user_id in API calls', async () => {
         const mockGet = vi.fn().mockResolvedValue({
           success: true,
           data: {
-            contactId: 'c-1',
-            contactName: 'Troy',
-            relatedContacts: [],
+            contact_id: 'c-1',
+            contact_name: 'Troy',
+            related_contacts: [],
           },
         });
         const client = { ...mockApiClient, get: mockGet };
@@ -1041,12 +1041,12 @@ describe('relationship tools', () => {
           client: client as unknown as ApiClient,
           logger: mockLogger,
           config: mockConfig,
-          userId: 'custom-user',
+          user_id: 'custom-user',
         });
 
         await tool.execute({ contact: 'Troy' });
 
-        expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ userId: 'custom-user' }));
+        expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ user_id: 'custom-user' }));
       });
     });
   });
@@ -1059,26 +1059,26 @@ describe('relationship tools', () => {
         success: true,
         data: {
           relationship: { id: 'rel-roundtrip' },
-          contactA: { id: 'ca-1', displayName: 'Troy' },
-          contactB: { id: 'cb-1', displayName: 'Alex' },
-          relationshipType: { id: 'rt-1', name: 'partner', label: 'Partner' },
+          contact_a: { id: 'ca-1', display_name: 'Troy' },
+          contact_b: { id: 'cb-1', display_name: 'Alex' },
+          relationship_type: { id: 'rt-1', name: 'partner', label: 'Partner' },
           created: true,
         },
       });
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: {
-          contactId: 'ca-1',
-          contactName: 'Troy',
-          relatedContacts: [
+          contact_id: 'ca-1',
+          contact_name: 'Troy',
+          related_contacts: [
             {
-              contactId: 'cb-1',
-              contactName: 'Alex',
-              contactKind: 'person',
-              relationshipId: 'rel-roundtrip',
-              relationshipTypeName: 'partner',
-              relationshipTypeLabel: 'Partner',
-              isDirectional: false,
+              contact_id: 'cb-1',
+              contact_name: 'Alex',
+              contact_kind: 'person',
+              relationship_id: 'rel-roundtrip',
+              relationship_type_name: 'partner',
+              relationship_type_label: 'Partner',
+              is_directional: false,
               notes: null,
             },
           ],
@@ -1090,14 +1090,14 @@ describe('relationship tools', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       const queryTool = createRelationshipQueryTool({
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: mockConfig,
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       // Step 1: Set the relationship
@@ -1113,10 +1113,10 @@ describe('relationship tools', () => {
       expect(queryResult.success).toBe(true);
 
       if (queryResult.success) {
-        expect(queryResult.data.details.relatedContacts).toHaveLength(1);
-        const related = queryResult.data.details.relatedContacts[0];
-        expect(related.contactName).toBe('Alex');
-        expect(related.relationshipTypeName).toBe('partner');
+        expect(queryResult.data.details.related_contacts).toHaveLength(1);
+        const related = queryResult.data.details.related_contacts[0];
+        expect(related.contact_name).toBe('Alex');
+        expect(related.relationship_type_name).toBe('partner');
       }
     });
   });

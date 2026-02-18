@@ -106,14 +106,14 @@ export function ProjectListPage(): React.JSX.Element {
       id: item.id,
       title: item.title,
       kind: item.kind,
-      currentParentId: item.parentId,
+      currentParentId: item.parent_id,
     });
     setMoveDialogOpen(true);
   }, []);
 
   const handleTreeMove = useCallback(
-    async (itemId: string, newParentId: string | null) => {
-      const item = findTreeItem(treeItems, itemId);
+    async (item_id: string, newParentId: string | null) => {
+      const item = findTreeItem(treeItems, item_id);
       if (item) {
         await performMove({ id: item.id, title: item.title }, newParentId);
       }

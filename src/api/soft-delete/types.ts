@@ -1,5 +1,6 @@
 /**
  * Soft delete types.
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
  * Part of Issue #225.
  */
 
@@ -13,18 +14,18 @@ export type SoftDeleteEntityType = 'work_item' | 'contact';
  */
 export interface TrashItem {
   id: string;
-  entityType: SoftDeleteEntityType;
+  entity_type: SoftDeleteEntityType;
   title?: string;
-  displayName?: string;
-  deletedAt: Date;
-  daysUntilPurge: number;
+  display_name?: string;
+  deleted_at: Date;
+  days_until_purge: number;
 }
 
 /**
  * Query options for trash listing
  */
 export interface TrashQueryOptions {
-  entityType?: SoftDeleteEntityType;
+  entity_type?: SoftDeleteEntityType;
   limit?: number;
   offset?: number;
 }
@@ -33,9 +34,9 @@ export interface TrashQueryOptions {
  * Purge result
  */
 export interface PurgeResult {
-  workItemsPurged: number;
-  contactsPurged: number;
-  totalPurged: number;
+  work_items_purged: number;
+  contacts_purged: number;
+  total_purged: number;
 }
 
 /**
@@ -43,7 +44,7 @@ export interface PurgeResult {
  */
 export interface RestoreResult {
   success: boolean;
-  entityType: SoftDeleteEntityType;
-  entityId: string;
-  restoredAt: Date;
+  entity_type: SoftDeleteEntityType;
+  entity_id: string;
+  restored_at: Date;
 }

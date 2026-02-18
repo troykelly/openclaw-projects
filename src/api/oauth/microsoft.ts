@@ -22,8 +22,8 @@ function generateCodeChallenge(verifier: string): string {
  * Build the Azure AD authorize endpoint for a given tenant.
  * Falls back to `/common/` (multi-tenant) when no tenant ID is provided.
  */
-function getAuthorizeUrl(tenantId?: string): string {
-  const tenant = tenantId || 'common';
+function getAuthorizeUrl(tenant_id?: string): string {
+  const tenant = tenant_id || 'common';
   return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`;
 }
 
@@ -31,8 +31,8 @@ function getAuthorizeUrl(tenantId?: string): string {
  * Build the Azure AD token endpoint for a given tenant.
  * Falls back to `/common/` (multi-tenant) when no tenant ID is provided.
  */
-function getTokenUrl(tenantId?: string): string {
-  const tenant = tenantId || 'common';
+function getTokenUrl(tenant_id?: string): string {
+  const tenant = tenant_id || 'common';
   return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
 }
 
@@ -50,20 +50,20 @@ interface MicrosoftUserResponse {
   id: string;
   mail?: string;
   userPrincipalName: string;
-  displayName?: string;
+  display_name?: string;
 }
 
 interface MicrosoftContactResponse {
   id: string;
-  displayName?: string;
-  givenName?: string;
+  display_name?: string;
+  given_name?: string;
   surname?: string;
-  emailAddresses?: Array<{ address: string; name?: string }>;
+  email_addresses?: Array<{ address: string; name?: string }>;
   businessPhones?: string[];
   mobilePhone?: string;
   homePhones?: string[];
   companyName?: string;
-  jobTitle?: string;
+  job_title?: string;
 }
 
 interface MicrosoftContactsResponse {
@@ -74,13 +74,13 @@ interface MicrosoftContactsResponse {
 
 export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes?: string[]): OAuthAuthorizationUrl {
   const effectiveScopes = scopes || config.scopes;
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const code_verifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(code_verifier);
 
   const params = new URLSearchParams({
-    client_id: config.clientId,
+    client_id: config.client_id,
     response_type: 'code',
-    redirect_uri: config.redirectUri,
+    redirect_uri: config.redirect_uri,
     response_mode: 'query',
     scope: effectiveScopes.join(' '),
     state,
@@ -89,31 +89,31 @@ export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes
   });
 
   return {
-    url: `${getAuthorizeUrl(config.tenantId)}?${params.toString()}`,
+    url: `${getAuthorizeUrl(config.tenant_id)}?${params.toString()}`,
     state,
     provider: 'microsoft',
     scopes: effectiveScopes,
-    codeVerifier,
+    code_verifier,
   };
 }
 
-export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, codeVerifier?: string): Promise<OAuthTokens> {
+export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, code_verifier?: string): Promise<OAuthTokens> {
   const effectiveConfig = config || requireProviderConfig('microsoft');
 
   const params = new URLSearchParams({
-    client_id: effectiveConfig.clientId,
-    client_secret: effectiveConfig.clientSecret,
+    client_id: effectiveConfig.client_id,
+    client_secret: effectiveConfig.client_secret,
     code,
-    redirect_uri: effectiveConfig.redirectUri,
+    redirect_uri: effectiveConfig.redirect_uri,
     grant_type: 'authorization_code',
   });
 
   // Include PKCE code_verifier if provided
-  if (codeVerifier) {
-    params.set('code_verifier', codeVerifier);
+  if (code_verifier) {
+    params.set('code_verifier', code_verifier);
   }
 
-  const response = await fetch(getTokenUrl(effectiveConfig.tenantId), {
+  const response = await fetch(getTokenUrl(effectiveConfig.tenant_id), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -134,25 +134,25 @@ export async function exchangeCodeForTokens(code: string, config?: OAuthConfig, 
   const data = (await response.json()) as MicrosoftTokenResponse;
 
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: new Date(Date.now() + data.expires_in * 1000),
-    tokenType: data.token_type,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: new Date(Date.now() + data.expires_in * 1000),
+    token_type: data.token_type,
     scopes: data.scope.split(' '),
   };
 }
 
-export async function refreshAccessToken(refreshToken: string, config?: OAuthConfig): Promise<OAuthTokens> {
+export async function refreshAccessToken(refresh_token: string, config?: OAuthConfig): Promise<OAuthTokens> {
   const effectiveConfig = config || requireProviderConfig('microsoft');
 
   const params = new URLSearchParams({
-    client_id: effectiveConfig.clientId,
-    client_secret: effectiveConfig.clientSecret,
-    refresh_token: refreshToken,
+    client_id: effectiveConfig.client_id,
+    client_secret: effectiveConfig.client_secret,
+    refresh_token: refresh_token,
     grant_type: 'refresh_token',
   });
 
-  const response = await fetch(getTokenUrl(effectiveConfig.tenantId), {
+  const response = await fetch(getTokenUrl(effectiveConfig.tenant_id), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -173,18 +173,18 @@ export async function refreshAccessToken(refreshToken: string, config?: OAuthCon
   const data = (await response.json()) as MicrosoftTokenResponse;
 
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token || refreshToken,
-    expiresAt: new Date(Date.now() + data.expires_in * 1000),
-    tokenType: data.token_type,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || refresh_token,
+    expires_at: new Date(Date.now() + data.expires_in * 1000),
+    token_type: data.token_type,
     scopes: data.scope.split(' '),
   };
 }
 
-export async function getUserEmail(accessToken: string): Promise<string> {
+export async function getUserEmail(access_token: string): Promise<string> {
   const response = await fetch(`${GRAPH_BASE_URL}/me`, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${access_token}`,
     },
   });
 
@@ -197,20 +197,20 @@ export async function getUserEmail(accessToken: string): Promise<string> {
 }
 
 function mapMicrosoftContact(contact: MicrosoftContactResponse): ProviderContact {
-  const phoneNumbers: string[] = [];
-  if (contact.mobilePhone) phoneNumbers.push(contact.mobilePhone);
-  if (contact.businessPhones) phoneNumbers.push(...contact.businessPhones);
-  if (contact.homePhones) phoneNumbers.push(...contact.homePhones);
+  const phone_numbers: string[] = [];
+  if (contact.mobilePhone) phone_numbers.push(contact.mobilePhone);
+  if (contact.businessPhones) phone_numbers.push(...contact.businessPhones);
+  if (contact.homePhones) phone_numbers.push(...contact.homePhones);
 
   return {
     id: contact.id,
-    displayName: contact.displayName,
-    givenName: contact.givenName,
-    familyName: contact.surname,
-    emailAddresses: contact.emailAddresses?.map((e) => e.address) || [],
-    phoneNumbers,
+    display_name: contact.display_name,
+    given_name: contact.given_name,
+    family_name: contact.surname,
+    email_addresses: contact.email_addresses?.map((e) => e.address) || [],
+    phone_numbers,
     company: contact.companyName,
-    jobTitle: contact.jobTitle,
+    job_title: contact.job_title,
     metadata: {
       provider: 'microsoft',
       rawContact: contact,
@@ -219,7 +219,7 @@ function mapMicrosoftContact(contact: MicrosoftContactResponse): ProviderContact
 }
 
 export async function fetchContacts(
-  accessToken: string,
+  access_token: string,
   options?: { deltaLink?: string; pageSize?: number },
 ): Promise<{ contacts: ProviderContact[]; deltaLink?: string; nextLink?: string }> {
   let url: string;
@@ -229,14 +229,14 @@ export async function fetchContacts(
   } else {
     const params = new URLSearchParams({
       $top: String(options?.pageSize || 100),
-      $select: 'id,displayName,givenName,surname,emailAddresses,businessPhones,mobilePhone,homePhones,companyName,jobTitle',
+      $select: 'id,display_name,given_name,surname,email_addresses,businessPhones,mobilePhone,homePhones,companyName,job_title',
     });
     url = `${GRAPH_BASE_URL}/me/contacts/delta?${params.toString()}`;
   }
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${access_token}`,
     },
   });
 
@@ -253,13 +253,13 @@ export async function fetchContacts(
   };
 }
 
-export async function fetchAllContacts(accessToken: string, syncCursor?: string): Promise<{ contacts: ProviderContact[]; syncCursor?: string }> {
+export async function fetchAllContacts(access_token: string, sync_cursor?: string): Promise<{ contacts: ProviderContact[]; sync_cursor?: string }> {
   const allContacts: ProviderContact[] = [];
   let nextLink: string | undefined;
-  let deltaLink: string | undefined = syncCursor;
+  let deltaLink: string | undefined = sync_cursor;
 
   // First request
-  const firstResult = await fetchContacts(accessToken, { deltaLink: syncCursor });
+  const firstResult = await fetchContacts(access_token, { deltaLink: sync_cursor });
   allContacts.push(...firstResult.contacts);
   nextLink = firstResult.nextLink;
   deltaLink = firstResult.deltaLink;
@@ -268,7 +268,7 @@ export async function fetchAllContacts(accessToken: string, syncCursor?: string)
   while (nextLink) {
     const response = await fetch(nextLink, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${access_token}`,
       },
     });
 
@@ -284,7 +284,7 @@ export async function fetchAllContacts(accessToken: string, syncCursor?: string)
 
   return {
     contacts: allContacts,
-    syncCursor: deltaLink,
+    sync_cursor: deltaLink,
   };
 }
 
@@ -297,11 +297,11 @@ interface MicrosoftDriveItem {
   size?: number;
   createdDateTime?: string;
   lastModifiedDateTime?: string;
-  webUrl?: string;
+  web_url?: string;
   file?: { mimeType: string };
   folder?: { childCount: number };
   parentReference?: { id?: string; path?: string };
-  '@microsoft.graph.downloadUrl'?: string;
+  '@microsoft.graph.download_url'?: string;
   thumbnails?: Array<{ large?: { url?: string } }>;
 }
 
@@ -312,52 +312,52 @@ interface MicrosoftDriveListResponse {
 }
 
 /** Map a Microsoft Graph DriveItem to the normalized DriveFile interface. */
-function mapDriveItem(item: MicrosoftDriveItem, connectionId: string): DriveFile {
+function mapDriveItem(item: MicrosoftDriveItem, connection_id: string): DriveFile {
   return {
     id: item.id,
     name: item.name,
-    mimeType: item.file?.mimeType || (item.folder ? 'application/vnd.microsoft-folder' : 'application/octet-stream'),
+    mime_type: item.file?.mimeType || (item.folder ? 'application/vnd.microsoft-folder' : 'application/octet-stream'),
     size: item.size,
-    createdAt: item.createdDateTime ? new Date(item.createdDateTime) : undefined,
-    modifiedAt: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : undefined,
+    created_at: item.createdDateTime ? new Date(item.createdDateTime) : undefined,
+    modified_at: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : undefined,
     path: item.parentReference?.path,
-    parentId: item.parentReference?.id,
-    webUrl: item.webUrl,
-    downloadUrl: item['@microsoft.graph.downloadUrl'],
-    thumbnailUrl: item.thumbnails?.[0]?.large?.url,
-    isFolder: !!item.folder,
+    parent_id: item.parentReference?.id,
+    web_url: item.web_url,
+    download_url: item['@microsoft.graph.download_url'],
+    thumbnail_url: item.thumbnails?.[0]?.large?.url,
+    is_folder: !!item.folder,
     provider: 'microsoft',
-    connectionId,
+    connection_id,
     metadata: {},
   };
 }
 
 /** Selected fields for OneDrive listing requests. */
-const DRIVE_ITEM_SELECT = 'id,name,size,createdDateTime,lastModifiedDateTime,webUrl,file,folder,parentReference,@microsoft.graph.downloadUrl,thumbnails';
+const DRIVE_ITEM_SELECT = 'id,name,size,createdDateTime,lastModifiedDateTime,web_url,file,folder,parentReference,@microsoft.graph.download_url,thumbnails';
 
 /**
  * List items in a OneDrive folder (or root).
  * Uses `/me/drive/root/children` for root, `/me/drive/items/{id}/children` for subfolders.
- * When a pageToken (nextLink URL) is provided, it is used directly.
+ * When a page_token (nextLink URL) is provided, it is used directly.
  */
 export async function listDriveItems(
-  accessToken: string,
-  connectionId: string,
-  folderId?: string,
-  pageToken?: string,
+  access_token: string,
+  connection_id: string,
+  folder_id?: string,
+  page_token?: string,
 ): Promise<DriveListResult> {
   let url: string;
 
-  if (pageToken) {
-    url = pageToken;
-  } else if (folderId) {
-    url = `${GRAPH_BASE_URL}/me/drive/items/${folderId}/children?$select=${DRIVE_ITEM_SELECT}&$top=100`;
+  if (page_token) {
+    url = page_token;
+  } else if (folder_id) {
+    url = `${GRAPH_BASE_URL}/me/drive/items/${folder_id}/children?$select=${DRIVE_ITEM_SELECT}&$top=100`;
   } else {
     url = `${GRAPH_BASE_URL}/me/drive/root/children?$select=${DRIVE_ITEM_SELECT}&$top=100`;
   }
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${access_token}` },
   });
 
   if (!response.ok) {
@@ -369,27 +369,27 @@ export async function listDriveItems(
   const data = (await response.json()) as MicrosoftDriveListResponse;
 
   return {
-    files: data.value.map((item) => mapDriveItem(item, connectionId)),
-    nextPageToken: data['@odata.nextLink'],
-    totalCount: data['@odata.count'],
+    files: data.value.map((item) => mapDriveItem(item, connection_id)),
+    next_page_token: data['@odata.nextLink'],
+    total_count: data['@odata.count'],
   };
 }
 
 /**
  * Search items across a OneDrive.
  * Uses `/me/drive/root/search(q='{query}')`.
- * When a pageToken (nextLink URL) is provided, it is used directly.
+ * When a page_token (nextLink URL) is provided, it is used directly.
  */
 export async function searchDriveItems(
-  accessToken: string,
-  connectionId: string,
+  access_token: string,
+  connection_id: string,
   query: string,
-  pageToken?: string,
+  page_token?: string,
 ): Promise<DriveListResult> {
   let url: string;
 
-  if (pageToken) {
-    url = pageToken;
+  if (page_token) {
+    url = page_token;
   } else {
     // Escape single quotes in the query to prevent query injection
     const safeQuery = query.replace(/'/g, "''");
@@ -397,7 +397,7 @@ export async function searchDriveItems(
   }
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${access_token}` },
   });
 
   if (!response.ok) {
@@ -409,25 +409,25 @@ export async function searchDriveItems(
   const data = (await response.json()) as MicrosoftDriveListResponse;
 
   return {
-    files: data.value.map((item) => mapDriveItem(item, connectionId)),
-    nextPageToken: data['@odata.nextLink'],
-    totalCount: data['@odata.count'],
+    files: data.value.map((item) => mapDriveItem(item, connection_id)),
+    next_page_token: data['@odata.nextLink'],
+    total_count: data['@odata.count'],
   };
 }
 
 /**
  * Get metadata for a single OneDrive item, including download URL.
- * Uses `/me/drive/items/{itemId}`.
+ * Uses `/me/drive/items/{item_id}`.
  */
 export async function getDriveItem(
-  accessToken: string,
-  connectionId: string,
-  itemId: string,
+  access_token: string,
+  connection_id: string,
+  item_id: string,
 ): Promise<DriveFile> {
-  const url = `${GRAPH_BASE_URL}/me/drive/items/${itemId}?$select=${DRIVE_ITEM_SELECT}`;
+  const url = `${GRAPH_BASE_URL}/me/drive/items/${item_id}?$select=${DRIVE_ITEM_SELECT}`;
 
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${access_token}` },
   });
 
   if (!response.ok) {
@@ -442,5 +442,5 @@ export async function getDriveItem(
   }
 
   const data = (await response.json()) as MicrosoftDriveItem;
-  return mapDriveItem(data, connectionId);
+  return mapDriveItem(data, connection_id);
 }

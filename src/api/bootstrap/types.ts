@@ -17,7 +17,7 @@ export interface BootstrapPreference {
   title: string;
   content: string;
   importance: number;
-  createdAt: Date;
+  created_at: Date;
 }
 
 /** Active project summary */
@@ -26,7 +26,7 @@ export interface BootstrapProject {
   title: string;
   status: string;
   kind: string;
-  updatedAt: Date;
+  updated_at: Date;
 }
 
 /** Pending reminder */
@@ -34,53 +34,53 @@ export interface BootstrapReminder {
   id: string;
   title: string;
   description?: string;
-  notBefore: Date;
+  not_before: Date;
   kind: string;
 }
 
 /** Recent activity entry */
 export interface BootstrapActivity {
   type: string;
-  entityId: string;
-  entityTitle?: string;
+  entity_id: string;
+  entity_title?: string;
   timestamp: Date;
 }
 
 /** Key contact summary */
 export interface BootstrapContact {
   id: string;
-  displayName: string;
-  lastContact?: Date;
-  endpointCount: number;
+  display_name: string;
+  last_contact?: Date;
+  endpoint_count: number;
 }
 
 /** Bootstrap statistics */
 export interface BootstrapStats {
-  openItems: number;
-  dueToday: number;
+  open_items: number;
+  due_today: number;
   overdue: number;
-  totalProjects: number;
-  totalMemories: number;
-  totalContacts: number;
+  total_projects: number;
+  total_memories: number;
+  total_contacts: number;
 }
 
 /** Full bootstrap response */
 export interface BootstrapResponse {
   user: BootstrapUser | null;
   preferences: BootstrapPreference[];
-  activeProjects: BootstrapProject[];
-  pendingReminders: BootstrapReminder[];
-  recentActivity: BootstrapActivity[];
-  unreadMessages: number;
-  keyContacts: BootstrapContact[];
+  active_projects: BootstrapProject[];
+  pending_reminders: BootstrapReminder[];
+  recent_activity: BootstrapActivity[];
+  unread_messages: number;
+  key_contacts: BootstrapContact[];
   stats: BootstrapStats;
-  generatedAt: Date;
-  nextRefreshHint: Date;
+  generated_at: Date;
+  next_refresh_hint: Date;
 }
 
 /** Options for bootstrap request */
 export interface BootstrapOptions {
-  userEmail?: string;
+  user_email?: string;
   include?: string[];
   exclude?: string[];
   limit?: {

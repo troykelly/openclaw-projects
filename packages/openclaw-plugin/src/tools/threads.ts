@@ -32,7 +32,7 @@ const MAX_MESSAGE_LIMIT = 200;
 /** Parameters for thread_list tool */
 export const ThreadListParamsSchema = z.object({
   channel: ChannelType.optional(),
-  contactId: z.string().uuid().optional(),
+  contact_id: z.string().uuid().optional(),
   limit: z.number().int().min(1, 'Limit must be at least 1').max(MAX_LIST_LIMIT, `Limit must be ${MAX_LIST_LIMIT} or less`).default(DEFAULT_LIST_LIMIT),
 });
 export type ThreadListParams = z.infer<typeof ThreadListParamsSchema>;
@@ -74,7 +74,7 @@ export interface ThreadListSuccess {
     details: {
       results: ThreadListItem[];
       total: number;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -92,7 +92,7 @@ export interface ThreadToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -107,7 +107,7 @@ export interface ThreadListTool {
  * Creates the thread_list tool.
  */
 export function createThreadListTool(options: ThreadToolOptions): ThreadListTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'thread_list',
@@ -122,12 +122,12 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
         return { success: false, error: errorMessage };
       }
 
-      const { channel, contactId, limit } = parseResult.data;
+      const { channel, contact_id, limit } = parseResult.data;
 
       logger.info('thread_list invoked', {
-        userId,
+        user_id,
         channel,
-        hasContactId: !!contactId,
+        hasContactId: !!contact_id,
         limit,
       });
 
@@ -142,15 +142,15 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
         } else {
           queryParams.set('q', '*');
         }
-        if (contactId) {
-          queryParams.set('contactId', contactId);
+        if (contact_id) {
+          queryParams.set('contact_id', contact_id);
         }
 
-        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { userId });
+        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_list API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -172,7 +172,7 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
         }));
 
         logger.debug('thread_list completed', {
-          userId,
+          user_id,
           resultCount: threadItems.length,
           total,
         });
@@ -196,12 +196,12 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
           success: true,
           data: {
             content,
-            details: { results: threadItems, total, userId },
+            details: { results: threadItems, total, user_id },
           },
         };
       } catch (error) {
         logger.error('thread_list failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -220,8 +220,8 @@ export function createThreadListTool(options: ThreadToolOptions): ThreadListTool
 
 /** Parameters for thread_get tool */
 export const ThreadGetParamsSchema = z.object({
-  threadId: z.string().min(1, 'Thread ID is required'),
-  messageLimit: z
+  thread_id: z.string().min(1, 'Thread ID is required'),
+  message_limit: z
     .number()
     .int()
     .min(1, 'Message limit must be at least 1')
@@ -233,7 +233,7 @@ export type ThreadGetParams = z.infer<typeof ThreadGetParamsSchema>;
 /** Thread contact info from API */
 interface ThreadContact {
   id: string;
-  displayName: string;
+  display_name: string;
   notes?: string;
 }
 
@@ -241,10 +241,10 @@ interface ThreadContact {
 interface ThreadInfo {
   id: string;
   channel: string;
-  externalThreadKey: string;
+  external_thread_key: string;
   contact: ThreadContact;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Message in thread */
@@ -254,30 +254,30 @@ interface ThreadMessage {
   body: string | null;
   subject?: string;
   fromAddress?: string;
-  receivedAt: string;
-  createdAt: string;
+  received_at: string;
+  created_at: string;
 }
 
 /** API response for thread history */
 interface ThreadHistoryApiResponse {
   thread: ThreadInfo;
   messages: ThreadMessage[];
-  relatedWorkItems: Array<{
+  related_work_items: Array<{
     id: string;
     title: string;
     status: string;
-    workItemKind: string;
+    work_item_kind: string;
   }>;
-  contactMemories: Array<{
+  contact_memories: Array<{
     id: string;
-    memoryType: string;
+    memory_type: string;
     title: string;
     content: string;
   }>;
   pagination: {
-    hasMore: boolean;
-    oldestTimestamp?: string;
-    newestTimestamp?: string;
+    has_more: boolean;
+    oldest_timestamp?: string;
+    newest_timestamp?: string;
   };
 }
 
@@ -289,7 +289,7 @@ export interface ThreadGetSuccess {
     details: {
       thread: ThreadInfo;
       messages: ThreadMessage[];
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -314,7 +314,7 @@ export interface ThreadGetTool {
  * Creates the thread_get tool.
  */
 export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'thread_get',
@@ -329,11 +329,11 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         return { success: false, error: errorMessage };
       }
 
-      const { threadId, messageLimit } = parseResult.data;
+      const { thread_id, message_limit: messageLimit } = parseResult.data;
 
       logger.info('thread_get invoked', {
-        userId,
-        threadId,
+        user_id,
+        thread_id,
         messageLimit,
       });
 
@@ -341,12 +341,12 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         const queryParams = new URLSearchParams();
         queryParams.set('limit', String(messageLimit));
 
-        const response = await client.get<ThreadHistoryApiResponse>(`/api/threads/${threadId}/history?${queryParams}`, { userId });
+        const response = await client.get<ThreadHistoryApiResponse>(`/api/threads/${thread_id}/history?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('thread_get API error', {
-            userId,
-            threadId,
+            user_id,
+            thread_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -359,15 +359,15 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
         const { thread, messages } = response.data;
 
         logger.debug('thread_get completed', {
-          userId,
-          threadId,
-          messageCount: messages.length,
+          user_id,
+          thread_id,
+          message_count: messages.length,
         });
 
         // Format content for display — sanitize metadata fields interpolated outside boundary wrappers
         // Generate a per-invocation nonce for boundary markers (#1255)
         const { nonce: threadGetNonce } = createBoundaryMarkers();
-        const contact = sanitizeMetadataField(thread.contact?.displayName || 'Unknown', threadGetNonce);
+        const contact = sanitizeMetadataField(thread.contact?.display_name || 'Unknown', threadGetNonce);
         const safeChannel = sanitizeMetadataField(thread.channel, threadGetNonce);
         const header = `Thread with ${contact} [${safeChannel}]`;
 
@@ -379,14 +379,14 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
               promptGuardUrl: config.promptGuardUrl,
             });
             if (detection.detected) {
-              const logDecision = injectionLogLimiter.shouldLog(userId);
+              const logDecision = injectionLogLimiter.shouldLog(user_id);
               if (logDecision.log) {
                 logger.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in thread_get result',
                   {
-                    userId,
-                    threadId,
-                    messageId: m.id,
+                    user_id,
+                    thread_id,
+                    message_id: m.id,
                     patterns: detection.patterns,
                     source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
@@ -402,7 +402,7 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
             ? messages
                 .map((m) => {
                   const prefix = m.direction === 'inbound' ? '←' : '→';
-                  const timestamp = new Date(m.createdAt).toLocaleString();
+                  const timestamp = new Date(m.created_at).toLocaleString();
                   const body = sanitizeMessageForContext(m.body || '', {
                     direction: m.direction,
                     channel: thread.channel,
@@ -420,13 +420,13 @@ export function createThreadGetTool(options: ThreadToolOptions): ThreadGetTool {
           success: true,
           data: {
             content,
-            details: { thread, messages, userId },
+            details: { thread, messages, user_id },
           },
         };
       } catch (error) {
         logger.error('thread_get failed', {
-          userId,
-          threadId,
+          user_id,
+          thread_id,
           error: error instanceof Error ? error.message : String(error),
         });
 

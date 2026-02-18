@@ -52,7 +52,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         VALUES ('test@example.com', 'Parent Notebook')
         RETURNING id
       `);
-      const parentId = parent.rows[0].id;
+      const parent_id = parent.rows[0].id;
 
       // Create child notebook
       const child = await pool.query(
@@ -61,10 +61,10 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         VALUES ('test@example.com', 'Child Notebook', $1)
         RETURNING id, parent_notebook_id
       `,
-        [parentId],
+        [parent_id],
       );
 
-      expect(child.rows[0].parent_notebook_id).toBe(parentId);
+      expect(child.rows[0].parent_notebook_id).toBe(parent_id);
 
       // Cleanup
       await pool.query('DELETE FROM notebook WHERE user_email = $1', ['test@example.com']);
@@ -99,7 +99,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
   });
 
   describe('note table', () => {
-    let notebookId: string;
+    let notebook_id: string;
 
     beforeAll(async () => {
       // Create a test notebook for note tests
@@ -108,7 +108,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         VALUES ('test@example.com', 'Test Notebook for Notes')
         RETURNING id
       `);
-      notebookId = result.rows[0].id;
+      notebook_id = result.rows[0].id;
     });
 
     afterAll(async () => {
@@ -247,10 +247,10 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         VALUES ('test@example.com', 'Notebook Note', $1)
         RETURNING id, notebook_id
       `,
-        [notebookId],
+        [notebook_id],
       );
 
-      expect(created.rows[0].notebook_id).toBe(notebookId);
+      expect(created.rows[0].notebook_id).toBe(notebook_id);
     });
 
     it('supports tags array', async () => {
@@ -272,7 +272,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
   describe('active views', () => {
     let noteId: string;
-    let notebookId: string;
+    let notebook_id: string;
 
     beforeAll(async () => {
       // Create test data
@@ -281,7 +281,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
         VALUES ('test@example.com', 'View Test Notebook')
         RETURNING id
       `);
-      notebookId = notebook.rows[0].id;
+      notebook_id = notebook.rows[0].id;
 
       const note = await pool.query(`
         INSERT INTO note (user_email, title)
@@ -314,18 +314,18 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
     it('notebook_active excludes soft-deleted notebooks', async () => {
       // Soft delete
-      await pool.query('UPDATE notebook SET deleted_at = NOW() WHERE id = $1', [notebookId]);
+      await pool.query('UPDATE notebook SET deleted_at = NOW() WHERE id = $1', [notebook_id]);
 
       // notebook_active should not contain it
-      const active = await pool.query('SELECT id FROM notebook_active WHERE id = $1', [notebookId]);
+      const active = await pool.query('SELECT id FROM notebook_active WHERE id = $1', [notebook_id]);
       expect(active.rows.length).toBe(0);
 
       // notebook_trash should contain it
-      const trash = await pool.query('SELECT id FROM notebook_trash WHERE id = $1', [notebookId]);
+      const trash = await pool.query('SELECT id FROM notebook_trash WHERE id = $1', [notebook_id]);
       expect(trash.rows.length).toBe(1);
 
       // Restore
-      await pool.query('UPDATE notebook SET deleted_at = NULL WHERE id = $1', [notebookId]);
+      await pool.query('UPDATE notebook SET deleted_at = NULL WHERE id = $1', [notebook_id]);
     });
   });
 

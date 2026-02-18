@@ -190,7 +190,7 @@ export function NoteCard({ note, onClick, onEdit, onDelete, onShare, onTogglePin
           )}
         </div>
 
-        <span>{note.updatedAt.toLocaleDateString()}</span>
+        <span>{note.updated_at.toLocaleDateString()}</span>
       </div>
 
       {/* Tags */}

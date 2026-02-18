@@ -33,9 +33,9 @@ export function validateLocationUpdate(update: LocationUpdate): Result<LocationU
   }
 
   // Sanitise entity_id: strip control characters, truncate
-  let entityId = update.entity_id.replace(/[\x00-\x1f\x7f]/g, '');
-  if (entityId.length > MAX_ENTITY_ID_LENGTH) {
-    entityId = entityId.slice(0, MAX_ENTITY_ID_LENGTH);
+  let entity_id = update.entity_id.replace(/[\x00-\x1f\x7f]/g, '');
+  if (entity_id.length > MAX_ENTITY_ID_LENGTH) {
+    entity_id = entity_id.slice(0, MAX_ENTITY_ID_LENGTH);
   }
 
   if (update.lat < -90 || update.lat > 90) {
@@ -80,7 +80,7 @@ export function validateLocationUpdate(update: LocationUpdate): Result<LocationU
     ok: true,
     value: {
       ...update,
-      entity_id: entityId,
+      entity_id: entity_id,
       timestamp,
     },
   };
@@ -189,7 +189,7 @@ export async function ingestLocationUpdate(
     await client.query('BEGIN');
 
     for (const sub of subsResult.rows) {
-      const userEmail = sub.user_email as string;
+      const user_email = sub.user_email as string;
 
       // 3a. Advisory lock serializes concurrent ingestion for the same
       // (provider, user, entity) triple. This eliminates the TOCTOU window
@@ -197,7 +197,7 @@ export async function ingestLocationUpdate(
       // The lock is released automatically when the transaction ends.
       await client.query(
         'SELECT pg_advisory_xact_lock(hashtext($1 || $2 || $3))',
-        [providerId, userEmail, validUpdate.entity_id],
+        [providerId, user_email, validUpdate.entity_id],
       );
 
       // 3b. Rate-limit + dedup check (safe under advisory lock)
@@ -205,7 +205,7 @@ export async function ingestLocationUpdate(
         `SELECT time, lat, lng FROM geo_location
          WHERE provider_id = $1 AND user_email = $2 AND entity_id = $3
          ORDER BY time DESC LIMIT 1`,
-        [providerId, userEmail, validUpdate.entity_id],
+        [providerId, user_email, validUpdate.entity_id],
       );
 
       const lastRow = lastResult.rows.length > 0 ? lastResult.rows[0] : null;
@@ -237,7 +237,7 @@ export async function ingestLocationUpdate(
         RETURNING time`,
         [
           validUpdate.timestamp,
-          userEmail,
+          user_email,
           providerId,
           validUpdate.entity_id,
           validUpdate.lat,

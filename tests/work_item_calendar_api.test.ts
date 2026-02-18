@@ -7,8 +7,8 @@ import { buildServer } from '../src/api/server.ts';
 describe('Work Item Calendar API (issue #125)', () => {
   const app = buildServer();
   let pool: Pool;
-  let workItemId: string;
-  let contactId: string;
+  let work_item_id: string;
+  let contact_id: string;
   let endpointId: string;
 
   beforeAll(async () => {
@@ -26,21 +26,21 @@ describe('Work Item Calendar API (issue #125)', () => {
       url: '/api/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
-    workItemId = (wi.json() as { id: string }).id;
+    work_item_id = (wi.json() as { id: string }).id;
 
     // Create a contact with a webhook endpoint (used for calendar sync)
     const contact = await app.inject({
       method: 'POST',
       url: '/api/contacts',
-      payload: { displayName: 'John Doe' },
+      payload: { display_name: 'John Doe' },
     });
-    contactId = (contact.json() as { id: string }).id;
+    contact_id = (contact.json() as { id: string }).id;
 
     // Use webhook endpoint type for calendar (since 'calendar' is not in the enum)
     const endpoint = await app.inject({
       method: 'POST',
-      url: `/api/contacts/${contactId}/endpoints`,
-      payload: { endpointType: 'webhook', endpointValue: 'calendar-sync' },
+      url: `/api/contacts/${contact_id}/endpoints`,
+      payload: { endpoint_type: 'webhook', endpoint_value: 'calendar-sync' },
     });
     endpointId = (endpoint.json() as { id: string }).id;
   });
@@ -63,45 +63,45 @@ describe('Work Item Calendar API (issue #125)', () => {
   }
 
   async function createCalendarEvent(
-    threadId: string,
+    thread_id: string,
     eventData: {
       title?: string;
       description?: string;
-      startTime?: string;
-      endTime?: string;
-      isAllDay?: boolean;
+      start_time?: string;
+      end_time?: string;
+      is_all_day?: boolean;
       location?: string;
       attendees?: Array<{ email: string; name?: string; status?: string }>;
       organizer?: { email: string; name?: string };
-      meetingLink?: string;
+      meeting_link?: string;
     },
   ): Promise<string> {
     const raw = {
       type: 'calendar_event',
       title: eventData.title ?? 'Test Meeting',
       description: eventData.description ?? 'Meeting description',
-      startTime: eventData.startTime ?? new Date().toISOString(),
-      endTime: eventData.endTime ?? new Date(Date.now() + 3600000).toISOString(),
-      isAllDay: eventData.isAllDay ?? false,
+      start_time: eventData.start_time ?? new Date().toISOString(),
+      end_time: eventData.end_time ?? new Date(Date.now() + 3600000).toISOString(),
+      is_all_day: eventData.is_all_day ?? false,
       location: eventData.location ?? null,
       attendees: eventData.attendees ?? [],
       organizer: eventData.organizer ?? { email: 'organizer@example.com' },
-      meetingLink: eventData.meetingLink ?? null,
+      meeting_link: eventData.meeting_link ?? null,
     };
     const result = await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
        VALUES ($1, $2, 'inbound', $3, $4)
        RETURNING id::text as id`,
-      [threadId, `event-${Date.now()}`, eventData.description ?? 'Event', JSON.stringify(raw)],
+      [thread_id, `event-${Date.now()}`, eventData.description ?? 'Event', JSON.stringify(raw)],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
-  async function linkCalendarToWorkItem(wiId: string, threadId: string, messageId: string): Promise<void> {
+  async function linkCalendarToWorkItem(wiId: string, thread_id: string, message_id: string): Promise<void> {
     await pool.query(
       `INSERT INTO work_item_communication (work_item_id, thread_id, message_id, action)
        VALUES ($1, $2, $3, 'follow_up')`,
-      [wiId, threadId, messageId],
+      [wiId, thread_id, message_id],
     );
   }
 
@@ -109,36 +109,36 @@ describe('Work Item Calendar API (issue #125)', () => {
     it('returns empty array when no calendar events linked', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/calendar`,
+        url: `/api/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ events: [] });
     });
 
     it('returns linked calendar events with all required fields', async () => {
-      const threadId = await createCalendarThread();
-      const startTime = new Date().toISOString();
-      const endTime = new Date(Date.now() + 3600000).toISOString();
+      const thread_id = await createCalendarThread();
+      const start_time = new Date().toISOString();
+      const end_time = new Date(Date.now() + 3600000).toISOString();
 
-      const eventId = await createCalendarEvent(threadId, {
+      const eventId = await createCalendarEvent(thread_id, {
         title: 'Project Kickoff',
         description: 'Initial project meeting',
-        startTime,
-        endTime,
-        isAllDay: false,
+        start_time,
+        end_time,
+        is_all_day: false,
         location: 'Conference Room A',
         attendees: [
           { email: 'alice@example.com', name: 'Alice', status: 'accepted' },
           { email: 'bob@example.com', name: 'Bob', status: 'tentative' },
         ],
         organizer: { email: 'manager@example.com', name: 'Manager' },
-        meetingLink: 'https://meet.example.com/abc123',
+        meeting_link: 'https://meet.example.com/abc123',
       });
-      await linkCalendarToWorkItem(workItemId, threadId, eventId);
+      await linkCalendarToWorkItem(work_item_id, thread_id, eventId);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/calendar`,
+        url: `/api/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -147,13 +147,13 @@ describe('Work Item Calendar API (issue #125)', () => {
           id: string;
           title: string;
           description: string;
-          startTime: string;
-          endTime: string;
-          isAllDay: boolean;
+          start_time: string;
+          end_time: string;
+          is_all_day: boolean;
           location: string | null;
           attendees: Array<{ email: string; name?: string; status?: string }>;
           organizer: { email: string; name?: string } | null;
-          meetingLink: string | null;
+          meeting_link: string | null;
         }>;
       };
       expect(body.events.length).toBe(1);
@@ -162,13 +162,13 @@ describe('Work Item Calendar API (issue #125)', () => {
       expect(event.id).toBe(eventId);
       expect(event.title).toBe('Project Kickoff');
       expect(event.description).toBe('Initial project meeting');
-      expect(event.startTime).toBe(startTime);
-      expect(event.endTime).toBe(endTime);
-      expect(event.isAllDay).toBe(false);
+      expect(event.start_time).toBe(start_time);
+      expect(event.end_time).toBe(end_time);
+      expect(event.is_all_day).toBe(false);
       expect(event.location).toBe('Conference Room A');
       expect(event.attendees).toHaveLength(2);
       expect(event.organizer?.email).toBe('manager@example.com');
-      expect(event.meetingLink).toBe('https://meet.example.com/abc123');
+      expect(event.meeting_link).toBe('https://meet.example.com/abc123');
     });
 
     it('returns 404 for non-existent work item', async () => {
@@ -181,27 +181,27 @@ describe('Work Item Calendar API (issue #125)', () => {
     });
 
     it('handles all-day events', async () => {
-      const threadId = await createCalendarThread();
-      const eventId = await createCalendarEvent(threadId, {
+      const thread_id = await createCalendarThread();
+      const eventId = await createCalendarEvent(thread_id, {
         title: 'Company Holiday',
-        isAllDay: true,
-        startTime: '2024-12-25T00:00:00.000Z',
-        endTime: '2024-12-25T23:59:59.999Z',
+        is_all_day: true,
+        start_time: '2024-12-25T00:00:00.000Z',
+        end_time: '2024-12-25T23:59:59.999Z',
       });
-      await linkCalendarToWorkItem(workItemId, threadId, eventId);
+      await linkCalendarToWorkItem(work_item_id, thread_id, eventId);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/calendar`,
+        url: `/api/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 
-      const body = res.json() as { events: Array<{ isAllDay: boolean }> };
-      expect(body.events[0].isAllDay).toBe(true);
+      const body = res.json() as { events: Array<{ is_all_day: boolean }> };
+      expect(body.events[0].is_all_day).toBe(true);
     });
 
     it('handles missing optional fields', async () => {
-      const threadId = await createCalendarThread();
+      const thread_id = await createCalendarThread();
 
       // Create event with minimal data
       const result = await pool.query(
@@ -209,21 +209,21 @@ describe('Work Item Calendar API (issue #125)', () => {
          VALUES ($1, $2, 'inbound', 'Minimal event', $3)
          RETURNING id::text as id`,
         [
-          threadId,
+          thread_id,
           `minimal-event-${Date.now()}`,
           JSON.stringify({
             type: 'calendar_event',
             title: 'Quick Meeting',
-            startTime: new Date().toISOString(),
+            start_time: new Date().toISOString(),
           }),
         ],
       );
       const eventId = (result.rows[0] as { id: string }).id;
-      await linkCalendarToWorkItem(workItemId, threadId, eventId);
+      await linkCalendarToWorkItem(work_item_id, thread_id, eventId);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/calendar`,
+        url: `/api/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 
@@ -234,24 +234,24 @@ describe('Work Item Calendar API (issue #125)', () => {
           location: string | null;
           attendees: unknown[];
           organizer: unknown;
-          meetingLink: string | null;
+          meeting_link: string | null;
         }>;
       };
       expect(body.events.length).toBe(1);
       expect(body.events[0].title).toBe('Quick Meeting');
       expect(body.events[0].location).toBeNull();
-      expect(body.events[0].meetingLink).toBeNull();
+      expect(body.events[0].meeting_link).toBeNull();
       expect(body.events[0].attendees).toEqual([]);
     });
 
     it('only returns calendar events (type: calendar_event)', async () => {
-      const threadId = await createCalendarThread();
+      const thread_id = await createCalendarThread();
 
       // Create a calendar event
-      const calendarEventId = await createCalendarEvent(threadId, {
+      const calendarEventId = await createCalendarEvent(thread_id, {
         title: 'Real Calendar Event',
       });
-      await linkCalendarToWorkItem(workItemId, threadId, calendarEventId);
+      await linkCalendarToWorkItem(work_item_id, thread_id, calendarEventId);
 
       // Create a regular message on the same thread (no calendar type)
       const wi2 = await app.inject({
@@ -265,14 +265,14 @@ describe('Work Item Calendar API (issue #125)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, raw)
          VALUES ($1, $2, 'inbound', 'Regular message', $3)
          RETURNING id::text as id`,
-        [threadId, `regular-${Date.now()}`, JSON.stringify({ type: 'message' })],
+        [thread_id, `regular-${Date.now()}`, JSON.stringify({ type: 'message' })],
       );
       const regularMsgId = (regularResult.rows[0] as { id: string }).id;
-      await linkCalendarToWorkItem(workItemId2, threadId, regularMsgId);
+      await linkCalendarToWorkItem(workItemId2, thread_id, regularMsgId);
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/calendar`,
+        url: `/api/work-items/${work_item_id}/calendar`,
       });
       expect(res.statusCode).toBe(200);
 

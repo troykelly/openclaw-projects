@@ -16,7 +16,7 @@ import type { RealtimeEvent } from '@/ui/components/realtime/types';
  */
 export interface NotePresenceUser {
   email: string;
-  displayName?: string;
+  display_name?: string;
   avatarUrl?: string;
   lastSeenAt: string;
   cursorPosition?: {
@@ -32,13 +32,13 @@ type NotePresenceEvent =
   | { type: 'note:presence_joined'; data: { noteId: string; user: NotePresenceUser } }
   | { type: 'note:presence_left'; data: { noteId: string; user: NotePresenceUser } }
   | { type: 'note:presence_list'; data: { noteId: string; users: NotePresenceUser[] } }
-  | { type: 'note:presence_cursor'; data: { noteId: string; userEmail: string; cursorPosition: { line: number; column: number } } };
+  | { type: 'note:presence_cursor'; data: { noteId: string; user_email: string; cursorPosition: { line: number; column: number } } };
 
 interface UseNotePresenceOptions {
   /** The note ID to track presence for */
   noteId: string;
   /** Current user's email */
-  userEmail: string;
+  user_email: string;
   /** Whether to automatically join presence on mount */
   autoJoin?: boolean;
 }
@@ -65,7 +65,7 @@ interface UseNotePresenceReturn {
  * ```tsx
  * const { viewers, join, leave } = useNotePresence({
  *   noteId: '123',
- *   userEmail: 'user@example.com',
+ *   user_email: 'user@example.com',
  *   autoJoin: true,
  * });
  *
@@ -76,7 +76,7 @@ interface UseNotePresenceReturn {
  * );
  * ```
  */
-export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNotePresenceOptions): UseNotePresenceReturn {
+export function useNotePresence({ noteId, user_email, autoJoin = true }: UseNotePresenceOptions): UseNotePresenceReturn {
   const [viewers, setViewers] = useState<NotePresenceUser[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -88,13 +88,13 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNoteP
 
   /**
    * Join note presence via API
-   * Security: userEmail sent in body instead of query params (#689)
+   * Security: user_email sent in body instead of query params (#689)
    */
   const join = useCallback(async () => {
     if (hasJoinedRef.current) return;
 
     try {
-      const data = await apiClient.post<{ collaborators?: NotePresenceUser[] }>(`/api/notes/${noteId}/presence`, { userEmail });
+      const data = await apiClient.post<{ collaborators?: NotePresenceUser[] }>(`/api/notes/${noteId}/presence`, { user_email });
       setViewers(data.collaborators || []);
       setIsConnected(true);
       hasJoinedRef.current = true;
@@ -103,17 +103,17 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNoteP
       setError(err instanceof Error ? err : new Error('Unknown error'));
       setIsConnected(false);
     }
-  }, [noteId, userEmail]);
+  }, [noteId, user_email]);
 
   /**
    * Leave note presence via API
-   * Security: userEmail sent in header instead of query params (#689)
+   * Security: user_email sent in header instead of query params (#689)
    */
   const leave = useCallback(async () => {
     if (!hasJoinedRef.current) return;
 
     try {
-      await apiClient.delete(`/api/notes/${noteId}/presence`, { headers: { 'X-User-Email': userEmail } });
+      await apiClient.delete(`/api/notes/${noteId}/presence`, { headers: { 'X-User-Email': user_email } });
       hasJoinedRef.current = false;
       setIsConnected(false);
     } catch (err) {
@@ -124,16 +124,16 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNoteP
         console.error('[NotePresence] Error leaving:', err);
       }
     }
-  }, [noteId, userEmail]);
+  }, [noteId, user_email]);
 
   /**
    * Update cursor position via API
-   * Security: userEmail sent in body instead of query params (#689)
+   * Security: user_email sent in body instead of query params (#689)
    */
   const updateCursor = useCallback(
     async (position: { line: number; column: number }) => {
       try {
-        await apiClient.put(`/api/notes/${noteId}/presence/cursor`, { userEmail, cursorPosition: position });
+        await apiClient.put(`/api/notes/${noteId}/presence/cursor`, { user_email, cursorPosition: position });
       } catch (err) {
         // Don't throw on cursor update errors - cursor updates are non-critical
         // Log in development only to avoid information leakage in production (#693)
@@ -143,7 +143,7 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNoteP
         }
       }
     },
-    [noteId, userEmail],
+    [noteId, user_email],
   );
 
   /**
@@ -185,10 +185,10 @@ export function useNotePresence({ noteId, userEmail, autoJoin = true }: UseNoteP
 
         case 'note:presence_cursor': {
           const cursorData = presenceEvent.data as {
-            userEmail: string;
+            user_email: string;
             cursorPosition: { line: number; column: number };
           };
-          setViewers((prev) => prev.map((v) => (v.email === cursorData.userEmail ? { ...v, cursorPosition: cursorData.cursorPosition } : v)));
+          setViewers((prev) => prev.map((v) => (v.email === cursorData.user_email ? { ...v, cursorPosition: cursorData.cursorPosition } : v)));
           break;
         }
       }

@@ -8,7 +8,7 @@ describe('thread tools', () => {
   let mockClient: ApiClient;
   let mockLogger: Logger;
   let mockConfig: PluginConfig;
-  const userId = 'test-user-id';
+  const user_id = 'test-user-id';
 
   beforeEach(() => {
     mockClient = {
@@ -62,7 +62,7 @@ describe('thread tools', () => {
       it('should accept parameters with all fields', () => {
         const result = ThreadListParamsSchema.safeParse({
           channel: 'email',
-          contactId: '123e4567-e89b-12d3-a456-426614174000',
+          contact_id: '123e4567-e89b-12d3-a456-426614174000',
           limit: 50,
         });
         expect(result.success).toBe(true);
@@ -112,7 +112,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
         expect(tool.name).toBe('thread_list');
       });
@@ -122,7 +122,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
         expect(tool.description).toBeDefined();
         expect(tool.description.length).toBeGreaterThan(10);
@@ -161,7 +161,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({});
@@ -181,19 +181,19 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         await tool.execute({
           channel: 'sms',
-          contactId: '123e4567-e89b-12d3-a456-426614174000',
+          contact_id: '123e4567-e89b-12d3-a456-426614174000',
           limit: 30,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { userId });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/search'), { user_id });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
         expect(callUrl).toContain('types=message');
-        expect(callUrl).toContain('contactId=123e4567-e89b-12d3-a456-426614174000');
+        expect(callUrl).toContain('contact_id=123e4567-e89b-12d3-a456-426614174000');
         expect(callUrl).toContain('limit=30');
       });
 
@@ -211,7 +211,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({});
@@ -230,7 +230,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({});
@@ -243,48 +243,48 @@ describe('thread tools', () => {
 
   describe('thread_get tool', () => {
     describe('ThreadGetParamsSchema', () => {
-      it('should accept valid threadId', () => {
+      it('should accept valid thread_id', () => {
         const result = ThreadGetParamsSchema.safeParse({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
         });
         expect(result.success).toBe(true);
       });
 
-      it('should accept threadId with messageLimit', () => {
+      it('should accept thread_id with message_limit', () => {
         const result = ThreadGetParamsSchema.safeParse({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
-          messageLimit: 100,
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
+          message_limit: 100,
         });
         expect(result.success).toBe(true);
       });
 
-      it('should reject missing threadId', () => {
+      it('should reject missing thread_id', () => {
         const result = ThreadGetParamsSchema.safeParse({});
         expect(result.success).toBe(false);
       });
 
-      it('should use default messageLimit of 50', () => {
+      it('should use default message_limit of 50', () => {
         const result = ThreadGetParamsSchema.safeParse({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
         });
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.messageLimit).toBe(50);
+          expect(result.data.message_limit).toBe(50);
         }
       });
 
-      it('should reject messageLimit below 1', () => {
+      it('should reject message_limit below 1', () => {
         const result = ThreadGetParamsSchema.safeParse({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
-          messageLimit: 0,
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
+          message_limit: 0,
         });
         expect(result.success).toBe(false);
       });
 
-      it('should reject messageLimit above 200', () => {
+      it('should reject message_limit above 200', () => {
         const result = ThreadGetParamsSchema.safeParse({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
-          messageLimit: 201,
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
+          message_limit: 201,
         });
         expect(result.success).toBe(false);
       });
@@ -296,7 +296,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
         expect(tool.name).toBe('thread_get');
       });
@@ -306,7 +306,7 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
         expect(tool.description).toBeDefined();
         expect(tool.description.length).toBeGreaterThan(10);
@@ -321,30 +321,30 @@ describe('thread tools', () => {
             thread: {
               id: 'thread-1',
               channel: 'sms',
-              externalThreadKey: 'ext-1',
-              contact: { id: 'c-1', displayName: 'John Smith' },
-              createdAt: '2024-01-15T10:00:00Z',
-              updatedAt: '2024-01-15T10:31:00Z',
+              external_thread_key: 'ext-1',
+              contact: { id: 'c-1', display_name: 'John Smith' },
+              created_at: '2024-01-15T10:00:00Z',
+              updated_at: '2024-01-15T10:31:00Z',
             },
             messages: [
               {
                 id: 'msg-1',
                 direction: 'inbound',
                 body: 'Hello there',
-                receivedAt: '2024-01-15T10:30:00Z',
-                createdAt: '2024-01-15T10:30:00Z',
+                received_at: '2024-01-15T10:30:00Z',
+                created_at: '2024-01-15T10:30:00Z',
               },
               {
                 id: 'msg-2',
                 direction: 'outbound',
                 body: 'Hi! How can I help?',
-                receivedAt: '2024-01-15T10:31:00Z',
-                createdAt: '2024-01-15T10:31:00Z',
+                received_at: '2024-01-15T10:31:00Z',
+                created_at: '2024-01-15T10:31:00Z',
               },
             ],
-            relatedWorkItems: [],
-            contactMemories: [],
-            pagination: { hasMore: false },
+            related_work_items: [],
+            contact_memories: [],
+            pagination: { has_more: false },
           },
         });
 
@@ -352,11 +352,11 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
         });
 
         expect(result.success).toBe(true);
@@ -369,11 +369,11 @@ describe('thread tools', () => {
         vi.mocked(mockClient.get).mockResolvedValue({
           success: true,
           data: {
-            thread: { id: 'thread-1', channel: 'sms', externalThreadKey: 'ext-1', contact: { id: 'c-1', displayName: 'Test' }, createdAt: '2024-01-15T10:00:00Z', updatedAt: '2024-01-15T10:00:00Z' },
+            thread: { id: 'thread-1', channel: 'sms', external_thread_key: 'ext-1', contact: { id: 'c-1', display_name: 'Test' }, created_at: '2024-01-15T10:00:00Z', updated_at: '2024-01-15T10:00:00Z' },
             messages: [],
-            relatedWorkItems: [],
-            contactMemories: [],
-            pagination: { hasMore: false },
+            related_work_items: [],
+            contact_memories: [],
+            pagination: { has_more: false },
           },
         });
 
@@ -381,15 +381,15 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         await tool.execute({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
-          messageLimit: 75,
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
+          message_limit: 75,
         });
 
-        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads/123e4567-e89b-12d3-a456-426614174000/history'), { userId });
+        expect(mockClient.get).toHaveBeenCalledWith(expect.stringContaining('/api/threads/123e4567-e89b-12d3-a456-426614174000/history'), { user_id });
         const callUrl = (mockClient.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
         expect(callUrl).toContain('limit=75');
       });
@@ -408,27 +408,27 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
         });
 
         expect(result.success).toBe(false);
         expect(result.error).toBe('Thread not found');
       });
 
-      it('should validate threadId before fetching', async () => {
+      it('should validate thread_id before fetching', async () => {
         const tool = createThreadGetTool({
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({
-          threadId: '',
+          thread_id: '',
         });
 
         expect(result.success).toBe(false);
@@ -442,30 +442,30 @@ describe('thread tools', () => {
             thread: {
               id: 'thread-1',
               channel: 'sms',
-              externalThreadKey: 'ext-1',
-              contact: { id: 'c-1', displayName: 'John' },
-              createdAt: '2024-01-15T10:00:00Z',
-              updatedAt: '2024-01-15T10:31:00Z',
+              external_thread_key: 'ext-1',
+              contact: { id: 'c-1', display_name: 'John' },
+              created_at: '2024-01-15T10:00:00Z',
+              updated_at: '2024-01-15T10:31:00Z',
             },
             messages: [
               {
                 id: 'msg-1',
                 direction: 'inbound',
                 body: 'First message',
-                receivedAt: '2024-01-15T10:30:00Z',
-                createdAt: '2024-01-15T10:30:00Z',
+                received_at: '2024-01-15T10:30:00Z',
+                created_at: '2024-01-15T10:30:00Z',
               },
               {
                 id: 'msg-2',
                 direction: 'outbound',
                 body: 'Second message',
-                receivedAt: '2024-01-15T10:31:00Z',
-                createdAt: '2024-01-15T10:31:00Z',
+                received_at: '2024-01-15T10:31:00Z',
+                created_at: '2024-01-15T10:31:00Z',
               },
             ],
-            relatedWorkItems: [],
-            contactMemories: [],
-            pagination: { hasMore: false },
+            related_work_items: [],
+            contact_memories: [],
+            pagination: { has_more: false },
           },
         });
 
@@ -473,11 +473,11 @@ describe('thread tools', () => {
           client: mockClient,
           logger: mockLogger,
           config: mockConfig,
-          userId,
+          user_id,
         });
 
         const result = await tool.execute({
-          threadId: '123e4567-e89b-12d3-a456-426614174000',
+          thread_id: '123e4567-e89b-12d3-a456-426614174000',
         });
 
         expect(result.success).toBe(true);

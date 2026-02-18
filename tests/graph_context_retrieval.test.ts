@@ -53,29 +53,29 @@ describe('Graph-Aware Context Retrieval', () => {
   }
 
   /** Creates a contact and returns its ID. */
-  async function createContact(displayName: string): Promise<string> {
+  async function createContact(display_name: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO contact (display_name)
        VALUES ($1)
        RETURNING id::text as id`,
-      [displayName],
+      [display_name],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   /** Creates a contact endpoint (e.g., email). */
-  async function createEndpoint(contactId: string, endpointType: string, endpointValue: string): Promise<string> {
+  async function createEndpoint(contact_id: string, endpoint_type: string, endpoint_value: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, $2::contact_endpoint_type, $3, lower($3))
        RETURNING id::text as id`,
-      [contactId, endpointType, endpointValue],
+      [contact_id, endpoint_type, endpoint_value],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   /** Gets or creates a relationship type. */
-  async function getOrCreateRelationshipType(name: string, label: string, isDirectional: boolean = false): Promise<string> {
+  async function getOrCreateRelationshipType(name: string, label: string, is_directional: boolean = false): Promise<string> {
     const existing = await pool.query(`SELECT id::text as id FROM relationship_type WHERE name = $1`, [name]);
     if (existing.rows.length > 0) {
       return (existing.rows[0] as { id: string }).id;
@@ -85,18 +85,18 @@ describe('Graph-Aware Context Retrieval', () => {
       `INSERT INTO relationship_type (name, label, is_directional)
        VALUES ($1, $2, $3)
        RETURNING id::text as id`,
-      [name, label, isDirectional],
+      [name, label, is_directional],
     );
     return (result.rows[0] as { id: string }).id;
   }
 
   /** Creates a relationship between two contacts. */
-  async function createRelationship(contactAId: string, contactBId: string, relationshipTypeId: string): Promise<string> {
+  async function createRelationship(contact_a_id: string, contact_b_id: string, relationship_type_id: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO relationship (contact_a_id, contact_b_id, relationship_type_id)
        VALUES ($1, $2, $3)
        RETURNING id::text as id`,
-      [contactAId, contactBId, relationshipTypeId],
+      [contact_a_id, contact_b_id, relationship_type_id],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -105,14 +105,14 @@ describe('Graph-Aware Context Retrieval', () => {
   async function createMemory(opts: {
     title: string;
     content: string;
-    memoryType?: string;
-    userEmail?: string;
-    contactId?: string;
-    relationshipId?: string;
+    memory_type?: string;
+    user_email?: string;
+    contact_id?: string;
+    relationship_id?: string;
     importance?: number;
     confidence?: number;
-    expiresAt?: Date | null;
-    supersededBy?: string;
+    expires_at?: Date | null;
+    superseded_by?: string;
   }): Promise<string> {
     const result = await pool.query(
       `INSERT INTO memory (
@@ -122,16 +122,16 @@ describe('Graph-Aware Context Retrieval', () => {
       ) VALUES ($1, $2, $3, $4, $5, $6::memory_type, $7, $8, $9, $10)
       RETURNING id::text as id`,
       [
-        opts.userEmail ?? null,
-        opts.contactId ?? null,
-        opts.relationshipId ?? null,
+        opts.user_email ?? null,
+        opts.contact_id ?? null,
+        opts.relationship_id ?? null,
         opts.title,
         opts.content,
-        opts.memoryType ?? 'preference',
+        opts.memory_type ?? 'preference',
         opts.importance ?? 5,
         opts.confidence ?? 1.0,
-        opts.expiresAt ?? null,
-        opts.supersededBy ?? null,
+        opts.expires_at ?? null,
+        opts.superseded_by ?? null,
       ],
     );
     return (result.rows[0] as { id: string }).id;
@@ -145,10 +145,10 @@ describe('Graph-Aware Context Retrieval', () => {
       const scopes = await collectGraphScopes(pool, email);
 
       expect(scopes).toBeDefined();
-      expect(scopes.userEmail).toBe(email);
-      expect(scopes.contactIds).toEqual([]);
-      expect(scopes.relationshipIds).toEqual([]);
-      expect(scopes.scopeDetails).toEqual([{ scopeType: 'personal', scopeId: email, label: 'Personal' }]);
+      expect(scopes.user_email).toBe(email);
+      expect(scopes.contact_ids).toEqual([]);
+      expect(scopes.relationship_ids).toEqual([]);
+      expect(scopes.scope_details).toEqual([{ scope_type: 'personal', scope_id: email, label: 'Personal' }]);
     });
 
     it('should collect related contact IDs for direct relationships', async () => {
@@ -163,10 +163,10 @@ describe('Graph-Aware Context Retrieval', () => {
 
       const scopes = await collectGraphScopes(pool, email);
 
-      expect(scopes.userEmail).toBe(email);
-      expect(scopes.contactIds).toContain(partnerContactId);
-      expect(scopes.relationshipIds).toContain(relId);
-      expect(scopes.scopeDetails.length).toBeGreaterThan(1);
+      expect(scopes.user_email).toBe(email);
+      expect(scopes.contact_ids).toContain(partnerContactId);
+      expect(scopes.relationship_ids).toContain(relId);
+      expect(scopes.scope_details.length).toBeGreaterThan(1);
     });
 
     it('should collect group member contact IDs', async () => {
@@ -185,8 +185,8 @@ describe('Graph-Aware Context Retrieval', () => {
 
       const scopes = await collectGraphScopes(pool, email);
 
-      expect(scopes.contactIds).toContain(groupContactId);
-      expect(scopes.contactIds).toContain(memberContactId);
+      expect(scopes.contact_ids).toContain(groupContactId);
+      expect(scopes.contact_ids).toContain(memberContactId);
     });
 
     it('should respect configurable traversal depth', async () => {
@@ -203,14 +203,14 @@ describe('Graph-Aware Context Retrieval', () => {
       await createRelationship(friendContactId, fofContactId, friendTypeId);
 
       // Depth 1: only direct relationships
-      const scopesDepth1 = await collectGraphScopes(pool, email, { maxDepth: 1 });
-      expect(scopesDepth1.contactIds).toContain(friendContactId);
-      expect(scopesDepth1.contactIds).not.toContain(fofContactId);
+      const scopesDepth1 = await collectGraphScopes(pool, email, { max_depth: 1 });
+      expect(scopesDepth1.contact_ids).toContain(friendContactId);
+      expect(scopesDepth1.contact_ids).not.toContain(fofContactId);
 
       // Depth 0: no traversal
-      const scopesDepth0 = await collectGraphScopes(pool, email, { maxDepth: 0 });
-      expect(scopesDepth0.contactIds).toEqual([]);
-      expect(scopesDepth0.relationshipIds).toEqual([]);
+      const scopesDepth0 = await collectGraphScopes(pool, email, { max_depth: 0 });
+      expect(scopesDepth0.contact_ids).toEqual([]);
+      expect(scopesDepth0.relationship_ids).toEqual([]);
     });
 
     it('should include scope details with type attribution', async () => {
@@ -230,21 +230,21 @@ describe('Graph-Aware Context Retrieval', () => {
       const scopes = await collectGraphScopes(pool, email);
 
       // Personal scope
-      const personalScope = scopes.scopeDetails.find((s) => s.scopeType === 'personal');
+      const personalScope = scopes.scope_details.find((s) => s.scope_type === 'personal');
       expect(personalScope).toBeDefined();
 
       // Contact scope for partner
-      const contactScope = scopes.scopeDetails.find((s) => s.scopeType === 'contact' && s.scopeId === partnerContactId);
+      const contactScope = scopes.scope_details.find((s) => s.scope_type === 'contact' && s.scope_id === partnerContactId);
       expect(contactScope).toBeDefined();
       expect(contactScope?.label).toContain('Partner');
 
       // Group scope
-      const groupScope = scopes.scopeDetails.find((s) => s.scopeType === 'group' && s.scopeId === groupContactId);
+      const groupScope = scopes.scope_details.find((s) => s.scope_type === 'group' && s.scope_id === groupContactId);
       expect(groupScope).toBeDefined();
       expect(groupScope?.label).toContain(`Household-${tid}`);
 
       // Relationship scope
-      const relScope = scopes.scopeDetails.find((s) => s.scopeType === 'relationship' && s.scopeId === relId);
+      const relScope = scopes.scope_details.find((s) => s.scope_type === 'relationship' && s.scope_id === relId);
       expect(relScope).toBeDefined();
     });
   });
@@ -255,7 +255,7 @@ describe('Graph-Aware Context Retrieval', () => {
     it('should return structured result with metadata', async () => {
       const email = `struct-${testId()}@test.com`;
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: 'What are my preferences?',
       });
 
@@ -265,10 +265,10 @@ describe('Graph-Aware Context Retrieval', () => {
       expect(result).toHaveProperty('scopes');
       expect(result).toHaveProperty('metadata');
       expect(Array.isArray(result.memories)).toBe(true);
-      expect(result.metadata).toHaveProperty('queryTimeMs');
-      expect(typeof result.metadata.queryTimeMs).toBe('number');
-      expect(result.metadata).toHaveProperty('scopeCount');
-      expect(result.metadata).toHaveProperty('searchType');
+      expect(result.metadata).toHaveProperty('query_time_ms');
+      expect(typeof result.metadata.query_time_ms).toBe('number');
+      expect(result.metadata).toHaveProperty('scope_count');
+      expect(result.metadata).toHaveProperty('search_type');
     });
 
     it('should surface personal memories for the user', async () => {
@@ -278,18 +278,18 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Prefers dark mode ${tid}`,
         content: `User prefers dark mode across all applications ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 8,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `dark mode ${tid}`,
       });
 
       expect(result.memories.length).toBeGreaterThan(0);
-      const personalMemory = result.memories.find((m) => m.scopeType === 'personal');
+      const personalMemory = result.memories.find((m) => m.scope_type === 'personal');
       expect(personalMemory).toBeDefined();
       expect(personalMemory?.title).toContain('dark mode');
     });
@@ -308,8 +308,8 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `User prefers tea ${tid}`,
         content: `User prefers tea over coffee ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 7,
       });
 
@@ -317,22 +317,22 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Partner prefers coffee ${tid}`,
         content: `Partner prefers coffee especially lattes ${tid}`,
-        contactId: partnerContactId,
-        memoryType: 'preference',
+        contact_id: partnerContactId,
+        memory_type: 'preference',
         importance: 6,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `prefers coffee ${tid}`,
       });
 
       expect(result.memories.length).toBeGreaterThanOrEqual(2);
 
-      const personalMem = result.memories.find((m) => m.scopeType === 'personal');
+      const personalMem = result.memories.find((m) => m.scope_type === 'personal');
       expect(personalMem).toBeDefined();
 
-      const contactMem = result.memories.find((m) => m.scopeType === 'contact');
+      const contactMem = result.memories.find((m) => m.scope_type === 'contact');
       expect(contactMem).toBeDefined();
     });
 
@@ -349,20 +349,20 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Dinner at 6pm ${tid}`,
         content: `The household always has dinner at 6pm ${tid}`,
-        contactId: groupContactId,
-        memoryType: 'preference',
+        contact_id: groupContactId,
+        memory_type: 'preference',
         importance: 7,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `dinner household ${tid}`,
       });
 
       expect(result.memories.length).toBeGreaterThanOrEqual(1);
-      const groupMem = result.memories.find((m) => m.scopeType === 'group');
+      const groupMem = result.memories.find((m) => m.scope_type === 'group');
       expect(groupMem).toBeDefined();
-      expect(groupMem?.scopeLabel).toContain(`Household-${tid}`);
+      expect(groupMem?.scope_label).toContain(`Household-${tid}`);
     });
 
     it('should surface memories scoped to relationships', async () => {
@@ -378,18 +378,18 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Anniversary March 15 ${tid}`,
         content: `Wedding anniversary is on March 15th ${tid}`,
-        relationshipId: relId,
-        memoryType: 'fact',
+        relationship_id: relId,
+        memory_type: 'fact',
         importance: 9,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `anniversary ${tid}`,
       });
 
       expect(result.memories.length).toBeGreaterThanOrEqual(1);
-      const relMem = result.memories.find((m) => m.scopeType === 'relationship');
+      const relMem = result.memories.find((m) => m.scope_type === 'relationship');
       expect(relMem).toBeDefined();
     });
 
@@ -400,22 +400,22 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Valid pref ${tid}`,
         content: `Valid preference ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 8,
       });
 
       await createMemory({
         title: `Expired pref ${tid}`,
         content: `Expired preference ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 8,
-        expiresAt: new Date('2020-01-01'),
+        expires_at: new Date('2020-01-01'),
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `preference ${tid}`,
       });
 
@@ -430,23 +430,23 @@ describe('Graph-Aware Context Retrieval', () => {
       const oldMemId = await createMemory({
         title: `Old pref ${tid}`,
         content: `Old preference ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 8,
       });
 
       const newMemId = await createMemory({
         title: `New pref ${tid}`,
         content: `New preference replaces old ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 8,
       });
 
       await pool.query('UPDATE memory SET superseded_by = $1 WHERE id = $2', [newMemId, oldMemId]);
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `preference ${tid}`,
       });
 
@@ -461,8 +461,8 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `High importance food ${tid}`,
         content: `Strongly prefers vegetarian food ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 10,
         confidence: 1.0,
       });
@@ -470,23 +470,23 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Low importance food ${tid}`,
         content: `Mentioned liking pizza once ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 2,
         confidence: 0.5,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `food ${tid}`,
       });
 
       if (result.memories.length >= 2) {
-        expect(result.memories[0].combinedRelevance).toBeGreaterThanOrEqual(result.memories[1].combinedRelevance);
+        expect(result.memories[0].combined_relevance).toBeGreaterThanOrEqual(result.memories[1].combined_relevance);
       }
     });
 
-    it('should respect maxMemories option', async () => {
+    it('should respect max_memories option', async () => {
       const tid = testId();
       const email = `limit-${tid}@test.com`;
 
@@ -494,16 +494,16 @@ describe('Graph-Aware Context Retrieval', () => {
         await createMemory({
           title: `Pref ${i} ${tid}`,
           content: `Food preference number ${i} ${tid}`,
-          userEmail: email,
-          memoryType: 'preference',
+          user_email: email,
+          memory_type: 'preference',
           importance: 5,
         });
       }
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `food preference ${tid}`,
-        maxMemories: 3,
+        max_memories: 3,
       });
 
       expect(result.memories.length).toBeLessThanOrEqual(3);
@@ -516,19 +516,19 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `Dark mode pref ${tid}`,
         content: `User prefers dark mode ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 5,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `dark mode ${tid}`,
       });
 
       expect(result).toBeDefined();
       expect(result.memories.length).toBeGreaterThanOrEqual(1);
-      expect(result.scopes.userEmail).toBe(email);
+      expect(result.scopes.user_email).toBe(email);
     });
 
     it('should include scope count in metadata', async () => {
@@ -542,12 +542,12 @@ describe('Graph-Aware Context Retrieval', () => {
       await createRelationship(userContactId, partnerContactId, partnerTypeId);
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: 'test',
       });
 
       // At least 2 scopes: personal + partner contact + relationship
-      expect(result.metadata.scopeCount).toBeGreaterThanOrEqual(2);
+      expect(result.metadata.scope_count).toBeGreaterThanOrEqual(2);
     });
 
     it('should build context string with scope attribution', async () => {
@@ -563,21 +563,21 @@ describe('Graph-Aware Context Retrieval', () => {
       await createMemory({
         title: `User likes cats ${tid}`,
         content: `User loves cats and has two ${tid}`,
-        userEmail: email,
-        memoryType: 'preference',
+        user_email: email,
+        memory_type: 'preference',
         importance: 7,
       });
 
       await createMemory({
         title: `Alex likes dogs ${tid}`,
         content: `Alex prefers dogs and has a labrador ${tid}`,
-        contactId: partnerContactId,
-        memoryType: 'preference',
+        contact_id: partnerContactId,
+        memory_type: 'preference',
         importance: 6,
       });
 
       const result = await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: `pet cats dogs ${tid}`,
       });
 
@@ -592,7 +592,7 @@ describe('Graph-Aware Context Retrieval', () => {
       const start = Date.now();
 
       await retrieveGraphAwareContext(pool, {
-        userEmail: email,
+        user_email: email,
         prompt: 'test query for latency check',
       });
 

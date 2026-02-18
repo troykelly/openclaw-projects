@@ -95,15 +95,15 @@ describe('JWT auth endpoints', () => {
   // ── POST /api/auth/consume ─────────────────────────────────────────
 
   describe('POST /api/auth/consume', () => {
-    it('consumes magic link and returns accessToken + refresh cookie', async () => {
+    it('consumes magic link and returns access_token + refresh cookie', async () => {
       const token = await createMagicLinkToken('jwt-consume@example.com');
       const res = await consumeMagicLink(token);
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { accessToken?: string };
-      expect(body.accessToken).toBeTruthy();
+      const body = res.json() as { access_token?: string };
+      expect(body.access_token).toBeTruthy();
       // JWT format: header.payload.signature
-      expect(body.accessToken!.split('.')).toHaveLength(3);
+      expect(body.access_token!.split('.')).toHaveLength(3);
 
       // Should set refresh cookie
       const cookie = extractRefreshCookie(res.headers);
@@ -167,7 +167,7 @@ describe('JWT auth endpoints', () => {
   // ── POST /api/auth/refresh ─────────────────────────────────────────
 
   describe('POST /api/auth/refresh', () => {
-    it('rotates refresh token and returns new accessToken', async () => {
+    it('rotates refresh token and returns new access_token', async () => {
       const oldCookie = await getRefreshCookie('jwt-refresh@example.com');
 
       // Refresh
@@ -180,9 +180,9 @@ describe('JWT auth endpoints', () => {
       });
 
       expect(refreshRes.statusCode).toBe(200);
-      const body = refreshRes.json() as { accessToken?: string };
-      expect(body.accessToken).toBeTruthy();
-      expect(body.accessToken!.split('.')).toHaveLength(3);
+      const body = refreshRes.json() as { access_token?: string };
+      expect(body.access_token).toBeTruthy();
+      expect(body.access_token!.split('.')).toHaveLength(3);
 
       // Should set a NEW refresh cookie (rotation)
       const newCookie = extractRefreshCookie(refreshRes.headers);
@@ -320,7 +320,7 @@ describe('JWT auth endpoints', () => {
       return code;
     }
 
-    it('exchanges valid code for accessToken + refresh cookie', async () => {
+    it('exchanges valid code for access_token + refresh cookie', async () => {
       const code = await createOneTimeCode('jwt-exchange@example.com');
 
       const res = await app.inject({
@@ -330,9 +330,9 @@ describe('JWT auth endpoints', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { accessToken?: string };
-      expect(body.accessToken).toBeTruthy();
-      expect(body.accessToken!.split('.')).toHaveLength(3);
+      const body = res.json() as { access_token?: string };
+      expect(body.access_token).toBeTruthy();
+      expect(body.access_token!.split('.')).toHaveLength(3);
 
       const cookie = extractRefreshCookie(res.headers);
       expect(cookie).toBeTruthy();
@@ -412,11 +412,11 @@ describe('JWT auth endpoints', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      const body = res.json() as { loginUrl?: string };
-      expect(body.loginUrl).toBeTruthy();
+      const body = res.json() as { login_url?: string };
+      expect(body.login_url).toBeTruthy();
 
       // URL should point to /app/auth/consume (SPA route), not /api/auth/consume
-      const url = new URL(body.loginUrl!);
+      const url = new URL(body.login_url!);
       expect(url.pathname).toBe('/app/auth/consume');
       expect(url.searchParams.get('token')).toBeTruthy();
     });

@@ -110,13 +110,13 @@ describe('Query Key Factories', () => {
   it('notificationKeys should produce correct key arrays', () => {
     expect(notificationKeys.all).toEqual(['notifications']);
     expect(notificationKeys.list()).toEqual(['notifications', 'list']);
-    expect(notificationKeys.unreadCount()).toEqual(['notifications', 'unread-count']);
+    expect(notificationKeys.unread_count()).toEqual(['notifications', 'unread-count']);
   });
 
   it('noteKeys should produce correct key arrays', () => {
     expect(noteKeys.all).toEqual(['notes']);
     expect(noteKeys.lists()).toEqual(['notes', 'list']);
-    expect(noteKeys.list({ notebookId: 'nb-1' })).toEqual(['notes', 'list', { notebookId: 'nb-1' }]);
+    expect(noteKeys.list({ notebook_id: 'nb-1' })).toEqual(['notes', 'list', { notebook_id: 'nb-1' }]);
     expect(noteKeys.details()).toEqual(['notes', 'detail']);
     expect(noteKeys.detail('note-1')).toEqual(['notes', 'detail', 'note-1']);
     expect(noteKeys.versions('note-1')).toEqual(['notes', 'versions', 'note-1']);
@@ -129,7 +129,7 @@ describe('Query Key Factories', () => {
   it('notebookKeys should produce correct key arrays', () => {
     expect(notebookKeys.all).toEqual(['notebooks']);
     expect(notebookKeys.lists()).toEqual(['notebooks', 'list']);
-    expect(notebookKeys.list({ parentId: 'parent-1' })).toEqual(['notebooks', 'list', { parentId: 'parent-1' }]);
+    expect(notebookKeys.list({ parent_id: 'parent-1' })).toEqual(['notebooks', 'list', { parent_id: 'parent-1' }]);
     expect(notebookKeys.details()).toEqual(['notebooks', 'detail']);
     expect(notebookKeys.detail('nb-1')).toEqual(['notebooks', 'detail', 'nb-1']);
     expect(notebookKeys.tree()).toEqual(['notebooks', 'tree']);
@@ -313,7 +313,7 @@ describe('useWorkItemMemories', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/work-items/wi-1/memories', expect.any(Object));
   });
 
-  it('should not fetch when workItemId is empty', async () => {
+  it('should not fetch when work_item_id is empty', async () => {
     mockFetchResponse({});
 
     const { Wrapper } = createWrapper();
@@ -396,15 +396,15 @@ describe('useNotes', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/notes?user_email=test%40example.com', expect.any(Object));
   });
 
-  it('should append notebookId to query string', async () => {
+  it('should append notebook_id to query string', async () => {
     const data = { notes: [], total: 0 };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
-    renderHook(() => useNotes({ notebookId: 'nb-123' }), { wrapper: Wrapper });
+    renderHook(() => useNotes({ notebook_id: 'nb-123' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notes?user_email=test%40example.com&notebookId=nb-123', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notes?user_email=test%40example.com&notebook_id=nb-123', expect.any(Object));
     });
   });
 
@@ -663,15 +663,15 @@ describe('useNotebooks', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks?user_email=test%40example.com', expect.any(Object));
   });
 
-  it('should append parentId to query string', async () => {
+  it('should append parent_id to query string', async () => {
     const data = { notebooks: [], total: 0 };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();
-    renderHook(() => useNotebooks({ parentId: 'parent-1' }), { wrapper: Wrapper });
+    renderHook(() => useNotebooks({ parent_id: 'parent-1' }), { wrapper: Wrapper });
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks?user_email=test%40example.com&parentId=parent-1', expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/notebooks?user_email=test%40example.com&parent_id=parent-1', expect.any(Object));
     });
   });
 
@@ -777,7 +777,7 @@ describe('useNotebookShares', () => {
   });
 
   it('should fetch shares for a notebook', async () => {
-    const data = { notebookId: 'nb-1', shares: [] };
+    const data = { notebook_id: 'nb-1', shares: [] };
     mockFetchResponse(data);
 
     const { Wrapper } = createWrapper();

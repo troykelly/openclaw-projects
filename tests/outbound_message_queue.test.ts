@@ -98,7 +98,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
   });
 
   describe('Status transition validation', () => {
-    let threadId: string;
+    let thread_id: string;
 
     beforeEach(async () => {
       // Create prerequisite data for status tests
@@ -113,7 +113,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
          VALUES ($1, 'phone', 'status-test-thread') RETURNING id`,
         [endpoint.rows[0].id],
       );
-      threadId = thread.rows[0].id;
+      thread_id = thread.rows[0].id;
     });
 
     it('allows valid forward transitions (pending -> queued -> sending -> sent -> delivered)', async () => {
@@ -121,7 +121,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, delivery_status)
          VALUES ($1, 'status-msg-1', 'outbound', 'Test', 'pending')
          RETURNING id`,
-        [threadId],
+        [thread_id],
       );
       const msgId = msg.rows[0].id;
 
@@ -146,7 +146,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, delivery_status)
          VALUES ($1, 'status-msg-2', 'outbound', 'Test', 'sending')
          RETURNING id`,
-        [threadId],
+        [thread_id],
       );
       const msgId = msg.rows[0].id;
 
@@ -162,7 +162,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, delivery_status)
          VALUES ($1, 'status-msg-3', 'outbound', 'Test', 'delivered')
          RETURNING id`,
-        [threadId],
+        [thread_id],
       );
       const msgId = msg.rows[0].id;
 
@@ -177,7 +177,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, delivery_status)
          VALUES ($1, 'status-msg-4', 'outbound', 'Test', 'failed')
          RETURNING id`,
-        [threadId],
+        [thread_id],
       );
       const msgId = msg.rows[0].id;
 
@@ -192,7 +192,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, delivery_status)
          VALUES ($1, 'status-msg-5', 'outbound', 'Test', 'pending')
          RETURNING id, status_updated_at`,
-        [threadId],
+        [thread_id],
       );
       const msgId = msg.rows[0].id;
       const initialTimestamp = msg.rows[0].status_updated_at;
@@ -209,20 +209,20 @@ describe('Outbound message queue infrastructure (#290)', () => {
 
   describe('Message sending job types', () => {
     it('can enqueue message.send.sms job with idempotency', async () => {
-      const messageId = '550e8400-e29b-41d4-a716-446655440000';
-      const idempotencyKey = `sms:${messageId}`;
+      const message_id = '550e8400-e29b-41d4-a716-446655440000';
+      const idempotency_key = `sms:${message_id}`;
 
       // Enqueue twice - second should be no-op
       const first = await pool.query(`SELECT internal_job_enqueue($1, now(), $2, $3) as id`, [
         'message.send.sms',
-        JSON.stringify({ message_id: messageId, to: '+15551234567' }),
-        idempotencyKey,
+        JSON.stringify({ message_id: message_id, to: '+15551234567' }),
+        idempotency_key,
       ]);
 
       const second = await pool.query(`SELECT internal_job_enqueue($1, now(), $2, $3) as id`, [
         'message.send.sms',
-        JSON.stringify({ message_id: messageId, to: '+15551234567' }),
-        idempotencyKey,
+        JSON.stringify({ message_id: message_id, to: '+15551234567' }),
+        idempotency_key,
       ]);
 
       expect(first.rows[0].id).not.toBeNull();
@@ -234,20 +234,20 @@ describe('Outbound message queue infrastructure (#290)', () => {
     });
 
     it('can enqueue message.send.email job with idempotency', async () => {
-      const messageId = '550e8400-e29b-41d4-a716-446655440001';
-      const idempotencyKey = `email:${messageId}`;
+      const message_id = '550e8400-e29b-41d4-a716-446655440001';
+      const idempotency_key = `email:${message_id}`;
 
       // Enqueue twice - second should be no-op
       const first = await pool.query(`SELECT internal_job_enqueue($1, now(), $2, $3) as id`, [
         'message.send.email',
-        JSON.stringify({ message_id: messageId, to: 'test@example.com' }),
-        idempotencyKey,
+        JSON.stringify({ message_id: message_id, to: 'test@example.com' }),
+        idempotency_key,
       ]);
 
       const second = await pool.query(`SELECT internal_job_enqueue($1, now(), $2, $3) as id`, [
         'message.send.email',
-        JSON.stringify({ message_id: messageId, to: 'test@example.com' }),
-        idempotencyKey,
+        JSON.stringify({ message_id: message_id, to: 'test@example.com' }),
+        idempotency_key,
       ]);
 
       expect(first.rows[0].id).not.toBeNull();
@@ -271,12 +271,12 @@ describe('Outbound message queue infrastructure (#290)', () => {
     });
 
     it('message jobs can be claimed and completed', async () => {
-      const messageId = '550e8400-e29b-41d4-a716-446655440004';
+      const message_id = '550e8400-e29b-41d4-a716-446655440004';
 
       await pool.query(`SELECT internal_job_enqueue($1, now(), $2, $3)`, [
         'message.send.sms',
-        JSON.stringify({ message_id: messageId, to: '+15557654321' }),
-        `sms:${messageId}`,
+        JSON.stringify({ message_id: message_id, to: '+15557654321' }),
+        `sms:${message_id}`,
       ]);
 
       // Claim the job
@@ -285,7 +285,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
       expect(claimed.rows[0].kind).toBe('message.send.sms');
 
       const payload = claimed.rows[0].payload;
-      expect(payload.message_id).toBe(messageId);
+      expect(payload.message_id).toBe(message_id);
       expect(payload.to).toBe('+15557654321');
 
       // Complete the job
@@ -298,7 +298,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
   });
 
   describe('Provider message ID handling', () => {
-    let threadId: string;
+    let thread_id: string;
 
     beforeEach(async () => {
       const contact = await pool.query(`INSERT INTO contact (display_name) VALUES ('Provider Test') RETURNING id`);
@@ -312,7 +312,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
          VALUES ($1, 'phone', 'provider-test-thread') RETURNING id`,
         [endpoint.rows[0].id],
       );
-      threadId = thread.rows[0].id;
+      thread_id = thread.rows[0].id;
     });
 
     it('can store Twilio MessageSid as provider_message_id', async () => {
@@ -322,7 +322,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, provider_message_id)
          VALUES ($1, 'twilio-msg', 'outbound', 'Hello', $2)
          RETURNING provider_message_id`,
-        [threadId, twilioSid],
+        [thread_id, twilioSid],
       );
 
       expect(msg.rows[0].provider_message_id).toBe(twilioSid);
@@ -335,7 +335,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, provider_message_id)
          VALUES ($1, 'postmark-msg', 'outbound', 'Hello', $2)
          RETURNING provider_message_id`,
-        [threadId, postmarkId],
+        [thread_id, postmarkId],
       );
 
       expect(msg.rows[0].provider_message_id).toBe(postmarkId);
@@ -355,7 +355,7 @@ describe('Outbound message queue infrastructure (#290)', () => {
         `INSERT INTO external_message (thread_id, external_message_key, direction, body, provider_status_raw)
          VALUES ($1, 'raw-status-msg', 'outbound', 'Hello', $2)
          RETURNING provider_status_raw`,
-        [threadId, JSON.stringify(rawStatus)],
+        [thread_id, JSON.stringify(rawStatus)],
       );
 
       expect(msg.rows[0].provider_status_raw).toEqual(rawStatus);

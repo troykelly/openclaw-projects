@@ -82,10 +82,10 @@ export function useFilterState(
   initialFilters: FilterState = {},
   options: {
     persistToUrl?: boolean;
-    storageKey?: string;
+    storage_key?: string;
   } = {},
 ) {
-  const { persistToUrl = true, storageKey } = options;
+  const { persistToUrl = true, storage_key } = options;
 
   // Initialize from URL if available
   const [filters, setFiltersInternal] = useState<FilterState>(() => {
@@ -157,7 +157,7 @@ export function useFilterState(
         id: crypto.randomUUID(),
         name,
         filters: filtersToSave || filters,
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       };
       setSavedFiltersInternal((prev) => [...prev, newFilter]);
       return newFilter;

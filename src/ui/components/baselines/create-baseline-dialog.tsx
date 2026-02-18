@@ -13,7 +13,7 @@ import { Textarea } from '@/ui/components/ui/textarea';
 export interface CreateBaselineDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projectId: string;
+  project_id: string;
   projectTitle: string;
   onCreateBaseline: (data: { name: string; description?: string }) => void;
 }
@@ -28,7 +28,7 @@ function getDefaultBaselineName(): string {
   return `Baseline - ${now.toLocaleDateString('en-US', options)}`;
 }
 
-export function CreateBaselineDialog({ open, onOpenChange, projectId, projectTitle, onCreateBaseline }: CreateBaselineDialogProps) {
+export function CreateBaselineDialog({ open, onOpenChange, project_id, projectTitle, onCreateBaseline }: CreateBaselineDialogProps) {
   const defaultName = React.useMemo(() => getDefaultBaselineName(), []);
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');

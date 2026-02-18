@@ -149,7 +149,7 @@ export interface SkillStoreToolOptions {
   client: ApiClient;
   logger: Logger;
   config?: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition interface */
@@ -171,7 +171,7 @@ function mayContainCredentials(text: string): boolean {
  * Create the skill_store_put tool.
  */
 export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_put',
@@ -207,7 +207,7 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
       for (const text of textFields) {
         if (mayContainCredentials(text)) {
           logger.warn('Potential credential detected in skill_store_put', {
-            userId,
+            user_id,
             skillId: validated.skill_id,
             textLength: text.length,
           });
@@ -235,7 +235,7 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
       if (validated.user_email) payload.user_email = validated.user_email;
 
       logger.info('skill_store_put invoked', {
-        userId,
+        user_id,
         skillId: validated.skill_id,
         collection: validated.collection,
         key: validated.key,
@@ -243,11 +243,11 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
       });
 
       try {
-        const response = await client.post<SkillStoreItem>('/api/skill-store/items', payload, { userId });
+        const response = await client.post<SkillStoreItem>('/api/skill-store/items', payload, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_put API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -272,13 +272,13 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
               collection: item.collection,
               key: item.key,
               status: item.status,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('skill_store_put failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -291,7 +291,7 @@ export function createSkillStorePutTool(options: SkillStoreToolOptions): SkillSt
  * Create the skill_store_get tool.
  */
 export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_get',
@@ -316,7 +316,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
       }
 
       logger.info('skill_store_get invoked', {
-        userId,
+        user_id,
         id: validated.id,
         skillId: validated.skill_id,
         key: validated.key,
@@ -326,7 +326,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
         let response: ApiResponse<SkillStoreItem>;
 
         if (validated.id) {
-          response = await client.get<SkillStoreItem>(`/api/skill-store/items/${validated.id}`, { userId });
+          response = await client.get<SkillStoreItem>(`/api/skill-store/items/${validated.id}`, { user_id });
         } else {
           // Guard above ensures skill_id and key are defined when id is absent
           const skillId = validated.skill_id as string;
@@ -338,7 +338,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
           if (validated.collection) {
             queryParams.set('collection', validated.collection);
           }
-          response = await client.get<SkillStoreItem>(`/api/skill-store/items/by-key?${queryParams}`, { userId });
+          response = await client.get<SkillStoreItem>(`/api/skill-store/items/by-key?${queryParams}`, { user_id });
         }
 
         if (!response.success) {
@@ -368,12 +368,12 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
           success: true,
           data: {
             content: lines.join('\n'),
-            details: { item, userId },
+            details: { item, user_id },
           },
         };
       } catch (error) {
         logger.error('skill_store_get failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -386,7 +386,7 @@ export function createSkillStoreGetTool(options: SkillStoreToolOptions): SkillSt
  * Create the skill_store_list tool.
  */
 export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_list',
@@ -404,7 +404,7 @@ export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillS
       const validated = parseResult.data;
 
       logger.info('skill_store_list invoked', {
-        userId,
+        user_id,
         skillId: validated.skill_id,
         collection: validated.collection,
         limit: validated.limit,
@@ -428,7 +428,7 @@ export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillS
           items: SkillStoreItem[];
           total: number;
           has_more: boolean;
-        }>(`/api/skill-store/items?${queryParams}`, { userId });
+        }>(`/api/skill-store/items?${queryParams}`, { user_id });
 
         if (!response.success) {
           return {
@@ -456,12 +456,12 @@ export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillS
           success: true,
           data: {
             content: `${summary}\n${content}`,
-            details: { items, total, has_more, userId },
+            details: { items, total, has_more, user_id },
           },
         };
       } catch (error) {
         logger.error('skill_store_list failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -474,7 +474,7 @@ export function createSkillStoreListTool(options: SkillStoreToolOptions): SkillS
  * Create the skill_store_delete tool.
  */
 export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_delete',
@@ -499,7 +499,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
       }
 
       logger.info('skill_store_delete invoked', {
-        userId,
+        user_id,
         id: validated.id,
         skillId: validated.skill_id,
         key: validated.key,
@@ -508,7 +508,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
       try {
         if (validated.id) {
           // Delete by ID
-          const response = await client.delete(`/api/skill-store/items/${validated.id}`, { userId });
+          const response = await client.delete(`/api/skill-store/items/${validated.id}`, { user_id });
 
           if (!response.success) {
             if (response.error.status === 404) {
@@ -524,7 +524,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
             success: true,
             data: {
               content: `Deleted item ${validated.id}`,
-              details: { id: validated.id, userId },
+              details: { id: validated.id, user_id },
             },
           };
         }
@@ -541,7 +541,7 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
           queryParams.set('collection', validated.collection);
         }
 
-        const getResponse = await client.get<SkillStoreItem>(`/api/skill-store/items/by-key?${queryParams}`, { userId });
+        const getResponse = await client.get<SkillStoreItem>(`/api/skill-store/items/by-key?${queryParams}`, { user_id });
 
         if (!getResponse.success) {
           if (getResponse.error.status === 404) {
@@ -553,9 +553,9 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
           };
         }
 
-        const itemId = getResponse.data.id;
+        const item_id = getResponse.data.id;
 
-        const deleteResponse = await client.delete(`/api/skill-store/items/${itemId}`, { userId });
+        const deleteResponse = await client.delete(`/api/skill-store/items/${item_id}`, { user_id });
 
         if (!deleteResponse.success) {
           return {
@@ -567,19 +567,19 @@ export function createSkillStoreDeleteTool(options: SkillStoreToolOptions): Skil
         return {
           success: true,
           data: {
-            content: `Deleted item ${validated.key} from ${validated.collection || '_default'} (ID: ${itemId})`,
+            content: `Deleted item ${validated.key} from ${validated.collection || '_default'} (ID: ${item_id})`,
             details: {
-              id: itemId,
+              id: item_id,
               skill_id: validated.skill_id,
               collection: validated.collection,
               key: validated.key,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('skill_store_delete failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -739,7 +739,7 @@ function formatAggregateResult(operation: string, result: Record<string, unknown
  * Create the skill_store_search tool.
  */
 export function createSkillStoreSearchTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_search',
@@ -759,7 +759,7 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
       const validated = parseResult.data;
 
       logger.info('skill_store_search invoked', {
-        userId,
+        user_id,
         skillId: validated.skill_id,
         queryLength: validated.query.length,
         semantic: !!validated.semantic,
@@ -782,11 +782,11 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
         if (useSemantic) {
           if (validated.min_similarity !== undefined) body.min_similarity = validated.min_similarity;
 
-          const response = await client.post<SemanticSearchApiResponse>('/api/skill-store/search/semantic', body, { userId });
+          const response = await client.post<SemanticSearchApiResponse>('/api/skill-store/search/semantic', body, { user_id });
 
           if (!response.success) {
             logger.error('skill_store_search semantic API error', {
-              userId,
+              user_id,
               status: response.error.status,
               code: response.error.code,
             });
@@ -808,18 +808,18 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
                 results,
                 search_type,
                 query_embedding_provider,
-                userId,
+                user_id,
               },
             },
           };
         }
 
         // Full-text search
-        const response = await client.post<FullTextSearchApiResponse>('/api/skill-store/search', body, { userId });
+        const response = await client.post<FullTextSearchApiResponse>('/api/skill-store/search', body, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -837,12 +837,12 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
           success: true,
           data: {
             content,
-            details: { results, total, userId },
+            details: { results, total, user_id },
           },
         };
       } catch (error) {
         logger.error('skill_store_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -855,7 +855,7 @@ export function createSkillStoreSearchTool(options: SkillStoreToolOptions): Skil
  * Create the skill_store_collections tool.
  */
 export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_collections',
@@ -873,7 +873,7 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
       const validated = parseResult.data;
 
       logger.info('skill_store_collections invoked', {
-        userId,
+        user_id,
         skillId: validated.skill_id,
       });
 
@@ -885,11 +885,11 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
           queryParams.set('user_email', validated.user_email);
         }
 
-        const response = await client.get<CollectionsApiResponse>(`/api/skill-store/collections?${queryParams}`, { userId });
+        const response = await client.get<CollectionsApiResponse>(`/api/skill-store/collections?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_collections API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -906,7 +906,7 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
             success: true,
             data: {
               content: 'No collections found for this skill.',
-              details: { collections: [], userId },
+              details: { collections: [], user_id },
             },
           };
         }
@@ -919,12 +919,12 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
           success: true,
           data: {
             content: `${collections.length} collection${collections.length !== 1 ? 's' : ''} (${totalItems} total items)\n${content}`,
-            details: { collections, userId },
+            details: { collections, user_id },
           },
         };
       } catch (error) {
         logger.error('skill_store_collections failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -937,7 +937,7 @@ export function createSkillStoreCollectionsTool(options: SkillStoreToolOptions):
  * Create the skill_store_aggregate tool.
  */
 export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): SkillStoreTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'skill_store_aggregate',
@@ -957,7 +957,7 @@ export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): S
       const validated = parseResult.data;
 
       logger.info('skill_store_aggregate invoked', {
-        userId,
+        user_id,
         skillId: validated.skill_id,
         operation: validated.operation,
         collection: validated.collection,
@@ -973,11 +973,11 @@ export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): S
         if (validated.until) queryParams.set('until', validated.until);
         if (validated.user_email) queryParams.set('user_email', validated.user_email);
 
-        const response = await client.get<AggregateApiResponse>(`/api/skill-store/aggregate?${queryParams}`, { userId });
+        const response = await client.get<AggregateApiResponse>(`/api/skill-store/aggregate?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('skill_store_aggregate API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -994,12 +994,12 @@ export function createSkillStoreAggregateTool(options: SkillStoreToolOptions): S
           success: true,
           data: {
             content,
-            details: { result, operation: validated.operation, userId },
+            details: { result, operation: validated.operation, user_id },
           },
         };
       } catch (error) {
         logger.error('skill_store_aggregate failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };

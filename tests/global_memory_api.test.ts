@@ -48,10 +48,10 @@ describe('Global Memory API (issue #120)', () => {
       });
       expect(res.statusCode).toBe(200);
 
-      const body = res.json() as { items: unknown[]; total: number; hasMore: boolean };
+      const body = res.json() as { items: unknown[]; total: number; has_more: boolean };
       expect(body.items).toEqual([]);
       expect(body.total).toBe(0);
-      expect(body.hasMore).toBe(false);
+      expect(body.has_more).toBe(false);
     });
 
     it('returns all memories with linked work item info', async () => {
@@ -79,24 +79,24 @@ describe('Global Memory API (issue #120)', () => {
           title: string;
           content: string;
           type: string;
-          linkedItemId: string;
-          linkedItemTitle: string;
-          linkedItemKind: string;
-          createdAt: string;
-          updatedAt: string;
+          linked_item_id: string;
+          linked_item_title: string;
+          linked_item_kind: string;
+          created_at: string;
+          updated_at: string;
         }>;
         total: number;
-        hasMore: boolean;
+        has_more: boolean;
       };
       expect(body.items.length).toBe(2);
       expect(body.total).toBe(2);
-      expect(body.hasMore).toBe(false);
+      expect(body.has_more).toBe(false);
 
       // Check that linked work item info is included
       const mem1 = body.items.find((m) => m.title === 'Memory 1');
-      expect(mem1?.linkedItemTitle).toBe('Project Alpha');
-      expect(mem1?.linkedItemKind).toBe('project');
-      expect(mem1?.linkedItemId).toBe(workItemId1);
+      expect(mem1?.linked_item_title).toBe('Project Alpha');
+      expect(mem1?.linked_item_kind).toBe('project');
+      expect(mem1?.linked_item_id).toBe(workItemId1);
     });
 
     it('supports pagination with limit and offset', async () => {
@@ -115,28 +115,28 @@ describe('Global Memory API (issue #120)', () => {
         url: '/api/memory?limit=2&offset=0',
       });
       expect(page1.statusCode).toBe(200);
-      const body1 = page1.json() as { items: unknown[]; total: number; hasMore: boolean };
+      const body1 = page1.json() as { items: unknown[]; total: number; has_more: boolean };
       expect(body1.items.length).toBe(2);
       expect(body1.total).toBe(5);
-      expect(body1.hasMore).toBe(true);
+      expect(body1.has_more).toBe(true);
 
       // Get second page
       const page2 = await app.inject({
         method: 'GET',
         url: '/api/memory?limit=2&offset=2',
       });
-      const body2 = page2.json() as { items: unknown[]; total: number; hasMore: boolean };
+      const body2 = page2.json() as { items: unknown[]; total: number; has_more: boolean };
       expect(body2.items.length).toBe(2);
-      expect(body2.hasMore).toBe(true);
+      expect(body2.has_more).toBe(true);
 
       // Get last page
       const page3 = await app.inject({
         method: 'GET',
         url: '/api/memory?limit=2&offset=4',
       });
-      const body3 = page3.json() as { items: unknown[]; total: number; hasMore: boolean };
+      const body3 = page3.json() as { items: unknown[]; total: number; has_more: boolean };
       expect(body3.items.length).toBe(1);
-      expect(body3.hasMore).toBe(false);
+      expect(body3.has_more).toBe(false);
     });
 
     it('supports search by title', async () => {
@@ -205,7 +205,7 @@ describe('Global Memory API (issue #120)', () => {
       expect(body.items[0].type).toBe('decision');
     });
 
-    it('supports filtering by linkedItemKind', async () => {
+    it('supports filtering by linked_item_kind', async () => {
       const init = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -226,11 +226,11 @@ describe('Global Memory API (issue #120)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/memory?linkedItemKind=initiative',
+        url: '/api/memory?linked_item_kind=initiative',
       });
-      const body = res.json() as { items: Array<{ title: string; linkedItemKind: string }> };
+      const body = res.json() as { items: Array<{ title: string; linked_item_kind: string }> };
       expect(body.items.length).toBe(1);
-      expect(body.items[0].linkedItemKind).toBe('initiative');
+      expect(body.items[0].linked_item_kind).toBe('initiative');
     });
 
     it('orders by most recent first', async () => {

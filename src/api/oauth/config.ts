@@ -72,21 +72,21 @@ function getEnvVarWithFallback(...names: string[]): string | undefined {
  * Returns `null` if neither client ID nor client secret can be resolved.
  */
 export function getMicrosoftConfig(): OAuthConfig | null {
-  const clientId = getEnvVarWithFallback('MS365_CLIENT_ID', 'AZURE_CLIENT_ID');
-  const clientSecret = getEnvVarWithFallback('MS365_CLIENT_SECRET', 'AZURE_CLIENT_SECRET');
-  const redirectUri = getEnvVar('MS365_REDIRECT_URI') || getEnvVar('OAUTH_REDIRECT_URI');
-  const tenantId = getEnvVar('AZURE_TENANT_ID');
+  const client_id = getEnvVarWithFallback('MS365_CLIENT_ID', 'AZURE_CLIENT_ID');
+  const client_secret = getEnvVarWithFallback('MS365_CLIENT_SECRET', 'AZURE_CLIENT_SECRET');
+  const redirect_uri = getEnvVar('MS365_REDIRECT_URI') || getEnvVar('OAUTH_REDIRECT_URI');
+  const tenant_id = getEnvVar('AZURE_TENANT_ID');
 
-  if (!clientId || !clientSecret) {
+  if (!client_id || !client_secret) {
     return null;
   }
 
   return {
-    clientId,
-    clientSecret,
-    redirectUri: redirectUri || 'http://localhost:3000/api/oauth/callback',
+    client_id,
+    client_secret,
+    redirect_uri: redirect_uri || 'http://localhost:3000/api/oauth/callback',
     scopes: DEFAULT_SCOPES.microsoft,
-    tenantId,
+    tenant_id,
   };
 }
 
@@ -101,18 +101,18 @@ export function getMicrosoftConfig(): OAuthConfig | null {
  * Returns `null` if neither client ID nor client secret can be resolved.
  */
 export function getGoogleConfig(): OAuthConfig | null {
-  const clientId = getEnvVarWithFallback('GOOGLE_CLIENT_ID', 'GOOGLE_CLOUD_CLIENT_ID');
-  const clientSecret = getEnvVarWithFallback('GOOGLE_CLIENT_SECRET', 'GOOGLE_CLOUD_CLIENT_SECRET');
-  const redirectUri = getEnvVar('GOOGLE_REDIRECT_URI') || getEnvVar('OAUTH_REDIRECT_URI');
+  const client_id = getEnvVarWithFallback('GOOGLE_CLIENT_ID', 'GOOGLE_CLOUD_CLIENT_ID');
+  const client_secret = getEnvVarWithFallback('GOOGLE_CLIENT_SECRET', 'GOOGLE_CLOUD_CLIENT_SECRET');
+  const redirect_uri = getEnvVar('GOOGLE_REDIRECT_URI') || getEnvVar('OAUTH_REDIRECT_URI');
 
-  if (!clientId || !clientSecret) {
+  if (!client_id || !client_secret) {
     return null;
   }
 
   return {
-    clientId,
-    clientSecret,
-    redirectUri: redirectUri || 'http://localhost:3000/api/oauth/callback',
+    client_id,
+    client_secret,
+    redirect_uri: redirect_uri || 'http://localhost:3000/api/oauth/callback',
     scopes: DEFAULT_SCOPES.google,
   };
 }

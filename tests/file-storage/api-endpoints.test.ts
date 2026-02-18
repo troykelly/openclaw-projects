@@ -17,11 +17,11 @@ vi.mock('../../src/api/file-storage/index.ts', async () => {
   const actual = await vi.importActual('../../src/api/file-storage/index.ts');
 
   // Mock storage implementation
-  const mockFiles = new Map<string, { data: Buffer; contentType: string }>();
+  const mockFiles = new Map<string, { data: Buffer; content_type: string }>();
 
   const MockS3Storage = class {
-    async upload(key: string, data: Buffer, contentType: string): Promise<string> {
-      mockFiles.set(key, { data, contentType });
+    async upload(key: string, data: Buffer, content_type: string): Promise<string> {
+      mockFiles.set(key, { data, content_type });
       return key;
     }
 
@@ -148,11 +148,11 @@ describe('File Storage API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/11111111-1111-1111-1111-111111111111/url?expiresIn=10',
+        url: '/api/files/11111111-1111-1111-1111-111111111111/url?expires_in=10',
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('expiresIn');
+      expect(response.json().error).toContain('expires_in');
     });
   });
 
@@ -168,30 +168,30 @@ describe('File Storage API Endpoints', () => {
   });
 
   describe('Work Item Attachments', () => {
-    it('POST /api/work-items/:id/attachments requires fileId', async () => {
+    it('POST /api/work-items/:id/attachments requires file_id', async () => {
       // Create work item
       const wiResponse = await app.inject({
         method: 'POST',
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = wiResponse.json().id;
+      const work_item_id = wiResponse.json().id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/attachments`,
+        url: `/api/work-items/${work_item_id}/attachments`,
         payload: {},
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('fileId');
+      expect(response.json().error).toContain('file_id');
     });
 
     it('POST /api/work-items/:id/attachments returns 404 for non-existent work item', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/work-items/00000000-0000-0000-0000-000000000000/attachments',
-        payload: { fileId: '11111111-1111-1111-1111-111111111111' },
+        payload: { file_id: '11111111-1111-1111-1111-111111111111' },
       });
 
       expect(response.statusCode).toBe(404);
@@ -205,12 +205,12 @@ describe('File Storage API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = wiResponse.json().id;
+      const work_item_id = wiResponse.json().id;
 
       const response = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/attachments`,
-        payload: { fileId: '00000000-0000-0000-0000-000000000000' },
+        url: `/api/work-items/${work_item_id}/attachments`,
+        payload: { file_id: '00000000-0000-0000-0000-000000000000' },
       });
 
       expect(response.statusCode).toBe(404);
@@ -224,11 +224,11 @@ describe('File Storage API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = wiResponse.json().id;
+      const work_item_id = wiResponse.json().id;
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/attachments`,
+        url: `/api/work-items/${work_item_id}/attachments`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -242,7 +242,7 @@ describe('File Storage API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = wiResponse.json().id;
+      const work_item_id = wiResponse.json().id;
 
       // Create file attachment directly in DB (since upload mock is complex)
       const fileId = '22222222-2222-2222-2222-222222222222';
@@ -255,8 +255,8 @@ describe('File Storage API Endpoints', () => {
       // Attach file to work item
       const attachResponse = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/attachments`,
-        payload: { fileId },
+        url: `/api/work-items/${work_item_id}/attachments`,
+        payload: { file_id: fileId },
       });
 
       expect(attachResponse.statusCode).toBe(201);
@@ -265,17 +265,17 @@ describe('File Storage API Endpoints', () => {
       // List attachments
       const listResponse = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/attachments`,
+        url: `/api/work-items/${work_item_id}/attachments`,
       });
 
       expect(listResponse.statusCode).toBe(200);
       expect(listResponse.json().attachments.length).toBe(1);
-      expect(listResponse.json().attachments[0].originalFilename).toBe('attachment.pdf');
+      expect(listResponse.json().attachments[0].original_filename).toBe('attachment.pdf');
 
       // Remove attachment
       const removeResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}/attachments/${fileId}`,
+        url: `/api/work-items/${work_item_id}/attachments/${fileId}`,
       });
 
       expect(removeResponse.statusCode).toBe(204);
@@ -283,13 +283,13 @@ describe('File Storage API Endpoints', () => {
       // Verify removed
       const listResponse2 = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${workItemId}/attachments`,
+        url: `/api/work-items/${work_item_id}/attachments`,
       });
 
       expect(listResponse2.json().attachments.length).toBe(0);
     });
 
-    it('DELETE /api/work-items/:workItemId/attachments/:fileId returns 404 if not attached', async () => {
+    it('DELETE /api/work-items/:work_item_id/attachments/:fileId returns 404 if not attached', async () => {
       const response = await app.inject({
         method: 'DELETE',
         url: '/api/work-items/00000000-0000-0000-0000-000000000000/attachments/11111111-1111-1111-1111-111111111111',

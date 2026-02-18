@@ -7,7 +7,7 @@ import { buildServer } from '../src/api/server.ts';
 describe('Memory CRUD API (issue #121)', () => {
   const app = buildServer();
   let pool: Pool;
-  let workItemId: string;
+  let work_item_id: string;
 
   beforeAll(async () => {
     await runMigrate('up');
@@ -24,7 +24,7 @@ describe('Memory CRUD API (issue #121)', () => {
       url: '/api/work-items',
       payload: { title: 'Test Project', kind: 'project' },
     });
-    workItemId = (wi.json() as { id: string }).id;
+    work_item_id = (wi.json() as { id: string }).id;
   });
 
   afterAll(async () => {
@@ -40,7 +40,7 @@ describe('Memory CRUD API (issue #121)', () => {
         payload: {
           title: 'New Memory',
           content: 'Memory content',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
         },
       });
       expect(res.statusCode).toBe(201);
@@ -50,16 +50,16 @@ describe('Memory CRUD API (issue #121)', () => {
         title: string;
         content: string;
         type: string;
-        linkedItemId: string;
-        linkedItemTitle: string;
-        createdAt: string;
+        linked_item_id: string;
+        linked_item_title: string;
+        created_at: string;
       };
       expect(body.id).toMatch(/^[0-9a-f-]{36}$/i);
       expect(body.title).toBe('New Memory');
       expect(body.content).toBe('Memory content');
       expect(body.type).toBe('note'); // default type
-      expect(body.linkedItemId).toBe(workItemId);
-      expect(body.linkedItemTitle).toBe('Test Project');
+      expect(body.linked_item_id).toBe(work_item_id);
+      expect(body.linked_item_title).toBe('Test Project');
     });
 
     it('creates memory with specified type', async () => {
@@ -69,7 +69,7 @@ describe('Memory CRUD API (issue #121)', () => {
         payload: {
           title: 'Decision',
           content: 'We decided to...',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
           type: 'decision',
         },
       });
@@ -83,7 +83,7 @@ describe('Memory CRUD API (issue #121)', () => {
         url: '/api/memory',
         payload: {
           content: 'Content',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
         },
       });
       expect(res.statusCode).toBe(400);
@@ -96,14 +96,14 @@ describe('Memory CRUD API (issue #121)', () => {
         url: '/api/memory',
         payload: {
           title: 'Title',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
         },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json()).toEqual({ error: 'content is required' });
     });
 
-    it('returns 400 when linkedItemId is missing', async () => {
+    it('returns 400 when linked_item_id is missing', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/memory',
@@ -113,7 +113,7 @@ describe('Memory CRUD API (issue #121)', () => {
         },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'linkedItemId is required' });
+      expect(res.json()).toEqual({ error: 'linked_item_id is required' });
     });
 
     it('returns 400 for non-existent work item', async () => {
@@ -123,7 +123,7 @@ describe('Memory CRUD API (issue #121)', () => {
         payload: {
           title: 'Title',
           content: 'Content',
-          linkedItemId: '00000000-0000-0000-0000-000000000000',
+          linked_item_id: '00000000-0000-0000-0000-000000000000',
         },
       });
       expect(res.statusCode).toBe(400);
@@ -137,7 +137,7 @@ describe('Memory CRUD API (issue #121)', () => {
         payload: {
           title: 'Title',
           content: 'Content',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
           type: 'invalid',
         },
       });
@@ -147,7 +147,7 @@ describe('Memory CRUD API (issue #121)', () => {
   });
 
   describe('PUT /api/memory/:id', () => {
-    let memoryId: string;
+    let memory_id: string;
 
     beforeEach(async () => {
       const created = await app.inject({
@@ -156,16 +156,16 @@ describe('Memory CRUD API (issue #121)', () => {
         payload: {
           title: 'Original Title',
           content: 'Original Content',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
         },
       });
-      memoryId = (created.json() as { id: string }).id;
+      memory_id = (created.json() as { id: string }).id;
     });
 
     it('updates memory title and content', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/memory/${memoryId}`,
+        url: `/api/memory/${memory_id}`,
         payload: {
           title: 'Updated Title',
           content: 'Updated Content',
@@ -181,7 +181,7 @@ describe('Memory CRUD API (issue #121)', () => {
     it('updates memory type', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/memory/${memoryId}`,
+        url: `/api/memory/${memory_id}`,
         payload: {
           title: 'Title',
           content: 'Content',
@@ -208,7 +208,7 @@ describe('Memory CRUD API (issue #121)', () => {
     it('returns 400 when title is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/memory/${memoryId}`,
+        url: `/api/memory/${memory_id}`,
         payload: {
           content: 'Content',
         },
@@ -220,7 +220,7 @@ describe('Memory CRUD API (issue #121)', () => {
     it('returns 400 when content is missing', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/memory/${memoryId}`,
+        url: `/api/memory/${memory_id}`,
         payload: {
           title: 'Title',
         },
@@ -231,7 +231,7 @@ describe('Memory CRUD API (issue #121)', () => {
   });
 
   describe('DELETE /api/memory/:id', () => {
-    let memoryId: string;
+    let memory_id: string;
 
     beforeEach(async () => {
       const created = await app.inject({
@@ -240,21 +240,21 @@ describe('Memory CRUD API (issue #121)', () => {
         payload: {
           title: 'To Delete',
           content: 'Content',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
         },
       });
-      memoryId = (created.json() as { id: string }).id;
+      memory_id = (created.json() as { id: string }).id;
     });
 
     it('deletes a memory', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memory/${memoryId}`,
+        url: `/api/memory/${memory_id}`,
       });
       expect(res.statusCode).toBe(204);
 
       // Verify deletion
-      const check = await pool.query('SELECT 1 FROM memory WHERE id = $1', [memoryId]);
+      const check = await pool.query('SELECT 1 FROM memory WHERE id = $1', [memory_id]);
       expect(check.rows.length).toBe(0);
     });
 

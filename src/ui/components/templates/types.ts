@@ -22,7 +22,7 @@ export interface WorkItemTemplate {
   description: string;
   category: TemplateCategory;
   structure: TemplateStructure;
-  createdAt: string;
+  created_at: string;
   isBuiltIn?: boolean;
 }
 
@@ -52,7 +52,7 @@ export interface SaveTemplateDialogProps {
     kind: string;
     children?: Array<{ id: string; title: string; kind: string }>;
   };
-  onSave: (template: Omit<WorkItemTemplate, 'id' | 'createdAt'>) => void;
+  onSave: (template: Omit<WorkItemTemplate, 'id' | 'created_at'>) => void;
   onCancel: () => void;
 }
 
@@ -61,7 +61,7 @@ export interface SaveTemplateDialogProps {
  */
 export interface UseTemplatesReturn {
   templates: WorkItemTemplate[];
-  saveTemplate: (template: Omit<WorkItemTemplate, 'id' | 'createdAt'>) => void;
+  saveTemplate: (template: Omit<WorkItemTemplate, 'id' | 'created_at'>) => void;
   deleteTemplate: (id: string) => void;
   getTemplatesByCategory: (category: TemplateCategory) => WorkItemTemplate[];
 }

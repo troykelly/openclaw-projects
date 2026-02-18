@@ -23,7 +23,7 @@ const DEFAULT_LIMIT = 10;
 export const MessageSearchParamsSchema = z.object({
   query: z.string().min(1, 'Search query cannot be empty'),
   channel: ChannelType.default('all'),
-  contactId: z.string().uuid().optional(),
+  contact_id: z.string().uuid().optional(),
   limit: z.number().int().min(1, 'Limit must be at least 1').max(MAX_LIMIT, `Limit must be ${MAX_LIMIT} or less`).default(DEFAULT_LIMIT),
   includeThread: z.boolean().default(false),
 });
@@ -66,7 +66,7 @@ export interface MessageSearchSuccess {
     details: {
       messages: MessageResult[];
       total: number;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -85,7 +85,7 @@ export interface MessageSearchToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -100,7 +100,7 @@ export interface MessageSearchTool {
  * Creates the message_search tool.
  */
 export function createMessageSearchTool(options: MessageSearchToolOptions): MessageSearchTool {
-  const { client, logger, config, userId } = options;
+  const { client, logger, config, user_id } = options;
 
   return {
     name: 'message_search',
@@ -118,14 +118,14 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         return { success: false, error: errorMessage };
       }
 
-      const { query, channel, contactId, limit, includeThread } = parseResult.data;
+      const { query, channel, contact_id, limit, includeThread } = parseResult.data;
 
       // Log invocation
       logger.info('message_search invoked', {
-        userId,
+        user_id,
         queryLength: query.length,
         channel,
-        hasContactId: !!contactId,
+        hasContactId: !!contact_id,
         limit,
         includeThread,
       });
@@ -140,19 +140,19 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         if (channel !== 'all') {
           queryParams.set('channel', channel);
         }
-        if (contactId) {
-          queryParams.set('contactId', contactId);
+        if (contact_id) {
+          queryParams.set('contact_id', contact_id);
         }
         if (includeThread) {
           queryParams.set('includeThread', 'true');
         }
 
         // Call API
-        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { userId });
+        const response = await client.get<SearchApiResponse>(`/api/search?${queryParams}`, { user_id });
 
         if (!response.success) {
           logger.error('message_search API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -174,7 +174,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         }));
 
         logger.debug('message_search completed', {
-          userId,
+          user_id,
           resultCount: messages.length,
           total,
         });
@@ -190,13 +190,13 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
               promptGuardUrl: config.promptGuardUrl,
             });
             if (detection.detected) {
-              const logDecision = injectionLogLimiter.shouldLog(userId);
+              const logDecision = injectionLogLimiter.shouldLog(user_id);
               if (logDecision.log) {
                 logger.warn(
                   logDecision.summary ? 'injection detection log summary for previous window' : 'potential prompt injection detected in message_search result',
                   {
-                    userId,
-                    messageId: m.id,
+                    user_id,
+                    message_id: m.id,
                     patterns: detection.patterns,
                     source: detection.source,
                     ...(logDecision.suppressed > 0 && { suppressedCount: logDecision.suppressed }),
@@ -232,13 +232,13 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
             details: {
               messages,
               total,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('message_search failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
 

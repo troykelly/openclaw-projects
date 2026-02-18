@@ -9,47 +9,47 @@ import { apiClient } from '@/ui/lib/api-client';
 
 export interface Notification {
   id: string;
-  notificationType: 'assigned' | 'mentioned' | 'status_change' | 'unblocked' | 'due_soon' | 'comment';
+  notification_type: 'assigned' | 'mentioned' | 'status_change' | 'unblocked' | 'due_soon' | 'comment';
   title: string;
   message: string;
-  workItemId?: string;
-  actorEmail?: string;
-  readAt?: string;
-  createdAt: string;
+  work_item_id?: string;
+  actor_email?: string;
+  read_at?: string;
+  created_at: string;
 }
 
 interface NotificationBellProps {
-  userEmail: string;
+  user_email: string;
   onNotificationClick?: (notification: Notification) => void;
 }
 
-export function NotificationBell({ userEmail, onNotificationClick }: NotificationBellProps) {
+export function NotificationBell({ user_email, onNotificationClick }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unread_count, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await apiClient.get<{ notifications: Notification[]; unreadCount: number }>(`/api/notifications?userEmail=${encodeURIComponent(userEmail)}&limit=20`);
+      const data = await apiClient.get<{ notifications: Notification[]; unread_count: number }>(`/api/notifications?user_email=${encodeURIComponent(user_email)}&limit=20`);
       setNotifications(data.notifications);
-      setUnreadCount(data.unreadCount);
+      setUnreadCount(data.unread_count);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [userEmail]);
+  }, [user_email]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ unreadCount: number }>(`/api/notifications/unread-count?userEmail=${encodeURIComponent(userEmail)}`);
-      setUnreadCount(data.unreadCount);
+      const data = await apiClient.get<{ unread_count: number }>(`/api/notifications/unread-count?user_email=${encodeURIComponent(user_email)}`);
+      setUnreadCount(data.unread_count);
     } catch (error) {
       console.error('Failed to fetch unread count:', error);
     }
-  }, [userEmail]);
+  }, [user_email]);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -66,8 +66,8 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const markAsRead = async (id: string) => {
     try {
-      await apiClient.post(`/api/notifications/${id}/read?userEmail=${encodeURIComponent(userEmail)}`, {});
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+      await apiClient.post(`/api/notifications/${id}/read?user_email=${encodeURIComponent(user_email)}`, {});
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -76,8 +76,8 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const markAllAsRead = async () => {
     try {
-      await apiClient.post(`/api/notifications/read-all?userEmail=${encodeURIComponent(userEmail)}`, {});
-      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+      await apiClient.post(`/api/notifications/read-all?user_email=${encodeURIComponent(user_email)}`, {});
+      setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
       setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
@@ -86,10 +86,10 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
 
   const dismissNotification = async (id: string) => {
     try {
-      await apiClient.delete(`/api/notifications/${id}?userEmail=${encodeURIComponent(userEmail)}`);
+      await apiClient.delete(`/api/notifications/${id}?user_email=${encodeURIComponent(user_email)}`);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       const notification = notifications.find((n) => n.id === id);
-      if (notification && !notification.readAt) {
+      if (notification && !notification.read_at) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
@@ -97,7 +97,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
     }
   };
 
-  const getNotificationIcon = (type: Notification['notificationType']) => {
+  const getNotificationIcon = (type: Notification['notification_type']) => {
     switch (type) {
       case 'assigned':
         return <User className="size-4 text-blue-500" />;
@@ -138,16 +138,16 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
           variant="ghost"
           size="sm"
           className="relative"
-          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+          aria-label={`Notifications${unread_count > 0 ? ` (${unread_count} unread)` : ''}`}
           data-testid="notification-bell"
         >
           <Bell className="size-5" />
-          {unreadCount > 0 && (
+          {unread_count > 0 && (
             <span
               className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground"
               data-testid="notification-badge"
             >
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {unread_count > 99 ? '99+' : unread_count}
             </span>
           )}
         </Button>
@@ -155,7 +155,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
       <PopoverContent className="w-80 p-0" align="end" data-testid="notification-dropdown">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="font-semibold">Notifications</h3>
-          {unreadCount > 0 && (
+          {unread_count > 0 && (
             <Button variant="ghost" size="sm" className="text-xs" onClick={markAllAsRead}>
               Mark all read
             </Button>
@@ -174,9 +174,9 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={cn('group relative px-4 py-3 hover:bg-muted/50 cursor-pointer', !notification.readAt && 'bg-muted/30')}
+                  className={cn('group relative px-4 py-3 hover:bg-muted/50 cursor-pointer', !notification.read_at && 'bg-muted/30')}
                   onClick={() => {
-                    if (!notification.readAt) {
+                    if (!notification.read_at) {
                       markAsRead(notification.id);
                     }
                     onNotificationClick?.(notification);
@@ -184,11 +184,11 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
                   data-testid="notification-item"
                 >
                   <div className="flex gap-3">
-                    <div className="mt-0.5">{getNotificationIcon(notification.notificationType)}</div>
+                    <div className="mt-0.5">{getNotificationIcon(notification.notification_type)}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium leading-tight">{notification.title}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{notification.message}</p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">{formatTime(notification.createdAt)}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{formatTime(notification.created_at)}</p>
                     </div>
                     <Button
                       variant="ghost"
@@ -203,7 +203,7 @@ export function NotificationBell({ userEmail, onNotificationClick }: Notificatio
                       <X className="size-3" />
                     </Button>
                   </div>
-                  {!notification.readAt && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />}
+                  {!notification.read_at && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />}
                 </div>
               ))}
             </div>

@@ -240,7 +240,7 @@ describe('Skill Store Search (Issue #798)', () => {
           query: 'artificial intelligence and neural networks',
         });
 
-        expect(result.searchType).toBe('semantic');
+        expect(result.search_type).toBe('semantic');
         expect(result.results.length).toBeGreaterThanOrEqual(1);
         expect(result.results[0]).toHaveProperty('similarity');
       }
@@ -259,7 +259,7 @@ describe('Skill Store Search (Issue #798)', () => {
 
       // Should return results regardless of search type
       expect(result.results.length).toBeGreaterThanOrEqual(0);
-      expect(['semantic', 'text']).toContain(result.searchType);
+      expect(['semantic', 'text']).toContain(result.search_type);
     });
 
     it('filters by min_similarity when doing semantic search', async () => {
@@ -344,7 +344,7 @@ describe('Skill Store Search (Issue #798)', () => {
 
       // Should still return results
       expect(result).toHaveProperty('results');
-      expect(result).toHaveProperty('searchType');
+      expect(result).toHaveProperty('search_type');
     });
 
     it('falls back to full-text only when no semantic results available', async () => {

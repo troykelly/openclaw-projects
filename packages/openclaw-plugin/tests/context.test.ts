@@ -32,16 +32,16 @@ describe('Context Extraction', () => {
       expect(extractUserContext({ user: { name: 'test' } })).toBeUndefined();
     });
 
-    it('should extract userId from user.id', () => {
+    it('should extract user_id from user.id', () => {
       const result = extractUserContext({ user: { id: 'user-123' } });
-      expect(result?.userId).toBe('user-123');
+      expect(result?.user_id).toBe('user-123');
     });
 
-    it('should extract displayName if present', () => {
+    it('should extract display_name if present', () => {
       const result = extractUserContext({
-        user: { id: 'user-123', displayName: 'John Doe' },
+        user: { id: 'user-123', display_name: 'John Doe' },
       });
-      expect(result?.displayName).toBe('John Doe');
+      expect(result?.display_name).toBe('John Doe');
     });
 
     it('should extract email if present', () => {
@@ -119,11 +119,11 @@ describe('Context Extraction', () => {
       expect(result.startedAt).toBeInstanceOf(Date);
     });
 
-    it('should extract threadId if present', () => {
+    it('should extract thread_id if present', () => {
       const result = extractSessionContext({
-        session: { id: 'session-123', threadId: 'thread-456' },
+        session: { id: 'session-123', thread_id: 'thread-456' },
       });
-      expect(result.threadId).toBe('thread-456');
+      expect(result.thread_id).toBe('thread-456');
     });
   });
 
@@ -135,7 +135,7 @@ describe('Context Extraction', () => {
         session: { id: 'session-1' },
       };
       const result = extractContext(runtime);
-      expect(result.user?.userId).toBe('user-1');
+      expect(result.user?.user_id).toBe('user-1');
       expect(result.agent.agentId).toBe('agent-1');
       expect(result.session.sessionId).toBe('session-1');
     });
@@ -216,7 +216,7 @@ describe('Context Extraction', () => {
       channel?: string;
       identityKey?: string;
     } = {
-      userId: 'user-1',
+      user_id: 'user-1',
       agentId: 'agent-1',
       sessionKey: 'agent:agent-1:telegram:dm:user-123',
       senderId: 'tg-user-456',
@@ -265,7 +265,7 @@ describe('Context Extraction', () => {
 
     it('should handle missing optional fields gracefully', () => {
       const minimalContext = {
-        userId: 'user-1',
+        user_id: 'user-1',
         agentId: 'agent-1',
       };
       expect(getUserScopeKey(minimalContext, 'agent')).toBe('agent-1');

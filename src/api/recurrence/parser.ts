@@ -263,8 +263,8 @@ export function parseNaturalLanguage(input: string): NaturalLanguageParseResult 
     if (pattern.test(text)) {
       return {
         rrule: null,
-        singleDate: null, // Would need date parsing for actual implementation
-        isRecurring: false,
+        single_date: null, // Would need date parsing for actual implementation
+        is_recurring: false,
         description: `Single occurrence: ${input}`,
       };
     }
@@ -277,8 +277,8 @@ export function parseNaturalLanguage(input: string): NaturalLanguageParseResult 
     const rrule = componentsToRrule(components);
     return {
       rrule,
-      singleDate: null,
-      isRecurring: true,
+      single_date: null,
+      is_recurring: true,
       description: describeRrule(rrule),
     };
   }
@@ -286,8 +286,8 @@ export function parseNaturalLanguage(input: string): NaturalLanguageParseResult 
   // Unable to parse
   return {
     rrule: null,
-    singleDate: null,
-    isRecurring: false,
+    single_date: null,
+    is_recurring: false,
     description: 'Unable to parse recurrence pattern',
   };
 }

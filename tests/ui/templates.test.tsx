@@ -45,7 +45,7 @@ describe('useTemplates hook', () => {
   it('can save a custom template', () => {
     const { result } = renderHook(() => useTemplates());
 
-    const template: Omit<WorkItemTemplate, 'id' | 'createdAt'> = {
+    const template: Omit<WorkItemTemplate, 'id' | 'created_at'> = {
       name: 'My Template',
       description: 'Custom template',
       category: 'custom',
@@ -68,7 +68,7 @@ describe('useTemplates hook', () => {
   it('can delete a custom template', () => {
     const { result } = renderHook(() => useTemplates());
 
-    const template: Omit<WorkItemTemplate, 'id' | 'createdAt'> = {
+    const template: Omit<WorkItemTemplate, 'id' | 'created_at'> = {
       name: 'Delete Me',
       description: 'Will be deleted',
       category: 'custom',
@@ -198,7 +198,7 @@ describe('TemplateManager', () => {
         title: 'Custom Epic',
         children: [],
       },
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
     localStorageMock.setItem('work-item-templates', JSON.stringify([customTemplate]));
 

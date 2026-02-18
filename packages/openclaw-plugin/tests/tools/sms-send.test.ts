@@ -8,7 +8,7 @@ describe('sms_send tool', () => {
   let mockClient: ApiClient;
   let mockLogger: Logger;
   let mockConfig: PluginConfig;
-  const userId = 'test-user-id';
+  const user_id = 'test-user-id';
 
   beforeEach(() => {
     mockClient = {
@@ -57,11 +57,11 @@ describe('sms_send tool', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should accept parameters with idempotencyKey', () => {
+    it('should accept parameters with idempotency_key', () => {
       const result = SmsSendParamsSchema.safeParse({
         to: '+15559876543',
         body: 'Test message',
-        idempotencyKey: 'unique-key-123',
+        idempotency_key: 'unique-key-123',
       });
       expect(result.success).toBe(true);
     });
@@ -119,7 +119,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.name).toBe('sms_send');
     });
@@ -129,7 +129,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.description).toBeDefined();
       expect(tool.description.length).toBeGreaterThan(10);
@@ -140,7 +140,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
       expect(tool.parameters).toBeDefined();
     });
@@ -151,8 +151,8 @@ describe('sms_send tool', () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
         data: {
-          messageId: 'SM123456',
-          threadId: 'TH789',
+          message_id: 'SM123456',
+          thread_id: 'TH789',
           status: 'queued',
         },
       });
@@ -161,7 +161,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -171,27 +171,27 @@ describe('sms_send tool', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
-      expect(result.data?.details?.messageId).toBe('SM123456');
+      expect(result.data?.details?.message_id).toBe('SM123456');
       expect(result.data?.details?.status).toBe('queued');
     });
 
     it('should call API with correct parameters', async () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
-        data: { messageId: 'SM123', status: 'queued' },
+        data: { message_id: 'SM123', status: 'queued' },
       });
 
       const tool = createSmsSendTool({
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
         to: '+15559876543',
         body: 'Test message',
-        idempotencyKey: 'key-123',
+        idempotency_key: 'key-123',
       });
 
       expect(mockClient.post).toHaveBeenCalledWith(
@@ -199,9 +199,9 @@ describe('sms_send tool', () => {
         {
           to: '+15559876543',
           body: 'Test message',
-          idempotencyKey: 'key-123',
+          idempotency_key: 'key-123',
         },
-        { userId },
+        { user_id },
       );
     });
 
@@ -219,7 +219,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -238,7 +238,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -255,7 +255,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -273,7 +273,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -298,7 +298,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: configWithoutTwilio,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({
@@ -313,14 +313,14 @@ describe('sms_send tool', () => {
     it('should log successful sends', async () => {
       vi.mocked(mockClient.post).mockResolvedValue({
         success: true,
-        data: { messageId: 'SM123', status: 'queued' },
+        data: { message_id: 'SM123', status: 'queued' },
       });
 
       const tool = createSmsSendTool({
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       await tool.execute({
@@ -328,7 +328,7 @@ describe('sms_send tool', () => {
         body: 'Test message',
       });
 
-      expect(mockLogger.info).toHaveBeenCalledWith('sms_send invoked', expect.objectContaining({ userId }));
+      expect(mockLogger.info).toHaveBeenCalledWith('sms_send invoked', expect.objectContaining({ user_id }));
     });
 
     it('should not log phone number in errors', async () => {
@@ -338,7 +338,7 @@ describe('sms_send tool', () => {
         client: mockClient,
         logger: mockLogger,
         config: mockConfig,
-        userId,
+        user_id,
       });
 
       const result = await tool.execute({

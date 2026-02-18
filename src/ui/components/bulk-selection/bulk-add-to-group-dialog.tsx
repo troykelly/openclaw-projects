@@ -15,7 +15,7 @@ export interface BulkAddToGroupDialogProps {
   onOpenChange: (open: boolean) => void;
   selectedCount: number;
   groups: ContactGroup[];
-  onConfirm: (groupId: string) => void;
+  onConfirm: (group_id: string) => void;
   loading?: boolean;
 }
 

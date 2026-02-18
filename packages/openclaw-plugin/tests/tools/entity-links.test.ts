@@ -53,7 +53,7 @@ describe('entity link tools', () => {
     client: mockApiClient,
     logger: mockLogger,
     config: mockConfig,
-    userId: 'agent-1',
+    user_id: 'agent-1',
   };
 
   beforeEach(() => {
@@ -305,7 +305,7 @@ describe('entity link tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           '/api/skill-store/items',
           expect.objectContaining({ collection: 'entity_links' }),
-          expect.objectContaining({ userId: 'agent-1' }),
+          expect.objectContaining({ user_id: 'agent-1' }),
         );
       });
 
@@ -540,13 +540,13 @@ describe('entity link tools', () => {
     });
 
     describe('user scoping', () => {
-      it('should include userId in API calls', async () => {
+      it('should include user_id in API calls', async () => {
         const mockPost = vi.fn().mockResolvedValue({
           success: true,
           data: { id: 'item-1', skill_id: 'entity-links', collection: 'entity_links', key: 'test', data: {}, tags: [], status: 'active', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', title: null, summary: null, content: null, media_url: null, media_type: null, source_url: null, priority: null, expires_at: null, pinned: false, user_email: null },
         });
         const client = { ...mockApiClient, post: mockPost };
-        const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient, userId: 'custom-user' });
+        const tool = createLinksSetTool({ ...toolOptions, client: client as unknown as ApiClient, user_id: 'custom-user' });
 
         await tool.execute({
           source_type: 'todo',
@@ -558,7 +558,7 @@ describe('entity link tools', () => {
         expect(mockPost).toHaveBeenCalledWith(
           expect.any(String),
           expect.any(Object),
-          expect.objectContaining({ userId: 'custom-user' }),
+          expect.objectContaining({ user_id: 'custom-user' }),
         );
       });
     });
@@ -646,7 +646,7 @@ describe('entity link tools', () => {
 
         expect(mockGet).toHaveBeenCalledWith(
           expect.stringContaining('collection=entity_links'),
-          expect.objectContaining({ userId: 'agent-1' }),
+          expect.objectContaining({ user_id: 'agent-1' }),
         );
         expect(mockGet).toHaveBeenCalledWith(
           expect.stringContaining('tags=src%3Atodo%3A019c5ae8-0000-0000-0000-000000000001'),

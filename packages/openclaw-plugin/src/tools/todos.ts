@@ -19,7 +19,7 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Parameters for todo_list tool */
 export const TodoListParamsSchema = z.object({
-  projectId: z.string().optional(),
+  project_id: z.string().optional(),
   completed: z.boolean().optional(),
   limit: z.number().int().min(1).max(200).optional(),
   offset: z.number().int().min(0).optional(),
@@ -31,10 +31,10 @@ export interface Todo {
   id: string;
   title: string;
   completed: boolean;
-  projectId?: string;
+  project_id?: string;
   dueDate?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /** Successful list result */
@@ -45,7 +45,7 @@ export interface TodoListSuccess {
     details: {
       todos: Todo[];
       total: number;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -63,7 +63,7 @@ export interface TodoToolOptions {
   client: ApiClient;
   logger: Logger;
   config: PluginConfig;
-  userId: string;
+  user_id: string;
 }
 
 /** Tool definition */
@@ -109,7 +109,7 @@ function isValidIsoDate(date: string): boolean {
  * Creates the todo_list tool.
  */
 export function createTodoListTool(options: TodoToolOptions): TodoListTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'todo_list',
@@ -123,14 +123,14 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
         return { success: false, error: errorMessage };
       }
 
-      const { projectId, completed, limit = 50, offset = 0 } = parseResult.data;
+      const { project_id, completed, limit = 50, offset = 0 } = parseResult.data;
 
-      // Validate projectId if provided
-      if (projectId && !isValidUuid(projectId)) {
-        return { success: false, error: 'Invalid projectId format. Expected UUID.' };
+      // Validate project_id if provided
+      if (project_id && !isValidUuid(project_id)) {
+        return { success: false, error: 'Invalid project_id format. Expected UUID.' };
       }
 
-      logger.info('todo_list invoked', { userId, projectId, completed, limit, offset });
+      logger.info('todo_list invoked', { user_id, project_id, completed, limit, offset });
 
       try {
         const queryParams = new URLSearchParams({
@@ -138,18 +138,18 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
           limit: String(limit),
           offset: String(offset),
         });
-        if (projectId) {
-          queryParams.set('parent_work_item_id', projectId);
+        if (project_id) {
+          queryParams.set('parent_work_item_id', project_id);
         }
         if (completed !== undefined) {
           queryParams.set('status', completed ? 'completed' : 'active');
         }
 
-        const response = await client.get<{ items?: Todo[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { userId });
+        const response = await client.get<{ items?: Todo[]; total?: number }>(`/api/work-items?${queryParams.toString()}`, { user_id });
 
         if (!response.success) {
           logger.error('todo_list API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -167,7 +167,7 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
             success: true,
             data: {
               content: 'No todos found.',
-              details: { todos: [], total: 0, userId },
+              details: { todos: [], total: 0, user_id },
             },
           };
         }
@@ -180,18 +180,18 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
           })
           .join('\n');
 
-        logger.debug('todo_list completed', { userId, count: todos.length });
+        logger.debug('todo_list completed', { user_id, count: todos.length });
 
         return {
           success: true,
           data: {
             content,
-            details: { todos, total, userId },
+            details: { todos, total, user_id },
           },
         };
       } catch (error) {
         logger.error('todo_list failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -205,7 +205,7 @@ export function createTodoListTool(options: TodoToolOptions): TodoListTool {
 /** Parameters for todo_create tool */
 export const TodoCreateParamsSchema = z.object({
   title: z.string().min(1, 'Todo title is required').max(500, 'Todo title must be 500 characters or less'),
-  projectId: z.string().optional(),
+  project_id: z.string().optional(),
   dueDate: z.string().optional(),
 });
 export type TodoCreateParams = z.infer<typeof TodoCreateParamsSchema>;
@@ -218,7 +218,7 @@ export interface TodoCreateSuccess {
     details: {
       id: string;
       title: string;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -236,7 +236,7 @@ export interface TodoCreateTool {
  * Creates the todo_create tool.
  */
 export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'todo_create',
@@ -250,7 +250,7 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
         return { success: false, error: errorMessage };
       }
 
-      const { title, projectId, dueDate } = parseResult.data;
+      const { title, project_id, dueDate } = parseResult.data;
 
       // Sanitize input
       const sanitizedTitle = stripHtml(title);
@@ -259,9 +259,9 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
         return { success: false, error: 'Todo title cannot be empty after sanitization' };
       }
 
-      // Validate projectId if provided
-      if (projectId && !isValidUuid(projectId)) {
-        return { success: false, error: 'Invalid projectId format. Expected UUID.' };
+      // Validate project_id if provided
+      if (project_id && !isValidUuid(project_id)) {
+        return { success: false, error: 'Invalid project_id format. Expected UUID.' };
       }
 
       // Validate dueDate if provided
@@ -270,9 +270,9 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
       }
 
       logger.info('todo_create invoked', {
-        userId,
+        user_id,
         titleLength: sanitizedTitle.length,
-        hasProjectId: !!projectId,
+        hasProjectId: !!project_id,
         hasDueDate: !!dueDate,
       });
 
@@ -281,18 +281,18 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
           title: sanitizedTitle,
           item_type: 'task',
         };
-        if (projectId) {
-          body.parent_work_item_id = projectId;
+        if (project_id) {
+          body.parent_work_item_id = project_id;
         }
         if (dueDate) {
           body.not_after = dueDate;
         }
 
-        const response = await client.post<{ id: string; title?: string }>('/api/work-items', body, { userId });
+        const response = await client.post<{ id: string; title?: string }>('/api/work-items', body, { user_id });
 
         if (!response.success) {
           logger.error('todo_create API error', {
-            userId,
+            user_id,
             status: response.error.status,
             code: response.error.code,
           });
@@ -305,7 +305,7 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
         const newTodo = response.data;
 
         logger.debug('todo_create completed', {
-          userId,
+          user_id,
           todoId: newTodo.id,
         });
 
@@ -316,13 +316,13 @@ export function createTodoCreateTool(options: TodoToolOptions): TodoCreateTool {
             details: {
               id: newTodo.id,
               title: sanitizedTitle,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('todo_create failed', {
-          userId,
+          user_id,
           error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: sanitizeErrorMessage(error) };
@@ -346,7 +346,7 @@ export interface TodoCompleteSuccess {
     content: string;
     details: {
       id: string;
-      userId: string;
+      user_id: string;
     };
   };
 }
@@ -364,7 +364,7 @@ export interface TodoCompleteTool {
  * Creates the todo_complete tool.
  */
 export function createTodoCompleteTool(options: TodoToolOptions): TodoCompleteTool {
-  const { client, logger, userId } = options;
+  const { client, logger, user_id } = options;
 
   return {
     name: 'todo_complete',
@@ -385,17 +385,17 @@ export function createTodoCompleteTool(options: TodoToolOptions): TodoCompleteTo
         return { success: false, error: 'Invalid todo ID format. Expected UUID.' };
       }
 
-      logger.info('todo_complete invoked', { userId, todoId: id });
+      logger.info('todo_complete invoked', { user_id, todoId: id });
 
       try {
-        const response = await client.patch<{ status: string; title?: string }>(`/api/work-items/${id}/status`, { status: 'completed' }, { userId });
+        const response = await client.patch<{ status: string; title?: string }>(`/api/work-items/${id}/status`, { status: 'completed' }, { user_id });
 
         if (!response.success) {
           if (response.error.code === 'NOT_FOUND') {
             return { success: false, error: 'Todo not found.' };
           }
           logger.error('todo_complete API error', {
-            userId,
+            user_id,
             todoId: id,
             status: response.error.status,
           });
@@ -405,7 +405,7 @@ export function createTodoCompleteTool(options: TodoToolOptions): TodoCompleteTo
           };
         }
 
-        logger.debug('todo_complete completed', { userId, todoId: id });
+        logger.debug('todo_complete completed', { user_id, todoId: id });
 
         return {
           success: true,
@@ -413,13 +413,13 @@ export function createTodoCompleteTool(options: TodoToolOptions): TodoCompleteTo
             content: 'Todo marked as completed.',
             details: {
               id,
-              userId,
+              user_id,
             },
           },
         };
       } catch (error) {
         logger.error('todo_complete failed', {
-          userId,
+          user_id,
           todoId: id,
           error: error instanceof Error ? error.message : String(error),
         });

@@ -13,14 +13,14 @@ import type { OAuthFeature } from './types';
 // ---------------------------------------------------------------------------
 
 export interface FeatureSyncInfo {
-  lastSyncAt: string | null;
+  last_sync_at: string | null;
   status: 'idle' | 'syncing' | 'error';
   error?: string;
 }
 
 export interface SyncStatusDisplayProps {
-  enabledFeatures: OAuthFeature[];
-  syncStatus: Record<string, FeatureSyncInfo | undefined>;
+  enabled_features: OAuthFeature[];
+  sync_status: Record<string, FeatureSyncInfo | undefined>;
   onSyncNow: (feature: OAuthFeature) => void;
   isSyncing?: boolean;
 }
@@ -52,20 +52,20 @@ function formatSyncTime(dateStr: string | null): string {
 // ---------------------------------------------------------------------------
 
 export function SyncStatusDisplay({
-  enabledFeatures,
-  syncStatus,
+  enabled_features,
+  sync_status,
   onSyncNow,
 }: SyncStatusDisplayProps) {
-  if (enabledFeatures.length === 0) {
+  if (enabled_features.length === 0) {
     return null;
   }
 
   return (
     <div className="space-y-2">
-      {enabledFeatures.map((feature) => {
-        const info = syncStatus[feature];
+      {enabled_features.map((feature) => {
+        const info = sync_status[feature];
         const isSyncing = info?.status === 'syncing';
-        const lastSync = info?.lastSyncAt ?? null;
+        const lastSync = info?.last_sync_at ?? null;
 
         return (
           <div

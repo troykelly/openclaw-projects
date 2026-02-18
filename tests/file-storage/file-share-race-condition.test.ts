@@ -47,14 +47,14 @@ describe('File Share Race Condition Prevention', () => {
     const fileId = fileResult.rows[0].id;
 
     // Create a file share with max_downloads limit
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + (options.expiresInHours ?? 1));
+    const expires_at = new Date();
+    expires_at.setHours(expires_at.getHours() + (options.expiresInHours ?? 1));
 
     const shareResult = await pool.query<{ share_token: string }>(
       `INSERT INTO file_share (file_attachment_id, share_token, expires_at, max_downloads, download_count)
        VALUES ($1, $2, $3, $4, 0)
        RETURNING share_token`,
-      [fileId, `test-token-${Date.now()}`, expiresAt, options.maxDownloads],
+      [fileId, `test-token-${Date.now()}`, expires_at, options.maxDownloads],
     );
 
     return {

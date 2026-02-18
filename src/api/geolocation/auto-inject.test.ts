@@ -47,7 +47,7 @@ describe('geoAutoInjectHook', () => {
       lat: -33.8688,
       lng: 151.2093,
       address: '123 George St, Sydney',
-      placeLabel: 'Sydney CBD',
+      place_label: 'Sydney CBD',
     });
 
     const req = makeReq({ body: { content: 'Test memory' } });
@@ -138,7 +138,7 @@ describe('geoAutoInjectHook', () => {
       lat: -33.8688,
       lng: 151.2093,
       address: null,
-      placeLabel: null,
+      place_label: null,
     });
 
     const req = makeReq({ body: { content: 'Test' } });

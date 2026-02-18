@@ -135,9 +135,9 @@ describe('Recurrence API Endpoints', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.rule).toBe('RRULE:FREQ=DAILY');
-      expect(body.ruleDescription).toContain('Every day');
-      expect(body.isTemplate).toBe(true);
-      expect(body.nextOccurrence).toBeDefined();
+      expect(body.rule_description).toContain('Every day');
+      expect(body.is_template).toBe(true);
+      expect(body.next_occurrence).toBeDefined();
     });
 
     it('returns 404 for non-recurring work item', async () => {

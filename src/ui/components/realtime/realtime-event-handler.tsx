@@ -9,11 +9,11 @@ import type { RealtimeEvent, RealtimeEventType } from './types';
 export interface RealtimeEventHandlerProps {
   eventType: RealtimeEventType;
   onEvent: (event: RealtimeEvent) => void;
-  entityId?: string;
+  entity_id?: string;
   children?: React.ReactNode;
 }
 
-export function RealtimeEventHandler({ eventType, onEvent, entityId, children }: RealtimeEventHandlerProps) {
+export function RealtimeEventHandler({ eventType, onEvent, entity_id, children }: RealtimeEventHandlerProps) {
   const realtime = React.useContext(
     React.createContext<{ addEventHandler?: typeof useRealtime extends () => infer R ? R['addEventHandler'] : never } | null>(null),
   );
@@ -21,11 +21,11 @@ export function RealtimeEventHandler({ eventType, onEvent, entityId, children }:
   React.useEffect(() => {
     // If context is available, register handler
     if (realtime?.addEventHandler) {
-      return realtime.addEventHandler(eventType, onEvent, entityId);
+      return realtime.addEventHandler(eventType, onEvent, entity_id);
     }
     // Return no-op cleanup if not in provider
     return () => {};
-  }, [realtime, eventType, onEvent, entityId]);
+  }, [realtime, eventType, onEvent, entity_id]);
 
   return <>{children}</>;
 }
@@ -33,7 +33,7 @@ export function RealtimeEventHandler({ eventType, onEvent, entityId, children }:
 /**
  * Hook to subscribe to specific events
  */
-export function useRealtimeEvent(eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entityId?: string) {
+export function useRealtimeEvent(eventType: RealtimeEventType, handler: (event: RealtimeEvent) => void, entity_id?: string) {
   // Try to get context, but don't throw if not available
   const context = React.useContext(
     React.createContext<{ addEventHandler?: typeof useRealtime extends () => infer R ? R['addEventHandler'] : never } | null>(null),
@@ -44,8 +44,8 @@ export function useRealtimeEvent(eventType: RealtimeEventType, handler: (event: 
 
   React.useEffect(() => {
     if (context?.addEventHandler) {
-      return context.addEventHandler(eventType, (event) => handlerRef.current(event), entityId);
+      return context.addEventHandler(eventType, (event) => handlerRef.current(event), entity_id);
     }
     return () => {};
-  }, [context, eventType, entityId]);
+  }, [context, eventType, entity_id]);
 }

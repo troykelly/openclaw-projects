@@ -119,7 +119,7 @@ describe('api-client auth integration', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ accessToken: newToken }),
+          json: async () => ({ access_token: newToken }),
         })
         // Retry call: success
         .mockResolvedValueOnce({

@@ -61,7 +61,7 @@ export function useDeleteRecipe() {
 
 export function useRecipeToShoppingList(recipeId: string) {
   return useMutation({
-    mutationFn: (listId: string) =>
-      apiClient.post<{ added: number }>(`/api/recipes/${recipeId}/to-shopping-list`, { list_id: listId }),
+    mutationFn: (list_id: string) =>
+      apiClient.post<{ added: number }>(`/api/recipes/${recipeId}/to-shopping-list`, { list_id: list_id }),
   });
 }

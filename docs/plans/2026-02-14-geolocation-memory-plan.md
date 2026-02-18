@@ -615,8 +615,8 @@ export interface Memory {
   lng?: number | null;
   address?: string | null;
   place_label?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 ```
 

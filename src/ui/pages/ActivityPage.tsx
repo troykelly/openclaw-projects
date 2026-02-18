@@ -28,11 +28,11 @@ type ActivityFilter = 'all' | 'work_items' | 'communications' | 'agent' | 'syste
 /** Mapped display-ready activity item. */
 interface DisplayActivityItem {
   id: string;
-  actorType: 'agent' | 'human' | 'system';
+  actor_type: 'agent' | 'human' | 'system';
   actorName: string;
   action: string;
   actionLabel: string;
-  entityId: string;
+  entity_id: string;
   entityTitle: string;
   detail: string;
   timestamp: Date;
@@ -45,7 +45,7 @@ interface DisplayActivityItem {
 
 /** Map an API activity item to a display-ready format. */
 function mapActivityItem(item: ActivityItem): DisplayActivityItem {
-  const actorType = !item.actor_email
+  const actor_type = !item.actor_email
     ? ('system' as const)
     : item.actor_email.includes('agent') || item.actor_email.includes('openclaw')
       ? ('agent' as const)
@@ -55,11 +55,11 @@ function mapActivityItem(item: ActivityItem): DisplayActivityItem {
 
   return {
     id: item.id,
-    actorType,
+    actor_type,
     actorName: item.actor_email || 'System',
     action,
     actionLabel: getActionLabel(action),
-    entityId: item.work_item_id,
+    entity_id: item.work_item_id,
     entityTitle: item.work_item_title,
     detail: item.description,
     timestamp: new Date(item.created_at),
@@ -90,8 +90,8 @@ function getActionLabel(action: string): string {
 }
 
 /** Get an icon component for an activity type. */
-function getActivityIcon(type: string, actorType: string): React.ReactNode {
-  if (actorType === 'agent') {
+function getActivityIcon(type: string, actor_type: string): React.ReactNode {
+  if (actor_type === 'agent') {
     return <Bot className="size-4" />;
   }
 
@@ -116,11 +116,11 @@ function getActivityIcon(type: string, actorType: string): React.ReactNode {
 }
 
 /** Get the background color class for an activity icon. */
-function getIconColor(type: string, actorType: string): string {
-  if (actorType === 'agent') {
+function getIconColor(type: string, actor_type: string): string {
+  if (actor_type === 'agent') {
     return 'bg-violet-500/10 text-violet-500 dark:bg-violet-500/20';
   }
-  if (actorType === 'system') {
+  if (actor_type === 'system') {
     return 'bg-gray-500/10 text-gray-500 dark:bg-gray-500/20';
   }
 
@@ -210,9 +210,9 @@ export function ActivityPage(): React.JSX.Element {
         case 'communications':
           return ['commented', 'communication_linked'].includes(item.action);
         case 'agent':
-          return item.actorType === 'agent';
+          return item.actor_type === 'agent';
         case 'system':
-          return item.actorType === 'system';
+          return item.actor_type === 'system';
         default:
           return true;
       }
@@ -352,9 +352,9 @@ export function ActivityPage(): React.JSX.Element {
                           {/* Type icon */}
                           <div
                             data-testid="activity-type-icon"
-                            className={`size-8 rounded-full flex items-center justify-center shrink-0 ${getIconColor(item.type, item.actorType)}`}
+                            className={`size-8 rounded-full flex items-center justify-center shrink-0 ${getIconColor(item.type, item.actor_type)}`}
                           >
-                            {getActivityIcon(item.type, item.actorType)}
+                            {getActivityIcon(item.type, item.actor_type)}
                           </div>
 
                           {/* Content */}
@@ -363,7 +363,7 @@ export function ActivityPage(): React.JSX.Element {
                               <span className="text-sm font-medium text-foreground">{item.actorName}</span>
                               <span className="text-xs text-muted-foreground">{item.actionLabel}</span>
                               <Link
-                                to={`/work-items/${item.entityId}`}
+                                to={`/work-items/${item.entity_id}`}
                                 className="text-sm font-medium text-primary hover:underline truncate max-w-[200px] sm:max-w-none"
                               >
                                 {item.entityTitle}

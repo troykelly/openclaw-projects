@@ -27,14 +27,14 @@ describe('Context Capture Service', () => {
     it('should return null for valid input', () => {
       const input: ContextCaptureInput = {
         conversation: 'This is a conversation that happened between user and agent.',
-        messageCount: 5,
+        message_count: 5,
       };
       expect(validateCaptureInput(input)).toBeNull();
     });
 
     it('should require conversation', () => {
       const input = {
-        messageCount: 5,
+        message_count: 5,
       } as ContextCaptureInput;
       expect(validateCaptureInput(input)).toBe('conversation is required');
     });
@@ -42,7 +42,7 @@ describe('Context Capture Service', () => {
     it('should require non-empty conversation', () => {
       const input: ContextCaptureInput = {
         conversation: '   ',
-        messageCount: 5,
+        message_count: 5,
       };
       expect(validateCaptureInput(input)).toBe('conversation cannot be empty');
     });
@@ -50,39 +50,39 @@ describe('Context Capture Service', () => {
     it('should require conversation string type', () => {
       const input = {
         conversation: 123,
-        messageCount: 5,
+        message_count: 5,
       } as unknown as ContextCaptureInput;
       expect(validateCaptureInput(input)).toBe('conversation is required');
     });
 
-    it('should require messageCount', () => {
+    it('should require message_count', () => {
       const input = {
         conversation: 'Some conversation',
       } as ContextCaptureInput;
-      expect(validateCaptureInput(input)).toBe('messageCount is required');
+      expect(validateCaptureInput(input)).toBe('message_count is required');
     });
 
-    it('should require messageCount to be a number', () => {
+    it('should require message_count to be a number', () => {
       const input = {
         conversation: 'Some conversation',
-        messageCount: 'five',
+        message_count: 'five',
       } as unknown as ContextCaptureInput;
-      expect(validateCaptureInput(input)).toBe('messageCount must be a positive integer');
+      expect(validateCaptureInput(input)).toBe('message_count must be a positive integer');
     });
 
-    it('should require messageCount to be positive', () => {
+    it('should require message_count to be positive', () => {
       const input: ContextCaptureInput = {
         conversation: 'Some conversation',
-        messageCount: 0,
+        message_count: 0,
       };
-      expect(validateCaptureInput(input)).toBe('messageCount must be a positive integer');
+      expect(validateCaptureInput(input)).toBe('message_count must be a positive integer');
     });
 
-    it('should accept optional userId', () => {
+    it('should accept optional user_id', () => {
       const input: ContextCaptureInput = {
         conversation: 'A conversation with sufficient content for testing purposes.',
-        messageCount: 5,
-        userId: 'user@example.com',
+        message_count: 5,
+        user_id: 'user@example.com',
       };
       expect(validateCaptureInput(input)).toBeNull();
     });
@@ -92,7 +92,7 @@ describe('Context Capture Service', () => {
     it('should skip capture for short conversations (< 2 messages)', async () => {
       const input: ContextCaptureInput = {
         conversation: 'Short conversation',
-        messageCount: 1,
+        message_count: 1,
       };
 
       const result = await captureContext(mockPool, input);
@@ -105,7 +105,7 @@ describe('Context Capture Service', () => {
     it('should skip capture for short content (< 100 characters)', async () => {
       const input: ContextCaptureInput = {
         conversation: 'A very short summary.',
-        messageCount: 5,
+        message_count: 5,
       };
 
       const result = await captureContext(mockPool, input);
@@ -120,8 +120,8 @@ describe('Context Capture Service', () => {
         'This is a conversation summary that is long enough to meet the minimum content requirement. The user discussed their preferences and decisions during this session.';
       const input: ContextCaptureInput = {
         conversation: longConversation,
-        messageCount: 10,
-        userId: 'user@example.com',
+        message_count: 10,
+        user_id: 'user@example.com',
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -141,7 +141,7 @@ describe('Context Capture Service', () => {
       const result = await captureContext(mockPool, input);
 
       expect(result.captured).toBe(1);
-      expect(result.memoryId).toBeDefined();
+      expect(result.memory_id).toBeDefined();
       expect((mockPool.query as Mock).mock.calls.length).toBe(1);
     });
 
@@ -149,7 +149,7 @@ describe('Context Capture Service', () => {
       const veryLongConversation = 'x'.repeat(3000);
       const input: ContextCaptureInput = {
         conversation: veryLongConversation,
-        messageCount: 20,
+        message_count: 20,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -181,7 +181,7 @@ describe('Context Capture Service', () => {
         'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
-        messageCount: 5,
+        message_count: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -210,7 +210,7 @@ describe('Context Capture Service', () => {
         'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
-        messageCount: 5,
+        message_count: 5,
       };
 
       (mockPool.query as Mock).mockRejectedValue(new Error('Database connection failed'));
@@ -227,7 +227,7 @@ describe('Context Capture Service', () => {
         'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
-        messageCount: 5,
+        message_count: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -257,7 +257,7 @@ describe('Context Capture Service', () => {
         'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
-        messageCount: 5,
+        message_count: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -275,7 +275,7 @@ describe('Context Capture Service', () => {
         'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
-        messageCount: 5,
+        message_count: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -305,7 +305,7 @@ describe('Context Capture Service', () => {
         'A conversation summary with enough content to trigger capture and storage in the memory system. This needs to be at least 100 characters long.';
       const input: ContextCaptureInput = {
         conversation,
-        messageCount: 5,
+        message_count: 5,
       };
 
       (mockPool.query as Mock).mockResolvedValue({
@@ -325,15 +325,15 @@ describe('Context Capture Service', () => {
       const result = await captureContext(mockPool, input);
 
       expect(result).toHaveProperty('captured');
-      expect(result).toHaveProperty('memoryId');
+      expect(result).toHaveProperty('memory_id');
       expect(typeof result.captured).toBe('number');
-      expect(typeof result.memoryId).toBe('string');
+      expect(typeof result.memory_id).toBe('string');
     });
 
     it('should have proper structure for skip result', async () => {
       const input: ContextCaptureInput = {
         conversation: 'Short',
-        messageCount: 1,
+        message_count: 1,
       };
 
       const result = await captureContext(mockPool, input);

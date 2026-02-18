@@ -57,7 +57,7 @@ describe('Security Tests', () => {
     client: mockApiClient,
     logger: mockLogger,
     config: mockConfig,
-    userId: 'agent-1',
+    user_id: 'agent-1',
   };
 
   beforeEach(() => {
@@ -334,7 +334,7 @@ describe('Security Tests', () => {
       const tool = createMemoryForgetTool(toolOptions);
 
       for (const badId of malformedUuids) {
-        const result = await tool.execute({ memoryId: badId });
+        const result = await tool.execute({ memory_id: badId });
         expect(result.success).toBe(false);
         // Either validation error or API error
         expect(result.error).toBeDefined();
@@ -451,7 +451,7 @@ describe('Security Tests', () => {
         client: client as unknown as ApiClient,
         logger: mockLogger,
         config: { ...mockConfig, apiKey: secretKey },
-        userId: 'agent-1',
+        user_id: 'agent-1',
       });
 
       await tool.execute({ query: 'test' });
@@ -500,7 +500,7 @@ describe('Security Tests', () => {
   });
 
   describe('Authorization - User Isolation', () => {
-    it('should include userId in all API requests', async () => {
+    it('should include user_id in all API requests', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { memories: [] },
@@ -510,15 +510,15 @@ describe('Security Tests', () => {
       const tool = createMemoryRecallTool({
         ...toolOptions,
         client: client as unknown as ApiClient,
-        userId: 'test-user-123',
+        user_id: 'test-user-123',
       });
 
       await tool.execute({ query: 'test' });
 
-      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ userId: 'test-user-123' }));
+      expect(mockGet).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ user_id: 'test-user-123' }));
     });
 
-    it('should use configured userId consistently', async () => {
+    it('should use configured user_id consistently', async () => {
       const mockPost = vi.fn().mockResolvedValue({
         success: true,
         data: { id: '1', content: 'test', category: 'fact' },
@@ -528,15 +528,15 @@ describe('Security Tests', () => {
       const tool = createMemoryStoreTool({
         ...toolOptions,
         client: client as unknown as ApiClient,
-        userId: 'isolated-user-456',
+        user_id: 'isolated-user-456',
       });
 
       await tool.execute({ content: 'test content for memory', category: 'fact' });
 
-      // The tool should call the API with the userId
+      // The tool should call the API with the user_id
       expect(mockPost).toHaveBeenCalled();
       const lastCall = mockPost.mock.calls[0];
-      expect(lastCall[2]).toEqual(expect.objectContaining({ userId: 'isolated-user-456' }));
+      expect(lastCall[2]).toEqual(expect.objectContaining({ user_id: 'isolated-user-456' }));
     });
   });
 

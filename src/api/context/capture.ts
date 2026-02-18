@@ -13,9 +13,9 @@ export interface ContextCaptureInput {
   /** The conversation summary to capture */
   conversation: string;
   /** Number of messages in the conversation */
-  messageCount: number;
+  message_count: number;
   /** User identifier for scoping the memory */
-  userId?: string;
+  user_id?: string;
 }
 
 /** Result of context capture */
@@ -23,7 +23,7 @@ export interface ContextCaptureResult {
   /** Number of memories captured (0 or 1) */
   captured: number;
   /** ID of the captured memory, if any */
-  memoryId?: string;
+  memory_id?: string;
   /** Reason if capture was skipped */
   reason?: string;
   /** Error message if capture failed */
@@ -52,12 +52,12 @@ export function validateCaptureInput(input: ContextCaptureInput): string | null 
     return 'conversation cannot be empty';
   }
 
-  // messageCount validation
-  if (input.messageCount === undefined || input.messageCount === null) {
-    return 'messageCount is required';
+  // message_count validation
+  if (input.message_count === undefined || input.message_count === null) {
+    return 'message_count is required';
   }
-  if (typeof input.messageCount !== 'number' || input.messageCount < 1 || !Number.isInteger(input.messageCount)) {
-    return 'messageCount must be a positive integer';
+  if (typeof input.message_count !== 'number' || input.message_count < 1 || !Number.isInteger(input.message_count)) {
+    return 'message_count must be a positive integer';
   }
 
   return null;
@@ -74,10 +74,10 @@ export function validateCaptureInput(input: ContextCaptureInput): string | null 
  * - Conversation content is less than 100 characters
  */
 export async function captureContext(pool: Pool, input: ContextCaptureInput): Promise<ContextCaptureResult> {
-  const { conversation, messageCount, userId } = input;
+  const { conversation, message_count, user_id } = input;
 
   // Skip if conversation is too short
-  if (messageCount < MIN_MESSAGE_COUNT) {
+  if (message_count < MIN_MESSAGE_COUNT) {
     return {
       captured: 0,
       reason: 'conversation too short',
@@ -120,7 +120,7 @@ export async function captureContext(pool: Pool, input: ContextCaptureInput): Pr
         created_at,
         updated_at`,
       [
-        userId ?? null,
+        user_id ?? null,
         title,
         content,
         'context',
@@ -142,7 +142,7 @@ export async function captureContext(pool: Pool, input: ContextCaptureInput): Pr
 
     return {
       captured: 1,
-      memoryId: row.id,
+      memory_id: row.id,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

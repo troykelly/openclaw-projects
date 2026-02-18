@@ -13,10 +13,10 @@ import type { OAuthTokens } from '../src/api/oauth/types.ts';
 const TEST_KEY_HEX = 'c'.repeat(64); // 32-byte key in hex
 
 const MOCK_TOKENS: OAuthTokens = {
-  accessToken: 'ya29.test-access-token-value',
-  refreshToken: '1//test-refresh-token-value',
-  expiresAt: new Date('2099-01-01T00:00:00Z'),
-  tokenType: 'Bearer',
+  access_token: 'ya29.test-access-token-value',
+  refresh_token: '1//test-refresh-token-value',
+  expires_at: new Date('2099-01-01T00:00:00Z'),
+  token_type: 'Bearer',
   scopes: ['openid', 'email'],
 };
 
@@ -48,8 +48,8 @@ describe('oauth token encryption integration', () => {
       const conn = await saveConnection(pool, 'user@test.com', 'google', MOCK_TOKENS);
 
       // Returned connection should have plaintext tokens
-      expect(conn.accessToken).toBe(MOCK_TOKENS.accessToken);
-      expect(conn.refreshToken).toBe(MOCK_TOKENS.refreshToken);
+      expect(conn.access_token).toBe(MOCK_TOKENS.access_token);
+      expect(conn.refresh_token).toBe(MOCK_TOKENS.refresh_token);
 
       // Tokens in the database should be encrypted (not plaintext)
       const raw = await pool.query(
@@ -57,8 +57,8 @@ describe('oauth token encryption integration', () => {
         [conn.id],
       );
       const dbRow = raw.rows[0];
-      expect(dbRow.access_token).not.toBe(MOCK_TOKENS.accessToken);
-      expect(dbRow.refresh_token).not.toBe(MOCK_TOKENS.refreshToken);
+      expect(dbRow.access_token).not.toBe(MOCK_TOKENS.access_token);
+      expect(dbRow.refresh_token).not.toBe(MOCK_TOKENS.refresh_token);
     });
 
     it('getConnection decrypts tokens from database', async () => {
@@ -66,8 +66,8 @@ describe('oauth token encryption integration', () => {
 
       const conn = await getConnection(pool, saved.id);
       expect(conn).not.toBeNull();
-      expect(conn!.accessToken).toBe(MOCK_TOKENS.accessToken);
-      expect(conn!.refreshToken).toBe(MOCK_TOKENS.refreshToken);
+      expect(conn!.access_token).toBe(MOCK_TOKENS.access_token);
+      expect(conn!.refresh_token).toBe(MOCK_TOKENS.refresh_token);
     });
 
     it('listConnections decrypts tokens from database', async () => {
@@ -75,8 +75,8 @@ describe('oauth token encryption integration', () => {
 
       const connections = await listConnections(pool, 'user@test.com');
       expect(connections).toHaveLength(1);
-      expect(connections[0].accessToken).toBe(MOCK_TOKENS.accessToken);
-      expect(connections[0].refreshToken).toBe(MOCK_TOKENS.refreshToken);
+      expect(connections[0].access_token).toBe(MOCK_TOKENS.access_token);
+      expect(connections[0].refresh_token).toBe(MOCK_TOKENS.refresh_token);
     });
 
     it('upsert re-encrypts tokens on update', async () => {
@@ -84,8 +84,8 @@ describe('oauth token encryption integration', () => {
 
       const updatedTokens: OAuthTokens = {
         ...MOCK_TOKENS,
-        accessToken: 'ya29.updated-access-token',
-        refreshToken: '1//updated-refresh-token',
+        access_token: 'ya29.updated-access-token',
+        refresh_token: '1//updated-refresh-token',
       };
 
       const conn2 = await saveConnection(pool, 'user@test.com', 'google', updatedTokens);
@@ -94,21 +94,21 @@ describe('oauth token encryption integration', () => {
       expect(conn2.id).toBe(conn1.id);
 
       // Returned connection has updated plaintext
-      expect(conn2.accessToken).toBe(updatedTokens.accessToken);
-      expect(conn2.refreshToken).toBe(updatedTokens.refreshToken);
+      expect(conn2.access_token).toBe(updatedTokens.access_token);
+      expect(conn2.refresh_token).toBe(updatedTokens.refresh_token);
 
       // Database should have encrypted updated tokens
       const raw = await pool.query(
         'SELECT access_token, refresh_token FROM oauth_connection WHERE id = $1',
         [conn2.id],
       );
-      expect(raw.rows[0].access_token).not.toBe(updatedTokens.accessToken);
-      expect(raw.rows[0].refresh_token).not.toBe(updatedTokens.refreshToken);
+      expect(raw.rows[0].access_token).not.toBe(updatedTokens.access_token);
+      expect(raw.rows[0].refresh_token).not.toBe(updatedTokens.refresh_token);
 
       // Reading back should return updated plaintext
       const readBack = await getConnection(pool, conn2.id);
-      expect(readBack!.accessToken).toBe(updatedTokens.accessToken);
-      expect(readBack!.refreshToken).toBe(updatedTokens.refreshToken);
+      expect(readBack!.access_token).toBe(updatedTokens.access_token);
+      expect(readBack!.refresh_token).toBe(updatedTokens.refresh_token);
     });
   });
 
@@ -119,19 +119,19 @@ describe('oauth token encryption integration', () => {
 
     it('saves and reads tokens as plaintext', async () => {
       const conn = await saveConnection(pool, 'user@test.com', 'google', MOCK_TOKENS);
-      expect(conn.accessToken).toBe(MOCK_TOKENS.accessToken);
+      expect(conn.access_token).toBe(MOCK_TOKENS.access_token);
 
       // In the database, tokens should be stored as-is (plaintext passthrough)
       const raw = await pool.query(
         'SELECT access_token, refresh_token FROM oauth_connection WHERE id = $1',
         [conn.id],
       );
-      expect(raw.rows[0].access_token).toBe(MOCK_TOKENS.accessToken);
-      expect(raw.rows[0].refresh_token).toBe(MOCK_TOKENS.refreshToken);
+      expect(raw.rows[0].access_token).toBe(MOCK_TOKENS.access_token);
+      expect(raw.rows[0].refresh_token).toBe(MOCK_TOKENS.refresh_token);
 
       // getConnection also returns plaintext
       const readBack = await getConnection(pool, conn.id);
-      expect(readBack!.accessToken).toBe(MOCK_TOKENS.accessToken);
+      expect(readBack!.access_token).toBe(MOCK_TOKENS.access_token);
     });
   });
 });

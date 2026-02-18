@@ -18,20 +18,20 @@ import { createTestPool, truncateAllTables } from './helpers/db.ts';
 /** Note response from API */
 interface NoteResponse {
   id: string;
-  notebookId: string | null;
-  userEmail: string;
+  notebook_id: string | null;
+  user_email: string;
   title: string;
   content: string;
   summary: string | null;
   tags: string[];
-  isPinned: boolean;
-  sortOrder: number;
+  is_pinned: boolean;
+  sort_order: number;
   visibility: string;
-  hideFromAgents: boolean;
-  embeddingStatus: string;
-  deletedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  hide_from_agents: boolean;
+  embedding_status: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /** E2E test timeout configuration */
@@ -648,7 +648,7 @@ const x = "test";
           name: 'Test Notebook',
         },
       });
-      const notebookId = nbRes.json().id;
+      const notebook_id = nbRes.json().id;
 
       // Create note in notebook
       const createRes = await app.inject({
@@ -658,12 +658,12 @@ const x = "test";
           user_email: testUser,
           title: 'Note in Notebook',
           content: 'Content',
-          notebook_id: notebookId,
+          notebook_id: notebook_id,
         },
       });
 
       expect(createRes.statusCode).toBe(201);
-      expect(createRes.json<NoteResponse>().notebookId).toBe(notebookId);
+      expect(createRes.json<NoteResponse>().notebook_id).toBe(notebook_id);
     });
 
     it('maintains notebook association after updates', async () => {
@@ -676,7 +676,7 @@ const x = "test";
           name: 'Persistent Notebook',
         },
       });
-      const notebookId = nbRes.json().id;
+      const notebook_id = nbRes.json().id;
 
       // Create note in notebook
       const createRes = await app.inject({
@@ -686,7 +686,7 @@ const x = "test";
           user_email: testUser,
           title: 'Notebook Note',
           content: 'V1',
-          notebook_id: notebookId,
+          notebook_id: notebook_id,
         },
       });
       const noteId = createRes.json<NoteResponse>().id;
@@ -711,7 +711,7 @@ const x = "test";
         query: { user_email: testUser },
       });
 
-      expect(getRes.json<NoteResponse>().notebookId).toBe(notebookId);
+      expect(getRes.json<NoteResponse>().notebook_id).toBe(notebook_id);
     });
   });
 });

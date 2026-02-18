@@ -29,11 +29,11 @@ Or 503 with `{"status": "unavailable"}` if critical components fail.
   "components": {
     "database": {
       "status": "healthy",
-      "latencyMs": 2,
+      "latency_ms": 2,
       "details": {
-        "poolTotal": 10,
-        "poolIdle": 8,
-        "poolWaiting": 0
+        "pool_total": 10,
+        "pool_idle": 8,
+        "pool_waiting": 0
       }
     }
   }
@@ -53,7 +53,7 @@ type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
 interface HealthCheckResult {
   status: HealthStatus;
-  latencyMs: number;
+  latency_ms: number;
   details?: Record<string, unknown>;
 }
 

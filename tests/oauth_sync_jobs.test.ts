@@ -30,17 +30,17 @@ describe('OAuth sync job infrastructure', () => {
    * Helper to create a test OAuth connection with encrypted tokens.
    */
   async function createTestConnection(overrides: {
-    enabledFeatures?: string[];
-    isActive?: boolean;
-    syncStatus?: Record<string, unknown>;
+    enabled_features?: string[];
+    is_active?: boolean;
+    sync_status?: Record<string, unknown>;
     provider?: string;
-    userEmail?: string;
+    user_email?: string;
   } = {}): Promise<string> {
-    const features = overrides.enabledFeatures ?? ['contacts'];
-    const isActive = overrides.isActive ?? true;
-    const syncStatus = overrides.syncStatus ?? {};
+    const features = overrides.enabled_features ?? ['contacts'];
+    const is_active = overrides.is_active ?? true;
+    const sync_status = overrides.sync_status ?? {};
     const provider = overrides.provider ?? 'google';
-    const userEmail = overrides.userEmail ?? 'test@example.com';
+    const user_email = overrides.user_email ?? 'test@example.com';
 
     // Insert with placeholder tokens, then encrypt using the row ID
     const result = await pool.query(
@@ -50,7 +50,7 @@ describe('OAuth sync job infrastructure', () => {
        )
        VALUES ($1, $2, 'placeholder', 'placeholder', ARRAY['contacts.read'], $3, $4, $5::jsonb)
        RETURNING id::text as id`,
-      [userEmail, provider, features, isActive, JSON.stringify(syncStatus)],
+      [user_email, provider, features, is_active, JSON.stringify(sync_status)],
     );
 
     const id = (result.rows[0] as { id: string }).id;
@@ -69,7 +69,7 @@ describe('OAuth sync job infrastructure', () => {
 
   describe('enqueue_oauth_contact_sync_jobs() SQL function', () => {
     it('enqueues a job for active connections with contacts enabled', async () => {
-      const connectionId = await createTestConnection({ enabledFeatures: ['contacts'] });
+      const connection_id = await createTestConnection({ enabled_features: ['contacts'] });
 
       const result = await pool.query('SELECT enqueue_oauth_contact_sync_jobs()');
       const count = (result.rows[0] as { enqueue_oauth_contact_sync_jobs: number }).enqueue_oauth_contact_sync_jobs;
@@ -86,13 +86,13 @@ describe('OAuth sync job infrastructure', () => {
       expect(jobs.rows).toHaveLength(1);
       expect(jobs.rows[0]).toEqual({
         kind: 'oauth.sync.contacts',
-        connection_id: connectionId,
+        connection_id: connection_id,
         feature: 'contacts',
       });
     });
 
     it('is idempotent — does not duplicate jobs', async () => {
-      await createTestConnection({ enabledFeatures: ['contacts'] });
+      await createTestConnection({ enabled_features: ['contacts'] });
 
       await pool.query('SELECT enqueue_oauth_contact_sync_jobs()');
       await pool.query('SELECT enqueue_oauth_contact_sync_jobs()');
@@ -105,7 +105,7 @@ describe('OAuth sync job infrastructure', () => {
     });
 
     it('skips inactive connections', async () => {
-      await createTestConnection({ enabledFeatures: ['contacts'], isActive: false });
+      await createTestConnection({ enabled_features: ['contacts'], is_active: false });
 
       const result = await pool.query('SELECT enqueue_oauth_contact_sync_jobs()');
       const count = (result.rows[0] as { enqueue_oauth_contact_sync_jobs: number }).enqueue_oauth_contact_sync_jobs;
@@ -114,7 +114,7 @@ describe('OAuth sync job infrastructure', () => {
     });
 
     it('skips connections without contacts feature', async () => {
-      await createTestConnection({ enabledFeatures: ['email'] });
+      await createTestConnection({ enabled_features: ['email'] });
 
       const result = await pool.query('SELECT enqueue_oauth_contact_sync_jobs()');
       const count = (result.rows[0] as { enqueue_oauth_contact_sync_jobs: number }).enqueue_oauth_contact_sync_jobs;
@@ -125,8 +125,8 @@ describe('OAuth sync job infrastructure', () => {
     it('skips connections that synced recently', async () => {
       const recentSync = new Date().toISOString();
       await createTestConnection({
-        enabledFeatures: ['contacts'],
-        syncStatus: {
+        enabled_features: ['contacts'],
+        sync_status: {
           contacts: {
             lastSuccess: recentSync,
             consecutiveFailures: 0,
@@ -143,8 +143,8 @@ describe('OAuth sync job infrastructure', () => {
     it('enqueues for connections with stale last sync', async () => {
       const staleSync = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(); // 7 hours ago
       await createTestConnection({
-        enabledFeatures: ['contacts'],
-        syncStatus: {
+        enabled_features: ['contacts'],
+        sync_status: {
           contacts: {
             lastSuccess: staleSync,
             consecutiveFailures: 0,
@@ -159,9 +159,9 @@ describe('OAuth sync job infrastructure', () => {
     });
 
     it('enqueues for multiple connections', async () => {
-      await createTestConnection({ enabledFeatures: ['contacts'], userEmail: 'a@test.com' });
-      await createTestConnection({ enabledFeatures: ['contacts'], userEmail: 'b@test.com' });
-      await createTestConnection({ enabledFeatures: ['email'], userEmail: 'c@test.com' }); // no contacts
+      await createTestConnection({ enabled_features: ['contacts'], user_email: 'a@test.com' });
+      await createTestConnection({ enabled_features: ['contacts'], user_email: 'b@test.com' });
+      await createTestConnection({ enabled_features: ['email'], user_email: 'c@test.com' }); // no contacts
 
       const result = await pool.query('SELECT enqueue_oauth_contact_sync_jobs()');
       const count = (result.rows[0] as { enqueue_oauth_contact_sync_jobs: number }).enqueue_oauth_contact_sync_jobs;
@@ -188,9 +188,9 @@ describe('OAuth sync job infrastructure', () => {
   describe('enqueueSyncJob', () => {
     it('creates an internal_job for a connection', async () => {
       const { enqueueSyncJob } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection();
+      const connection_id = await createTestConnection();
 
-      const jobId = await enqueueSyncJob(pool, connectionId, 'contacts');
+      const jobId = await enqueueSyncJob(pool, connection_id, 'contacts');
       expect(jobId).toBeTruthy();
 
       const job = await pool.query(
@@ -201,16 +201,16 @@ describe('OAuth sync job infrastructure', () => {
 
       expect(job.rows[0]).toEqual({
         kind: 'oauth.sync.contacts',
-        connection_id: connectionId,
+        connection_id: connection_id,
       });
     });
 
     it('returns null for duplicate jobs (idempotency)', async () => {
       const { enqueueSyncJob } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection();
+      const connection_id = await createTestConnection();
 
-      const firstId = await enqueueSyncJob(pool, connectionId, 'contacts');
-      const secondId = await enqueueSyncJob(pool, connectionId, 'contacts');
+      const firstId = await enqueueSyncJob(pool, connection_id, 'contacts');
+      const secondId = await enqueueSyncJob(pool, connection_id, 'contacts');
 
       expect(firstId).toBeTruthy();
       expect(secondId).toBeNull();
@@ -220,11 +220,11 @@ describe('OAuth sync job infrastructure', () => {
   describe('removePendingSyncJobs', () => {
     it('removes pending sync jobs for a connection', async () => {
       const { enqueueSyncJob, removePendingSyncJobs } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection();
+      const connection_id = await createTestConnection();
 
-      await enqueueSyncJob(pool, connectionId, 'contacts');
+      await enqueueSyncJob(pool, connection_id, 'contacts');
 
-      const removed = await removePendingSyncJobs(pool, connectionId);
+      const removed = await removePendingSyncJobs(pool, connection_id);
       expect(removed).toBe(1);
 
       const remaining = await pool.query(
@@ -236,8 +236,8 @@ describe('OAuth sync job infrastructure', () => {
 
     it('does not remove jobs for other connections', async () => {
       const { enqueueSyncJob, removePendingSyncJobs } = await import('../src/api/oauth/sync.ts');
-      const conn1 = await createTestConnection({ userEmail: 'a@test.com' });
-      const conn2 = await createTestConnection({ userEmail: 'b@test.com' });
+      const conn1 = await createTestConnection({ user_email: 'a@test.com' });
+      const conn2 = await createTestConnection({ user_email: 'b@test.com' });
 
       await enqueueSyncJob(pool, conn1, 'contacts');
       await enqueueSyncJob(pool, conn2, 'contacts');
@@ -256,9 +256,9 @@ describe('OAuth sync job infrastructure', () => {
   describe('updateFeatureSyncStatus', () => {
     it('updates sync_status for a specific feature', async () => {
       const { updateFeatureSyncStatus } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection();
+      const connection_id = await createTestConnection();
 
-      await updateFeatureSyncStatus(pool, connectionId, 'contacts', {
+      await updateFeatureSyncStatus(pool, connection_id, 'contacts', {
         lastSync: '2026-01-01T00:00:00Z',
         lastSuccess: '2026-01-01T00:00:00Z',
         consecutiveFailures: 0,
@@ -267,7 +267,7 @@ describe('OAuth sync job infrastructure', () => {
 
       const result = await pool.query(
         `SELECT sync_status FROM oauth_connection WHERE id = $1::uuid`,
-        [connectionId],
+        [connection_id],
       );
 
       const status = (result.rows[0] as { sync_status: Record<string, unknown> }).sync_status;
@@ -279,18 +279,18 @@ describe('OAuth sync job infrastructure', () => {
 
     it('preserves other feature statuses when updating one', async () => {
       const { updateFeatureSyncStatus } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection({
-        syncStatus: { email: { lastSync: '2026-01-01T00:00:00Z' } },
+      const connection_id = await createTestConnection({
+        sync_status: { email: { lastSync: '2026-01-01T00:00:00Z' } },
       });
 
-      await updateFeatureSyncStatus(pool, connectionId, 'contacts', {
+      await updateFeatureSyncStatus(pool, connection_id, 'contacts', {
         lastSync: '2026-02-01T00:00:00Z',
         consecutiveFailures: 0,
       });
 
       const result = await pool.query(
         `SELECT sync_status FROM oauth_connection WHERE id = $1::uuid`,
-        [connectionId],
+        [connection_id],
       );
 
       const status = (result.rows[0] as { sync_status: Record<string, unknown> }).sync_status;
@@ -302,14 +302,14 @@ describe('OAuth sync job infrastructure', () => {
   describe('getSyncStatus', () => {
     it('returns sync status for a connection', async () => {
       const { getSyncStatus, updateFeatureSyncStatus } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection();
+      const connection_id = await createTestConnection();
 
-      await updateFeatureSyncStatus(pool, connectionId, 'contacts', {
+      await updateFeatureSyncStatus(pool, connection_id, 'contacts', {
         lastSync: '2026-01-01T00:00:00Z',
         consecutiveFailures: 0,
       });
 
-      const status = await getSyncStatus(pool, connectionId);
+      const status = await getSyncStatus(pool, connection_id);
       expect(status).toBeTruthy();
       expect(status?.contacts).toBeDefined();
     });
@@ -328,16 +328,16 @@ describe('OAuth sync job infrastructure', () => {
       const result = await handleContactSyncJob(pool, {
         id: 'test-id',
         kind: 'oauth.sync.contacts',
-        runAt: new Date(),
+        run_at: new Date(),
         payload: {},
         attempts: 0,
-        lastError: null,
-        lockedAt: null,
-        lockedBy: null,
-        completedAt: null,
-        idempotencyKey: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+        completed_at: null,
+        idempotency_key: null,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
 
       expect(result.success).toBe(false);
@@ -357,9 +357,9 @@ describe('OAuth sync job infrastructure', () => {
 
     it('returns failure for inactive connection', async () => {
       const { executeContactSync } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection({ isActive: false });
+      const connection_id = await createTestConnection({ is_active: false });
 
-      const result = await executeContactSync(pool, connectionId);
+      const result = await executeContactSync(pool, connection_id);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not active');
@@ -367,9 +367,9 @@ describe('OAuth sync job infrastructure', () => {
 
     it('returns failure for connection without contacts feature', async () => {
       const { executeContactSync } = await import('../src/api/oauth/sync.ts');
-      const connectionId = await createTestConnection({ enabledFeatures: ['email'] });
+      const connection_id = await createTestConnection({ enabled_features: ['email'] });
 
-      const result = await executeContactSync(pool, connectionId);
+      const result = await executeContactSync(pool, connection_id);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('not enabled');
@@ -378,22 +378,22 @@ describe('OAuth sync job infrastructure', () => {
     it('skips sync when interval has not elapsed', async () => {
       const { executeContactSync } = await import('../src/api/oauth/sync.ts');
       const recentSync = new Date().toISOString();
-      const connectionId = await createTestConnection({
-        enabledFeatures: ['contacts'],
-        syncStatus: {
+      const connection_id = await createTestConnection({
+        enabled_features: ['contacts'],
+        sync_status: {
           contacts: {
-            lastSuccess: recentSync,
-            consecutiveFailures: 0,
+            last_success: recentSync,
+            consecutive_failures: 0,
           },
         },
       });
 
-      const result = await executeContactSync(pool, connectionId);
+      const result = await executeContactSync(pool, connection_id);
 
       // Should succeed (not an error) but without syncing
       expect(result.error).toBeUndefined();
       expect(result.success).toBe(true);
-      expect(result.syncedCount).toBeUndefined();
+      expect(result.synced_count).toBeUndefined();
     });
   });
 });

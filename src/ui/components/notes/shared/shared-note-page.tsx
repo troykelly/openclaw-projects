@@ -194,7 +194,7 @@ export function SharedNotePage({ status, note, canEdit = false, onSave, onReques
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="size-4" />
-                  {note.updatedAt.toLocaleDateString()}
+                  {note.updated_at.toLocaleDateString()}
                 </span>
                 <Badge variant="outline" className="text-xs">
                   {canEdit ? (

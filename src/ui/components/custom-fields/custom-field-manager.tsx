@@ -35,7 +35,7 @@ const FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
   { value: 'url', label: 'URL' },
 ];
 
-export function CustomFieldManager({ projectId, fields, onCreate, onUpdate, onDelete, onReorder, className }: CustomFieldManagerProps) {
+export function CustomFieldManager({ project_id, fields, onCreate, onUpdate, onDelete, onReorder, className }: CustomFieldManagerProps) {
   const [showCreate, setShowCreate] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
 

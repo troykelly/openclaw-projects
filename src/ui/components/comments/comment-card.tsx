@@ -36,13 +36,13 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-function isEdited(createdAt: string, updatedAt: string): boolean {
-  return new Date(updatedAt).getTime() - new Date(createdAt).getTime() > 1000;
+function isEdited(created_at: string, updated_at: string): boolean {
+  return new Date(updated_at).getTime() - new Date(created_at).getTime() > 1000;
 }
 
 export function CommentCard({ comment, currentUserId, onReply, onEdit, onDelete, onReact, className }: CommentCardProps) {
   const isOwner = comment.authorId === currentUserId;
-  const edited = isEdited(comment.createdAt, comment.updatedAt);
+  const edited = isEdited(comment.created_at, comment.updated_at);
 
   const initials = comment.author.name
     .split(' ')
@@ -67,7 +67,7 @@ export function CommentCard({ comment, currentUserId, onReply, onEdit, onDelete,
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">{comment.author.name}</span>
           <span data-testid="comment-timestamp" className="text-xs text-muted-foreground">
-            {formatRelativeTime(comment.createdAt)}
+            {formatRelativeTime(comment.created_at)}
           </span>
           {edited && <span className="text-xs text-muted-foreground">(edited)</span>}
         </div>

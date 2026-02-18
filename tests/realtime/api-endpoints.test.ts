@@ -34,9 +34,9 @@ describe('Real-time API Endpoints', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body).toHaveProperty('connectedClients');
-      expect(typeof body.connectedClients).toBe('number');
-      expect(body.connectedClients).toBe(0);
+      expect(body).toHaveProperty('connected_clients');
+      expect(typeof body.connected_clients).toBe('number');
+      expect(body.connected_clients).toBe(0);
     });
   });
 

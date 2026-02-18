@@ -11,28 +11,28 @@ const mockItem: TreeItem = {
   title: 'Test Project',
   kind: 'project',
   status: 'in_progress',
-  parentId: null,
+  parent_id: null,
   children: [
     {
       id: 'initiative-1',
       title: 'Test Initiative',
       kind: 'initiative',
       status: 'not_started',
-      parentId: 'project-1',
+      parent_id: 'project-1',
       children: [
         {
           id: 'epic-1',
           title: 'Test Epic',
           kind: 'epic',
           status: 'in_progress',
-          parentId: 'initiative-1',
+          parent_id: 'initiative-1',
           children: [
             {
               id: 'issue-1',
               title: 'Test Issue',
               kind: 'issue',
               status: 'done',
-              parentId: 'epic-1',
+              parent_id: 'epic-1',
             },
           ],
         },

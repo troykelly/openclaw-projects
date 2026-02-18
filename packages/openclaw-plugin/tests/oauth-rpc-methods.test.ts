@@ -50,14 +50,14 @@ const TEST_CONNECTION = {
   id: 'conn-1',
   provider: 'microsoft',
   label: 'Work M365',
-  providerAccountEmail: 'user@example.com',
-  permissionLevel: 'read',
-  enabledFeatures: ['email', 'contacts', 'files'],
-  isActive: true,
-  lastSyncAt: '2026-01-01T00:00:00Z',
-  syncStatus: {},
-  createdAt: '2026-01-01T00:00:00Z',
-  updatedAt: '2026-01-01T00:00:00Z',
+  provider_account_email: 'user@example.com',
+  permission_level: 'read',
+  enabled_features: ['email', 'contacts', 'files'],
+  is_active: true,
+  last_sync_at: '2026-01-01T00:00:00Z',
+  sync_status: {},
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
 };
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ describe('OAuth Gateway RPC Methods', () => {
     methods = createOAuthGatewayMethods({
       logger: noopLogger,
       apiClient: client,
-      userId: 'test-user',
+      user_id: 'test-user',
     });
   });
 
@@ -121,10 +121,10 @@ describe('OAuth Gateway RPC Methods', () => {
 
       expect(result.accounts).toHaveLength(1);
       expect(result.accounts[0]).toMatchObject({
-        connectionId: 'conn-1',
+        connection_id: 'conn-1',
         provider: 'microsoft',
         connectionLabel: 'Work M365',
-        enabledFeatures: ['email', 'contacts', 'files'],
+        enabled_features: ['email', 'contacts', 'files'],
       });
       expect(result.accounts[0].availableActions).toContain('list_contacts');
       expect(result.accounts[0].availableActions).toContain('list_emails');
@@ -151,27 +151,27 @@ describe('OAuth Gateway RPC Methods', () => {
       (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         success: true,
         data: {
-          contacts: [{ id: 'c-1', displayName: 'Alice', emailAddresses: ['alice@example.com'] }],
+          contacts: [{ id: 'c-1', display_name: 'Alice', email_addresses: ['alice@example.com'] }],
         },
       });
 
-      const result = await methods.contactsList({ connectionId: 'conn-1' });
+      const result = await methods.contactsList({ connection_id: 'conn-1' });
 
       expect(result.connectionLabel).toBe('Work M365');
       expect(result.contacts).toHaveLength(1);
       expect(result.availableActions).toContain('list_contacts');
     });
 
-    it('throws when connectionId is missing', async () => {
+    it('throws when connection_id is missing', async () => {
       await expect(
-        methods.contactsList({ connectionId: '' }),
-      ).rejects.toThrow('connectionId is required');
+        methods.contactsList({ connection_id: '' }),
+      ).rejects.toThrow('connection_id is required');
     });
 
     it('throws when connection not found', async () => {
       mockConnectionsResponse(client, []);
       await expect(
-        methods.contactsList({ connectionId: 'nonexistent' }),
+        methods.contactsList({ connection_id: 'nonexistent' }),
       ).rejects.toThrow('Connection not found');
     });
   });
@@ -182,32 +182,32 @@ describe('OAuth Gateway RPC Methods', () => {
 
   describe('emailList', () => {
     it('returns emails for a valid connection', async () => {
-      mockConnectionsResponse(client, [{ ...TEST_CONNECTION, permissionLevel: 'read_write' }]);
+      mockConnectionsResponse(client, [{ ...TEST_CONNECTION, permission_level: 'read_write' }]);
       (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         success: true,
         data: {
           messages: [{ id: 'msg-1', subject: 'Hello' }],
-          nextPageToken: 'page2',
+          next_page_token: 'page2',
         },
       });
 
-      const result = await methods.emailList({ connectionId: 'conn-1' });
+      const result = await methods.emailList({ connection_id: 'conn-1' });
 
       expect(result.connectionLabel).toBe('Work M365');
       expect(result.messages).toHaveLength(1);
-      expect(result.nextPageToken).toBe('page2');
+      expect(result.next_page_token).toBe('page2');
       expect(result.availableActions).toContain('send_email');
       expect(result.availableActions).toContain('create_draft');
     });
 
     it('omits write actions for read-only connections', async () => {
-      mockConnectionsResponse(client, [TEST_CONNECTION]); // permissionLevel: 'read'
+      mockConnectionsResponse(client, [TEST_CONNECTION]); // permission_level: 'read'
       (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         success: true,
         data: { messages: [] },
       });
 
-      const result = await methods.emailList({ connectionId: 'conn-1' });
+      const result = await methods.emailList({ connection_id: 'conn-1' });
 
       expect(result.availableActions).not.toContain('send_email');
       expect(result.availableActions).toContain('list_messages');
@@ -223,19 +223,19 @@ describe('OAuth Gateway RPC Methods', () => {
       mockConnectionsResponse(client, [TEST_CONNECTION]);
       (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         success: true,
-        data: { id: 'msg-1', subject: 'Test', bodyText: 'Hello' },
+        data: { id: 'msg-1', subject: 'Test', body_text: 'Hello' },
       });
 
-      const result = await methods.emailGet({ connectionId: 'conn-1', messageId: 'msg-1' });
+      const result = await methods.emailGet({ connection_id: 'conn-1', message_id: 'msg-1' });
 
       expect(result.connectionLabel).toBe('Work M365');
       expect(result.message).toMatchObject({ id: 'msg-1', subject: 'Test' });
     });
 
-    it('throws when messageId is missing', async () => {
+    it('throws when message_id is missing', async () => {
       await expect(
-        methods.emailGet({ connectionId: 'conn-1', messageId: '' }),
-      ).rejects.toThrow('messageId is required');
+        methods.emailGet({ connection_id: 'conn-1', message_id: '' }),
+      ).rejects.toThrow('message_id is required');
     });
   });
 
@@ -250,15 +250,15 @@ describe('OAuth Gateway RPC Methods', () => {
         success: true,
         data: {
           files: [{ id: 'f-1', name: 'document.pdf' }],
-          nextPageToken: 'next',
+          next_page_token: 'next',
         },
       });
 
-      const result = await methods.filesList({ connectionId: 'conn-1' });
+      const result = await methods.filesList({ connection_id: 'conn-1' });
 
       expect(result.connectionLabel).toBe('Work M365');
       expect(result.files).toHaveLength(1);
-      expect(result.nextPageToken).toBe('next');
+      expect(result.next_page_token).toBe('next');
       expect(result.availableActions).toContain('list_files');
     });
   });
@@ -277,7 +277,7 @@ describe('OAuth Gateway RPC Methods', () => {
         },
       });
 
-      const result = await methods.filesSearch({ connectionId: 'conn-1', query: 'budget' });
+      const result = await methods.filesSearch({ connection_id: 'conn-1', query: 'budget' });
 
       expect(result.files).toHaveLength(1);
       expect(result.files[0]).toMatchObject({ name: 'budget.xlsx' });
@@ -286,7 +286,7 @@ describe('OAuth Gateway RPC Methods', () => {
 
     it('throws when query is missing', async () => {
       await expect(
-        methods.filesSearch({ connectionId: 'conn-1', query: '' }),
+        methods.filesSearch({ connection_id: 'conn-1', query: '' }),
       ).rejects.toThrow('query is required');
     });
   });
@@ -300,20 +300,20 @@ describe('OAuth Gateway RPC Methods', () => {
       mockConnectionsResponse(client, [TEST_CONNECTION]);
       (client.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         success: true,
-        data: { id: 'f-1', name: 'photo.jpg', downloadUrl: 'https://example.com/download' },
+        data: { id: 'f-1', name: 'photo.jpg', download_url: 'https://example.com/download' },
       });
 
-      const result = await methods.filesGet({ connectionId: 'conn-1', fileId: 'f-1' });
+      const result = await methods.filesGet({ connection_id: 'conn-1', file_id: 'f-1' });
 
       expect(result.connectionLabel).toBe('Work M365');
       expect(result.file).toMatchObject({ id: 'f-1', name: 'photo.jpg' });
       expect(result.availableActions).toContain('get_file');
     });
 
-    it('throws when fileId is missing', async () => {
+    it('throws when file_id is missing', async () => {
       await expect(
-        methods.filesGet({ connectionId: 'conn-1', fileId: '' }),
-      ).rejects.toThrow('fileId is required');
+        methods.filesGet({ connection_id: 'conn-1', file_id: '' }),
+      ).rejects.toThrow('file_id is required');
     });
   });
 });

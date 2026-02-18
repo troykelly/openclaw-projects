@@ -38,17 +38,17 @@ describe('Thread List API (Issue #1139)', () => {
        RETURNING id::text as id`,
       [`Contact ${testCounter}`],
     );
-    const contactId = contactResult.rows[0].id as string;
+    const contact_id = contactResult.rows[0].id as string;
 
     // Create endpoint
-    const endpointValue = channelType === 'email' ? email : phoneNumber;
-    const endpointType = channelType === 'email' ? 'email' : 'phone';
+    const endpoint_value = channelType === 'email' ? email : phoneNumber;
+    const endpoint_type = channelType === 'email' ? 'email' : 'phone';
 
     const endpointResult = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, $2, $3, $3)
        RETURNING id::text as id`,
-      [contactId, endpointType, endpointValue],
+      [contact_id, endpoint_type, endpoint_value],
     );
     const endpointId = endpointResult.rows[0].id as string;
 
@@ -59,16 +59,16 @@ describe('Thread List API (Issue #1139)', () => {
        RETURNING id::text as id`,
       [endpointId, channelType, threadKey],
     );
-    const threadId = threadResult.rows[0].id as string;
+    const thread_id = threadResult.rows[0].id as string;
 
     // Add a message
     await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body, received_at)
        VALUES ($1, $2, 'inbound', $3, NOW())`,
-      [threadId, `msg-${testCounter}`, `Hello from thread ${testCounter}`],
+      [thread_id, `msg-${testCounter}`, `Hello from thread ${testCounter}`],
     );
 
-    return { contactId, endpointId, threadId };
+    return { contact_id, endpointId, thread_id };
   }
 
   describe('GET /api/threads', () => {
@@ -86,12 +86,12 @@ describe('Thread List API (Issue #1139)', () => {
       expect(body.pagination).toBeDefined();
       expect(body.pagination.limit).toBe(20);
       expect(body.pagination.offset).toBe(0);
-      expect(body.pagination.hasMore).toBe(false);
+      expect(body.pagination.has_more).toBe(false);
     });
 
     it('returns list of threads with last message preview', async () => {
-      const { threadId: thread1Id } = await createTestThreadWithMessage('phone');
-      const { threadId: thread2Id } = await createTestThreadWithMessage('email');
+      const { thread_id: thread1Id } = await createTestThreadWithMessage('phone');
+      const { thread_id: thread2Id } = await createTestThreadWithMessage('email');
 
       const res = await app.inject({
         method: 'GET',
@@ -109,10 +109,10 @@ describe('Thread List API (Issue #1139)', () => {
       expect(thread.id).toBeDefined();
       expect(thread.channel).toBeDefined();
       expect(thread.contact).toBeDefined();
-      expect(thread.contact.displayName).toBeDefined();
-      expect(thread.lastMessage).toBeDefined();
-      expect(thread.lastMessage.body).toContain('Hello from thread');
-      expect(thread.messageCount).toBeGreaterThan(0);
+      expect(thread.contact.display_name).toBeDefined();
+      expect(thread.last_message).toBeDefined();
+      expect(thread.last_message.body).toContain('Hello from thread');
+      expect(thread.message_count).toBeGreaterThan(0);
     });
 
     it('respects limit parameter', async () => {
@@ -130,7 +130,7 @@ describe('Thread List API (Issue #1139)', () => {
 
       expect(body.threads.length).toBe(2);
       expect(body.total).toBe(3);
-      expect(body.pagination.hasMore).toBe(true);
+      expect(body.pagination.has_more).toBe(true);
     });
 
     it('supports offset pagination', async () => {
@@ -148,12 +148,12 @@ describe('Thread List API (Issue #1139)', () => {
 
       expect(body.threads.length).toBe(2);
       expect(body.pagination.offset).toBe(1);
-      expect(body.pagination.hasMore).toBe(false);
+      expect(body.pagination.has_more).toBe(false);
     });
 
     it('filters by channel', async () => {
-      const { threadId: smsThreadId } = await createTestThreadWithMessage('phone');
-      const { threadId: emailThreadId } = await createTestThreadWithMessage('email');
+      const { thread_id: smsThreadId } = await createTestThreadWithMessage('phone');
+      const { thread_id: emailThreadId } = await createTestThreadWithMessage('email');
 
       const res = await app.inject({
         method: 'GET',
@@ -168,20 +168,20 @@ describe('Thread List API (Issue #1139)', () => {
     });
 
     it('filters by contact_id', async () => {
-      const { contactId, threadId } = await createTestThreadWithMessage();
+      const { contact_id, thread_id } = await createTestThreadWithMessage();
       await createTestThreadWithMessage(); // Create another thread with different contact
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/threads?contact_id=${contactId}`,
+        url: `/api/threads?contact_id=${contact_id}`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
 
       expect(body.threads.length).toBe(1);
-      expect(body.threads[0].id).toBe(threadId);
-      expect(body.threads[0].contact.id).toBe(contactId);
+      expect(body.threads[0].id).toBe(thread_id);
+      expect(body.threads[0].contact.id).toBe(contact_id);
     });
   });
 });

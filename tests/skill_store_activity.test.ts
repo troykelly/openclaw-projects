@@ -110,12 +110,12 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
           title: 'Original Title',
         },
       });
-      const itemId = createRes.json().id;
+      const item_id = createRes.json().id;
 
       // Update item
       const updateRes = await app.inject({
         method: 'PATCH',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
         payload: { title: 'Updated Title' },
       });
       expect(updateRes.statusCode).toBe(200);
@@ -142,12 +142,12 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
           title: 'To Delete',
         },
       });
-      const itemId = createRes.json().id;
+      const item_id = createRes.json().id;
 
       // Delete item
       const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/skill-store/items/${itemId}`,
+        url: `/api/skill-store/items/${item_id}`,
       });
       expect(deleteRes.statusCode).toBe(204);
 
@@ -295,7 +295,7 @@ describe('Skill Store Activity Feed (Issue #808)', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: '/api/activity?entityType=skill_store',
+        url: '/api/activity?entity_type=skill_store',
       });
 
       expect(res.statusCode).toBe(200);

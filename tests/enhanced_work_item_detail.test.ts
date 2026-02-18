@@ -41,11 +41,11 @@ describe('Enhanced Work Item Detail', () => {
          RETURNING id::text as id`,
         [now.toISOString(), nextWeek.toISOString()],
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -59,7 +59,7 @@ describe('Enhanced Work Item Detail', () => {
         not_after: string;
         estimate_minutes: number;
       };
-      expect(body.id).toBe(itemId);
+      expect(body.id).toBe(item_id);
       expect(body.title).toBe('Test Item');
       expect(body.description).toBe('Item description');
       expect(body.status).toBe('in_progress');
@@ -139,13 +139,13 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Parent Project', 'project')
          RETURNING id::text as id`,
       );
-      const parentId = (parent.rows[0] as { id: string }).id;
+      const parent_id = (parent.rows[0] as { id: string }).id;
 
       const child = await pool.query(
         `INSERT INTO work_item (title, work_item_kind, parent_work_item_id)
          VALUES ('Child Issue', 'issue', $1)
          RETURNING id::text as id`,
-        [parentId],
+        [parent_id],
       );
       const childId = (child.rows[0] as { id: string }).id;
 
@@ -159,7 +159,7 @@ describe('Enhanced Work Item Detail', () => {
         parent: { id: string; title: string; kind: string } | null;
       };
       expect(body.parent).toBeDefined();
-      expect(body.parent?.id).toBe(parentId);
+      expect(body.parent?.id).toBe(parent_id);
       expect(body.parent?.title).toBe('Parent Project');
       expect(body.parent?.kind).toBe('project');
     });
@@ -181,11 +181,11 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Original Title', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
         payload: {
           title: 'Updated Title',
         },
@@ -202,12 +202,12 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // PUT requires title to be included (it's not optional)
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           description: 'New description with **markdown**',
@@ -225,11 +225,11 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Test Item', 'issue', 'not_started')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           status: 'in_progress',
@@ -248,11 +248,11 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Test Item', 'issue', 'P3')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
           priority: 'P0',
@@ -270,18 +270,18 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const now = new Date();
       const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
-          notBefore: now.toISOString(),
-          notAfter: nextWeek.toISOString(),
+          not_before: now.toISOString(),
+          not_after: nextWeek.toISOString(),
         },
       });
 
@@ -297,15 +297,15 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'PUT',
-        url: `/api/work-items/${itemId}`,
+        url: `/api/work-items/${item_id}`,
         payload: {
           title: 'Test Item',
-          estimateMinutes: 240,
-          actualMinutes: 180,
+          estimate_minutes: 240,
+          actual_minutes: 180,
         },
       });
 
@@ -323,11 +323,11 @@ describe('Enhanced Work Item Detail', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'GET',
-        url: `/app/work-items/${itemId}`,
+        url: `/app/work-items/${item_id}`,
         headers: {
           accept: 'text/html',
         },
@@ -347,11 +347,11 @@ describe('Enhanced Work Item Detail', () => {
            VALUES ('Test Item', 'issue', 'Test description')
            RETURNING id::text as id`,
         );
-        const itemId = (item.rows[0] as { id: string }).id;
+        const item_id = (item.rows[0] as { id: string }).id;
 
         const res = await app.inject({
           method: 'GET',
-          url: `/app/work-items/${itemId}`,
+          url: `/app/work-items/${item_id}`,
         });
 
         expect(res.statusCode).toBe(200);

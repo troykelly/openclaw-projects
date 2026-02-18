@@ -32,18 +32,18 @@ export interface OAuthGatewayPluginConfig {
 /** Minimal representation of an OAuth connection from the backend. */
 interface BackendConnection {
   id: string;
-  userEmail?: string;
+  user_email?: string;
   provider: string;
   label: string;
-  providerAccountEmail?: string;
-  permissionLevel: string;
-  enabledFeatures: string[];
-  isActive: boolean;
-  lastSyncAt?: string;
-  syncStatus: Record<string, unknown>;
+  provider_account_email?: string;
+  permission_level: string;
+  enabled_features: string[];
+  is_active: boolean;
+  last_sync_at?: string;
+  sync_status: Record<string, unknown>;
   scopes?: string[];
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Minimal plugin API surface — only the parts we use. */
@@ -74,28 +74,28 @@ interface PluginApi {
 /** Build available actions based on enabled features and permission level. */
 function buildAccountActions(conn: BackendConnection): string[] {
   const actions: string[] = [];
-  if (conn.enabledFeatures.includes('contacts')) {
+  if (conn.enabled_features.includes('contacts')) {
     actions.push('list_contacts');
   }
-  if (conn.enabledFeatures.includes('email')) {
+  if (conn.enabled_features.includes('email')) {
     actions.push('list_emails', 'get_email');
-    if (conn.permissionLevel === 'read_write') {
+    if (conn.permission_level === 'read_write') {
       actions.push('send_email', 'create_draft', 'update_email', 'delete_email');
     }
   }
-  if (conn.enabledFeatures.includes('files')) {
+  if (conn.enabled_features.includes('files')) {
     actions.push('list_files', 'search_files', 'get_file');
   }
-  if (conn.enabledFeatures.includes('calendar')) {
+  if (conn.enabled_features.includes('calendar')) {
     actions.push('list_events');
   }
   return actions;
 }
 
 /** Build email-specific available actions based on permission level. */
-function buildEmailActions(permissionLevel: string): string[] {
+function buildEmailActions(permission_level: string): string[] {
   const actions = ['list_messages', 'get_message', 'list_threads', 'list_folders'];
-  if (permissionLevel === 'read_write') {
+  if (permission_level === 'read_write') {
     actions.push('send_email', 'create_draft', 'update_draft', 'update_message', 'delete_message');
   }
   return actions;
@@ -168,7 +168,7 @@ function requireParam(
 async function resolveConnection(
   baseUrl: string,
   apiKey: string | undefined,
-  connectionId: string,
+  connection_id: string,
   respond: RespondFn,
 ): Promise<BackendConnection | null> {
   // We fetch all connections and filter — this keeps the plugin simple.
@@ -180,14 +180,14 @@ async function resolveConnection(
   }
 
   const connections = ((result.data as Record<string, unknown>).connections as BackendConnection[]) ?? [];
-  const conn = connections.find((c) => c.id === connectionId);
+  const conn = connections.find((c) => c.id === connection_id);
   if (!conn) {
-    respond(false, { error: `Connection ${connectionId} not found` });
+    respond(false, { error: `Connection ${connection_id} not found` });
     return null;
   }
 
-  if (!conn.isActive) {
-    respond(false, { error: `Connection ${connectionId} is disabled` });
+  if (!conn.is_active) {
+    respond(false, { error: `Connection ${connection_id} is disabled` });
     return null;
   }
 
@@ -230,11 +230,11 @@ export function createOAuthGatewayPlugin() {
       // oauth.accounts.list — List all connected accounts
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.accounts.list', async ({ params, respond }) => {
-        const userEmail = typeof params.userEmail === 'string' ? params.userEmail : undefined;
+        const user_email = typeof params.user_email === 'string' ? params.user_email : undefined;
         const provider = typeof params.provider === 'string' ? params.provider : undefined;
 
         const qs = new URLSearchParams();
-        if (userEmail) qs.set('userEmail', userEmail);
+        if (user_email) qs.set('user_email', user_email);
         if (provider) qs.set('provider', provider);
 
         const qsStr = qs.toString();
@@ -250,17 +250,17 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           accounts: connections.map((conn) => ({
-            connectionId: conn.id,
+            connection_id: conn.id,
             provider: conn.provider,
             connectionLabel: conn.label,
-            providerAccountEmail: conn.providerAccountEmail,
-            permissionLevel: conn.permissionLevel,
-            enabledFeatures: conn.enabledFeatures,
-            isActive: conn.isActive,
-            lastSyncAt: conn.lastSyncAt,
-            syncStatus: conn.syncStatus,
-            createdAt: conn.createdAt,
-            updatedAt: conn.updatedAt,
+            provider_account_email: conn.provider_account_email,
+            permission_level: conn.permission_level,
+            enabled_features: conn.enabled_features,
+            is_active: conn.is_active,
+            last_sync_at: conn.last_sync_at,
+            sync_status: conn.sync_status,
+            created_at: conn.created_at,
+            updated_at: conn.updated_at,
             availableActions: buildAccountActions(conn),
           })),
         });
@@ -270,20 +270,20 @@ export function createOAuthGatewayPlugin() {
       // oauth.contacts.list — Contacts from a specific connection
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.contacts.list', async ({ params, respond }) => {
-        const connectionId = requireParam(params, 'connectionId', respond);
-        if (!connectionId) return;
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
 
-        const conn = await resolveConnection(backendUrl, apiKey, connectionId, respond);
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
         if (!conn) return;
 
-        if (!conn.enabledFeatures.includes('contacts')) {
+        if (!conn.enabled_features.includes('contacts')) {
           respond(false, { error: 'Contacts feature is not enabled on this connection' });
           return;
         }
 
-        const qs = new URLSearchParams({ connectionId });
-        const pageToken = typeof params.pageToken === 'string' ? params.pageToken : undefined;
-        if (pageToken) qs.set('pageToken', pageToken);
+        const qs = new URLSearchParams({ connection_id });
+        const page_token = typeof params.page_token === 'string' ? params.page_token : undefined;
+        if (page_token) qs.set('page_token', page_token);
 
         const result = await backendFetch(backendUrl, `/api/contacts?${qs.toString()}`, apiKey);
         if (!result.ok) {
@@ -295,10 +295,10 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           connectionLabel: conn.label,
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           contacts: data.contacts ?? [],
-          nextPageToken: data.nextPageToken,
+          next_page_token: data.next_page_token,
           availableActions: ['list_contacts'],
         });
       });
@@ -307,22 +307,22 @@ export function createOAuthGatewayPlugin() {
       // oauth.email.list — List or search emails
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.email.list', async ({ params, respond }) => {
-        const connectionId = requireParam(params, 'connectionId', respond);
-        if (!connectionId) return;
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
 
-        const conn = await resolveConnection(backendUrl, apiKey, connectionId, respond);
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
         if (!conn) return;
 
-        if (!conn.enabledFeatures.includes('email')) {
+        if (!conn.enabled_features.includes('email')) {
           respond(false, { error: 'Email feature is not enabled on this connection' });
           return;
         }
 
-        const qs = new URLSearchParams({ connectionId });
+        const qs = new URLSearchParams({ connection_id });
         if (typeof params.query === 'string') qs.set('query', params.query);
-        if (typeof params.folderId === 'string') qs.set('folderId', params.folderId);
-        if (typeof params.maxResults === 'number') qs.set('maxResults', String(params.maxResults));
-        if (typeof params.pageToken === 'string') qs.set('pageToken', params.pageToken);
+        if (typeof params.folder_id === 'string') qs.set('folder_id', params.folder_id);
+        if (typeof params.max_results === 'number') qs.set('max_results', String(params.max_results));
+        if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
         const result = await backendFetch(backendUrl, `/api/email/messages?${qs.toString()}`, apiKey);
         if (!result.ok) {
@@ -334,12 +334,12 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           connectionLabel: conn.label,
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           messages: data.messages ?? [],
-          nextPageToken: data.nextPageToken,
-          resultSizeEstimate: data.resultSizeEstimate,
-          availableActions: buildEmailActions(conn.permissionLevel),
+          next_page_token: data.next_page_token,
+          result_size_estimate: data.result_size_estimate,
+          availableActions: buildEmailActions(conn.permission_level),
         });
       });
 
@@ -347,24 +347,24 @@ export function createOAuthGatewayPlugin() {
       // oauth.email.get — Get a single email message
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.email.get', async ({ params, respond }) => {
-        const connectionId = requireParam(params, 'connectionId', respond);
-        if (!connectionId) return;
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
 
-        const messageId = requireParam(params, 'messageId', respond);
-        if (!messageId) return;
+        const message_id = requireParam(params, 'message_id', respond);
+        if (!message_id) return;
 
-        const conn = await resolveConnection(backendUrl, apiKey, connectionId, respond);
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
         if (!conn) return;
 
-        if (!conn.enabledFeatures.includes('email')) {
+        if (!conn.enabled_features.includes('email')) {
           respond(false, { error: 'Email feature is not enabled on this connection' });
           return;
         }
 
-        const qs = new URLSearchParams({ connectionId });
+        const qs = new URLSearchParams({ connection_id });
         const result = await backendFetch(
           backendUrl,
-          `/api/email/messages/${encodeURIComponent(messageId)}?${qs.toString()}`,
+          `/api/email/messages/${encodeURIComponent(message_id)}?${qs.toString()}`,
           apiKey,
         );
         if (!result.ok) {
@@ -374,10 +374,10 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           connectionLabel: conn.label,
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           message: result.data,
-          availableActions: buildEmailActions(conn.permissionLevel),
+          availableActions: buildEmailActions(conn.permission_level),
         });
       });
 
@@ -385,20 +385,20 @@ export function createOAuthGatewayPlugin() {
       // oauth.files.list — List files/folders
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.files.list', async ({ params, respond }) => {
-        const connectionId = requireParam(params, 'connectionId', respond);
-        if (!connectionId) return;
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
 
-        const conn = await resolveConnection(backendUrl, apiKey, connectionId, respond);
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
         if (!conn) return;
 
-        if (!conn.enabledFeatures.includes('files')) {
+        if (!conn.enabled_features.includes('files')) {
           respond(false, { error: 'Files feature is not enabled on this connection' });
           return;
         }
 
-        const qs = new URLSearchParams({ connectionId });
-        if (typeof params.folderId === 'string') qs.set('folderId', params.folderId);
-        if (typeof params.pageToken === 'string') qs.set('pageToken', params.pageToken);
+        const qs = new URLSearchParams({ connection_id });
+        if (typeof params.folder_id === 'string') qs.set('folder_id', params.folder_id);
+        if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
         const result = await backendFetch(backendUrl, `/api/drive/files?${qs.toString()}`, apiKey);
         if (!result.ok) {
@@ -410,11 +410,11 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           connectionLabel: conn.label,
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           files: data.files ?? [],
-          nextPageToken: data.nextPageToken,
-          totalCount: data.totalCount,
+          next_page_token: data.next_page_token,
+          total_count: data.total_count,
           availableActions: buildFileActions(),
         });
       });
@@ -423,22 +423,22 @@ export function createOAuthGatewayPlugin() {
       // oauth.files.search — Search files
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.files.search', async ({ params, respond }) => {
-        const connectionId = requireParam(params, 'connectionId', respond);
-        if (!connectionId) return;
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
 
         const query = requireParam(params, 'query', respond);
         if (!query) return;
 
-        const conn = await resolveConnection(backendUrl, apiKey, connectionId, respond);
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
         if (!conn) return;
 
-        if (!conn.enabledFeatures.includes('files')) {
+        if (!conn.enabled_features.includes('files')) {
           respond(false, { error: 'Files feature is not enabled on this connection' });
           return;
         }
 
-        const qs = new URLSearchParams({ connectionId, q: query });
-        if (typeof params.pageToken === 'string') qs.set('pageToken', params.pageToken);
+        const qs = new URLSearchParams({ connection_id, q: query });
+        if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
 
         const result = await backendFetch(backendUrl, `/api/drive/files/search?${qs.toString()}`, apiKey);
         if (!result.ok) {
@@ -450,11 +450,11 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           connectionLabel: conn.label,
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           files: data.files ?? [],
-          nextPageToken: data.nextPageToken,
-          totalCount: data.totalCount,
+          next_page_token: data.next_page_token,
+          total_count: data.total_count,
           availableActions: buildFileActions(),
         });
       });
@@ -463,21 +463,21 @@ export function createOAuthGatewayPlugin() {
       // oauth.files.get — Get a single file
       // -------------------------------------------------------------------
       api.registerGatewayMethod('oauth.files.get', async ({ params, respond }) => {
-        const connectionId = requireParam(params, 'connectionId', respond);
-        if (!connectionId) return;
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
 
         const fileId = requireParam(params, 'fileId', respond);
         if (!fileId) return;
 
-        const conn = await resolveConnection(backendUrl, apiKey, connectionId, respond);
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
         if (!conn) return;
 
-        if (!conn.enabledFeatures.includes('files')) {
+        if (!conn.enabled_features.includes('files')) {
           respond(false, { error: 'Files feature is not enabled on this connection' });
           return;
         }
 
-        const qs = new URLSearchParams({ connectionId });
+        const qs = new URLSearchParams({ connection_id });
         const result = await backendFetch(
           backendUrl,
           `/api/drive/files/${encodeURIComponent(fileId)}?${qs.toString()}`,
@@ -490,7 +490,7 @@ export function createOAuthGatewayPlugin() {
 
         respond(true, {
           connectionLabel: conn.label,
-          connectionId: conn.id,
+          connection_id: conn.id,
           provider: conn.provider,
           file: result.data,
           availableActions: buildFileActions(),

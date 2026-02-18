@@ -60,9 +60,9 @@ describe('Backend API service', () => {
         description: 'b',
         status: 'blocked',
         priority: 'P1',
-        taskType: 'ops',
-        notBefore: null,
-        notAfter: null,
+        task_type: 'ops',
+        not_before: null,
+        not_after: null,
       },
     });
     expect(updated.statusCode).toBe(200);
@@ -87,7 +87,7 @@ describe('Backend API service', () => {
     const dep = await app.inject({
       method: 'POST',
       url: `/api/work-items/${bId}/dependencies`,
-      payload: { dependsOnWorkItemId: aId, kind: 'depends_on' },
+      payload: { depends_on_work_item_id: aId, kind: 'depends_on' },
     });
     expect(dep.statusCode).toBe(201);
     const depId = (dep.json() as { id: string }).id;
@@ -95,7 +95,7 @@ describe('Backend API service', () => {
     const dep2 = await app.inject({
       method: 'POST',
       url: `/api/work-items/${cId}/dependencies`,
-      payload: { dependsOnWorkItemId: bId, kind: 'depends_on' },
+      payload: { depends_on_work_item_id: bId, kind: 'depends_on' },
     });
     expect(dep2.statusCode).toBe(201);
 
@@ -103,7 +103,7 @@ describe('Backend API service', () => {
     const cycle = await app.inject({
       method: 'POST',
       url: `/api/work-items/${aId}/dependencies`,
-      payload: { dependsOnWorkItemId: cId, kind: 'depends_on' },
+      payload: { depends_on_work_item_id: cId, kind: 'depends_on' },
     });
     expect(cycle.statusCode).toBe(400);
 
@@ -150,9 +150,9 @@ describe('Backend API service', () => {
         description: null,
         status: 'open',
         priority: 'P2',
-        taskType: 'general',
-        notBefore: null,
-        notAfter: blockerEnd,
+        task_type: 'general',
+        not_before: null,
+        not_after: blockerEnd,
       },
     });
     expect(updatedBlocker.statusCode).toBe(200);
@@ -160,7 +160,7 @@ describe('Backend API service', () => {
     const dep = await app.inject({
       method: 'POST',
       url: `/api/work-items/${dependentId}/dependencies`,
-      payload: { dependsOnWorkItemId: blockerId, kind: 'depends_on' },
+      payload: { depends_on_work_item_id: blockerId, kind: 'depends_on' },
     });
     expect(dep.statusCode).toBe(201);
 
@@ -177,22 +177,22 @@ describe('Backend API service', () => {
       method: 'POST',
       url: '/api/ingest/external-message',
       payload: {
-        contactDisplayName: 'Test Sender',
-        endpointType: 'telegram',
-        endpointValue: '@TestSender',
-        externalThreadKey: 'thread-1',
-        externalMessageKey: 'msg-1',
+        contact_display_name: 'Test Sender',
+        endpoint_type: 'telegram',
+        endpoint_value: '@TestSender',
+        external_thread_key: 'thread-1',
+        external_message_key: 'msg-1',
         direction: 'inbound',
-        messageBody: 'Hello',
+        message_body: 'Hello',
         raw: { any: 'payload' },
       },
     });
 
     expect(res.statusCode).toBe(201);
     const body = res.json();
-    expect(body.contactId).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(body.endpointId).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(body.threadId).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(body.messageId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(body.contact_id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(body.endpoint_id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(body.thread_id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(body.message_id).toMatch(/^[0-9a-f-]{36}$/i);
   });
 });

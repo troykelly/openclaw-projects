@@ -169,7 +169,7 @@ describe('QuickAddDialog', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/work-items',
         expect.objectContaining({
-          body: expect.stringContaining('"parentId":"parent-123"'),
+          body: expect.stringContaining('"parent_id":"parent-123"'),
         }),
       );
     });

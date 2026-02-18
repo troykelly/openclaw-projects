@@ -13,10 +13,10 @@ export interface SearchOptions {
   limit?: number;
   offset?: number;
   semantic?: boolean;
-  dateFrom?: Date;
-  dateTo?: Date;
-  semanticWeight?: number; // 0-1, weight for semantic vs text search in hybrid mode
-  userEmail?: string; // Scope work item results to this user (Issue #1216 review fix)
+  date_from?: Date;
+  date_to?: Date;
+  semantic_weight?: number; // 0-1, weight for semantic vs text search in hybrid mode
+  user_email?: string; // Scope work item results to this user (Issue #1216 review fix)
 }
 
 export interface SearchResult {
@@ -42,7 +42,7 @@ export interface EntitySearchResult {
   id: string;
   title: string;
   snippet: string;
-  textScore: number;
-  semanticScore?: number;
+  text_score: number;
+  semantic_score?: number;
   metadata?: Record<string, unknown>;
 }

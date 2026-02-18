@@ -65,10 +65,10 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
       const config = getSkillStoreQuotaConfig();
 
-      expect(config.maxItemsPerSkill).toBe(100_000);
-      expect(config.maxCollectionsPerSkill).toBe(1_000);
-      expect(config.maxSchedulesPerSkill).toBe(20);
-      expect(config.maxItemSizeBytes).toBe(1_048_576);
+      expect(config.max_items_per_skill).toBe(100_000);
+      expect(config.max_collections_per_skill).toBe(1_000);
+      expect(config.max_schedules_per_skill).toBe(20);
+      expect(config.max_item_size_bytes).toBe(1_048_576);
     });
 
     it('reads values from env vars', async () => {
@@ -82,16 +82,16 @@ describe('Skill Store Quotas (Issue #805)', () => {
       const mod = await import('../src/api/skill-store/quotas.ts');
       // Use explicit function with env override
       const config = mod.getSkillStoreQuotaConfig({
-        maxItemsPerSkill: 500,
-        maxCollectionsPerSkill: 10,
-        maxSchedulesPerSkill: 5,
-        maxItemSizeBytes: 2048,
+        max_items_per_skill: 500,
+        max_collections_per_skill: 10,
+        max_schedules_per_skill: 5,
+        max_item_size_bytes: 2048,
       });
 
-      expect(config.maxItemsPerSkill).toBe(500);
-      expect(config.maxCollectionsPerSkill).toBe(10);
-      expect(config.maxSchedulesPerSkill).toBe(5);
-      expect(config.maxItemSizeBytes).toBe(2048);
+      expect(config.max_items_per_skill).toBe(500);
+      expect(config.max_collections_per_skill).toBe(10);
+      expect(config.max_schedules_per_skill).toBe(5);
+      expect(config.max_item_size_bytes).toBe(2048);
 
       // Restore env
       process.env = original;
@@ -106,7 +106,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
       await insertItems('sk1', 5);
 
-      const result = await checkItemQuota(pool, 'sk1', { maxItemsPerSkill: 100 });
+      const result = await checkItemQuota(pool, 'sk1', { max_items_per_skill: 100 });
       expect(result.allowed).toBe(true);
     });
 
@@ -115,7 +115,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
       await insertItems('sk1', 3);
 
-      const result = await checkItemQuota(pool, 'sk1', { maxItemsPerSkill: 3 });
+      const result = await checkItemQuota(pool, 'sk1', { max_items_per_skill: 3 });
       expect(result.allowed).toBe(false);
       expect(result.current).toBeGreaterThanOrEqual(3);
       expect(result.limit).toBe(3);
@@ -131,7 +131,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
          WHERE id = (SELECT id FROM skill_store_item WHERE skill_id = 'sk1' LIMIT 1)`,
       );
 
-      const result = await checkItemQuota(pool, 'sk1', { maxItemsPerSkill: 3 });
+      const result = await checkItemQuota(pool, 'sk1', { max_items_per_skill: 3 });
       expect(result.allowed).toBe(true);
     });
 
@@ -141,7 +141,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await insertItems('sk1', 5);
       await insertItems('sk2', 5);
 
-      const result = await checkItemQuota(pool, 'sk1', { maxItemsPerSkill: 10 });
+      const result = await checkItemQuota(pool, 'sk1', { max_items_per_skill: 10 });
       expect(result.allowed).toBe(true);
     });
   });
@@ -155,7 +155,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`);
       await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`);
 
-      const result = await checkCollectionQuota(pool, 'sk1', 'col3', { maxCollectionsPerSkill: 10 });
+      const result = await checkCollectionQuota(pool, 'sk1', 'col3', { max_collections_per_skill: 10 });
       expect(result.allowed).toBe(true);
     });
 
@@ -165,7 +165,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col1', 'A')`);
       await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`);
 
-      const result = await checkCollectionQuota(pool, 'sk1', 'col3', { maxCollectionsPerSkill: 2 });
+      const result = await checkCollectionQuota(pool, 'sk1', 'col3', { max_collections_per_skill: 2 });
       expect(result.allowed).toBe(false);
       expect(result.current).toBe(2);
       expect(result.limit).toBe(2);
@@ -178,7 +178,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await pool.query(`INSERT INTO skill_store_item (skill_id, collection, title) VALUES ('sk1', 'col2', 'B')`);
 
       // Adding to existing collection col1 should be allowed even at limit
-      const result = await checkCollectionQuota(pool, 'sk1', 'col1', { maxCollectionsPerSkill: 2 });
+      const result = await checkCollectionQuota(pool, 'sk1', 'col1', { max_collections_per_skill: 2 });
       expect(result.allowed).toBe(true);
     });
   });
@@ -191,7 +191,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
 
       await insertSchedule('sk1');
 
-      const result = await checkScheduleQuota(pool, 'sk1', { maxSchedulesPerSkill: 5 });
+      const result = await checkScheduleQuota(pool, 'sk1', { max_schedules_per_skill: 5 });
       expect(result.allowed).toBe(true);
     });
 
@@ -202,7 +202,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await insertSchedule('sk1');
       await insertSchedule('sk1');
 
-      const result = await checkScheduleQuota(pool, 'sk1', { maxSchedulesPerSkill: 3 });
+      const result = await checkScheduleQuota(pool, 'sk1', { max_schedules_per_skill: 3 });
       expect(result.allowed).toBe(false);
       expect(result.current).toBe(3);
       expect(result.limit).toBe(3);
@@ -215,7 +215,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
       await insertSchedule('sk2');
       await insertSchedule('sk2');
 
-      const result = await checkScheduleQuota(pool, 'sk1', { maxSchedulesPerSkill: 2 });
+      const result = await checkScheduleQuota(pool, 'sk1', { max_schedules_per_skill: 2 });
       expect(result.allowed).toBe(true);
     });
   });
@@ -282,7 +282,7 @@ describe('Skill Store Quotas (Issue #805)', () => {
         expect(body.items.limit).toBeGreaterThan(0);
         expect(body.collections.current).toBe(1); // _default
         expect(body.schedules.current).toBe(1);
-        expect(body.maxItemSizeBytes).toBe(1_048_576);
+        expect(body.max_item_size_bytes).toBe(1_048_576);
       });
 
       it('returns zero counts for non-existent skill', async () => {

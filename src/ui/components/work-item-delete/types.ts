@@ -32,7 +32,7 @@ export interface UndoToastProps {
 }
 
 export interface UndoState {
-  itemId: string;
+  item_id: string;
   itemTitle: string;
   itemCount?: number;
   onUndo: () => void;

@@ -53,7 +53,7 @@ export interface MemoryEventData {
   id: string;
   changes?: string[];
   title?: string;
-  memoryType?: string;
+  memory_type?: string;
 }
 
 /**
@@ -62,7 +62,7 @@ export interface MemoryEventData {
 export interface ContactEventData {
   id: string;
   changes?: string[];
-  displayName?: string;
+  display_name?: string;
 }
 
 /**
@@ -70,7 +70,7 @@ export interface ContactEventData {
  */
 export interface MessageEventData {
   id: string;
-  threadId?: string;
+  thread_id?: string;
   source: string;
   preview?: string;
 }
@@ -82,16 +82,16 @@ export interface NotificationEventData {
   id: string;
   type: string;
   title?: string;
-  entityType?: string;
-  entityId?: string;
+  entity_type?: string;
+  entity_id?: string;
 }
 
 /**
  * Connection event data
  */
 export interface ConnectionEventData {
-  clientId: string;
-  connectedAt?: string;
+  client_id: string;
+  connected_at?: string;
 }
 
 /**
@@ -99,10 +99,10 @@ export interface ConnectionEventData {
  */
 export interface NotePresenceUser {
   email: string;
-  displayName?: string;
-  avatarUrl?: string;
-  lastSeenAt: string;
-  cursorPosition?: {
+  display_name?: string;
+  avatar_url?: string;
+  last_seen_at: string;
+  cursor_position?: {
     line: number;
     column: number;
   };
@@ -112,7 +112,7 @@ export interface NotePresenceUser {
  * Note presence joined/left event data
  */
 export interface NotePresenceEventData {
-  noteId: string;
+  note_id: string;
   user: NotePresenceUser;
 }
 
@@ -120,7 +120,7 @@ export interface NotePresenceEventData {
  * Note presence list event data
  */
 export interface NotePresenceListEventData {
-  noteId: string;
+  note_id: string;
   users: NotePresenceUser[];
 }
 
@@ -128,9 +128,9 @@ export interface NotePresenceListEventData {
  * Note cursor position event data
  */
 export interface NoteCursorEventData {
-  noteId: string;
-  userEmail: string;
-  cursorPosition: {
+  note_id: string;
+  user_email: string;
+  cursor_position: {
     line: number;
     column: number;
   };
@@ -141,7 +141,7 @@ export interface NoteCursorEventData {
  */
 export interface NotifyPayload {
   event: RealtimeEventType;
-  userId?: string;
+  user_id?: string;
   data: unknown;
 }
 
@@ -149,9 +149,9 @@ export interface NotifyPayload {
  * WebSocket client info
  */
 export interface WebSocketClient {
-  clientId: string;
-  userId?: string;
+  client_id: string;
+  user_id?: string;
   socket: unknown;
-  connectedAt: Date;
-  lastPing: Date;
+  connected_at: Date;
+  last_ping: Date;
 }

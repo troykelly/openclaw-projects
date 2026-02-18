@@ -86,14 +86,14 @@ export interface FullTextSearchResponse {
 /** Semantic search response. */
 export interface SemanticSearchResponse {
   results: SemanticSearchResult[];
-  searchType: 'semantic' | 'text';
-  queryEmbeddingProvider?: string;
+  search_type: 'semantic' | 'text';
+  query_embedding_provider?: string;
 }
 
 /** Hybrid search response. */
 export interface HybridSearchResponse {
   results: HybridSearchResult[];
-  searchType: 'hybrid' | 'text';
+  search_type: 'hybrid' | 'text';
   semantic_weight: number;
 }
 
@@ -292,8 +292,8 @@ export async function searchSkillStoreSemantic(pool: Pool, params: SemanticSearc
         ...row,
         similarity: parseFloat(row.similarity),
       })) as SemanticSearchResult[],
-      searchType: 'semantic',
-      queryEmbeddingProvider: queryProvider,
+      search_type: 'semantic',
+      query_embedding_provider: queryProvider,
     };
   }
 
@@ -326,7 +326,7 @@ export async function searchSkillStoreSemantic(pool: Pool, params: SemanticSearc
       ...row,
       similarity: parseFloat(row.similarity),
     })) as SemanticSearchResult[],
-    searchType: 'text',
+    search_type: 'text',
   };
 }
 
@@ -364,7 +364,7 @@ export async function searchSkillStoreHybrid(pool: Pool, params: HybridSearchPar
 
   // Get semantic results
   let semanticResults: SemanticSearchResult[] = [];
-  let searchType: 'hybrid' | 'text' = 'text';
+  let search_type: 'hybrid' | 'text' = 'text';
 
   try {
     const semResponse = await searchSkillStoreSemantic(pool, {
@@ -375,8 +375,8 @@ export async function searchSkillStoreHybrid(pool: Pool, params: HybridSearchPar
     });
     semanticResults = semResponse.results;
 
-    if (semResponse.searchType === 'semantic') {
-      searchType = 'hybrid';
+    if (semResponse.search_type === 'semantic') {
+      search_type = 'hybrid';
     }
   } catch {
     // Semantic may fail, that's ok — we'll just use full-text
@@ -439,7 +439,7 @@ export async function searchSkillStoreHybrid(pool: Pool, params: HybridSearchPar
       fulltext_rank: entry.fulltext_rank,
       semantic_rank: entry.semantic_rank,
     })) as HybridSearchResult[],
-    searchType,
+    search_type: search_type,
     semantic_weight,
   };
 }

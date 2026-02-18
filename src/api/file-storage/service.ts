@@ -35,10 +35,10 @@ export function calculateChecksum(data: Buffer): string {
  */
 export class FileTooLargeError extends Error {
   constructor(
-    public sizeBytes: number,
-    public maxSizeBytes: number,
+    public size_bytes: number,
+    public max_size_bytes: number,
   ) {
-    super(`File size ${sizeBytes} bytes exceeds maximum allowed ${maxSizeBytes} bytes`);
+    super(`File size ${size_bytes} bytes exceeds maximum allowed ${max_size_bytes} bytes`);
     this.name = 'FileTooLargeError';
   }
 }
@@ -60,19 +60,19 @@ export async function uploadFile(
   pool: Pool,
   storage: FileStorage,
   request: UploadRequest,
-  maxSizeBytes: number = DEFAULT_MAX_FILE_SIZE_BYTES,
+  max_size_bytes: number = DEFAULT_MAX_FILE_SIZE_BYTES,
 ): Promise<UploadResponse> {
   // Check file size
-  if (request.data.length > maxSizeBytes) {
-    throw new FileTooLargeError(request.data.length, maxSizeBytes);
+  if (request.data.length > max_size_bytes) {
+    throw new FileTooLargeError(request.data.length, max_size_bytes);
   }
 
   // Generate storage key and checksum
-  const storageKey = generateStorageKey(request.filename);
+  const storage_key = generateStorageKey(request.filename);
   const checksum = calculateChecksum(request.data);
 
   // Upload to storage
-  await storage.upload(storageKey, request.data, request.contentType);
+  await storage.upload(storage_key, request.data, request.content_type);
 
   // Insert metadata into database
   const result = await pool.query(
@@ -85,17 +85,17 @@ export async function uploadFile(
       uploaded_by
     ) VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id::text, created_at`,
-    [storageKey, request.filename, request.contentType, request.data.length, checksum, request.uploadedBy || null],
+    [storage_key, request.filename, request.content_type, request.data.length, checksum, request.uploaded_by || null],
   );
 
   return {
     id: result.rows[0].id,
-    storageKey,
-    originalFilename: request.filename,
-    contentType: request.contentType,
-    sizeBytes: request.data.length,
-    checksumSha256: checksum,
-    createdAt: result.rows[0].created_at,
+    storage_key,
+    original_filename: request.filename,
+    content_type: request.content_type,
+    size_bytes: request.data.length,
+    checksum_sha256: checksum,
+    created_at: result.rows[0].created_at,
   };
 }
 
@@ -125,13 +125,13 @@ export async function getFileMetadata(pool: Pool, fileId: string): Promise<FileA
   const row = result.rows[0];
   return {
     id: row.id,
-    storageKey: row.storage_key,
-    originalFilename: row.original_filename,
-    contentType: row.content_type,
-    sizeBytes: parseInt(row.size_bytes, 10),
-    checksumSha256: row.checksum_sha256,
-    uploadedBy: row.uploaded_by,
-    createdAt: row.created_at,
+    storage_key: row.storage_key,
+    original_filename: row.original_filename,
+    content_type: row.content_type,
+    size_bytes: parseInt(row.size_bytes, 10),
+    checksum_sha256: row.checksum_sha256,
+    uploaded_by: row.uploaded_by,
+    created_at: row.created_at,
   };
 }
 
@@ -145,7 +145,7 @@ export async function downloadFile(pool: Pool, storage: FileStorage, fileId: str
     throw new FileNotFoundError(fileId);
   }
 
-  const data = await storage.download(metadata.storageKey);
+  const data = await storage.download(metadata.storage_key);
 
   return { data, metadata };
 }
@@ -165,7 +165,7 @@ export async function getFileUrl(
     throw new FileNotFoundError(fileId);
   }
 
-  const url = await storage.getSignedUrl(metadata.storageKey, expiresIn);
+  const url = await storage.getSignedUrl(metadata.storage_key, expiresIn);
 
   return { url, metadata };
 }
@@ -181,7 +181,7 @@ export async function deleteFile(pool: Pool, storage: FileStorage, fileId: strin
   }
 
   // Delete from storage
-  await storage.delete(metadata.storageKey);
+  await storage.delete(metadata.storage_key);
 
   // Delete metadata from database
   await pool.query(`DELETE FROM file_attachment WHERE id = $1`, [fileId]);
@@ -197,14 +197,14 @@ export async function listFiles(
   options: {
     limit?: number;
     offset?: number;
-    uploadedBy?: string;
+    uploaded_by?: string;
   } = {},
 ): Promise<{ files: FileAttachment[]; total: number }> {
   const limit = Math.min(options.limit || 50, 500);
   const offset = options.offset || 0;
 
-  const whereClause = options.uploadedBy ? 'WHERE uploaded_by = $3' : '';
-  const params = options.uploadedBy ? [limit, offset, options.uploadedBy] : [limit, offset];
+  const whereClause = options.uploaded_by ? 'WHERE uploaded_by = $3' : '';
+  const params = options.uploaded_by ? [limit, offset, options.uploaded_by] : [limit, offset];
 
   const result = await pool.query(
     `SELECT
@@ -223,19 +223,19 @@ export async function listFiles(
     params,
   );
 
-  const countParams = options.uploadedBy ? [options.uploadedBy] : [];
+  const countParams = options.uploaded_by ? [options.uploaded_by] : [];
   const countResult = await pool.query(`SELECT COUNT(*) FROM file_attachment ${whereClause ? 'WHERE uploaded_by = $1' : ''}`, countParams);
 
   return {
     files: result.rows.map((row) => ({
       id: row.id,
-      storageKey: row.storage_key,
-      originalFilename: row.original_filename,
-      contentType: row.content_type,
-      sizeBytes: parseInt(row.size_bytes, 10),
-      checksumSha256: row.checksum_sha256,
-      uploadedBy: row.uploaded_by,
-      createdAt: row.created_at,
+      storage_key: row.storage_key,
+      original_filename: row.original_filename,
+      content_type: row.content_type,
+      size_bytes: parseInt(row.size_bytes, 10),
+      checksum_sha256: row.checksum_sha256,
+      uploaded_by: row.uploaded_by,
+      created_at: row.created_at,
     })),
     total: parseInt(countResult.rows[0].count, 10),
   };

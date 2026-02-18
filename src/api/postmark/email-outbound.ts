@@ -21,13 +21,13 @@ export interface SendEmailRequest {
   /** Plain text body */
   body: string;
   /** Optional HTML body */
-  htmlBody?: string;
+  html_body?: string;
   /** Optional: link to existing thread */
-  threadId?: string;
+  thread_id?: string;
   /** Optional: In-Reply-To header value for threading */
-  replyToMessageId?: string;
+  reply_to_message_id?: string;
   /** Optional: client-provided idempotency key */
-  idempotencyKey?: string;
+  idempotency_key?: string;
 }
 
 /**
@@ -35,13 +35,13 @@ export interface SendEmailRequest {
  */
 export interface SendEmailResponse {
   /** Our internal message ID */
-  messageId: string;
+  message_id: string;
   /** Thread ID for the conversation */
-  threadId: string;
+  thread_id: string;
   /** Always 'queued' (async) */
   status: 'queued';
   /** Idempotency key for duplicate detection */
-  idempotencyKey: string;
+  idempotency_key: string;
 }
 
 /**
@@ -79,7 +79,7 @@ function validateEmailFields(subject: string, body: string): void {
 /**
  * Find or create contact endpoint for an email address.
  */
-async function findOrCreateEndpoint(client: PoolClient, email: string): Promise<{ contactId: string; endpointId: string; isNew: boolean }> {
+async function findOrCreateEndpoint(client: PoolClient, email: string): Promise<{ contact_id: string; endpointId: string; isNew: boolean }> {
   // Try to find existing endpoint
   const existing = await client.query(
     `SELECT ce.id::text as endpoint_id, ce.contact_id::text as contact_id
@@ -92,7 +92,7 @@ async function findOrCreateEndpoint(client: PoolClient, email: string): Promise<
 
   if (existing.rows.length > 0) {
     return {
-      contactId: existing.rows[0].contact_id,
+      contact_id: existing.rows[0].contact_id,
       endpointId: existing.rows[0].endpoint_id,
       isNew: false,
     };
@@ -105,28 +105,28 @@ async function findOrCreateEndpoint(client: PoolClient, email: string): Promise<
      RETURNING id::text as id`,
     [email],
   );
-  const contactId = contact.rows[0].id;
+  const contact_id = contact.rows[0].id;
 
   // Create endpoint
   const endpoint = await client.query(
     `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
      VALUES ($1, 'email', $2, $3::jsonb)
      RETURNING id::text as id`,
-    [contactId, email, JSON.stringify({ source: 'outbound_email' })],
+    [contact_id, email, JSON.stringify({ source: 'outbound_email' })],
   );
   const endpointId = endpoint.rows[0].id;
 
-  return { contactId, endpointId, isNew: true };
+  return { contact_id, endpointId, isNew: true };
 }
 
 /**
  * Find or create thread for email conversation.
  */
-async function findOrCreateThread(client: PoolClient, endpointId: string, toEmail: string, fromEmail: string, replyToMessageId?: string): Promise<string> {
+async function findOrCreateThread(client: PoolClient, endpointId: string, toEmail: string, fromEmail: string, reply_to_message_id?: string): Promise<string> {
   // Create thread key based on conversation participants
   // If replying, use the message ID for threading
-  const threadKey = replyToMessageId
-    ? createEmailThreadKey(replyToMessageId, null, [])
+  const threadKey = reply_to_message_id
+    ? createEmailThreadKey(reply_to_message_id, null, [])
     : createEmailThreadKey(null, null, []) + ':' + [toEmail, fromEmail].sort().join(':');
 
   const result = await client.query(
@@ -144,13 +144,13 @@ async function findOrCreateThread(client: PoolClient, endpointId: string, toEmai
 /**
  * Check for existing message with same idempotency key.
  */
-async function findExistingMessage(client: PoolClient, idempotencyKey: string): Promise<{ messageId: string; threadId: string } | null> {
+async function findExistingMessage(client: PoolClient, idempotency_key: string): Promise<{ message_id: string; thread_id: string } | null> {
   const result = await client.query(
     `SELECT em.id::text as message_id, em.thread_id::text as thread_id
      FROM external_message em
      WHERE em.raw->>'idempotency_key' = $1
      LIMIT 1`,
-    [idempotencyKey],
+    [idempotency_key],
   );
 
   if (result.rows.length === 0) {
@@ -158,8 +158,8 @@ async function findExistingMessage(client: PoolClient, idempotencyKey: string): 
   }
 
   return {
-    messageId: result.rows[0].message_id,
-    threadId: result.rows[0].thread_id,
+    message_id: result.rows[0].message_id,
+    thread_id: result.rows[0].thread_id,
   };
 }
 
@@ -184,7 +184,7 @@ export async function enqueueEmailMessage(pool: Pool, request: SendEmailRequest)
   const fromEmail = isPostmarkConfigured() ? process.env.POSTMARK_FROM_EMAIL! : 'noreply@example.com';
 
   // Generate idempotency key if not provided
-  const idempotencyKey = request.idempotencyKey || `email:${uuidv4()}`;
+  const idempotency_key = request.idempotency_key || `email:${uuidv4()}`;
 
   const client = await pool.connect();
 
@@ -192,14 +192,14 @@ export async function enqueueEmailMessage(pool: Pool, request: SendEmailRequest)
     await client.query('BEGIN');
 
     // Check for existing message with same idempotency key
-    const existing = await findExistingMessage(client, idempotencyKey);
+    const existing = await findExistingMessage(client, idempotency_key);
     if (existing) {
       await client.query('COMMIT');
       return {
-        messageId: existing.messageId,
-        threadId: existing.threadId,
+        message_id: existing.message_id,
+        thread_id: existing.thread_id,
         status: 'queued',
-        idempotencyKey,
+        idempotency_key,
       };
     }
 
@@ -207,16 +207,16 @@ export async function enqueueEmailMessage(pool: Pool, request: SendEmailRequest)
     const { endpointId } = await findOrCreateEndpoint(client, toEmail);
 
     // Find or create thread
-    let threadId: string;
-    if (request.threadId) {
+    let thread_id: string;
+    if (request.thread_id) {
       // Verify thread exists
-      const thread = await client.query(`SELECT id FROM external_thread WHERE id = $1`, [request.threadId]);
+      const thread = await client.query(`SELECT id FROM external_thread WHERE id = $1`, [request.thread_id]);
       if (thread.rows.length === 0) {
-        throw new Error(`Thread not found: ${request.threadId}`);
+        throw new Error(`Thread not found: ${request.thread_id}`);
       }
-      threadId = request.threadId;
+      thread_id = request.thread_id;
     } else {
-      threadId = await findOrCreateThread(client, endpointId, toEmail, fromEmail, request.replyToMessageId);
+      thread_id = await findOrCreateThread(client, endpointId, toEmail, fromEmail, request.reply_to_message_id);
     }
 
     // Generate message key
@@ -231,7 +231,7 @@ export async function enqueueEmailMessage(pool: Pool, request: SendEmailRequest)
        VALUES ($1, $2, 'outbound', $3, 'pending', $4, $5, $6, $7::jsonb)
        RETURNING id::text as id`,
       [
-        threadId,
+        thread_id,
         messageKey,
         request.body,
         request.subject,
@@ -242,36 +242,36 @@ export async function enqueueEmailMessage(pool: Pool, request: SendEmailRequest)
           from: fromEmail,
           subject: request.subject,
           body: request.body,
-          htmlBody: request.htmlBody,
-          replyToMessageId: request.replyToMessageId,
-          idempotency_key: idempotencyKey,
+          html_body: request.html_body,
+          reply_to_message_id: request.reply_to_message_id,
+          idempotency_key: idempotency_key,
         }),
       ],
     );
-    const messageId = message.rows[0].id;
+    const message_id = message.rows[0].id;
 
     // Enqueue job for sending
     await client.query(`SELECT internal_job_enqueue($1, now(), $2, $3)`, [
       'message.send.email',
       JSON.stringify({
-        message_id: messageId,
+        message_id: message_id,
         to: toEmail,
         from: fromEmail,
         subject: request.subject,
         body: request.body,
-        htmlBody: request.htmlBody,
-        replyToMessageId: request.replyToMessageId,
+        html_body: request.html_body,
+        reply_to_message_id: request.reply_to_message_id,
       }),
-      idempotencyKey,
+      idempotency_key,
     ]);
 
     await client.query('COMMIT');
 
     return {
-      messageId,
-      threadId,
+      message_id,
+      thread_id,
       status: 'queued',
-      idempotencyKey,
+      idempotency_key,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -296,8 +296,8 @@ export async function handleEmailSendJob(pool: Pool, job: InternalJob): Promise<
     from?: string;
     subject: string;
     body: string;
-    htmlBody?: string;
-    replyToMessageId?: string;
+    html_body?: string;
+    reply_to_message_id?: string;
   };
 
   if (!payload.message_id || !payload.to || !payload.subject || !payload.body) {
@@ -334,12 +334,12 @@ export async function handleEmailSendJob(pool: Pool, job: InternalJob): Promise<
       TextBody: payload.body,
     };
 
-    if (payload.htmlBody) {
-      email.HtmlBody = payload.htmlBody;
+    if (payload.html_body) {
+      email.HtmlBody = payload.html_body;
     }
 
     // Add threading headers if replying
-    if (payload.replyToMessageId) {
+    if (payload.reply_to_message_id) {
       // Note: Postmark doesn't directly support In-Reply-To header via their API
       // For full threading support, we'd need to use their raw email endpoint
       // For now, we store the info but don't add the header
@@ -368,7 +368,7 @@ export async function handleEmailSendJob(pool: Pool, job: InternalJob): Promise<
       ],
     );
 
-    console.log(`[Postmark] Email sent: messageId=${payload.message_id}, postmarkId=${result.MessageID}`);
+    console.log(`[Postmark] Email sent: message_id=${payload.message_id}, postmarkId=${result.MessageID}`);
 
     return { success: true };
   } catch (error) {
@@ -383,7 +383,7 @@ export async function handleEmailSendJob(pool: Pool, job: InternalJob): Promise<
       [payload.message_id, JSON.stringify({ error: err.message })],
     );
 
-    console.error(`[Postmark] Email send failed: messageId=${payload.message_id}`, err);
+    console.error(`[Postmark] Email send failed: message_id=${payload.message_id}`, err);
 
     return {
       success: false,

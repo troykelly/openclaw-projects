@@ -53,12 +53,12 @@ function makeGoogleFolder(overrides: Record<string, unknown> = {}) {
 }
 
 describe('google — listDriveFiles', () => {
-  it('should list files from root when no folderId', async () => {
+  it('should list files from root when no folder_id', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         files: [makeGoogleDriveFile(), makeGoogleFolder()],
-        nextPageToken: 'page2token',
+        next_page_token: 'page2token',
       }),
     });
 
@@ -79,21 +79,21 @@ describe('google — listDriveFiles', () => {
     const file = result.files[0];
     expect(file.id).toBe('file-xyz');
     expect(file.name).toBe('presentation.pptx');
-    expect(file.mimeType).toBe('application/vnd.google-apps.presentation');
+    expect(file.mime_type).toBe('application/vnd.google-apps.presentation');
     expect(file.size).toBe(67890);
-    expect(file.isFolder).toBe(false);
+    expect(file.is_folder).toBe(false);
     expect(file.provider).toBe('google');
-    expect(file.connectionId).toBe('conn-g1');
-    expect(file.webUrl).toBe('https://docs.google.com/presentation/d/file-xyz/view');
-    expect(file.downloadUrl).toBe('https://drive.google.com/uc?id=file-xyz&export=download');
-    expect(file.parentId).toBe('folder-root');
+    expect(file.connection_id).toBe('conn-g1');
+    expect(file.web_url).toBe('https://docs.google.com/presentation/d/file-xyz/view');
+    expect(file.download_url).toBe('https://drive.google.com/uc?id=file-xyz&export=download');
+    expect(file.parent_id).toBe('folder-root');
 
     // Folder
     const folder = result.files[1];
     expect(folder.id).toBe('folder-abc');
-    expect(folder.isFolder).toBe(true);
+    expect(folder.is_folder).toBe(true);
 
-    expect(result.nextPageToken).toBe('page2token');
+    expect(result.next_page_token).toBe('page2token');
   });
 
   it('should list files from a specific folder', async () => {
@@ -109,7 +109,7 @@ describe('google — listDriveFiles', () => {
     expect(decodedUrl).toContain("'folder-123' in parents");
   });
 
-  it('should use pageToken for pagination', async () => {
+  it('should use page_token for pagination', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ files: [] }),
@@ -118,7 +118,7 @@ describe('google — listDriveFiles', () => {
     await listDriveFiles('tok', 'conn-g1', undefined, 'page2token');
 
     const [url] = mockFetch.mock.calls[0];
-    expect(url).toContain('pageToken=page2token');
+    expect(url).toContain('page_token=page2token');
   });
 
   it('should throw OAuthError on API failure', async () => {
@@ -130,7 +130,7 @@ describe('google — listDriveFiles', () => {
 
     await expect(listDriveFiles('bad-tok', 'conn-g1')).rejects.toMatchObject({
       code: 'FILES_LIST_FAILED',
-      statusCode: 403,
+      status_code: 403,
     });
   });
 
@@ -152,10 +152,10 @@ describe('google — listDriveFiles', () => {
     const file = result.files[0];
     expect(file.id).toBe('min-file');
     expect(file.size).toBeUndefined();
-    expect(file.downloadUrl).toBeUndefined();
-    expect(file.thumbnailUrl).toBeUndefined();
-    expect(file.parentId).toBeUndefined();
-    expect(file.isFolder).toBe(false);
+    expect(file.download_url).toBeUndefined();
+    expect(file.thumbnail_url).toBeUndefined();
+    expect(file.parent_id).toBeUndefined();
+    expect(file.is_folder).toBe(false);
   });
 });
 
@@ -188,7 +188,7 @@ describe('google — searchDriveFiles', () => {
     await searchDriveFiles('tok', 'conn-g1', 'invoice', 'next-page-token');
 
     const [url] = mockFetch.mock.calls[0];
-    expect(url).toContain('pageToken=next-page-token');
+    expect(url).toContain('page_token=next-page-token');
   });
 
   it('should exclude trashed files', async () => {
@@ -219,7 +219,7 @@ describe('google — getDriveFile', () => {
     expect(result.id).toBe('file-xyz');
     expect(result.name).toBe('presentation.pptx');
     expect(result.provider).toBe('google');
-    expect(result.connectionId).toBe('conn-g1');
+    expect(result.connection_id).toBe('conn-g1');
   });
 
   it('should throw OAuthError on 404', async () => {
@@ -231,7 +231,7 @@ describe('google — getDriveFile', () => {
 
     await expect(getDriveFile('tok', 'conn-g1', 'no-such')).rejects.toMatchObject({
       code: 'FILE_NOT_FOUND',
-      statusCode: 404,
+      status_code: 404,
     });
   });
 });

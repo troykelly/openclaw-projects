@@ -59,11 +59,11 @@ describe('createFileShare presigned mode', () => {
 
   const mockMetadata: FileAttachment = {
     id: 'file-123',
-    storageKey: '2026/02/15/test-uuid.pdf',
-    originalFilename: 'report.pdf',
-    contentType: 'application/pdf',
-    sizeBytes: 1024,
-    createdAt: new Date('2026-02-15'),
+    storage_key: '2026/02/15/test-uuid.pdf',
+    original_filename: 'report.pdf',
+    content_type: 'application/pdf',
+    size_bytes: 1024,
+    created_at: new Date('2026-02-15'),
   };
 
   it('calls getExternalSignedUrl (not getSignedUrl) in presigned mode', async () => {
@@ -81,12 +81,12 @@ describe('createFileShare presigned mode', () => {
     );
 
     const result = await createFileShare(createMockPool(), storage, {
-      fileId: 'file-123',
-      expiresIn: 3600,
+      file_id: 'file-123',
+      expires_in: 3600,
     });
 
     // Should call getExternalSignedUrl, NOT getSignedUrl
-    expect(storage.getExternalSignedUrl).toHaveBeenCalledWith(mockMetadata.storageKey, 3600);
+    expect(storage.getExternalSignedUrl).toHaveBeenCalledWith(mockMetadata.storage_key, 3600);
     expect(storage.getSignedUrl).not.toHaveBeenCalled();
   });
 
@@ -106,8 +106,8 @@ describe('createFileShare presigned mode', () => {
     );
 
     const result = await createFileShare(createMockPool(), storage, {
-      fileId: 'file-123',
-      expiresIn: 3600,
+      file_id: 'file-123',
+      expires_in: 3600,
     });
 
     // URL should be exactly what getExternalSignedUrl returned (no manipulation)
@@ -134,8 +134,8 @@ describe('createFileShare presigned mode', () => {
     );
 
     const result = await createFileShare(createMockPool(), storage, {
-      fileId: 'file-123',
-      expiresIn: 3600,
+      file_id: 'file-123',
+      expires_in: 3600,
     });
 
     // URL should be exactly the external signed URL, not a string-replaced version

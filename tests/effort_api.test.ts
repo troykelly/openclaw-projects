@@ -90,8 +90,8 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: '/api/work-items',
         payload: {
           title: 'New task with estimates',
-          estimateMinutes: 180,
-          actualMinutes: 120,
+          estimate_minutes: 180,
+          actual_minutes: 120,
         },
       });
 
@@ -107,7 +107,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: '/api/work-items',
         payload: {
           title: 'Invalid estimate',
-          estimateMinutes: -10,
+          estimate_minutes: -10,
         },
       });
 
@@ -121,7 +121,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: '/api/work-items',
         payload: {
           title: 'Too big estimate',
-          estimateMinutes: 600000,
+          estimate_minutes: 600000,
         },
       });
 
@@ -144,8 +144,8 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: `/api/work-items/${id}`,
         payload: {
           title: 'Updated task',
-          estimateMinutes: 120,
-          actualMinutes: 90,
+          estimate_minutes: 120,
+          actual_minutes: 90,
         },
       });
 
@@ -168,8 +168,8 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: `/api/work-items/${id}`,
         payload: {
           title: 'Clear estimates',
-          estimateMinutes: null,
-          actualMinutes: null,
+          estimate_minutes: null,
+          actual_minutes: null,
         },
       });
 
@@ -214,7 +214,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: `/api/work-items/${id}`,
         payload: {
           title: 'Test',
-          estimateMinutes: -5,
+          estimate_minutes: -5,
         },
       });
       expect(negativeResponse.statusCode).toBe(400);
@@ -224,7 +224,7 @@ describe('Effort API: estimate_minutes and actual_minutes', () => {
         url: `/api/work-items/${id}`,
         payload: {
           title: 'Test',
-          actualMinutes: 600000,
+          actual_minutes: 600000,
         },
       });
       expect(tooBigResponse.statusCode).toBe(400);

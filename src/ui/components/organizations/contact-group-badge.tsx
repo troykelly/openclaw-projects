@@ -9,7 +9,7 @@ import type { ContactGroup } from './types';
 
 export interface ContactGroupBadgeProps {
   group: ContactGroup;
-  onRemove?: (groupId: string) => void;
+  onRemove?: (group_id: string) => void;
   removable?: boolean;
   showCount?: boolean;
   size?: 'sm' | 'md';

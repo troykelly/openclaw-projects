@@ -38,7 +38,7 @@ interface TestItem {
   priority: string;
   kind: string;
   assigneeId?: string;
-  parentId?: string;
+  parent_id?: string;
   labels?: string[];
   dueDate?: string;
 }

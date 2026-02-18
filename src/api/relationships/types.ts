@@ -1,4 +1,6 @@
 /**
+ * All property names use snake_case to match the project-wide convention (Issue #1412).
+ *
  * Types for the relationship service.
  * Part of Epic #486, Issue #491
  *
@@ -18,20 +20,20 @@ export interface RelationshipEntry {
   /** UUID primary key */
   id: string;
   /** The first contact in the relationship */
-  contactAId: string;
+  contact_a_id: string;
   /** The second contact in the relationship */
-  contactBId: string;
+  contact_b_id: string;
   /** The relationship type */
-  relationshipTypeId: string;
+  relationship_type_id: string;
   /** Optional notes about this specific relationship */
   notes: string | null;
   /** Agent that created this relationship */
-  createdByAgent: string | null;
+  created_by_agent: string | null;
   /** Embedding status for semantic search */
-  embeddingStatus: RelationshipEmbeddingStatus;
+  embedding_status: RelationshipEmbeddingStatus;
   /** Timestamps */
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 /**
@@ -39,11 +41,11 @@ export interface RelationshipEntry {
  */
 export interface RelationshipWithDetails extends RelationshipEntry {
   /** Display name of contact A */
-  contactAName: string;
+  contact_a_name: string;
   /** Display name of contact B */
-  contactBName: string;
+  contact_b_name: string;
   /** The relationship type details */
-  relationshipType: Pick<RelationshipTypeEntry, 'id' | 'name' | 'label' | 'isDirectional'>;
+  relationship_type: Pick<RelationshipTypeEntry, 'id' | 'name' | 'label' | 'is_directional'>;
 }
 
 /**
@@ -51,17 +53,17 @@ export interface RelationshipWithDetails extends RelationshipEntry {
  */
 export interface CreateRelationshipInput {
   /** UUID of the first contact */
-  contactAId: string;
+  contact_a_id: string;
   /** UUID of the second contact */
-  contactBId: string;
+  contact_b_id: string;
   /** UUID of the relationship type */
-  relationshipTypeId: string;
+  relationship_type_id: string;
   /** Optional notes about this relationship */
   notes?: string;
   /** Agent that created this relationship */
-  createdByAgent?: string;
+  created_by_agent?: string;
   /** User email for scoping (Issue #1172) */
-  userEmail?: string;
+  user_email?: string;
 }
 
 /**
@@ -69,7 +71,7 @@ export interface CreateRelationshipInput {
  */
 export interface UpdateRelationshipInput {
   /** Change the relationship type */
-  relationshipTypeId?: string;
+  relationship_type_id?: string;
   /** Update notes */
   notes?: string | null;
 }
@@ -79,17 +81,17 @@ export interface UpdateRelationshipInput {
  */
 export interface ListRelationshipsOptions {
   /** Filter by contact (either side) */
-  contactId?: string;
+  contact_id?: string;
   /** Filter by relationship type */
-  relationshipTypeId?: string;
+  relationship_type_id?: string;
   /** Filter by agent that created */
-  createdByAgent?: string;
+  created_by_agent?: string;
   /** Limit results */
   limit?: number;
   /** Offset for pagination */
   offset?: number;
   /** Filter by user email (Issue #1172) */
-  userEmail?: string;
+  user_email?: string;
 }
 
 /**
@@ -106,19 +108,19 @@ export interface ListRelationshipsResult {
  */
 export interface RelatedContact {
   /** The related contact's ID */
-  contactId: string;
+  contact_id: string;
   /** The related contact's display name */
-  contactName: string;
+  contact_name: string;
   /** The related contact's kind (person, organisation, group, agent) */
-  contactKind: string;
+  contact_kind: string;
   /** The relationship record ID */
-  relationshipId: string;
+  relationship_id: string;
   /** The effective relationship type name (inverse resolved for directional B-side) */
-  relationshipTypeName: string;
+  relationship_type_name: string;
   /** The effective relationship type label */
-  relationshipTypeLabel: string;
+  relationship_type_label: string;
   /** Whether the type is directional */
-  isDirectional: boolean;
+  is_directional: boolean;
   /** Optional notes */
   notes: string | null;
 }
@@ -128,11 +130,11 @@ export interface RelatedContact {
  */
 export interface GraphTraversalResult {
   /** The queried contact's ID */
-  contactId: string;
+  contact_id: string;
   /** The queried contact's display name */
-  contactName: string;
+  contact_name: string;
   /** All related contacts with effective relationship types */
-  relatedContacts: RelatedContact[];
+  related_contacts: RelatedContact[];
 }
 
 /**
@@ -141,17 +143,17 @@ export interface GraphTraversalResult {
  */
 export interface RelationshipSetInput {
   /** Contact A identifier (name or UUID) */
-  contactA: string;
+  contact_a: string;
   /** Contact B identifier (name or UUID) */
-  contactB: string;
+  contact_b: string;
   /** Relationship type (name, label, or free text for semantic match) */
-  relationshipType: string;
+  relationship_type: string;
   /** Optional notes */
   notes?: string;
   /** Agent performing the operation */
-  createdByAgent?: string;
+  created_by_agent?: string;
   /** User email for scoping (Issue #1172) */
-  userEmail?: string;
+  user_email?: string;
 }
 
 /**
@@ -161,11 +163,11 @@ export interface RelationshipSetResult {
   /** The created or existing relationship */
   relationship: RelationshipEntry;
   /** The resolved contact A */
-  contactA: { id: string; displayName: string };
+  contact_a: { id: string; display_name: string };
   /** The resolved contact B */
-  contactB: { id: string; displayName: string };
+  contact_b: { id: string; display_name: string };
   /** The resolved or created relationship type */
-  relationshipType: Pick<RelationshipTypeEntry, 'id' | 'name' | 'label'>;
+  relationship_type: Pick<RelationshipTypeEntry, 'id' | 'name' | 'label'>;
   /** Whether this was a new creation or existing relationship */
   created: boolean;
 }
@@ -175,13 +177,13 @@ export interface RelationshipSetResult {
  */
 export interface GroupMembership {
   /** The group contact ID */
-  groupId: string;
+  group_id: string;
   /** The group display name */
-  groupName: string;
+  group_name: string;
   /** The member contact ID */
-  memberId: string;
+  member_id: string;
   /** The member display name */
-  memberName: string;
+  member_name: string;
   /** The relationship record ID */
-  relationshipId: string;
+  relationship_id: string;
 }

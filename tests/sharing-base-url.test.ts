@@ -68,11 +68,11 @@ describe('Sharing modules use PUBLIC_BASE_URL', () => {
       const { getFileMetadata } = await import('../src/api/file-storage/service.ts');
       (getFileMetadata as ReturnType<typeof vi.fn>).mockResolvedValue({
         id: 'file-1',
-        storageKey: 'key',
-        originalFilename: 'test.pdf',
-        contentType: 'application/pdf',
-        sizeBytes: 100,
-        createdAt: new Date(),
+        storage_key: 'key',
+        original_filename: 'test.pdf',
+        content_type: 'application/pdf',
+        size_bytes: 100,
+        created_at: new Date(),
       });
 
       const { createFileShare } = await import('../src/api/file-storage/sharing.ts');
@@ -90,8 +90,8 @@ describe('Sharing modules use PUBLIC_BASE_URL', () => {
       };
 
       const result = await createFileShare(pool, storage, {
-        fileId: 'file-1',
-        expiresIn: 3600,
+        file_id: 'file-1',
+        expires_in: 3600,
       });
 
       expect(result.url).toContain('https://myapp.example.com');
@@ -105,11 +105,11 @@ describe('Sharing modules use PUBLIC_BASE_URL', () => {
       const { getFileMetadata } = await import('../src/api/file-storage/service.ts');
       (getFileMetadata as ReturnType<typeof vi.fn>).mockResolvedValue({
         id: 'file-1',
-        storageKey: 'key',
-        originalFilename: 'test.pdf',
-        contentType: 'application/pdf',
-        sizeBytes: 100,
-        createdAt: new Date(),
+        storage_key: 'key',
+        original_filename: 'test.pdf',
+        content_type: 'application/pdf',
+        size_bytes: 100,
+        created_at: new Date(),
       });
 
       const { createFileShare } = await import('../src/api/file-storage/sharing.ts');
@@ -127,8 +127,8 @@ describe('Sharing modules use PUBLIC_BASE_URL', () => {
       };
 
       const result = await createFileShare(pool, storage, {
-        fileId: 'file-1',
-        expiresIn: 3600,
+        file_id: 'file-1',
+        expires_in: 3600,
       });
 
       expect(result.url).toContain('http://localhost:3000');

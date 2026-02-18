@@ -579,9 +579,9 @@ describe('webhook handler', () => {
 
     it('accepts a valid request', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json',
         body: validBody,
       });
       expect(result.ok).toBe(true);
@@ -593,9 +593,9 @@ describe('webhook handler', () => {
 
     it('accepts application/json with charset', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json; charset=utf-8',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json; charset=utf-8',
         body: validBody,
       });
       expect(result.ok).toBe(true);
@@ -603,9 +603,9 @@ describe('webhook handler', () => {
 
     it('rejects missing Authorization header', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: undefined,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: undefined,
+        content_type: 'application/json',
         body: validBody,
       });
       expect(result.ok).toBe(false);
@@ -616,9 +616,9 @@ describe('webhook handler', () => {
 
     it('rejects invalid token', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: 'Bearer wrong-token',
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: 'Bearer wrong-token',
+        content_type: 'application/json',
         body: validBody,
       });
       expect(result.ok).toBe(false);
@@ -630,9 +630,9 @@ describe('webhook handler', () => {
 
     it('rejects wrong Content-Type', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'text/plain',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'text/plain',
         body: validBody,
       });
       expect(result.ok).toBe(false);
@@ -643,9 +643,9 @@ describe('webhook handler', () => {
 
     it('rejects missing Content-Type', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: undefined,
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: undefined,
         body: validBody,
       });
       expect(result.ok).toBe(false);
@@ -657,9 +657,9 @@ describe('webhook handler', () => {
     it('rejects payload exceeding 10KB', () => {
       const largeBody = JSON.stringify({ lat: 1, lng: 2, data: 'x'.repeat(MAX_PAYLOAD_SIZE) });
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json',
         body: largeBody,
       });
       expect(result.ok).toBe(false);
@@ -671,9 +671,9 @@ describe('webhook handler', () => {
 
     it('rejects invalid JSON', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json',
         body: 'not json',
       });
       expect(result.ok).toBe(false);
@@ -684,9 +684,9 @@ describe('webhook handler', () => {
 
     it('rejects JSON without location data', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json',
         body: JSON.stringify({ foo: 'bar' }),
       });
       expect(result.ok).toBe(false);
@@ -697,9 +697,9 @@ describe('webhook handler', () => {
 
     it('accepts OwnTracks payload', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json',
         body: JSON.stringify({
           _type: 'location',
           lat: -33.8688,
@@ -718,9 +718,9 @@ describe('webhook handler', () => {
 
     it('does not leak internal state in error messages', () => {
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: 'Bearer wrong',
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: 'Bearer wrong',
+        content_type: 'application/json',
         body: validBody,
       });
       expect(result.ok).toBe(false);
@@ -741,9 +741,9 @@ describe('webhook handler', () => {
       expect(Buffer.byteLength(body, 'utf8')).toBe(MAX_PAYLOAD_SIZE);
 
       const result = handleWebhookRequest({
-        expectedToken: validToken,
-        authHeader: `Bearer ${validToken}`,
-        contentType: 'application/json',
+        expected_token: validToken,
+        auth_header: `Bearer ${validToken}`,
+        content_type: 'application/json',
         body,
       });
       expect(result.ok).toBe(true);

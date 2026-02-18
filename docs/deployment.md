@@ -977,7 +977,7 @@ FILE_SHARE_MODE=proxy
 This mode:
 - Generates unique tokens stored in the database
 - Creates URLs like `https://api.example.com/api/files/shared/{token}`
-- Supports download limits (`maxDownloads` parameter)
+- Supports download limits (`max_downloads` parameter)
 - Proxies file content through the API server
 
 **Which mode to choose:**

@@ -28,8 +28,8 @@ describe('Memory deduplication', () => {
     const memory1 = await createMemory(pool, {
       title,
       content,
-      memoryType: 'preference',
-      userEmail: 'test@example.com',
+      memory_type: 'preference',
+      user_email: 'test@example.com',
     });
 
     expect(memory1).toBeDefined();
@@ -39,8 +39,8 @@ describe('Memory deduplication', () => {
     const memory2 = await createMemory(pool, {
       title,
       content,
-      memoryType: 'preference',
-      userEmail: 'test@example.com',
+      memory_type: 'preference',
+      user_email: 'test@example.com',
     });
 
     // Should return the existing memory, not create a new one
@@ -61,15 +61,15 @@ describe('Memory deduplication', () => {
     const memory1 = await createMemory(pool, {
       title: 'Email preference',
       content: content1,
-      memoryType: 'preference',
-      userEmail: 'test@example.com',
+      memory_type: 'preference',
+      user_email: 'test@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'Email preference',
       content: content2,
-      memoryType: 'preference',
-      userEmail: 'test@example.com',
+      memory_type: 'preference',
+      user_email: 'test@example.com',
     });
 
     // Should deduplicate despite whitespace differences
@@ -80,15 +80,15 @@ describe('Memory deduplication', () => {
     const memory1 = await createMemory(pool, {
       title: 'Email preference',
       content: 'User prefers notifications via email',
-      memoryType: 'preference',
-      userEmail: 'test@example.com',
+      memory_type: 'preference',
+      user_email: 'test@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'SMS preference',
       content: 'User prefers notifications via SMS',
-      memoryType: 'preference',
-      userEmail: 'test@example.com',
+      memory_type: 'preference',
+      user_email: 'test@example.com',
     });
 
     // Should create different memories
@@ -108,15 +108,15 @@ describe('Memory deduplication', () => {
     const memory1 = await createMemory(pool, {
       title: 'Fact 1',
       content,
-      memoryType: 'fact',
-      userEmail: 'user1@example.com',
+      memory_type: 'fact',
+      user_email: 'user1@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'Fact 1',
       content,
-      memoryType: 'fact',
-      userEmail: 'user1@example.com',
+      memory_type: 'fact',
+      user_email: 'user1@example.com',
     });
 
     expect(memory2.id).toBe(memory1.id);
@@ -128,15 +128,15 @@ describe('Memory deduplication', () => {
     const memory1 = await createMemory(pool, {
       title: 'Preference',
       content,
-      memoryType: 'preference',
-      userEmail: 'user1@example.com',
+      memory_type: 'preference',
+      user_email: 'user1@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'Preference',
       content,
-      memoryType: 'preference',
-      userEmail: 'user2@example.com',
+      memory_type: 'preference',
+      user_email: 'user2@example.com',
     });
 
     // Different users should have separate memories
@@ -149,11 +149,11 @@ describe('Memory deduplication', () => {
     const memory1 = await createMemory(pool, {
       title: 'Note',
       content,
-      memoryType: 'note',
-      userEmail: 'test@example.com',
+      memory_type: 'note',
+      user_email: 'test@example.com',
     });
 
-    const originalUpdatedAt = memory1.updatedAt;
+    const originalUpdatedAt = memory1.updated_at;
 
     // Wait a bit to ensure timestamp difference
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -161,11 +161,11 @@ describe('Memory deduplication', () => {
     const memory2 = await createMemory(pool, {
       title: 'Note',
       content,
-      memoryType: 'note',
-      userEmail: 'test@example.com',
+      memory_type: 'note',
+      user_email: 'test@example.com',
     });
 
     expect(memory2.id).toBe(memory1.id);
-    expect(new Date(memory2.updatedAt).getTime()).toBeGreaterThan(new Date(originalUpdatedAt).getTime());
+    expect(new Date(memory2.updated_at).getTime()).toBeGreaterThan(new Date(originalUpdatedAt).getTime());
   });
 });

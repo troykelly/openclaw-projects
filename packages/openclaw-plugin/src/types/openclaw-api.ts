@@ -48,7 +48,7 @@ export interface JSONSchemaProperty {
 
 /** Tool execution context */
 export interface ToolContext {
-  userId?: string;
+  user_id?: string;
   agentId?: string;
   sessionId?: string;
   requestId?: string;
@@ -164,7 +164,7 @@ export interface PluginHookBeforeAgentStartResult {
 /** Event payload for message_received hook (Issue #1223) */
 export interface PluginHookMessageReceivedEvent {
   /** Thread ID for the message */
-  threadId?: string;
+  thread_id?: string;
   /** Sender identifier (email or phone) */
   sender?: string;
   /** Sender email address */

@@ -18,7 +18,7 @@ import { ChevronRight, ChevronDown, Circle, Clock, AlertCircle, CheckCircle2, XC
 interface TreeViewProps {
   items: TreeItem[];
   isLoading: boolean;
-  projectId: string;
+  project_id: string;
 }
 
 /** Kind display config with icons and colors. */
@@ -119,7 +119,7 @@ function TreeNode({
   );
 }
 
-export function TreeView({ items, isLoading, projectId }: TreeViewProps): React.JSX.Element {
+export function TreeView({ items, isLoading, project_id }: TreeViewProps): React.JSX.Element {
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     // Auto-expand first level
     const ids = new Set<string>();

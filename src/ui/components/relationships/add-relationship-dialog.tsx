@@ -35,7 +35,7 @@ export function AddRelationshipDialog({ open, onOpenChange, currentContactId, av
     if (!selectedContactId) return;
 
     onAddRelationship({
-      contactId: currentContactId,
+      contact_id: currentContactId,
       relatedContactId: selectedContactId,
       type: selectedType,
       strength,

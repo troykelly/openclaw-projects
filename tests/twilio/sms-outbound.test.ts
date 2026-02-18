@@ -40,26 +40,26 @@ describe('Twilio SMS outbound sending (#291)', () => {
       const result = await enqueueSmsMessage(pool, {
         to: '+15551234567',
         body: 'Hello from openclaw!',
-        threadId: thread.rows[0].id,
+        thread_id: thread.rows[0].id,
       });
 
-      expect(result.messageId).toBeDefined();
-      expect(result.threadId).toBe(thread.rows[0].id);
+      expect(result.message_id).toBeDefined();
+      expect(result.thread_id).toBe(thread.rows[0].id);
       expect(result.status).toBe('queued');
-      expect(result.idempotencyKey).toBeDefined();
+      expect(result.idempotency_key).toBeDefined();
 
       // Verify message was created in DB with pending status
       const msg = await pool.query(
         `SELECT direction::text as direction, delivery_status::text as status, body
          FROM external_message WHERE id = $1`,
-        [result.messageId],
+        [result.message_id],
       );
       expect(msg.rows[0].direction).toBe('outbound');
       expect(msg.rows[0].status).toBe('pending');
       expect(msg.rows[0].body).toBe('Hello from openclaw!');
     });
 
-    it('creates new thread if threadId not provided', async () => {
+    it('creates new thread if thread_id not provided', async () => {
       const { enqueueSmsMessage } = await import('../../src/api/twilio/sms-outbound.js');
 
       // Create contact and endpoint but no thread
@@ -75,12 +75,12 @@ describe('Twilio SMS outbound sending (#291)', () => {
         body: 'New conversation!',
       });
 
-      expect(result.messageId).toBeDefined();
-      expect(result.threadId).toBeDefined();
+      expect(result.message_id).toBeDefined();
+      expect(result.thread_id).toBeDefined();
       expect(result.status).toBe('queued');
 
       // Verify thread was created
-      const thread = await pool.query(`SELECT id FROM external_thread WHERE id = $1`, [result.threadId]);
+      const thread = await pool.query(`SELECT id FROM external_thread WHERE id = $1`, [result.thread_id]);
       expect(thread.rows.length).toBe(1);
     });
 
@@ -92,8 +92,8 @@ describe('Twilio SMS outbound sending (#291)', () => {
         body: 'Hello stranger!',
       });
 
-      expect(result.messageId).toBeDefined();
-      expect(result.threadId).toBeDefined();
+      expect(result.message_id).toBeDefined();
+      expect(result.thread_id).toBeDefined();
 
       // Verify contact was created
       const contact = await pool.query(
@@ -120,30 +120,30 @@ describe('Twilio SMS outbound sending (#291)', () => {
          WHERE kind = 'message.send.sms'`,
       );
       expect(job.rows.length).toBe(1);
-      expect(job.rows[0].payload.message_id).toBe(result.messageId);
-      expect(job.rows[0].idempotency_key).toBe(result.idempotencyKey);
+      expect(job.rows[0].payload.message_id).toBe(result.message_id);
+      expect(job.rows[0].idempotency_key).toBe(result.idempotency_key);
     });
 
     it('is idempotent when using same idempotency key', async () => {
       const { enqueueSmsMessage } = await import('../../src/api/twilio/sms-outbound.js');
 
-      const idempotencyKey = 'test-idempotency-123';
+      const idempotency_key = 'test-idempotency-123';
 
       const result1 = await enqueueSmsMessage(pool, {
         to: '+15558889999',
         body: 'First send',
-        idempotencyKey,
+        idempotency_key,
       });
 
       const result2 = await enqueueSmsMessage(pool, {
         to: '+15558889999',
         body: 'First send',
-        idempotencyKey,
+        idempotency_key,
       });
 
       // Should return same message ID
-      expect(result1.messageId).toBe(result2.messageId);
-      expect(result1.idempotencyKey).toBe(result2.idempotencyKey);
+      expect(result1.message_id).toBe(result2.message_id);
+      expect(result1.idempotency_key).toBe(result2.idempotency_key);
 
       // Should only have one message and one job
       const messages = await pool.query(`SELECT COUNT(*) as count FROM external_message WHERE body = 'First send'`);
@@ -207,10 +207,10 @@ describe('Twilio SMS outbound sending (#291)', () => {
         lastError: claimed.rows[0].last_error,
         lockedAt: claimed.rows[0].locked_at,
         lockedBy: claimed.rows[0].locked_by,
-        completedAt: claimed.rows[0].completed_at,
-        idempotencyKey: claimed.rows[0].idempotency_key,
-        createdAt: claimed.rows[0].created_at,
-        updatedAt: claimed.rows[0].updated_at,
+        completed_at: claimed.rows[0].completed_at,
+        idempotency_key: claimed.rows[0].idempotency_key,
+        created_at: claimed.rows[0].created_at,
+        updated_at: claimed.rows[0].updated_at,
       };
 
       // Test behavior depends on Twilio configuration:
@@ -222,7 +222,7 @@ describe('Twilio SMS outbound sending (#291)', () => {
         await expect(handleSmsSendJob(pool, job)).rejects.toThrow(/twilio.*not.*configured/i);
 
         // Message should be marked as failed
-        const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [enqueueResult.messageId]);
+        const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [enqueueResult.message_id]);
         expect(msg.rows[0].status).toBe('failed');
       } else {
         // Twilio is configured - handler returns result (doesn't throw)
@@ -230,7 +230,7 @@ describe('Twilio SMS outbound sending (#291)', () => {
         expect(typeof result.success).toBe('boolean');
 
         // Check message status matches the result
-        const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [enqueueResult.messageId]);
+        const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [enqueueResult.message_id]);
 
         if (result.success) {
           expect(msg.rows[0].status).toBe('sent');
@@ -269,10 +269,10 @@ describe('Twilio SMS outbound sending (#291)', () => {
         lastError: claimed.rows[0].last_error,
         lockedAt: claimed.rows[0].locked_at,
         lockedBy: claimed.rows[0].locked_by,
-        completedAt: claimed.rows[0].completed_at,
-        idempotencyKey: claimed.rows[0].idempotency_key,
-        createdAt: claimed.rows[0].created_at,
-        updatedAt: claimed.rows[0].updated_at,
+        completed_at: claimed.rows[0].completed_at,
+        idempotency_key: claimed.rows[0].idempotency_key,
+        created_at: claimed.rows[0].created_at,
+        updated_at: claimed.rows[0].updated_at,
       };
 
       // Test behavior depends on Twilio configuration
@@ -287,7 +287,7 @@ describe('Twilio SMS outbound sending (#291)', () => {
         // Handler catches this and returns { success: false }
         if (!result.success) {
           // Verify message status updated to failed
-          const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [enqueueResult.messageId]);
+          const msg = await pool.query(`SELECT delivery_status::text as status FROM external_message WHERE id = $1`, [enqueueResult.message_id]);
           expect(msg.rows[0].status).toBe('failed');
         }
         // If somehow it succeeds (different Twilio account behavior), that's also valid

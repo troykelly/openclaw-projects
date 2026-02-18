@@ -27,15 +27,15 @@ export type RelationshipDirection = 'bidirectional' | 'outgoing' | 'incoming';
 /** A relationship between contacts */
 export interface ContactRelationship {
   id: string;
-  contactId: string;
+  contact_id: string;
   relatedContactId: string;
   type: RelationshipType;
   strength?: RelationshipStrength;
   direction: RelationshipDirection;
   notes?: string;
   lastInteraction?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /** A contact for relationship display */
@@ -51,7 +51,7 @@ export interface Contact {
 
 /** New relationship data for creation */
 export interface NewRelationshipData {
-  contactId: string;
+  contact_id: string;
   relatedContactId: string;
   type: RelationshipType;
   strength?: RelationshipStrength;

@@ -7,7 +7,7 @@ import { buildServer } from '../src/api/server.ts';
 describe('Work Item Reorder API (issue #104)', () => {
   const app = buildServer();
   let pool: Pool;
-  let parentId: string;
+  let parent_id: string;
   let childIds: string[];
 
   beforeAll(async () => {
@@ -26,14 +26,14 @@ describe('Work Item Reorder API (issue #104)', () => {
       url: '/api/work-items',
       payload: { title: 'Parent Initiative', kind: 'initiative' },
     });
-    parentId = (parent.json() as { id: string }).id;
+    parent_id = (parent.json() as { id: string }).id;
 
     // Create 4 child epics under the initiative
     for (const name of ['A', 'B', 'C', 'D']) {
       const child = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: `Epic ${name}`, kind: 'epic', parentId },
+        payload: { title: `Epic ${name}`, kind: 'epic', parent_id },
       });
       childIds.push((child.json() as { id: string }).id);
     }
@@ -49,7 +49,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       `SELECT id::text as id FROM work_item
        WHERE parent_work_item_id = $1
        ORDER BY sort_order ASC`,
-      [parentId],
+      [parent_id],
     );
     return result.rows.map((r: { id: string }) => r.id);
   }
@@ -60,7 +60,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[3]}/reorder`,
-        payload: { afterId: null },
+        payload: { after_id: null },
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().ok).toBe(true);
@@ -75,7 +75,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[0]}/reorder`,
-        payload: { beforeId: null },
+        payload: { before_id: null },
       });
       expect(res.statusCode).toBe(200);
 
@@ -93,7 +93,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[3]}/reorder`,
-        payload: { afterId: childIds[0] },
+        payload: { after_id: childIds[0] },
       });
       expect(res.statusCode).toBe(200);
 
@@ -114,7 +114,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[3]}/reorder`,
-        payload: { beforeId: childIds[1] },
+        payload: { before_id: childIds[1] },
       });
       expect(res.statusCode).toBe(200);
 
@@ -132,24 +132,24 @@ describe('Work Item Reorder API (issue #104)', () => {
         payload: {},
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'afterId or beforeId is required' });
+      expect(res.json()).toEqual({ error: 'after_id or before_id is required' });
     });
 
     it('returns 400 when both afterId and beforeId provided', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[0]}/reorder`,
-        payload: { afterId: childIds[1], beforeId: childIds[2] },
+        payload: { after_id: childIds[1], before_id: childIds[2] },
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toEqual({ error: 'provide only one of afterId or beforeId' });
+      expect(res.json()).toEqual({ error: 'provide only one of after_id or before_id' });
     });
 
     it('returns 404 for non-existent work item', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/work-items/00000000-0000-0000-0000-000000000000/reorder',
-        payload: { afterId: null },
+        payload: { after_id: null },
       });
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({ error: 'not found' });
@@ -167,7 +167,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const otherChild = await app.inject({
         method: 'POST',
         url: '/api/work-items',
-        payload: { title: 'Other Epic', kind: 'epic', parentId: otherParentId },
+        payload: { title: 'Other Epic', kind: 'epic', parent_id: otherParentId },
       });
       const otherChildId = (otherChild.json() as { id: string }).id;
 
@@ -175,7 +175,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[0]}/reorder`,
-        payload: { afterId: otherChildId },
+        payload: { after_id: otherChildId },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json()).toEqual({ error: 'target must be a sibling' });
@@ -185,7 +185,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[0]}/reorder`,
-        payload: { afterId: '00000000-0000-0000-0000-000000000000' },
+        payload: { after_id: '00000000-0000-0000-0000-000000000000' },
       });
       expect(res.statusCode).toBe(400);
       expect(res.json()).toEqual({ error: 'target not found' });
@@ -201,7 +201,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${childIds[1]}/reorder`,
-        payload: { afterId: childIds[0] },
+        payload: { after_id: childIds[0] },
       });
       expect(res.statusCode).toBe(200);
 
@@ -222,7 +222,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/work-items/${init2Id}/reorder`,
-        payload: { beforeId: parentId },
+        payload: { before_id: parent_id },
       });
       expect(res.statusCode).toBe(200);
 
@@ -234,7 +234,7 @@ describe('Work Item Reorder API (issue #104)', () => {
       );
       const topLevelOrder = result.rows.map((r: { id: string }) => r.id);
       expect(topLevelOrder[0]).toBe(init2Id);
-      expect(topLevelOrder[1]).toBe(parentId);
+      expect(topLevelOrder[1]).toBe(parent_id);
     });
   });
 });

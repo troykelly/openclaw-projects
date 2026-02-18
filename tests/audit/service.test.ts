@@ -36,11 +36,11 @@ describe('Audit Service', () => {
   describe('createAuditLog', () => {
     it('creates an audit log entry', async () => {
       const id = await createAuditLog(pool, {
-        actorType: 'human',
-        actorId: 'user@example.com',
+        actor_type: 'human',
+        actor_id: 'user@example.com',
         action: 'create',
-        entityType: 'work_item',
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_type: 'work_item',
+        entity_id: '00000000-0000-0000-0000-000000000001',
         changes: { title: 'New Task' },
         metadata: { ip: '127.0.0.1' },
       });
@@ -58,9 +58,9 @@ describe('Audit Service', () => {
 
     it('creates entry with null actor_id for system actor', async () => {
       const id = await createAuditLog(pool, {
-        actorType: 'system',
+        actor_type: 'system',
         action: 'create',
-        entityType: 'work_item',
+        entity_type: 'work_item',
       });
 
       expect(id).toBeDefined();
@@ -74,25 +74,25 @@ describe('Audit Service', () => {
     beforeEach(async () => {
       // Create some test entries
       await createAuditLog(pool, {
-        actorType: 'human',
-        actorId: 'user1@example.com',
+        actor_type: 'human',
+        actor_id: 'user1@example.com',
         action: 'create',
-        entityType: 'work_item',
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_type: 'work_item',
+        entity_id: '00000000-0000-0000-0000-000000000001',
       });
       await createAuditLog(pool, {
-        actorType: 'agent',
-        actorId: 'agent-1',
+        actor_type: 'agent',
+        actor_id: 'agent-1',
         action: 'update',
-        entityType: 'work_item',
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_type: 'work_item',
+        entity_id: '00000000-0000-0000-0000-000000000001',
       });
       await createAuditLog(pool, {
-        actorType: 'human',
-        actorId: 'user1@example.com',
+        actor_type: 'human',
+        actor_id: 'user1@example.com',
         action: 'create',
-        entityType: 'contact',
-        entityId: '00000000-0000-0000-0000-000000000002',
+        entity_type: 'contact',
+        entity_id: '00000000-0000-0000-0000-000000000002',
       });
     });
 
@@ -104,7 +104,7 @@ describe('Audit Service', () => {
 
     it('filters by entity type', async () => {
       const { entries, total } = await queryAuditLog(pool, {
-        entityType: 'work_item',
+        entity_type: 'work_item',
       });
       expect(entries.length).toBe(2);
       expect(total).toBe(2);
@@ -112,7 +112,7 @@ describe('Audit Service', () => {
 
     it('filters by entity ID', async () => {
       const { entries, total } = await queryAuditLog(pool, {
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_id: '00000000-0000-0000-0000-000000000001',
       });
       expect(entries.length).toBe(2);
       expect(total).toBe(2);
@@ -120,7 +120,7 @@ describe('Audit Service', () => {
 
     it('filters by actor type', async () => {
       const { entries, total } = await queryAuditLog(pool, {
-        actorType: 'human',
+        actor_type: 'human',
       });
       expect(entries.length).toBe(2);
       expect(total).toBe(2);
@@ -128,7 +128,7 @@ describe('Audit Service', () => {
 
     it('filters by actor ID', async () => {
       const { entries, total } = await queryAuditLog(pool, {
-        actorId: 'agent-1',
+        actor_id: 'agent-1',
       });
       expect(entries.length).toBe(1);
       expect(total).toBe(1);
@@ -156,13 +156,13 @@ describe('Audit Service', () => {
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       const { total: inRange } = await queryAuditLog(pool, {
-        startDate: yesterday,
-        endDate: tomorrow,
+        start_date: yesterday,
+        end_date: tomorrow,
       });
       expect(inRange).toBe(3);
 
       const { total: beforeNow } = await queryAuditLog(pool, {
-        endDate: yesterday,
+        end_date: yesterday,
       });
       expect(beforeNow).toBe(0);
     });
@@ -171,16 +171,16 @@ describe('Audit Service', () => {
   describe('getEntityAuditLog', () => {
     it('returns audit entries for a specific entity', async () => {
       await createAuditLog(pool, {
-        actorType: 'human',
+        actor_type: 'human',
         action: 'create',
-        entityType: 'work_item',
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_type: 'work_item',
+        entity_id: '00000000-0000-0000-0000-000000000001',
       });
       await createAuditLog(pool, {
-        actorType: 'human',
+        actor_type: 'human',
         action: 'update',
-        entityType: 'work_item',
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_type: 'work_item',
+        entity_id: '00000000-0000-0000-0000-000000000001',
       });
 
       const entries = await getEntityAuditLog(pool, 'work_item', '00000000-0000-0000-0000-000000000001');
@@ -191,16 +191,16 @@ describe('Audit Service', () => {
   describe('getActorAuditLog', () => {
     it('returns audit entries for a specific actor', async () => {
       await createAuditLog(pool, {
-        actorType: 'agent',
-        actorId: 'my-agent',
+        actor_type: 'agent',
+        actor_id: 'my-agent',
         action: 'create',
-        entityType: 'work_item',
+        entity_type: 'work_item',
       });
       await createAuditLog(pool, {
-        actorType: 'agent',
-        actorId: 'my-agent',
+        actor_type: 'agent',
+        actor_id: 'my-agent',
         action: 'update',
-        entityType: 'contact',
+        entity_type: 'contact',
       });
 
       const entries = await getActorAuditLog(pool, 'agent', 'my-agent');
@@ -211,8 +211,8 @@ describe('Audit Service', () => {
   describe('logAuthEvent', () => {
     it('logs a successful auth event', async () => {
       const id = await logAuthEvent(pool, {
-        actorType: 'human',
-        actorId: 'user@example.com',
+        actor_type: 'human',
+        actor_id: 'user@example.com',
         success: true,
         metadata: { method: 'magic_link' },
       });
@@ -227,8 +227,8 @@ describe('Audit Service', () => {
 
     it('logs a failed auth event', async () => {
       const id = await logAuthEvent(pool, {
-        actorType: 'human',
-        actorId: 'attacker@evil.com',
+        actor_type: 'human',
+        actor_id: 'attacker@evil.com',
         success: false,
         metadata: { reason: 'invalid_token' },
       });
@@ -242,8 +242,8 @@ describe('Audit Service', () => {
     it('logs a webhook receipt', async () => {
       const id = await logWebhookEvent(pool, {
         source: 'twilio',
-        entityType: 'external_message',
-        entityId: '00000000-0000-0000-0000-000000000001',
+        entity_type: 'external_message',
+        entity_id: '00000000-0000-0000-0000-000000000001',
         metadata: { from: '+15551234567' },
       });
 
@@ -260,9 +260,9 @@ describe('Audit Service', () => {
     it('purges entries older than retention period', async () => {
       // Create an entry
       await createAuditLog(pool, {
-        actorType: 'system',
+        actor_type: 'system',
         action: 'create',
-        entityType: 'work_item',
+        entity_type: 'work_item',
       });
 
       // Update timestamp to be old
@@ -277,9 +277,9 @@ describe('Audit Service', () => {
 
     it('keeps entries within retention period', async () => {
       await createAuditLog(pool, {
-        actorType: 'system',
+        actor_type: 'system',
         action: 'create',
-        entityType: 'work_item',
+        entity_type: 'work_item',
       });
 
       const purged = await purgeOldEntries(pool, 90);
@@ -294,17 +294,17 @@ describe('Audit Service', () => {
     it('updates the most recent audit entry for an entity', async () => {
       // The trigger will create an entry when we insert a work_item
       const workItemResult = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
-      const workItemId = workItemResult.rows[0].id;
+      const work_item_id = workItemResult.rows[0].id;
 
       // Update the audit entry with actor info
-      const updated = await updateLatestAuditEntry(pool, 'work_item', workItemId, { type: 'human', id: 'user@example.com' }, { ip: '192.168.1.1' });
+      const updated = await updateLatestAuditEntry(pool, 'work_item', work_item_id, { type: 'human', id: 'user@example.com' }, { ip: '192.168.1.1' });
 
       expect(updated).toBe(true);
 
       // Verify the update
-      const entries = await getEntityAuditLog(pool, 'work_item', workItemId);
-      expect(entries[0].actorType).toBe('human');
-      expect(entries[0].actorId).toBe('user@example.com');
+      const entries = await getEntityAuditLog(pool, 'work_item', work_item_id);
+      expect(entries[0].actor_type).toBe('human');
+      expect(entries[0].actor_id).toBe('user@example.com');
       expect(entries[0].metadata?.ip).toBe('192.168.1.1');
     });
   });
@@ -381,9 +381,9 @@ describe('Automatic Audit Triggers', () => {
   describe('work_item triggers', () => {
     it('logs work_item creation', async () => {
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      const entries = await getEntityAuditLog(pool, 'work_item', workItemId);
+      const entries = await getEntityAuditLog(pool, 'work_item', work_item_id);
       expect(entries.length).toBe(1);
       expect(entries[0].action).toBe('create');
       expect(entries[0].changes?.new).toBeDefined();
@@ -391,11 +391,11 @@ describe('Automatic Audit Triggers', () => {
 
     it('logs work_item update', async () => {
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      await pool.query(`UPDATE work_item SET title = 'Updated Task' WHERE id = $1`, [workItemId]);
+      await pool.query(`UPDATE work_item SET title = 'Updated Task' WHERE id = $1`, [work_item_id]);
 
-      const entries = await getEntityAuditLog(pool, 'work_item', workItemId);
+      const entries = await getEntityAuditLog(pool, 'work_item', work_item_id);
       expect(entries.length).toBe(2);
       expect(entries[0].action).toBe('update');
       expect(entries[0].changes?.old).toBeDefined();
@@ -404,12 +404,12 @@ describe('Automatic Audit Triggers', () => {
 
     it('logs work_item deletion', async () => {
       const result = await pool.query(`INSERT INTO work_item (title) VALUES ('Test Task') RETURNING id::text`);
-      const workItemId = result.rows[0].id;
+      const work_item_id = result.rows[0].id;
 
-      await pool.query(`DELETE FROM work_item WHERE id = $1`, [workItemId]);
+      await pool.query(`DELETE FROM work_item WHERE id = $1`, [work_item_id]);
 
       // The audit entry should still exist even though the work item is deleted
-      const auditResult = await pool.query(`SELECT * FROM audit_log WHERE entity_type = 'work_item' AND entity_id = $1 AND action = 'delete'`, [workItemId]);
+      const auditResult = await pool.query(`SELECT * FROM audit_log WHERE entity_type = 'work_item' AND entity_id = $1 AND action = 'delete'`, [work_item_id]);
       expect(auditResult.rows.length).toBe(1);
       expect(auditResult.rows[0].changes.old).toBeDefined();
     });
@@ -418,20 +418,20 @@ describe('Automatic Audit Triggers', () => {
   describe('contact triggers', () => {
     it('logs contact creation', async () => {
       const result = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text`);
-      const contactId = result.rows[0].id;
+      const contact_id = result.rows[0].id;
 
-      const entries = await getEntityAuditLog(pool, 'contact', contactId);
+      const entries = await getEntityAuditLog(pool, 'contact', contact_id);
       expect(entries.length).toBe(1);
       expect(entries[0].action).toBe('create');
     });
 
     it('logs contact update', async () => {
       const result = await pool.query(`INSERT INTO contact (display_name) VALUES ('Test Contact') RETURNING id::text`);
-      const contactId = result.rows[0].id;
+      const contact_id = result.rows[0].id;
 
-      await pool.query(`UPDATE contact SET display_name = 'Updated Contact' WHERE id = $1`, [contactId]);
+      await pool.query(`UPDATE contact SET display_name = 'Updated Contact' WHERE id = $1`, [contact_id]);
 
-      const entries = await getEntityAuditLog(pool, 'contact', contactId);
+      const entries = await getEntityAuditLog(pool, 'contact', contact_id);
       expect(entries.length).toBe(2);
       expect(entries[0].action).toBe('update');
     });
@@ -440,20 +440,20 @@ describe('Automatic Audit Triggers', () => {
   describe('memory triggers', () => {
     it('logs memory creation', async () => {
       const result = await pool.query(`INSERT INTO memory (title, content, memory_type) VALUES ('Test Memory', 'Content', 'note') RETURNING id::text`);
-      const memoryId = result.rows[0].id;
+      const memory_id = result.rows[0].id;
 
-      const entries = await getEntityAuditLog(pool, 'memory', memoryId);
+      const entries = await getEntityAuditLog(pool, 'memory', memory_id);
       expect(entries.length).toBe(1);
       expect(entries[0].action).toBe('create');
     });
 
     it('logs memory update', async () => {
       const result = await pool.query(`INSERT INTO memory (title, content, memory_type) VALUES ('Test Memory', 'Content', 'note') RETURNING id::text`);
-      const memoryId = result.rows[0].id;
+      const memory_id = result.rows[0].id;
 
-      await pool.query(`UPDATE memory SET title = 'Updated Memory' WHERE id = $1`, [memoryId]);
+      await pool.query(`UPDATE memory SET title = 'Updated Memory' WHERE id = $1`, [memory_id]);
 
-      const entries = await getEntityAuditLog(pool, 'memory', memoryId);
+      const entries = await getEntityAuditLog(pool, 'memory', memory_id);
       expect(entries.length).toBe(2);
       expect(entries[0].action).toBe('update');
     });

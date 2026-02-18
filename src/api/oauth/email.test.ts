@@ -108,16 +108,16 @@ describe('Microsoft email provider mapping', () => {
     toRecipients: [{ emailAddress: { address: 'recipient@example.com', name: 'Recipient' } }],
     ccRecipients: [],
     bccRecipients: [],
-    body: { contentType: 'text', content: 'Hello world' },
+    body: { content_type: 'text', content: 'Hello world' },
     bodyPreview: 'Hello world',
     receivedDateTime: '2026-01-15T10:30:00Z',
-    isRead: true,
+    is_read: true,
     flag: { flagStatus: 'notFlagged' },
-    isDraft: false,
+    is_draft: false,
     categories: ['Work'],
     hasAttachments: false,
     parentFolderId: 'inbox-id',
-    webLink: 'https://outlook.office.com/mail/msg-123',
+    web_link: 'https://outlook.office.com/mail/msg-123',
   };
 
   it('maps a Graph message to EmailMessage format', async () => {
@@ -132,14 +132,14 @@ describe('Microsoft email provider mapping', () => {
     const result = await microsoftEmailProvider.getMessage('fake-token', 'msg-123');
 
     expect(result.id).toBe('msg-123');
-    expect(result.threadId).toBe('conv-456');
+    expect(result.thread_id).toBe('conv-456');
     expect(result.subject).toBe('Test Subject');
     expect(result.from).toEqual({ email: 'sender@example.com', name: 'Sender' });
     expect(result.to).toEqual([{ email: 'recipient@example.com', name: 'Recipient' }]);
-    expect(result.bodyText).toBe('Hello world');
-    expect(result.isRead).toBe(true);
-    expect(result.isStarred).toBe(false);
-    expect(result.isDraft).toBe(false);
+    expect(result.body_text).toBe('Hello world');
+    expect(result.is_read).toBe(true);
+    expect(result.is_starred).toBe(false);
+    expect(result.is_draft).toBe(false);
     expect(result.labels).toEqual(['Work']);
     expect(result.provider).toBe('microsoft');
 
@@ -149,7 +149,7 @@ describe('Microsoft email provider mapping', () => {
   it('maps an HTML body message correctly', async () => {
     const htmlMessage = {
       ...mockGraphMessage,
-      body: { contentType: 'html', content: '<p>Hello</p>' },
+      body: { content_type: 'html', content: '<p>Hello</p>' },
     };
 
     const mockFetch = vi.fn().mockResolvedValueOnce({
@@ -162,8 +162,8 @@ describe('Microsoft email provider mapping', () => {
 
     const result = await microsoftEmailProvider.getMessage('fake-token', 'msg-123');
 
-    expect(result.bodyText).toBeUndefined();
-    expect(result.bodyHtml).toBe('<p>Hello</p>');
+    expect(result.body_text).toBeUndefined();
+    expect(result.body_html).toBe('<p>Hello</p>');
 
     vi.unstubAllGlobals();
   });
@@ -183,7 +183,7 @@ describe('Microsoft email provider mapping', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const result = await microsoftEmailProvider.getMessage('fake-token', 'msg-123');
-    expect(result.isStarred).toBe(true);
+    expect(result.is_starred).toBe(true);
 
     vi.unstubAllGlobals();
   });
@@ -214,8 +214,8 @@ describe('Microsoft email provider mapping', () => {
 describe('Gmail email provider mapping', () => {
   const mockGmailMessage = {
     id: 'gmail-msg-123',
-    threadId: 'gmail-thread-456',
-    labelIds: ['INBOX', 'UNREAD'],
+    thread_id: 'gmail-thread-456',
+    label_ids: ['INBOX', 'UNREAD'],
     snippet: 'Hello world snippet',
     internalDate: '1705312200000',
     sizeEstimate: 1500,
@@ -247,15 +247,15 @@ describe('Gmail email provider mapping', () => {
     const result = await googleEmailProvider.getMessage('fake-token', 'gmail-msg-123');
 
     expect(result.id).toBe('gmail-msg-123');
-    expect(result.threadId).toBe('gmail-thread-456');
+    expect(result.thread_id).toBe('gmail-thread-456');
     expect(result.subject).toBe('Gmail Test Subject');
     expect(result.from).toEqual({ email: 'sender@example.com', name: 'Sender Name' });
     expect(result.to).toEqual([{ email: 'recipient@example.com' }]);
     expect(result.cc).toEqual([{ email: 'cc@example.com' }]);
-    expect(result.bodyText).toBe('Hello world');
+    expect(result.body_text).toBe('Hello world');
     expect(result.snippet).toBe('Hello world snippet');
-    expect(result.isRead).toBe(false); // UNREAD label present
-    expect(result.isDraft).toBe(false);
+    expect(result.is_read).toBe(false); // UNREAD label present
+    expect(result.is_draft).toBe(false);
     expect(result.provider).toBe('google');
 
     vi.unstubAllGlobals();
@@ -295,8 +295,8 @@ describe('Gmail email provider mapping', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const result = await googleEmailProvider.getMessage('fake-token', 'gmail-msg-123');
-    expect(result.bodyText).toBe('Plain');
-    expect(result.bodyHtml).toBe('<p>HTML</p>');
+    expect(result.body_text).toBe('Plain');
+    expect(result.body_html).toBe('<p>HTML</p>');
 
     vi.unstubAllGlobals();
   });
@@ -340,9 +340,9 @@ describe('Gmail email provider mapping', () => {
     expect(result.attachments[0]).toEqual({
       id: 'att-123',
       name: 'report.pdf',
-      contentType: 'application/pdf',
+      content_type: 'application/pdf',
       size: 50000,
-      isInline: false,
+      is_inline: false,
     });
 
     vi.unstubAllGlobals();
@@ -351,7 +351,7 @@ describe('Gmail email provider mapping', () => {
   it('marks starred messages correctly', async () => {
     const starredMessage = {
       ...mockGmailMessage,
-      labelIds: ['INBOX', 'STARRED'],
+      label_ids: ['INBOX', 'STARRED'],
     };
 
     const mockFetch = vi.fn().mockResolvedValueOnce({
@@ -363,8 +363,8 @@ describe('Gmail email provider mapping', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const result = await googleEmailProvider.getMessage('fake-token', 'gmail-msg-123');
-    expect(result.isRead).toBe(true); // No UNREAD label
-    expect(result.isStarred).toBe(true);
+    expect(result.is_read).toBe(true); // No UNREAD label
+    expect(result.is_starred).toBe(true);
 
     vi.unstubAllGlobals();
   });
@@ -372,7 +372,7 @@ describe('Gmail email provider mapping', () => {
   it('marks draft messages correctly', async () => {
     const draftMessage = {
       ...mockGmailMessage,
-      labelIds: ['DRAFT'],
+      label_ids: ['DRAFT'],
     };
 
     const mockFetch = vi.fn().mockResolvedValueOnce({
@@ -384,7 +384,7 @@ describe('Gmail email provider mapping', () => {
     vi.stubGlobal('fetch', mockFetch);
 
     const result = await googleEmailProvider.getMessage('fake-token', 'gmail-msg-123');
-    expect(result.isDraft).toBe(true);
+    expect(result.is_draft).toBe(true);
 
     vi.unstubAllGlobals();
   });
@@ -409,7 +409,7 @@ describe('rate limit handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('RATE_LIMITED');
-      expect(oauthError.statusCode).toBe(429);
+      expect(oauthError.status_code).toBe(429);
       expect(oauthError.provider).toBe('microsoft');
     }
 
@@ -432,7 +432,7 @@ describe('rate limit handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('RATE_LIMITED');
-      expect(oauthError.statusCode).toBe(429);
+      expect(oauthError.status_code).toBe(429);
       expect(oauthError.provider).toBe('google');
     }
 
@@ -459,7 +459,7 @@ describe('not found handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('NOT_FOUND');
-      expect(oauthError.statusCode).toBe(404);
+      expect(oauthError.status_code).toBe(404);
     }
 
     vi.unstubAllGlobals();
@@ -481,7 +481,7 @@ describe('not found handling', () => {
       expect(error).toBeInstanceOf(OAuthError);
       const oauthError = error as OAuthError;
       expect(oauthError.code).toBe('NOT_FOUND');
-      expect(oauthError.statusCode).toBe(404);
+      expect(oauthError.status_code).toBe(404);
     }
 
     vi.unstubAllGlobals();
@@ -494,14 +494,14 @@ describe('Microsoft folder listing', () => {
   it('maps well-known folders to types', async () => {
     const mockFolders = {
       value: [
-        { id: 'id1', displayName: 'Inbox', totalItemCount: 100, unreadItemCount: 5, isHidden: false },
-        { id: 'id2', displayName: 'Sent Items', totalItemCount: 50, unreadItemCount: 0, isHidden: false },
-        { id: 'id3', displayName: 'Drafts', totalItemCount: 3, unreadItemCount: 0, isHidden: false },
-        { id: 'id4', displayName: 'Deleted Items', totalItemCount: 10, unreadItemCount: 0, isHidden: false },
-        { id: 'id5', displayName: 'Junk Email', totalItemCount: 2, unreadItemCount: 0, isHidden: false },
-        { id: 'id6', displayName: 'Archive', totalItemCount: 200, unreadItemCount: 0, isHidden: false },
-        { id: 'id7', displayName: 'Custom Folder', totalItemCount: 15, unreadItemCount: 3, isHidden: false },
-        { id: 'id8', displayName: 'Hidden', totalItemCount: 0, unreadItemCount: 0, isHidden: true },
+        { id: 'id1', display_name: 'Inbox', totalItemCount: 100, unreadItemCount: 5, isHidden: false },
+        { id: 'id2', display_name: 'Sent Items', totalItemCount: 50, unreadItemCount: 0, isHidden: false },
+        { id: 'id3', display_name: 'Drafts', totalItemCount: 3, unreadItemCount: 0, isHidden: false },
+        { id: 'id4', display_name: 'Deleted Items', totalItemCount: 10, unreadItemCount: 0, isHidden: false },
+        { id: 'id5', display_name: 'Junk Email', totalItemCount: 2, unreadItemCount: 0, isHidden: false },
+        { id: 'id6', display_name: 'Archive', totalItemCount: 200, unreadItemCount: 0, isHidden: false },
+        { id: 'id7', display_name: 'Custom Folder', totalItemCount: 15, unreadItemCount: 3, isHidden: false },
+        { id: 'id8', display_name: 'Hidden', totalItemCount: 0, unreadItemCount: 0, isHidden: true },
       ],
     };
 
@@ -519,8 +519,8 @@ describe('Microsoft folder listing', () => {
     expect(folders).toHaveLength(7);
 
     expect(folders[0].type).toBe('inbox');
-    expect(folders[0].messageCount).toBe(100);
-    expect(folders[0].unreadCount).toBe(5);
+    expect(folders[0].message_count).toBe(100);
+    expect(folders[0].unread_count).toBe(5);
     expect(folders[1].type).toBe('sent');
     expect(folders[2].type).toBe('drafts');
     expect(folders[3].type).toBe('trash');
@@ -559,8 +559,8 @@ describe('Gmail folder/label listing', () => {
 
     expect(folders).toHaveLength(6);
     expect(folders[0].type).toBe('inbox');
-    expect(folders[0].messageCount).toBe(100);
-    expect(folders[0].unreadCount).toBe(5);
+    expect(folders[0].message_count).toBe(100);
+    expect(folders[0].unread_count).toBe(5);
     expect(folders[1].type).toBe('sent');
     expect(folders[2].type).toBe('drafts');
     expect(folders[3].type).toBe('trash');
@@ -585,11 +585,11 @@ describe('Microsoft message listing', () => {
           toRecipients: [{ emailAddress: { address: 'b@example.com' } }],
           ccRecipients: [],
           bccRecipients: [],
-          body: { contentType: 'text', content: 'Body 1' },
+          body: { content_type: 'text', content: 'Body 1' },
           bodyPreview: 'Body 1',
           receivedDateTime: '2026-01-15T10:00:00Z',
-          isRead: true,
-          isDraft: false,
+          is_read: true,
+          is_draft: false,
           categories: [],
           hasAttachments: false,
         },
@@ -605,11 +605,11 @@ describe('Microsoft message listing', () => {
     });
     vi.stubGlobal('fetch', mockFetch);
 
-    const result = await microsoftEmailProvider.listMessages('fake-token', { maxResults: 25 });
+    const result = await microsoftEmailProvider.listMessages('fake-token', { max_results: 25 });
 
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].id).toBe('msg-1');
-    expect(result.nextPageToken).toBe('https://graph.microsoft.com/v1.0/me/messages?$skip=25');
+    expect(result.next_page_token).toBe('https://graph.microsoft.com/v1.0/me/messages?$skip=25');
 
     vi.unstubAllGlobals();
   });
@@ -619,16 +619,16 @@ describe('Gmail message listing', () => {
   it('lists messages by listing IDs then fetching full messages', async () => {
     const mockListResponse = {
       messages: [
-        { id: 'gmail-1', threadId: 'thread-1' },
+        { id: 'gmail-1', thread_id: 'thread-1' },
       ],
-      nextPageToken: 'next-page',
-      resultSizeEstimate: 50,
+      next_page_token: 'next-page',
+      result_size_estimate: 50,
     };
 
     const mockFullMessage = {
       id: 'gmail-1',
-      threadId: 'thread-1',
-      labelIds: ['INBOX'],
+      thread_id: 'thread-1',
+      label_ids: ['INBOX'],
       snippet: 'Hello',
       internalDate: '1705312200000',
       sizeEstimate: 500,
@@ -659,13 +659,13 @@ describe('Gmail message listing', () => {
       });
     vi.stubGlobal('fetch', mockFetch);
 
-    const result = await googleEmailProvider.listMessages('fake-token', { maxResults: 25 });
+    const result = await googleEmailProvider.listMessages('fake-token', { max_results: 25 });
 
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].id).toBe('gmail-1');
     expect(result.messages[0].subject).toBe('Hello');
-    expect(result.nextPageToken).toBe('next-page');
-    expect(result.resultSizeEstimate).toBe(50);
+    expect(result.next_page_token).toBe('next-page');
+    expect(result.result_size_estimate).toBe(50);
 
     // Verify two fetch calls: list then full message
     expect(mockFetch).toHaveBeenCalledTimes(2);

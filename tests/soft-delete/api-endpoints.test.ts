@@ -42,12 +42,12 @@ describe('Soft Delete API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = createResponse.json().id;
+      const work_item_id = createResponse.json().id;
 
       // Delete (soft)
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}`,
+        url: `/api/work-items/${work_item_id}`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
@@ -57,10 +57,10 @@ describe('Soft Delete API Endpoints', () => {
         url: '/api/work-items',
       });
       const items = listResponse.json().items;
-      expect(items.find((i: { id: string }) => i.id === workItemId)).toBeUndefined();
+      expect(items.find((i: { id: string }) => i.id === work_item_id)).toBeUndefined();
 
       // Verify it's still in database
-      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [workItemId]);
+      const check = await pool.query(`SELECT deleted_at FROM work_item WHERE id = $1`, [work_item_id]);
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
@@ -70,16 +70,16 @@ describe('Soft Delete API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = createResponse.json().id;
+      const work_item_id = createResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}?permanent=true`,
+        url: `/api/work-items/${work_item_id}?permanent=true`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
       // Verify it's completely gone
-      const check = await pool.query(`SELECT * FROM work_item WHERE id = $1`, [workItemId]);
+      const check = await pool.query(`SELECT * FROM work_item WHERE id = $1`, [work_item_id]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -92,21 +92,21 @@ describe('Soft Delete API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Test Task' },
       });
-      const workItemId = createResponse.json().id;
+      const work_item_id = createResponse.json().id;
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${workItemId}`,
+        url: `/api/work-items/${work_item_id}`,
       });
 
       // Restore
       const restoreResponse = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/restore`,
+        url: `/api/work-items/${work_item_id}/restore`,
       });
       expect(restoreResponse.statusCode).toBe(200);
       expect(restoreResponse.json().restored).toBe(true);
-      expect(restoreResponse.json().id).toBe(workItemId);
+      expect(restoreResponse.json().id).toBe(work_item_id);
 
       // Verify it's back in list
       const listResponse = await app.inject({
@@ -114,7 +114,7 @@ describe('Soft Delete API Endpoints', () => {
         url: '/api/work-items',
       });
       const items = listResponse.json().items;
-      expect(items.find((i: { id: string }) => i.id === workItemId)).toBeDefined();
+      expect(items.find((i: { id: string }) => i.id === work_item_id)).toBeDefined();
     });
 
     it('returns 404 for non-deleted work item', async () => {
@@ -123,11 +123,11 @@ describe('Soft Delete API Endpoints', () => {
         url: '/api/work-items',
         payload: { title: 'Active Task' },
       });
-      const workItemId = createResponse.json().id;
+      const work_item_id = createResponse.json().id;
 
       const restoreResponse = await app.inject({
         method: 'POST',
-        url: `/api/work-items/${workItemId}/restore`,
+        url: `/api/work-items/${work_item_id}/restore`,
       });
       expect(restoreResponse.statusCode).toBe(404);
     });
@@ -138,18 +138,18 @@ describe('Soft Delete API Endpoints', () => {
       const createResponse = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'John Doe' },
+        payload: { display_name: 'John Doe' },
       });
-      const contactId = createResponse.json().id;
+      const contact_id = createResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
       // Verify soft deleted
-      const check = await pool.query(`SELECT deleted_at FROM contact WHERE id = $1`, [contactId]);
+      const check = await pool.query(`SELECT deleted_at FROM contact WHERE id = $1`, [contact_id]);
       expect(check.rows[0].deleted_at).not.toBeNull();
     });
 
@@ -157,17 +157,17 @@ describe('Soft Delete API Endpoints', () => {
       const createResponse = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Jane Doe' },
+        payload: { display_name: 'Jane Doe' },
       });
-      const contactId = createResponse.json().id;
+      const contact_id = createResponse.json().id;
 
       const deleteResponse = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contactId}?permanent=true`,
+        url: `/api/contacts/${contact_id}?permanent=true`,
       });
       expect(deleteResponse.statusCode).toBe(204);
 
-      const check = await pool.query(`SELECT * FROM contact WHERE id = $1`, [contactId]);
+      const check = await pool.query(`SELECT * FROM contact WHERE id = $1`, [contact_id]);
       expect(check.rows.length).toBe(0);
     });
   });
@@ -177,18 +177,18 @@ describe('Soft Delete API Endpoints', () => {
       const createResponse = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'John Doe' },
+        payload: { display_name: 'John Doe' },
       });
-      const contactId = createResponse.json().id;
+      const contact_id = createResponse.json().id;
 
       await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
       });
 
       const restoreResponse = await app.inject({
         method: 'POST',
-        url: `/api/contacts/${contactId}/restore`,
+        url: `/api/contacts/${contact_id}/restore`,
       });
       expect(restoreResponse.statusCode).toBe(200);
       expect(restoreResponse.json().restored).toBe(true);
@@ -211,7 +211,7 @@ describe('Soft Delete API Endpoints', () => {
       const c1 = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Contact 1' },
+        payload: { display_name: 'Contact 1' },
       });
       await app.inject({
         method: 'DELETE',
@@ -227,10 +227,10 @@ describe('Soft Delete API Endpoints', () => {
       const body = response.json();
       expect(body.items.length).toBe(2);
       expect(body.total).toBe(2);
-      expect(body.retentionDays).toBe(30);
+      expect(body.retention_days).toBe(30);
     });
 
-    it('filters by entityType', async () => {
+    it('filters by entity_type', async () => {
       const wi = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -244,7 +244,7 @@ describe('Soft Delete API Endpoints', () => {
       const c = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Contact' },
+        payload: { display_name: 'Contact' },
       });
       await app.inject({
         method: 'DELETE',
@@ -253,12 +253,12 @@ describe('Soft Delete API Endpoints', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: '/api/trash?entityType=work_item',
+        url: '/api/trash?entity_type=work_item',
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.items.every((i: { entityType: string }) => i.entityType === 'work_item')).toBe(true);
+      expect(body.items.every((i: { entity_type: string }) => i.entity_type === 'work_item')).toBe(true);
     });
   });
 
@@ -270,13 +270,13 @@ describe('Soft Delete API Endpoints', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/trash/purge',
-        payload: { retentionDays: 30 },
+        payload: { retention_days: 30 },
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.success).toBe(true);
-      expect(body.workItemsPurged).toBe(1);
+      expect(body.work_items_purged).toBe(1);
     });
 
     it('uses default retention days', async () => {
@@ -287,14 +287,14 @@ describe('Soft Delete API Endpoints', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().retentionDays).toBe(30);
+      expect(response.json().retention_days).toBe(30);
     });
 
     it('rejects invalid retention days', async () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/trash/purge',
-        payload: { retentionDays: 500 },
+        payload: { retention_days: 500 },
       });
 
       expect(response.statusCode).toBe(400);
@@ -361,13 +361,13 @@ describe('Soft Delete API Endpoints', () => {
       const c1 = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Active Contact' },
+        payload: { display_name: 'Active Contact' },
       });
 
       const c2 = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { displayName: 'Deleted Contact' },
+        payload: { display_name: 'Deleted Contact' },
       });
       await app.inject({
         method: 'DELETE',

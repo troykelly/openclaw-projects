@@ -92,15 +92,15 @@ const statusColors: Record<string, string> = {
 };
 
 export function ProjectDetailPage(): React.JSX.Element {
-  const { projectId, view } = useParams<{ projectId: string; view?: string }>();
-  const itemId = projectId ?? '';
+  const { project_id, view } = useParams<{ project_id: string; view?: string }>();
+  const item_id = project_id ?? '';
   const _queryClient = useQueryClient();
 
   // Determine the initial view from URL param
   const initialView = view ?? 'list';
 
   // Data fetching
-  const { data: projectData, isLoading, error: projectError, refetch } = useWorkItem(itemId);
+  const { data: projectData, isLoading, error: projectError, refetch } = useWorkItem(item_id);
   const { data: treeData, isLoading: treeLoading } = useWorkItemTree();
   const updateMutation = useUpdateWorkItem();
 
@@ -109,14 +109,14 @@ export function ProjectDetailPage(): React.JSX.Element {
     if (!treeData) return null;
     const findNode = (nodes: WorkItemTreeNode[]): WorkItemTreeNode | null => {
       for (const node of nodes) {
-        if (node.id === itemId) return node;
+        if (node.id === item_id) return node;
         const found = findNode(node.children);
         if (found) return found;
       }
       return null;
     };
     return findNode(treeData.items);
-  }, [treeData, itemId]);
+  }, [treeData, item_id]);
 
   // Flatten children for sub-views
   const projectChildren = React.useMemo(() => {
@@ -166,9 +166,9 @@ export function ProjectDetailPage(): React.JSX.Element {
   // Handlers
   const handleTitleChange = useCallback(
     async (title: string) => {
-      updateMutation.mutate({ id: itemId, body: { title } });
+      updateMutation.mutate({ id: item_id, body: { title } });
     },
-    [itemId, updateMutation],
+    [item_id, updateMutation],
   );
 
   // No-op: Radix Tabs handles tab switching internally with defaultValue
@@ -338,7 +338,7 @@ export function ProjectDetailPage(): React.JSX.Element {
           </div>
 
           <TabsContent value="list" data-testid="view-list" className="px-6 py-4">
-            <ListView items={childrenAsItems} isLoading={treeLoading} projectId={itemId} />
+            <ListView items={childrenAsItems} isLoading={treeLoading} project_id={item_id} />
           </TabsContent>
 
           <TabsContent value="board" data-testid="view-board" className="px-6 py-4">
@@ -346,7 +346,7 @@ export function ProjectDetailPage(): React.JSX.Element {
           </TabsContent>
 
           <TabsContent value="tree" data-testid="view-tree" className="px-6 py-4">
-            <TreeView items={treeItems} isLoading={treeLoading} projectId={itemId} />
+            <TreeView items={treeItems} isLoading={treeLoading} project_id={item_id} />
           </TabsContent>
 
           <TabsContent value="calendar" data-testid="view-calendar" className="px-6 py-4">
@@ -354,7 +354,7 @@ export function ProjectDetailPage(): React.JSX.Element {
           </TabsContent>
 
           <TabsContent value="memories" data-testid="view-memories" className="px-6 py-4">
-            <ProjectMemoriesView projectId={itemId} />
+            <ProjectMemoriesView project_id={item_id} />
           </TabsContent>
         </Tabs>
       </div>
@@ -366,8 +366,8 @@ export function ProjectDetailPage(): React.JSX.Element {
 // ProjectMemoriesView - inline component for the Memories tab
 // ---------------------------------------------------------------------------
 
-function ProjectMemoriesView({ projectId }: { projectId: string }): React.JSX.Element {
-  const { data, isLoading, isError } = useProjectMemories(projectId);
+function ProjectMemoriesView({ project_id }: { project_id: string }): React.JSX.Element {
+  const { data, isLoading, isError } = useProjectMemories(project_id);
 
   if (isLoading) {
     return (

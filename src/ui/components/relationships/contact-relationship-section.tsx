@@ -12,20 +12,20 @@ import type { ContactRelationship, Contact, NewRelationshipData, RelationshipCat
 import { getRelationshipCategory, CATEGORY_LABELS } from './relationship-utils';
 
 export interface ContactRelationshipSectionProps {
-  contactId: string;
+  contact_id: string;
   relationships: ContactRelationship[];
-  relatedContacts: Contact[];
+  related_contacts: Contact[];
   availableContacts: Contact[];
   onAddRelationship: (data: NewRelationshipData) => void;
-  onEditRelationship: (relationshipId: string) => void;
-  onRemoveRelationship: (relationshipId: string) => void;
+  onEditRelationship: (relationship_id: string) => void;
+  onRemoveRelationship: (relationship_id: string) => void;
   className?: string;
 }
 
 export function ContactRelationshipSection({
-  contactId,
+  contact_id,
   relationships,
-  relatedContacts,
+  related_contacts,
   availableContacts,
   onAddRelationship,
   onEditRelationship,
@@ -53,11 +53,11 @@ export function ContactRelationshipSection({
   // Map of related contact ID to contact
   const contactMap = React.useMemo(() => {
     const map = new Map<string, Contact>();
-    for (const contact of relatedContacts) {
+    for (const contact of related_contacts) {
       map.set(contact.id, contact);
     }
     return map;
-  }, [relatedContacts]);
+  }, [related_contacts]);
 
   const hasRelationships = relationships.length > 0;
 
@@ -109,7 +109,7 @@ export function ContactRelationshipSection({
       <AddRelationshipDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        currentContactId={contactId}
+        currentContactId={contact_id}
         availableContacts={availableContacts}
         onAddRelationship={onAddRelationship}
       />

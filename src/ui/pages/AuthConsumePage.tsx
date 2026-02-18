@@ -63,7 +63,7 @@ function getReturnPath(): string {
  * - token -> POST /api/auth/consume
  * - code  -> POST /api/auth/exchange
  */
-async function exchangeCredential(token: string | null, code: string | null, signal: AbortSignal): Promise<{ accessToken: string }> {
+async function exchangeCredential(token: string | null, code: string | null, signal: AbortSignal): Promise<{ access_token: string }> {
   let endpoint: string;
   let payload: Record<string, string>;
 
@@ -96,11 +96,11 @@ async function exchangeCredential(token: string | null, code: string | null, sig
   }
 
   const body = (await res.json()) as Record<string, unknown>;
-  if (typeof body.accessToken !== 'string' || body.accessToken.length === 0) {
+  if (typeof body.access_token !== 'string' || body.access_token.length === 0) {
     throw new Error('Invalid response from server.');
   }
 
-  return { accessToken: body.accessToken };
+  return { access_token: body.access_token };
 }
 
 export function AuthConsumePage(): React.JSX.Element {
@@ -139,9 +139,9 @@ export function AuthConsumePage(): React.JSX.Element {
 
     (async () => {
       try {
-        const { accessToken } = await exchangeCredential(token, code, controller.signal);
+        const { access_token } = await exchangeCredential(token, code, controller.signal);
 
-        setAccessToken(accessToken);
+        setAccessToken(access_token);
         setState({ status: 'success', errorMessage: null });
 
         const returnPath = getReturnPath();

@@ -74,10 +74,10 @@ export function getHeader(headers: PostmarkHeader[], name: string): string | nul
  * @returns Message ID or null
  */
 export function getMessageId(headers: PostmarkHeader[]): string | null {
-  const messageId = getHeader(headers, 'Message-ID') || getHeader(headers, 'Message-Id');
-  if (!messageId) return null;
+  const message_id = getHeader(headers, 'Message-ID') || getHeader(headers, 'Message-Id');
+  if (!message_id) return null;
   // Remove angle brackets
-  return messageId.replace(/^<|>$/g, '');
+  return message_id.replace(/^<|>$/g, '');
 }
 
 /**
@@ -116,12 +116,12 @@ export function getReferences(headers: PostmarkHeader[]): string[] {
  * Create a thread key for email conversations.
  * Uses Message-ID references for threading.
  *
- * @param messageId - Message ID
+ * @param message_id - Message ID
  * @param inReplyTo - In-Reply-To header value
  * @param references - References header values
  * @returns Thread key string
  */
-export function createEmailThreadKey(messageId: string | null, inReplyTo: string | null, references: string[]): string {
+export function createEmailThreadKey(message_id: string | null, inReplyTo: string | null, references: string[]): string {
   // If we have in-reply-to, use the root message from references or in-reply-to
   if (references.length > 0) {
     return `email:${references[0]}`;
@@ -132,8 +132,8 @@ export function createEmailThreadKey(messageId: string | null, inReplyTo: string
   }
 
   // New thread - use this message's ID
-  if (messageId) {
-    return `email:${messageId}`;
+  if (message_id) {
+    return `email:${message_id}`;
   }
 
   // Fallback to random key
@@ -210,16 +210,16 @@ export function htmlToPlainText(html: string): string {
  * Prefers TextBody, falls back to HtmlBody conversion.
  *
  * @param textBody - Plain text body
- * @param htmlBody - HTML body
+ * @param html_body - HTML body
  * @returns Best available plain text
  */
-export function getBestPlainText(textBody?: string, htmlBody?: string): string {
+export function getBestPlainText(textBody?: string, html_body?: string): string {
   if (textBody && textBody.trim()) {
     return textBody.trim();
   }
 
-  if (htmlBody) {
-    return htmlToPlainText(htmlBody);
+  if (html_body) {
+    return htmlToPlainText(html_body);
   }
 
   return '';

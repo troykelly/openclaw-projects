@@ -42,12 +42,12 @@ describe('PresenceIndicator', () => {
   const mockViewers: NotePresenceUser[] = [
     {
       email: 'alice@example.com',
-      displayName: 'Alice Smith',
+      display_name: 'Alice Smith',
       lastSeenAt: new Date().toISOString(),
     },
     {
       email: 'bob@example.com',
-      displayName: 'Bob Jones',
+      display_name: 'Bob Jones',
       lastSeenAt: new Date().toISOString(),
     },
     {
@@ -122,7 +122,7 @@ describe('PresenceIndicator', () => {
   it('renders avatar image when avatarUrl is provided', () => {
     const viewerWithAvatar: NotePresenceUser = {
       email: 'avatar@example.com',
-      displayName: 'Avatar User',
+      display_name: 'Avatar User',
       avatarUrl: 'https://example.com/avatar.jpg',
       lastSeenAt: new Date().toISOString(),
     };
@@ -138,7 +138,7 @@ describe('PresenceIndicator', () => {
     it('sets referrerPolicy="no-referrer" on avatar images', () => {
       const viewerWithAvatar: NotePresenceUser = {
         email: 'secure@example.com',
-        displayName: 'Secure User',
+        display_name: 'Secure User',
         avatarUrl: 'https://example.com/avatar.jpg',
         lastSeenAt: new Date().toISOString(),
       };
@@ -152,7 +152,7 @@ describe('PresenceIndicator', () => {
     it('rejects HTTP (non-HTTPS) avatar URLs', () => {
       const viewerWithHttpUrl: NotePresenceUser = {
         email: 'http@example.com',
-        displayName: 'HTTP User',
+        display_name: 'HTTP User',
         avatarUrl: 'http://example.com/avatar.jpg',
         lastSeenAt: new Date().toISOString(),
       };
@@ -167,7 +167,7 @@ describe('PresenceIndicator', () => {
     it('rejects data: URI avatar URLs', () => {
       const viewerWithDataUri: NotePresenceUser = {
         email: 'data@example.com',
-        displayName: 'Data User',
+        display_name: 'Data User',
         avatarUrl: 'data:image/png;base64,iVBORw0KGgo=',
         lastSeenAt: new Date().toISOString(),
       };
@@ -182,7 +182,7 @@ describe('PresenceIndicator', () => {
     it('rejects javascript: URI avatar URLs', () => {
       const viewerWithJsUri: NotePresenceUser = {
         email: 'js@example.com',
-        displayName: 'JS User',
+        display_name: 'JS User',
         avatarUrl: 'javascript:alert(1)',
         lastSeenAt: new Date().toISOString(),
       };
@@ -197,7 +197,7 @@ describe('PresenceIndicator', () => {
     it('rejects invalid/malformed URLs', () => {
       const viewerWithInvalidUrl: NotePresenceUser = {
         email: 'invalid@example.com',
-        displayName: 'Invalid User',
+        display_name: 'Invalid User',
         avatarUrl: 'not-a-valid-url',
         lastSeenAt: new Date().toISOString(),
       };
@@ -212,7 +212,7 @@ describe('PresenceIndicator', () => {
     it('rejects blob: URLs', () => {
       const viewerWithBlobUrl: NotePresenceUser = {
         email: 'blob@example.com',
-        displayName: 'Blob User',
+        display_name: 'Blob User',
         avatarUrl: 'blob:https://example.com/1234-5678',
         lastSeenAt: new Date().toISOString(),
       };
@@ -227,7 +227,7 @@ describe('PresenceIndicator', () => {
     it('rejects file: URLs', () => {
       const viewerWithFileUrl: NotePresenceUser = {
         email: 'file@example.com',
-        displayName: 'File User',
+        display_name: 'File User',
         avatarUrl: 'file:///etc/passwd',
         lastSeenAt: new Date().toISOString(),
       };
@@ -242,7 +242,7 @@ describe('PresenceIndicator', () => {
     it('accepts valid HTTPS avatar URLs', () => {
       const viewerWithHttpsUrl: NotePresenceUser = {
         email: 'https@example.com',
-        displayName: 'HTTPS User',
+        display_name: 'HTTPS User',
         avatarUrl: 'https://gravatar.com/avatar/abc123',
         lastSeenAt: new Date().toISOString(),
       };
@@ -290,7 +290,7 @@ describe('useNotePresence hook', () => {
     renderHook(() =>
       useNotePresence({
         noteId: 'test-note-123',
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         autoJoin: true,
       }),
     );
@@ -298,7 +298,7 @@ describe('useNotePresence hook', () => {
     await waitForHook(() => {
       expect(mockApiPost).toHaveBeenCalledWith(
         '/api/notes/test-note-123/presence',
-        { userEmail: 'user@example.com' },
+        { user_email: 'user@example.com' },
       );
     });
   });
@@ -313,7 +313,7 @@ describe('useNotePresence hook', () => {
     const { unmount } = renderHook(() =>
       useNotePresence({
         noteId: 'test-note-456',
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         autoJoin: true,
       }),
     );
@@ -345,13 +345,13 @@ describe('useNotePresence hook', () => {
     const { useNotePresence } = await import('@/ui/components/notes/presence/use-note-presence');
 
     mockApiPost.mockResolvedValue({
-      collaborators: [{ email: 'initial@example.com', displayName: 'Initial', lastSeenAt: new Date().toISOString() }],
+      collaborators: [{ email: 'initial@example.com', display_name: 'Initial', lastSeenAt: new Date().toISOString() }],
     });
 
     const { result } = renderHook(() =>
       useNotePresence({
         noteId: 'ws-test-note',
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         autoJoin: true,
       }),
     );
@@ -377,7 +377,7 @@ describe('useNotePresence hook', () => {
     const { result } = renderHook(() =>
       useNotePresence({
         noteId: 'cursor-test-note',
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         autoJoin: true,
       }),
     );
@@ -396,7 +396,7 @@ describe('useNotePresence hook', () => {
     expect(vi.mocked(mockClient.put)).toHaveBeenCalledWith(
       '/api/notes/cursor-test-note/presence/cursor',
       {
-        userEmail: 'user@example.com',
+        user_email: 'user@example.com',
         cursorPosition: { line: 10, column: 5 },
       },
     );

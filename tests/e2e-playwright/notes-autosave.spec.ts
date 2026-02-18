@@ -133,7 +133,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
         return route.fulfill({
           status: 500,
           body: JSON.stringify({ error: 'Internal server error' }),
-          contentType: 'application/json',
+          content_type: 'application/json',
         });
       }
       return route.continue();

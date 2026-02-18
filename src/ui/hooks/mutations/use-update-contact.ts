@@ -24,7 +24,7 @@ export interface UpdateContactVariables {
  * @example
  * ```ts
  * const { mutate } = useUpdateContact();
- * mutate({ id: 'contact-1', body: { displayName: 'Jane Doe' } });
+ * mutate({ id: 'contact-1', body: { display_name: 'Jane Doe' } });
  * ```
  */
 export function useUpdateContact() {

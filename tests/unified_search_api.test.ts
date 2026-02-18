@@ -50,12 +50,12 @@ describe('Unified Search API', () => {
   }
 
   // Helper to create a memory
-  async function createMemory(workItemId: string, title: string, content: string): Promise<string> {
+  async function createMemory(work_item_id: string, title: string, content: string): Promise<string> {
     const result = await pool.query(
       `INSERT INTO memory (work_item_id, title, content, memory_type)
        VALUES ($1, $2, $3, 'note')
        RETURNING id::text as id`,
-      [workItemId, title, content],
+      [work_item_id, title, content],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -67,14 +67,14 @@ describe('Unified Search API', () => {
       `INSERT INTO contact (display_name) VALUES ('Test Sender')
        RETURNING id::text as id`,
     );
-    const contactId = (contact.rows[0] as { id: string }).id;
+    const contact_id = (contact.rows[0] as { id: string }).id;
 
     // Create an endpoint for the contact
     const endpoint = await pool.query(
       `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
        VALUES ($1, 'email', 'test@example.com', 'test@example.com')
        RETURNING id::text as id`,
-      [contactId],
+      [contact_id],
     );
     const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -85,13 +85,13 @@ describe('Unified Search API', () => {
        RETURNING id::text as id`,
       [endpointId, `thread-${Date.now()}`],
     );
-    const threadId = (thread.rows[0] as { id: string }).id;
+    const thread_id = (thread.rows[0] as { id: string }).id;
 
     const result = await pool.query(
       `INSERT INTO external_message (thread_id, external_message_key, direction, body)
        VALUES ($1, $2, 'inbound', $3)
        RETURNING id::text as id`,
-      [threadId, `msg-${Date.now()}`, body],
+      [thread_id, `msg-${Date.now()}`, body],
     );
     return (result.rows[0] as { id: string }).id;
   }
@@ -170,8 +170,8 @@ describe('Unified Search API', () => {
     });
 
     it('searches memories by title and content', async () => {
-      const workItemId = await createWorkItem('Test Project', 'Test');
-      await createMemory(workItemId, 'Meeting Notes', 'Discussed the budget for solar panels');
+      const work_item_id = await createWorkItem('Test Project', 'Test');
+      await createMemory(work_item_id, 'Meeting Notes', 'Discussed the budget for solar panels');
 
       const res = await app.inject({
         method: 'GET',
@@ -216,8 +216,8 @@ describe('Unified Search API', () => {
     it('filters by multiple entity types', async () => {
       await createWorkItem('Tiny House Build', 'Main project');
       await createContact('Tiny Tim', 'Helper');
-      const workItemId = await createWorkItem('Parent', 'Test');
-      await createMemory(workItemId, 'Tiny home specs', 'Dimensions and materials');
+      const work_item_id = await createWorkItem('Parent', 'Test');
+      await createMemory(work_item_id, 'Tiny home specs', 'Dimensions and materials');
 
       // Search work items and memories only
       const res = await app.inject({
@@ -338,7 +338,7 @@ describe('Unified Search API', () => {
     });
 
     it.skipIf(!hasApiKey)('performs hybrid search with embeddings', async () => {
-      const workItemId = await createWorkItem('Test Project', 'Test');
+      const work_item_id = await createWorkItem('Test Project', 'Test');
 
       // Create memory via API (generates embedding)
       await app.inject({
@@ -347,7 +347,7 @@ describe('Unified Search API', () => {
         payload: {
           title: 'Dark Theme Preference',
           content: 'User prefers dark mode for reduced eye strain during evening work',
-          linkedItemId: workItemId,
+          linked_item_id: work_item_id,
           type: 'note',
         },
       });
@@ -396,8 +396,8 @@ describe('Unified Search API', () => {
     it('searches across multiple entity types simultaneously', async () => {
       await createWorkItem('Budget planning', 'Financial planning for project');
       await createContact('Budget Manager', 'Handles finances');
-      const workItemId = await createWorkItem('Parent', 'Test');
-      await createMemory(workItemId, 'Budget decisions', 'Set budget to $50,000');
+      const work_item_id = await createWorkItem('Parent', 'Test');
+      await createMemory(work_item_id, 'Budget decisions', 'Set budget to $50,000');
       await createMessage('Please update the budget spreadsheet');
 
       const res = await app.inject({

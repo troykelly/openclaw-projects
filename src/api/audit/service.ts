@@ -18,11 +18,11 @@ export async function createAuditLog(pool: Pool, params: AuditLogCreateParams): 
      VALUES ($1::audit_actor_type, $2, $3::audit_action_type, $4, $5, $6, $7)
      RETURNING id::text`,
     [
-      params.actorType,
-      params.actorId || null,
+      params.actor_type,
+      params.actor_id || null,
       params.action,
-      params.entityType,
-      params.entityId || null,
+      params.entity_type,
+      params.entity_id || null,
       params.changes ? JSON.stringify(params.changes) : null,
       params.metadata ? JSON.stringify(params.metadata) : null,
     ],
@@ -39,24 +39,24 @@ export async function queryAuditLog(pool: Pool, options: AuditLogQueryOptions = 
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  if (options.entityType) {
+  if (options.entity_type) {
     conditions.push(`entity_type = $${paramIndex++}`);
-    params.push(options.entityType);
+    params.push(options.entity_type);
   }
 
-  if (options.entityId) {
+  if (options.entity_id) {
     conditions.push(`entity_id = $${paramIndex++}`);
-    params.push(options.entityId);
+    params.push(options.entity_id);
   }
 
-  if (options.actorType) {
+  if (options.actor_type) {
     conditions.push(`actor_type = $${paramIndex++}::audit_actor_type`);
-    params.push(options.actorType);
+    params.push(options.actor_type);
   }
 
-  if (options.actorId) {
+  if (options.actor_id) {
     conditions.push(`actor_id = $${paramIndex++}`);
-    params.push(options.actorId);
+    params.push(options.actor_id);
   }
 
   if (options.action) {
@@ -64,14 +64,14 @@ export async function queryAuditLog(pool: Pool, options: AuditLogQueryOptions = 
     params.push(options.action);
   }
 
-  if (options.startDate) {
+  if (options.start_date) {
     conditions.push(`timestamp >= $${paramIndex++}`);
-    params.push(options.startDate);
+    params.push(options.start_date);
   }
 
-  if (options.endDate) {
+  if (options.end_date) {
     conditions.push(`timestamp <= $${paramIndex++}`);
-    params.push(options.endDate);
+    params.push(options.end_date);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -108,11 +108,11 @@ export async function queryAuditLog(pool: Pool, options: AuditLogQueryOptions = 
   const entries: AuditLogEntry[] = result.rows.map((row) => ({
     id: row.id,
     timestamp: row.timestamp,
-    actorType: row.actor_type as AuditActorType,
-    actorId: row.actor_id,
+    actor_type: row.actor_type as AuditActorType,
+    actor_id: row.actor_id,
     action: row.action,
-    entityType: row.entity_type,
-    entityId: row.entity_id,
+    entity_type: row.entity_type,
+    entity_id: row.entity_id,
     changes: row.changes,
     metadata: row.metadata,
   }));
@@ -125,13 +125,13 @@ export async function queryAuditLog(pool: Pool, options: AuditLogQueryOptions = 
  */
 export async function getEntityAuditLog(
   pool: Pool,
-  entityType: string,
-  entityId: string,
+  entity_type: string,
+  entity_id: string,
   options: { limit?: number; offset?: number } = {},
 ): Promise<AuditLogEntry[]> {
   const result = await queryAuditLog(pool, {
-    entityType,
-    entityId,
+    entity_type,
+    entity_id,
     limit: options.limit,
     offset: options.offset,
   });
@@ -143,13 +143,13 @@ export async function getEntityAuditLog(
  */
 export async function getActorAuditLog(
   pool: Pool,
-  actorType: AuditActorType,
-  actorId: string,
+  actor_type: AuditActorType,
+  actor_id: string,
   options: { limit?: number; offset?: number } = {},
 ): Promise<AuditLogEntry[]> {
   const result = await queryAuditLog(pool, {
-    actorType,
-    actorId,
+    actor_type,
+    actor_id,
     limit: options.limit,
     offset: options.offset,
   });
@@ -162,17 +162,17 @@ export async function getActorAuditLog(
 export async function logAuthEvent(
   pool: Pool,
   params: {
-    actorType: AuditActorType;
-    actorId?: string;
+    actor_type: AuditActorType;
+    actor_id?: string;
     success: boolean;
     metadata?: Record<string, unknown>;
   },
 ): Promise<string> {
   return createAuditLog(pool, {
-    actorType: params.actorType,
-    actorId: params.actorId,
+    actor_type: params.actor_type,
+    actor_id: params.actor_id,
     action: 'auth',
-    entityType: 'session',
+    entity_type: 'session',
     changes: { success: params.success },
     metadata: params.metadata,
   });
@@ -185,17 +185,17 @@ export async function logWebhookEvent(
   pool: Pool,
   params: {
     source: string; // 'twilio', 'postmark', 'cloudflare'
-    entityType?: string;
-    entityId?: string;
+    entity_type?: string;
+    entity_id?: string;
     metadata?: Record<string, unknown>;
   },
 ): Promise<string> {
   return createAuditLog(pool, {
-    actorType: 'system',
-    actorId: `webhook:${params.source}`,
+    actor_type: 'system',
+    actor_id: `webhook:${params.source}`,
     action: 'webhook',
-    entityType: params.entityType || 'webhook',
-    entityId: params.entityId,
+    entity_type: params.entity_type || 'webhook',
+    entity_id: params.entity_id,
     metadata: {
       source: params.source,
       ...params.metadata,
@@ -206,12 +206,12 @@ export async function logWebhookEvent(
 /**
  * Purge old audit log entries (for retention)
  */
-export async function purgeOldEntries(pool: Pool, retentionDays: number = 90): Promise<number> {
+export async function purgeOldEntries(pool: Pool, retention_days: number = 90): Promise<number> {
   const result = await pool.query(
     `DELETE FROM audit_log
      WHERE timestamp < now() - INTERVAL '1 day' * $1
      RETURNING id`,
-    [retentionDays],
+    [retention_days],
   );
 
   return result.rowCount || 0;
@@ -223,8 +223,8 @@ export async function purgeOldEntries(pool: Pool, retentionDays: number = 90): P
  */
 export async function updateLatestAuditEntry(
   pool: Pool,
-  entityType: string,
-  entityId: string,
+  entity_type: string,
+  entity_id: string,
   actor: AuditActor,
   metadata?: Record<string, unknown>,
 ): Promise<boolean> {
@@ -239,7 +239,7 @@ export async function updateLatestAuditEntry(
        ORDER BY timestamp DESC
        LIMIT 1
      )`,
-    [actor.type, actor.id, JSON.stringify(metadata || {}), entityType, entityId],
+    [actor.type, actor.id, JSON.stringify(metadata || {}), entity_type, entity_id],
   );
 
   return result.rowCount !== null && result.rowCount > 0;
@@ -256,9 +256,9 @@ export function extractActor(headers: Record<string, string | undefined>): Audit
   }
 
   // Check for user header (from session middleware)
-  const userId = headers['x-user-id'] || headers['x-user-email'];
-  if (userId) {
-    return { type: 'human', id: userId };
+  const user_id = headers['x-user-id'] || headers['x-user-email'];
+  if (user_id) {
+    return { type: 'human', id: user_id };
   }
 
   // Default to system

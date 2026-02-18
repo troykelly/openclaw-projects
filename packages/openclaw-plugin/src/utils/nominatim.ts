@@ -5,7 +5,7 @@
 
 export interface GeocodedLocation {
   address: string;
-  placeLabel: string;
+  place_label: string;
 }
 
 const geocodeCache = new Map<string, GeocodedLocation>();
@@ -55,7 +55,7 @@ export async function reverseGeocode(
 
     const result: GeocodedLocation = {
       address: data.display_name ?? '',
-      placeLabel: data.name || data.address?.suburb || data.address?.city || '',
+      place_label: data.name || data.address?.suburb || data.address?.city || '',
     };
 
     if (geocodeCache.size >= MAX_CACHE_SIZE) {

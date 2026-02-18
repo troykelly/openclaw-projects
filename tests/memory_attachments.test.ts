@@ -106,28 +106,28 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
   describe('POST /api/memories/:id/attachments', () => {
     it('attaches a file to a memory', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: fileId },
       });
 
       expect(res.statusCode).toBe(201);
       const body = res.json();
-      expect(body.memoryId).toBe(memoryId);
-      expect(body.fileId).toBe(fileId);
+      expect(body.memory_id).toBe(memory_id);
+      expect(body.file_id).toBe(fileId);
       expect(body.attached).toBe(true);
     });
 
     it('returns 400 when fileId is missing', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
+        url: `/api/memories/${memory_id}/attachments`,
         payload: {},
       });
 
@@ -140,38 +140,38 @@ describe('Memory File Attachments (Issue #1271)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/memories/00000000-0000-0000-0000-000000000000/attachments',
-        payload: { fileId },
+        payload: { file_id: fileId },
       });
 
       expect(res.statusCode).toBe(404);
     });
 
     it('returns 404 when file does not exist', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId: '00000000-0000-0000-0000-000000000000' },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: '00000000-0000-0000-0000-000000000000' },
       });
 
       expect(res.statusCode).toBe(404);
     });
 
     it('is idempotent (ON CONFLICT DO NOTHING)', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: fileId },
       });
 
       const res = await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: fileId },
       });
 
       expect(res.statusCode).toBe(201);
@@ -182,40 +182,40 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
   describe('GET /api/memories/:id/attachments', () => {
     it('lists attachments for a memory', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
       const fileId1 = await createTestFile('doc1.pdf');
       const fileId2 = await createTestFile('doc2.pdf');
 
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId: fileId1 },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: fileId1 },
       });
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId: fileId2 },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: fileId2 },
       });
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memoryId}/attachments`,
+        url: `/api/memories/${memory_id}/attachments`,
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.attachments.length).toBe(2);
-      expect(body.attachments[0].originalFilename).toBeDefined();
-      expect(body.attachments[0].contentType).toBeDefined();
-      expect(body.attachments[0].sizeBytes).toBeDefined();
+      expect(body.attachments[0].original_filename).toBeDefined();
+      expect(body.attachments[0].content_type).toBeDefined();
+      expect(body.attachments[0].size_bytes).toBeDefined();
     });
 
     it('returns empty array when no attachments', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memoryId}/attachments`,
+        url: `/api/memories/${memory_id}/attachments`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -224,22 +224,22 @@ describe('Memory File Attachments (Issue #1271)', () => {
     });
   });
 
-  // ── API: DELETE /api/memories/:memoryId/attachments/:fileId ─
+  // ── API: DELETE /api/memories/:memory_id/attachments/:fileId ─
 
-  describe('DELETE /api/memories/:memoryId/attachments/:fileId', () => {
+  describe('DELETE /api/memories/:memory_id/attachments/:fileId', () => {
     it('removes an attachment from a memory', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       await app.inject({
         method: 'POST',
-        url: `/api/memories/${memoryId}/attachments`,
-        payload: { fileId },
+        url: `/api/memories/${memory_id}/attachments`,
+        payload: { file_id: fileId },
       });
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memoryId}/attachments/${fileId}`,
+        url: `/api/memories/${memory_id}/attachments/${fileId}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -247,18 +247,18 @@ describe('Memory File Attachments (Issue #1271)', () => {
       // Verify it's gone
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/memories/${memoryId}/attachments`,
+        url: `/api/memories/${memory_id}/attachments`,
       });
       const body = listRes.json();
       expect(body.attachments.length).toBe(0);
     });
 
     it('returns 404 when attachment does not exist', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/memories/${memoryId}/attachments/00000000-0000-0000-0000-000000000000`,
+        url: `/api/memories/${memory_id}/attachments/00000000-0000-0000-0000-000000000000`,
       });
 
       expect(res.statusCode).toBe(404);
@@ -269,31 +269,31 @@ describe('Memory File Attachments (Issue #1271)', () => {
 
   describe('cascade behavior', () => {
     it('deletes attachments when memory is deleted', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       await pool.query(
         `INSERT INTO unified_memory_attachment (memory_id, file_attachment_id)
          VALUES ($1, $2)`,
-        [memoryId, fileId],
+        [memory_id, fileId],
       );
 
       // Delete the memory
-      await pool.query('DELETE FROM memory WHERE id = $1', [memoryId]);
+      await pool.query('DELETE FROM memory WHERE id = $1', [memory_id]);
 
       // Attachment link should be gone
-      const result = await pool.query('SELECT * FROM unified_memory_attachment WHERE memory_id = $1', [memoryId]);
+      const result = await pool.query('SELECT * FROM unified_memory_attachment WHERE memory_id = $1', [memory_id]);
       expect(result.rows.length).toBe(0);
     });
 
     it('deletes attachments when file is deleted', async () => {
-      const memoryId = await createTestMemory();
+      const memory_id = await createTestMemory();
       const fileId = await createTestFile();
 
       await pool.query(
         `INSERT INTO unified_memory_attachment (memory_id, file_attachment_id)
          VALUES ($1, $2)`,
-        [memoryId, fileId],
+        [memory_id, fileId],
       );
 
       // Delete the file

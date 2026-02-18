@@ -85,7 +85,7 @@ describe('Contacts Page', () => {
         method: 'POST',
         url: '/api/contacts',
         payload: {
-          displayName: 'New Contact',
+          display_name: 'New Contact',
           notes: 'Some notes',
         },
       });
@@ -102,13 +102,13 @@ describe('Contacts Page', () => {
          VALUES ('Original Name')
          RETURNING id::text as id`,
       );
-      const contactId = (contact.rows[0] as { id: string }).id;
+      const contact_id = (contact.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'PATCH',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
         payload: {
-          displayName: 'Updated Name',
+          display_name: 'Updated Name',
           notes: 'Added notes',
         },
       });
@@ -125,11 +125,11 @@ describe('Contacts Page', () => {
          VALUES ('To Delete')
          RETURNING id::text as id`,
       );
-      const contactId = (contact.rows[0] as { id: string }).id;
+      const contact_id = (contact.rows[0] as { id: string }).id;
 
       const res = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
       });
 
       expect(res.statusCode).toBe(204);
@@ -137,7 +137,7 @@ describe('Contacts Page', () => {
       // Verify deleted
       const checkRes = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
       });
       expect(checkRes.statusCode).toBe(404);
     });
@@ -149,18 +149,18 @@ describe('Contacts Page', () => {
          VALUES ('With Endpoints')
          RETURNING id::text as id`,
       );
-      const contactId = (contact.rows[0] as { id: string }).id;
+      const contact_id = (contact.rows[0] as { id: string }).id;
 
       // Add an endpoint
       await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'test@example.com', 'test@example.com')`,
-        [contactId],
+        [contact_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contactId}`,
+        url: `/api/contacts/${contact_id}`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -211,13 +211,13 @@ describe('Contacts Page', () => {
          VALUES ('Linked Contact')
          RETURNING id::text as id`,
       );
-      const contactId = (contact.rows[0] as { id: string }).id;
+      const contact_id = (contact.rows[0] as { id: string }).id;
 
       const endpoint = await pool.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, normalized_value)
          VALUES ($1, 'email', 'linked@example.com', 'linked@example.com')
          RETURNING id::text as id`,
-        [contactId],
+        [contact_id],
       );
       const endpointId = (endpoint.rows[0] as { id: string }).id;
 
@@ -227,7 +227,7 @@ describe('Contacts Page', () => {
          VALUES ('Test Item', 'issue')
          RETURNING id::text as id`,
       );
-      const itemId = (item.rows[0] as { id: string }).id;
+      const item_id = (item.rows[0] as { id: string }).id;
 
       // Create external thread (requires endpoint_id)
       const thread = await pool.query(
@@ -236,17 +236,17 @@ describe('Contacts Page', () => {
          RETURNING id::text as id`,
         [endpointId],
       );
-      const threadId = (thread.rows[0] as { id: string }).id;
+      const thread_id = (thread.rows[0] as { id: string }).id;
 
       await pool.query(
         `INSERT INTO work_item_communication (work_item_id, thread_id)
          VALUES ($1, $2)`,
-        [itemId, threadId],
+        [item_id, thread_id],
       );
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${contactId}/work-items`,
+        url: `/api/contacts/${contact_id}/work-items`,
       });
 
       expect(res.statusCode).toBe(200);

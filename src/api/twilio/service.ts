@@ -40,33 +40,33 @@ export async function processTwilioSms(pool: Pool, payload: TwilioSmsWebhookPayl
       [fromPhone],
     );
 
-    let contactId: string;
+    let contact_id: string;
     let endpointId: string;
     let isNewContact = false;
 
     if (existingEndpoint.rows.length > 0) {
       endpointId = existingEndpoint.rows[0].id;
-      contactId = existingEndpoint.rows[0].contact_id;
+      contact_id = existingEndpoint.rows[0].contact_id;
     } else {
       // Create new contact with phone number as display name
       // The display name can be updated later when we learn the actual name
-      const displayName = formatDisplayNameFromPayload(payload);
+      const display_name = formatDisplayNameFromPayload(payload);
       isNewContact = true;
 
       const contact = await client.query(
         `INSERT INTO contact (display_name)
          VALUES ($1)
          RETURNING id::text as id`,
-        [displayName],
+        [display_name],
       );
-      contactId = contact.rows[0].id;
+      contact_id = contact.rows[0].id;
 
       const endpoint = await client.query(
         `INSERT INTO contact_endpoint (contact_id, endpoint_type, endpoint_value, metadata)
          VALUES ($1, 'phone', $2, $3::jsonb)
          RETURNING id::text as id`,
         [
-          contactId,
+          contact_id,
           fromPhone,
           JSON.stringify({
             source: 'twilio',
@@ -98,7 +98,7 @@ export async function processTwilioSms(pool: Pool, payload: TwilioSmsWebhookPayl
         }),
       ],
     );
-    const threadId = thread.rows[0].id;
+    const thread_id = thread.rows[0].id;
 
     // Insert the message with full Twilio payload
     const message = await client.query(
@@ -107,17 +107,17 @@ export async function processTwilioSms(pool: Pool, payload: TwilioSmsWebhookPayl
        ON CONFLICT (thread_id, external_message_key)
        DO UPDATE SET body = EXCLUDED.body, raw = EXCLUDED.raw
        RETURNING id::text as id`,
-      [threadId, payload.MessageSid, payload.Body, JSON.stringify(payload)],
+      [thread_id, payload.MessageSid, payload.Body, JSON.stringify(payload)],
     );
-    const messageId = message.rows[0].id;
+    const message_id = message.rows[0].id;
 
     await client.query('COMMIT');
 
     return {
-      contactId,
+      contact_id,
       endpointId,
-      threadId,
-      messageId,
+      thread_id,
+      message_id,
       isNewContact,
     };
   } catch (error) {
@@ -162,10 +162,10 @@ export async function getRecentSmsMessages(
 ): Promise<
   Array<{
     id: string;
-    threadId: string;
+    thread_id: string;
     direction: 'inbound' | 'outbound';
     body: string | null;
-    receivedAt: Date;
+    received_at: Date;
     raw: Record<string, unknown>;
   }>
 > {
@@ -188,10 +188,10 @@ export async function getRecentSmsMessages(
 
   return result.rows.map((row) => ({
     id: row.id,
-    threadId: row.thread_id,
+    thread_id: row.thread_id,
     direction: row.direction,
     body: row.body,
-    receivedAt: row.received_at,
+    received_at: row.received_at,
     raw: row.raw,
   }));
 }
@@ -203,7 +203,7 @@ export async function getRecentSmsMessages(
  * @param phone - Phone number in E.164 format
  * @returns Contact info or null if not found
  */
-export async function findContactByPhone(pool: Pool, phone: E164PhoneNumber): Promise<{ contactId: string; endpointId: string; displayName: string } | null> {
+export async function findContactByPhone(pool: Pool, phone: E164PhoneNumber): Promise<{ contact_id: string; endpointId: string; display_name: string } | null> {
   const result = await pool.query(
     `SELECT ce.id::text as endpoint_id,
             c.id::text as contact_id,
@@ -221,8 +221,8 @@ export async function findContactByPhone(pool: Pool, phone: E164PhoneNumber): Pr
   }
 
   return {
-    contactId: result.rows[0].contact_id,
+    contact_id: result.rows[0].contact_id,
     endpointId: result.rows[0].endpoint_id,
-    displayName: result.rows[0].display_name,
+    display_name: result.rows[0].display_name,
   };
 }

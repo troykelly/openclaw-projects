@@ -74,8 +74,8 @@ describe('Health API endpoints', () => {
 
       expect(body.components.database).toBeDefined();
       expect(body.components.database.status).toBe('healthy');
-      expect(typeof body.components.database.latencyMs).toBe('number');
-      expect(body.components.database.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(typeof body.components.database.latency_ms).toBe('number');
+      expect(body.components.database.latency_ms).toBeGreaterThanOrEqual(0);
     });
 
     it('includes database pool details', async () => {
@@ -84,9 +84,9 @@ describe('Health API endpoints', () => {
 
       const details = body.components.database.details;
       expect(details).toBeDefined();
-      expect(typeof details.poolTotal).toBe('number');
-      expect(typeof details.poolIdle).toBe('number');
-      expect(typeof details.poolWaiting).toBe('number');
+      expect(typeof details.pool_total).toBe('number');
+      expect(typeof details.pool_idle).toBe('number');
+      expect(typeof details.pool_waiting).toBe('number');
     });
   });
 

@@ -66,11 +66,11 @@ export type TimeRange = 'all' | 'today' | 'yesterday' | 'this_week' | 'this_mont
 /** Activity item for feed display */
 export interface ActivityItem {
   id: string;
-  actorType: ActorType;
+  actor_type: ActorType;
   actorName: string;
   action: ActionType;
-  entityType: EntityType;
-  entityId: string;
+  entity_type: EntityType;
+  entity_id: string;
   entityTitle: string;
   parentEntityTitle?: string;
   parentEntityId?: string;
@@ -81,10 +81,10 @@ export interface ActivityItem {
 
 /** Filter options for activity feed */
 export interface ActivityFilter {
-  actorType?: ActorType;
+  actor_type?: ActorType;
   actionType?: ActionType;
-  entityType?: EntityType;
-  projectId?: string;
+  entity_type?: EntityType;
+  project_id?: string;
   timeRange?: TimeRange;
 }
 

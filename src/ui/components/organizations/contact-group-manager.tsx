@@ -12,15 +12,15 @@ import { ContactGroupBadge } from './contact-group-badge';
 import type { ContactGroup } from './types';
 
 export interface ContactGroupManagerProps {
-  contactId: string;
+  contact_id: string;
   assignedGroups: ContactGroup[];
   availableGroups: ContactGroup[];
-  onAddToGroup: (contactId: string, groupId: string) => void;
-  onRemoveFromGroup: (contactId: string, groupId: string) => void;
+  onAddToGroup: (contact_id: string, group_id: string) => void;
+  onRemoveFromGroup: (contact_id: string, group_id: string) => void;
   className?: string;
 }
 
-export function ContactGroupManager({ contactId, assignedGroups, availableGroups, onAddToGroup, onRemoveFromGroup, className }: ContactGroupManagerProps) {
+export function ContactGroupManager({ contact_id, assignedGroups, availableGroups, onAddToGroup, onRemoveFromGroup, className }: ContactGroupManagerProps) {
   const [open, setOpen] = React.useState(false);
 
   // Filter out already assigned groups
@@ -29,13 +29,13 @@ export function ContactGroupManager({ contactId, assignedGroups, availableGroups
     return availableGroups.filter((g) => !assignedIds.has(g.id));
   }, [assignedGroups, availableGroups]);
 
-  const handleAddGroup = (groupId: string) => {
-    onAddToGroup(contactId, groupId);
+  const handleAddGroup = (group_id: string) => {
+    onAddToGroup(contact_id, group_id);
     setOpen(false);
   };
 
-  const handleRemoveGroup = (groupId: string) => {
-    onRemoveFromGroup(contactId, groupId);
+  const handleRemoveGroup = (group_id: string) => {
+    onRemoveFromGroup(contact_id, group_id);
   };
 
   return (

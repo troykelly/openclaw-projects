@@ -23,7 +23,7 @@ export type ApiResponse<T> = { success: true; data: T } | { success: false; erro
 /** Request options */
 export interface RequestOptions {
   /** User ID for scoping */
-  userId?: string;
+  user_id?: string;
   /** Custom timeout (overrides config) */
   timeout?: number;
   /** Mark request as coming from an agent (adds X-OpenClaw-Agent header) */
@@ -199,13 +199,13 @@ export class ApiClient {
         headers.Authorization = `Bearer ${this.apiKey}`;
       }
 
-      if (options?.userId) {
-        headers['X-Agent-Id'] = options.userId;
+      if (options?.user_id) {
+        headers['X-Agent-Id'] = options.user_id;
       }
 
       // Mark request as coming from an agent for privacy filtering
       if (options?.isAgent) {
-        headers['X-OpenClaw-Agent'] = options.userId || 'plugin-agent';
+        headers['X-OpenClaw-Agent'] = options.user_id || 'plugin-agent';
       }
 
       const response = await fetch(url, {

@@ -40,8 +40,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('ms365-id');
-      expect(config?.clientSecret).toBe('ms365-secret');
+      expect(config?.client_id).toBe('ms365-id');
+      expect(config?.client_secret).toBe('ms365-secret');
     });
 
     it('falls back to AZURE_* env vars when MS365_* are not set', async () => {
@@ -53,8 +53,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('azure-id');
-      expect(config?.clientSecret).toBe('azure-secret');
+      expect(config?.client_id).toBe('azure-id');
+      expect(config?.client_secret).toBe('azure-secret');
     });
 
     it('prefers MS365_* over AZURE_* when both are set', async () => {
@@ -66,11 +66,11 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('ms365-id');
-      expect(config?.clientSecret).toBe('ms365-secret');
+      expect(config?.client_id).toBe('ms365-id');
+      expect(config?.client_secret).toBe('ms365-secret');
     });
 
-    it('includes tenantId from AZURE_TENANT_ID when set', async () => {
+    it('includes tenant_id from AZURE_TENANT_ID when set', async () => {
       process.env.MS365_CLIENT_ID = 'ms365-id';
       process.env.MS365_CLIENT_SECRET = 'ms365-secret';
       process.env.AZURE_TENANT_ID = 'my-tenant-id';
@@ -78,10 +78,10 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.tenantId).toBe('my-tenant-id');
+      expect(config?.tenant_id).toBe('my-tenant-id');
     });
 
-    it('tenantId is undefined when AZURE_TENANT_ID is not set', async () => {
+    it('tenant_id is undefined when AZURE_TENANT_ID is not set', async () => {
       process.env.MS365_CLIENT_ID = 'ms365-id';
       process.env.MS365_CLIENT_SECRET = 'ms365-secret';
       delete process.env.AZURE_TENANT_ID;
@@ -89,7 +89,7 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.tenantId).toBeUndefined();
+      expect(config?.tenant_id).toBeUndefined();
     });
 
     it('requires both client ID and secret (ID only returns null)', async () => {
@@ -121,8 +121,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getMicrosoftConfig } = await import('../../src/api/oauth/config.ts');
       const config = getMicrosoftConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('ms365-id');
-      expect(config?.clientSecret).toBe('azure-secret');
+      expect(config?.client_id).toBe('ms365-id');
+      expect(config?.client_secret).toBe('azure-secret');
     });
   });
 
@@ -148,8 +148,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getGoogleConfig } = await import('../../src/api/oauth/config.ts');
       const config = getGoogleConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('google-id');
-      expect(config?.clientSecret).toBe('google-secret');
+      expect(config?.client_id).toBe('google-id');
+      expect(config?.client_secret).toBe('google-secret');
     });
 
     it('falls back to GOOGLE_CLOUD_* env vars when GOOGLE_* are not set', async () => {
@@ -161,8 +161,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getGoogleConfig } = await import('../../src/api/oauth/config.ts');
       const config = getGoogleConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('gcloud-id');
-      expect(config?.clientSecret).toBe('gcloud-secret');
+      expect(config?.client_id).toBe('gcloud-id');
+      expect(config?.client_secret).toBe('gcloud-secret');
     });
 
     it('prefers GOOGLE_* over GOOGLE_CLOUD_* when both are set', async () => {
@@ -174,8 +174,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getGoogleConfig } = await import('../../src/api/oauth/config.ts');
       const config = getGoogleConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('google-id');
-      expect(config?.clientSecret).toBe('google-secret');
+      expect(config?.client_id).toBe('google-id');
+      expect(config?.client_secret).toBe('google-secret');
     });
 
     it('requires both client ID and secret (ID only returns null)', async () => {
@@ -197,8 +197,8 @@ describe('OAuth Config — env var fallback chains', () => {
       const { getGoogleConfig } = await import('../../src/api/oauth/config.ts');
       const config = getGoogleConfig();
       expect(config).not.toBeNull();
-      expect(config?.clientId).toBe('google-id');
-      expect(config?.clientSecret).toBe('gcloud-secret');
+      expect(config?.client_id).toBe('google-id');
+      expect(config?.client_secret).toBe('gcloud-secret');
     });
   });
 
@@ -255,7 +255,7 @@ describe('OAuth Config — env var fallback chains', () => {
   // ── Microsoft authorization URL with tenant ───────────────────────
 
   describe('Microsoft authorization URL with AZURE_TENANT_ID', () => {
-    it('uses tenant-specific URL when tenantId is set', async () => {
+    it('uses tenant-specific URL when tenant_id is set', async () => {
       process.env.MS365_CLIENT_ID = 'ms365-id';
       process.env.MS365_CLIENT_SECRET = 'ms365-secret';
       process.env.AZURE_TENANT_ID = 'my-tenant-uuid';
@@ -270,7 +270,7 @@ describe('OAuth Config — env var fallback chains', () => {
       expect(result.url).not.toContain('/common/');
     });
 
-    it('uses /common/ URL when tenantId is not set', async () => {
+    it('uses /common/ URL when tenant_id is not set', async () => {
       process.env.MS365_CLIENT_ID = 'ms365-id';
       process.env.MS365_CLIENT_SECRET = 'ms365-secret';
       delete process.env.AZURE_TENANT_ID;

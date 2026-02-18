@@ -31,10 +31,10 @@ export function ActivityQuickFilters({ presets, activePresetId, onSelectPreset, 
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
       {presets.map((preset) => {
-        const isActive = activePresetId === preset.id;
+        const is_active = activePresetId === preset.id;
 
         return (
-          <Button key={preset.id} variant={isActive ? 'secondary' : 'outline'} size="sm" onClick={() => handleClick(preset)} data-active={isActive}>
+          <Button key={preset.id} variant={is_active ? 'secondary' : 'outline'} size="sm" onClick={() => handleClick(preset)} data-active={is_active}>
             {preset.name}
           </Button>
         );

@@ -29,7 +29,7 @@ export class EmbeddingHealthChecker implements HealthChecker {
     if (!summary.provider) {
       return {
         status: 'degraded',
-        latencyMs: Date.now() - start,
+        latency_ms: Date.now() - start,
         details: {
           configured: false,
           provider: null,
@@ -44,13 +44,13 @@ export class EmbeddingHealthChecker implements HealthChecker {
     // For now, just report configuration status
     return {
       status: 'healthy',
-      latencyMs: Date.now() - start,
+      latency_ms: Date.now() - start,
       details: {
         configured: true,
         provider: summary.provider,
         model: summary.model,
         dimensions: summary.dimensions,
-        configuredProviders: summary.configuredProviders,
+        configured_providers: summary.configured_providers,
       },
     };
   }
