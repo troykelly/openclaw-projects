@@ -123,12 +123,12 @@ describe('OAuth Gateway RPC Methods', () => {
       expect(result.accounts[0]).toMatchObject({
         connection_id: 'conn-1',
         provider: 'microsoft',
-        connectionLabel: 'Work M365',
+        connection_label: 'Work M365',
         enabled_features: ['email', 'contacts', 'files'],
       });
-      expect(result.accounts[0].availableActions).toContain('list_contacts');
-      expect(result.accounts[0].availableActions).toContain('list_emails');
-      expect(result.accounts[0].availableActions).toContain('list_files');
+      expect(result.accounts[0].available_actions).toContain('list_contacts');
+      expect(result.accounts[0].available_actions).toContain('list_emails');
+      expect(result.accounts[0].available_actions).toContain('list_files');
     });
 
     it('throws on API failure', async () => {
@@ -157,9 +157,9 @@ describe('OAuth Gateway RPC Methods', () => {
 
       const result = await methods.contactsList({ connection_id: 'conn-1' });
 
-      expect(result.connectionLabel).toBe('Work M365');
+      expect(result.connection_label).toBe('Work M365');
       expect(result.contacts).toHaveLength(1);
-      expect(result.availableActions).toContain('list_contacts');
+      expect(result.available_actions).toContain('list_contacts');
     });
 
     it('throws when connection_id is missing', async () => {
@@ -193,11 +193,11 @@ describe('OAuth Gateway RPC Methods', () => {
 
       const result = await methods.emailList({ connection_id: 'conn-1' });
 
-      expect(result.connectionLabel).toBe('Work M365');
+      expect(result.connection_label).toBe('Work M365');
       expect(result.messages).toHaveLength(1);
       expect(result.next_page_token).toBe('page2');
-      expect(result.availableActions).toContain('send_email');
-      expect(result.availableActions).toContain('create_draft');
+      expect(result.available_actions).toContain('send_email');
+      expect(result.available_actions).toContain('create_draft');
     });
 
     it('omits write actions for read-only connections', async () => {
@@ -209,8 +209,8 @@ describe('OAuth Gateway RPC Methods', () => {
 
       const result = await methods.emailList({ connection_id: 'conn-1' });
 
-      expect(result.availableActions).not.toContain('send_email');
-      expect(result.availableActions).toContain('list_messages');
+      expect(result.available_actions).not.toContain('send_email');
+      expect(result.available_actions).toContain('list_messages');
     });
   });
 
@@ -228,7 +228,7 @@ describe('OAuth Gateway RPC Methods', () => {
 
       const result = await methods.emailGet({ connection_id: 'conn-1', message_id: 'msg-1' });
 
-      expect(result.connectionLabel).toBe('Work M365');
+      expect(result.connection_label).toBe('Work M365');
       expect(result.message).toMatchObject({ id: 'msg-1', subject: 'Test' });
     });
 
@@ -256,10 +256,10 @@ describe('OAuth Gateway RPC Methods', () => {
 
       const result = await methods.filesList({ connection_id: 'conn-1' });
 
-      expect(result.connectionLabel).toBe('Work M365');
+      expect(result.connection_label).toBe('Work M365');
       expect(result.files).toHaveLength(1);
       expect(result.next_page_token).toBe('next');
-      expect(result.availableActions).toContain('list_files');
+      expect(result.available_actions).toContain('list_files');
     });
   });
 
@@ -281,7 +281,7 @@ describe('OAuth Gateway RPC Methods', () => {
 
       expect(result.files).toHaveLength(1);
       expect(result.files[0]).toMatchObject({ name: 'budget.xlsx' });
-      expect(result.availableActions).toContain('search_files');
+      expect(result.available_actions).toContain('search_files');
     });
 
     it('throws when query is missing', async () => {
@@ -305,9 +305,9 @@ describe('OAuth Gateway RPC Methods', () => {
 
       const result = await methods.filesGet({ connection_id: 'conn-1', file_id: 'f-1' });
 
-      expect(result.connectionLabel).toBe('Work M365');
+      expect(result.connection_label).toBe('Work M365');
       expect(result.file).toMatchObject({ id: 'f-1', name: 'photo.jpg' });
-      expect(result.availableActions).toContain('get_file');
+      expect(result.available_actions).toContain('get_file');
     });
 
     it('throws when file_id is missing', async () => {
