@@ -14,7 +14,7 @@ export interface Notification {
   message: string;
   work_item_id?: string;
   actor_email?: string;
-  readAt?: string;
+  read_at?: string;
   created_at: string;
 }
 
@@ -67,7 +67,7 @@ export function NotificationBell({ user_email, onNotificationClick }: Notificati
   const markAsRead = async (id: string) => {
     try {
       await apiClient.post(`/api/notifications/${id}/read?user_email=${encodeURIComponent(user_email)}`, {});
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -77,7 +77,7 @@ export function NotificationBell({ user_email, onNotificationClick }: Notificati
   const markAllAsRead = async () => {
     try {
       await apiClient.post(`/api/notifications/read-all?user_email=${encodeURIComponent(user_email)}`, {});
-      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
       setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
@@ -89,7 +89,7 @@ export function NotificationBell({ user_email, onNotificationClick }: Notificati
       await apiClient.delete(`/api/notifications/${id}?user_email=${encodeURIComponent(user_email)}`);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       const notification = notifications.find((n) => n.id === id);
-      if (notification && !notification.readAt) {
+      if (notification && !notification.read_at) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
@@ -174,9 +174,9 @@ export function NotificationBell({ user_email, onNotificationClick }: Notificati
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={cn('group relative px-4 py-3 hover:bg-muted/50 cursor-pointer', !notification.readAt && 'bg-muted/30')}
+                  className={cn('group relative px-4 py-3 hover:bg-muted/50 cursor-pointer', !notification.read_at && 'bg-muted/30')}
                   onClick={() => {
-                    if (!notification.readAt) {
+                    if (!notification.read_at) {
                       markAsRead(notification.id);
                     }
                     onNotificationClick?.(notification);
@@ -203,7 +203,7 @@ export function NotificationBell({ user_email, onNotificationClick }: Notificati
                       <X className="size-3" />
                     </Button>
                   </div>
-                  {!notification.readAt && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />}
+                  {!notification.read_at && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2 rounded-full bg-blue-500" />}
                 </div>
               ))}
             </div>
