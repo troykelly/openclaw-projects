@@ -759,7 +759,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "format": "uuid",
       "type": "string",
     },
-    "includeThread": {
+    "include_thread": {
       "default": false,
       "type": "boolean",
     },
@@ -844,7 +844,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > note_get parameter schema should match snapshot 1`] = `
 {
   "properties": {
-    "includeVersions": {
+    "include_versions": {
       "default": false,
       "type": "boolean",
     },
@@ -922,7 +922,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
       "minLength": 1,
       "type": "string",
     },
-    "isPinned": {
+    "is_pinned": {
       "type": "boolean",
     },
     "noteId": {
@@ -1006,7 +1006,7 @@ exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > 
 exports[`Schema Snapshots > Tool parameter JSON schemas (via zodToJsonSchema) > notebook_list parameter schema should match snapshot 1`] = `
 {
   "properties": {
-    "includeArchived": {
+    "include_archived": {
       "default": false,
       "type": "boolean",
     },

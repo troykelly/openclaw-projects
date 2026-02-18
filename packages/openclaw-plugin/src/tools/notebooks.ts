@@ -24,8 +24,8 @@ export interface Notebook {
   name: string;
   description: string | null;
   user_email: string;
-  isArchived: boolean;
-  noteCount?: number;
+  is_archived: boolean;
+  note_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -43,7 +43,7 @@ export interface NotebookToolOptions {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const NotebookListParamsSchema = z.object({
-  includeArchived: z.boolean().optional().default(false),
+  include_archived: z.boolean().optional().default(false),
   limit: z.number().min(1).max(100).optional().default(50),
   offset: z.number().min(0).optional().default(0),
 });
@@ -56,8 +56,8 @@ export interface NotebookListSuccess {
       id: string;
       name: string;
       description: string | null;
-      isArchived: boolean;
-      noteCount: number;
+      is_archived: boolean;
+      note_count: number;
       url?: string;
     }>;
     total: number;
@@ -97,11 +97,11 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
         return { success: false, error: errorMessage };
       }
 
-      const { includeArchived, limit, offset } = parseResult.data;
+      const { include_archived, limit, offset } = parseResult.data;
 
       logger.info('notebook_list invoked', {
         user_id,
-        includeArchived,
+        include_archived,
         limit,
       });
 
@@ -112,8 +112,8 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
           offset: String(offset),
         });
 
-        if (includeArchived) {
-          queryParams.set('includeArchived', 'true');
+        if (include_archived) {
+          queryParams.set('include_archived', 'true');
         }
 
         const response = await client.get<{
@@ -148,8 +148,8 @@ export function createNotebookListTool(options: NotebookToolOptions): NotebookLi
               id: nb.id,
               name: nb.name,
               description: nb.description,
-              isArchived: nb.isArchived,
-              noteCount: nb.noteCount ?? 0,
+              is_archived: nb.is_archived,
+              note_count: nb.note_count ?? 0,
               ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${nb.id}` } : {}),
             })),
             total: result.total,
@@ -311,8 +311,8 @@ export interface NotebookGetSuccess {
     id: string;
     name: string;
     description: string | null;
-    isArchived: boolean;
-    noteCount: number;
+    is_archived: boolean;
+    note_count: number;
     created_at: string;
     updated_at: string;
     url?: string;
@@ -399,8 +399,8 @@ export function createNotebookGetTool(options: NotebookToolOptions): NotebookGet
             id: notebook.id,
             name: notebook.name,
             description: notebook.description,
-            isArchived: notebook.isArchived,
-            noteCount: notebook.noteCount ?? 0,
+            is_archived: notebook.is_archived,
+            note_count: notebook.note_count ?? 0,
             created_at: notebook.created_at,
             updated_at: notebook.updated_at,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notebooks/${notebook.id}` } : {}),

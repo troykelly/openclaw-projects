@@ -59,7 +59,7 @@ describe('message_search tool', () => {
         channel: 'email',
         contact_id: '123e4567-e89b-12d3-a456-426614174000',
         limit: 20,
-        includeThread: true,
+        include_thread: true,
       });
       expect(result.success).toBe(true);
     });
