@@ -131,6 +131,8 @@ These tables track **who a person is**, not entity data. `user_email`/`email` st
 | `recipe_ingredient` | recipe | None | Inherits |
 | `recipe_step` | recipe | None | Inherits |
 | `recipe_image` | recipe | None | Inherits |
+| `list_item` | list | None | Inherits namespace from parent list |
+| `context_link` | context + entity | None | Inherits — access requires access to parent context's namespace |
 
 #### TIER 8: File storage — ADD NAMESPACE
 
@@ -199,12 +201,15 @@ These tables track **who a person is**, not entity data. `user_email`/`email` st
 ```sql
 CREATE TABLE namespace_grant (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email       text NOT NULL,
-  namespace   text NOT NULL,
-  role        text NOT NULL DEFAULT 'member',
+  email       text NOT NULL REFERENCES user_setting(email) ON DELETE CASCADE,
+  namespace   text NOT NULL
+                CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63),
+  role        text NOT NULL DEFAULT 'member'
+                CHECK (role IN ('owner', 'admin', 'member', 'observer')),
   is_default  boolean NOT NULL DEFAULT false,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now(),
+  CHECK (email = lower(email)),
   UNIQUE(email, namespace)
 );
 
@@ -215,6 +220,8 @@ CREATE INDEX idx_namespace_grant_namespace ON namespace_grant(namespace);
 CREATE UNIQUE INDEX idx_namespace_grant_default
   ON namespace_grant(email) WHERE is_default = true;
 ```
+
+> **Note:** The FK to `user_setting(email)` means user provisioning (#1474) must create the `user_setting` row BEFORE creating grants. `ON DELETE CASCADE` ensures grants are cleaned up when a user is deleted.
 
 ### 4.2 Roles
 
@@ -332,8 +339,16 @@ app.addHook('preHandler', async (req, reply) => {
 
   // Load this user's granted namespaces
   const grants = await getNamespaceGrants(pool, identity.email);
+
+  // No grants = no access (Section 12.3: never fall back to 'default')
+  if (grants.length === 0) {
+    return reply.code(403).send({ error: 'No namespace access configured' });
+  }
+
   const grantedNamespaces = new Set(grants.map(g => g.namespace));
-  const defaultNamespace = grants.find(g => g.is_default)?.namespace ?? 'default';
+  // Use is_default=true grant; if none, use alphabetically first (deterministic)
+  const defaultNamespace = grants.find(g => g.is_default)?.namespace
+    ?? [...grantedNamespaces].sort()[0];
 
   // Bind namespace on body/query — intersect with grants
   const q = req.query as Record<string, unknown>;
@@ -452,6 +467,8 @@ This allows: memory in namespace "household", skill store items in namespace "ho
 
 Existing `user_email` on skill_store_item is dropped (was optional, same as other tables).
 
+> **Note:** `skill_store_schedule` and `skill_store_activity` also use `skill_id` + `collection`. They do not need their own `namespace` column — they inherit scope from their parent `skill_store_item` via `skill_id`/`collection` join. Queries for schedules/activities should join through `skill_store_item.namespace`.
+
 ### 6.5 Attribution Columns — KEEP AS-IS
 
 These columns record "who did this" and are NOT used for data access. They stay unchanged:
@@ -512,8 +529,10 @@ GET /api/contacts?namespaces=household,troy
 | Scenario | Store/Create default | List/Search default |
 |----------|---------------------|---------------------|
 | M2M agent with gateway config | `config.namespace.default` | `config.namespace.recall` |
-| M2M agent without config | `'default'` | All namespaces (no filter) |
+| M2M agent without config | Agent ID as namespace (if valid), else `'default'` | All namespaces (no filter) |
 | Dashboard user | User's `is_default=true` grant | All granted namespaces |
+
+> **Note on M2M fallback:** When a gateway agent has no explicit namespace config, its agent ID is used as the default namespace (matching the epic's principle: "each agent gets a default namespace matching their ID"). The agent ID must match the namespace naming pattern (`^[a-z0-9][a-z0-9._-]*$`); if it doesn't, `'default'` is used. See #1428 for implementation.
 
 ### 7.3 Response Format
 
@@ -599,8 +618,12 @@ const MemoryRecallParamsSchema = z.object({
 
 ### 9.1 Migration 1: Add namespace_grant table + namespace columns
 
+> **This is the canonical migration SQL.** Section 12.1 describes the rationale for per-user migration. Implementers should follow this section, not the illustrative snippets in Section 12.
+
 ```sql
--- namespace_grant table
+-- ============================================================
+-- STEP 1: namespace_grant table
+-- ============================================================
 CREATE TABLE IF NOT EXISTS namespace_grant (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email       text NOT NULL REFERENCES user_setting(email) ON DELETE CASCADE,
@@ -620,8 +643,11 @@ CREATE INDEX IF NOT EXISTS idx_namespace_grant_namespace ON namespace_grant(name
 CREATE UNIQUE INDEX IF NOT EXISTS idx_namespace_grant_default
   ON namespace_grant(email) WHERE is_default = true;
 
--- Bootstrap: create per-user namespaces from existing user_setting emails
+-- ============================================================
+-- STEP 2: Bootstrap per-user namespaces from existing data
+-- Creates a personal namespace for each known user (from user_setting)
 -- Namespace name derived from email local part (slugified)
+-- ============================================================
 INSERT INTO namespace_grant (email, namespace, role, is_default)
 SELECT
   lower(email),
@@ -632,13 +658,16 @@ FROM user_setting
 ON CONFLICT (email, namespace) DO NOTHING;
 
 -- Also give everyone access to 'default' for historically-unscoped data
+-- (rows with NULL user_email will remain in 'default')
 INSERT INTO namespace_grant (email, namespace, role, is_default)
 SELECT lower(email), 'default', 'member', false
 FROM user_setting
 ON CONFLICT (email, namespace) DO NOTHING;
 
--- Add namespace column to all entity tables (default 'default' for unscoped rows)
--- Rows with existing user_email will be backfilled to per-user namespaces in a separate step
+-- ============================================================
+-- STEP 3: Add namespace column to all entity tables
+-- Default is 'default' — rows with user_email are backfilled in Step 4
+-- ============================================================
 ALTER TABLE work_item ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
   CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
 ALTER TABLE memory ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
@@ -673,11 +702,16 @@ ALTER TABLE context ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'de
   CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
 ALTER TABLE file_attachment ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
   CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
+ALTER TABLE file_share ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
+  CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
 ALTER TABLE skill_store_item ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
   CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
 
--- Backfill: migrate existing data from user_email to per-user namespaces
--- For each table with user_email, set namespace to the user's default namespace
+-- ============================================================
+-- STEP 4: Backfill — migrate existing data to per-user namespaces
+-- Each row's namespace is set to its user_email's default namespace.
+-- Rows with NULL user_email stay in 'default' (historically unscoped).
+-- ============================================================
 UPDATE work_item wi SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = wi.user_email AND ng.is_default = true AND wi.user_email IS NOT NULL;
 UPDATE memory m SET namespace = ng.namespace
@@ -696,6 +730,8 @@ UPDATE notebook nb SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = nb.user_email AND ng.is_default = true;
 UPDATE note n SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = n.user_email AND ng.is_default = true;
+UPDATE notification ntf SET namespace = ng.namespace
+  FROM namespace_grant ng WHERE ng.email = ntf.user_email AND ng.is_default = true;
 UPDATE recipe r SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = r.user_email AND ng.is_default = true;
 UPDATE meal_log ml SET namespace = ng.namespace
@@ -704,13 +740,16 @@ UPDATE pantry_item pi SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = pi.user_email AND ng.is_default = true AND pi.user_email IS NOT NULL;
 UPDATE entity_link el SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = el.user_email AND ng.is_default = true AND el.user_email IS NOT NULL;
-UPDATE memory m SET namespace = ng.namespace
-  FROM namespace_grant ng WHERE ng.email = m.user_email AND ng.is_default = true AND m.user_email IS NOT NULL;
 UPDATE skill_store_item ssi SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = ssi.user_email AND ng.is_default = true AND ssi.user_email IS NOT NULL;
--- Rows with NULL user_email remain in 'default' namespace (historically unscoped)
+-- file_attachment has no user_email (only uploaded_by attribution) — stays 'default'
+-- file_share has no user_email (only created_by attribution) — stays 'default'
+-- list has no user_email — stays 'default'
+-- context has no user_email — stays 'default'
 
--- Indexes
+-- ============================================================
+-- STEP 5: Indexes on namespace column
+-- ============================================================
 CREATE INDEX IF NOT EXISTS idx_work_item_namespace ON work_item(namespace);
 CREATE INDEX IF NOT EXISTS idx_memory_namespace ON memory(namespace);
 CREATE INDEX IF NOT EXISTS idx_contact_namespace ON contact(namespace);
@@ -728,6 +767,7 @@ CREATE INDEX IF NOT EXISTS idx_pantry_item_namespace ON pantry_item(namespace);
 CREATE INDEX IF NOT EXISTS idx_entity_link_namespace ON entity_link(namespace);
 CREATE INDEX IF NOT EXISTS idx_context_namespace ON context(namespace);
 CREATE INDEX IF NOT EXISTS idx_file_attachment_namespace ON file_attachment(namespace);
+CREATE INDEX IF NOT EXISTS idx_file_share_namespace ON file_share(namespace);
 CREATE INDEX IF NOT EXISTS idx_skill_store_item_namespace ON skill_store_item(namespace);
 ```
 
@@ -803,22 +843,24 @@ These columns stay because they record WHO did something, not data access:
 ### Phase 3: Entity Migration (parallelizable)
 Each issue updates routes + tests to use namespace instead of user_email:
 1. **#1419** — Memory
-2. **#1420** — Contacts
+2. **#1420** — Contacts (includes `contact_endpoint`)
 3. **#1421** — Relationships
 4. **#1422** — Projects (work_item kind=project/epic/initiative)
 5. **#1423** — Todos (work_item kind=issue/task)
-6. **#1424** — Lists/Shopping
+6. **#1424** — Lists/Shopping (includes `list_item` — inherits from list)
 7. **#1425** — Meals/Recipes/Pantry
-8. **#1426** — Threads/Messages
-9. **#1471** — Notebooks
-10. **#1472** — Entity Links/Context
-11. **#1427** — Skill Store
+8. **#1426** — Threads/Messages (includes `external_message`)
+9. **#1471** — Notebooks (includes `note` — gets own namespace column)
+10. **#1472** — Entity Links/Context (includes `context_link` — inherits from context)
+11. **#1427** — Skill Store (`skill_id`/`collection` remain; `namespace` added alongside)
+12. **#1479** — File Storage (`file_attachment`, `file_share`)
+13. **#1480** — Notifications (namespace-aware routing + fanout logic)
 
 ### Phase 4: Cleanup
-- Drop `user_email` scoping columns (Migration 2)
-- Deprecate sharing tables (note_share, notebook_share, note_collaborator)
-- Remove `user_email` from API contract
-- Update dashboard UI to use namespace-based access
+- **#1481** — Drop `user_email` scoping columns (Migration 2 — see Section 9.2)
+- **#1481** — Deprecate sharing tables (`note_share`, `notebook_share`, `note_collaborator`)
+- **#1481** — Remove `user_email` from API contract (breaking change — plugin version bump)
+- **#1482** — Dashboard UX: namespace switcher, namespace indicator, namespace badges (Section 12.10)
 
 ---
 
@@ -843,44 +885,16 @@ Comprehensive review covering security, blind spots, functionality, and UX.
 
 ### 12.1 CRITICAL: Migration to `'default'` namespace exposes all data
 
-**Problem:** All existing records migrate to `namespace = 'default'` and all existing users get a grant to `'default'`. This means every user sees every other user's data post-migration — a **regression** from the current (imperfect) `user_email` scoping.
+**Problem:** An earlier draft migrated all existing records to `namespace = 'default'` and gave all users a grant to `'default'`. This would mean every user sees every other user's data — a **regression** from the current `user_email` scoping.
 
-**Resolution:** The migration must create **per-user namespaces** from existing `user_email` values, not dump everything into `'default'`.
+**Resolution:** The migration creates **per-user namespaces** from existing `user_email` values. Each user's data lands in their personal namespace, not a shared `'default'`.
 
-Migration strategy (revised):
-1. For each distinct `user_email` across entity tables, create a namespace (slugified from email)
-2. Create a `namespace_grant` with `role: owner, is_default: true` for that user→namespace
-3. Migrate each row's `namespace` to the namespace derived from its `user_email`
-4. For rows with NULL `user_email` (nullable tables), assign to `'default'` — these were already globally visible
-5. Create a `'default'` namespace grant for all users (so they can still see previously-unscoped data)
-
-```sql
--- Step 1: Create per-user namespaces from existing user_email values
-INSERT INTO namespace_grant (email, namespace, role, is_default)
-SELECT DISTINCT
-  COALESCE(user_email, email),
-  lower(regexp_replace(split_part(COALESCE(user_email, email), '@', 1), '[^a-z0-9]', '-', 'g')),
-  'owner',
-  true
-FROM (
-  SELECT DISTINCT user_email FROM work_item WHERE user_email IS NOT NULL
-  UNION SELECT DISTINCT user_email FROM contact WHERE user_email IS NOT NULL
-  UNION SELECT DISTINCT user_email FROM memory WHERE user_email IS NOT NULL
-  UNION SELECT DISTINCT user_email FROM notebook
-  UNION SELECT DISTINCT email FROM user_setting
-) AS emails(user_email, email)
-ON CONFLICT (email, namespace) DO NOTHING;
-
--- Step 2: Backfill namespace from user_email on each table
-UPDATE work_item SET namespace = (SELECT ng.namespace FROM namespace_grant ng WHERE ng.email = work_item.user_email AND ng.is_default = true LIMIT 1) WHERE user_email IS NOT NULL;
--- ... repeat for each table ...
-
--- Step 3: Give everyone access to 'default' for previously-unscoped data
-INSERT INTO namespace_grant (email, namespace, role, is_default)
-SELECT DISTINCT email, 'default', 'member', false
-FROM user_setting
-ON CONFLICT (email, namespace) DO NOTHING;
-```
+> **Canonical migration SQL is in Section 9.1.** The strategy is:
+> 1. Derive a personal namespace from each user_setting email (slugified local part)
+> 2. Create `namespace_grant` with `role: owner, is_default: true`
+> 3. Add namespace column to all entity tables (default `'default'`)
+> 4. Backfill: set each row's namespace to its `user_email`'s default namespace
+> 5. Rows with NULL `user_email` stay in `'default'`; all users get a `'default'` grant
 
 ### 12.2 CRITICAL: Cross-namespace references — policy undefined
 
