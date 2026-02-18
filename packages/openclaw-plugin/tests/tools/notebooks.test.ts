@@ -66,8 +66,8 @@ describe('notebook tools', () => {
               id: '123e4567-e89b-12d3-a456-426614174000',
               name: 'Work Notes',
               description: 'Notes for work',
-              isArchived: false,
-              noteCount: 5,
+              is_archived: false,
+              note_count: 5,
               created_at: '2024-01-01T00:00:00Z',
               updated_at: '2024-01-01T00:00:00Z',
             },
@@ -128,8 +128,8 @@ describe('notebook tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Work Notes',
           description: null,
-          isArchived: false,
-          noteCount: 2,
+          is_archived: false,
+          note_count: 2,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
         },
@@ -160,8 +160,8 @@ describe('notebook tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Work Notes',
           description: null,
-          isArchived: false,
-          noteCount: 1,
+          is_archived: false,
+          note_count: 1,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           notes: [{ id: 'note-1', title: 'Note 1', visibility: 'private', updated_at: '2024-01-01' }],
@@ -232,8 +232,8 @@ describe('notebook tools', () => {
               id: '123e4567-e89b-12d3-a456-426614174000',
               name: 'Work Notes',
               description: 'Notes for work',
-              isArchived: false,
-              noteCount: 5,
+              is_archived: false,
+              note_count: 5,
               created_at: '2024-01-01T00:00:00Z',
               updated_at: '2024-01-01T00:00:00Z',
             },
@@ -241,8 +241,8 @@ describe('notebook tools', () => {
               id: '223e4567-e89b-12d3-a456-426614174001',
               name: 'Personal',
               description: null,
-              isArchived: false,
-              noteCount: 10,
+              is_archived: false,
+              note_count: 10,
               created_at: '2024-01-01T00:00:00Z',
               updated_at: '2024-01-01T00:00:00Z',
             },
@@ -456,8 +456,8 @@ describe('notebook tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Work Notes',
           description: 'Notes for work',
-          isArchived: false,
-          noteCount: 5,
+          is_archived: false,
+          note_count: 5,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
         };
@@ -482,7 +482,7 @@ describe('notebook tools', () => {
         if (result.success) {
           expect(result.data.id).toBe(mockNotebook.id);
           expect(result.data.name).toBe(mockNotebook.name);
-          expect(result.data.noteCount).toBe(5);
+          expect(result.data.note_count).toBe(5);
         }
       });
 
@@ -514,8 +514,8 @@ describe('notebook tools', () => {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Work Notes',
           description: null,
-          isArchived: false,
-          noteCount: 2,
+          is_archived: false,
+          note_count: 2,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           notes: [

@@ -33,9 +33,9 @@ export interface Note {
   user_email: string;
   tags: string[];
   visibility: NoteVisibility;
-  hideFromAgents: boolean;
+  hide_from_agents: boolean;
   summary: string | null;
-  isPinned: boolean;
+  is_pinned: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -188,7 +188,7 @@ export function createNoteCreateTool(options: NoteToolOptions): NoteCreateTool {
 
 export const NoteGetParamsSchema = z.object({
   noteId: z.string().uuid('Note ID must be a valid UUID'),
-  includeVersions: z.boolean().optional().default(false),
+  include_versions: z.boolean().optional().default(false),
 });
 export type NoteGetParams = z.infer<typeof NoteGetParamsSchema>;
 
@@ -202,11 +202,11 @@ export interface NoteGetSuccess {
     tags: string[];
     visibility: string;
     summary: string | null;
-    isPinned: boolean;
+    is_pinned: boolean;
     created_at: string;
     updated_at: string;
     url?: string;
-    versionCount?: number;
+    version_count?: number;
   };
 }
 
@@ -239,18 +239,18 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
         return { success: false, error: errorMessage };
       }
 
-      const { noteId, includeVersions } = parseResult.data;
+      const { noteId, include_versions } = parseResult.data;
 
       logger.info('note_get invoked', {
         user_id,
         noteId,
-        includeVersions,
+        include_versions,
       });
 
       try {
         const queryParams = new URLSearchParams({ user_email: user_id });
-        if (includeVersions) {
-          queryParams.set('includeVersions', 'true');
+        if (include_versions) {
+          queryParams.set('include_versions', 'true');
         }
 
         const response = await client.get<Note>(`/api/notes/${noteId}?${queryParams}`, { user_id });
@@ -287,11 +287,11 @@ export function createNoteGetTool(options: NoteToolOptions): NoteGetTool {
             tags: note.tags,
             visibility: note.visibility,
             summary: note.summary,
-            isPinned: note.isPinned,
+            is_pinned: note.is_pinned,
             created_at: note.created_at,
             updated_at: note.updated_at,
             ...(config.baseUrl ? { url: `${config.baseUrl}/notes/${note.id}` } : {}),
-            versionCount: (note as Note & { versionCount?: number }).versionCount,
+            version_count: (note as Note & { version_count?: number }).version_count,
           },
         };
       } catch (error) {
@@ -321,7 +321,7 @@ export const NoteUpdateParamsSchema = z.object({
   tags: z.array(z.string()).max(20).optional(),
   visibility: NoteVisibility.optional(),
   summary: z.string().max(1000).nullable().optional(),
-  isPinned: z.boolean().optional(),
+  is_pinned: z.boolean().optional(),
 });
 export type NoteUpdateParams = z.infer<typeof NoteUpdateParamsSchema>;
 
@@ -368,7 +368,7 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
         return { success: false, error: errorMessage };
       }
 
-      const { noteId, title, content, notebook_id, tags, visibility, summary, isPinned } = parseResult.data;
+      const { noteId, title, content, notebook_id, tags, visibility, summary, is_pinned } = parseResult.data;
 
       // Track what's being changed
       const changes: string[] = [];
@@ -412,9 +412,9 @@ export function createNoteUpdateTool(options: NoteToolOptions): NoteUpdateTool {
         changes.push('summary');
       }
 
-      if (isPinned !== undefined) {
-        updateData.is_pinned = isPinned;
-        changes.push('isPinned');
+      if (is_pinned !== undefined) {
+        updateData.is_pinned = is_pinned;
+        changes.push('is_pinned');
       }
 
       if (changes.length === 0) {

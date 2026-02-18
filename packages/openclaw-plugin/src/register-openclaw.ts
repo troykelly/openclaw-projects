@@ -643,7 +643,7 @@ const messageSearchSchema: JSONSchema = {
       maximum: 100,
       default: 10,
     },
-    includeThread: {
+    include_thread: {
       type: 'boolean',
       description: 'Include full thread context',
       default: false,
@@ -2040,13 +2040,13 @@ function createToolHandlers(state: PluginState) {
         channel = 'all',
         contact_id,
         limit = 10,
-        includeThread = false,
+        include_thread = false,
       } = params as {
         query: string;
         channel?: string;
         contact_id?: string;
         limit?: number;
-        includeThread?: boolean;
+        include_thread?: boolean;
       };
 
       // Validate query
@@ -2063,7 +2063,7 @@ function createToolHandlers(state: PluginState) {
         channel,
         hasContactId: !!contact_id,
         limit,
-        includeThread,
+        include_thread,
       });
 
       try {
@@ -2079,8 +2079,8 @@ function createToolHandlers(state: PluginState) {
         if (contact_id) {
           queryParams.set('contact_id', contact_id);
         }
-        if (includeThread) {
-          queryParams.set('includeThread', 'true');
+        if (include_thread) {
+          queryParams.set('include_thread', 'true');
         }
 
         // Unified search API: returns { results: [{ type, id, title, snippet, score, metadata }], total }

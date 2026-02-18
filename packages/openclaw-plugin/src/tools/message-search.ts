@@ -25,7 +25,7 @@ export const MessageSearchParamsSchema = z.object({
   channel: ChannelType.default('all'),
   contact_id: z.string().uuid().optional(),
   limit: z.number().int().min(1, 'Limit must be at least 1').max(MAX_LIMIT, `Limit must be ${MAX_LIMIT} or less`).default(DEFAULT_LIMIT),
-  includeThread: z.boolean().default(false),
+  include_thread: z.boolean().default(false),
 });
 export type MessageSearchParams = z.infer<typeof MessageSearchParamsSchema>;
 
@@ -118,7 +118,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         return { success: false, error: errorMessage };
       }
 
-      const { query, channel, contact_id, limit, includeThread } = parseResult.data;
+      const { query, channel, contact_id, limit, include_thread } = parseResult.data;
 
       // Log invocation
       logger.info('message_search invoked', {
@@ -127,7 +127,7 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         channel,
         hasContactId: !!contact_id,
         limit,
-        includeThread,
+        include_thread,
       });
 
       try {
@@ -143,8 +143,8 @@ export function createMessageSearchTool(options: MessageSearchToolOptions): Mess
         if (contact_id) {
           queryParams.set('contact_id', contact_id);
         }
-        if (includeThread) {
-          queryParams.set('includeThread', 'true');
+        if (include_thread) {
+          queryParams.set('include_thread', 'true');
         }
 
         // Call API
