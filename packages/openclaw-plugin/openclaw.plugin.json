@@ -155,6 +155,12 @@
         "type": "string",
         "pattern": "^https?://",
         "description": "PromptGuard-2 classifier URL for multilingual injection detection (e.g., http://prompt-guard:8190)"
+      },
+      "namespace": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$",
+        "maxLength": 63,
+        "description": "Default namespace for data scoping (e.g., 'personal', 'team-alpha')"
       }
     },
     "additionalProperties": false,
@@ -309,6 +315,12 @@
       "label": "PromptGuard URL",
       "placeholder": "http://prompt-guard:8190",
       "help": "URL for PromptGuard-2 classifier service (enables multilingual prompt injection detection)",
+      "group": "Advanced"
+    },
+    "namespace": {
+      "label": "Namespace",
+      "placeholder": "default",
+      "help": "Default namespace for data scoping. All data operations will be scoped to this namespace.",
       "group": "Advanced"
     }
   }
