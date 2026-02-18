@@ -324,8 +324,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     return `${html}${injection}`;
   }
 
-  /** Send an HTML response with the app frontend shell, bootstrap data, and CSP headers. */
-  function sendAppHtml(reply: any, bootstrap: unknown | null): any {
+  /** Send an HTML response with the app frontend shell, bootstrap data, and CSP headers.
+   *  Epic #1418: automatically injects namespace_grants from the user's email. */
+  async function sendAppHtml(reply: any, bootstrap: unknown | null): Promise<any> {
+    // Inject namespace grants if bootstrap contains user email
+    const bs = bootstrap as Record<string, unknown> | null;
+    const email = (bs?.me as Record<string, unknown> | undefined)?.email as string | undefined;
+    if (email && bs) {
+      const pool = createPool();
+      try {
+        const grants = await pool.query(
+          `SELECT namespace, role, is_default FROM namespace_grant WHERE email = $1 ORDER BY is_default DESC, namespace`,
+          [email],
+        );
+        bs.namespace_grants = grants.rows;
+      } finally {
+        await pool.end();
+      }
+    }
     const nonce = generateCspNonce();
     return reply.code(200)
       .header('content-type', 'text/html; charset=utf-8')

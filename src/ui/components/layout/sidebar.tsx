@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, StickyNote } from 'lucide-react';
+import { Bell, Folder, Calendar, Users, Search, Settings, ChevronLeft, ChevronRight, Plus, StickyNote, Globe } from 'lucide-react';
 import { cn } from '@/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { ScrollArea } from '@/ui/components/ui/scroll-area';
+import { useNamespaceSafe } from '@/ui/contexts/namespace-context';
 
 export interface NavItem {
   id: string;
@@ -43,6 +45,12 @@ export function Sidebar({
     onCollapsedChange?.(!collapsed);
   };
 
+  const ns = useNamespaceSafe();
+  const grants = ns?.grants ?? [];
+  const activeNamespace = ns?.activeNamespace ?? 'default';
+  const setActiveNamespace = ns?.setActiveNamespace;
+  const hasMultipleNamespaces = ns?.hasMultipleNamespaces ?? false;
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -72,6 +80,62 @@ export function Sidebar({
             </button>
           )}
         </div>
+
+        {/* Namespace Selector */}
+        {grants.length > 0 && (
+          <div className="px-3 pt-2">
+            {hasMultipleNamespaces ? (
+              collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex w-full items-center justify-center rounded-md py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      aria-label={`Namespace: ${activeNamespace}`}
+                    >
+                      <Globe className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8} className="font-medium">
+                    {activeNamespace}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Select value={activeNamespace} onValueChange={(v) => setActiveNamespace?.(v)}>
+                  <SelectTrigger size="sm" className="w-full text-xs" aria-label="Select namespace">
+                    <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grants.map((g) => (
+                      <SelectItem key={g.namespace} value={g.namespace}>
+                        {g.namespace}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground',
+                      collapsed && 'justify-center px-0',
+                    )}
+                  >
+                    <Globe className="size-3.5 shrink-0" />
+                    {!collapsed && <span className="truncate">{activeNamespace}</span>}
+                  </div>
+                </TooltipTrigger>
+                {collapsed && (
+                  <TooltipContent side="right" sideOffset={8} className="font-medium">
+                    {activeNamespace}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            )}
+          </div>
+        )}
 
         {/* Create Button */}
         {onCreateClick && (

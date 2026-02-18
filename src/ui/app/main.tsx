@@ -17,6 +17,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/ui/providers/ThemeProvider';
 import { UserProvider } from '@/ui/contexts/user-context';
+import { NamespaceProvider } from '@/ui/contexts/namespace-context';
 import { routes } from '@/ui/routes';
 
 /** Shared QueryClient instance with default stale time and retry policy. */
@@ -43,7 +44,9 @@ createRoot(el).render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <UserProvider>
-          <RouterProvider router={router} />
+          <NamespaceProvider>
+            <RouterProvider router={router} />
+          </NamespaceProvider>
         </UserProvider>
       </QueryClientProvider>
     </ThemeProvider>

@@ -1254,6 +1254,13 @@ export interface ProposeIdentityChangeBody {
 // Bootstrap (server-injected data)
 // ---------------------------------------------------------------------------
 
+/** A namespace grant from the namespace_grant table (Epic #1418). */
+export interface NamespaceGrant {
+  namespace: string;
+  role: string;
+  is_default: boolean;
+}
+
 /** Bootstrap data injected by the server into the HTML page. */
 export interface AppBootstrap {
   route?: { kind?: string; id?: string };
@@ -1261,4 +1268,6 @@ export interface AppBootstrap {
   work_items?: WorkItemSummary[];
   workItem?: { id?: string; title?: string } | null;
   participants?: Array<{ participant?: string; role?: string }>;
+  /** Namespace grants for the authenticated user (Epic #1418). */
+  namespace_grants?: NamespaceGrant[];
 }
