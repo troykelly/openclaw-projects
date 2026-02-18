@@ -12,7 +12,7 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { getAuthIdentity, getSessionEmail } from './auth/middleware.ts';
+import { getAuthIdentity, getSessionEmail, resolveNamespaces } from './auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { logAuthEvent } from './auth/audit.ts';
@@ -544,6 +544,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (req.headers['x-user-email']) {
       (req.headers as Record<string, string>)['x-user-email'] = bound;
     }
+  });
+
+  // Namespace resolution hook (Issue #1475): resolves namespace context from
+  // JWT grants + request params. Runs alongside old principal binding during
+  // transition period (Phases 1-3). Stored on req.namespaceContext for route
+  // handlers that have been migrated to namespace-based scoping.
+  const nsPool = createPool();
+  app.decorateRequest('namespaceContext', null);
+  app.addHook('preHandler', async (req) => {
+    req.namespaceContext = await resolveNamespaces(req, nsPool);
   });
 
   app.get('/health', async () => ({ ok: true }));
