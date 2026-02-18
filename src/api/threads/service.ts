@@ -286,10 +286,14 @@ export async function listThreads(pool: Pool, options: ThreadListOptions = {}): 
     paramIndex++;
   }
 
-  // Issue #1172: optional user_email scoping
+  // Epic #1418: user_email takes precedence during Phase 3 transition
   if (options.user_email) {
     whereClauses.push(`et.user_email = $${paramIndex}`);
     params.push(options.user_email);
+    paramIndex++;
+  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+    whereClauses.push(`et.namespace = ANY($${paramIndex}::text[])`);
+    params.push(options.queryNamespaces as unknown as string);
     paramIndex++;
   }
 

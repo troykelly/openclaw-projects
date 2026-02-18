@@ -70,6 +70,8 @@ export interface ListNotesOptions {
   offset?: number;
   sort_by?: 'created_at' | 'updated_at' | 'title';
   sort_order?: 'asc' | 'desc';
+  /** Epic #1418: namespace scoping (preferred over user_email) */
+  queryNamespaces?: string[];
 }
 
 /** Result of listing notes */

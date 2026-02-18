@@ -164,8 +164,11 @@ export async function resolveNamespaces(
   const requested = extractRequestedNamespace(req);
 
   if (isAuthDisabled()) {
-    const ns = requested || 'default';
-    return { storeNamespace: ns, queryNamespaces: [ns], isM2M: false };
+    // Only create namespace context when explicitly requested.
+    // Without this guard, every test request gets namespace filtering
+    // which breaks test isolation (all test data has namespace='default').
+    if (!requested) return null;
+    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: false };
   }
 
   const identity = await getAuthIdentity(req);

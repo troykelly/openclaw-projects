@@ -23,6 +23,7 @@ DROP INDEX IF EXISTS idx_context_namespace;
 DROP INDEX IF EXISTS idx_file_attachment_namespace;
 DROP INDEX IF EXISTS idx_file_share_namespace;
 DROP INDEX IF EXISTS idx_skill_store_item_namespace;
+DROP INDEX IF EXISTS idx_dev_session_namespace;
 
 -- STEP 2: Drop namespace columns from entity tables
 ALTER TABLE work_item DROP COLUMN IF EXISTS namespace;
@@ -44,6 +45,7 @@ ALTER TABLE context DROP COLUMN IF EXISTS namespace;
 ALTER TABLE file_attachment DROP COLUMN IF EXISTS namespace;
 ALTER TABLE file_share DROP COLUMN IF EXISTS namespace;
 ALTER TABLE skill_store_item DROP COLUMN IF EXISTS namespace;
+ALTER TABLE dev_session DROP COLUMN IF EXISTS namespace;
 
 -- STEP 3: Drop namespace_grant table and trigger
 DROP TRIGGER IF EXISTS namespace_grant_updated_at ON namespace_grant;

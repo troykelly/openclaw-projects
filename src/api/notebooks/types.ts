@@ -61,6 +61,8 @@ export interface ListNotebooksOptions {
   include_child_counts?: boolean;
   limit?: number;
   offset?: number;
+  /** Epic #1418: namespace scoping (preferred over user_email) */
+  queryNamespaces?: string[];
 }
 
 /** Result of listing notebooks */

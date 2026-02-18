@@ -72,6 +72,8 @@ export interface ThreadListOptions {
   contact_id?: string;
   /** Filter by user email (Issue #1172) */
   user_email?: string;
+  /** Epic #1418: namespace scoping (preferred over user_email) */
+  queryNamespaces?: string[];
 }
 
 export interface ThreadListItem {

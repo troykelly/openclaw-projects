@@ -63,7 +63,7 @@ export async function userOwnsNote(pool: Pool, noteId: string, user_email: strin
 /**
  * Creates a new note
  */
-export async function createNote(pool: Pool, input: CreateNoteInput, user_email: string): Promise<Note> {
+export async function createNote(pool: Pool, input: CreateNoteInput, user_email: string, namespace?: string): Promise<Note> {
   // Import embedding integration lazily to avoid circular deps
   const { triggerNoteEmbedding } = await import('../embeddings/note-integration.ts');
 
@@ -87,8 +87,8 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
   const result = await pool.query(
     `INSERT INTO note (
       user_email, title, content, notebook_id,
-      tags, visibility, hide_from_agents, summary, is_pinned
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      tags, visibility, hide_from_agents, summary, is_pinned, namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING
       id::text, notebook_id::text, user_email, title, content,
       summary, tags, is_pinned, sort_order, visibility,
@@ -104,6 +104,7 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
       input.hide_from_agents ?? false,
       input.summary ?? null,
       input.is_pinned ?? false,
+      namespace ?? 'default',
     ],
   );
 
@@ -210,9 +211,10 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
 
   // Build dynamic WHERE clause
   const conditions: string[] = ['n.deleted_at IS NULL'];
-  const params: (string | string[] | boolean | number)[] = [];
+  const params: unknown[] = [];
   let paramIndex = 1;
 
+  // Epic #1418: user_email takes precedence during Phase 3 transition
   // User can see: own notes OR shared with them OR public
   conditions.push(`(
     n.user_email = $${paramIndex}

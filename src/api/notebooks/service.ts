@@ -79,7 +79,7 @@ async function wouldCreateCircularReference(pool: Pool, notebook_id: string, new
 /**
  * Creates a new notebook
  */
-export async function createNotebook(pool: Pool, input: CreateNotebookInput, user_email: string): Promise<Notebook> {
+export async function createNotebook(pool: Pool, input: CreateNotebookInput, user_email: string, namespace?: string): Promise<Notebook> {
   // Validate parent notebook exists and belongs to user if provided
   if (input.parent_notebook_id) {
     const parentResult = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parent_notebook_id]);
@@ -93,13 +93,13 @@ export async function createNotebook(pool: Pool, input: CreateNotebookInput, use
 
   const result = await pool.query(
     `INSERT INTO notebook (
-      user_email, name, description, icon, color, parent_notebook_id
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+      user_email, name, description, icon, color, parent_notebook_id, namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING
       id::text, user_email, name, description, icon, color,
       parent_notebook_id::text, sort_order, is_archived, deleted_at,
       created_at, updated_at`,
-    [user_email, input.name, input.description ?? null, input.icon ?? null, input.color ?? null, input.parent_notebook_id ?? null],
+    [user_email, input.name, input.description ?? null, input.icon ?? null, input.color ?? null, input.parent_notebook_id ?? null, namespace ?? 'default'],
   );
 
   const notebook = mapRowToNotebook(result.rows[0]);
@@ -178,9 +178,14 @@ export async function listNotebooks(pool: Pool, user_email: string, options: Lis
   const offset = options.offset ?? 0;
 
   // Build WHERE clause
-  const conditions: string[] = ['nb.deleted_at IS NULL', 'nb.user_email = $1'];
-  const params: (string | boolean | number)[] = [user_email];
-  let paramIndex = 2;
+  const conditions: string[] = ['nb.deleted_at IS NULL'];
+  const params: unknown[] = [];
+  let paramIndex = 1;
+
+  // Epic #1418: user_email takes precedence during Phase 3 transition
+  conditions.push(`nb.user_email = $${paramIndex}`);
+  params.push(user_email);
+  paramIndex++;
 
   // Filter by parent (null means root notebooks)
   if (options.parent_id === null) {
@@ -237,21 +242,28 @@ export async function listNotebooks(pool: Pool, user_email: string, options: Lis
 /**
  * Gets notebooks as a tree structure
  */
-export async function getNotebooksTree(pool: Pool, user_email: string, includeNoteCounts = false): Promise<NotebookTreeNode[]> {
+export async function getNotebooksTree(pool: Pool, user_email: string, includeNoteCounts = false, queryNamespaces?: string[]): Promise<NotebookTreeNode[]> {
   // Get all notebooks for the user
   let selectCounts = '';
   if (includeNoteCounts) {
     selectCounts = ', (SELECT COUNT(*) FROM note WHERE notebook_id = nb.id AND deleted_at IS NULL) as note_count';
   }
 
+  // Epic #1418: namespace scoping (preferred over user_email)
+  let scopeCondition: string;
+  const params: unknown[] = [];
+  // Epic #1418: user_email takes precedence during Phase 3 transition
+  params.push(user_email);
+  scopeCondition = `nb.user_email = $1`;
+
   const result = await pool.query(
     `SELECT
       nb.id::text, nb.name, nb.icon, nb.color, nb.parent_notebook_id::text, nb.sort_order
       ${selectCounts}
     FROM notebook nb
-    WHERE nb.user_email = $1 AND nb.deleted_at IS NULL AND nb.is_archived = false
+    WHERE ${scopeCondition} AND nb.deleted_at IS NULL AND nb.is_archived = false
     ORDER BY nb.sort_order ASC, nb.name ASC`,
-    [user_email],
+    params,
   );
 
   // Build tree structure

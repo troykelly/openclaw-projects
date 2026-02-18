@@ -113,6 +113,8 @@ ALTER TABLE file_share ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 
   CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
 ALTER TABLE skill_store_item ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
   CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
+ALTER TABLE dev_session ADD COLUMN IF NOT EXISTS namespace text NOT NULL DEFAULT 'default'
+  CHECK (namespace ~ '^[a-z0-9][a-z0-9._-]*$' AND length(namespace) <= 63);
 
 -- ============================================================
 -- STEP 4: Backfill — migrate existing data to per-user namespaces
@@ -149,6 +151,8 @@ UPDATE entity_link el SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = lower(el.user_email) AND ng.is_default = true AND el.user_email IS NOT NULL;
 UPDATE skill_store_item ssi SET namespace = ng.namespace
   FROM namespace_grant ng WHERE ng.email = lower(ssi.user_email) AND ng.is_default = true AND ssi.user_email IS NOT NULL;
+UPDATE dev_session ds SET namespace = ng.namespace
+  FROM namespace_grant ng WHERE ng.email = lower(ds.user_email) AND ng.is_default = true AND ds.user_email IS NOT NULL;
 -- file_attachment has no user_email (only uploaded_by attribution) — stays 'default'
 -- file_share has no user_email (only created_by attribution) — stays 'default'
 -- list has no user_email — stays 'default'
@@ -176,3 +180,4 @@ CREATE INDEX IF NOT EXISTS idx_context_namespace ON context(namespace);
 CREATE INDEX IF NOT EXISTS idx_file_attachment_namespace ON file_attachment(namespace);
 CREATE INDEX IF NOT EXISTS idx_file_share_namespace ON file_share(namespace);
 CREATE INDEX IF NOT EXISTS idx_skill_store_item_namespace ON skill_store_item(namespace);
+CREATE INDEX IF NOT EXISTS idx_dev_session_namespace ON dev_session(namespace);

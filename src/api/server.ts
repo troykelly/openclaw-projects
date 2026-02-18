@@ -9,7 +9,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
 import { getAuthIdentity, getSessionEmail, resolveNamespaces } from './auth/middleware.ts';
@@ -1168,6 +1168,54 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ============================================================
+  // Namespace Scoping Helpers (Epic #1418, Phase 3)
+  // Used by entity routes to filter queries by namespace.
+  // During transition, routes accept both namespace and user_email.
+  // ============================================================
+
+  /**
+   * Adds namespace filtering to a query's WHERE conditions.
+   * If namespace context is available, filters by namespace.
+   * Falls back to user_email filtering for backward compatibility.
+   *
+   * @returns The namespace(s) being used for scoping (for INSERTs).
+   */
+  function addNamespaceFilter(
+    req: FastifyRequest,
+    conditions: string[],
+    params: unknown[],
+    userEmail?: string | null,
+  ): { storeNamespace: string; queryNamespaces: string[] } {
+    // Phase 3 transition: explicit user_email takes precedence.
+    // This preserves backward compat for API callers using ?user_email=
+    // while the namespace system is being rolled out.
+    if (userEmail) {
+      params.push(userEmail);
+      conditions.push(`user_email = $${params.length}`);
+      const nsCtx = req.namespaceContext;
+      return {
+        storeNamespace: nsCtx?.storeNamespace ?? 'default',
+        queryNamespaces: nsCtx?.queryNamespaces ?? ['default'],
+      };
+    }
+    // No explicit user_email — use namespace context if available
+    const nsCtx = req.namespaceContext;
+    if (nsCtx) {
+      params.push(nsCtx.queryNamespaces);
+      conditions.push(`namespace = ANY($${params.length}::text[])`);
+      return { storeNamespace: nsCtx.storeNamespace, queryNamespaces: nsCtx.queryNamespaces };
+    }
+    return { storeNamespace: 'default', queryNamespaces: ['default'] };
+  }
+
+  /**
+   * Gets the store namespace for write operations.
+   */
+  function getStoreNamespace(req: FastifyRequest): string {
+    return req.namespaceContext?.storeNamespace ?? 'default';
+  }
+
   // Real-time WebSocket endpoint (Issue #213)
   // Create a new hub instance per server (not a singleton) for proper cleanup
   const realtimeHub = new RealtimeHub();
@@ -1434,6 +1482,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         channel: query.channel,
         contact_id: query.contact_id,
         user_email: query.user_email,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send(result);
@@ -3166,7 +3215,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     // Build WHERE clause
     const conditions: string[] = [];
-    const params: (string | boolean)[] = [];
+    const params: unknown[] = [];
 
     // By default, exclude soft-deleted items
     if (query.include_deleted !== 'true') {
@@ -3179,11 +3228,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       conditions.push(`kind = $${params.length}`);
     }
 
-    // Filter by user_email if provided (Issue #1172)
-    if (query.user_email) {
-      params.push(query.user_email);
-      conditions.push(`user_email = $${params.length}`);
-    }
+    // Namespace scoping (Epic #1418) — prefer namespace, fall back to user_email
+    addNamespaceFilter(req, conditions, params, query.user_email);
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -3226,8 +3272,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Get all items with their children count using a recursive CTE
-    // Issue #1172: optional user_email scoping
-    const treeParams: (string | number)[] = [];
+    // Epic #1418: namespace scoping (replaces user_email scoping from Issue #1172)
+    const treeParams: unknown[] = [];
     const baseConditions: string[] = [];
     if (query.root_id) {
       treeParams.push(query.root_id);
@@ -3235,13 +3281,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     } else {
       baseConditions.push('wi.parent_work_item_id IS NULL');
     }
+    // Epic #1418: user_email takes precedence during Phase 3 transition
+    let nsChildFilter = '';
     if (query.user_email) {
       treeParams.push(query.user_email);
       baseConditions.push(`wi.user_email = $${treeParams.length}`);
+      nsChildFilter = ` AND wi.user_email = $${treeParams.length}`;
+    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+      treeParams.push(req.namespaceContext.queryNamespaces);
+      baseConditions.push(`wi.namespace = ANY($${treeParams.length}::text[])`);
+      nsChildFilter = ` AND wi.namespace = ANY($${treeParams.length}::text[])`;
     }
     treeParams.push(maxDepth);
     const depthParamIdx = treeParams.length;
-    const userEmailChildFilter = query.user_email ? ` AND wi.user_email = $${treeParams.indexOf(query.user_email) + 1}` : '';
 
     const result = await pool.query(
       `WITH RECURSIVE tree AS (
@@ -3266,7 +3318,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                 t.level + 1
            FROM work_item wi
            JOIN tree t ON wi.parent_work_item_id = t.id
-          WHERE t.level < $${depthParamIdx}${userEmailChildFilter}
+          WHERE t.level < $${depthParamIdx}${nsChildFilter}
        )
        SELECT t.id::text as id,
               t.title,
@@ -4004,11 +4056,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const user_email = body.user_email?.trim() || null;
+    const namespace = getStoreNamespace(req);
 
     const result = await pool.query(
-      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email, not_before, not_after)
-       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11, $12::timestamptz, $13::timestamptz)
-       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, not_before, not_after`,
+      `INSERT INTO work_item (title, description, kind, parent_id, work_item_kind, parent_work_item_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, user_email, not_before, not_after, namespace)
+       VALUES ($1, $2, $3, $4, $5::work_item_kind, $4, $6, $7, $8, $9, $10, $11, $12::timestamptz, $13::timestamptz, $14)
+       RETURNING id::text as id, title, description, kind, parent_id::text as parent_id, estimate_minutes, actual_minutes, recurrence_rule, recurrence_end, is_recurrence_template, not_before, not_after, namespace`,
       [
         body.title.trim(),
         body.description ?? null,
@@ -4023,6 +4076,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         user_email,
         notBefore,
         notAfter,
+        namespace,
       ],
     );
 
@@ -6468,19 +6522,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const contactUserEmail = body.user_email?.trim() || null;
+    const namespace = getStoreNamespace(req);
     const result = await pool.query(
       `INSERT INTO contact (display_name, notes, contact_kind, user_email,
         preferred_channel, quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
-        urgency_override_channel, notification_notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        urgency_override_channel, notification_notes, namespace)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id::text as id, display_name, notes, contact_kind::text as contact_kind,
         preferred_channel::text, quiet_hours_start::text, quiet_hours_end::text, quiet_hours_timezone,
-        urgency_override_channel::text, notification_notes,
+        urgency_override_channel::text, notification_notes, namespace,
         created_at, updated_at`,
       [
         display_name.trim(), body.notes ?? null, contact_kind, contactUserEmail,
         body.preferred_channel ?? null, body.quiet_hours_start ?? null, body.quiet_hours_end ?? null,
         body.quiet_hours_timezone ?? null, body.urgency_override_channel ?? null, body.notification_notes ?? null,
+        namespace,
       ],
     );
     await pool.end();
@@ -6634,10 +6690,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIndex++;
     }
 
-    // Issue #1172: optional user_email scoping
+    // Epic #1418: user_email takes precedence during Phase 3 transition
     if (query.user_email) {
       conditions.push(`c.user_email = $${paramIndex}`);
       params.push(query.user_email);
+      paramIndex++;
+    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+      conditions.push(`c.namespace = ANY($${paramIndex}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces as unknown as string);
       paramIndex++;
     }
 
@@ -7876,6 +7936,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
     };
 
+    // user_email required during Phase 3 transition
     if (!query.user_email) {
       return reply.code(400).send({ error: 'user_email is required' });
     }
@@ -7883,10 +7944,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const result = await getGlobalMemories(pool, query.user_email, {
+      const result = await getGlobalMemories(pool, query.user_email || '', {
         memory_type: query.memory_type as any,
         limit: Number.parseInt(query.limit || '50', 10),
         offset: Number.parseInt(query.offset || '0', 10),
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send({
@@ -7973,6 +8035,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         lng: body.lng,
         address: body.address,
         place_label: body.place_label,
+        namespace: getStoreNamespace(req),
       });
 
       // Generate content embedding asynchronously
@@ -8338,6 +8401,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         created_before,
         limit: parseInt(query.limit || '50', 10),
         offset: parseInt(query.offset || '0', 10),
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send({
@@ -10012,12 +10076,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     const linkType = body.link_type ?? 'related';
+    const namespace = getStoreNamespace(req);
     const result = await pool.query(
-      `INSERT INTO entity_link (source_type, source_id, target_type, target_id, link_type, created_by, user_email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO entity_link (source_type, source_id, target_type, target_id, link_type, created_by, user_email, namespace)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT ON CONSTRAINT uq_entity_link DO UPDATE SET created_by = EXCLUDED.created_by
-       RETURNING id::text, source_type, source_id::text, target_type, target_id::text, link_type, created_by, created_at`,
-      [body.source_type, body.source_id, body.target_type, body.target_id, linkType, body.created_by ?? null, query.user_email ?? null],
+       RETURNING id::text, source_type, source_id::text, target_type, target_id::text, link_type, created_by, created_at, namespace`,
+      [body.source_type, body.source_id, body.target_type, body.target_id, linkType, body.created_by ?? null, query.user_email ?? null, namespace],
     );
     await pool.end();
     return reply.code(201).send(result.rows[0]);
@@ -10038,7 +10103,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const conditions: string[] = [];
-    const params: string[] = [];
+    const params: unknown[] = [];
     let paramIdx = 1;
 
     if (hasSource) {
@@ -10056,9 +10121,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       params.push(query.link_type);
       paramIdx++;
     }
+    // Epic #1418: user_email takes precedence during Phase 3 transition
     if (query.user_email) {
       conditions.push(`(user_email = $${paramIdx} OR user_email IS NULL)`);
       params.push(query.user_email);
+      paramIdx++;
+    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+      conditions.push(`(namespace = ANY($${paramIdx}::text[]) OR namespace IS NULL)`);
+      params.push(req.namespaceContext.queryNamespaces);
       paramIdx++;
     }
 
@@ -11580,7 +11650,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       offset?: string;
     };
 
-    if (!query.user_email) {
+    // Epic #1418: namespace scoping — user_email is still accepted for backward compat
+    // but notification delivery is per-user (user_email kept per design doc 6.1)
+    if (!query.user_email && !req.namespaceContext) {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
@@ -11590,8 +11662,19 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    let whereClause = 'WHERE user_email = $1 AND dismissed_at IS NULL';
-    const params: (string | number)[] = [query.user_email];
+    const conditions: string[] = ['dismissed_at IS NULL'];
+    const params: unknown[] = [];
+    // Namespace scoping for notifications
+    const nsCtx = req.namespaceContext;
+    if (nsCtx && nsCtx.queryNamespaces.length > 0) {
+      params.push(nsCtx.queryNamespaces);
+      conditions.push(`namespace = ANY($${params.length}::text[])`);
+    }
+    if (query.user_email) {
+      params.push(query.user_email);
+      conditions.push(`user_email = $${params.length}`);
+    }
+    let whereClause = `WHERE ${conditions.join(' AND ')}`;
 
     if (unreadOnly) {
       whereClause += ' AND read_at IS NULL';
@@ -13823,6 +13906,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
         sort_by: query.sort_by as 'created_at' | 'updated_at' | 'title' | undefined,
         sort_order: query.sort_order as 'asc' | 'desc' | undefined,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send(result);
@@ -13910,6 +13994,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           is_pinned: body.is_pinned,
         },
         body.user_email,
+        getStoreNamespace(req),
       );
 
       return reply.code(201).send(note);
@@ -14707,6 +14792,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         include_child_counts: query.include_child_counts !== 'false',
         limit: query.limit ? Number.parseInt(query.limit, 10) : undefined,
         offset: query.offset ? Number.parseInt(query.offset, 10) : undefined,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send(result);
@@ -14731,7 +14817,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
-      const notebooks = await getNotebooksTree(pool, query.user_email, query.include_note_counts === 'true');
+      const notebooks = await getNotebooksTree(pool, query.user_email, query.include_note_counts === 'true', req.namespaceContext?.queryNamespaces);
 
       return reply.send({ notebooks });
     } finally {
@@ -14806,6 +14892,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           parent_notebook_id: body.parent_notebook_id,
         },
         body.user_email,
+        getStoreNamespace(req),
       );
 
       return reply.code(201).send(notebook);
@@ -16368,6 +16455,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const user_email = (body.user_email as string | undefined) ?? null;
     const expires_at = (body.expires_at as string | undefined) ?? null;
     const pinned = typeof body.pinned === 'boolean' ? body.pinned : false;
+    const namespace = getStoreNamespace(req);
 
     const pool = createPool();
     try {
@@ -16399,9 +16487,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         const upsertResult = await pool.query(
           `INSERT INTO skill_store_item
              (skill_id, collection, key, title, summary, content, data, tags,
-              priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+              priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                   $9, $10, $11, $12, $13, $14, $15)
+                   $9, $10, $11, $12, $13, $14, $15, $16)
            ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
            DO UPDATE SET
              title = EXCLUDED.title,
@@ -16415,10 +16503,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              source_url = EXCLUDED.source_url,
              user_email = EXCLUDED.user_email,
              expires_at = EXCLUDED.expires_at,
-             pinned = EXCLUDED.pinned
+             pinned = EXCLUDED.pinned,
+             namespace = EXCLUDED.namespace
            RETURNING ${SKILL_STORE_SELECT_COLS},
              (xmax = 0) AS _was_insert`,
-          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
+          [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, namespace],
         );
 
         const row = upsertResult.rows[0];
@@ -16445,11 +16534,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const insertResult = await pool.query(
         `INSERT INTO skill_store_item
            (skill_id, collection, key, title, summary, content, data, tags,
-            priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+            priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                 $9, $10, $11, $12, $13, $14, $15)
+                 $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING ${SKILL_STORE_SELECT_COLS}`,
-        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
+        [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, namespace],
       );
 
       // Emit activity event (Issue #808)
@@ -16589,15 +16678,16 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           const user_email = (item.user_email as string | undefined) ?? null;
           const expires_at = (item.expires_at as string | undefined) ?? null;
           const pinned = typeof item.pinned === 'boolean' ? item.pinned : false;
+          const bulkNs = getStoreNamespace(req);
 
           let result;
           if (key) {
             result = await pool.query(
               `INSERT INTO skill_store_item
                  (skill_id, collection, key, title, summary, content, data, tags,
-                  priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+                  priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                       $9, $10, $11, $12, $13, $14, $15)
+                       $9, $10, $11, $12, $13, $14, $15, $16)
                ON CONFLICT (skill_id, collection, key) WHERE key IS NOT NULL AND deleted_at IS NULL
                DO UPDATE SET
                  title = EXCLUDED.title,
@@ -16611,19 +16701,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                  source_url = EXCLUDED.source_url,
                  user_email = EXCLUDED.user_email,
                  expires_at = EXCLUDED.expires_at,
-                 pinned = EXCLUDED.pinned
+                 pinned = EXCLUDED.pinned,
+                 namespace = EXCLUDED.namespace
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, bulkNs],
             );
           } else {
             result = await pool.query(
               `INSERT INTO skill_store_item
                  (skill_id, collection, key, title, summary, content, data, tags,
-                  priority, media_url, media_type, source_url, user_email, expires_at, pinned)
+                  priority, media_url, media_type, source_url, user_email, expires_at, pinned, namespace)
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8,
-                       $9, $10, $11, $12, $13, $14, $15)
+                       $9, $10, $11, $12, $13, $14, $15, $16)
                RETURNING ${SKILL_STORE_SELECT_COLS}`,
-              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned],
+              [skillId, collection, key, title, summary, content, data, tags, priority, mediaUrl, mediaType, source_url, user_email, expires_at, pinned, bulkNs],
             );
           }
           results.push(result.rows[0]);
@@ -16835,9 +16926,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       paramIdx++;
     }
 
+    // Epic #1418: user_email takes precedence during Phase 3 transition
     if (user_email) {
       conditions.push(`user_email = $${paramIdx}`);
       params.push(user_email);
+      paramIdx++;
+    } else if (req.namespaceContext && req.namespaceContext.queryNamespaces.length > 0) {
+      conditions.push(`namespace = ANY($${paramIdx}::text[])`);
+      params.push(req.namespaceContext.queryNamespaces);
       paramIdx++;
     }
 
@@ -19392,14 +19488,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     const email = await getSessionEmail(req);
+    const namespace = getStoreNamespace(req);
     const pool = createPool();
     try {
       const result = await pool.query(
         `INSERT INTO pantry_item (
           user_email, name, location, quantity, category,
           is_leftover, leftover_dish, leftover_portions, meal_log_id,
-          use_by_date, use_soon, notes
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          use_by_date, use_soon, notes, namespace
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING ${PANTRY_COLUMNS}`,
         [
           email,
@@ -19414,6 +19511,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           body.use_by_date ?? null,
           body.use_soon ?? false,
           body.notes ?? null,
+          namespace,
         ],
       );
       return reply.code(201).send(result.rows[0]);
@@ -19634,14 +19732,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!sessionName) return reply.code(400).send({ error: 'session_name is required' });
     if (!node) return reply.code(400).send({ error: 'node is required' });
 
+    const namespace = getStoreNamespace(req);
     const pool = createPool();
     try {
       const result = await pool.query(
         `INSERT INTO dev_session (
           user_email, session_name, node, project_id, container,
           container_user, repo_org, repo_name, branch, task_summary,
-          task_prompt, linked_issues, linked_prs
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          task_prompt, linked_issues, linked_prs, namespace
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING *`,
         [
           email,
@@ -19657,6 +19756,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           body.task_prompt ?? null,
           Array.isArray(body.linked_issues) ? body.linked_issues : [],
           Array.isArray(body.linked_prs) ? body.linked_prs : [],
+          namespace,
         ],
       );
       return reply.code(201).send(result.rows[0]);
@@ -19671,9 +19771,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!email) return reply.code(400).send({ error: 'user_email is required (query param or header)' });
 
     const query = req.query as Record<string, string | undefined>;
-    const conditions: string[] = ['user_email = $1'];
-    const params: unknown[] = [email];
-    let idx = 2;
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+
+    // Epic #1418: user_email takes precedence during Phase 3 transition
+    conditions.push(`user_email = $${idx}`);
+    params.push(email);
+    idx++;
 
     if (query.status) {
       conditions.push(`status = $${idx}`);
@@ -19846,14 +19951,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'title is required' });
     }
 
+    const namespace = getStoreNamespace(req);
     const pool = createPool();
     try {
       // Insert recipe
       const recipeResult = await pool.query(
         `INSERT INTO recipe (user_email, title, description, source_url, source_name,
           prep_time_min, cook_time_min, total_time_min, servings, difficulty,
-          cuisine, meal_type, tags, rating, notes, is_favourite, image_s3_key)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          cuisine, meal_type, tags, rating, notes, is_favourite, image_s3_key, namespace)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
          RETURNING *`,
         [
           email,
@@ -19873,6 +19979,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           body.notes ?? null,
           body.is_favourite === true,
           body.image_s3_key ?? null,
+          namespace,
         ],
       );
       const recipe = recipeResult.rows[0] as Record<string, unknown>;
@@ -19933,9 +20040,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
     const query = req.query as Record<string, string | undefined>;
-    const conditions: string[] = ['user_email = $1'];
-    const params: unknown[] = [email];
-    let paramIdx = 2;
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    // Epic #1418: user_email takes precedence during Phase 3 transition
+    conditions.push(`user_email = $${paramIdx}`);
+    params.push(email);
+    paramIdx++;
 
     if (query.cuisine) {
       conditions.push(`cuisine = $${paramIdx}`);
@@ -20189,13 +20301,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'meal_date, meal_type, and source are required' });
     }
 
+    const namespace = getStoreNamespace(req);
     const pool = createPool();
     try {
       const result = await pool.query(
         `INSERT INTO meal_log (user_email, meal_date, meal_type, title, source, recipe_id,
           order_ref, restaurant, cuisine, who_ate, who_cooked, rating, notes,
-          leftovers_stored, image_s3_key)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          leftovers_stored, image_s3_key, namespace)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING *`,
         [
           email,
@@ -20213,6 +20326,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           body.notes ?? null,
           body.leftovers_stored === true,
           body.image_s3_key ?? null,
+          namespace,
         ],
       );
       return reply.code(201).send(result.rows[0]);
@@ -20268,9 +20382,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (!email) return reply.code(401).send({ error: 'Unauthorized' });
 
     const query = req.query as Record<string, string | undefined>;
-    const conditions: string[] = ['user_email = $1'];
-    const params: unknown[] = [email];
-    let paramIdx = 2;
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    // Epic #1418: namespace scoping
+    // Epic #1418: user_email takes precedence during Phase 3 transition
+    conditions.push(`user_email = $${paramIdx}`);
+    params.push(email);
+    paramIdx++;
 
     if (query.cuisine) {
       conditions.push(`cuisine = $${paramIdx}`);

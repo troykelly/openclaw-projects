@@ -107,6 +107,12 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
       "minimum": 0,
       "type": "number",
     },
+    "namespace": {
+      "description": "Default namespace for data scoping (e.g., 'personal', 'team-alpha')",
+      "maxLength": 63,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "type": "string",
+    },
     "nominatimUrl": {
       "description": "Nominatim reverse geocoding URL (e.g., http://nominatim:8080)",
       "pattern": "^https?://",
@@ -281,6 +287,12 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
     "group": "Memory",
     "help": "Minimum relevance score (0-1) for auto-recall",
     "label": "Min Recall Score",
+  },
+  "namespace": {
+    "group": "Advanced",
+    "help": "Default namespace for data scoping. All data operations will be scoped to this namespace.",
+    "label": "Namespace",
+    "placeholder": "default",
   },
   "nominatimUrl": {
     "group": "Advanced",

@@ -226,8 +226,8 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       tags,
       created_by_agent, created_by_human, source_url,
       importance, confidence, expires_at,
-      lat, lng, address, place_label
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::memory_type, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      lat, lng, address, place_label, namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::memory_type, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     RETURNING
       id::text, user_email, work_item_id::text, contact_id::text, relationship_id::text, project_id::text,
       title, content, memory_type::text, tags,
@@ -254,6 +254,7 @@ export async function createMemory(pool: Pool, input: CreateMemoryInput): Promis
       input.lng ?? null,
       input.address ?? null,
       input.place_label ?? null,
+      input.namespace ?? 'default',
     ],
   );
 
@@ -391,10 +392,14 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Scope filters
+  // Epic #1418: user_email takes precedence during Phase 3 transition
   if (options.user_email !== undefined) {
     conditions.push(`user_email = $${paramIndex}`);
     params.push(options.user_email);
+    paramIndex++;
+  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+    conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+    params.push(options.queryNamespaces);
     paramIndex++;
   }
 
@@ -496,10 +501,9 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
 export async function getGlobalMemories(
   pool: Pool,
   user_email: string,
-  options: { memory_type?: MemoryType; limit?: number; offset?: number } = {},
+  options: { memory_type?: MemoryType; limit?: number; offset?: number; queryNamespaces?: string[] } = {},
 ): Promise<ListMemoriesResult> {
   const conditions: string[] = [
-    'user_email = $1',
     'work_item_id IS NULL',
     'contact_id IS NULL',
     'relationship_id IS NULL',
@@ -507,8 +511,19 @@ export async function getGlobalMemories(
     '(expires_at IS NULL OR expires_at > NOW())',
     'superseded_by IS NULL',
   ];
-  const params: unknown[] = [user_email];
-  let paramIndex = 2;
+  const params: unknown[] = [];
+  let paramIndex = 1;
+
+  // Epic #1418: user_email takes precedence during Phase 3 transition
+  if (user_email) {
+    conditions.push(`user_email = $${paramIndex}`);
+    params.push(user_email);
+    paramIndex++;
+  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+    conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+    params.push(options.queryNamespaces);
+    paramIndex++;
+  }
 
   if (options.memory_type !== undefined) {
     conditions.push(`memory_type = $${paramIndex}::memory_type`);
@@ -682,9 +697,14 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
         const semanticParams: unknown[] = [];
         let semanticIdx = 3; // Start after embedding and min_similarity
 
+        // Epic #1418: user_email takes precedence during Phase 3 transition
         if (options.user_email !== undefined) {
           semanticConditions.push(`user_email = $${semanticIdx}`);
           semanticParams.push(options.user_email);
+          semanticIdx++;
+        } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+          semanticConditions.push(`namespace = ANY($${semanticIdx}::text[])`);
+          semanticParams.push(options.queryNamespaces);
           semanticIdx++;
         }
         if (options.work_item_id !== undefined) {
@@ -777,9 +797,14 @@ export async function searchMemories(pool: Pool, query: string, options: SearchM
   const textParams: unknown[] = [query];
   let textIdx = 2; // Start after query
 
+  // Epic #1418: user_email takes precedence during Phase 3 transition
   if (options.user_email !== undefined) {
     textConditions.push(`user_email = $${textIdx}`);
     textParams.push(options.user_email);
+    textIdx++;
+  } else if (options.queryNamespaces && options.queryNamespaces.length > 0) {
+    textConditions.push(`namespace = ANY($${textIdx}::text[])`);
+    textParams.push(options.queryNamespaces);
     textIdx++;
   }
   if (options.work_item_id !== undefined) {
