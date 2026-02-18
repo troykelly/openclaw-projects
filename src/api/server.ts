@@ -8338,7 +8338,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         title: body.title.trim(),
         content: body.content.trim(),
         memory_type: memory_type as any,
-        user_email: oldMemory.user_email ?? undefined,
         work_item_id: oldMemory.work_item_id ?? undefined,
         contact_id: oldMemory.contact_id ?? undefined,
         relationship_id: oldMemory.relationship_id ?? undefined,
