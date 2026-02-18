@@ -152,7 +152,7 @@ describe('File Storage API Endpoints', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().error).toContain('expiresIn');
+      expect(response.json().error).toContain('expires_in');
     });
   });
 
