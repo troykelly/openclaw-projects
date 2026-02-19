@@ -28,14 +28,17 @@ function generateSnippet(text: string, maxLength: number = SNIPPET_LENGTH): stri
 async function searchWorkItemsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
-  const params: (string | number | Date)[] = [query];
+  const params: (string | number | Date | string[])[] = [query];
   let paramIndex = 2;
 
-  // Epic #1418 Phase 4: user_email column dropped from work_item table.
-  // Namespace scoping is handled at the route level.
+  // Epic #1418 Phase 4: namespace scoping
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -81,15 +84,18 @@ async function searchWorkItemsText(
 async function searchWorkItemsSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'", 'deleted_at IS NULL'];
-  const params: (string | number | Date)[] = [embeddingStr];
+  const params: (string | number | Date | string[])[] = [embeddingStr];
   let paramIndex = 2;
 
-  // Epic #1418 Phase 4: user_email column dropped from work_item table.
-  // Namespace scoping is handled at the route level.
+  // Epic #1418 Phase 4: namespace scoping
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -136,11 +142,17 @@ async function searchWorkItemsSemantic(
 async function searchContactsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
-  const params: (string | number | Date)[] = [query];
+  const params: (string | number | Date | string[])[] = [query];
   let paramIndex = 2;
+
+  // Epic #1418: namespace scoping
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
