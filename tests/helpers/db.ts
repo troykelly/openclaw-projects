@@ -130,6 +130,33 @@ const APPLICATION_TABLES = [
  */
 const PG_DEADLOCK_DETECTED = '40P01';
 
+/**
+ * Ensures a test user has user_setting and namespace_grant rows for the given namespace.
+ * Call after truncateAllTables() in beforeEach to restore namespace access
+ * (CASCADE from work_item → user_setting → namespace_grant deletes these).
+ *
+ * @param pool - The PostgreSQL pool
+ * @param email - The test user's email
+ * @param namespace - The namespace to grant (default: 'default')
+ */
+export async function ensureTestNamespace(
+  pool: Pool,
+  email: string,
+  namespace: string = 'default',
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO user_setting (email) VALUES ($1)
+     ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email`,
+    [email],
+  );
+  await pool.query(
+    `INSERT INTO namespace_grant (email, namespace, role, is_default)
+     VALUES ($1, $2, 'owner', true)
+     ON CONFLICT (email, namespace) DO NOTHING`,
+    [email, namespace],
+  );
+}
+
 export async function truncateAllTables(pool: Pool): Promise<void> {
   // Build a single TRUNCATE statement for efficiency
   // Filter to tables that actually exist to avoid errors on partial migrations

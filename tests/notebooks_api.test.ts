@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
   const app = buildServer();
@@ -18,6 +18,7 @@ describe('Notebooks CRUD API (Epic #337, Issue #345)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, testUserEmail);
   });
 
   afterAll(async () => {

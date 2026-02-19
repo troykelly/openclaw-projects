@@ -25,7 +25,28 @@ DROP INDEX IF EXISTS idx_file_share_namespace;
 DROP INDEX IF EXISTS idx_skill_store_item_namespace;
 DROP INDEX IF EXISTS idx_dev_session_namespace;
 
--- STEP 2: Drop namespace columns from entity tables
+-- STEP 2a: Drop views that depend on namespace columns (they use SELECT *)
+-- These views must be dropped before the columns they depend on.
+-- They will be recreated by the earlier migration's up scripts.
+DROP VIEW IF EXISTS note_with_references;
+DROP VIEW IF EXISTS notebook_active;
+DROP VIEW IF EXISTS notebook_trash;
+DROP VIEW IF EXISTS note_active;
+DROP VIEW IF EXISTS note_trash;
+DROP VIEW IF EXISTS work_item_active;
+DROP VIEW IF EXISTS work_item_trash;
+DROP VIEW IF EXISTS contact_active;
+DROP VIEW IF EXISTS contact_trash;
+
+-- Drop namespace-based indexes added by migration 091
+DROP INDEX IF EXISTS idx_notebook_ns_not_deleted;
+DROP INDEX IF EXISTS idx_note_ns_not_deleted;
+DROP INDEX IF EXISTS idx_note_pinned;
+
+-- Drop updated function from migration 091
+DROP FUNCTION IF EXISTS user_can_access_note(uuid, text, text);
+
+-- STEP 2b: Drop namespace columns from entity tables
 ALTER TABLE work_item DROP COLUMN IF EXISTS namespace;
 ALTER TABLE memory DROP COLUMN IF EXISTS namespace;
 ALTER TABLE contact DROP COLUMN IF EXISTS namespace;

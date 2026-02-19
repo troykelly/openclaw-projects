@@ -97,10 +97,10 @@ describe('Note Search API', () => {
     for (const note of notes) {
       const result = await pool.query(
         `INSERT INTO note (
-          user_email, title, content, visibility, hide_from_agents, tags, notebook_id
+          namespace, title, content, visibility, hide_from_agents, tags, notebook_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id::text`,
-        [ownerEmail, note.title, note.content, note.visibility, note.hide_from_agents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
+        ['default', note.title, note.content, note.visibility, note.hide_from_agents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
       );
       createdNoteIds.push(result.rows[0].id);
     }

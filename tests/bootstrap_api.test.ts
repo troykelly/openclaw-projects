@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 describe('Agent Bootstrap API (Issue #219)', () => {
   const app = buildServer();
@@ -16,6 +16,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, 'test@example.com');
   });
 
   afterAll(async () => {

@@ -97,8 +97,13 @@ export interface SharedWithMeEntry {
  * Ownership is now inferred by namespace membership (checked at the route level).
  * This function returns true if the notebook exists (not deleted).
  */
-async function userOwnsNotebook(pool: Pool, notebook_id: string, _user_email: string): Promise<boolean> {
-  const result = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
+async function userOwnsNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT nb.id FROM notebook nb
+     JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
+     WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
+    [notebook_id, user_email],
+  );
   return result.rows.length > 0;
 }
 

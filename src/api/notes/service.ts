@@ -52,13 +52,17 @@ export async function userCanAccessNote(pool: Pool, noteId: string, user_email: 
 }
 
 /**
- * Checks if user owns a note.
+ * Checks if user owns a note via namespace membership.
  * Phase 4 (Epic #1418): user_email column dropped from note table.
- * Ownership is now inferred by namespace membership (checked at the route level).
- * This function returns true if the note exists (not deleted).
+ * Ownership is inferred by having a namespace_grant for the note's namespace.
  */
-export async function userOwnsNote(pool: Pool, noteId: string, _user_email: string): Promise<boolean> {
-  const result = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
+export async function userOwnsNote(pool: Pool, noteId: string, user_email: string): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT n.id FROM note n
+     JOIN namespace_grant ng ON ng.namespace = n.namespace AND ng.email = $2
+     WHERE n.id = $1 AND n.deleted_at IS NULL`,
+    [noteId, user_email],
+  );
   return result.rows.length > 0;
 }
 
@@ -403,14 +407,17 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
 }
 
 /**
- * Soft deletes a note (only owner can delete)
+ * Soft deletes a note (only namespace member can delete)
  */
-export async function deleteNote(pool: Pool, noteId: string, _user_email: string): Promise<boolean> {
-  // Phase 4 (Epic #1418): user_email column dropped from note table.
-  // Ownership is now inferred by namespace membership (checked at the route level).
-  const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
-  if (exists.rows.length === 0) {
-    throw new Error('NOT_FOUND');
+export async function deleteNote(pool: Pool, noteId: string, user_email: string): Promise<boolean> {
+  // Phase 4 (Epic #1418): check namespace membership for ownership
+  const isOwner = await userOwnsNote(pool, noteId, user_email);
+  if (!isOwner) {
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1 AND deleted_at IS NULL', [noteId]);
+    if (exists.rows.length === 0) {
+      throw new Error('NOT_FOUND');
+    }
+    throw new Error('FORBIDDEN');
   }
 
   const result = await pool.query(`UPDATE note SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`, [noteId]);
@@ -419,11 +426,26 @@ export async function deleteNote(pool: Pool, noteId: string, _user_email: string
 }
 
 /**
- * Restores a soft-deleted note (only owner can restore)
+ * Restores a soft-deleted note (only namespace member can restore)
  */
-export async function restoreNote(pool: Pool, noteId: string, _user_email: string): Promise<Note | null> {
-  // Phase 4 (Epic #1418): user_email column dropped from note table.
-  // Ownership is now inferred by namespace membership (checked at the route level).
+export async function restoreNote(pool: Pool, noteId: string, user_email: string): Promise<Note | null> {
+  // Phase 4 (Epic #1418): check namespace membership for ownership.
+  // Note: can't use userOwnsNote here because it filters deleted_at IS NULL,
+  // and we're restoring a deleted note. Check namespace membership directly.
+  const accessCheck = await pool.query(
+    `SELECT n.id FROM note n
+     JOIN namespace_grant ng ON ng.namespace = n.namespace AND ng.email = $2
+     WHERE n.id = $1`,
+    [noteId, user_email],
+  );
+  if (accessCheck.rows.length === 0) {
+    const exists = await pool.query('SELECT id FROM note WHERE id = $1', [noteId]);
+    if (exists.rows.length === 0) {
+      return null; // 404
+    }
+    throw new Error('FORBIDDEN');
+  }
+
   const noteResult = await pool.query('SELECT id FROM note WHERE id = $1', [noteId]);
 
   if (noteResult.rows.length === 0) {

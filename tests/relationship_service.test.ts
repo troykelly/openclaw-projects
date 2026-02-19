@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 import {
   createRelationship,
@@ -113,6 +113,7 @@ describe('Relationship Service (Epic #486, Issue #491)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, 'test@example.com');
     await seedRequiredRelationshipTypes(pool);
   });
 

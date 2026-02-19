@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
 
 describe('Todos API (issue #108)', () => {
@@ -17,6 +17,7 @@ describe('Todos API (issue #108)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, 'test@example.com');
 
     // Create a work item for todos to attach to
     const created = await app.inject({

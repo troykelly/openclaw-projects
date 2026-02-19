@@ -1,6 +1,5 @@
 -- Migration 091 DOWN: Restore user_email scoping columns (Epic #1418, Phase 4 rollback)
-
-BEGIN;
+-- NOTE: No explicit BEGIN/COMMIT — the migration runner wraps each file in a transaction.
 
 -- Drop replacement indexes
 DROP INDEX IF EXISTS idx_notebook_namespace_not_deleted;
@@ -100,8 +99,67 @@ LEFT JOIN work_item w ON r.work_item_id = w.id
 WHERE n.deleted_at IS NULL
 GROUP BY n.id;
 
+-- Restore original user_can_access_note() that uses note.user_email
+CREATE OR REPLACE FUNCTION user_can_access_note(
+  p_note_id uuid,
+  p_user_email text,
+  p_required_permission text DEFAULT 'read'
+) RETURNS boolean AS $$
+DECLARE
+  v_note RECORD;
+  v_has_access boolean := false;
+BEGIN
+  SELECT n.user_email, n.visibility, n.notebook_id, n.deleted_at
+  INTO v_note
+  FROM note n
+  WHERE n.id = p_note_id;
+
+  IF v_note IS NULL OR v_note.deleted_at IS NOT NULL THEN
+    RETURN false;
+  END IF;
+
+  IF v_note.user_email = p_user_email THEN
+    RETURN true;
+  END IF;
+
+  IF v_note.visibility = 'public' AND p_required_permission = 'read' THEN
+    RETURN true;
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM note_share ns
+    WHERE ns.note_id = p_note_id
+      AND ns.shared_with_email = p_user_email
+      AND (ns.expires_at IS NULL OR ns.expires_at > NOW())
+      AND (
+        p_required_permission = 'read'
+        OR ns.permission = 'read_write'
+      )
+  ) INTO v_has_access;
+
+  IF v_has_access THEN
+    RETURN true;
+  END IF;
+
+  IF v_note.notebook_id IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1 FROM notebook_share nbs
+      WHERE nbs.notebook_id = v_note.notebook_id
+        AND nbs.shared_with_email = p_user_email
+        AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
+        AND (
+          p_required_permission = 'read'
+          OR nbs.permission = 'read_write'
+        )
+    ) INTO v_has_access;
+  END IF;
+
+  RETURN v_has_access;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION user_can_access_note IS 'Check if user has specified permission on note via ownership, direct share, or notebook share';
+
 -- Remove deprecation comments
 COMMENT ON TABLE note_share IS NULL;
 COMMENT ON TABLE notebook_share IS NULL;
-
-COMMIT;
