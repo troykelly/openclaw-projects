@@ -225,17 +225,16 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418 Phase 4: user_email column dropped from note table.
-  // Access control: public notes OR shared with current user.
-  // Namespace scoping is handled at the route level.
+  // Epic #1418 Phase 4: Access control via namespace + sharing.
+  // Notes visible if: in caller's namespaces, or explicitly shared with caller.
+  const queryNs = options.queryNamespaces ?? ['default'];
   conditions.push(`(
-    n.visibility = 'public'
-    OR EXISTS (SELECT 1 FROM note_share ns WHERE ns.note_id = n.id AND ns.shared_with_email = $${paramIndex} AND (ns.expires_at IS NULL OR ns.expires_at > NOW()))
-    OR EXISTS (SELECT 1 FROM notebook_share nbs WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $${paramIndex} AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW()))
-    OR 1=1
+    n.namespace = ANY($${paramIndex}::text[])
+    OR EXISTS (SELECT 1 FROM note_share ns WHERE ns.note_id = n.id AND ns.shared_with_email = $${paramIndex + 1} AND (ns.expires_at IS NULL OR ns.expires_at > NOW()))
+    OR EXISTS (SELECT 1 FROM notebook_share nbs WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $${paramIndex + 1} AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW()))
   )`);
-  params.push(user_email);
-  paramIndex++;
+  params.push(queryNs, user_email);
+  paramIndex += 2;
 
   if (options.notebook_id) {
     conditions.push(`n.notebook_id = $${paramIndex}`);

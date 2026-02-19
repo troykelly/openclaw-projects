@@ -196,9 +196,11 @@ export async function listNotebooks(pool: Pool, user_email: string, options: Lis
   const params: unknown[] = [];
   let paramIndex = 1;
 
-  // Epic #1418 Phase 4: user_email column dropped from notebook table.
-  // Namespace scoping is handled at the route level via queryNamespaces.
-  // No user_email filter applied here.
+  // Epic #1418 Phase 4: namespace scoping replaces user_email.
+  const queryNs = options.queryNamespaces ?? ['default'];
+  conditions.push(`nb.namespace = ANY($${paramIndex}::text[])`);
+  params.push(queryNs);
+  paramIndex++;
 
   // Filter by parent (null means root notebooks)
   if (options.parent_id === null) {

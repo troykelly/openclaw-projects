@@ -355,9 +355,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
    * Replaces the old verifyUserEmailScope (Epic #1418, Phase 4).
    */
   async function verifyNamespaceScope(pool: ReturnType<typeof createPool>, table: string, id: string, req: FastifyRequest): Promise<boolean> {
-    const nsCtx = req.namespaceContext;
-    if (!nsCtx) return true;
-    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`, [id, nsCtx.queryNamespaces]);
+    const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
+    const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`, [id, queryNamespaces]);
     return result.rows.length > 0;
   }
 
@@ -801,14 +800,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         return reply.code(404).send({ error: `user '${email}' not found` });
       }
 
-      // For user tokens, verify they have a grant to this namespace
+      // For user tokens, verify they have admin/owner role in this namespace
       if (identity.type === 'user') {
         const access = await pool.query(
-          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
           [identity.email, params.ns],
         );
         if (access.rows.length === 0) {
           return reply.code(403).send({ error: 'No access to namespace' });
+        }
+        const callerRole = access.rows[0].role as string;
+        if (callerRole !== 'owner' && callerRole !== 'admin') {
+          return reply.code(403).send({ error: 'Only owner or admin can manage grants' });
         }
       }
 
@@ -856,11 +859,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       if (identity.type === 'user') {
         const access = await pool.query(
-          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
           [identity.email, params.ns],
         );
         if (access.rows.length === 0) {
           return reply.code(403).send({ error: 'No access to namespace' });
+        }
+        const callerRole = access.rows[0].role as string;
+        if (callerRole !== 'owner' && callerRole !== 'admin') {
+          return reply.code(403).send({ error: 'Only owner or admin can manage grants' });
         }
       }
 
@@ -923,11 +930,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       if (identity.type === 'user') {
         const access = await pool.query(
-          `SELECT 1 FROM namespace_grant WHERE email = $1 AND namespace = $2`,
+          `SELECT role FROM namespace_grant WHERE email = $1 AND namespace = $2`,
           [identity.email, params.ns],
         );
         if (access.rows.length === 0) {
           return reply.code(403).send({ error: 'No access to namespace' });
+        }
+        const callerRole = access.rows[0].role as string;
+        if (callerRole !== 'owner' && callerRole !== 'admin') {
+          return reply.code(403).send({ error: 'Only owner or admin can manage grants' });
         }
       }
 
@@ -1201,12 +1212,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     params: unknown[],
   ): { storeNamespace: string; queryNamespaces: string[] } {
     const nsCtx = req.namespaceContext;
-    if (nsCtx) {
-      params.push(nsCtx.queryNamespaces);
-      conditions.push(`namespace = ANY($${params.length}::text[])`);
-      return { storeNamespace: nsCtx.storeNamespace, queryNamespaces: nsCtx.queryNamespaces };
-    }
-    return { storeNamespace: 'default', queryNamespaces: ['default'] };
+    const queryNamespaces = nsCtx?.queryNamespaces ?? ['default'];
+    const storeNamespace = nsCtx?.storeNamespace ?? 'default';
+    params.push(queryNamespaces);
+    conditions.push(`namespace = ANY($${params.length}::text[])`);
+    return { storeNamespace, queryNamespaces };
   }
 
   /**
@@ -1417,6 +1427,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         include_todos: body.include_todos,
         include_contacts: body.include_contacts,
         min_similarity: body.min_similarity,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send(result);
@@ -3454,6 +3465,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
+    // Epic #1418: namespace scoping
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
     const result = await pool.query(
       `UPDATE work_item
           SET status = $2,
@@ -3686,9 +3703,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
+      // Epic #1418: namespace scoping — only delete items in caller's namespaces
+      const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
       const result = await pool.query(
-        `DELETE FROM work_item WHERE id = ANY($1::uuid[]) RETURNING id::text as id`,
-        [body.ids],
+        `DELETE FROM work_item WHERE id = ANY($1::uuid[]) AND namespace = ANY($2::text[]) RETURNING id::text as id`,
+        [body.ids, queryNamespaces],
       );
 
       await pool.end();
@@ -3745,8 +3764,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     try {
       await client.query('BEGIN');
 
+      // Epic #1418: scope IDs to caller's namespaces
+      const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
+      const scopedResult = await client.query(
+        `SELECT id::text FROM work_item WHERE id = ANY($1::uuid[]) AND namespace = ANY($2::text[])`,
+        [body.ids, queryNamespaces],
+      );
+      const ids = scopedResult.rows.map((r: { id: string }) => r.id);
+      if (ids.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        await pool.end();
+        return reply.send({ success: true, updated: 0, items: [] });
+      }
+
       let result;
-      const ids = body.ids;
 
       switch (body.action) {
         case 'status':
@@ -4316,6 +4348,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
+    // Epic #1418: namespace scoping
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
     // Fetch current row so we can validate hierarchy semantics on parent changes.
     const existing = await pool.query(
       `SELECT kind, parent_id::text as parent_id, estimate_minutes, actual_minutes
@@ -4456,6 +4494,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as { permanent?: string };
     const pool = createPool();
 
+    // Epic #1418: namespace scoping
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
     // Check if permanent delete requested
     if (query.permanent === 'true') {
       const result = await pool.query(`DELETE FROM work_item WHERE id = $1 RETURNING id::text as id`, [params.id]);
@@ -4480,6 +4524,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.post('/api/work-items/:id/restore', async (req, reply) => {
     const params = req.params as { id: string };
     const pool = createPool();
+
+    // Epic #1418: namespace scoping
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
 
     const result = await pool.query(
       `UPDATE work_item SET deleted_at = NULL

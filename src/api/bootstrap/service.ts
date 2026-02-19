@@ -82,19 +82,19 @@ async function fetchUser(pool: Pool, user_email: string): Promise<BootstrapUser 
 
 /**
  * Fetches user preferences (preference-type memories).
- * Phase 4 (Epic #1418): user_email column dropped from memory table.
- * Namespace scoping is handled at the route level.
+ * Phase 4 (Epic #1418): namespace scoping replaces user_email.
  */
-async function fetchPreferences(pool: Pool, _user_email: string, limit: number): Promise<BootstrapPreference[]> {
+async function fetchPreferences(pool: Pool, _user_email: string, limit: number, queryNamespaces: string[] = ['default']): Promise<BootstrapPreference[]> {
   const result = await pool.query(
     `SELECT id::text, memory_type as type, title, content, importance, created_at
      FROM memory
      WHERE memory_type IN ('preference', 'fact')
        AND (expires_at IS NULL OR expires_at > NOW())
        AND superseded_by IS NULL
+       AND namespace = ANY($2::text[])
      ORDER BY importance DESC, created_at DESC
      LIMIT $1`,
-    [limit],
+    [limit, queryNamespaces],
   );
 
   return result.rows.map((row) => {
@@ -120,15 +120,16 @@ async function fetchPreferences(pool: Pool, _user_email: string, limit: number):
 /**
  * Fetches active projects.
  */
-async function fetchActiveProjects(pool: Pool, limit: number): Promise<BootstrapProject[]> {
+async function fetchActiveProjects(pool: Pool, limit: number, queryNamespaces: string[] = ['default']): Promise<BootstrapProject[]> {
   const result = await pool.query(
     `SELECT id::text, title, status, work_item_kind::text as kind, updated_at
      FROM work_item
      WHERE work_item_kind::text IN ('project', 'epic', 'initiative')
        AND status NOT IN ('completed', 'cancelled', 'archived')
+       AND namespace = ANY($2::text[])
      ORDER BY updated_at DESC
      LIMIT $1`,
-    [limit],
+    [limit, queryNamespaces],
   );
 
   return result.rows.map((row) => {
@@ -152,16 +153,17 @@ async function fetchActiveProjects(pool: Pool, limit: number): Promise<Bootstrap
 /**
  * Fetches pending reminders (work items with not_before in the future).
  */
-async function fetchPendingReminders(pool: Pool, limit: number): Promise<BootstrapReminder[]> {
+async function fetchPendingReminders(pool: Pool, limit: number, queryNamespaces: string[] = ['default']): Promise<BootstrapReminder[]> {
   const result = await pool.query(
     `SELECT id::text, title, description, not_before, work_item_kind::text as kind
      FROM work_item
      WHERE not_before IS NOT NULL
        AND not_before > NOW()
        AND status NOT IN ('completed', 'cancelled', 'archived')
+       AND namespace = ANY($2::text[])
      ORDER BY not_before ASC
      LIMIT $1`,
-    [limit],
+    [limit, queryNamespaces],
   );
 
   return result.rows.map((row) => {
@@ -185,7 +187,7 @@ async function fetchPendingReminders(pool: Pool, limit: number): Promise<Bootstr
 /**
  * Fetches recent activity.
  */
-async function fetchRecentActivity(pool: Pool, limit: number): Promise<BootstrapActivity[]> {
+async function fetchRecentActivity(pool: Pool, limit: number, queryNamespaces: string[] = ['default']): Promise<BootstrapActivity[]> {
   // Activity is tracked in the activity table if it exists
   // For now, we'll use work_item changes as a proxy
   const result = await pool.query(
@@ -196,9 +198,10 @@ async function fetchRecentActivity(pool: Pool, limit: number): Promise<Bootstrap
        updated_at as timestamp
      FROM work_item
      WHERE updated_at > NOW() - INTERVAL '7 days'
+       AND namespace = ANY($2::text[])
      ORDER BY updated_at DESC
      LIMIT $1`,
-    [limit],
+    [limit, queryNamespaces],
   );
 
   return result.rows.map((row) => {
@@ -243,7 +246,7 @@ async function fetchUnreadMessages(pool: Pool): Promise<number> {
 /**
  * Fetches key contacts.
  */
-async function fetchKeyContacts(pool: Pool, limit: number): Promise<BootstrapContact[]> {
+async function fetchKeyContacts(pool: Pool, limit: number, queryNamespaces: string[] = ['default']): Promise<BootstrapContact[]> {
   const result = await pool.query(
     `SELECT
        c.id::text,
@@ -256,9 +259,10 @@ async function fetchKeyContacts(pool: Pool, limit: number): Promise<BootstrapCon
        ) as last_contact,
        (SELECT COUNT(*) FROM contact_endpoint WHERE contact_id = c.id) as endpoint_count
      FROM contact c
+     WHERE c.namespace = ANY($2::text[])
      ORDER BY last_contact DESC NULLS LAST
      LIMIT $1`,
-    [limit],
+    [limit, queryNamespaces],
   );
 
   return result.rows.map((row) => {
@@ -330,16 +334,17 @@ export async function getBootstrapContext(pool: Pool, options: BootstrapOptions 
   };
 
   const user_email = options.user_email ?? '';
+  const nsScope = options.queryNamespaces ?? ['default'];
 
   // Execute queries in parallel for performance
   const [user, preferences, active_projects, pending_reminders, recent_activity, unread_messages, key_contacts, stats] = await Promise.all([
     sections.has('user') && user_email ? fetchUser(pool, user_email) : Promise.resolve(null),
-    sections.has('preferences') && user_email ? fetchPreferences(pool, user_email, limits.preferences) : Promise.resolve([]),
-    sections.has('projects') ? fetchActiveProjects(pool, limits.projects) : Promise.resolve([]),
-    sections.has('reminders') ? fetchPendingReminders(pool, limits.reminders) : Promise.resolve([]),
-    sections.has('activity') ? fetchRecentActivity(pool, limits.activity) : Promise.resolve([]),
+    sections.has('preferences') && user_email ? fetchPreferences(pool, user_email, limits.preferences, nsScope) : Promise.resolve([]),
+    sections.has('projects') ? fetchActiveProjects(pool, limits.projects, nsScope) : Promise.resolve([]),
+    sections.has('reminders') ? fetchPendingReminders(pool, limits.reminders, nsScope) : Promise.resolve([]),
+    sections.has('activity') ? fetchRecentActivity(pool, limits.activity, nsScope) : Promise.resolve([]),
     sections.has('messages') ? fetchUnreadMessages(pool) : Promise.resolve(0),
-    sections.has('contacts') ? fetchKeyContacts(pool, limits.contacts) : Promise.resolve([]),
+    sections.has('contacts') ? fetchKeyContacts(pool, limits.contacts, nsScope) : Promise.resolve([]),
     sections.has('stats')
       ? fetchStats(pool)
       : Promise.resolve({

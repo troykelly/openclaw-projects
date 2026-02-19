@@ -90,6 +90,8 @@ export interface BootstrapOptions {
     activity?: number;
     contacts?: number;
   };
+  /** Epic #1418: namespace scoping for entity queries */
+  queryNamespaces?: string[];
 }
 
 /** Available bootstrap sections */
