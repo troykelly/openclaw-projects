@@ -43,12 +43,12 @@ describe('Skill Store Search (Issue #798)', () => {
       key?: string;
       tags?: string[];
       status?: string;
-      user_email?: string;
+      namespace?: string;
       deleted_at?: string;
     } = {},
   ): Promise<string> {
     const result = await pool.query(
-      `INSERT INTO skill_store_item (skill_id, collection, key, title, summary, content, tags, status, user_email, deleted_at)
+      `INSERT INTO skill_store_item (skill_id, collection, key, title, summary, content, tags, status, namespace, deleted_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::skill_store_item_status, 'active'), $9, $10::timestamptz)
        RETURNING id::text as id`,
       [
@@ -60,7 +60,7 @@ describe('Skill Store Search (Issue #798)', () => {
         overrides.content ?? null,
         overrides.tags ?? [],
         overrides.status ?? null,
-        overrides.user_email ?? null,
+        overrides.namespace ?? 'default',
         overrides.deleted_at ?? null,
       ],
     );
@@ -154,20 +154,20 @@ describe('Skill Store Search (Issue #798)', () => {
       expect(result.results[0].title).toBe('Active Item');
     });
 
-    it('filters by user_email', async () => {
+    it('filters by namespace', async () => {
       const { searchSkillStoreFullText } = await import('../src/api/skill-store/search.ts');
 
-      await insertItem({ skill_id: 'sk1', title: 'User Item', content: 'Personal content', user_email: 'alice@example.com' });
-      await insertItem({ skill_id: 'sk1', title: 'Other User Item', content: 'Other content', user_email: 'bob@example.com' });
+      await insertItem({ skill_id: 'sk1', title: 'User Item', content: 'Personal content', namespace: 'ns-alice' });
+      await insertItem({ skill_id: 'sk1', title: 'Other User Item', content: 'Other content', namespace: 'ns-bob' });
 
       const result = await searchSkillStoreFullText(pool, {
         skill_id: 'sk1',
         query: 'content',
-        user_email: 'alice@example.com',
+        namespace: 'ns-alice',
       });
 
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].user_email).toBe('alice@example.com');
+      expect(result.results[0].namespace).toBe('ns-alice');
     });
 
     it('excludes soft-deleted items', async () => {

@@ -21,21 +21,20 @@ describe('Dev Sessions API (Issue #1285)', () => {
 
     // Clean up
     await pool.query(`DELETE FROM dev_session WHERE user_email = $1`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM work_item WHERE user_email = $1`, [TEST_EMAIL]);
+    await pool.query(`DELETE FROM work_item WHERE namespace = 'default'`);
 
     // Create a test project
     const projectResult = await pool.query(
-      `INSERT INTO work_item (title, kind, user_email)
-       VALUES ('Dev Session Test Project', 'project', $1)
+      `INSERT INTO work_item (title, kind, namespace)
+       VALUES ('Dev Session Test Project', 'project', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     project_id = projectResult.rows[0].id;
   });
 
   afterAll(async () => {
     await pool.query(`DELETE FROM dev_session WHERE user_email = $1`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM work_item WHERE user_email = $1`, [TEST_EMAIL]);
+    await pool.query(`DELETE FROM work_item WHERE namespace = 'default'`);
     await pool.end();
     await app.close();
   });

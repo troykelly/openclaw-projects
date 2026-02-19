@@ -32,7 +32,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
       const columns = result.rows.map((r) => r.column_name);
       expect(columns).toContain('id');
-      expect(columns).toContain('user_email');
+      expect(columns).toContain('namespace');
       expect(columns).toContain('name');
       expect(columns).toContain('description');
       expect(columns).toContain('icon');
@@ -48,8 +48,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     it('supports hierarchical structure via parent_notebook_id', async () => {
       // Create parent notebook
       const parent = await pool.query(`
-        INSERT INTO notebook (user_email, name)
-        VALUES ('test@example.com', 'Parent Notebook')
+        INSERT INTO notebook (namespace, name)
+        VALUES ('default', 'Parent Notebook')
         RETURNING id
       `);
       const parent_id = parent.rows[0].id;
@@ -57,8 +57,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       // Create child notebook
       const child = await pool.query(
         `
-        INSERT INTO notebook (user_email, name, parent_notebook_id)
-        VALUES ('test@example.com', 'Child Notebook', $1)
+        INSERT INTO notebook (namespace, name, parent_notebook_id)
+        VALUES ('default', 'Child Notebook', $1)
         RETURNING id, parent_notebook_id
       `,
         [parent_id],
@@ -67,14 +67,14 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       expect(child.rows[0].parent_notebook_id).toBe(parent_id);
 
       // Cleanup
-      await pool.query('DELETE FROM notebook WHERE user_email = $1', ['test@example.com']);
+      await pool.query("DELETE FROM notebook WHERE namespace = 'default'");
     });
 
     it('auto-updates updated_at timestamp on modification', async () => {
       // Create notebook
       const created = await pool.query(`
-        INSERT INTO notebook (user_email, name)
-        VALUES ('test@example.com', 'Test Notebook')
+        INSERT INTO notebook (namespace, name)
+        VALUES ('default', 'Test Notebook')
         RETURNING id, created_at, updated_at
       `);
       const id = created.rows[0].id;
@@ -104,8 +104,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     beforeAll(async () => {
       // Create a test notebook for note tests
       const result = await pool.query(`
-        INSERT INTO notebook (user_email, name)
-        VALUES ('test@example.com', 'Test Notebook for Notes')
+        INSERT INTO notebook (namespace, name)
+        VALUES ('default', 'Test Notebook for Notes')
         RETURNING id
       `);
       notebook_id = result.rows[0].id;
@@ -113,8 +113,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
     afterAll(async () => {
       // Cleanup test data
-      await pool.query('DELETE FROM note WHERE user_email = $1', ['test@example.com']);
-      await pool.query('DELETE FROM notebook WHERE user_email = $1', ['test@example.com']);
+      await pool.query("DELETE FROM note WHERE namespace = 'default'");
+      await pool.query("DELETE FROM notebook WHERE namespace = 'default'");
     });
 
     it('exists with all required columns', async () => {
@@ -128,7 +128,7 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       const columns = result.rows.map((r) => r.column_name);
       expect(columns).toContain('id');
       expect(columns).toContain('notebook_id');
-      expect(columns).toContain('user_email');
+      expect(columns).toContain('namespace');
       expect(columns).toContain('title');
       expect(columns).toContain('content');
       expect(columns).toContain('summary');
@@ -150,8 +150,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     it('enforces visibility CHECK constraint', async () => {
       // Valid values should work
       const valid = await pool.query(`
-        INSERT INTO note (user_email, title, visibility)
-        VALUES ('test@example.com', 'Private Note', 'private')
+        INSERT INTO note (namespace, title, visibility)
+        VALUES ('default', 'Private Note', 'private')
         RETURNING id
       `);
       expect(valid.rows[0].id).toBeDefined();
@@ -159,8 +159,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       // Invalid value should fail
       await expect(
         pool.query(`
-          INSERT INTO note (user_email, title, visibility)
-          VALUES ('test@example.com', 'Bad Note', 'invalid_visibility')
+          INSERT INTO note (namespace, title, visibility)
+          VALUES ('default', 'Bad Note', 'invalid_visibility')
         `),
       ).rejects.toThrow();
     });
@@ -168,8 +168,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     it('enforces embedding_status CHECK constraint', async () => {
       // Valid status should work
       const valid = await pool.query(`
-        INSERT INTO note (user_email, title, embedding_status)
-        VALUES ('test@example.com', 'Pending Note', 'pending')
+        INSERT INTO note (namespace, title, embedding_status)
+        VALUES ('default', 'Pending Note', 'pending')
         RETURNING id
       `);
       expect(valid.rows[0].id).toBeDefined();
@@ -177,16 +177,16 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       // Invalid status should fail
       await expect(
         pool.query(`
-          INSERT INTO note (user_email, title, embedding_status)
-          VALUES ('test@example.com', 'Bad Note', 'invalid_status')
+          INSERT INTO note (namespace, title, embedding_status)
+          VALUES ('default', 'Bad Note', 'invalid_status')
         `),
       ).rejects.toThrow();
     });
 
     it('auto-updates search_vector on insert and update', async () => {
       const created = await pool.query(`
-        INSERT INTO note (user_email, title, content, summary)
-        VALUES ('test@example.com', 'Search Test', 'This is the content', 'Brief summary')
+        INSERT INTO note (namespace, title, content, summary)
+        VALUES ('default', 'Search Test', 'This is the content', 'Brief summary')
         RETURNING id, search_vector
       `);
       const id = created.rows[0].id;
@@ -208,8 +208,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
     it('auto-updates updated_at timestamp on modification', async () => {
       const created = await pool.query(`
-        INSERT INTO note (user_email, title, content)
-        VALUES ('test@example.com', 'Update Test', 'Initial content')
+        INSERT INTO note (namespace, title, content)
+        VALUES ('default', 'Update Test', 'Initial content')
         RETURNING id, updated_at
       `);
       const id = created.rows[0].id;
@@ -225,8 +225,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     it('resets embedding to pending when content changes', async () => {
       // Create note with complete embedding
       const created = await pool.query(`
-        INSERT INTO note (user_email, title, content, embedding_status)
-        VALUES ('test@example.com', 'Embedding Test', 'Initial content', 'complete')
+        INSERT INTO note (namespace, title, content, embedding_status)
+        VALUES ('default', 'Embedding Test', 'Initial content', 'complete')
         RETURNING id
       `);
       const id = created.rows[0].id;
@@ -243,8 +243,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     it('can associate note with notebook', async () => {
       const created = await pool.query(
         `
-        INSERT INTO note (user_email, title, notebook_id)
-        VALUES ('test@example.com', 'Notebook Note', $1)
+        INSERT INTO note (namespace, title, notebook_id)
+        VALUES ('default', 'Notebook Note', $1)
         RETURNING id, notebook_id
       `,
         [notebook_id],
@@ -255,8 +255,8 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
 
     it('supports tags array', async () => {
       const created = await pool.query(`
-        INSERT INTO note (user_email, title, tags)
-        VALUES ('test@example.com', 'Tagged Note', ARRAY['work', 'important', 'meeting'])
+        INSERT INTO note (namespace, title, tags)
+        VALUES ('default', 'Tagged Note', ARRAY['work', 'important', 'meeting'])
         RETURNING id, tags
       `);
 
@@ -277,23 +277,23 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
     beforeAll(async () => {
       // Create test data
       const notebook = await pool.query(`
-        INSERT INTO notebook (user_email, name)
-        VALUES ('test@example.com', 'View Test Notebook')
+        INSERT INTO notebook (namespace, name)
+        VALUES ('default', 'View Test Notebook')
         RETURNING id
       `);
       notebook_id = notebook.rows[0].id;
 
       const note = await pool.query(`
-        INSERT INTO note (user_email, title)
-        VALUES ('test@example.com', 'View Test Note')
+        INSERT INTO note (namespace, title)
+        VALUES ('default', 'View Test Note')
         RETURNING id
       `);
       noteId = note.rows[0].id;
     });
 
     afterAll(async () => {
-      await pool.query('DELETE FROM note WHERE user_email = $1', ['test@example.com']);
-      await pool.query('DELETE FROM notebook WHERE user_email = $1', ['test@example.com']);
+      await pool.query("DELETE FROM note WHERE namespace = 'default'");
+      await pool.query("DELETE FROM notebook WHERE namespace = 'default'");
     });
 
     it('note_active excludes soft-deleted notes', async () => {
@@ -340,18 +340,18 @@ describe('Notes and Notebooks Schema (Migration 040)', () => {
       const indexes = result.rows.map((r) => r.indexname);
 
       // Notebook indexes
-      expect(indexes).toContain('idx_notebook_user_email');
+      expect(indexes).toContain('idx_notebook_namespace');
       expect(indexes).toContain('idx_notebook_parent');
-      expect(indexes).toContain('idx_notebook_user_not_deleted');
+      expect(indexes).toContain('idx_notebook_namespace_not_deleted');
 
       // Note indexes
       expect(indexes).toContain('idx_note_notebook_id');
-      expect(indexes).toContain('idx_note_user_email');
+      expect(indexes).toContain('idx_note_namespace');
       expect(indexes).toContain('idx_note_visibility');
-      expect(indexes).toContain('idx_note_user_not_deleted');
+      expect(indexes).toContain('idx_note_namespace_not_deleted');
       expect(indexes).toContain('idx_note_created_at');
       expect(indexes).toContain('idx_note_updated_at');
-      expect(indexes).toContain('idx_note_pinned');
+      expect(indexes).toContain('idx_note_namespace_pinned');
       expect(indexes).toContain('idx_note_tags');
       expect(indexes).toContain('idx_note_search_vector');
       expect(indexes).toContain('idx_note_embedding');

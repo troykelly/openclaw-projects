@@ -40,13 +40,13 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
       key?: string;
       tags?: string[];
       status?: string;
-      user_email?: string;
+      namespace?: string;
       deleted_at?: string;
       created_at?: string;
     } = {},
   ): Promise<string> {
     const result = await pool.query(
-      `INSERT INTO skill_store_item (skill_id, collection, key, title, summary, content, tags, status, user_email, deleted_at, created_at)
+      `INSERT INTO skill_store_item (skill_id, collection, key, title, summary, content, tags, status, namespace, deleted_at, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::skill_store_item_status, 'active'), $9, $10::timestamptz, COALESCE($11::timestamptz, now()))
        RETURNING id::text as id`,
       [
@@ -58,7 +58,7 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
         overrides.content ?? null,
         overrides.tags ?? [],
         overrides.status ?? null,
-        overrides.user_email ?? null,
+        overrides.namespace ?? 'default',
         overrides.deleted_at ?? null,
         overrides.created_at ?? null,
       ],
@@ -101,17 +101,17 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
       expect(result).toEqual({ count: 2 });
     });
 
-    it('filters by user_email', async () => {
+    it('filters by namespace', async () => {
       const { aggregateSkillStoreItems } = await import('../src/api/skill-store/aggregate.ts');
 
-      await insertItem({ skill_id: 'sk1', title: 'User A item', user_email: 'a@test.com' });
-      await insertItem({ skill_id: 'sk1', title: 'User B item', user_email: 'b@test.com' });
-      await insertItem({ skill_id: 'sk1', title: 'No user item' });
+      await insertItem({ skill_id: 'sk1', title: 'NS A item', namespace: 'ns-a' });
+      await insertItem({ skill_id: 'sk1', title: 'NS B item', namespace: 'ns-b' });
+      await insertItem({ skill_id: 'sk1', title: 'Default ns item' });
 
       const result = await aggregateSkillStoreItems(pool, {
         skill_id: 'sk1',
         operation: 'count',
-        user_email: 'a@test.com',
+        namespace: 'ns-a',
       });
 
       expect(result).toEqual({ count: 1 });
@@ -240,26 +240,26 @@ describe('Skill Store Aggregate & Collections (Issue #801)', () => {
     });
   });
 
-  // ── Collections with user_email ─────────────────────────────────────
+  // ── Collections with namespace ─────────────────────────────────────
 
-  describe('collections with user_email', () => {
-    it('filters collections by user_email', async () => {
-      await insertItem({ skill_id: 'sk1', collection: 'notes', user_email: 'a@test.com' });
-      await insertItem({ skill_id: 'sk1', collection: 'notes', user_email: 'a@test.com' });
-      await insertItem({ skill_id: 'sk1', collection: 'notes', user_email: 'b@test.com' });
-      await insertItem({ skill_id: 'sk1', collection: 'config', user_email: 'a@test.com' });
+  describe('collections with namespace', () => {
+    it('filters collections by namespace', async () => {
+      await insertItem({ skill_id: 'sk1', collection: 'notes', namespace: 'ns-a' });
+      await insertItem({ skill_id: 'sk1', collection: 'notes', namespace: 'ns-a' });
+      await insertItem({ skill_id: 'sk1', collection: 'notes', namespace: 'ns-b' });
+      await insertItem({ skill_id: 'sk1', collection: 'config', namespace: 'ns-a' });
 
-      // Query collections filtered by user a
+      // Query collections filtered by namespace
       const result = await pool.query(
         `SELECT collection,
                 COUNT(*) FILTER (WHERE deleted_at IS NULL)::int AS count,
                 MAX(created_at) FILTER (WHERE deleted_at IS NULL) AS latest_at
          FROM skill_store_item
-         WHERE skill_id = $1 AND user_email = $2
+         WHERE skill_id = $1 AND namespace = $2
          GROUP BY collection
          HAVING COUNT(*) FILTER (WHERE deleted_at IS NULL) > 0
          ORDER BY collection`,
-        ['sk1', 'a@test.com'],
+        ['sk1', 'ns-a'],
       );
 
       expect(result.rows).toHaveLength(2);

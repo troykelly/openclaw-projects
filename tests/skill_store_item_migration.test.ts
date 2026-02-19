@@ -86,8 +86,8 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       // Search
       expect(columns.get('search_vector')?.data_type).toBe('tsvector');
 
-      // Multi-user isolation
-      expect(columns.get('user_email')?.is_nullable).toBe('YES');
+      // Namespace scoping
+      expect(columns.get('namespace')?.is_nullable).toBe('NO');
 
       // Soft delete
       expect(columns.get('deleted_at')?.is_nullable).toBe('YES');
@@ -473,36 +473,36 @@ describe('Skill Store Item Migration (Issue #795)', () => {
       expect(indexNames).toContain('idx_skill_store_item_search_vector');
       expect(indexNames).toContain('idx_skill_store_item_embedding');
       expect(indexNames).toContain('idx_skill_store_item_embedding_status');
-      expect(indexNames).toContain('idx_skill_store_item_user_email');
+      expect(indexNames).toContain('idx_skill_store_item_namespace');
       expect(indexNames).toContain('idx_skill_store_item_deleted_at');
     });
   });
 
-  describe('Multi-user isolation', () => {
-    it('allows items with and without user_email', async () => {
-      // Shared item (no user)
+  describe('Namespace isolation', () => {
+    it('allows items scoped to different namespaces', async () => {
+      // Default namespace item
       await pool.query(
         `INSERT INTO skill_store_item (skill_id, key, title)
          VALUES ('news-skill', 'shared-config', 'Shared Config')`,
       );
 
-      // User-scoped item
+      // Custom namespace item
       await pool.query(
-        `INSERT INTO skill_store_item (skill_id, key, title, user_email)
-         VALUES ('news-skill', 'user-pref', 'User Preferences', 'alice@example.com')`,
+        `INSERT INTO skill_store_item (skill_id, key, title, namespace)
+         VALUES ('news-skill', 'user-pref', 'User Preferences', 'custom-ns')`,
       );
 
-      const shared = await pool.query(
+      const defaultNs = await pool.query(
         `SELECT count(*) FROM skill_store_item
-         WHERE skill_id = 'news-skill' AND user_email IS NULL`,
+         WHERE skill_id = 'news-skill' AND namespace = 'default'`,
       );
-      expect(parseInt(shared.rows[0].count)).toBe(1);
+      expect(parseInt(defaultNs.rows[0].count)).toBe(1);
 
-      const userScoped = await pool.query(
+      const customNs = await pool.query(
         `SELECT count(*) FROM skill_store_item
-         WHERE skill_id = 'news-skill' AND user_email = 'alice@example.com'`,
+         WHERE skill_id = 'news-skill' AND namespace = 'custom-ns'`,
       );
-      expect(parseInt(userScoped.rows[0].count)).toBe(1);
+      expect(parseInt(customNs.rows[0].count)).toBe(1);
     });
   });
 

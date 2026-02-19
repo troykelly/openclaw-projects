@@ -36,10 +36,9 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     // Create test contacts with endpoints
     // Alice - has phone and email
     const aliceResult = await pool.query(
-      `INSERT INTO contact (display_name, user_email)
-       VALUES ('Fuzzy Test Alice Smith', $1)
+      `INSERT INTO contact (display_name, namespace)
+       VALUES ('Fuzzy Test Alice Smith', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     contactAliceId = aliceResult.rows[0].id;
 
@@ -61,10 +60,9 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
 
     // Bob - has phone only
     const bobResult = await pool.query(
-      `INSERT INTO contact (display_name, user_email)
-       VALUES ('Fuzzy Test Bob Jones', $1)
+      `INSERT INTO contact (display_name, namespace)
+       VALUES ('Fuzzy Test Bob Jones', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     contactBobId = bobResult.rows[0].id;
 
@@ -78,10 +76,9 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
 
     // Charlie - has email only (same domain as Alice)
     const charlieResult = await pool.query(
-      `INSERT INTO contact (display_name, user_email)
-       VALUES ('Fuzzy Test Charlie Brown', $1)
+      `INSERT INTO contact (display_name, namespace)
+       VALUES ('Fuzzy Test Charlie Brown', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     contactCharlieId = charlieResult.rows[0].id;
 

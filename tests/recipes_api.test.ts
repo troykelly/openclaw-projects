@@ -18,17 +18,17 @@ describe('Recipes API (Issue #1278)', () => {
     app = await buildServer();
 
     // Clean up any leftover test data
-    await pool.query(`DELETE FROM recipe_image WHERE recipe_id IN (SELECT id FROM recipe WHERE user_email = $1)`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM recipe_step WHERE recipe_id IN (SELECT id FROM recipe WHERE user_email = $1)`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM recipe_ingredient WHERE recipe_id IN (SELECT id FROM recipe WHERE user_email = $1)`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM recipe WHERE user_email = $1`, [TEST_EMAIL]);
+    await pool.query(`DELETE FROM recipe_image WHERE recipe_id IN (SELECT id FROM recipe WHERE namespace = 'default')`);
+    await pool.query(`DELETE FROM recipe_step WHERE recipe_id IN (SELECT id FROM recipe WHERE namespace = 'default')`);
+    await pool.query(`DELETE FROM recipe_ingredient WHERE recipe_id IN (SELECT id FROM recipe WHERE namespace = 'default')`);
+    await pool.query(`DELETE FROM recipe WHERE namespace = 'default'`);
   });
 
   afterAll(async () => {
-    await pool.query(`DELETE FROM recipe_image WHERE recipe_id IN (SELECT id FROM recipe WHERE user_email = $1)`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM recipe_step WHERE recipe_id IN (SELECT id FROM recipe WHERE user_email = $1)`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM recipe_ingredient WHERE recipe_id IN (SELECT id FROM recipe WHERE user_email = $1)`, [TEST_EMAIL]);
-    await pool.query(`DELETE FROM recipe WHERE user_email = $1`, [TEST_EMAIL]);
+    await pool.query(`DELETE FROM recipe_image WHERE recipe_id IN (SELECT id FROM recipe WHERE namespace = 'default')`);
+    await pool.query(`DELETE FROM recipe_step WHERE recipe_id IN (SELECT id FROM recipe WHERE namespace = 'default')`);
+    await pool.query(`DELETE FROM recipe_ingredient WHERE recipe_id IN (SELECT id FROM recipe WHERE namespace = 'default')`);
+    await pool.query(`DELETE FROM recipe WHERE namespace = 'default'`);
     await pool.end();
     await app.close();
   });
@@ -43,7 +43,7 @@ describe('Recipes API (Issue #1278)', () => {
       );
       const columns = result.rows.map((r) => r.column_name);
       expect(columns).toContain('id');
-      expect(columns).toContain('user_email');
+      expect(columns).toContain('namespace');
       expect(columns).toContain('title');
       expect(columns).toContain('cuisine');
       expect(columns).toContain('meal_type');
@@ -309,10 +309,9 @@ describe('Recipes API (Issue #1278)', () => {
     it('pushes recipe ingredients to a shopping list', async () => {
       // Create a list directly in DB (list routes are in a separate PR)
       const listResult = await pool.query(
-        `INSERT INTO list (user_email, name, list_type, is_shared)
-         VALUES ($1, 'Recipe Shopping', 'shopping', true)
+        `INSERT INTO list (namespace, name, list_type, is_shared)
+         VALUES ('default', 'Recipe Shopping', 'shopping', true)
          RETURNING id`,
-        [TEST_EMAIL],
       );
       const list_id = listResult.rows[0].id;
 

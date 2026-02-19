@@ -214,7 +214,7 @@ describe('Memory Tags (Issue #492)', () => {
       });
 
       expect(result.total).toBe(1);
-      expect(result.memories[0].user_email).toBe('user1@example.com');
+      expect(result.memories[0].title).toBe('User1 music');
     });
   });
 
@@ -333,18 +333,18 @@ describe('Memory Tags (Issue #492)', () => {
     it('accepts tags query parameter for filtered search', async () => {
       // Create tagged memories
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, tags)
-         VALUES ('test@example.com', 'Piano music', 'Loves piano', 'preference', $1)`,
+        `INSERT INTO memory (namespace, title, content, memory_type, tags)
+         VALUES ('default', 'Piano music', 'Loves piano', 'preference', $1)`,
         [['music', 'piano']],
       );
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, tags)
-         VALUES ('test@example.com', 'Guitar music', 'Loves guitar', 'preference', $1)`,
+        `INSERT INTO memory (namespace, title, content, memory_type, tags)
+         VALUES ('default', 'Guitar music', 'Loves guitar', 'preference', $1)`,
         [['music', 'guitar']],
       );
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, tags)
-         VALUES ('test@example.com', 'Sushi food', 'Loves sushi', 'preference', $1)`,
+        `INSERT INTO memory (namespace, title, content, memory_type, tags)
+         VALUES ('default', 'Sushi food', 'Loves sushi', 'preference', $1)`,
         [['food']],
       );
 

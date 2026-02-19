@@ -41,7 +41,7 @@ describe('Note Search API', () => {
     pool = createPool({ max: 3 });
 
     // Clean up any existing test data
-    await pool.query(`DELETE FROM note WHERE user_email LIKE 'search-%@example.com'`);
+    await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
     await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
 
     // Create test notebook
@@ -119,7 +119,7 @@ describe('Note Search API', () => {
 
   afterAll(async () => {
     // Clean up test data
-    await pool.query(`DELETE FROM note WHERE user_email LIKE 'search-%@example.com'`);
+    await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
     await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
 
     await pool.end();
