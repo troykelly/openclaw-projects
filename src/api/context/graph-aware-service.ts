@@ -424,8 +424,8 @@ async function multiScopeMemorySearch(
         queryEmbedding = embResult.embedding;
       }
     }
-  } catch {
-    // Fall through to text search
+  } catch (err) {
+    console.warn('[GraphContext] Semantic search failed, falling back to text search:', err);
   }
 
   if (queryEmbedding) {

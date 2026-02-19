@@ -325,21 +325,22 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /** Send an HTML response with the app frontend shell, bootstrap data, and CSP headers.
-   *  Epic #1418: automatically injects namespace_grants from the user's email. */
+   *  Epic #1418: automatically injects namespace_grants from the user's email.
+   *  Uses the shared nsPool (initialised later in buildServer but always before any route handler). */
   async function sendAppHtml(reply: any, bootstrap: unknown | null): Promise<any> {
     // Inject namespace grants if bootstrap contains user email
     const bs = bootstrap as Record<string, unknown> | null;
     const email = (bs?.me as Record<string, unknown> | undefined)?.email as string | undefined;
     if (email && bs) {
-      const pool = createPool();
       try {
-        const grants = await pool.query(
+        const grants = await nsPool.query(
           `SELECT namespace, role, is_default FROM namespace_grant WHERE email = $1 ORDER BY is_default DESC, namespace`,
           [email],
         );
         bs.namespace_grants = grants.rows;
-      } finally {
-        await pool.end();
+      } catch (err) {
+        (reply.request?.log ?? console).error(err, '[Namespace] Failed to load grants for bootstrap');
+        bs.namespace_grants = [];
       }
     }
     const nonce = generateCspNonce();
@@ -1348,6 +1349,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     if (realtimePool) {
       await realtimePool.end();
     }
+    await nsPool.end();
+    await healthPool.end();
   });
 
   // Agent context bootstrap endpoint (Issue #219)
