@@ -2864,7 +2864,8 @@ function createToolHandlers(state: PluginState) {
           : items.map((t) => `- **${t.label}** [${t.channel_type}]${t.is_default ? ' (default)' : ''}`).join('\n');
         return { success: true, data: { content, details: { items, total: response.data.total ?? items.length } } };
       } catch (error) {
-        return { success: false, error: sanitizeErrorMessage(error) };
+        logger.error('prompt_template_list failed', { error });
+        return { success: false, error: 'Failed to list prompt templates' };
       }
     },
 
@@ -2881,7 +2882,8 @@ function createToolHandlers(state: PluginState) {
         const t = response.data;
         return { success: true, data: { content: `**${t.label}** [${t.channel_type}]${t.is_default ? ' (default)' : ''}\n\n${t.content}`, details: t } };
       } catch (error) {
-        return { success: false, error: sanitizeErrorMessage(error) };
+        logger.error('prompt_template_get failed', { error });
+        return { success: false, error: 'Failed to get prompt template' };
       }
     },
 
@@ -2903,7 +2905,8 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Created prompt template "${response.data.label}" (${response.data.id})`, details: response.data } };
       } catch (error) {
-        return { success: false, error: sanitizeErrorMessage(error) };
+        logger.error('prompt_template_create failed', { error });
+        return { success: false, error: 'Failed to create prompt template' };
       }
     },
 
@@ -2920,7 +2923,8 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Updated prompt template "${response.data.label}"`, details: response.data } };
       } catch (error) {
-        return { success: false, error: sanitizeErrorMessage(error) };
+        logger.error('prompt_template_update failed', { error });
+        return { success: false, error: 'Failed to update prompt template' };
       }
     },
 
@@ -2933,7 +2937,8 @@ function createToolHandlers(state: PluginState) {
         }
         return { success: true, data: { content: `Deleted prompt template ${id}`, details: { id } } };
       } catch (error) {
-        return { success: false, error: sanitizeErrorMessage(error) };
+        logger.error('prompt_template_delete failed', { error });
+        return { success: false, error: 'Failed to delete prompt template' };
       }
     },
   };
