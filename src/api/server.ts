@@ -6706,6 +6706,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
 
     try {
+      // Epic #1418: resolve user's namespaces for scoping
+      const userEmail = (req.headers['x-user-email'] as string) || '';
+      const nsResult = await pool.query(
+        `SELECT namespace FROM namespace_grant WHERE email = $1`,
+        [userEmail],
+      );
+      const userNamespaces = nsResult.rows.map((r: { namespace: string }) => r.namespace);
+
       // Build a scored union of matches from different signals
       const matchScores = new Map<string, { confidence: number; reasons: string[] }>();
 
@@ -6720,8 +6728,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              FROM contact_endpoint ce
              JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
              WHERE ce.endpoint_type = 'phone'
-               AND ce.normalized_value = $1`,
-            [normalizedPhone],
+               AND ce.normalized_value = $1
+               AND c.namespace = ANY($2::text[])`,
+            [normalizedPhone, userNamespaces],
           );
 
           for (const row of exactPhoneResult.rows) {
@@ -6741,8 +6750,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
                WHERE ce.endpoint_type = 'phone'
                  AND ce.normalized_value LIKE $1 || '%'
                  AND ce.normalized_value != $2
+                 AND c.namespace = ANY($3::text[])
                LIMIT 20`,
-              [prefix, normalizedPhone],
+              [prefix, normalizedPhone, userNamespaces],
             );
 
             for (const row of partialPhoneResult.rows) {
@@ -6763,8 +6773,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM contact_endpoint ce
            JOIN contact c ON c.id = ce.contact_id AND c.deleted_at IS NULL
            WHERE ce.endpoint_type = 'email'
-             AND ce.normalized_value = $1`,
-          [email],
+             AND ce.normalized_value = $1
+             AND c.namespace = ANY($2::text[])`,
+          [email, userNamespaces],
         );
 
         for (const row of exactEmailResult.rows) {
@@ -6785,8 +6796,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
              WHERE ce.endpoint_type = 'email'
                AND ce.normalized_value LIKE '%@' || $1
                AND ce.normalized_value != $2
+               AND c.namespace = ANY($3::text[])
              LIMIT 20`,
-            [domain, email],
+            [domain, email, userNamespaces],
           );
 
           for (const row of domainEmailResult.rows) {
@@ -6810,8 +6822,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
            FROM contact c
            WHERE c.deleted_at IS NULL
              AND c.display_name ILIKE '%' || $1 || '%'
+             AND c.namespace = ANY($2::text[])
            LIMIT 20`,
-          [name],
+          [name, userNamespaces],
         );
 
         for (const row of nameResult.rows) {

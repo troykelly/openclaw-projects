@@ -34,6 +34,8 @@ export interface SkillStoreSearchResult {
   priority: number;
   /** @deprecated user_email column dropped from skill_store_item table in Phase 4 (Epic #1418) */
   user_email?: string | null;
+  /** Epic #1418: namespace scoping */
+  namespace?: string;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +66,8 @@ export interface SkillStoreSearchParams {
   status?: string;
   /** @deprecated user_email column dropped from skill_store_item table in Phase 4 (Epic #1418) */
   user_email?: string;
+  /** Epic #1418: namespace-based scoping */
+  namespace?: string;
   limit?: number;
   offset?: number;
 }
@@ -141,8 +145,12 @@ function buildFilterConditions(
     paramIndex++;
   }
 
-  // Epic #1418 Phase 4: user_email column dropped from skill_store_item table.
-  // Namespace scoping is handled at the route level.
+  // Epic #1418 Phase 4: namespace-based scoping
+  if (params.namespace) {
+    conditions.push(`${tableAlias}.namespace = $${paramIndex}`);
+    values.push(params.namespace);
+    paramIndex++;
+  }
 
   return { conditions, values, paramIndex };
 }
@@ -160,6 +168,7 @@ const RESULT_COLUMNS = `
   s.tags,
   s.status::text as status,
   s.priority,
+  s.namespace,
   s.created_at,
   s.updated_at
 `;

@@ -406,8 +406,11 @@ async function multiScopeMemorySearch(
     paramIndex++;
   }
 
-  // If no scope conditions, match all memories (namespace scoping is at route level)
-  const scopeWhere = scopeConditions.length > 0 ? `(${scopeConditions.join(' OR ')})` : '1=1';
+  // Include unscoped personal memories (no contact_id and no relationship_id)
+  // Epic #1418: replaces old user_email filter for personal memory discovery
+  scopeConditions.push('(m.contact_id IS NULL AND m.relationship_id IS NULL)');
+
+  const scopeWhere = `(${scopeConditions.join(' OR ')})`;
 
   // Try semantic search first using embedding service
   let queryEmbedding: number[] | null = null;

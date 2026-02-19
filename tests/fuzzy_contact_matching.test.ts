@@ -3,9 +3,9 @@
  *
  * Tests the suggest-match API route and message-to-contact linking.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { buildServer } from '../src/api/server.js';
-import { createTestPool } from './helpers/db.js';
+import { createTestPool, ensureTestNamespace } from './helpers/db.js';
 
 const TEST_EMAIL = 'fuzzy-match-test@example.com';
 
@@ -32,6 +32,9 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     await pool.query(`DELETE FROM external_message WHERE external_message_key LIKE 'fuzzy-test-%'`);
     await pool.query(`DELETE FROM external_thread WHERE external_thread_key LIKE 'fuzzy-test-%'`);
     await pool.query(`DELETE FROM contact WHERE display_name LIKE 'Fuzzy Test%'`);
+
+    // Epic #1418: ensure namespace_grant for TEST_EMAIL user
+    await ensureTestNamespace(pool, TEST_EMAIL);
 
     // Create test contacts with endpoints
     // Alice - has phone and email
@@ -107,6 +110,12 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       [thread_id],
     );
     unlinkedMessageId = msgResult.rows[0].id;
+  });
+
+  // Epic #1418: Re-ensure namespace_grant before each test in case another test
+  // file's truncateAllTables() CASCADE-deleted the user_setting/namespace_grant rows.
+  beforeEach(async () => {
+    await ensureTestNamespace(pool, TEST_EMAIL);
   });
 
   afterAll(async () => {

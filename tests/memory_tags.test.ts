@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 import { createMemory, getMemory, updateMemory, listMemories, searchMemories } from '../src/api/memory/index.ts';
 
 describe('Memory Tags (Issue #492)', () => {
@@ -23,6 +23,7 @@ describe('Memory Tags (Issue #492)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, 'test@example.com');
   });
 
   afterAll(async () => {
@@ -193,15 +194,19 @@ describe('Memory Tags (Issue #492)', () => {
     });
 
     it('combines tag filter with other filters', async () => {
+      // Epic #1418: use namespace scoping instead of user_email
+      await ensureTestNamespace(pool, 'user1@example.com', 'ns-user1');
+      await ensureTestNamespace(pool, 'user2@example.com', 'ns-user2');
+
       await createMemory(pool, {
-        user_email: 'user1@example.com',
+        namespace: 'ns-user1',
         title: 'User1 music',
         content: 'Likes classical',
         memory_type: 'preference',
         tags: ['music'],
       });
       await createMemory(pool, {
-        user_email: 'user2@example.com',
+        namespace: 'ns-user2',
         title: 'User2 music',
         content: 'Likes electronic',
         memory_type: 'preference',
@@ -209,7 +214,7 @@ describe('Memory Tags (Issue #492)', () => {
       });
 
       const result = await listMemories(pool, {
-        user_email: 'user1@example.com',
+        queryNamespaces: ['ns-user1'],
         tags: ['music'],
       });
 
