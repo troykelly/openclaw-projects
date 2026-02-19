@@ -226,10 +226,11 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
   let paramIndex = 1;
 
   // Epic #1418 Phase 4: Access control via namespace + sharing.
-  // Notes visible if: in caller's namespaces, or explicitly shared with caller.
+  // Notes visible if: in caller's namespaces, public, or explicitly shared with caller.
   const queryNs = options.queryNamespaces ?? ['default'];
   conditions.push(`(
     n.namespace = ANY($${paramIndex}::text[])
+    OR n.visibility = 'public'
     OR EXISTS (SELECT 1 FROM note_share ns WHERE ns.note_id = n.id AND ns.shared_with_email = $${paramIndex + 1} AND (ns.expires_at IS NULL OR ns.expires_at > NOW()))
     OR EXISTS (SELECT 1 FROM notebook_share nbs WHERE nbs.notebook_id = n.notebook_id AND nbs.shared_with_email = $${paramIndex + 1} AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW()))
   )`);
