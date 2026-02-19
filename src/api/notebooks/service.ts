@@ -87,11 +87,20 @@ async function wouldCreateCircularReference(pool: Pool, notebook_id: string, new
  * Creates a new notebook
  */
 export async function createNotebook(pool: Pool, input: CreateNotebookInput, user_email: string, namespace?: string): Promise<Notebook> {
-  // Validate parent notebook exists if provided
+  // Validate parent notebook exists and user owns it (Phase 4: ownership via namespace_grant)
   if (input.parent_notebook_id) {
-    const parentResult = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parent_notebook_id]);
-    if (parentResult.rows.length === 0) {
-      throw new Error('Parent notebook not found');
+    const parentOwned = await pool.query(
+      `SELECT nb.id FROM notebook nb
+       JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
+       WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
+      [input.parent_notebook_id, user_email],
+    );
+    if (parentOwned.rows.length === 0) {
+      const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.parent_notebook_id]);
+      if (exists.rows.length === 0) {
+        throw new Error('Parent notebook not found');
+      }
+      throw new Error('You do not own this notebook');
     }
   }
 
@@ -116,7 +125,7 @@ export async function createNotebook(pool: Pool, input: CreateNotebookInput, use
  * Gets a notebook by ID
  */
 export async function getNotebook(pool: Pool, notebook_id: string, user_email: string, options: GetNotebookOptions = {}): Promise<Notebook | null> {
-  // Get notebook with optional note count
+  // Get notebook with optional note count (Phase 4: ownership via namespace_grant)
   const result = await pool.query(
     `SELECT
       nb.id::text, nb.name, nb.description, nb.icon, nb.color,
@@ -126,9 +135,10 @@ export async function getNotebook(pool: Pool, notebook_id: string, user_email: s
       (SELECT COUNT(*) FROM note WHERE notebook_id = nb.id AND deleted_at IS NULL) as note_count,
       (SELECT COUNT(*) FROM notebook WHERE parent_notebook_id = nb.id AND deleted_at IS NULL) as child_count
     FROM notebook nb
+    JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
     LEFT JOIN notebook pnb ON nb.parent_notebook_id = pnb.id
     WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
-    [notebook_id],
+    [notebook_id, user_email],
   );
 
   if (result.rows.length === 0) {
@@ -522,10 +532,13 @@ export async function moveNotesToNotebook(pool: Pool, notebook_id: string, input
 
   for (const noteId of input.note_ids) {
     try {
-      // Check if note exists (Phase 4: user_email column dropped from note table)
+      // Check if note exists and user owns it (Phase 4: ownership via namespace_grant)
       const noteResult = await pool.query(
-        'SELECT title, content, tags, visibility, hide_from_agents, summary, is_pinned FROM note WHERE id = $1 AND deleted_at IS NULL',
-        [noteId],
+        `SELECT n.title, n.content, n.tags, n.visibility, n.hide_from_agents, n.summary, n.is_pinned
+         FROM note n
+         JOIN namespace_grant ng ON ng.namespace = n.namespace AND ng.email = $2
+         WHERE n.id = $1 AND n.deleted_at IS NULL`,
+        [noteId, user_email],
       );
 
       if (noteResult.rows.length === 0) {

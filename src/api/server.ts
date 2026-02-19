@@ -13882,7 +13882,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       if (message === 'Notebook not found') {
         return reply.code(400).send({ error: message });
       }
-      if (message.includes('Cannot add note to notebook')) {
+      if (message.includes('Cannot add note to notebook') || message.includes('do not own')) {
         return reply.code(403).send({ error: message });
       }
       throw err;

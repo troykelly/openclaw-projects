@@ -79,11 +79,20 @@ export async function createNote(pool: Pool, input: CreateNoteInput, user_email:
     throw new Error(`Invalid visibility: ${visibility}. Valid values are: ${VALID_VISIBILITY.join(', ')}`);
   }
 
-  // Validate notebook exists if provided (Phase 4: user_email column dropped)
+  // Validate notebook exists and user owns it (Phase 4: ownership via namespace_grant)
   if (input.notebook_id) {
-    const nbResult = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
+    const nbResult = await pool.query(
+      `SELECT nb.id FROM notebook nb
+       JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
+       WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
+      [input.notebook_id, user_email],
+    );
     if (nbResult.rows.length === 0) {
-      throw new Error('Notebook not found');
+      const exists = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
+      if (exists.rows.length === 0) {
+        throw new Error('Notebook not found');
+      }
+      throw new Error('You do not own this notebook');
     }
   }
 
