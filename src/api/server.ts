@@ -14004,6 +14004,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           sort_order: body.sort_order,
         },
         body.user_email,
+        req.namespaceContext?.queryNamespaces,
       );
 
       if (!note) {

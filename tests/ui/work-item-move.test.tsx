@@ -231,6 +231,12 @@ describe('useWorkItemMove hook', () => {
     await waitFor(() => {
       expect(screen.getByTestId('is-moving').textContent).toBe('true');
     });
+
+    // Wait for async operation to complete before unmount to avoid
+    // "window is not defined" from setIsMoving firing after jsdom teardown
+    await waitFor(() => {
+      expect(screen.getByTestId('is-moving').textContent).toBe('false');
+    });
   });
 
   it('calls onMoved callback after successful move', async () => {

@@ -299,7 +299,7 @@ export async function listNotes(pool: Pool, user_email: string, options: ListNot
 /**
  * Updates a note with write permission check
  */
-export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteInput, user_email: string): Promise<Note | null> {
+export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteInput, user_email: string, queryNamespaces?: string[]): Promise<Note | null> {
   // Check write access
   const canWrite = await userCanAccessNote(pool, noteId, user_email, 'read_write');
   if (!canWrite) {
@@ -316,9 +316,13 @@ export async function updateNote(pool: Pool, noteId: string, input: UpdateNoteIn
     throw new Error(`Invalid visibility: ${input.visibility}`);
   }
 
-  // Validate notebook if provided (Phase 4: user_email column dropped)
+  // Validate notebook if provided — must exist and belong to caller's namespaces
   if (input.notebook_id) {
-    const nbResult = await pool.query('SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL', [input.notebook_id]);
+    const nsScope = queryNamespaces ?? ['default'];
+    const nbResult = await pool.query(
+      'SELECT id FROM notebook WHERE id = $1 AND deleted_at IS NULL AND namespace = ANY($2::text[])',
+      [input.notebook_id, nsScope],
+    );
     if (nbResult.rows.length === 0) {
       throw new Error('Notebook not found');
     }
