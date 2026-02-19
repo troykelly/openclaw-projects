@@ -1376,6 +1376,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         user_email: query.user_email,
         include,
         exclude,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
 
       return reply.send(result);
@@ -16279,6 +16280,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const params = req.params as { id: string };
+
+      // Epic #1418: namespace scoping on parent contact
+      if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+
       const result = await getRelatedContacts(pool, params.id);
       return reply.send(result);
     } finally {
