@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 describe('Note Presence API - Type Validation (Issue #697)', () => {
   const app = buildServer();
@@ -23,6 +23,7 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, testUserEmail);
 
     // Create a test note
     const noteResult = await pool.query(

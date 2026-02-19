@@ -278,7 +278,8 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('returns user settings when available', async () => {
       await pool.query(
         `INSERT INTO user_setting (email, theme, timezone)
-         VALUES ('test@example.com', 'dark', 'Australia/Sydney')`,
+         VALUES ('test@example.com', 'dark', 'Australia/Sydney')
+         ON CONFLICT (email) DO UPDATE SET theme = 'dark', timezone = 'Australia/Sydney'`,
       );
 
       const res = await app.inject({

@@ -74,9 +74,13 @@ function buildAccessConditions(
   conditions.push('n.deleted_at IS NULL');
 
   // Access control: Phase 4 (Epic #1418) - user_email column dropped from note table.
-  // Namespace scoping handled at the route level. Here we check public/shared access.
+  // Check ownership via namespace_grant, plus public/shared access.
   conditions.push(`(
     n.visibility = 'public'
+    OR EXISTS (
+      SELECT 1 FROM namespace_grant ng
+      WHERE ng.namespace = n.namespace AND ng.email = $${paramIndex}
+    )
     OR (n.visibility = 'shared' AND EXISTS (
       SELECT 1 FROM note_share ns
       WHERE ns.note_id = n.id
@@ -89,7 +93,6 @@ function buildAccessConditions(
         AND nbs.shared_with_email = $${paramIndex}
         AND (nbs.expires_at IS NULL OR nbs.expires_at > NOW())
     ))
-    OR 1=1
   )`);
   params.push(user_email);
   paramIndex++;
@@ -449,9 +452,12 @@ export async function findSimilarNotes(
 
   const sourceNote = noteResult.rows[0];
 
-  // Phase 4 (Epic #1418): user_email column dropped from note table.
-  // Namespace scoping is handled at the route level.
-  const canAccess = sourceNote.visibility === 'public' || sourceNote.visibility === 'shared' || true;
+  // Phase 4 (Epic #1418): check ownership via namespace_grant
+  const ownerCheck = await pool.query(
+    `SELECT 1 FROM namespace_grant ng WHERE ng.namespace = (SELECT namespace FROM note WHERE id = $1) AND ng.email = $2`,
+    [noteId, user_email],
+  );
+  const canAccess = sourceNote.visibility === 'public' || ownerCheck.rows.length > 0;
 
   if (!canAccess) {
     // Check for shares

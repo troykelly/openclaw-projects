@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { createPool } from '../src/db.ts';
+import { ensureTestNamespace } from './helpers/db.ts';
 
 // Mock the embedding service module
 vi.mock('../src/api/embeddings/service.ts', () => ({
@@ -39,6 +40,24 @@ describe('Note Search API', () => {
   beforeAll(async () => {
     app = await buildServer();
     pool = createPool({ max: 3 });
+
+    // Epic #1418: namespace_grant required for ownership checks
+    // Only ownerEmail gets 'default' namespace grant (owns the test notes).
+    // Other users get their own namespaces so privacy filtering works correctly.
+    await ensureTestNamespace(pool, ownerEmail);
+    for (const email of [sharedUserEmail, otherUserEmail]) {
+      await pool.query(
+        `INSERT INTO user_setting (email) VALUES ($1)
+         ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email`,
+        [email],
+      );
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+         VALUES ($1, $2, 'owner', true)
+         ON CONFLICT (email, namespace) DO NOTHING`,
+        [email, `ns-${email.split('@')[0]}`],
+      );
+    }
 
     // Clean up any existing test data
     await pool.query(`DELETE FROM note WHERE namespace = 'default'`);

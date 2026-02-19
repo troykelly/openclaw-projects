@@ -1345,6 +1345,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { getBootstrapContext } = await import('./bootstrap/index.ts');
 
     const query = req.query as {
+      user_email?: string;
       include?: string;
       exclude?: string;
     };
@@ -1362,6 +1363,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         .filter(Boolean);
 
       const result = await getBootstrapContext(pool, {
+        user_email: query.user_email,
         include,
         exclude,
       });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { Pool } from 'pg';
-import { createTestPool } from './helpers/db.ts';
+import { createTestPool, ensureTestNamespace } from './helpers/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
 
 /**
@@ -17,6 +17,9 @@ describe('Note Sharing Schema (Migration 041)', () => {
 
     // Ensure migrations are applied
     await runMigrate('up');
+
+    // Epic #1418: namespace_grant required for ownership checks
+    await ensureTestNamespace(pool, 'owner@example.com');
 
     // Create test notebook and note for sharing tests
     const notebook = await pool.query(`
