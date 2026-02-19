@@ -40,6 +40,29 @@ describe('Note Sharing Schema (Migration 041)', () => {
     testNoteId = note.rows[0].id;
   });
 
+  // Epic #1418: Re-create test data if parallel tests' truncateAllTables() deleted it.
+  beforeEach(async () => {
+    await ensureTestNamespace(pool, 'owner@example.com');
+
+    const existing = await pool.query('SELECT id FROM note WHERE id = $1', [testNoteId]);
+    if (existing.rows.length === 0) {
+      const nb = await pool.query(`
+        INSERT INTO notebook (namespace, name)
+        VALUES ('default', 'Test Notebook for Sharing')
+        RETURNING id
+      `);
+      testNotebookId = nb.rows[0].id;
+
+      const n = await pool.query(
+        `INSERT INTO note (namespace, title, content, notebook_id, visibility)
+         VALUES ('default', 'Test Note', 'Test content', $1, 'shared')
+         RETURNING id`,
+        [testNotebookId],
+      );
+      testNoteId = n.rows[0].id;
+    }
+  });
+
   afterAll(async () => {
     // Cleanup test data
     await pool.query('DELETE FROM note_collaborator WHERE note_id = $1', [testNoteId]);
