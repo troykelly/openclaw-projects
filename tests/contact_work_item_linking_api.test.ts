@@ -127,7 +127,7 @@ describe('Contact-WorkItem Linking API (issue #118)', () => {
         payload: { contact_id: contact_id, relationship: 'owner' },
       });
       expect(res.statusCode).toBe(404);
-      expect(res.json()).toEqual({ error: 'work item not found' });
+      expect(res.json()).toEqual({ error: 'not found' });
     });
 
     it('returns 400 for non-existent contact', async () => {

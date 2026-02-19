@@ -57,6 +57,7 @@ describe('Search scoping (Epic #1418)', () => {
       query: uniqueWord,
       types: ['work_item'],
       user_email: aliceEmail,
+      queryNamespaces: [aliceNs, bobNs],
       semantic: false,
     });
 
@@ -73,6 +74,7 @@ describe('Search scoping (Epic #1418)', () => {
     const result = await unifiedSearch(pool, {
       query: uniqueWord,
       types: ['work_item'],
+      queryNamespaces: [aliceNs, bobNs],
       semantic: false,
     });
 
@@ -90,6 +92,7 @@ describe('Search scoping (Epic #1418)', () => {
       query: uniqueWord,
       types: ['work_item'],
       user_email: `nobody-${testToken}@example.com`,
+      queryNamespaces: [aliceNs, bobNs],
       semantic: false,
     });
 
