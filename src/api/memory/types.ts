@@ -63,6 +63,8 @@ export interface CreateMemoryInput extends MemoryScope, MemoryAttribution, Memor
   address?: string;
   /** Short human-friendly place name */
   place_label?: string;
+  /** Epic #1418: namespace for data scoping */
+  namespace?: string;
 }
 
 /** Input for updating a memory */
@@ -81,7 +83,6 @@ export interface UpdateMemoryInput {
 /** A memory entry from the database */
 export interface MemoryEntry {
   id: string;
-  user_email: string | null;
   work_item_id: string | null;
   contact_id: string | null;
   /** Relationship this memory is scoped to (e.g., anniversaries, interpersonal metadata) */
@@ -129,6 +130,8 @@ export interface ListMemoriesOptions extends MemoryScope {
   created_before?: Date;
   limit?: number;
   offset?: number;
+  /** Epic #1418: namespace scoping (preferred over user_email) */
+  queryNamespaces?: string[];
 }
 
 /** Result of listing memories */
@@ -156,4 +159,6 @@ export interface SearchMemoriesOptions extends MemoryScope {
   limit?: number;
   offset?: number;
   min_similarity?: number;
+  /** Epic #1418: namespace scoping (preferred over user_email) */
+  queryNamespaces?: string[];
 }

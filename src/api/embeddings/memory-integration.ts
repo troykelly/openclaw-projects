@@ -135,6 +135,7 @@ export async function searchMemoriesSemantic(
     contact_id?: string;
     relationship_id?: string;
     project_id?: string;
+    /** @deprecated user_email column dropped from memory table in Phase 4 (Epic #1418) */
     user_email?: string;
     tags?: string[];
     created_after?: Date;
@@ -145,7 +146,7 @@ export async function searchMemoriesSemantic(
   search_type: 'semantic' | 'text';
   query_embedding_provider?: string;
 }> {
-  const { limit = 20, offset = 0, memory_type, work_item_id, contact_id, relationship_id, project_id, user_email, tags, created_after, created_before } = options;
+  const { limit = 20, offset = 0, memory_type, work_item_id, contact_id, relationship_id, project_id, tags, created_after, created_before } = options;
 
   // Try to generate embedding for query
   let queryEmbedding: number[] | null = null;
@@ -201,11 +202,8 @@ export async function searchMemoriesSemantic(
     paramIndex++;
   }
 
-  if (user_email) {
-    conditions.push(`m.user_email = $${paramIndex}`);
-    params.push(user_email);
-    paramIndex++;
-  }
+  // Epic #1418 Phase 4: user_email column dropped from memory table.
+  // Namespace scoping is handled at the route level.
 
   if (tags && tags.length > 0) {
     conditions.push(`m.tags @> $${paramIndex}`);

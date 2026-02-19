@@ -19,8 +19,8 @@ describe('Note Versions Schema (Migration 042)', () => {
 
     // Create test note
     const note = await pool.query(`
-      INSERT INTO note (user_email, title, content)
-      VALUES ('test@example.com', 'Test Note for Versions', 'Initial content')
+      INSERT INTO note (namespace, title, content)
+      VALUES ('default', 'Test Note for Versions', 'Initial content')
       RETURNING id
     `);
     testNoteId = note.rows[0].id;
@@ -29,7 +29,7 @@ describe('Note Versions Schema (Migration 042)', () => {
   afterAll(async () => {
     // Cleanup test data
     await pool.query('DELETE FROM note_version WHERE note_id = $1', [testNoteId]);
-    await pool.query('DELETE FROM note WHERE user_email = $1', ['test@example.com']);
+    await pool.query('DELETE FROM note WHERE namespace = $1', ['default']);
     await pool.end();
   });
 
@@ -109,8 +109,8 @@ describe('Note Versions Schema (Migration 042)', () => {
     it('cascades delete when note is deleted', async () => {
       // Create a temporary note
       const tempNote = await pool.query(`
-        INSERT INTO note (user_email, title, content)
-        VALUES ('test@example.com', 'Temp Note for Cascade', 'Content')
+        INSERT INTO note (namespace, title, content)
+        VALUES ('default', 'Temp Note for Cascade', 'Content')
         RETURNING id
       `);
       const tempNoteId = tempNote.rows[0].id;
@@ -153,8 +153,8 @@ describe('Note Versions Schema (Migration 042)', () => {
     beforeEach(async () => {
       // Create a fresh note for trigger tests
       const note = await pool.query(`
-        INSERT INTO note (user_email, title, content)
-        VALUES ('trigger-test@example.com', 'Trigger Test Note', 'Original content')
+        INSERT INTO note (namespace, title, content)
+        VALUES ('default', 'Trigger Test Note', 'Original content')
         RETURNING id
       `);
       versionTestNoteId = note.rows[0].id;
@@ -315,8 +315,8 @@ describe('Note Versions Schema (Migration 042)', () => {
     beforeAll(async () => {
       // Create note with versions
       const note = await pool.query(`
-        INSERT INTO note (user_email, title, content)
-        VALUES ('func-test@example.com', 'Function Test', 'v1 content')
+        INSERT INTO note (namespace, title, content)
+        VALUES ('default', 'Function Test', 'v1 content')
         RETURNING id
       `);
       funcTestNoteId = note.rows[0].id;
@@ -357,8 +357,8 @@ describe('Note Versions Schema (Migration 042)', () => {
     it('returns correct version count', async () => {
       // Create note with known version count
       const note = await pool.query(`
-        INSERT INTO note (user_email, title, content)
-        VALUES ('count-test@example.com', 'Count Test', 'initial')
+        INSERT INTO note (namespace, title, content)
+        VALUES ('default', 'Count Test', 'initial')
         RETURNING id
       `);
       const noteId = note.rows[0].id;

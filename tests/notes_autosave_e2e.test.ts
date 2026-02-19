@@ -59,6 +59,12 @@ describe('Notes Autosave E2E (Issue #780)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    // Epic #1418: recreate user_setting + namespace_grant after truncation
+    // (truncateAllTables CASCADE removes namespace_grant via user_setting FK)
+    // Tests create notes without x-namespace header → notes go to 'default' namespace
+    await pool.query('INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email', [testUser]);
+    await pool.query('DELETE FROM namespace_grant WHERE email = $1', [testUser]);
+    await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [testUser]);
   });
 
   // ============================================

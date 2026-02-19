@@ -56,6 +56,8 @@ export interface CreateFileShareInput {
   expires_in?: number; // seconds, default 3600 (1 hour)
   max_downloads?: number;
   created_by?: string;
+  /** Namespace for data partitioning (Epic #1418) */
+  namespace?: string;
 }
 
 /**
@@ -160,9 +162,10 @@ export async function createFileShare(pool: Pool, storage: FileStorage, input: C
       share_token,
       expires_at,
       max_downloads,
-      created_by
-    ) VALUES ($1, $2, $3, $4, $5)`,
-    [input.file_id, shareToken, expires_at, input.max_downloads ?? null, input.created_by ?? null],
+      created_by,
+      namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [input.file_id, shareToken, expires_at, input.max_downloads ?? null, input.created_by ?? null, input.namespace ?? 'default'],
   );
 
   // Build the share URL

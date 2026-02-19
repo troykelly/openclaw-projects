@@ -3,8 +3,6 @@ import { Pool } from 'pg';
 import { createTestPool, truncateAllTables } from '../helpers/db.ts';
 import { NotesPageObject } from './helpers/notes-page.ts';
 
-const TEST_USER_EMAIL = 'e2e-test@example.com';
-
 test.describe('Notes Autosave E2E (Issue #785)', () => {
   let pool: Pool;
 
@@ -31,7 +29,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.waitForAutosave();
 
     // Verify the note was persisted to the database
-    const result = await pool.query(`SELECT title, content FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`, [TEST_USER_EMAIL]);
+    const result = await pool.query(`SELECT title, content FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].content).toContain('Hello, this is an autosave test');
   });
@@ -83,7 +81,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.waitForAutosave();
 
     // Verify the auto-generated title was persisted
-    const result = await pool.query(`SELECT title FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`, [TEST_USER_EMAIL]);
+    const result = await pool.query(`SELECT title FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].title).toBe(placeholder);
   });
@@ -155,7 +153,7 @@ test.describe('Notes Autosave E2E (Issue #785)', () => {
     await notes.waitForAutosave();
 
     // Verify the note was eventually saved
-    const result = await pool.query(`SELECT content FROM note WHERE user_email = $1 ORDER BY created_at DESC LIMIT 1`, [TEST_USER_EMAIL]);
+    const result = await pool.query(`SELECT content FROM note WHERE namespace = 'default' ORDER BY created_at DESC LIMIT 1`);
     expect(result.rows).toHaveLength(1);
   });
 });

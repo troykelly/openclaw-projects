@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 describe('Agent Bootstrap API (Issue #219)', () => {
   const app = buildServer();
@@ -16,6 +16,7 @@ describe('Agent Bootstrap API (Issue #219)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, 'test@example.com');
   });
 
   afterAll(async () => {
@@ -46,8 +47,8 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('returns user preferences when user_email is provided', async () => {
       // Create a preference memory
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, importance)
-         VALUES ('test@example.com', 'Dark Mode', 'User prefers dark mode', 'preference', 8)`,
+        `INSERT INTO memory (namespace, title, content, memory_type, importance)
+         VALUES ('default', 'Dark Mode', 'User prefers dark mode', 'preference', 8)`,
       );
 
       const res = await app.inject({
@@ -277,7 +278,8 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('returns user settings when available', async () => {
       await pool.query(
         `INSERT INTO user_setting (email, theme, timezone)
-         VALUES ('test@example.com', 'dark', 'Australia/Sydney')`,
+         VALUES ('test@example.com', 'dark', 'Australia/Sydney')
+         ON CONFLICT (email) DO UPDATE SET theme = 'dark', timezone = 'Australia/Sydney'`,
       );
 
       const res = await app.inject({

@@ -79,7 +79,7 @@ describe('Thread History API (Issue #226)', () => {
       });
 
       expect(res.statusCode).toBe(404);
-      expect(res.json().error).toBe('Thread not found');
+      expect(res.json().error).toBe('not found');
     });
 
     it('returns messages in chronological order', async () => {

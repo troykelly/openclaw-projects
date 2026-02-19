@@ -1,6 +1,6 @@
 /**
  * Memory deduplication tests
- * Issue #1143
+ * Issue #1143, updated for Epic #1418 (namespace scoping replaces user_email)
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -29,7 +29,6 @@ describe('Memory deduplication', () => {
       title,
       content,
       memory_type: 'preference',
-      user_email: 'test@example.com',
     });
 
     expect(memory1).toBeDefined();
@@ -40,16 +39,15 @@ describe('Memory deduplication', () => {
       title,
       content,
       memory_type: 'preference',
-      user_email: 'test@example.com',
     });
 
     // Should return the existing memory, not create a new one
     expect(memory2.id).toBe(memory1.id);
 
-    // Verify only one memory exists
+    // Verify only one memory exists with this content
     const result = await pool.query(
-      `SELECT COUNT(*) as count FROM memory WHERE content = $1 AND user_email = $2`,
-      [content, 'test@example.com'],
+      `SELECT COUNT(*) as count FROM memory WHERE TRIM(content) = $1`,
+      [content],
     );
     expect(parseInt(result.rows[0].count, 10)).toBe(1);
   });
@@ -62,14 +60,12 @@ describe('Memory deduplication', () => {
       title: 'Email preference',
       content: content1,
       memory_type: 'preference',
-      user_email: 'test@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'Email preference',
       content: content2,
       memory_type: 'preference',
-      user_email: 'test@example.com',
     });
 
     // Should deduplicate despite whitespace differences
@@ -81,14 +77,12 @@ describe('Memory deduplication', () => {
       title: 'Email preference',
       content: 'User prefers notifications via email',
       memory_type: 'preference',
-      user_email: 'test@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'SMS preference',
       content: 'User prefers notifications via SMS',
       memory_type: 'preference',
-      user_email: 'test@example.com',
     });
 
     // Should create different memories
@@ -96,50 +90,47 @@ describe('Memory deduplication', () => {
 
     // Verify two memories exist
     const result = await pool.query(
-      `SELECT COUNT(*) as count FROM memory WHERE user_email = $1`,
-      ['test@example.com'],
+      `SELECT COUNT(*) as count FROM memory WHERE namespace = 'default'`,
     );
     expect(parseInt(result.rows[0].count, 10)).toBe(2);
   });
 
-  it('should deduplicate within same scope (user)', async () => {
+  it('should deduplicate within same scope', async () => {
     const content = 'Important fact';
 
     const memory1 = await createMemory(pool, {
       title: 'Fact 1',
       content,
       memory_type: 'fact',
-      user_email: 'user1@example.com',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'Fact 1',
       content,
       memory_type: 'fact',
-      user_email: 'user1@example.com',
     });
 
     expect(memory2.id).toBe(memory1.id);
   });
 
-  it('should create separate memories for different users with same content', async () => {
+  it('should create separate memories for different namespaces with same content', async () => {
     const content = 'Shared preference';
 
     const memory1 = await createMemory(pool, {
       title: 'Preference',
       content,
       memory_type: 'preference',
-      user_email: 'user1@example.com',
+      namespace: 'ns-one',
     });
 
     const memory2 = await createMemory(pool, {
       title: 'Preference',
       content,
       memory_type: 'preference',
-      user_email: 'user2@example.com',
+      namespace: 'ns-two',
     });
 
-    // Different users should have separate memories
+    // Different namespaces should have separate memories
     expect(memory2.id).not.toBe(memory1.id);
   });
 
@@ -150,7 +141,6 @@ describe('Memory deduplication', () => {
       title: 'Note',
       content,
       memory_type: 'note',
-      user_email: 'test@example.com',
     });
 
     const originalUpdatedAt = memory1.updated_at;
@@ -162,7 +152,6 @@ describe('Memory deduplication', () => {
       title: 'Note',
       content,
       memory_type: 'note',
-      user_email: 'test@example.com',
     });
 
     expect(memory2.id).toBe(memory1.id);

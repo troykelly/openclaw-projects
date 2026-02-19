@@ -27,6 +27,8 @@ export interface ContextRetrievalInput {
   include_contacts?: boolean;
   /** Minimum similarity score for memories (0-1, default 0.5) */
   min_similarity?: number;
+  /** Epic #1418: namespace scoping for entity queries */
+  queryNamespaces?: string[];
 }
 
 /** Memory source in context response */
@@ -130,7 +132,7 @@ export function validateContextInput(input: ContextRetrievalInput): string | nul
 export async function retrieveContext(pool: Pool, input: ContextRetrievalInput): Promise<ContextRetrievalResult> {
   const startTime = Date.now();
 
-  const { prompt, max_memories: maxMemories = 5, max_context_length: maxContextLength = 2000, include_projects: includeProjects = false, include_todos: includeTodos = false, min_similarity: min_similarity = 0.5 } = input;
+  const { prompt, max_memories: maxMemories = 5, max_context_length: maxContextLength = 2000, include_projects: includeProjects = false, include_todos: includeTodos = false, min_similarity: min_similarity = 0.5, queryNamespaces: nsScope = ['default'] } = input;
 
   // Initialize result
   const sources: ContextSources = {
@@ -168,14 +170,7 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
   // Fetch active projects if requested
   if (includeProjects) {
     try {
-      // Issue #1172: optional user_email scoping
-      const projectParams: string[] = [];
-      let projectUserEmailFilter = '';
-      if (input.user_id) {
-        projectParams.push(input.user_id);
-        projectUserEmailFilter = ` AND user_email = $${projectParams.length}`;
-      }
-
+      // Epic #1418 Phase 4: namespace scoping replaces user_email.
       const projectResult = await pool.query(
         `SELECT
            id::text,
@@ -184,10 +179,11 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
            status::text
          FROM work_item
          WHERE kind = 'project'
-           AND status NOT IN ('completed', 'archived', 'deleted')${projectUserEmailFilter}
+           AND status NOT IN ('completed', 'archived', 'deleted')
+           AND namespace = ANY($1::text[])
          ORDER BY updated_at DESC
          LIMIT 5`,
-        projectParams,
+        [nsScope],
       );
 
       sources.projects = projectResult.rows.map((row) => ({
@@ -204,14 +200,7 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
   // Fetch pending todos if requested
   if (includeTodos) {
     try {
-      // Issue #1172: optional user_email scoping
-      const todoParams: string[] = [];
-      let todoUserEmailFilter = '';
-      if (input.user_id) {
-        todoParams.push(input.user_id);
-        todoUserEmailFilter = ` AND user_email = $${todoParams.length}`;
-      }
-
+      // Epic #1418 Phase 4: namespace scoping replaces user_email.
       const todoResult = await pool.query(
         `SELECT
            id::text,
@@ -220,13 +209,14 @@ export async function retrieveContext(pool: Pool, input: ContextRetrievalInput):
            status::text
          FROM work_item
          WHERE kind IN ('task', 'issue')
-           AND status NOT IN ('completed', 'archived', 'deleted')${todoUserEmailFilter}
+           AND status NOT IN ('completed', 'archived', 'deleted')
+           AND namespace = ANY($1::text[])
          ORDER BY
            CASE WHEN not_after IS NOT NULL THEN 0 ELSE 1 END,
            not_after ASC,
            updated_at DESC
          LIMIT 10`,
-        todoParams,
+        [nsScope],
       );
 
       sources.todos = todoResult.rows.map((row) => ({

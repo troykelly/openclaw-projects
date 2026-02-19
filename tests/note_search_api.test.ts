@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { createPool } from '../src/db.ts';
+import { ensureTestNamespace } from './helpers/db.ts';
 
 // Mock the embedding service module
 vi.mock('../src/api/embeddings/service.ts', () => ({
@@ -40,12 +41,30 @@ describe('Note Search API', () => {
     app = await buildServer();
     pool = createPool({ max: 3 });
 
+    // Epic #1418: namespace_grant required for ownership checks
+    // Only ownerEmail gets 'default' namespace grant (owns the test notes).
+    // Other users get their own namespaces so privacy filtering works correctly.
+    await ensureTestNamespace(pool, ownerEmail);
+    for (const email of [sharedUserEmail, otherUserEmail]) {
+      await pool.query(
+        `INSERT INTO user_setting (email) VALUES ($1)
+         ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email`,
+        [email],
+      );
+      await pool.query(
+        `INSERT INTO namespace_grant (email, namespace, role, is_default)
+         VALUES ($1, $2, 'owner', true)
+         ON CONFLICT (email, namespace) DO NOTHING`,
+        [email, `ns-${email.split('@')[0]}`],
+      );
+    }
+
     // Clean up any existing test data
-    await pool.query(`DELETE FROM note WHERE user_email LIKE 'search-%@example.com'`);
-    await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
+    await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
+    await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
 
     // Create test notebook
-    const notebookResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, $2) RETURNING id::text`, [ownerEmail, 'Test Search Notebook']);
+    const notebookResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, $2) RETURNING id::text`, ['default', 'Test Search Notebook']);
     createdNotebookIds.push(notebookResult.rows[0].id);
 
     // Create various test notes for search testing
@@ -97,10 +116,10 @@ describe('Note Search API', () => {
     for (const note of notes) {
       const result = await pool.query(
         `INSERT INTO note (
-          user_email, title, content, visibility, hide_from_agents, tags, notebook_id
+          namespace, title, content, visibility, hide_from_agents, tags, notebook_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id::text`,
-        [ownerEmail, note.title, note.content, note.visibility, note.hide_from_agents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
+        ['default', note.title, note.content, note.visibility, note.hide_from_agents, note.tags, note.visibility === 'public' ? createdNotebookIds[0] : null],
       );
       createdNoteIds.push(result.rows[0].id);
     }
@@ -119,8 +138,8 @@ describe('Note Search API', () => {
 
   afterAll(async () => {
     // Clean up test data
-    await pool.query(`DELETE FROM note WHERE user_email LIKE 'search-%@example.com'`);
-    await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
+    await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
+    await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
 
     await pool.end();
     await app.close();

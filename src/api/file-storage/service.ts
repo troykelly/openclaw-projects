@@ -82,10 +82,11 @@ export async function uploadFile(
       content_type,
       size_bytes,
       checksum_sha256,
-      uploaded_by
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+      uploaded_by,
+      namespace
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id::text, created_at`,
-    [storage_key, request.filename, request.content_type, request.data.length, checksum, request.uploaded_by || null],
+    [storage_key, request.filename, request.content_type, request.data.length, checksum, request.uploaded_by || null, request.namespace ?? 'default'],
   );
 
   return {

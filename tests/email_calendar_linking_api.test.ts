@@ -121,7 +121,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
         payload: { email_id: emailMessageId },
       });
       expect(res.statusCode).toBe(404);
-      expect(res.json()).toEqual({ error: 'work item not found' });
+      expect(res.json()).toEqual({ error: 'not found' });
     });
 
     it('returns 400 for non-existent email', async () => {
@@ -218,7 +218,7 @@ describe('Email and Calendar Linking API (issue #126)', () => {
         payload: { event_id: calendarEventId },
       });
       expect(res.statusCode).toBe(404);
-      expect(res.json()).toEqual({ error: 'work item not found' });
+      expect(res.json()).toEqual({ error: 'not found' });
     });
 
     it('returns 400 for non-existent event', async () => {

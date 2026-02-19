@@ -1,6 +1,14 @@
 import type { FastifyRequest } from 'fastify';
+import type { Pool } from 'pg';
 
 import { isAuthDisabled, verifyAccessToken, type JwtPayload } from './jwt.ts';
+
+// Augment Fastify request to include namespace context (set by preHandler hook)
+declare module 'fastify' {
+  interface FastifyRequest {
+    namespaceContext: NamespaceContext | null;
+  }
+}
 
 /** Represents an authenticated identity extracted from a JWT. */
 export interface AuthIdentity {
@@ -99,4 +107,117 @@ export async function resolveUserEmail(
 
   // User tokens: always use the authenticated identity's email
   return identity.email;
+}
+
+// ============================================================
+// Namespace resolution (Issue #1475)
+// ============================================================
+
+/** Namespace context resolved for a request. */
+export interface NamespaceContext {
+  /** Single namespace for write operations. */
+  storeNamespace: string;
+  /** Namespace list for read operations (may include multiple for cross-namespace queries). */
+  queryNamespaces: string[];
+  /** Whether the token is M2M (agents can operate across namespaces). */
+  isM2M: boolean;
+}
+
+/**
+ * Extracts the requested namespace from the request.
+ * Checks (in priority order): X-Namespace header, ?namespace= query, body.namespace.
+ */
+function extractRequestedNamespace(req: FastifyRequest): string | undefined {
+  const header = req.headers['x-namespace'];
+  if (typeof header === 'string' && header.length > 0) return header;
+
+  const q = req.query as Record<string, unknown> | undefined;
+  if (q && typeof q.namespace === 'string' && q.namespace.length > 0) return q.namespace;
+
+  const b = req.body as Record<string, unknown> | undefined | null;
+  if (b && typeof b === 'object' && typeof b.namespace === 'string' && b.namespace.length > 0) {
+    return b.namespace;
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolves namespace context for the current request.
+ *
+ * - **User tokens**: loads grants from namespace_grant, validates access to
+ *   requested namespace (or picks the default/first-alphabetical grant).
+ *   Per design doc 12.3: no grants → returns null (caller should 403).
+ *
+ * - **M2M tokens**: uses requested namespace or 'default'. No grant check.
+ *
+ * - **Auth disabled**: uses requested namespace or 'default'.
+ *
+ * @param req - The Fastify request.
+ * @param pool - A pg Pool for querying namespace_grant.
+ * @returns The resolved namespace context, or null if user has no grants.
+ */
+export async function resolveNamespaces(
+  req: FastifyRequest,
+  pool: Pool,
+): Promise<NamespaceContext | null> {
+  const requested = extractRequestedNamespace(req);
+
+  if (isAuthDisabled()) {
+    // Only create namespace context when explicitly requested.
+    // Without this guard, every test request gets namespace filtering
+    // which breaks test isolation (all test data has namespace='default').
+    if (!requested) return null;
+    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: false };
+  }
+
+  const identity = await getAuthIdentity(req);
+  if (!identity) {
+    return null;
+  }
+
+  if (identity.type === 'm2m') {
+    const ns = requested || 'default';
+    return { storeNamespace: ns, queryNamespaces: [ns], isM2M: true };
+  }
+
+  // User token: load grants
+  const grants = await pool.query<{
+    namespace: string;
+    role: string;
+    is_default: boolean;
+  }>(
+    `SELECT namespace, role, is_default
+     FROM namespace_grant
+     WHERE email = $1
+     ORDER BY namespace`,
+    [identity.email],
+  );
+
+  if (grants.rows.length === 0) {
+    return null; // No grants = no access (design doc 12.3)
+  }
+
+  const allNamespaces = grants.rows.map((r) => r.namespace);
+  const defaultGrant = grants.rows.find((r) => r.is_default);
+
+  // If a specific namespace was requested, verify user has access
+  if (requested) {
+    if (!allNamespaces.includes(requested)) {
+      return null; // No grant for requested namespace
+    }
+    return {
+      storeNamespace: requested,
+      queryNamespaces: [requested],
+      isM2M: false,
+    };
+  }
+
+  // No specific namespace requested: use default or first alphabetical
+  const storeNamespace = defaultGrant?.namespace ?? allNamespaces[0];
+  return {
+    storeNamespace,
+    queryNamespaces: allNamespaces,
+    isM2M: false,
+  };
 }

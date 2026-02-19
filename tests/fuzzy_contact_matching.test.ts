@@ -3,9 +3,9 @@
  *
  * Tests the suggest-match API route and message-to-contact linking.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { buildServer } from '../src/api/server.js';
-import { createTestPool } from './helpers/db.js';
+import { createTestPool, ensureTestNamespace } from './helpers/db.js';
 
 const TEST_EMAIL = 'fuzzy-match-test@example.com';
 
@@ -33,13 +33,15 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
     await pool.query(`DELETE FROM external_thread WHERE external_thread_key LIKE 'fuzzy-test-%'`);
     await pool.query(`DELETE FROM contact WHERE display_name LIKE 'Fuzzy Test%'`);
 
+    // Epic #1418: ensure namespace_grant for TEST_EMAIL user
+    await ensureTestNamespace(pool, TEST_EMAIL);
+
     // Create test contacts with endpoints
     // Alice - has phone and email
     const aliceResult = await pool.query(
-      `INSERT INTO contact (display_name, user_email)
-       VALUES ('Fuzzy Test Alice Smith', $1)
+      `INSERT INTO contact (display_name, namespace)
+       VALUES ('Fuzzy Test Alice Smith', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     contactAliceId = aliceResult.rows[0].id;
 
@@ -61,10 +63,9 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
 
     // Bob - has phone only
     const bobResult = await pool.query(
-      `INSERT INTO contact (display_name, user_email)
-       VALUES ('Fuzzy Test Bob Jones', $1)
+      `INSERT INTO contact (display_name, namespace)
+       VALUES ('Fuzzy Test Bob Jones', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     contactBobId = bobResult.rows[0].id;
 
@@ -78,10 +79,9 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
 
     // Charlie - has email only (same domain as Alice)
     const charlieResult = await pool.query(
-      `INSERT INTO contact (display_name, user_email)
-       VALUES ('Fuzzy Test Charlie Brown', $1)
+      `INSERT INTO contact (display_name, namespace)
+       VALUES ('Fuzzy Test Charlie Brown', 'default')
        RETURNING id::text as id`,
-      [TEST_EMAIL],
     );
     contactCharlieId = charlieResult.rows[0].id;
 
@@ -110,6 +110,12 @@ describe('Fuzzy Contact Matching (Issue #1270)', () => {
       [thread_id],
     );
     unlinkedMessageId = msgResult.rows[0].id;
+  });
+
+  // Epic #1418: Re-ensure namespace_grant before each test in case another test
+  // file's truncateAllTables() CASCADE-deleted the user_setting/namespace_grant rows.
+  beforeEach(async () => {
+    await ensureTestNamespace(pool, TEST_EMAIL);
   });
 
   afterAll(async () => {

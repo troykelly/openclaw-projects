@@ -138,7 +138,6 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       });
 
       expect(memory.relationship_id).toBe(relationship_id);
-      expect(memory.user_email).toBe('test@example.com');
     });
 
     it('creates a memory with only relationship_id scope (no other scopes)', async () => {
@@ -152,7 +151,6 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       });
 
       expect(memory.relationship_id).toBe(relationship_id);
-      expect(memory.user_email).toBeNull();
       expect(memory.work_item_id).toBeNull();
       expect(memory.contact_id).toBeNull();
     });

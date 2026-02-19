@@ -17,11 +17,11 @@ describe('Meal Log API (Issue #1279)', () => {
     pool = createTestPool();
     app = await buildServer();
 
-    await pool.query(`DELETE FROM meal_log WHERE user_email = $1`, [TEST_EMAIL]);
+    await pool.query(`DELETE FROM meal_log WHERE namespace = 'default'`);
   });
 
   afterAll(async () => {
-    await pool.query(`DELETE FROM meal_log WHERE user_email = $1`, [TEST_EMAIL]);
+    await pool.query(`DELETE FROM meal_log WHERE namespace = 'default'`);
     await pool.end();
     await app.close();
   });
@@ -36,7 +36,7 @@ describe('Meal Log API (Issue #1279)', () => {
       );
       const columns = result.rows.map((r) => r.column_name);
       expect(columns).toContain('id');
-      expect(columns).toContain('user_email');
+      expect(columns).toContain('namespace');
       expect(columns).toContain('meal_date');
       expect(columns).toContain('meal_type');
       expect(columns).toContain('title');

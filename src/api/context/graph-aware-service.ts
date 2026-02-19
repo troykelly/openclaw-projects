@@ -26,7 +26,7 @@ export interface ScopeDetail {
 
 /** Collected scopes from graph traversal */
 export interface GraphScope {
-  /** The user's email (personal scope) */
+  /** The user's email (personal scope, used for graph traversal lookup only) */
   user_email: string;
   /** Contact IDs from direct relationships and group memberships */
   contact_ids: string[];
@@ -322,7 +322,6 @@ export async function collectGraphScopes(pool: Pool, user_email: string, options
  */
 function classifyScopeType(
   memory: {
-    user_email: string | null;
     contact_id: string | null;
     relationship_id: string | null;
   },
@@ -357,8 +356,7 @@ function classifyScopeType(
  * Performs a multi-scope semantic search across all collected scopes.
  *
  * Uses a single query with OR conditions for each scope type:
- *   WHERE (user_email = $user_email
- *      OR contact_id = ANY($contactIds)
+ *   WHERE (contact_id = ANY($contactIds)
  *      OR relationship_id = ANY($relationshipIds))
  *   AND (expires_at IS NULL OR expires_at > now())
  *   AND superseded_by IS NULL
@@ -377,7 +375,6 @@ async function multiScopeMemorySearch(
     title: string;
     content: string;
     memory_type: string;
-    user_email: string | null;
     contact_id: string | null;
     relationship_id: string | null;
     importance: number;
@@ -389,14 +386,11 @@ async function multiScopeMemorySearch(
   const { limit, min_similarity } = options;
 
   // Build scope conditions
+  // Epic #1418 Phase 4: user_email column dropped from memory table.
+  // Only use contact_id and relationship_id for scope filtering.
   const scopeConditions: string[] = [];
   const params: (string | string[] | number)[] = [];
   let paramIndex = 1;
-
-  // Always include user email scope
-  scopeConditions.push(`m.user_email = $${paramIndex}`);
-  params.push(scopes.user_email);
-  paramIndex++;
 
   // Include contact scopes if any
   if (scopes.contact_ids.length > 0) {
@@ -411,6 +405,10 @@ async function multiScopeMemorySearch(
     params.push(scopes.relationship_ids);
     paramIndex++;
   }
+
+  // Include unscoped personal memories (no contact_id and no relationship_id)
+  // Epic #1418: replaces old user_email filter for personal memory discovery
+  scopeConditions.push('(m.contact_id IS NULL AND m.relationship_id IS NULL)');
 
   const scopeWhere = `(${scopeConditions.join(' OR ')})`;
 
@@ -448,7 +446,6 @@ async function multiScopeMemorySearch(
         m.title,
         m.content,
         m.memory_type::text as memory_type,
-        m.user_email,
         m.contact_id::text as contact_id,
         m.relationship_id::text as relationship_id,
         m.importance,
@@ -473,7 +470,6 @@ async function multiScopeMemorySearch(
           title: string;
           content: string;
           memory_type: string;
-          user_email: string | null;
           contact_id: string | null;
           relationship_id: string | null;
           importance: number;
@@ -500,7 +496,6 @@ async function multiScopeMemorySearch(
       m.title,
       m.content,
       m.memory_type::text as memory_type,
-      m.user_email,
       m.contact_id::text as contact_id,
       m.relationship_id::text as relationship_id,
       m.importance,
@@ -529,7 +524,6 @@ async function multiScopeMemorySearch(
       title: string;
       content: string;
       memory_type: string;
-      user_email: string | null;
       contact_id: string | null;
       relationship_id: string | null;
       importance: number;
@@ -636,7 +630,6 @@ export async function retrieveGraphAwareContext(pool: Pool, input: GraphAwareCon
     .map((m) => {
       const { scopeType, scopeLabel } = classifyScopeType(
         {
-          user_email: m.user_email,
           contact_id: m.contact_id,
           relationship_id: m.relationship_id,
         },

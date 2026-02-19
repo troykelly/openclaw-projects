@@ -195,7 +195,7 @@ describe('File Storage API Endpoints', () => {
       });
 
       expect(response.statusCode).toBe(404);
-      expect(response.json().error).toContain('Work item');
+      expect(response.json().error).toBe('not found');
     });
 
     it('POST /api/work-items/:id/attachments returns 404 for non-existent file', async () => {

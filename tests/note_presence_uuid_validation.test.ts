@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 describe('Note Presence API - UUID Validation (Issue #701)', () => {
   const app = buildServer();
@@ -35,6 +35,7 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, testUserEmail);
   });
 
   afterAll(async () => {
@@ -59,10 +60,10 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     it('accepts valid UUID format', async () => {
       // Create a note first
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, content)
+        `INSERT INTO note (namespace, title, content)
          VALUES ($1, 'Test Note', 'Test content')
          RETURNING id::text as id`,
-        [testUserEmail],
+        ['default'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -93,10 +94,10 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     it('accepts valid UUID format', async () => {
       // Create a note first
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, content)
+        `INSERT INTO note (namespace, title, content)
          VALUES ($1, 'Test Note', 'Test content')
          RETURNING id::text as id`,
-        [testUserEmail],
+        ['default'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -127,10 +128,10 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     it('accepts valid UUID format', async () => {
       // Create a note first
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, content)
+        `INSERT INTO note (namespace, title, content)
          VALUES ($1, 'Test Note', 'Test content')
          RETURNING id::text as id`,
-        [testUserEmail],
+        ['default'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -164,10 +165,10 @@ describe('Note Presence API - UUID Validation (Issue #701)', () => {
     it('accepts valid UUID format', async () => {
       // Create a note first
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, content)
+        `INSERT INTO note (namespace, title, content)
          VALUES ($1, 'Test Note', 'Test content')
          RETURNING id::text as id`,
-        [testUserEmail],
+        ['default'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 

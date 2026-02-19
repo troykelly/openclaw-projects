@@ -106,6 +106,7 @@ describe('Graph-Aware Context Retrieval', () => {
     title: string;
     content: string;
     memory_type?: string;
+    /** @deprecated user_email column dropped in Epic #1418. Kept for API compat but ignored in SQL. */
     user_email?: string;
     contact_id?: string;
     relationship_id?: string;
@@ -114,15 +115,16 @@ describe('Graph-Aware Context Retrieval', () => {
     expires_at?: Date | null;
     superseded_by?: string;
   }): Promise<string> {
+    // Epic #1418 Phase 4: user_email column dropped from memory table.
+    // Memories are now scoped via namespace at the route level.
     const result = await pool.query(
       `INSERT INTO memory (
-        user_email, contact_id, relationship_id,
+        contact_id, relationship_id,
         title, content, memory_type,
         importance, confidence, expires_at, superseded_by
-      ) VALUES ($1, $2, $3, $4, $5, $6::memory_type, $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5::memory_type, $6, $7, $8, $9)
       RETURNING id::text as id`,
       [
-        opts.user_email ?? null,
         opts.contact_id ?? null,
         opts.relationship_id ?? null,
         opts.title,

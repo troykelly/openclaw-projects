@@ -5,7 +5,7 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildServer } from '../src/api/server.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 import { runMigrate } from './helpers/migrate.ts';
 
 describe('Context entities API (Issue #1275)', () => {
@@ -20,6 +20,7 @@ describe('Context entities API (Issue #1275)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, 'test@example.com');
   });
 
   afterAll(async () => {

@@ -28,6 +28,15 @@ describe('Note Version History API (Epic #337, Issue #347)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    // Epic #1418: recreate user_setting + namespace_grant after truncation.
+    // Only testUserEmail gets 'default' namespace grant. otherUserEmail gets
+    // user_setting only — they access notes via note_share (cross-namespace sharing),
+    // preserving access isolation tests (unauthorized users get 403).
+    for (const email of [testUserEmail, otherUserEmail]) {
+      await pool.query('INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email', [email]);
+      await pool.query('DELETE FROM namespace_grant WHERE email = $1', [email]);
+    }
+    await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [testUserEmail]);
   });
 
   /**

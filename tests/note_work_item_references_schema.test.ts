@@ -20,8 +20,8 @@ describe('Note Work Item References Schema (Migration 043)', () => {
 
     // Create test note
     const note = await pool.query(`
-      INSERT INTO note (user_email, title, content)
-      VALUES ('test@example.com', 'Test Note for References', 'Content')
+      INSERT INTO note (namespace, title, content)
+      VALUES ('default', 'Test Note for References', 'Content')
       RETURNING id
     `);
     testNoteId = note.rows[0].id;
@@ -38,7 +38,7 @@ describe('Note Work Item References Schema (Migration 043)', () => {
   afterAll(async () => {
     // Cleanup
     await pool.query('DELETE FROM note_work_item_reference WHERE note_id = $1', [testNoteId]);
-    await pool.query('DELETE FROM note WHERE user_email = $1', ['test@example.com']);
+    await pool.query('DELETE FROM note WHERE namespace = $1', ['default']);
     await pool.query('DELETE FROM work_item WHERE id = $1', [testWorkItemId]);
     await pool.end();
   });
@@ -119,8 +119,8 @@ describe('Note Work Item References Schema (Migration 043)', () => {
     it('cascades delete when note is deleted', async () => {
       // Create temporary note
       const tempNote = await pool.query(`
-        INSERT INTO note (user_email, title, content)
-        VALUES ('test@example.com', 'Temp Note', 'Content')
+        INSERT INTO note (namespace, title, content)
+        VALUES ('default', 'Temp Note', 'Content')
         RETURNING id
       `);
       const tempNoteId = tempNote.rows[0].id;

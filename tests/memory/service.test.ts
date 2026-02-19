@@ -58,7 +58,6 @@ describe('Memory Service', () => {
       });
 
       expect(memory.id).toBeDefined();
-      expect(memory.user_email).toBe('test@example.com');
       expect(memory.work_item_id).toBeNull();
       expect(memory.contact_id).toBeNull();
       expect(memory.title).toBe('Test preference');
@@ -367,14 +366,14 @@ describe('Memory Service', () => {
       expect(result.total).toBe(2);
     });
 
-    it('filters by user email', async () => {
-      await createMemory(pool, { user_email: 'user1@example.com', title: 'Memory 1', content: 'Content 1' });
-      await createMemory(pool, { user_email: 'user2@example.com', title: 'Memory 2', content: 'Content 2' });
+    it('filters by namespace', async () => {
+      await createMemory(pool, { namespace: 'ns1', title: 'Memory 1', content: 'Content 1' });
+      await createMemory(pool, { namespace: 'ns2', title: 'Memory 2', content: 'Content 2' });
 
-      const result = await listMemories(pool, { user_email: 'user1@example.com' });
+      const result = await listMemories(pool, { queryNamespaces: ['ns1'] });
 
       expect(result.memories.length).toBe(1);
-      expect(result.memories[0].user_email).toBe('user1@example.com');
+      expect(result.memories[0].title).toBe('Memory 1');
     });
 
     it('filters by memory type', async () => {
@@ -396,9 +395,9 @@ describe('Memory Service', () => {
 
       // Create expired memory by directly setting past date
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, expires_at)
+        `INSERT INTO memory (namespace, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['test@example.com', 'Expired', 'Already expired'],
+        ['default', 'Expired', 'Already expired'],
       );
 
       const result = await listMemories(pool);
@@ -411,9 +410,9 @@ describe('Memory Service', () => {
       await createMemory(pool, { user_email: 'test@example.com', title: 'Active', content: 'Not expired' });
 
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, expires_at)
+        `INSERT INTO memory (namespace, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['test@example.com', 'Expired', 'Already expired'],
+        ['default', 'Expired', 'Already expired'],
       );
 
       const result = await listMemories(pool, { include_expired: true });
@@ -498,9 +497,9 @@ describe('Memory Service', () => {
 
       // Create expired memory
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, expires_at)
+        `INSERT INTO memory (namespace, title, content, memory_type, expires_at)
          VALUES ($1, $2, $3, 'note', NOW() - INTERVAL '1 hour')`,
-        ['test@example.com', 'Expired', 'Should be deleted'],
+        ['default', 'Expired', 'Should be deleted'],
       );
 
       const deleted = await cleanupExpiredMemories(pool);

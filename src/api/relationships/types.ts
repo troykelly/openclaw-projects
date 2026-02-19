@@ -62,8 +62,10 @@ export interface CreateRelationshipInput {
   notes?: string;
   /** Agent that created this relationship */
   created_by_agent?: string;
-  /** User email for scoping (Issue #1172) */
+  /** @deprecated user_email column dropped from relationship table in Phase 4 (Epic #1418) */
   user_email?: string;
+  /** Namespace for data partitioning (Epic #1418) */
+  namespace?: string;
 }
 
 /**
@@ -90,8 +92,10 @@ export interface ListRelationshipsOptions {
   limit?: number;
   /** Offset for pagination */
   offset?: number;
-  /** Filter by user email (Issue #1172) */
+  /** @deprecated user_email column dropped from relationship table in Phase 4 (Epic #1418) */
   user_email?: string;
+  /** Filter by namespaces (Epic #1418) */
+  queryNamespaces?: string[];
 }
 
 /**
@@ -154,6 +158,8 @@ export interface RelationshipSetInput {
   created_by_agent?: string;
   /** User email for scoping (Issue #1172) */
   user_email?: string;
+  /** Namespace for data partitioning (Epic #1418) */
+  namespace?: string;
 }
 
 /**

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, truncateAllTables, ensureTestNamespace } from './helpers/db.ts';
 
 describe('Notes CRUD API (Epic #337, Issue #344)', () => {
   const app = buildServer();
@@ -18,6 +18,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
+    await ensureTestNamespace(pool, testUserEmail);
   });
 
   afterAll(async () => {
@@ -42,7 +43,6 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
       expect(body.id).toBeDefined();
       expect(body.title).toBe('My First Note');
       expect(body.content).toBe('This is the content of my note.');
-      expect(body.user_email).toBe(testUserEmail);
       expect(body.visibility).toBe('private');
       expect(body.is_pinned).toBe(false);
       expect(body.tags).toEqual([]);
@@ -76,7 +76,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it('creates a note in a notebook', async () => {
       // Create a notebook first
-      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Work Notebook') RETURNING id::text as id`, [testUserEmail]);
+      const nbResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Work Notebook') RETURNING id::text as id`, ['default']);
       const notebook_id = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -152,7 +152,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it("returns 403 when adding note to someone else's notebook", async () => {
       // Create a notebook owned by another user
-      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Other Notebook') RETURNING id::text as id`, [otherUserEmail]);
+      const nbResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Other Notebook') RETURNING id::text as id`, ['other']);
       const notebook_id = (nbResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -174,12 +174,12 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     beforeEach(async () => {
       // Create some test notes
       await pool.query(
-        `INSERT INTO note (user_email, title, content, tags, visibility, is_pinned)
+        `INSERT INTO note (namespace, title, content, tags, visibility, is_pinned)
          VALUES
            ($1, 'Note 1', 'Content 1', ARRAY['work'], 'private', false),
            ($1, 'Note 2', 'Content 2', ARRAY['personal'], 'public', true),
            ($1, 'Note 3', 'Content 3', ARRAY['work', 'important'], 'private', false)`,
-        [testUserEmail],
+        ['default'],
       );
     });
 
@@ -274,7 +274,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it('can see public notes from other users', async () => {
       // Create a public note from another user
-      await pool.query(`INSERT INTO note (user_email, title, visibility) VALUES ($1, 'Public Note', 'public')`, [otherUserEmail]);
+      await pool.query(`INSERT INTO note (namespace, title, visibility) VALUES ($1, 'Public Note', 'public')`, ['other']);
 
       const res = await app.inject({
         method: 'GET',
@@ -290,10 +290,10 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it('filters notes by notebook', async () => {
       // Create a notebook and a note in it
-      const nbResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, 'Test Notebook') RETURNING id::text as id`, [testUserEmail]);
+      const nbResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, 'Test Notebook') RETURNING id::text as id`, ['default']);
       const notebook_id = (nbResult.rows[0] as { id: string }).id;
 
-      await pool.query(`INSERT INTO note (user_email, title, notebook_id) VALUES ($1, 'Notebook Note', $2)`, [testUserEmail, notebook_id]);
+      await pool.query(`INSERT INTO note (namespace, title, notebook_id) VALUES ($1, 'Notebook Note', $2)`, ['default', notebook_id]);
 
       const res = await app.inject({
         method: 'GET',
@@ -310,8 +310,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
   describe('GET /api/notes/:id', () => {
     it('returns a note by ID', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title, content) VALUES ($1, 'Test Note', 'Content') RETURNING id::text as id`, [
-        testUserEmail,
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title, content) VALUES ($1, 'Test Note', 'Content') RETURNING id::text as id`, [
+        'default',
       ]);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -349,8 +349,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it('returns 404 when user cannot access note', async () => {
       // Create a private note from another user
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title, visibility) VALUES ($1, 'Private', 'private') RETURNING id::text as id`, [
-        otherUserEmail,
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title, visibility) VALUES ($1, 'Private', 'private') RETURNING id::text as id`, [
+        'other',
       ]);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -364,8 +364,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     });
 
     it('allows accessing public notes from other users', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title, visibility) VALUES ($1, 'Public', 'public') RETURNING id::text as id`, [
-        otherUserEmail,
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title, visibility) VALUES ($1, 'Public', 'public') RETURNING id::text as id`, [
+        'other',
       ]);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -380,7 +380,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     });
 
     it('includes version count', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title) VALUES ($1, 'Test') RETURNING id::text as id`, [testUserEmail]);
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title) VALUES ($1, 'Test') RETURNING id::text as id`, ['default']);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -399,10 +399,10 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     beforeEach(async () => {
       const result = await pool.query(
-        `INSERT INTO note (user_email, title, content, tags)
+        `INSERT INTO note (namespace, title, content, tags)
          VALUES ($1, 'Original Title', 'Original Content', ARRAY['tag1'])
          RETURNING id::text as id`,
-        [testUserEmail],
+        ['default'],
       );
       noteId = (result.rows[0] as { id: string }).id;
     });
@@ -448,8 +448,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
     it('returns 403 when user cannot edit note', async () => {
       // Create a private note from another user
-      const otherNoteResult = await pool.query(`INSERT INTO note (user_email, title, visibility) VALUES ($1, 'Private', 'private') RETURNING id::text as id`, [
-        otherUserEmail,
+      const otherNoteResult = await pool.query(`INSERT INTO note (namespace, title, visibility) VALUES ($1, 'Private', 'private') RETURNING id::text as id`, [
+        'other',
       ]);
       const otherNoteId = (otherNoteResult.rows[0] as { id: string }).id;
 
@@ -494,7 +494,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
   describe('DELETE /api/notes/:id', () => {
     it('soft deletes a note', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title) VALUES ($1, 'To Delete') RETURNING id::text as id`, [testUserEmail]);
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title) VALUES ($1, 'To Delete') RETURNING id::text as id`, ['default']);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -530,7 +530,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     });
 
     it('returns 403 when non-owner tries to delete', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title) VALUES ($1, 'Other Note') RETURNING id::text as id`, [otherUserEmail]);
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title) VALUES ($1, 'Other Note') RETURNING id::text as id`, ['other']);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -545,8 +545,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
 
   describe('POST /api/notes/:id/restore', () => {
     it('restores a soft-deleted note', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title, deleted_at) VALUES ($1, 'Deleted Note', NOW()) RETURNING id::text as id`, [
-        testUserEmail,
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title, deleted_at) VALUES ($1, 'Deleted Note', NOW()) RETURNING id::text as id`, [
+        'default',
       ]);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -583,8 +583,8 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     });
 
     it('returns 403 when non-owner tries to restore', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title, deleted_at) VALUES ($1, 'Other Deleted', NOW()) RETURNING id::text as id`, [
-        otherUserEmail,
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title, deleted_at) VALUES ($1, 'Other Deleted', NOW()) RETURNING id::text as id`, [
+        'other',
       ]);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -598,7 +598,7 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     });
 
     it('returns 404 when note is not deleted', async () => {
-      const noteResult = await pool.query(`INSERT INTO note (user_email, title) VALUES ($1, 'Not Deleted') RETURNING id::text as id`, [testUserEmail]);
+      const noteResult = await pool.query(`INSERT INTO note (namespace, title) VALUES ($1, 'Not Deleted') RETURNING id::text as id`, ['default']);
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
       const res = await app.inject({
@@ -615,10 +615,10 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     it('allows access to shared notes', async () => {
       // Create a private note and share it
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, visibility)
+        `INSERT INTO note (namespace, title, visibility)
          VALUES ($1, 'Shared Note', 'shared')
          RETURNING id::text as id`,
-        [otherUserEmail],
+        ['other'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -642,10 +642,10 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     it('allows editing shared notes with write permission', async () => {
       // Create a private note and share with write access
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, visibility)
+        `INSERT INTO note (namespace, title, visibility)
          VALUES ($1, 'Editable Shared', 'shared')
          RETURNING id::text as id`,
-        [otherUserEmail],
+        ['other'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 
@@ -671,10 +671,10 @@ describe('Notes CRUD API (Epic #337, Issue #344)', () => {
     it('prevents editing shared notes with read-only permission', async () => {
       // Create a private note and share with read-only access
       const noteResult = await pool.query(
-        `INSERT INTO note (user_email, title, visibility)
+        `INSERT INTO note (namespace, title, visibility)
          VALUES ($1, 'Read Only Shared', 'shared')
          RETURNING id::text as id`,
-        [otherUserEmail],
+        ['other'],
       );
       const noteId = (noteResult.rows[0] as { id: string }).id;
 

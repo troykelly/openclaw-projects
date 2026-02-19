@@ -74,7 +74,7 @@ export function validateCaptureInput(input: ContextCaptureInput): string | null 
  * - Conversation content is less than 100 characters
  */
 export async function captureContext(pool: Pool, input: ContextCaptureInput): Promise<ContextCaptureResult> {
-  const { conversation, message_count, user_id } = input;
+  const { conversation, message_count, user_id: _user_id } = input;
 
   // Skip if conversation is too short
   if (message_count < MIN_MESSAGE_COUNT) {
@@ -100,9 +100,9 @@ export async function captureContext(pool: Pool, input: ContextCaptureInput): Pr
   const title = firstLine.length > 50 ? firstLine.substring(0, 47) + '...' : firstLine || 'Conversation Context';
 
   try {
+    // Epic #1418 Phase 4: user_email column dropped from memory table.
     const result = await pool.query(
       `INSERT INTO memory (
-        user_email,
         title,
         content,
         memory_type,
@@ -110,7 +110,7 @@ export async function captureContext(pool: Pool, input: ContextCaptureInput): Pr
         created_by_human,
         importance,
         confidence
-      ) VALUES ($1, $2, $3, $4::memory_type, $5, $6, $7, $8)
+      ) VALUES ($1, $2, $3::memory_type, $4, $5, $6, $7)
       RETURNING
         id::text,
         title,
@@ -120,7 +120,6 @@ export async function captureContext(pool: Pool, input: ContextCaptureInput): Pr
         created_at,
         updated_at`,
       [
-        user_id ?? null,
         title,
         content,
         'context',

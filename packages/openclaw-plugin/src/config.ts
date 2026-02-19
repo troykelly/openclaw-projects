@@ -164,6 +164,11 @@ export const RawPluginConfigSchema = z
 
     /** PromptGuard-2 classifier URL (e.g., http://prompt-guard:8190) */
     promptGuardUrl: z.string().url().optional().describe('PromptGuard classifier URL'),
+
+    /** Default namespace for data scoping (Issue #1428) */
+    namespace: z.string().min(1).max(63).regex(/^[a-z0-9][a-z0-9._-]*$/, {
+      message: 'namespace must be lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit',
+    }).optional().describe('Default namespace for data scoping'),
   })
   .strip(); // Remove unknown properties instead of rejecting with error
 
@@ -230,6 +235,9 @@ export const PluginConfigSchema = z.object({
 
   /** PromptGuard-2 classifier URL */
   promptGuardUrl: z.string().url().optional(),
+
+  /** Default namespace for data scoping (Issue #1428) */
+  namespace: z.string().min(1).max(63).optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
@@ -350,6 +358,7 @@ export async function resolveConfigSecrets(rawConfig: RawPluginConfig): Promise<
     baseUrl: rawConfig.baseUrl,
     nominatimUrl: rawConfig.nominatimUrl,
     promptGuardUrl: rawConfig.promptGuardUrl,
+    namespace: rawConfig.namespace,
   };
 
   // Validate the resolved config
@@ -400,6 +409,7 @@ export function resolveConfigSecretsSync(rawConfig: RawPluginConfig): PluginConf
     debug: rawConfig.debug,
     baseUrl: rawConfig.baseUrl,
     nominatimUrl: rawConfig.nominatimUrl,
+    namespace: rawConfig.namespace,
   };
 
   // Validate the resolved config

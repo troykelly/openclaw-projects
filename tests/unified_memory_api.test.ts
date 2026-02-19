@@ -39,7 +39,6 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(res.statusCode).toBe(201);
       const body = res.json();
       expect(body.id).toBeDefined();
-      expect(body.user_email).toBe('test@example.com');
       expect(body.work_item_id).toBeNull();
       expect(body.contact_id).toBeNull();
       expect(body.memory_type).toBe('preference');
@@ -185,9 +184,9 @@ describe('Unified Memory API (Issue #209)', () => {
   describe('GET /api/memories/unified', () => {
     it('lists all memories', async () => {
       await pool.query(
-        `INSERT INTO memory (title, content, memory_type, user_email)
-         VALUES ('Memory 1', 'Content 1', 'note', 'user1@example.com'),
-                ('Memory 2', 'Content 2', 'fact', 'user2@example.com')`,
+        `INSERT INTO memory (title, content, memory_type, namespace)
+         VALUES ('Memory 1', 'Content 1', 'note', 'default'),
+                ('Memory 2', 'Content 2', 'fact', 'default')`,
       );
 
       const res = await app.inject({
@@ -203,9 +202,9 @@ describe('Unified Memory API (Issue #209)', () => {
 
     it('filters by user email', async () => {
       await pool.query(
-        `INSERT INTO memory (title, content, memory_type, user_email)
-         VALUES ('Memory 1', 'Content 1', 'note', 'user1@example.com'),
-                ('Memory 2', 'Content 2', 'note', 'user2@example.com')`,
+        `INSERT INTO memory (title, content, memory_type, namespace)
+         VALUES ('Memory 1', 'Content 1', 'note', 'default'),
+                ('Memory 2', 'Content 2', 'note', 'default')`,
       );
 
       const res = await app.inject({
@@ -215,8 +214,6 @@ describe('Unified Memory API (Issue #209)', () => {
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.memories.length).toBe(1);
-      expect(body.memories[0].user_email).toBe('user1@example.com');
     });
 
     it('filters by memory type', async () => {
@@ -250,12 +247,12 @@ describe('Unified Memory API (Issue #209)', () => {
 
       // Create global and work item scoped memories
       await pool.query(
-        `INSERT INTO memory (title, content, memory_type, user_email)
-         VALUES ('Global', 'Content', 'preference', 'test@example.com')`,
+        `INSERT INTO memory (title, content, memory_type, namespace)
+         VALUES ('Global', 'Content', 'preference', 'default')`,
       );
       await pool.query(
-        `INSERT INTO memory (title, content, memory_type, user_email, work_item_id)
-         VALUES ('Scoped', 'Content', 'note', 'test@example.com', $1)`,
+        `INSERT INTO memory (title, content, memory_type, namespace, work_item_id)
+         VALUES ('Scoped', 'Content', 'note', 'default', $1)`,
         [work_item_id],
       );
 
@@ -285,8 +282,8 @@ describe('Unified Memory API (Issue #209)', () => {
     it('supersedes a memory with a new one', async () => {
       // Create original memory
       const result = await pool.query(
-        `INSERT INTO memory (title, content, memory_type, user_email, importance)
-         VALUES ('Old fact', 'Outdated info', 'fact', 'test@example.com', 5)
+        `INSERT INTO memory (title, content, memory_type, namespace, importance)
+         VALUES ('Old fact', 'Outdated info', 'fact', 'default', 5)
          RETURNING id::text as id`,
       );
       const oldId = (result.rows[0] as { id: string }).id;

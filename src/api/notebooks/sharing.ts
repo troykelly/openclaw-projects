@@ -92,11 +92,19 @@ export interface SharedWithMeEntry {
 }
 
 /**
- * Check if user owns notebook
+ * Check if user owns notebook.
+ * Phase 4 (Epic #1418): user_email column dropped from notebook table.
+ * Ownership is now inferred by namespace membership (checked at the route level).
+ * This function returns true if the notebook exists (not deleted).
  */
 async function userOwnsNotebook(pool: Pool, notebook_id: string, user_email: string): Promise<boolean> {
-  const result = await pool.query('SELECT user_email FROM notebook WHERE id = $1 AND deleted_at IS NULL', [notebook_id]);
-  return result.rows[0]?.user_email === user_email;
+  const result = await pool.query(
+    `SELECT nb.id FROM notebook nb
+     JOIN namespace_grant ng ON ng.namespace = nb.namespace AND ng.email = $2
+     WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
+    [notebook_id, user_email],
+  );
+  return result.rows.length > 0;
 }
 
 /**
@@ -368,9 +376,9 @@ export async function accessSharedNotebook(pool: Pool, token: string): Promise<S
   // Update last accessed
   await pool.query('UPDATE notebook_share SET last_accessed_at = NOW() WHERE share_link_token = $1', [token]);
 
-  // Get the notebook
+  // Get the notebook (Phase 4: user_email column dropped from notebook table)
   const notebookResult = await pool.query(
-    `SELECT nb.id::text, nb.name, nb.description, nb.updated_at, nb.user_email
+    `SELECT nb.id::text, nb.name, nb.description, nb.updated_at
      FROM notebook nb
      WHERE nb.id = $1 AND nb.deleted_at IS NULL`,
     [share.notebook_id],
@@ -381,6 +389,13 @@ export async function accessSharedNotebook(pool: Pool, token: string): Promise<S
   }
 
   const notebook = notebookResult.rows[0];
+
+  // Get the share creator email for the shared_by field
+  const shareCreatorResult = await pool.query(
+    `SELECT created_by_email FROM notebook_share WHERE share_link_token = $1`,
+    [token],
+  );
+  const sharedBy = (shareCreatorResult.rows[0]?.created_by_email as string) ?? '';
 
   // Get notes in notebook
   const notesResult = await pool.query(
@@ -404,7 +419,7 @@ export async function accessSharedNotebook(pool: Pool, token: string): Promise<S
       updated_at: new Date(row.updated_at),
     })),
     permission: share.permission as SharePermission,
-    shared_by: notebook.user_email,
+    shared_by: sharedBy,
   };
 }
 

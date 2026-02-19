@@ -8,7 +8,8 @@
 /** A notebook from the database */
 export interface Notebook {
   id: string;
-  user_email: string;
+  /** @deprecated user_email column dropped from notebook table in Phase 4 (Epic #1418) */
+  user_email?: string;
   name: string;
   description: string | null;
   icon: string | null;
@@ -61,6 +62,8 @@ export interface ListNotebooksOptions {
   include_child_counts?: boolean;
   limit?: number;
   offset?: number;
+  /** Epic #1418: namespace scoping (preferred over user_email) */
+  queryNamespaces?: string[];
 }
 
 /** Result of listing notebooks */
