@@ -205,8 +205,9 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
         user_email: USER_A,
       });
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { id: string };
+      const body = (await res.json()) as { id: string; namespace?: string };
       itemIdA = body.id;
+      console.error(`[DIAG] Created WI in NS_A: id=${itemIdA}, namespace=${body.namespace}, NS_A=${NS_A}`);
       cleanupWorkItemsA.push(itemIdA);
     });
 
@@ -250,8 +251,9 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
         user_email: USER_A,
       });
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { id: string };
+      const body = (await res.json()) as { id: string; namespace?: string };
       contactIdA = body.id;
+      console.error(`[DIAG] Created Contact in NS_A: id=${contactIdA}, namespace=${body.namespace}, NS_A=${NS_A}`);
       cleanupContactsA.push(contactIdA);
     });
 
@@ -497,7 +499,9 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
           user_email: USER_B,
         });
         expect(res.status).toBe(201);
-        itemForB = ((await res.json()) as { id: string }).id;
+        const pbBody = (await res.json()) as { id: string; namespace?: string };
+        itemForB = pbBody.id;
+        console.error(`[DIAG] Created WI in NS_B: id=${itemForB}, namespace=${pbBody.namespace}, NS_B=${NS_B}`);
         cleanupWorkItemsB.push(itemForB);
       });
 
