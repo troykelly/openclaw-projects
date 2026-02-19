@@ -5686,6 +5686,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           date_from,
           date_to,
           semantic_weight,
+          queryNamespaces: req.namespaceContext?.queryNamespaces,
         });
 
         return reply.send(result);

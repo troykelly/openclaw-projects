@@ -195,11 +195,17 @@ async function searchContactsText(
 async function searchMemoriesText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
-  const params: (string | number | Date)[] = [query];
+  const params: (string | number | Date | string[])[] = [query];
   let paramIndex = 2;
+
+  // Epic #1418: namespace scoping
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -350,12 +356,18 @@ async function searchMessagesSemantic(
 async function searchMemoriesSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'"];
-  const params: (string | number | Date)[] = [embeddingStr];
+  const params: (string | number | Date | string[])[] = [embeddingStr];
   let paramIndex = 2;
+
+  // Epic #1418: namespace scoping
+  const nsScope = options.queryNamespaces ?? ['default'];
+  conditions.push(`namespace = ANY($${paramIndex}::text[])`);
+  params.push(nsScope);
+  paramIndex++;
 
   if (options.date_from) {
     conditions.push(`created_at >= $${paramIndex}`);
@@ -447,10 +459,11 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     date_to,
     semantic_weight = DEFAULT_SEMANTIC_WEIGHT,
     user_email,
+    queryNamespaces,
   } = options;
 
   const effectiveLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
-  const searchOpts = { limit: effectiveLimit, offset, date_from, date_to };
+  const searchOpts = { limit: effectiveLimit, offset, date_from, date_to, queryNamespaces };
   const workItemSearchOpts = { ...searchOpts, user_email };
 
   // Determine search type based on capabilities
