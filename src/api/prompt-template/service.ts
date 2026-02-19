@@ -143,12 +143,20 @@ export async function listPromptTemplates(
 }
 
 /**
- * Get a single prompt template by ID.
+ * Get a single prompt template by ID, optionally scoped to namespaces.
  */
 export async function getPromptTemplate(
   pool: Pool,
   id: string,
+  queryNamespaces?: string[],
 ): Promise<PromptTemplate | null> {
+  if (queryNamespaces) {
+    const result = await pool.query(
+      `SELECT ${COLUMNS} FROM prompt_template WHERE id = $1 AND namespace = ANY($2::text[])`,
+      [id, queryNamespaces],
+    );
+    return (result.rows[0] as PromptTemplate) ?? null;
+  }
   const result = await pool.query(
     `SELECT ${COLUMNS} FROM prompt_template WHERE id = $1`,
     [id],
@@ -164,12 +172,18 @@ export async function updatePromptTemplate(
   pool: Pool,
   id: string,
   input: PromptTemplateUpdateInput,
+  queryNamespaces?: string[],
 ): Promise<PromptTemplate | null> {
-  // Check existence first
-  const existing = await pool.query(
-    'SELECT id, namespace, channel_type FROM prompt_template WHERE id = $1',
-    [id],
-  );
+  // Check existence (with optional namespace scoping)
+  const existing = queryNamespaces
+    ? await pool.query(
+        'SELECT id, namespace, channel_type FROM prompt_template WHERE id = $1 AND namespace = ANY($2::text[])',
+        [id, queryNamespaces],
+      )
+    : await pool.query(
+        'SELECT id, namespace, channel_type FROM prompt_template WHERE id = $1',
+        [id],
+      );
   if (existing.rows.length === 0) return null;
 
   const row = existing.rows[0] as { id: string; namespace: string; channel_type: string };
@@ -232,10 +246,16 @@ export async function updatePromptTemplate(
 export async function deletePromptTemplate(
   pool: Pool,
   id: string,
+  queryNamespaces?: string[],
 ): Promise<boolean> {
-  const result = await pool.query(
-    `UPDATE prompt_template SET is_active = false WHERE id = $1 AND is_active = true RETURNING id`,
-    [id],
-  );
+  const result = queryNamespaces
+    ? await pool.query(
+        `UPDATE prompt_template SET is_active = false WHERE id = $1 AND is_active = true AND namespace = ANY($2::text[]) RETURNING id`,
+        [id, queryNamespaces],
+      )
+    : await pool.query(
+        `UPDATE prompt_template SET is_active = false WHERE id = $1 AND is_active = true RETURNING id`,
+        [id],
+      );
   return result.rows.length > 0;
 }

@@ -235,6 +235,31 @@ describe('prompt-template service', () => {
       const result = await getPromptTemplate(pool, '00000000-0000-0000-0000-000000000000');
       expect(result).toBeNull();
     });
+
+    it('returns null when queried with wrong namespace', async () => {
+      const created = await createPromptTemplate(pool, {
+        label: 'NS Scoped',
+        content: 'content',
+        channel_type: 'sms',
+        namespace: 'ns-a',
+      });
+
+      const result = await getPromptTemplate(pool, created.id, ['ns-b']);
+      expect(result).toBeNull();
+    });
+
+    it('returns template when queried with matching namespace', async () => {
+      const created = await createPromptTemplate(pool, {
+        label: 'NS Scoped',
+        content: 'content',
+        channel_type: 'sms',
+        namespace: 'ns-a',
+      });
+
+      const result = await getPromptTemplate(pool, created.id, ['ns-a']);
+      expect(result).toBeDefined();
+      expect(result?.id).toBe(created.id);
+    });
   });
 
   describe('updatePromptTemplate', () => {
@@ -304,6 +329,22 @@ describe('prompt-template service', () => {
       const result = await updatePromptTemplate(pool, created.id, {});
       expect(result).toBeNull();
     });
+
+    it('returns null when queried with wrong namespace', async () => {
+      const created = await createPromptTemplate(pool, {
+        label: 'Original',
+        content: 'content',
+        channel_type: 'sms',
+        namespace: 'ns-a',
+      });
+
+      const result = await updatePromptTemplate(pool, created.id, { label: 'Hacked' }, ['ns-b']);
+      expect(result).toBeNull();
+
+      // Verify original unchanged
+      const original = await getPromptTemplate(pool, created.id);
+      expect(original?.label).toBe('Original');
+    });
   });
 
   describe('deletePromptTemplate', () => {
@@ -338,6 +379,22 @@ describe('prompt-template service', () => {
       await deletePromptTemplate(pool, created.id);
       const secondDelete = await deletePromptTemplate(pool, created.id);
       expect(secondDelete).toBe(false);
+    });
+
+    it('returns false when queried with wrong namespace', async () => {
+      const created = await createPromptTemplate(pool, {
+        label: 'To Delete',
+        content: 'content',
+        channel_type: 'sms',
+        namespace: 'ns-a',
+      });
+
+      const result = await deletePromptTemplate(pool, created.id, ['ns-b']);
+      expect(result).toBe(false);
+
+      // Verify still active
+      const original = await getPromptTemplate(pool, created.id);
+      expect(original?.is_active).toBe(true);
     });
   });
 });

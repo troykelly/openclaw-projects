@@ -185,6 +185,40 @@ describe('Prompt Template API (Issue #1499)', () => {
       });
       expect(res.json().total).toBe(1);
     });
+
+    it('rejects non-numeric limit', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/prompt-templates?limit=abc',
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('limit');
+    });
+
+    it('rejects non-numeric offset', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/prompt-templates?offset=xyz',
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('offset');
+    });
+
+    it('rejects negative offset', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/prompt-templates?offset=-1',
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('rejects zero limit', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/prompt-templates?limit=0',
+      });
+      expect(res.statusCode).toBe(400);
+    });
   });
 
   // ── GET /api/prompt-templates/:id ─────────────────────────
@@ -264,6 +298,20 @@ describe('Prompt Template API (Issue #1499)', () => {
       });
 
       expect(res.statusCode).toBe(404);
+    });
+
+    it('returns 400 for empty update body', async () => {
+      const created = await createTemplate();
+      const id = created.json().id;
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/prompt-templates/${id}`,
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('field');
     });
   });
 

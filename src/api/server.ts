@@ -20541,14 +20541,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       include_inactive?: string;
     };
 
+    const limit = parseInt(query.limit || '50', 10);
+    const offset = parseInt(query.offset || '0', 10);
+    if (isNaN(limit) || isNaN(offset) || limit < 1 || offset < 0) {
+      return reply.code(400).send({ error: 'limit must be >= 1 and offset must be >= 0' });
+    }
+
     const pool = createPool();
     try {
       const result = await listPromptTemplates(pool, {
         channel_type: query.channel_type,
         search: query.search,
         include_inactive: query.include_inactive === 'true',
-        limit: Math.min(parseInt(query.limit || '50', 10), 100),
-        offset: parseInt(query.offset || '0', 10),
+        limit: Math.min(limit, 100),
+        offset,
         queryNamespaces: req.namespaceContext?.queryNamespaces,
       });
       return reply.send(result);
@@ -20564,7 +20570,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const result = await getPromptTemplate(pool, id);
+      const result = await getPromptTemplate(pool, id, req.namespaceContext?.queryNamespaces);
       if (!result) {
         return reply.code(404).send({ error: 'not found' });
       }
@@ -20590,6 +20596,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'channel_type must be one of: sms, email, ha_observation, general' });
     }
 
+    // Check at least one updatable field is provided
+    const hasUpdate = body && (
+      body.label !== undefined ||
+      body.content !== undefined ||
+      body.channel_type !== undefined ||
+      body.is_default !== undefined ||
+      body.is_active !== undefined
+    );
+    if (!hasUpdate) {
+      return reply.code(400).send({ error: 'at least one field to update is required' });
+    }
+
     const pool = createPool();
     try {
       const result = await updatePromptTemplate(pool, id, {
@@ -20598,7 +20616,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         channel_type: body?.channel_type,
         is_default: body?.is_default,
         is_active: body?.is_active,
-      });
+      }, req.namespaceContext?.queryNamespaces);
       if (!result) {
         return reply.code(404).send({ error: 'not found' });
       }
@@ -20615,7 +20633,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
     try {
-      const deleted = await deletePromptTemplate(pool, id);
+      const deleted = await deletePromptTemplate(pool, id, req.namespaceContext?.queryNamespaces);
       if (!deleted) {
         return reply.code(404).send({ error: 'not found' });
       }
