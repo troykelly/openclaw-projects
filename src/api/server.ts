@@ -357,7 +357,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   async function verifyNamespaceScope(pool: ReturnType<typeof createPool>, table: string, id: string, req: FastifyRequest): Promise<boolean> {
     const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
     const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`, [id, queryNamespaces]);
-    return result.rows.length > 0;
+    const passed = result.rows.length > 0;
+    // Temporary diagnostic logging for E2E namespace scoping investigation
+    if (process.env.NODE_ENV === 'test') {
+      const nsHeader = req.headers['x-namespace'];
+      console.error(`[NS_SCOPE] ${req.method} table=${table} id=${id.slice(0, 8)} ns_header=${nsHeader} queryNs=[${queryNamespaces}] ctx=${JSON.stringify(req.namespaceContext)} passed=${passed}`);
+    }
+    return passed;
   }
 
   /**
@@ -4189,6 +4195,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as { include_deleted?: string };
     const pool = createPool();
 
+    // Epic #1418: verify entity belongs to caller's namespaces
+    if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
     // By default, exclude soft-deleted items
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND wi.deleted_at IS NULL';
 
@@ -6958,6 +6970,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as { include_deleted?: string };
     const pool = createPool();
 
+    // Epic #1418: verify entity belongs to caller's namespaces
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
+
     const deletedFilter = query.include_deleted === 'true' ? '' : 'AND c.deleted_at IS NULL';
 
     const result = await pool.query(
@@ -6998,6 +7016,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
 
     const pool = createPool();
+
+    // Epic #1418: verify entity belongs to caller's namespaces
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
 
     // Validate contact_kind if provided (issue #489)
     if (body.contact_kind !== undefined && !VALID_CONTACT_KINDS.includes(body.contact_kind as ContactKind)) {
@@ -7109,6 +7133,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const params = req.params as { id: string };
     const query = req.query as { permanent?: string };
     const pool = createPool();
+
+    // Epic #1418: verify entity belongs to caller's namespaces
+    if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
+      await pool.end();
+      return reply.code(404).send({ error: 'not found' });
+    }
 
     // Check if permanent delete requested
     if (query.permanent === 'true') {
