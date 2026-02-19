@@ -93,6 +93,10 @@ const APPLICATION_TABLES = [
   'meal_log',
   // Pantry inventory (Issue #1280)
   'pantry_item',
+  // Inbound routing (Epic #1497) — FK children before prompt_template
+  'channel_default',
+  'inbound_destination',
+  'prompt_template',
   // Async/queue tables (no FKs today, but still want consistent cleanup)
   'webhook_outbox',
   'internal_job',
