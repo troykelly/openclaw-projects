@@ -35,15 +35,22 @@ describe('Note Embeddings API', () => {
     app = await buildServer();
     pool = createPool({ max: 3 });
 
-    // Clean up any existing test data
-    await pool.query(`DELETE FROM note WHERE user_email LIKE 'embed-%@example.com'`);
-    await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'embed-%@example.com'`);
+    // Clean up any existing test data (user_email dropped in Epic #1418 migration 091)
+    await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
+    await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
+
+    // Epic #1418: ensure user_setting + namespace_grant exist for test users
+    for (const email of [testUserEmail, otherUserEmail]) {
+      await pool.query('INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email', [email]);
+      await pool.query('DELETE FROM namespace_grant WHERE email = $1', [email]);
+      await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [email]);
+    }
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await pool.query(`DELETE FROM note WHERE user_email LIKE 'embed-%@example.com'`);
-    await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'embed-%@example.com'`);
+    // Clean up test data (user_email dropped in Epic #1418 migration 091)
+    await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
+    await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
 
     await pool.end();
     await app.close();
