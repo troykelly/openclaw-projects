@@ -243,6 +243,16 @@ describe('Prompt Template API (Issue #1499)', () => {
 
       expect(res.statusCode).toBe(404);
     });
+
+    it('returns 400 for malformed ID', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/prompt-templates/not-a-uuid',
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('id');
+    });
   });
 
   // ── PUT /api/prompt-templates/:id ─────────────────────────

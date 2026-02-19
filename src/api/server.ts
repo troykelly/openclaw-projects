@@ -20567,6 +20567,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.get('/api/prompt-templates/:id', async (req, reply) => {
     const { getPromptTemplate } = await import('./prompt-template/service.ts');
     const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
 
     const pool = createPool();
     try {
@@ -20584,6 +20587,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.put('/api/prompt-templates/:id', async (req, reply) => {
     const { updatePromptTemplate, isValidChannelType } = await import('./prompt-template/service.ts');
     const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
     const body = req.body as {
       label?: string;
       content?: string;
@@ -20630,6 +20636,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   app.delete('/api/prompt-templates/:id', async (req, reply) => {
     const { deletePromptTemplate } = await import('./prompt-template/service.ts');
     const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
 
     const pool = createPool();
     try {
