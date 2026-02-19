@@ -205,9 +205,8 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
         user_email: USER_A,
       });
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { id: string; namespace?: string };
+      const body = (await res.json()) as { id: string };
       itemIdA = body.id;
-      console.error(`[DIAG] Created WI in NS_A: id=${itemIdA}, namespace=${body.namespace}, NS_A=${NS_A}`);
       cleanupWorkItemsA.push(itemIdA);
     });
 
@@ -232,10 +231,6 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
 
     it('namespace B gets 404 for GET by id', async () => {
       const res = await nsB.get(`/api/work-items/${itemIdA}`);
-      if (res.status !== 404) {
-        const body = await res.clone().text();
-        console.error(`[DIAG] WI GET cross-ns: expected 404, got ${res.status}. NS_B=${NS_B}, id=${itemIdA}, body=${body.slice(0, 300)}`);
-      }
       expect(res.status).toBe(404);
     });
   });
@@ -251,9 +246,8 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
         user_email: USER_A,
       });
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { id: string; namespace?: string };
+      const body = (await res.json()) as { id: string };
       contactIdA = body.id;
-      console.error(`[DIAG] Created Contact in NS_A: id=${contactIdA}, namespace=${body.namespace}, NS_A=${NS_A}`);
       cleanupContactsA.push(contactIdA);
     });
 
@@ -278,10 +272,6 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
 
     it('namespace B gets 404 for GET contact by id', async () => {
       const res = await nsB.get(`/api/contacts/${contactIdA}`);
-      if (res.status !== 404) {
-        const body = await res.clone().text();
-        console.error(`[DIAG] Contact GET cross-ns: expected 404, got ${res.status}. NS_B=${NS_B}, id=${contactIdA}, body=${body.slice(0, 300)}`);
-      }
       expect(res.status).toBe(404);
     });
   });
@@ -450,18 +440,11 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
           `/api/contacts/${protectedContactId}`,
           { display_name: 'Hacked' },
         );
-        if (res.status !== 404) {
-          const body = await res.clone().text();
-          console.error(`[DIAG] Contact PATCH cross-ns: expected 404, got ${res.status}. NS_B=${NS_B}, id=${protectedContactId}, body=${body.slice(0, 300)}`);
-        }
         expect(res.status).toBe(404);
       });
 
       it('namespace B cannot delete namespace A contact', async () => {
         const res = await nsB.delete(`/api/contacts/${protectedContactId}`);
-        if (res.status !== 404) {
-          console.error(`[DIAG] Contact DELETE cross-ns: expected 404, got ${res.status}. NS_B=${NS_B}, id=${protectedContactId}`);
-        }
         expect(res.status).toBe(404);
       });
 
@@ -499,9 +482,8 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
           user_email: USER_B,
         });
         expect(res.status).toBe(201);
-        const pbBody = (await res.json()) as { id: string; namespace?: string };
+        const pbBody = (await res.json()) as { id: string };
         itemForB = pbBody.id;
-        console.error(`[DIAG] Created WI in NS_B: id=${itemForB}, namespace=${pbBody.namespace}, NS_B=${NS_B}`);
         cleanupWorkItemsB.push(itemForB);
       });
 
@@ -515,10 +497,6 @@ describe.skipIf(!RUN_E2E)('Namespace-based scope isolation (E2E)', () => {
 
       it('namespace A client cannot GET namespace B item by id', async () => {
         const res = await nsA.get(`/api/work-items/${itemForB}`);
-        if (res.status !== 404) {
-          const body = await res.clone().text();
-          console.error(`[DIAG] M2M cross-ns GET: expected 404, got ${res.status}. NS_A=${NS_A}, itemInB=${itemForB}, body=${body.slice(0, 300)}`);
-        }
         // Namespace scoping prevents access — item is in namespace B
         expect(res.status).toBe(404);
       });

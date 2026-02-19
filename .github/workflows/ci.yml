@@ -115,11 +115,6 @@ jobs:
             -e E2E_API_URL=http://openclaw-backend-test:3001 \
             workspace bash -lc "cd /workspaces/openclaw-projects && pnpm run test:e2e"
 
-      - name: Dump backend-test Docker logs (diagnostic)
-        if: failure()
-        run: |
-          docker compose -f docker-compose.test.yml logs --tail=200 backend-test 2>&1 | grep -E '\[NS_SCOPE\]|\[NS_DEBUG\]|Error|error' || true
-
       - name: Teardown E2E services
         if: always()
         run: |

@@ -357,13 +357,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   async function verifyNamespaceScope(pool: ReturnType<typeof createPool>, table: string, id: string, req: FastifyRequest): Promise<boolean> {
     const queryNamespaces = req.namespaceContext?.queryNamespaces ?? ['default'];
     const result = await pool.query(`SELECT 1 FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[])`, [id, queryNamespaces]);
-    const passed = result.rows.length > 0;
-    // Temporary diagnostic logging for E2E namespace scoping investigation
-    if (process.env.NODE_ENV === 'test') {
-      const nsHeader = req.headers['x-namespace'];
-      console.error(`[NS_SCOPE] ${req.method} table=${table} id=${id.slice(0, 8)} ns_header=${nsHeader} queryNs=[${queryNamespaces}] ctx=${JSON.stringify(req.namespaceContext)} passed=${passed}`);
-    }
-    return passed;
+    return result.rows.length > 0;
   }
 
   /**
