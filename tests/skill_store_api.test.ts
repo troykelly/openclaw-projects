@@ -166,7 +166,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       expect(res.statusCode).toBe(201);
     });
 
-    it('supports user_email field', async () => {
+    it('accepts user_email field without error (ignored, scoping via namespace)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/skill-store/items',
@@ -177,7 +177,8 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         },
       });
       expect(res.statusCode).toBe(201);
-      expect(res.json().user_email).toBe('alice@example.com');
+      // user_email column was dropped (Epic #1418); field accepted but not returned
+      expect(res.json().title).toBe('User item');
     });
 
     it('supports priority field', async () => {
@@ -466,7 +467,7 @@ describe('Skill Store CRUD API (Issue #797)', () => {
       expect(res.json().items[0].title).toBe('Tagged');
     });
 
-    it('filters by user_email', async () => {
+    it('user_email query param is ignored for filtering (scoping via namespace)', async () => {
       await app.inject({
         method: 'POST',
         url: '/api/skill-store/items',
@@ -478,12 +479,12 @@ describe('Skill Store CRUD API (Issue #797)', () => {
         payload: { skill_id: 's1', title: 'Bob', user_email: 'bob@example.com' },
       });
 
+      // user_email filter was removed (Epic #1418); all items in same namespace are returned
       const res = await app.inject({
         method: 'GET',
-        url: '/api/skill-store/items?skill_id=s1&user_email=alice@example.com',
+        url: '/api/skill-store/items?skill_id=s1',
       });
-      expect(res.json().items).toHaveLength(1);
-      expect(res.json().items[0].title).toBe('Alice');
+      expect(res.json().items).toHaveLength(2);
     });
 
     it('paginates with limit and offset', async () => {

@@ -1,6 +1,6 @@
 /**
  * Tests for entity links API (Issue #1276).
- * Verifies schema, CRUD, validation, idempotency, and user_email scoping.
+ * Verifies schema, CRUD, validation, idempotency, and namespace scoping.
  */
 
 import type { Pool } from 'pg';
@@ -46,7 +46,7 @@ describe('Entity Links API (Issue #1276)', () => {
       expect(cols).toContain('target_id');
       expect(cols).toContain('link_type');
       expect(cols).toContain('created_by');
-      expect(cols).toContain('user_email');
+      expect(cols).toContain('namespace');
       expect(cols).toContain('created_at');
     });
 
@@ -385,13 +385,13 @@ describe('Entity Links API (Issue #1276)', () => {
     });
   });
 
-  // ── user_email scoping ─────────────────────────────────
+  // ── namespace scoping (Epic #1418) ─────────────────────
 
-  describe('user_email scoping', () => {
-    it('link created with user_email is visible when queried with same email', async () => {
-      await app.inject({
+  describe('namespace scoping', () => {
+    it('link stores namespace from request context', async () => {
+      const createRes = await app.inject({
         method: 'POST',
-        url: '/api/entity-links?user_email=alice@example.com',
+        url: '/api/entity-links',
         payload: {
           source_type: 'message',
           source_id: '00000000-0000-0000-0000-000000000050',
@@ -399,16 +399,13 @@ describe('Entity Links API (Issue #1276)', () => {
           target_id: '00000000-0000-0000-0000-000000000060',
         },
       });
-
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/entity-links?source_type=message&source_id=00000000-0000-0000-0000-000000000050&user_email=alice@example.com',
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json().links).toHaveLength(1);
+      expect(createRes.statusCode).toBe(201);
+      // Verify namespace is set (defaults to 'default' in test context)
+      const body = createRes.json();
+      expect(body.namespace).toBeDefined();
     });
 
-    it('link created without user_email is visible to all users', async () => {
+    it('link is visible when queried by source (namespace-based, not user_email)', async () => {
       await app.inject({
         method: 'POST',
         url: '/api/entity-links',
@@ -420,9 +417,11 @@ describe('Entity Links API (Issue #1276)', () => {
         },
       });
 
+      // user_email query param is accepted but ignored for scoping;
+      // scoping is now by namespace only
       const res = await app.inject({
         method: 'GET',
-        url: '/api/entity-links?source_type=message&source_id=00000000-0000-0000-0000-000000000050&user_email=bob@example.com',
+        url: '/api/entity-links?source_type=message&source_id=00000000-0000-0000-0000-000000000050',
       });
       expect(res.statusCode).toBe(200);
       expect(res.json().links).toHaveLength(1);

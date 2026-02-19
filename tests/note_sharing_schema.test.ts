@@ -20,16 +20,16 @@ describe('Note Sharing Schema (Migration 041)', () => {
 
     // Create test notebook and note for sharing tests
     const notebook = await pool.query(`
-      INSERT INTO notebook (user_email, name)
-      VALUES ('owner@example.com', 'Test Notebook for Sharing')
+      INSERT INTO notebook (namespace, name)
+      VALUES ('default', 'Test Notebook for Sharing')
       RETURNING id
     `);
     testNotebookId = notebook.rows[0].id;
 
     const note = await pool.query(
       `
-      INSERT INTO note (user_email, title, content, notebook_id, visibility)
-      VALUES ('owner@example.com', 'Test Note', 'Test content', $1, 'shared')
+      INSERT INTO note (namespace, title, content, notebook_id, visibility)
+      VALUES ('default', 'Test Note', 'Test content', $1, 'shared')
       RETURNING id
     `,
       [testNotebookId],
@@ -42,8 +42,8 @@ describe('Note Sharing Schema (Migration 041)', () => {
     await pool.query('DELETE FROM note_collaborator WHERE note_id = $1', [testNoteId]);
     await pool.query('DELETE FROM note_share WHERE note_id = $1', [testNoteId]);
     await pool.query('DELETE FROM notebook_share WHERE notebook_id = $1', [testNotebookId]);
-    await pool.query('DELETE FROM note WHERE user_email = $1', ['owner@example.com']);
-    await pool.query('DELETE FROM notebook WHERE user_email = $1', ['owner@example.com']);
+    await pool.query('DELETE FROM note WHERE namespace = $1', ['default']);
+    await pool.query('DELETE FROM notebook WHERE namespace = $1', ['default']);
     await pool.end();
   });
 
@@ -139,8 +139,8 @@ describe('Note Sharing Schema (Migration 041)', () => {
     it('cascades delete when note is deleted', async () => {
       // Create a temporary note
       const tempNote = await pool.query(`
-        INSERT INTO note (user_email, title)
-        VALUES ('owner@example.com', 'Temp Note for Cascade Test')
+        INSERT INTO note (namespace, title)
+        VALUES ('default', 'Temp Note for Cascade Test')
         RETURNING id
       `);
       const tempNoteId = tempNote.rows[0].id;
@@ -188,8 +188,8 @@ describe('Note Sharing Schema (Migration 041)', () => {
     it('cascades delete when notebook is deleted', async () => {
       // Create temp notebook
       const tempNotebook = await pool.query(`
-        INSERT INTO notebook (user_email, name)
-        VALUES ('owner@example.com', 'Temp Notebook for Cascade')
+        INSERT INTO notebook (namespace, name)
+        VALUES ('default', 'Temp Notebook for Cascade')
         RETURNING id
       `);
       const tempNotebookId = tempNotebook.rows[0].id;

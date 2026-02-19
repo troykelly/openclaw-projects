@@ -5,15 +5,16 @@ import { createTestPool, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
 
 /**
- * Tests for user_email scoping on work_item, contact, and relationship tables.
- * Issue #1172
+ * Tests for namespace-based scoping on work_item, contact, and relationship tables.
+ * Epic #1418 replaced user_email scoping (Issue #1172) with namespace scoping.
  *
  * Verifies:
- * 1. Items created with user_email=A are NOT visible when querying with user_email=B
- * 2. Items created without user_email are visible to all (backwards compat)
- * 3. CRUD operations respect user_email scoping
+ * 1. Items created via API are assigned a namespace (defaults to 'default')
+ * 2. user_email query params are accepted but do NOT affect scoping
+ * 3. All items in the same namespace are visible to all queries in that namespace
+ * 4. CRUD operations work regardless of user_email params
  */
-describe('User email scoping (Issue #1172)', () => {
+describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', () => {
   const app = buildServer();
   let pool: Pool;
 
@@ -38,8 +39,18 @@ describe('User email scoping (Issue #1172)', () => {
   // ── Work Items ──────────────────────────────────────────────────
 
   describe('work_item scoping', () => {
-    it('items with user_email are not visible to other users', async () => {
-      // Create item for user A
+    it('work_item table has namespace column instead of user_email', async () => {
+      const result = await pool.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'work_item' ORDER BY ordinal_position`,
+      );
+      const cols = result.rows.map((r) => (r as { column_name: string }).column_name);
+      expect(cols).toContain('namespace');
+      expect(cols).not.toContain('user_email');
+    });
+
+    it('items created with user_email param are visible to all (scoping by namespace)', async () => {
+      // Create item with user_email in payload (accepted but ignored for scoping)
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -48,27 +59,17 @@ describe('User email scoping (Issue #1172)', () => {
       expect(createRes.statusCode).toBe(201);
       const { id: item_id } = createRes.json() as { id: string };
 
-      // User A can see it
-      const listA = await app.inject({
+      // Item is visible without any user_email filter
+      const listAll = await app.inject({
         method: 'GET',
-        url: `/api/work-items?user_email=${encodeURIComponent(USER_A)}`,
+        url: '/api/work-items',
       });
-      expect(listA.statusCode).toBe(200);
-      const itemsA = (listA.json() as { items: Array<{ id: string }> }).items;
-      expect(itemsA.some((i) => i.id === item_id)).toBe(true);
-
-      // User B cannot see it
-      const listB = await app.inject({
-        method: 'GET',
-        url: `/api/work-items?user_email=${encodeURIComponent(USER_B)}`,
-      });
-      expect(listB.statusCode).toBe(200);
-      const itemsB = (listB.json() as { items: Array<{ id: string }> }).items;
-      expect(itemsB.some((i) => i.id === item_id)).toBe(false);
+      expect(listAll.statusCode).toBe(200);
+      const items = (listAll.json() as { items: Array<{ id: string }> }).items;
+      expect(items.some((i) => i.id === item_id)).toBe(true);
     });
 
-    it('items without user_email are visible to all (backwards compat)', async () => {
-      // Create item without user_email
+    it('items without user_email are visible in default namespace', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -77,17 +78,16 @@ describe('User email scoping (Issue #1172)', () => {
       expect(createRes.statusCode).toBe(201);
       const { id: item_id } = createRes.json() as { id: string };
 
-      // Without user_email filter, item is visible
       const listAll = await app.inject({
         method: 'GET',
         url: '/api/work-items',
       });
       expect(listAll.statusCode).toBe(200);
-      const itemsAll = (listAll.json() as { items: Array<{ id: string }> }).items;
-      expect(itemsAll.some((i) => i.id === item_id)).toBe(true);
+      const items = (listAll.json() as { items: Array<{ id: string }> }).items;
+      expect(items.some((i) => i.id === item_id)).toBe(true);
     });
 
-    it('GET /api/work-items/:id respects user_email scoping', async () => {
+    it('GET /api/work-items/:id returns item regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -95,22 +95,22 @@ describe('User email scoping (Issue #1172)', () => {
       });
       const { id } = createRes.json() as { id: string };
 
-      // User A can fetch it
-      const fetchA = await app.inject({
+      // Accessible without user_email
+      const fetch = await app.inject({
         method: 'GET',
-        url: `/api/work-items/${id}?user_email=${encodeURIComponent(USER_A)}`,
+        url: `/api/work-items/${id}`,
       });
-      expect(fetchA.statusCode).toBe(200);
+      expect(fetch.statusCode).toBe(200);
 
-      // User B gets 404
+      // Also accessible with a different user_email (param is ignored)
       const fetchB = await app.inject({
         method: 'GET',
         url: `/api/work-items/${id}?user_email=${encodeURIComponent(USER_B)}`,
       });
-      expect(fetchB.statusCode).toBe(404);
+      expect(fetchB.statusCode).toBe(200);
     });
 
-    it('DELETE /api/work-items/:id respects user_email scoping', async () => {
+    it('DELETE /api/work-items/:id works regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -118,22 +118,15 @@ describe('User email scoping (Issue #1172)', () => {
       });
       const { id } = createRes.json() as { id: string };
 
-      // User B cannot delete it
-      const deleteB = await app.inject({
+      // Delete works regardless of user_email (no per-user scoping)
+      const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/work-items/${id}?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/api/work-items/${id}`,
       });
-      expect(deleteB.statusCode).toBe(404);
-
-      // User A can delete it
-      const deleteA = await app.inject({
-        method: 'DELETE',
-        url: `/api/work-items/${id}?user_email=${encodeURIComponent(USER_A)}`,
-      });
-      expect(deleteA.statusCode).toBe(204);
+      expect(deleteRes.statusCode).toBe(204);
     });
 
-    it('PATCH /api/work-items/:id/status respects user_email scoping', async () => {
+    it('PATCH /api/work-items/:id/status works regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/work-items',
@@ -141,30 +134,45 @@ describe('User email scoping (Issue #1172)', () => {
       });
       const { id } = createRes.json() as { id: string };
 
-      // User B cannot update status
-      const patchB = await app.inject({
+      const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/work-items/${id}/status?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/api/work-items/${id}/status`,
         payload: { status: 'completed' },
       });
-      expect(patchB.statusCode).toBe(404);
+      expect(patchRes.statusCode).toBe(200);
+      expect(patchRes.json().status).toBe('completed');
+    });
 
-      // User A can update status
-      const patchA = await app.inject({
-        method: 'PATCH',
-        url: `/api/work-items/${id}/status?user_email=${encodeURIComponent(USER_A)}`,
-        payload: { status: 'completed' },
+    it('work items store namespace in the database', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/work-items',
+        payload: { title: 'Namespace check' },
       });
-      expect(patchA.statusCode).toBe(200);
-      expect(patchA.json().status).toBe('completed');
+      expect(createRes.statusCode).toBe(201);
+      const { id } = createRes.json() as { id: string };
+
+      const dbResult = await pool.query('SELECT namespace FROM work_item WHERE id = $1', [id]);
+      expect(dbResult.rows).toHaveLength(1);
+      expect(dbResult.rows[0].namespace).toBeDefined();
+      expect(typeof dbResult.rows[0].namespace).toBe('string');
     });
   });
 
   // ── Contacts ────────────────────────────────────────────────────
 
   describe('contact scoping', () => {
-    it('contacts with user_email are not visible to other users', async () => {
-      // Create contact for user A
+    it('contact table has namespace column instead of user_email', async () => {
+      const result = await pool.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'contact' ORDER BY ordinal_position`,
+      );
+      const cols = result.rows.map((r) => (r as { column_name: string }).column_name);
+      expect(cols).toContain('namespace');
+      expect(cols).not.toContain('user_email');
+    });
+
+    it('contacts created with user_email param are visible to all (scoping by namespace)', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
@@ -173,26 +181,17 @@ describe('User email scoping (Issue #1172)', () => {
       expect(createRes.statusCode).toBe(201);
       const { id: contact_id } = createRes.json() as { id: string };
 
-      // User A can see it
-      const listA = await app.inject({
+      // Visible without any user_email filter
+      const listAll = await app.inject({
         method: 'GET',
-        url: `/api/contacts?user_email=${encodeURIComponent(USER_A)}`,
+        url: '/api/contacts',
       });
-      expect(listA.statusCode).toBe(200);
-      const contactsA = (listA.json() as { contacts: Array<{ id: string }> }).contacts;
-      expect(contactsA.some((c) => c.id === contact_id)).toBe(true);
-
-      // User B cannot see it
-      const listB = await app.inject({
-        method: 'GET',
-        url: `/api/contacts?user_email=${encodeURIComponent(USER_B)}`,
-      });
-      expect(listB.statusCode).toBe(200);
-      const contactsB = (listB.json() as { contacts: Array<{ id: string }> }).contacts;
-      expect(contactsB.some((c) => c.id === contact_id)).toBe(false);
+      expect(listAll.statusCode).toBe(200);
+      const contacts = (listAll.json() as { contacts: Array<{ id: string }> }).contacts;
+      expect(contacts.some((c) => c.id === contact_id)).toBe(true);
     });
 
-    it('GET /api/contacts/:id respects user_email scoping', async () => {
+    it('GET /api/contacts/:id returns contact regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
@@ -200,22 +199,22 @@ describe('User email scoping (Issue #1172)', () => {
       });
       const { id } = createRes.json() as { id: string };
 
-      // User A can fetch it
-      const fetchA = await app.inject({
+      // Accessible without user_email
+      const fetch = await app.inject({
         method: 'GET',
-        url: `/api/contacts/${id}?user_email=${encodeURIComponent(USER_A)}`,
+        url: `/api/contacts/${id}`,
       });
-      expect(fetchA.statusCode).toBe(200);
+      expect(fetch.statusCode).toBe(200);
 
-      // User B gets 404
+      // Also accessible with a different user_email (param is ignored)
       const fetchB = await app.inject({
         method: 'GET',
         url: `/api/contacts/${id}?user_email=${encodeURIComponent(USER_B)}`,
       });
-      expect(fetchB.statusCode).toBe(404);
+      expect(fetchB.statusCode).toBe(200);
     });
 
-    it('DELETE /api/contacts/:id respects user_email scoping', async () => {
+    it('DELETE /api/contacts/:id works regardless of user_email param', async () => {
       const createRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
@@ -223,19 +222,11 @@ describe('User email scoping (Issue #1172)', () => {
       });
       const { id } = createRes.json() as { id: string };
 
-      // User B cannot delete it
-      const deleteB = await app.inject({
+      const deleteRes = await app.inject({
         method: 'DELETE',
-        url: `/api/contacts/${id}?user_email=${encodeURIComponent(USER_B)}`,
+        url: `/api/contacts/${id}`,
       });
-      expect(deleteB.statusCode).toBe(404);
-
-      // User A can delete it
-      const deleteA = await app.inject({
-        method: 'DELETE',
-        url: `/api/contacts/${id}?user_email=${encodeURIComponent(USER_A)}`,
-      });
-      expect(deleteA.statusCode).toBe(204);
+      expect(deleteRes.statusCode).toBe(204);
     });
 
     it('contacts without user_email are visible to all', async () => {
@@ -247,51 +238,70 @@ describe('User email scoping (Issue #1172)', () => {
       expect(createRes.statusCode).toBe(201);
       const { id: contact_id } = createRes.json() as { id: string };
 
-      // Without filter, visible
       const listAll = await app.inject({
         method: 'GET',
         url: '/api/contacts',
       });
       expect(listAll.statusCode).toBe(200);
-      const contactsAll = (listAll.json() as { contacts: Array<{ id: string }> }).contacts;
-      expect(contactsAll.some((c) => c.id === contact_id)).toBe(true);
+      const contacts = (listAll.json() as { contacts: Array<{ id: string }> }).contacts;
+      expect(contacts.some((c) => c.id === contact_id)).toBe(true);
+    });
+
+    it('contacts store namespace in the database', async () => {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/contacts',
+        payload: { display_name: 'Namespace check' },
+      });
+      expect(createRes.statusCode).toBe(201);
+      const { id } = createRes.json() as { id: string };
+
+      const dbResult = await pool.query('SELECT namespace FROM contact WHERE id = $1', [id]);
+      expect(dbResult.rows).toHaveLength(1);
+      expect(dbResult.rows[0].namespace).toBeDefined();
     });
   });
 
   // ── Relationships ───────────────────────────────────────────────
 
   describe('relationship scoping', () => {
-    it('relationships with user_email are not visible to other users via GET /api/relationships', async () => {
-      // Create two contacts for user A
+    it('relationship table has namespace column instead of user_email', async () => {
+      const result = await pool.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'relationship' ORDER BY ordinal_position`,
+      );
+      const cols = result.rows.map((r) => (r as { column_name: string }).column_name);
+      expect(cols).toContain('namespace');
+      expect(cols).not.toContain('user_email');
+    });
+
+    it('relationships are visible via GET /api/relationships (namespace-based)', async () => {
+      // Create two contacts
       const contactARes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { display_name: 'Rel Contact A', user_email: USER_A },
+        payload: { display_name: 'Rel Contact A' },
       });
       const contactBRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { display_name: 'Rel Contact B', user_email: USER_A },
+        payload: { display_name: 'Rel Contact B' },
       });
       const contact_a_id = (contactARes.json() as { id: string }).id;
       const contact_b_id = (contactBRes.json() as { id: string }).id;
 
-      // Ensure relationship type exists (use "knows" which is seeded)
-      // First get the relationship type
+      // Get relationship types
       const typesRes = await app.inject({
         method: 'GET',
         url: '/api/relationship-types',
       });
-
-      // If no types exist, skip this test gracefully
       const types = typesRes.json() as { types?: Array<{ id: string }> };
       if (!types.types || types.types.length === 0) {
         return; // No relationship types seeded, skip
       }
-
       const relTypeId = types.types[0].id;
 
-      // Create relationship via direct API with user_email
+      // Create relationship
       const relRes = await app.inject({
         method: 'POST',
         url: '/api/relationships',
@@ -302,49 +312,36 @@ describe('User email scoping (Issue #1172)', () => {
         },
       });
 
-      // Relationship created (may not have user_email directly via this route,
-      // but we can verify the listRelationships endpoint respects user_email filter)
       if (relRes.statusCode === 201) {
-        // Insert user_email directly for test
         const relId = (relRes.json() as { id: string }).id;
-        await pool.query('UPDATE relationship SET user_email = $1 WHERE id = $2', [USER_A, relId]);
 
-        // User A can see it
-        const listA = await app.inject({
+        // Relationship visible without user_email filter
+        const listAll = await app.inject({
           method: 'GET',
-          url: `/api/relationships?user_email=${encodeURIComponent(USER_A)}`,
+          url: '/api/relationships',
         });
-        expect(listA.statusCode).toBe(200);
-        const relsA = (listA.json() as { relationships: Array<{ id: string }> }).relationships;
-        expect(relsA.some((r) => r.id === relId)).toBe(true);
-
-        // User B cannot see it
-        const listB = await app.inject({
-          method: 'GET',
-          url: `/api/relationships?user_email=${encodeURIComponent(USER_B)}`,
-        });
-        expect(listB.statusCode).toBe(200);
-        const relsB = (listB.json() as { relationships: Array<{ id: string }> }).relationships;
-        expect(relsB.some((r) => r.id === relId)).toBe(false);
+        expect(listAll.statusCode).toBe(200);
+        const rels = (listAll.json() as { relationships: Array<{ id: string }> }).relationships;
+        expect(rels.some((r) => r.id === relId)).toBe(true);
       }
     });
 
-    it('POST /api/relationships/set passes user_email to the created relationship', async () => {
-      // Create two contacts for user A
+    it('POST /api/relationships/set stores namespace (not user_email)', async () => {
+      // Create two contacts
       const contactARes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { display_name: 'SetRelA', user_email: USER_A },
+        payload: { display_name: 'SetRelA' },
       });
       const contactBRes = await app.inject({
         method: 'POST',
         url: '/api/contacts',
-        payload: { display_name: 'SetRelB', user_email: USER_A },
+        payload: { display_name: 'SetRelB' },
       });
       expect(contactARes.statusCode).toBe(201);
       expect(contactBRes.statusCode).toBe(201);
 
-      // Use relationship_set with user_email
+      // Use relationship_set (user_email accepted but ignored for scoping)
       const setRes = await app.inject({
         method: 'POST',
         url: '/api/relationships/set',
@@ -361,9 +358,9 @@ describe('User email scoping (Issue #1172)', () => {
       if (setRes.statusCode === 200) {
         const relData = setRes.json() as { relationship: { id: string } };
 
-        // Verify user_email was stored
-        const dbCheck = await pool.query('SELECT user_email FROM relationship WHERE id = $1', [relData.relationship.id]);
-        expect(dbCheck.rows[0].user_email).toBe(USER_A);
+        // Verify namespace is stored (not user_email)
+        const dbCheck = await pool.query('SELECT namespace FROM relationship WHERE id = $1', [relData.relationship.id]);
+        expect(dbCheck.rows[0].namespace).toBeDefined();
       }
     });
   });

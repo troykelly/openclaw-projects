@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { buildServer } from '../src/api/server.ts';
 import { createPool } from '../src/db.ts';
+import { runMigrate } from './helpers/migrate.ts';
 
 // Mock the embedding service module
 vi.mock('../src/api/embeddings/service.ts', () => ({
@@ -32,6 +33,7 @@ describe('Note Embeddings API', () => {
   const otherUserEmail = 'embed-other@example.com';
 
   beforeAll(async () => {
+    await runMigrate('up');
     app = await buildServer();
     pool = createPool({ max: 3 });
 
@@ -39,12 +41,14 @@ describe('Note Embeddings API', () => {
     await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
     await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
 
-    // Epic #1418: ensure user_setting + namespace_grant exist for test users
+    // Epic #1418: ensure user_setting + namespace_grant exist for test users.
+    // Only testUserEmail gets 'default' namespace grant; otherUserEmail gets
+    // user_setting only to preserve access isolation (no cross-namespace access).
     for (const email of [testUserEmail, otherUserEmail]) {
       await pool.query('INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email', [email]);
       await pool.query('DELETE FROM namespace_grant WHERE email = $1', [email]);
-      await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [email]);
     }
+    await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [testUserEmail]);
   });
 
   afterAll(async () => {

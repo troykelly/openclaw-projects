@@ -162,16 +162,18 @@ describe('Hybrid Search', () => {
       expect(result.results.length).toBeLessThanOrEqual(5);
     });
 
-    it('should filter by user_email when provided', async () => {
+    it('should ignore deprecated user_email option (Epic #1418)', async () => {
       (mockPool.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
 
       await searchMemoriesHybrid(mockPool, 'test query', {
         user_email: 'test@example.com',
       });
 
+      // user_email column was dropped from memory table in Epic #1418 Phase 4.
+      // Namespace scoping is handled at the route level, so the SQL should NOT
+      // contain user_email filtering.
       const vectorCall = (mockPool.query as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(vectorCall[0]).toContain('user_email');
-      expect(vectorCall[1]).toContain('test@example.com');
+      expect(vectorCall[0]).not.toContain('user_email');
     });
 
     it('should deduplicate results appearing in both vector and text search', async () => {

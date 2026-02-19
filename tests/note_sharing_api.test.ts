@@ -29,12 +29,15 @@ describe('Sharing API (Epic #337, Issue #348)', () => {
 
   beforeEach(async () => {
     await truncateAllTables(pool);
-    // Epic #1418: recreate user_setting + namespace_grant after truncation
+    // Epic #1418: recreate user_setting + namespace_grant after truncation.
+    // Only ownerEmail gets 'default' namespace grant. collaboratorEmail and otherEmail
+    // get user_setting only — they access notes via note_share (cross-namespace sharing),
+    // preserving access isolation tests (non-owners get 403 without explicit share).
     for (const email of [ownerEmail, collaboratorEmail, otherEmail]) {
       await pool.query('INSERT INTO user_setting (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email', [email]);
       await pool.query('DELETE FROM namespace_grant WHERE email = $1', [email]);
-      await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [email]);
     }
+    await pool.query(`INSERT INTO namespace_grant (email, namespace, role, is_default) VALUES ($1, 'default', 'owner', true)`, [ownerEmail]);
   });
 
   /**

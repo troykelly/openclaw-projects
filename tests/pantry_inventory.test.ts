@@ -38,7 +38,7 @@ describe('Pantry Inventory API', () => {
       `);
       const cols = result.rows.map((r: { column_name: string }) => r.column_name);
       expect(cols).toContain('id');
-      expect(cols).toContain('user_email');
+      expect(cols).toContain('namespace');
       expect(cols).toContain('name');
       expect(cols).toContain('location');
       expect(cols).toContain('quantity');

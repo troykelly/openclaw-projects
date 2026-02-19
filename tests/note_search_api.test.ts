@@ -42,10 +42,10 @@ describe('Note Search API', () => {
 
     // Clean up any existing test data
     await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
-    await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
+    await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
 
     // Create test notebook
-    const notebookResult = await pool.query(`INSERT INTO notebook (user_email, name) VALUES ($1, $2) RETURNING id::text`, [ownerEmail, 'Test Search Notebook']);
+    const notebookResult = await pool.query(`INSERT INTO notebook (namespace, name) VALUES ($1, $2) RETURNING id::text`, ['default', 'Test Search Notebook']);
     createdNotebookIds.push(notebookResult.rows[0].id);
 
     // Create various test notes for search testing
@@ -120,7 +120,7 @@ describe('Note Search API', () => {
   afterAll(async () => {
     // Clean up test data
     await pool.query(`DELETE FROM note WHERE namespace = 'default'`);
-    await pool.query(`DELETE FROM notebook WHERE user_email LIKE 'search-%@example.com'`);
+    await pool.query(`DELETE FROM notebook WHERE namespace = 'default'`);
 
     await pool.end();
     await app.close();

@@ -26,10 +26,10 @@ describe('Note Presence API - Type Validation (Issue #697)', () => {
 
     // Create a test note
     const noteResult = await pool.query(
-      `INSERT INTO note (user_email, title, content)
+      `INSERT INTO note (namespace, title, content)
        VALUES ($1, 'Test Note', 'Test content')
        RETURNING id::text as id`,
-      [testUserEmail],
+      ['default'],
     );
     noteId = (noteResult.rows[0] as { id: string }).id;
   });

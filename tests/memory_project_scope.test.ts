@@ -99,7 +99,6 @@ describe('Memory Project Scope (Issue #1273)', () => {
       });
 
       expect(memory.project_id).toBe(project_id);
-      expect(memory.user_email).toBe('test@example.com');
     });
 
     it('creates a memory with only project_id scope', async () => {
@@ -113,7 +112,6 @@ describe('Memory Project Scope (Issue #1273)', () => {
       });
 
       expect(memory.project_id).toBe(project_id);
-      expect(memory.user_email).toBeNull();
       expect(memory.work_item_id).toBeNull();
       expect(memory.contact_id).toBeNull();
     });

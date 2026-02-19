@@ -46,8 +46,8 @@ describe('Agent Bootstrap API (Issue #219)', () => {
     it('returns user preferences when user_email is provided', async () => {
       // Create a preference memory
       await pool.query(
-        `INSERT INTO memory (user_email, title, content, memory_type, importance)
-         VALUES ('test@example.com', 'Dark Mode', 'User prefers dark mode', 'preference', 8)`,
+        `INSERT INTO memory (namespace, title, content, memory_type, importance)
+         VALUES ('default', 'Dark Mode', 'User prefers dark mode', 'preference', 8)`,
       );
 
       const res = await app.inject({
