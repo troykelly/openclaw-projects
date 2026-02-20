@@ -1187,6 +1187,56 @@ const linksRemoveSchema: JSONSchema = {
   required: ['source_type', 'source_id', 'target_type', 'target_ref'],
 };
 
+// Prompt template tool schemas (Epic #1497, Issue #1499)
+const promptTemplateListSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    channel_type: { type: 'string', description: 'Filter by channel type: sms, email, ha_observation, general', enum: ['sms', 'email', 'ha_observation', 'general'] },
+    limit: { type: 'number', description: 'Max results to return (default 20)', minimum: 1, maximum: 100 },
+    offset: { type: 'number', description: 'Pagination offset (default 0)', minimum: 0 },
+  },
+  required: [],
+};
+
+const promptTemplateGetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'ID of the prompt template to retrieve' },
+  },
+  required: ['id'],
+};
+
+const promptTemplateCreateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    label: { type: 'string', description: 'Human-readable name for the template', minLength: 1 },
+    content: { type: 'string', description: 'The prompt text', minLength: 1 },
+    channel_type: { type: 'string', description: 'Channel type: sms, email, ha_observation, general', enum: ['sms', 'email', 'ha_observation', 'general'] },
+    is_default: { type: 'boolean', description: 'Whether this is the default template for its channel type' },
+  },
+  required: ['label', 'content', 'channel_type'],
+};
+
+const promptTemplateUpdateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'ID of the prompt template to update' },
+    label: { type: 'string', description: 'New label' },
+    content: { type: 'string', description: 'New prompt text' },
+    channel_type: { type: 'string', description: 'New channel type', enum: ['sms', 'email', 'ha_observation', 'general'] },
+    is_default: { type: 'boolean', description: 'Set as default for channel type' },
+  },
+  required: ['id'],
+};
+
+const promptTemplateDeleteSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'ID of the prompt template to delete (soft-delete)' },
+  },
+  required: ['id'],
+};
+
 /**
  * Create tool execution handlers
  */
@@ -2789,6 +2839,108 @@ function createToolHandlers(state: PluginState) {
         links_remove: (params: Record<string, unknown>) => removeTool.execute(params),
       };
     })(),
+
+    // Prompt template tools (Epic #1497, Issue #1499)
+    async prompt_template_list(params: Record<string, unknown>): Promise<ToolResult> {
+      const { channel_type, limit = 20, offset = 0 } = params as {
+        channel_type?: string;
+        limit?: number;
+        offset?: number;
+      };
+      try {
+        const queryParams = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+        if (channel_type) queryParams.set('channel_type', channel_type);
+
+        const response = await apiClient.get<{ items?: Array<{ id: string; label: string; channel_type: string; is_default: boolean }>; total?: number }>(
+          `/api/prompt-templates?${queryParams.toString()}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to list prompt templates' };
+        }
+        const items = response.data.items ?? [];
+        const content = items.length === 0
+          ? 'No prompt templates found.'
+          : items.map((t) => `- **${t.label}** [${t.channel_type}]${t.is_default ? ' (default)' : ''}`).join('\n');
+        return { success: true, data: { content, details: { items, total: response.data.total ?? items.length } } };
+      } catch (error) {
+        logger.error('prompt_template_list failed', { error });
+        return { success: false, error: 'Failed to list prompt templates' };
+      }
+    },
+
+    async prompt_template_get(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id } = params as { id: string };
+      try {
+        const response = await apiClient.get<{ id: string; label: string; content: string; channel_type: string; is_default: boolean }>(
+          `/api/prompt-templates/${id}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Prompt template not found' };
+        }
+        const t = response.data;
+        return { success: true, data: { content: `**${t.label}** [${t.channel_type}]${t.is_default ? ' (default)' : ''}\n\n${t.content}`, details: t } };
+      } catch (error) {
+        logger.error('prompt_template_get failed', { error });
+        return { success: false, error: 'Failed to get prompt template' };
+      }
+    },
+
+    async prompt_template_create(params: Record<string, unknown>): Promise<ToolResult> {
+      const { label, content, channel_type, is_default } = params as {
+        label: string;
+        content: string;
+        channel_type: string;
+        is_default?: boolean;
+      };
+      try {
+        const response = await apiClient.post<{ id: string; label: string }>(
+          '/api/prompt-templates',
+          { label, content, channel_type, is_default },
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to create prompt template' };
+        }
+        return { success: true, data: { content: `Created prompt template "${response.data.label}" (${response.data.id})`, details: response.data } };
+      } catch (error) {
+        logger.error('prompt_template_create failed', { error });
+        return { success: false, error: 'Failed to create prompt template' };
+      }
+    },
+
+    async prompt_template_update(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id, ...updates } = params as { id: string; label?: string; content?: string; channel_type?: string; is_default?: boolean };
+      try {
+        const response = await apiClient.put<{ id: string; label: string }>(
+          `/api/prompt-templates/${id}`,
+          updates,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to update prompt template' };
+        }
+        return { success: true, data: { content: `Updated prompt template "${response.data.label}"`, details: response.data } };
+      } catch (error) {
+        logger.error('prompt_template_update failed', { error });
+        return { success: false, error: 'Failed to update prompt template' };
+      }
+    },
+
+    async prompt_template_delete(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id } = params as { id: string };
+      try {
+        const response = await apiClient.delete(`/api/prompt-templates/${id}`, { user_id });
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to delete prompt template' };
+        }
+        return { success: true, data: { content: `Deleted prompt template ${id}`, details: { id } } };
+      } catch (error) {
+        logger.error('prompt_template_delete failed', { error });
+        return { success: false, error: 'Failed to delete prompt template' };
+      }
+    },
   };
 }
 
@@ -3161,6 +3313,52 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: linksRemoveSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_remove(params);
+        return toAgentToolResult(result);
+      },
+    },
+    // Prompt template tools (Epic #1497, Issue #1499)
+    {
+      name: 'prompt_template_list',
+      description: 'List prompt templates used for inbound message triage. Filter by channel type (sms, email, ha_observation, general).',
+      parameters: promptTemplateListSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.prompt_template_list(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'prompt_template_get',
+      description: 'Get a prompt template by ID. Returns the full template including prompt content.',
+      parameters: promptTemplateGetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.prompt_template_get(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'prompt_template_create',
+      description: 'Create a new prompt template for inbound message triage. Requires agentadmin access.',
+      parameters: promptTemplateCreateSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.prompt_template_create(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'prompt_template_update',
+      description: 'Update an existing prompt template. Can change label, content, channel type, or set as default.',
+      parameters: promptTemplateUpdateSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.prompt_template_update(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'prompt_template_delete',
+      description: 'Soft-delete a prompt template (sets is_active to false). Template can still be viewed but will not be used for routing.',
+      parameters: promptTemplateDeleteSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.prompt_template_delete(params);
         return toAgentToolResult(result);
       },
     },

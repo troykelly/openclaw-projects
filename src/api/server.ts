@@ -20493,6 +20493,165 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Prompt Templates (Epic #1497, Issue #1499) ─────────────────────
+
+  // POST /api/prompt-templates - Create a new prompt template
+  app.post('/api/prompt-templates', async (req, reply) => {
+    const { createPromptTemplate, isValidChannelType } = await import('./prompt-template/service.ts');
+    const body = req.body as {
+      label?: string;
+      content?: string;
+      channel_type?: string;
+      is_default?: boolean;
+    } | null;
+
+    if (!body?.label?.trim()) {
+      return reply.code(400).send({ error: 'label is required' });
+    }
+    if (!body.content) {
+      return reply.code(400).send({ error: 'content is required' });
+    }
+    if (!body.channel_type || !isValidChannelType(body.channel_type)) {
+      return reply.code(400).send({ error: 'channel_type must be one of: sms, email, ha_observation, general' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await createPromptTemplate(pool, {
+        label: body.label,
+        content: body.content,
+        channel_type: body.channel_type,
+        is_default: body.is_default,
+        namespace: getStoreNamespace(req),
+      });
+      return reply.code(201).send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/prompt-templates - List prompt templates
+  app.get('/api/prompt-templates', async (req, reply) => {
+    const { listPromptTemplates } = await import('./prompt-template/service.ts');
+    const query = req.query as {
+      channel_type?: string;
+      search?: string;
+      limit?: string;
+      offset?: string;
+      include_inactive?: string;
+    };
+
+    const limit = parseInt(query.limit || '50', 10);
+    const offset = parseInt(query.offset || '0', 10);
+    if (isNaN(limit) || isNaN(offset) || limit < 1 || offset < 0) {
+      return reply.code(400).send({ error: 'limit must be >= 1 and offset must be >= 0' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await listPromptTemplates(pool, {
+        channel_type: query.channel_type,
+        search: query.search,
+        include_inactive: query.include_inactive === 'true',
+        limit: Math.min(limit, 100),
+        offset,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
+      });
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/prompt-templates/:id - Get a single prompt template
+  app.get('/api/prompt-templates/:id', async (req, reply) => {
+    const { getPromptTemplate } = await import('./prompt-template/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await getPromptTemplate(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/prompt-templates/:id - Update a prompt template
+  app.put('/api/prompt-templates/:id', async (req, reply) => {
+    const { updatePromptTemplate, isValidChannelType } = await import('./prompt-template/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+    const body = req.body as {
+      label?: string;
+      content?: string;
+      channel_type?: string;
+      is_default?: boolean;
+      is_active?: boolean;
+    } | null;
+
+    if (body?.channel_type !== undefined && !isValidChannelType(body.channel_type)) {
+      return reply.code(400).send({ error: 'channel_type must be one of: sms, email, ha_observation, general' });
+    }
+
+    // Check at least one updatable field is provided
+    const hasUpdate = body && (
+      body.label !== undefined ||
+      body.content !== undefined ||
+      body.channel_type !== undefined ||
+      body.is_default !== undefined ||
+      body.is_active !== undefined
+    );
+    if (!hasUpdate) {
+      return reply.code(400).send({ error: 'at least one field to update is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await updatePromptTemplate(pool, id, {
+        label: body?.label,
+        content: body?.content,
+        channel_type: body?.channel_type,
+        is_default: body?.is_default,
+        is_active: body?.is_active,
+      }, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/prompt-templates/:id - Soft-delete a prompt template
+  app.delete('/api/prompt-templates/:id', async (req, reply) => {
+    const { deletePromptTemplate } = await import('./prompt-template/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const deleted = await deletePromptTemplate(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!deleted) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
