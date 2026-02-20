@@ -10,7 +10,7 @@
 
 import { ZodError } from 'zod';
 import { type ApiClient, createApiClient } from './api-client.js';
-import { type PluginConfig, type RawPluginConfig, redactConfig, resolveConfigSecretsSync, validateRawConfig } from './config.js';
+import { type PluginConfig, type RawPluginConfig, redactConfig, resolveConfigSecretsSync, resolveNamespaceConfig, validateRawConfig } from './config.js';
 import { extractContext, getUserScopeKey } from './context.js';
 import { createOAuthGatewayMethods, registerOAuthGatewayRpcMethods } from './gateway/oauth-rpc-methods.js';
 import { createGatewayMethods, registerGatewayRpcMethods } from './gateway/rpc-methods.js';
@@ -34,6 +34,7 @@ import {
 import type {
   AgentToolResult,
   JSONSchema,
+  JSONSchemaProperty,
   OpenClawPluginApi,
   PluginHookAgentContext,
   PluginHookAgentEndEvent,
@@ -62,6 +63,8 @@ interface PluginState {
   logger: Logger;
   apiClient: ApiClient;
   user_id: string;
+  /** Resolved namespace config (Issue #1428) */
+  resolvedNamespace: { default: string; recall: string[] };
 }
 
 /**
@@ -81,6 +84,41 @@ function toAgentToolResult(result: ToolResult): AgentToolResult {
   const errorText = result.error ?? 'An unexpected error occurred';
   return {
     content: [{ type: 'text' as const, text: `Error: ${errorText}` }],
+  };
+}
+
+/** Namespace property for store/create tools (Issue #1428) */
+const namespaceProperty: JSONSchemaProperty = {
+  type: 'string',
+  description: 'Target namespace for this operation. Defaults to the agent\'s configured namespace.',
+  pattern: '^[a-z0-9][a-z0-9._-]*$',
+  maxLength: 63,
+};
+
+/** Namespaces property for query/list tools (Issue #1428) */
+const namespacesProperty: JSONSchemaProperty = {
+  type: 'array',
+  description: 'Namespaces to search. Defaults to the agent\'s configured recall namespaces.',
+  items: {
+    type: 'string',
+    pattern: '^[a-z0-9][a-z0-9._-]*$',
+    maxLength: 63,
+  },
+};
+
+/** Add namespace param to a store/create tool schema (Issue #1428) */
+function withNamespace(schema: JSONSchema): JSONSchema {
+  return {
+    ...schema,
+    properties: { ...schema.properties, namespace: namespaceProperty },
+  };
+}
+
+/** Add namespaces param to a query/list tool schema (Issue #1428) */
+function withNamespaces(schema: JSONSchema): JSONSchema {
+  return {
+    ...schema,
+    properties: { ...schema.properties, namespaces: namespacesProperty },
   };
 }
 
@@ -1299,7 +1337,27 @@ const channelDefaultSetSchema: JSONSchema = {
  * Create tool execution handlers
  */
 function createToolHandlers(state: PluginState) {
-  const { config, logger, apiClient, user_id } = state;
+  const { config, logger, apiClient, user_id, resolvedNamespace } = state;
+
+  /**
+   * Get the effective namespace for a store/create operation.
+   * Uses explicit tool param if provided, otherwise falls back to config default.
+   */
+  function getStoreNamespace(params: Record<string, unknown>): string {
+    const ns = params.namespace;
+    if (typeof ns === 'string' && ns.length > 0) return ns;
+    return resolvedNamespace.default;
+  }
+
+  /**
+   * Get the effective namespaces for a query/list operation.
+   * Uses explicit tool param if provided, otherwise falls back to config recall list.
+   */
+  function getRecallNamespaces(params: Record<string, unknown>): string[] {
+    const ns = params.namespaces;
+    if (Array.isArray(ns) && ns.length > 0) return ns as string[];
+    return resolvedNamespace.recall;
+  }
 
   return {
     async memory_recall(params: Record<string, unknown>): Promise<ToolResult> {
@@ -1331,6 +1389,9 @@ function createToolHandlers(state: PluginState) {
         if (category) queryParams.set('memory_type', category);
         if (tags && tags.length > 0) queryParams.set('tags', tags.join(','));
         if (relationship_id) queryParams.set('relationship_id', relationship_id);
+        // Namespace scoping (Issue #1428)
+        const ns = getRecallNamespaces(params);
+        if (ns.length > 0) queryParams.set('namespaces', ns.join(','));
 
         const response = await apiClient.get<{
           results: Array<{
@@ -1429,6 +1490,7 @@ function createToolHandlers(state: PluginState) {
           content: memoryText,
           memory_type: category === 'entity' ? 'reference' : category === 'other' ? 'note' : category,
           importance,
+          namespace: getStoreNamespace(params), // Issue #1428
         };
         if (tags && tags.length > 0) payload.tags = tags;
         if (relationship_id) payload.relationship_id = relationship_id;
@@ -1488,8 +1550,11 @@ function createToolHandlers(state: PluginState) {
         if (query) {
           // Match OpenClaw gateway memory_forget behavior:
           // Search → single high-confidence match auto-deletes, multiple returns candidates.
+          const forgetQp = new URLSearchParams({ q: query, limit: '5' });
+          const forgetNs = getRecallNamespaces(params);
+          if (forgetNs.length > 0) forgetQp.set('namespaces', forgetNs.join(','));
           const searchResponse = await apiClient.get<{ results: Array<{ id: string; content: string; similarity?: number }> }>(
-            `/api/memories/search?q=${encodeURIComponent(query)}&limit=5`,
+            `/api/memories/search?${forgetQp}`,
             { user_id },
           );
           if (!searchResponse.success) {
@@ -1543,6 +1608,9 @@ function createToolHandlers(state: PluginState) {
         const queryParams = new URLSearchParams({ item_type: 'project', limit: String(limit) });
         if (status !== 'all') queryParams.set('status', status);
         queryParams.set('user_email', user_id); // Issue #1172: scope by user
+        // Namespace scoping (Issue #1428)
+        const projListNs = getRecallNamespaces(params);
+        if (projListNs.length > 0) queryParams.set('namespaces', projListNs.join(','));
 
         const response = await apiClient.get<{ items: Array<{ id: string; title: string; status: string }> }>(`/api/work-items?${queryParams}`, { user_id });
 
@@ -1604,7 +1672,7 @@ function createToolHandlers(state: PluginState) {
       try {
         const response = await apiClient.post<{ id: string }>(
           '/api/work-items',
-          { title: name, description, item_type: 'project', status, user_email: user_id },
+          { title: name, description, item_type: 'project', status, user_email: user_id, namespace: getStoreNamespace(params) },
           { user_id },
         );
 
@@ -1649,6 +1717,9 @@ function createToolHandlers(state: PluginState) {
         if (completed !== undefined) {
           queryParams.set('status', completed ? 'completed' : 'active');
         }
+        // Namespace scoping (Issue #1428)
+        const todoListNs = getRecallNamespaces(params);
+        if (todoListNs.length > 0) queryParams.set('namespaces', todoListNs.join(','));
 
         const response = await apiClient.get<{
           items?: Array<{ id: string; title: string; status: string; completed?: boolean; dueDate?: string }>;
@@ -1703,7 +1774,7 @@ function createToolHandlers(state: PluginState) {
       };
 
       try {
-        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: user_id };
+        const body: Record<string, unknown> = { title, description, item_type: 'task', priority, user_email: user_id, namespace: getStoreNamespace(params) };
         if (project_id) body.parent_work_item_id = project_id;
         if (dueDate) body.not_after = dueDate;
 
@@ -1778,6 +1849,9 @@ function createToolHandlers(state: PluginState) {
           semantic: 'true',
           user_email: user_id, // Issue #1216: scope results to current user
         });
+        // Namespace scoping (Issue #1428)
+        const todoSearchNs = getRecallNamespaces(params);
+        if (todoSearchNs.length > 0) queryParams.set('namespaces', todoSearchNs.join(','));
 
         const response = await apiClient.get<{
           results: Array<{
@@ -1865,6 +1939,8 @@ function createToolHandlers(state: PluginState) {
 
       try {
         const queryParams = new URLSearchParams({ search: query, limit: String(limit), user_email: user_id });
+        const contactSearchNs = getRecallNamespaces(params);
+        if (contactSearchNs.length > 0) queryParams.set('namespaces', contactSearchNs.join(','));
         const response = await apiClient.get<{ contacts: Array<{ id: string; display_name: string; email?: string }> }>(`/api/contacts?${queryParams}`, {
           user_id,
         });
@@ -1923,7 +1999,7 @@ function createToolHandlers(state: PluginState) {
 
       try {
         // API requires display_name, not name. Email/phone are stored as separate contact_endpoint records.
-        const response = await apiClient.post<{ id: string }>('/api/contacts', { display_name: name, notes, user_email: user_id }, { user_id });
+        const response = await apiClient.post<{ id: string }>('/api/contacts', { display_name: name, notes, user_email: user_id, namespace: getStoreNamespace(params) }, { user_id });
 
         if (!response.success) {
           return { success: false, error: response.error.message };
@@ -2590,6 +2666,7 @@ function createToolHandlers(state: PluginState) {
           contact_b,
           relationship_type: relationship,
           user_email: user_id, // Issue #1172: scope by user
+          namespace: getStoreNamespace(params), // Issue #1428
         };
         if (notes) {
           body.notes = notes;
@@ -3190,11 +3267,20 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       agentId: context.agent.agentId,
       sessionKey: context.session.sessionId,
     },
-    config.userScoping,
+    // Backward compat: use userScoping if provided, otherwise default to 'agent'
+    config.userScoping ?? 'agent',
   );
 
+  // Resolve namespace config (Issue #1428)
+  const resolvedNamespace = resolveNamespaceConfig(config.namespace, context.agent.agentId);
+  logger.info('Namespace config resolved', {
+    agentId: context.agent.agentId,
+    defaultNamespace: resolvedNamespace.default,
+    recallNamespaces: resolvedNamespace.recall,
+  });
+
   // Store plugin state
-  const state: PluginState = { config, logger, apiClient, user_id };
+  const state: PluginState = { config, logger, apiClient, user_id, resolvedNamespace };
 
   // Create tool handlers
   const handlers = createToolHandlers(state);
@@ -3205,7 +3291,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'memory_recall',
       description: 'Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics.',
-      parameters: memoryRecallSchema,
+      parameters: withNamespaces(memoryRecallSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_recall(params);
         return toAgentToolResult(result);
@@ -3214,7 +3300,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'memory_store',
       description: 'Store a new memory for future reference. Use when the user shares important preferences, facts, or decisions.',
-      parameters: memoryStoreSchema,
+      parameters: withNamespace(memoryStoreSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_store(params);
         return toAgentToolResult(result);
@@ -3223,7 +3309,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'memory_forget',
       description: 'Remove a memory by ID or search query. Use when information is outdated or the user requests deletion.',
-      parameters: memoryForgetSchema,
+      parameters: withNamespaces(memoryForgetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.memory_forget(params);
         return toAgentToolResult(result);
@@ -3232,7 +3318,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'project_list',
       description: 'List projects for the user. Use to see what projects exist or filter by status.',
-      parameters: projectListSchema,
+      parameters: withNamespaces(projectListSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_list(params);
         return toAgentToolResult(result);
@@ -3241,7 +3327,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'project_get',
       description: 'Get details about a specific project. Use when you need full project information.',
-      parameters: projectGetSchema,
+      parameters: withNamespaces(projectGetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_get(params);
         return toAgentToolResult(result);
@@ -3250,7 +3336,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'project_create',
       description: 'Create a new project. Use when the user wants to start tracking a new initiative.',
-      parameters: projectCreateSchema,
+      parameters: withNamespace(projectCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_create(params);
         return toAgentToolResult(result);
@@ -3259,7 +3345,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'todo_list',
       description: 'List todos, optionally filtered by project or status. Use to see pending tasks.',
-      parameters: todoListSchema,
+      parameters: withNamespaces(todoListSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_list(params);
         return toAgentToolResult(result);
@@ -3268,7 +3354,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'todo_create',
       description: 'Create a new todo item. Use when the user wants to track a task.',
-      parameters: todoCreateSchema,
+      parameters: withNamespace(todoCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_create(params);
         return toAgentToolResult(result);
@@ -3277,7 +3363,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'todo_complete',
       description: 'Mark a todo as complete. Use when a task is done.',
-      parameters: todoCompleteSchema,
+      parameters: withNamespaces(todoCompleteSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_complete(params);
         return toAgentToolResult(result);
@@ -3287,7 +3373,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'todo_search',
       description:
         'Search todos and work items by natural language query. Uses semantic and text search to find relevant items. Optionally filter by kind or status.',
-      parameters: todoSearchSchema,
+      parameters: withNamespaces(todoSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.todo_search(params);
         return toAgentToolResult(result);
@@ -3297,7 +3383,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'project_search',
       description:
         'Search projects by natural language query. Uses semantic and text search to find relevant projects. Optionally filter by status (active, completed, archived).',
-      parameters: projectSearchSchema,
+      parameters: withNamespaces(projectSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.project_search(params);
         return toAgentToolResult(result);
@@ -3307,7 +3393,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'context_search',
       description:
         'Search across memories, todos, projects, and messages simultaneously. Use when you need broad context about a topic, person, or project. Returns a blended ranked list from all entity types. Optionally filter by entity_types to narrow the search.',
-      parameters: contextSearchSchema,
+      parameters: withNamespaces(contextSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.context_search(params);
         return toAgentToolResult(result);
@@ -3316,7 +3402,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'contact_search',
       description: 'Search contacts by name, email, or other fields. Use to find people.',
-      parameters: contactSearchSchema,
+      parameters: withNamespaces(contactSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_search(params);
         return toAgentToolResult(result);
@@ -3325,7 +3411,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'contact_get',
       description: 'Get details about a specific contact. Use when you need full contact information.',
-      parameters: contactGetSchema,
+      parameters: withNamespaces(contactGetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_get(params);
         return toAgentToolResult(result);
@@ -3334,7 +3420,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'contact_create',
       description: 'Create a new contact. Use when the user mentions someone new to track.',
-      parameters: contactCreateSchema,
+      parameters: withNamespace(contactCreateSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.contact_create(params);
         return toAgentToolResult(result);
@@ -3363,7 +3449,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'message_search',
       description:
         'Search message history semantically. Use when you need to find past conversations, messages about specific topics, or communications with contacts. Supports filtering by channel (SMS/email) and contact.',
-      parameters: messageSearchSchema,
+      parameters: withNamespaces(messageSearchSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.message_search(params);
         return toAgentToolResult(result);
@@ -3372,7 +3458,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'thread_list',
       description: 'List message threads (conversations). Use to see recent conversations with contacts. Can filter by channel (SMS/email) or contact.',
-      parameters: threadListSchema,
+      parameters: withNamespaces(threadListSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.thread_list(params);
         return toAgentToolResult(result);
@@ -3381,7 +3467,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
     {
       name: 'thread_get',
       description: 'Get a thread with its message history. Use to view the full conversation in a thread.',
-      parameters: threadGetSchema,
+      parameters: withNamespaces(threadGetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.thread_get(params);
         return toAgentToolResult(result);
@@ -3391,7 +3477,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'relationship_set',
       description:
         "Record a relationship between two people, groups, or organisations. Examples: 'Troy is Alex\\'s partner', 'Sam is a member of The Kelly Household', 'Troy works for Acme Corp'. The system handles directionality and type matching automatically.",
-      parameters: relationshipSetSchema,
+      parameters: withNamespace(relationshipSetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.relationship_set(params);
         return toAgentToolResult(result);
@@ -3401,7 +3487,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'relationship_query',
       description:
         "Query a contact's relationships. Returns all relationships including family, partners, group memberships, professional connections, etc. Handles directional relationships automatically.",
-      parameters: relationshipQuerySchema,
+      parameters: withNamespaces(relationshipQuerySchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.relationship_query(params);
         return toAgentToolResult(result);
@@ -3489,7 +3575,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'links_set',
       description:
         'Create a link between two entities (memory, todo, project, contact, GitHub issue, or URL). Links are bidirectional and can be traversed from either end. Use to connect related items for cross-reference and context discovery.',
-      parameters: linksSetSchema,
+      parameters: withNamespace(linksSetSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_set(params);
         return toAgentToolResult(result);
@@ -3499,7 +3585,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'links_query',
       description:
         'Query all links for an entity (memory, todo, project, or contact). Returns connected entities including other items, GitHub issues, and URLs. Optionally filter by link target types.',
-      parameters: linksQuerySchema,
+      parameters: withNamespaces(linksQuerySchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_query(params);
         return toAgentToolResult(result);
@@ -3509,7 +3595,7 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       name: 'links_remove',
       description:
         'Remove a link between two entities. Deletes both directions of the link. Use when a connection is no longer relevant or was created in error.',
-      parameters: linksRemoveSchema,
+      parameters: withNamespaces(linksRemoveSchema),
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.links_remove(params);
         return toAgentToolResult(result);
@@ -3882,27 +3968,27 @@ export default registerOpenClaw;
 
 /** Export JSON Schemas for external use */
 export const schemas = {
-  memoryRecall: memoryRecallSchema,
-  memoryStore: memoryStoreSchema,
-  memoryForget: memoryForgetSchema,
-  projectList: projectListSchema,
-  projectGet: projectGetSchema,
-  projectCreate: projectCreateSchema,
-  todoList: todoListSchema,
-  todoCreate: todoCreateSchema,
-  todoComplete: todoCompleteSchema,
-  todoSearch: todoSearchSchema,
-  projectSearch: projectSearchSchema,
-  contactSearch: contactSearchSchema,
-  contactGet: contactGetSchema,
-  contactCreate: contactCreateSchema,
+  memoryRecall: withNamespaces(memoryRecallSchema),
+  memoryStore: withNamespace(memoryStoreSchema),
+  memoryForget: withNamespaces(memoryForgetSchema),
+  projectList: withNamespaces(projectListSchema),
+  projectGet: withNamespaces(projectGetSchema),
+  projectCreate: withNamespace(projectCreateSchema),
+  todoList: withNamespaces(todoListSchema),
+  todoCreate: withNamespace(todoCreateSchema),
+  todoComplete: withNamespaces(todoCompleteSchema),
+  todoSearch: withNamespaces(todoSearchSchema),
+  projectSearch: withNamespaces(projectSearchSchema),
+  contactSearch: withNamespaces(contactSearchSchema),
+  contactGet: withNamespaces(contactGetSchema),
+  contactCreate: withNamespace(contactCreateSchema),
   smsSend: smsSendSchema,
   emailSend: emailSendSchema,
-  messageSearch: messageSearchSchema,
-  threadList: threadListSchema,
-  threadGet: threadGetSchema,
-  relationshipSet: relationshipSetSchema,
-  relationshipQuery: relationshipQuerySchema,
+  messageSearch: withNamespaces(messageSearchSchema),
+  threadList: withNamespaces(threadListSchema),
+  threadGet: withNamespaces(threadGetSchema),
+  relationshipSet: withNamespace(relationshipSetSchema),
+  relationshipQuery: withNamespaces(relationshipQuerySchema),
   fileShare: fileShareSchema,
   skillStorePut: skillStorePutSchema,
   skillStoreGet: skillStoreGetSchema,

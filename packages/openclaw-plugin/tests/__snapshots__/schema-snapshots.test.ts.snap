@@ -108,10 +108,35 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
       "type": "number",
     },
     "namespace": {
-      "description": "Default namespace for data scoping (e.g., 'personal', 'team-alpha')",
-      "maxLength": 63,
-      "pattern": "^[a-z0-9][a-z0-9._-]*$",
-      "type": "string",
+      "description": "Namespace configuration for data scoping",
+      "oneOf": [
+        {
+          "properties": {
+            "default": {
+              "description": "Namespace for store/create when none specified",
+              "maxLength": 63,
+              "pattern": "^[a-z0-9][a-z0-9._-]*$",
+              "type": "string",
+            },
+            "recall": {
+              "description": "Namespaces to search when none specified",
+              "items": {
+                "maxLength": 63,
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "type": "string",
+              },
+              "type": "array",
+            },
+          },
+          "type": "object",
+        },
+        {
+          "description": "Shorthand: string treated as { default: value }",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "type": "string",
+        },
+      ],
     },
     "nominatimUrl": {
       "description": "Nominatim reverse geocoding URL (e.g., http://nominatim:8080)",
@@ -200,7 +225,7 @@ exports[`Schema Snapshots > Manifest configSchema > configSchema should match sn
     },
     "userScoping": {
       "default": "agent",
-      "description": "How to scope user memories",
+      "description": "@deprecated — replaced by namespace config. Kept for backward compatibility.",
       "enum": [
         "agent",
         "identity",
@@ -290,9 +315,8 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
   },
   "namespace": {
     "group": "Advanced",
-    "help": "Default namespace for data scoping. All data operations will be scoped to this namespace.",
+    "help": "Namespace config for data scoping. Can be a string (shorthand for default) or { default, recall[] }.",
     "label": "Namespace",
-    "placeholder": "default",
   },
   "nominatimUrl": {
     "group": "Advanced",
@@ -384,8 +408,8 @@ exports[`Schema Snapshots > Manifest configSchema > manifest uiHints should matc
   },
   "userScoping": {
     "group": "Memory",
-    "help": "How to isolate memories between users",
-    "label": "User Scoping",
+    "help": "Deprecated — replaced by namespace config",
+    "label": "User Scoping (deprecated)",
   },
 }
 `;
