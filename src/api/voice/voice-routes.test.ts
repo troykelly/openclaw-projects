@@ -12,7 +12,9 @@ import type { Pool } from 'pg';
 import { voiceRoutesPlugin } from './routes.ts';
 import { validateServiceCalls, isValidServiceCall } from './service-calls.ts';
 import { resolveAgent } from './routing.ts';
+import { isSessionExpired, findActiveSession, cleanupExpiredSessions } from './sessions.ts';
 import { DEFAULT_SAFE_DOMAINS, BLOCKED_SERVICES } from './types.ts';
+import type { VoiceConversationRow } from './types.ts';
 
 // ---------- helpers ----------
 
@@ -563,5 +565,100 @@ describe('constants', () => {
     expect(BLOCKED_SERVICES).toContain('homeassistant.restart');
     expect(BLOCKED_SERVICES).toContain('homeassistant.stop');
     expect(BLOCKED_SERVICES).toContain('automation.delete');
+  });
+});
+
+// ── Session Management ──────────────────────────────────────
+
+describe('isSessionExpired', () => {
+  it('returns false for active session', () => {
+    const conv: VoiceConversationRow = {
+      ...makeConversationRow(),
+      last_active_at: new Date(), // just now
+    };
+    expect(isSessionExpired(conv, 300)).toBe(false);
+  });
+
+  it('returns true for expired session', () => {
+    const conv: VoiceConversationRow = {
+      ...makeConversationRow(),
+      last_active_at: new Date(Date.now() - 600 * 1000), // 10 min ago
+    };
+    expect(isSessionExpired(conv, 300)).toBe(true);
+  });
+
+  it('uses custom timeout', () => {
+    const conv: VoiceConversationRow = {
+      ...makeConversationRow(),
+      last_active_at: new Date(Date.now() - 120 * 1000), // 2 min ago
+    };
+    // 60s timeout -> expired
+    expect(isSessionExpired(conv, 60)).toBe(true);
+    // 300s timeout -> not expired
+    expect(isSessionExpired(conv, 300)).toBe(false);
+  });
+});
+
+describe('findActiveSession', () => {
+  let queryFn: ReturnType<typeof vi.fn>;
+  let pool: Pool;
+
+  beforeEach(() => {
+    queryFn = vi.fn();
+    pool = mockPool(queryFn);
+  });
+
+  it('returns active session when found', async () => {
+    const conv = makeConversationRow();
+    queryFn.mockResolvedValueOnce({ rows: [conv], rowCount: 1 });
+
+    const result = await findActiveSession(pool, 'default', 'agent-1', 'user@test.com');
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe(VALID_UUID);
+  });
+
+  it('returns null when no active session', async () => {
+    queryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const result = await findActiveSession(pool, 'default', null, null);
+    expect(result).toBeNull();
+  });
+});
+
+describe('cleanupExpiredSessions', () => {
+  let queryFn: ReturnType<typeof vi.fn>;
+  let pool: Pool;
+
+  beforeEach(() => {
+    queryFn = vi.fn();
+    pool = mockPool(queryFn);
+  });
+
+  it('deletes expired conversations for a namespace', async () => {
+    // First query: get retention config
+    queryFn.mockResolvedValueOnce({ rows: [{ retention_days: 7 }], rowCount: 1 });
+    // Second query: delete expired
+    queryFn.mockResolvedValueOnce({ rows: [{ id: VALID_UUID }], rowCount: 1 });
+
+    const count = await cleanupExpiredSessions(pool, 'test-ns');
+    expect(count).toBe(1);
+  });
+
+  it('uses default retention when no config', async () => {
+    // First query: no config
+    queryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    // Second query: delete expired
+    queryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const count = await cleanupExpiredSessions(pool, 'test-ns');
+    expect(count).toBe(0);
+  });
+
+  it('handles global cleanup without namespace', async () => {
+    // Global cleanup query
+    queryFn.mockResolvedValueOnce({ rows: [{ id: VALID_UUID }, { id: OTHER_UUID }], rowCount: 2 });
+
+    const count = await cleanupExpiredSessions(pool);
+    expect(count).toBe(2);
   });
 });
