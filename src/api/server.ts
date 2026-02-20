@@ -382,28 +382,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const isM2M = req.namespaceContext?.isM2M ?? false;
     const authOff = isAuthDisabled();
 
-    // 1. Load entity and verify source namespace access
-    // We query ALL namespaces the user has access to (not just the middleware-resolved one)
-    // because the middleware may have resolved to the target namespace from body.
+    // 1. Resolve user identity and connect for transaction
     const sessionEmail = await getSessionEmail(req);
-    let sourceNamespaces: string[];
-    if (authOff || isM2M) {
-      // Unrestricted — match any namespace
-      sourceNamespaces = [];
-    } else if (sessionEmail) {
-      const grants = await pool.query<{ namespace: string }>(
-        'SELECT namespace FROM namespace_grant WHERE email = $1',
-        [sessionEmail],
-      );
-      sourceNamespaces = grants.rows.map((r) => r.namespace);
-      if (sourceNamespaces.length === 0) return null;
-    } else {
-      return null;
-    }
+    if (!authOff && !isM2M && !sessionEmail) return null;
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Load grants inside transaction for consistency with entity lock
+      let sourceNamespaces: string[];
+      if (authOff || isM2M) {
+        sourceNamespaces = [];
+      } else {
+        const grants = await client.query<{ namespace: string }>(
+          'SELECT namespace FROM namespace_grant WHERE email = $1',
+          [sessionEmail],
+        );
+        sourceNamespaces = grants.rows.map((r) => r.namespace);
+        if (sourceNamespaces.length === 0) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+      }
 
       // Fetch entity with lock
       const entityQuery = sourceNamespaces.length > 0
@@ -451,11 +452,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         for (const spec of childSpecs) {
           if (spec.table === table && spec.fkColumn === 'parent_work_item_id') {
             // Recursive: move all descendants via CTE (work_item hierarchy)
+            // Depth limit guards against cycles in hierarchy data
             await client.query(
               `WITH RECURSIVE descendants AS (
-                 SELECT id FROM "${table}" WHERE "${spec.fkColumn}" = $2
+                 SELECT id, 1 AS depth FROM "${table}" WHERE "${spec.fkColumn}" = $2
                  UNION ALL
-                 SELECT c.id FROM "${table}" c JOIN descendants d ON c."${spec.fkColumn}" = d.id
+                 SELECT c.id, d.depth + 1 FROM "${table}" c JOIN descendants d ON c."${spec.fkColumn}" = d.id
+                 WHERE d.depth < 100
                )
                UPDATE "${table}" SET namespace = $1, updated_at = now()
                WHERE id IN (SELECT id FROM descendants)`,
@@ -713,14 +716,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // Global error handler: convert RoleError to 403 (#1485)
-  app.setErrorHandler((error, _req, reply) => {
+  app.setErrorHandler((error, req, reply) => {
     if (error instanceof RoleError) {
       return reply.code(403).send({ error: error.message });
     }
-    // Default Fastify error handling
+    // Fastify errors (validation, etc.) have statusCode set
     if (error.statusCode) {
       return reply.code(error.statusCode).send({ error: error.message });
     }
+    req.log.error(error, 'Unhandled error');
     reply.code(500).send({ error: 'Internal Server Error' });
   });
 
