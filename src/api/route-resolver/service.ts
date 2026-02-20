@@ -37,12 +37,17 @@ async function getDestinationByAddress(
 }
 
 /**
- * Load prompt template content by ID. Returns null if not found or inactive.
+ * Load prompt template content by ID, scoped to namespace.
+ * Returns null if not found, inactive, or outside the given namespace.
  */
-async function loadPromptContent(pool: Pool, promptTemplateId: string): Promise<string | null> {
+async function loadPromptContent(
+  pool: Pool,
+  promptTemplateId: string,
+  namespace: string,
+): Promise<string | null> {
   const result = await pool.query(
-    `SELECT content FROM prompt_template WHERE id = $1 AND is_active = true`,
-    [promptTemplateId],
+    `SELECT content FROM prompt_template WHERE id = $1 AND is_active = true AND namespace = $2`,
+    [promptTemplateId, namespace],
   );
   return (result.rows[0] as { content: string } | undefined)?.content ?? null;
 }
@@ -66,7 +71,7 @@ export async function resolveRoute(
 
   if (dest?.agent_id) {
     const promptContent = dest.prompt_template_id
-      ? await loadPromptContent(pool, dest.prompt_template_id)
+      ? await loadPromptContent(pool, dest.prompt_template_id, namespace)
       : null;
 
     return {
@@ -83,7 +88,7 @@ export async function resolveRoute(
 
   if (channelDefault) {
     const promptContent = channelDefault.prompt_template_id
-      ? await loadPromptContent(pool, channelDefault.prompt_template_id)
+      ? await loadPromptContent(pool, channelDefault.prompt_template_id, namespace)
       : null;
 
     return {
