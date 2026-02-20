@@ -68,7 +68,6 @@ describe('Memory Tags (Issue #492)', () => {
   describe('createMemory with tags', () => {
     it('creates a memory with tags', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Music preference',
         content: 'User likes lo-fi beats while working',
         memory_type: 'preference',
@@ -80,7 +79,6 @@ describe('Memory Tags (Issue #492)', () => {
 
     it('creates a memory with empty tags', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Simple note',
         content: 'A memory without tags',
       });
@@ -90,7 +88,6 @@ describe('Memory Tags (Issue #492)', () => {
 
     it('creates a memory without specifying tags (defaults to empty array)', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Default tags test',
         content: 'Tags should default to empty array',
       });
@@ -104,7 +101,6 @@ describe('Memory Tags (Issue #492)', () => {
   describe('getMemory returns tags', () => {
     it('returns tags when retrieving a memory', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Tagged memory',
         content: 'Has tags',
         tags: ['important', 'food'],
@@ -121,7 +117,6 @@ describe('Memory Tags (Issue #492)', () => {
   describe('updateMemory with tags', () => {
     it('updates tags on an existing memory', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Updatable',
         content: 'Will update tags',
         tags: ['original'],
@@ -136,7 +131,6 @@ describe('Memory Tags (Issue #492)', () => {
 
     it('clears tags by setting empty array', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Tags to clear',
         content: 'Will clear tags',
         tags: ['a', 'b', 'c'],
@@ -155,13 +149,11 @@ describe('Memory Tags (Issue #492)', () => {
   describe('listMemories tag filtering', () => {
     it('filters memories by a single tag', async () => {
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Music pref',
         content: 'Likes jazz',
         tags: ['music', 'jazz'],
       });
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Food pref',
         content: 'Likes sushi',
         tags: ['food', 'sushi'],
@@ -175,13 +167,11 @@ describe('Memory Tags (Issue #492)', () => {
 
     it('filters memories by multiple tags (AND semantics - contains all)', async () => {
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Jazz at work',
         content: 'Likes jazz while coding',
         tags: ['music', 'work', 'jazz'],
       });
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Rock at gym',
         content: 'Likes rock at the gym',
         tags: ['music', 'exercise', 'rock'],
@@ -228,14 +218,12 @@ describe('Memory Tags (Issue #492)', () => {
   describe('searchMemories with tag filtering', () => {
     it('combines tag filter with text search', async () => {
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Piano music preference',
         content: 'User loves piano music for focus work',
         memory_type: 'preference',
         tags: ['music', 'focus'],
       });
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Coffee preference',
         content: 'User drinks black coffee for focus',
         memory_type: 'preference',
@@ -256,7 +244,6 @@ describe('Memory Tags (Issue #492)', () => {
   describe('search_vector trigger', () => {
     it('includes tags in full-text search vector', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Simple note',
         content: 'A basic memory entry',
         tags: ['uniquetagname'],
@@ -285,7 +272,6 @@ describe('Memory Tags (Issue #492)', () => {
           title: 'Tagged via API',
           content: 'Testing tag support',
           memory_type: 'preference',
-          user_email: 'test@example.com',
           tags: ['api-test', 'music'],
         },
       });

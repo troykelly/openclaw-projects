@@ -49,9 +49,8 @@ describe('Memory Service', () => {
   });
 
   describe('createMemory', () => {
-    it('creates a global memory with user email only', async () => {
+    it('creates a global memory', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Test preference',
         content: 'User prefers dark mode',
         memory_type: 'preference',
@@ -78,7 +77,6 @@ describe('Memory Service', () => {
       const work_item_id = (workItemResult.rows[0] as { id: string }).id;
 
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         work_item_id,
         title: 'Tech decision',
         content: 'Chose PostgreSQL for ACID compliance',
@@ -99,7 +97,6 @@ describe('Memory Service', () => {
       const contact_id = (contactResult.rows[0] as { id: string }).id;
 
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         contact_id,
         title: 'Contact preference',
         content: 'John prefers email communication',
@@ -112,7 +109,6 @@ describe('Memory Service', () => {
 
     it('creates a memory with full attribution', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Agent note',
         content: 'User mentioned they like pizza',
         memory_type: 'fact',
@@ -127,7 +123,6 @@ describe('Memory Service', () => {
 
     it('creates a memory with custom importance and confidence', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Important fact',
         content: 'User is allergic to peanuts',
         memory_type: 'fact',
@@ -143,7 +138,6 @@ describe('Memory Service', () => {
       const expires_at = new Date(Date.now() + 3600000); // 1 hour from now
 
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Temporary context',
         content: 'Currently in a meeting',
         memory_type: 'context',
@@ -157,7 +151,6 @@ describe('Memory Service', () => {
     it('throws on invalid memory type', async () => {
       await expect(
         createMemory(pool, {
-          user_email: 'test@example.com',
           title: 'Test',
           content: 'Test',
           memory_type: 'invalid' as any,
@@ -167,7 +160,6 @@ describe('Memory Service', () => {
 
     it('normalizes 0-1 float importance to 1-10 integer scale', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Float importance test',
         content: 'Testing 0.7 importance',
         memory_type: 'fact',
@@ -179,7 +171,6 @@ describe('Memory Service', () => {
 
     it('normalizes importance 0.0 to 1', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Min importance',
         content: 'Testing 0.0 importance',
         memory_type: 'fact',
@@ -191,7 +182,6 @@ describe('Memory Service', () => {
 
     it('normalizes importance 1.0 to 10', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Max importance',
         content: 'Testing 1.0 importance',
         memory_type: 'fact',
@@ -203,7 +193,6 @@ describe('Memory Service', () => {
 
     it('passes through 1-10 integer importance unchanged', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Integer importance',
         content: 'Testing integer 8',
         memory_type: 'fact',
@@ -216,7 +205,6 @@ describe('Memory Service', () => {
     it('rejects importance outside valid ranges', async () => {
       await expect(
         createMemory(pool, {
-          user_email: 'test@example.com',
           title: 'Bad importance',
           content: 'Testing invalid importance',
           memory_type: 'fact',
@@ -226,7 +214,6 @@ describe('Memory Service', () => {
 
       await expect(
         createMemory(pool, {
-          user_email: 'test@example.com',
           title: 'Bad importance',
           content: 'Testing negative importance',
           memory_type: 'fact',
@@ -239,7 +226,6 @@ describe('Memory Service', () => {
   describe('getMemory', () => {
     it('returns a memory by ID', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Test memory',
         content: 'Test content',
       });
@@ -260,7 +246,6 @@ describe('Memory Service', () => {
   describe('updateMemory', () => {
     it('updates memory title and content', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Original title',
         content: 'Original content',
       });
@@ -277,7 +262,6 @@ describe('Memory Service', () => {
 
     it('updates memory type', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Test',
         content: 'Test',
         memory_type: 'note',
@@ -292,7 +276,6 @@ describe('Memory Service', () => {
 
     it('updates importance and confidence', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Test',
         content: 'Test',
       });
@@ -315,7 +298,6 @@ describe('Memory Service', () => {
 
     it('throws on invalid importance', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Test',
         content: 'Test',
       });
@@ -325,7 +307,6 @@ describe('Memory Service', () => {
 
     it('throws on invalid confidence', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Test',
         content: 'Test',
       });
@@ -337,7 +318,6 @@ describe('Memory Service', () => {
   describe('deleteMemory', () => {
     it('deletes a memory', async () => {
       const created = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'To be deleted',
         content: 'Test',
       });
@@ -388,7 +368,6 @@ describe('Memory Service', () => {
 
     it('excludes expired memories by default', async () => {
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Active',
         content: 'Not expired',
       });
@@ -433,10 +412,9 @@ describe('Memory Service', () => {
   });
 
   describe('getGlobalMemories', () => {
-    it('returns only global memories for a user', async () => {
+    it('returns only global memories (namespace-scoped)', async () => {
       // Global memory (no work_item_id or contact_id)
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Global preference',
         content: 'Dark mode',
         memory_type: 'preference',
@@ -449,13 +427,12 @@ describe('Memory Service', () => {
          RETURNING id::text as id`,
       );
       await createMemory(pool, {
-        user_email: 'test@example.com',
         work_item_id: (workItemResult.rows[0] as { id: string }).id,
         title: 'Work item memory',
         content: 'Scoped to work item',
       });
 
-      const result = await getGlobalMemories(pool, 'test@example.com');
+      const result = await getGlobalMemories(pool);
 
       expect(result.memories.length).toBe(1);
       expect(result.memories[0].title).toBe('Global preference');
@@ -465,14 +442,12 @@ describe('Memory Service', () => {
   describe('supersedeMemory', () => {
     it('creates new memory and marks old as superseded', async () => {
       const oldMemory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Old fact',
         content: 'Outdated information',
         memory_type: 'fact',
       });
 
       const newMemory = await supersedeMemory(pool, oldMemory.id, {
-        user_email: 'test@example.com',
         title: 'New fact',
         content: 'Updated information',
         memory_type: 'fact',
@@ -490,7 +465,6 @@ describe('Memory Service', () => {
     it('deletes expired memories', async () => {
       // Create active memory
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Active',
         content: 'Still valid',
       });
@@ -516,14 +490,12 @@ describe('Memory Service', () => {
     it('searches memories using semantic search when embeddings configured', async () => {
       // Create memories with embeddings populated
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Pizza preference',
         content: 'User loves pepperoni pizza',
         memory_type: 'preference',
       });
 
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Coffee preference',
         content: 'User drinks black coffee',
         memory_type: 'preference',
@@ -544,7 +516,6 @@ describe('Memory Service', () => {
     it('falls back to text search when no embeddings match', async () => {
       // Create memories without populating embeddings
       await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Pizza preference',
         content: 'User loves pepperoni pizza',
         memory_type: 'preference',
@@ -561,14 +532,12 @@ describe('Memory Service', () => {
 
     it('filters search by memory type', async () => {
       const pref = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Pizza preference',
         content: 'User loves pizza',
         memory_type: 'preference',
       });
 
       const fact = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Pizza fact',
         content: 'Pizza originated in Italy',
         memory_type: 'fact',

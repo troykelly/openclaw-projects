@@ -14,8 +14,6 @@ export type MemoryType = 'preference' | 'fact' | 'note' | 'decision' | 'context'
 
 /** Memory scoping options */
 export interface MemoryScope {
-  /** User email for global scope */
-  user_email?: string;
   /** Work item ID for work item scope */
   work_item_id?: string;
   /** Contact ID for contact scope */
@@ -130,7 +128,7 @@ export interface ListMemoriesOptions extends MemoryScope {
   created_before?: Date;
   limit?: number;
   offset?: number;
-  /** Epic #1418: namespace scoping (preferred over user_email) */
+  /** Epic #1418: namespace scoping */
   queryNamespaces?: string[];
 }
 
@@ -159,6 +157,6 @@ export interface SearchMemoriesOptions extends MemoryScope {
   limit?: number;
   offset?: number;
   min_similarity?: number;
-  /** Epic #1418: namespace scoping (preferred over user_email) */
+  /** Epic #1418: namespace scoping */
   queryNamespaces?: string[];
 }

@@ -267,14 +267,14 @@ describe('Unified Memory API (Issue #209)', () => {
       expect(body.memories[0].title).toBe('Global');
     });
 
-    it('returns 400 when user_email is missing', async () => {
+    it('returns 200 without user_email (namespace scoping only)', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/memories/global',
       });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.json().error).toContain('user_email');
+      // Epic #1418 Phase 4: user_email no longer required for memory routes
+      expect(res.statusCode).toBe(200);
     });
   });
 

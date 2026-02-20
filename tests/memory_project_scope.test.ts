@@ -91,7 +91,6 @@ describe('Memory Project Scope (Issue #1273)', () => {
       const project_id = await createTestProject();
 
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Deployment config',
         content: 'Uses Docker Compose for staging',
         memory_type: 'fact',
@@ -118,7 +117,6 @@ describe('Memory Project Scope (Issue #1273)', () => {
 
     it('creates a memory without project_id (backward compatible)', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Global note',
         content: 'No project scope',
       });
@@ -175,13 +173,11 @@ describe('Memory Project Scope (Issue #1273)', () => {
       const unscoped = await createMemory(pool, {
         title: 'Global memory',
         content: 'Same text in both scopes',
-        user_email: 'test@example.com',
       });
 
       const scoped = await createMemory(pool, {
         title: 'Project memory',
         content: 'Same text in both scopes',
-        user_email: 'test@example.com',
         project_id,
       });
 
@@ -238,14 +234,12 @@ describe('Memory Project Scope (Issue #1273)', () => {
       const project_id = await createTestProject();
 
       await createMemory(pool, {
-        user_email: 'user@example.com',
         title: 'Project preference',
         content: 'Use TypeScript strict mode',
         memory_type: 'preference',
         project_id,
       });
       await createMemory(pool, {
-        user_email: 'user@example.com',
         title: 'Project fact',
         content: 'Uses Fastify framework',
         memory_type: 'fact',
@@ -269,13 +263,11 @@ describe('Memory Project Scope (Issue #1273)', () => {
       const project_id = await createTestProject();
 
       await createMemory(pool, {
-        user_email: 'user@example.com',
         title: 'Global preference',
         content: 'Prefers dark mode',
         memory_type: 'preference',
       });
       await createMemory(pool, {
-        user_email: 'user@example.com',
         title: 'Project-scoped preference',
         content: 'Prefers tabs over spaces',
         memory_type: 'preference',
@@ -368,7 +360,6 @@ describe('Memory Project Scope (Issue #1273)', () => {
           title: 'API project memory',
           content: 'Created via API with project scope',
           memory_type: 'fact',
-          user_email: 'test@example.com',
           project_id: project_id,
         },
       });
@@ -386,7 +377,6 @@ describe('Memory Project Scope (Issue #1273)', () => {
           title: 'No project scope',
           content: 'Backward compatible',
           memory_type: 'note',
-          user_email: 'test@example.com',
         },
       });
 
