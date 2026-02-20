@@ -10,27 +10,51 @@ import { FeedbackManager, type FeedbackAction, type FeedbackResult } from './fee
 
 // ---------- helpers ----------
 
+/**
+ * Create a mock Pool that provides a connect() method returning a mock client.
+ * The client's query function delegates to the shared queryFn mock, allowing
+ * tests to set up expectations in order (BEGIN, SELECT, INSERT, UPDATE, COMMIT).
+ */
 function mockPool(queryFn: ReturnType<typeof vi.fn>): Pool {
-  return { query: queryFn } as unknown as Pool;
+  const releaseFn = vi.fn();
+  const mockClient = {
+    query: queryFn,
+    release: releaseFn,
+  };
+  const connectFn = vi.fn().mockResolvedValue(mockClient);
+  return { query: queryFn, connect: connectFn } as unknown as Pool;
 }
 
 const TEST_NS = 'test-namespace';
 const ROUTINE_ID = '00000000-0000-0000-0000-000000000001';
 const FEEDBACK_ID = '00000000-0000-0000-0000-000000000099';
 
+/**
+ * Set up the mock query function for a successful feedback action.
+ * Now includes BEGIN and COMMIT calls wrapping the transactional queries:
+ *   1. BEGIN
+ *   2. SELECT routine (with FOR UPDATE)
+ *   3. INSERT feedback
+ *   4. UPDATE routine
+ *   5. COMMIT
+ */
 function setupMockForAction(
   queryFn: ReturnType<typeof vi.fn>,
   currentConfidence: number,
   currentStatus: string,
 ): void {
-  // 1st call: SELECT routine
+  // 1st call: BEGIN
+  queryFn.mockResolvedValueOnce({ rows: [] });
+  // 2nd call: SELECT routine (FOR UPDATE)
   queryFn.mockResolvedValueOnce({
     rows: [{ id: ROUTINE_ID, confidence: currentConfidence, status: currentStatus }],
   });
-  // 2nd call: INSERT feedback
+  // 3rd call: INSERT feedback
   queryFn.mockResolvedValueOnce({ rows: [{ id: FEEDBACK_ID }] });
-  // 3rd call: UPDATE routine
+  // 4th call: UPDATE routine
   queryFn.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+  // 5th call: COMMIT
+  queryFn.mockResolvedValueOnce({ rows: [] });
 }
 
 // ---------- tests ----------
@@ -54,6 +78,11 @@ describe('FeedbackManager', () => {
     });
 
     it('throws when routine not found', async () => {
+      // BEGIN
+      queryFn.mockResolvedValueOnce({ rows: [] });
+      // SELECT (FOR UPDATE) returns empty
+      queryFn.mockResolvedValueOnce({ rows: [] });
+      // ROLLBACK (called in catch block)
       queryFn.mockResolvedValueOnce({ rows: [] });
 
       await expect(
@@ -70,8 +99,8 @@ describe('FeedbackManager', () => {
 
       await manager.recordFeedback(ROUTINE_ID, 'confirmed', 'agent', TEST_NS, 'Test note');
 
-      // Verify INSERT call (2nd query call)
-      const insertCall = queryFn.mock.calls[1];
+      // Verify INSERT call (3rd query call: BEGIN, SELECT, INSERT, ...)
+      const insertCall = queryFn.mock.calls[2];
       const sql = insertCall[0] as string;
       expect(sql).toContain('INSERT INTO ha_routine_feedback');
 
@@ -88,7 +117,7 @@ describe('FeedbackManager', () => {
 
       await manager.recordFeedback(ROUTINE_ID, 'confirmed', 'user', TEST_NS);
 
-      const insertParams = queryFn.mock.calls[1][1] as unknown[];
+      const insertParams = queryFn.mock.calls[2][1] as unknown[];
       expect(insertParams[4]).toBeNull();
     });
 
@@ -283,18 +312,21 @@ describe('FeedbackManager', () => {
   // ---------- database interaction verification ----------
 
   describe('database interactions', () => {
-    it('makes exactly 3 queries: SELECT, INSERT, UPDATE', async () => {
+    it('makes exactly 5 queries: BEGIN, SELECT, INSERT, UPDATE, COMMIT', async () => {
       setupMockForAction(queryFn, 0.5, 'tentative');
 
       await manager.recordFeedback(ROUTINE_ID, 'confirmed', 'agent', TEST_NS);
 
-      expect(queryFn).toHaveBeenCalledTimes(3);
+      expect(queryFn).toHaveBeenCalledTimes(5);
 
       // Verify query types
       const queries = queryFn.mock.calls.map((c) => c[0] as string);
-      expect(queries[0]).toContain('SELECT');
-      expect(queries[1]).toContain('INSERT INTO ha_routine_feedback');
-      expect(queries[2]).toContain('UPDATE ha_routines');
+      expect(queries[0]).toBe('BEGIN');
+      expect(queries[1]).toContain('SELECT');
+      expect(queries[1]).toContain('FOR UPDATE');
+      expect(queries[2]).toContain('INSERT INTO ha_routine_feedback');
+      expect(queries[3]).toContain('UPDATE ha_routines');
+      expect(queries[4]).toBe('COMMIT');
     });
 
     it('passes namespace to UPDATE query', async () => {
@@ -302,7 +334,7 @@ describe('FeedbackManager', () => {
 
       await manager.recordFeedback(ROUTINE_ID, 'confirmed', 'agent', TEST_NS);
 
-      const updateParams = queryFn.mock.calls[2][1] as unknown[];
+      const updateParams = queryFn.mock.calls[3][1] as unknown[];
       // params: [confidence, status, routineId, namespace]
       expect(updateParams[3]).toBe(TEST_NS);
       expect(updateParams[2]).toBe(ROUTINE_ID);
@@ -320,11 +352,11 @@ describe('FeedbackManager', () => {
       );
 
       // Notes should be passed as parameter, not interpolated
-      const insertParams = queryFn.mock.calls[1][1] as unknown[];
+      const insertParams = queryFn.mock.calls[2][1] as unknown[];
       expect(insertParams[4]).toBe("Robert'); DROP TABLE ha_routines;--");
 
       // SQL should use $N placeholders
-      const insertSql = queryFn.mock.calls[1][0] as string;
+      const insertSql = queryFn.mock.calls[2][0] as string;
       expect(insertSql).toContain('$5');
       expect(insertSql).not.toContain("Robert')");
     });

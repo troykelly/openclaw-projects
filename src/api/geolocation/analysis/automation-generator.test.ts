@@ -139,7 +139,7 @@ describe('AutomationGenerator', () => {
     it('contains state trigger for first entity', () => {
       const result = generator.generate(makeRoutine())!;
       expect(result.yaml).toContain('platform: state');
-      expect(result.yaml).toContain('entity_id: light.bedroom');
+      expect(result.yaml).toContain('entity_id: "light.bedroom"');
       expect(result.yaml).toContain('to: "off"');
     });
 
@@ -165,10 +165,10 @@ describe('AutomationGenerator', () => {
 
     it('contains action services for subsequent entities', () => {
       const result = generator.generate(makeRoutine())!;
-      expect(result.yaml).toContain('service: lock.lock');
-      expect(result.yaml).toContain('entity_id: lock.front_door');
-      expect(result.yaml).toContain('service: switch.turn_off');
-      expect(result.yaml).toContain('entity_id: switch.hall');
+      expect(result.yaml).toContain('service: "lock.lock"');
+      expect(result.yaml).toContain('entity_id: "lock.front_door"');
+      expect(result.yaml).toContain('service: "switch.turn_off"');
+      expect(result.yaml).toContain('entity_id: "switch.hall"');
     });
 
     it('includes offset comment for delayed actions', () => {
@@ -208,7 +208,7 @@ describe('AutomationGenerator', () => {
         ],
       });
       const result = generator.generate(routine)!;
-      expect(result.yaml).toContain(`service: ${expectedService}`);
+      expect(result.yaml).toContain(`service: "${expectedService}"`);
     }
 
     it('maps light off → light.turn_off', () => {

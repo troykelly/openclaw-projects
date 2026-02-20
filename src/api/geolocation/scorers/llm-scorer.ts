@@ -113,8 +113,37 @@ class Semaphore {
 
 // ---------- helpers ----------
 
-/** Clamp and round a score to the valid 0..10 integer range. */
+/** Allowed URL schemes for the LLM endpoint. */
+const ALLOWED_LLM_SCHEMES = new Set(['http:', 'https:']);
+
+/**
+ * Validate that a URL string is well-formed and uses an allowed scheme (http/https).
+ * Prevents SSRF via exotic schemes (file:, ftp:, data:, etc.).
+ *
+ * @param url - URL string to validate
+ * @returns The parsed URL if valid
+ * @throws Error if the URL is invalid or uses a disallowed scheme
+ */
+function validateLlmEndpointUrl(url: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid LLM endpoint URL: ${url}`);
+  }
+
+  if (!ALLOWED_LLM_SCHEMES.has(parsed.protocol)) {
+    throw new Error(
+      `LLM endpoint scheme "${parsed.protocol.replace(':', '')}" is not allowed; use http or https`,
+    );
+  }
+
+  return parsed;
+}
+
+/** Clamp and round a score to the valid 0..10 integer range. Returns 0 for NaN/non-finite. */
 function clampScore(score: number): number {
+  if (!Number.isFinite(score)) return 0;
   return Math.max(0, Math.min(10, Math.round(score)));
 }
 
@@ -228,10 +257,11 @@ export class LlmScorer implements ObservationScorer {
    */
   async healthCheck(): Promise<boolean> {
     try {
+      const validatedUrl = validateLlmEndpointUrl(this.config.endpoint);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5_000);
       try {
-        const response = await fetch(this.config.endpoint, {
+        const response = await fetch(validatedUrl.href, {
           method: 'GET',
           signal: controller.signal,
         });
@@ -268,12 +298,13 @@ export class LlmScorer implements ObservationScorer {
         messages: [{ role: 'user', content: userPrompt }],
       };
 
+      const validatedUrl = validateLlmEndpointUrl(`${this.config.endpoint}/v1/messages`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
       let response: Response;
       try {
-        response = await fetch(`${this.config.endpoint}/v1/messages`, {
+        response = await fetch(validatedUrl.href, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
@@ -355,8 +386,17 @@ export class LlmScorer implements ObservationScorer {
         return null;
       }
 
+      // Filter out NaN/non-finite score values
+      const rawScores = inner.scores as Record<string, unknown>;
+      const validScores: Record<string, number> = {};
+      for (const [key, value] of Object.entries(rawScores)) {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          validScores[key] = value;
+        }
+      }
+
       return {
-        scores: inner.scores as Record<string, number>,
+        scores: validScores,
         scene: typeof inner.scene === 'string' ? inner.scene : null,
       };
     } catch {
@@ -378,8 +418,8 @@ export class LlmScorer implements ObservationScorer {
       const tier = tiers.get(change.entity_id) ?? 'log_only';
       const llmScore = llmResponse.scores[change.entity_id];
 
-      // If LLM didn't return a score for this entity, fall back
-      if (llmScore === undefined || typeof llmScore !== 'number') {
+      // If LLM didn't return a valid finite score for this entity, fall back
+      if (llmScore === undefined || typeof llmScore !== 'number' || !Number.isFinite(llmScore)) {
         return this.fallbackScorer.score(change, context, tier);
       }
 
@@ -404,22 +444,27 @@ export class LlmScorer implements ObservationScorer {
   /**
    * Merge pre-resolved and LLM-scored observations in the original
    * change order for deterministic output.
+   *
+   * Uses the change object reference (identity) to match observations
+   * back to their original position, preserving all entries even when
+   * the same entity_id appears multiple times in a batch.
    */
   private mergeInOrder(
     originalChanges: HaStateChange[],
     preResolved: ScoredObservation[],
     llmScored: ScoredObservation[],
   ): ScoredObservation[] {
-    const byEntityId = new Map<string, ScoredObservation>();
+    // Key by change object reference to handle duplicate entity_ids
+    const byChangeRef = new Map<HaStateChange, ScoredObservation>();
     for (const obs of preResolved) {
-      byEntityId.set(obs.change.entity_id, obs);
+      byChangeRef.set(obs.change, obs);
     }
     for (const obs of llmScored) {
-      byEntityId.set(obs.change.entity_id, obs);
+      byChangeRef.set(obs.change, obs);
     }
 
     return originalChanges.map((change) => {
-      const obs = byEntityId.get(change.entity_id);
+      const obs = byChangeRef.get(change);
       if (!obs) {
         // Should not happen, but handle defensively
         return {

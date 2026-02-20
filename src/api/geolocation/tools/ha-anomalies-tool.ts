@@ -228,7 +228,7 @@ export async function executeAnomalyResolve(
   let paramIdx = 3;
 
   if (params.notes) {
-    sets.push(`context = context || jsonb_build_object('resolution_notes', $${paramIdx}::text)`);
+    sets.push(`context = COALESCE(context, '{}'::jsonb) || jsonb_build_object('resolution_notes', $${paramIdx}::text)`);
     values.push(params.notes);
     paramIdx++;
   }

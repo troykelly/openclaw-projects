@@ -75,53 +75,69 @@ export class FeedbackManager {
       throw new Error(`Invalid feedback action: ${action}`);
     }
 
-    // Verify the routine exists and belongs to this namespace
-    const routineResult = await this.pool.query<{
-      id: string;
-      confidence: number;
-      status: string;
-    }>(
-      'SELECT id, confidence, status FROM ha_routines WHERE id = $1 AND namespace = $2',
-      [routineId, namespace],
-    );
+    // Use a dedicated client with a transaction to ensure atomicity
+    // of the read → insert → update sequence and prevent race conditions.
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    if (routineResult.rows.length === 0) {
-      throw new Error(`Routine ${routineId} not found in namespace ${namespace}`);
+      // Verify the routine exists and lock the row for update
+      const routineResult = await client.query<{
+        id: string;
+        confidence: number;
+        status: string;
+      }>(
+        'SELECT id, confidence, status FROM ha_routines WHERE id = $1 AND namespace = $2 FOR UPDATE',
+        [routineId, namespace],
+      );
+
+      if (routineResult.rows.length === 0) {
+        throw new Error(`Routine ${routineId} not found in namespace ${namespace}`);
+      }
+
+      const routine = routineResult.rows[0];
+
+      // Record the feedback
+      const feedbackResult = await client.query<{ id: string }>(
+        `INSERT INTO ha_routine_feedback (namespace, routine_id, action, source, notes)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [namespace, routineId, action, source, notes ?? null],
+      );
+
+      const feedbackId = feedbackResult.rows[0].id;
+
+      // Apply confidence adjustment
+      const { confidence, status } = this.calculateAdjustment(
+        routine.confidence,
+        routine.status,
+        action,
+      );
+
+      // Update the routine
+      await client.query(
+        `UPDATE ha_routines
+         SET confidence = $1, status = $2, updated_at = NOW()
+         WHERE id = $3 AND namespace = $4`,
+        [confidence, status, routineId, namespace],
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        feedback_id: feedbackId,
+        new_confidence: confidence,
+        new_status: status,
+        summary: this.buildSummary(action, routine.confidence, confidence, routine.status, status),
+      };
+    } catch (err: unknown) {
+      await client.query('ROLLBACK').catch(() => {
+        // Ignore rollback errors — the connection may already be in a failed state
+      });
+      throw err;
+    } finally {
+      client.release();
     }
-
-    const routine = routineResult.rows[0];
-
-    // Record the feedback
-    const feedbackResult = await this.pool.query<{ id: string }>(
-      `INSERT INTO ha_routine_feedback (namespace, routine_id, action, source, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [namespace, routineId, action, source, notes ?? null],
-    );
-
-    const feedbackId = feedbackResult.rows[0].id;
-
-    // Apply confidence adjustment
-    const { confidence, status } = this.calculateAdjustment(
-      routine.confidence,
-      routine.status,
-      action,
-    );
-
-    // Update the routine
-    await this.pool.query(
-      `UPDATE ha_routines
-       SET confidence = $1, status = $2, updated_at = NOW()
-       WHERE id = $3 AND namespace = $4`,
-      [confidence, status, routineId, namespace],
-    );
-
-    return {
-      feedback_id: feedbackId,
-      new_confidence: confidence,
-      new_status: status,
-      summary: this.buildSummary(action, routine.confidence, confidence, routine.status, status),
-    };
   }
 
   // ---------- private ----------

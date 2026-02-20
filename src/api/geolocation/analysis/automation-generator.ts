@@ -145,8 +145,8 @@ export class AutomationGenerator {
     // Trigger
     lines.push('trigger:');
     lines.push(`  - platform: state`);
-    lines.push(`    entity_id: ${triggerStep.entity_id}`);
-    lines.push(`    to: "${triggerStep.to_state}"`);
+    lines.push(`    entity_id: "${this.escapeYaml(triggerStep.entity_id)}"`);
+    lines.push(`    to: "${this.escapeYaml(triggerStep.to_state)}"`);
     lines.push('');
 
     // Condition: time window + days
@@ -173,12 +173,13 @@ export class AutomationGenerator {
     lines.push('action:');
     for (const step of actionSteps) {
       const service = this.domainToService(step.domain, step.to_state);
-      lines.push(`  - service: ${service}`);
+      lines.push(`  - service: "${this.escapeYaml(service)}"`);
       lines.push(`    target:`);
-      lines.push(`      entity_id: ${step.entity_id}`);
+      lines.push(`      entity_id: "${this.escapeYaml(step.entity_id)}"`);
 
       if (step.offset_minutes > 0) {
-        lines.push(`    # Offset: ~${step.offset_minutes} minute(s) after trigger`);
+        const safeMinutes = Math.round(Number(step.offset_minutes));
+        lines.push(`    # Offset: ~${String(safeMinutes)} minute(s) after trigger`);
       }
     }
 
@@ -253,8 +254,14 @@ export class AutomationGenerator {
 
   /**
    * Escape a string for use in YAML double-quoted strings.
+   * Handles backslashes, quotes, newlines, carriage returns, and tabs.
    */
   private escapeYaml(str: string): string {
-    return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return str
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
   }
 }
