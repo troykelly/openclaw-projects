@@ -110,8 +110,14 @@ export async function resolveUserEmail(
 }
 
 // ============================================================
-// Namespace resolution (Issue #1475)
+// Namespace resolution (Issue #1475) + Role enforcement (#1485)
 // ============================================================
+
+/** Valid namespace roles, ordered from least to most privileged. */
+export type NamespaceRole = 'observer' | 'member' | 'admin' | 'owner';
+
+/** Role hierarchy: lower index = less privilege. */
+const ROLE_HIERARCHY: readonly NamespaceRole[] = ['observer', 'member', 'admin', 'owner'] as const;
 
 /** Namespace context resolved for a request. */
 export interface NamespaceContext {
@@ -121,6 +127,50 @@ export interface NamespaceContext {
   queryNamespaces: string[];
   /** Whether the token is M2M (agents can operate across namespaces). */
   isM2M: boolean;
+  /** Map of namespace → role for the authenticated user. Empty for M2M/auth-disabled. */
+  roles: Record<string, NamespaceRole>;
+}
+
+/**
+ * Checks that the user has at least `minRole` for the given namespace.
+ *
+ * - **M2M tokens**: always allowed (no role restriction).
+ * - **Auth disabled**: always allowed.
+ * - **User tokens**: compared against the role hierarchy.
+ *
+ * @throws {RoleError} if the user's role is insufficient.
+ */
+export function requireMinRole(
+  req: FastifyRequest,
+  namespace: string,
+  minRole: NamespaceRole,
+): void {
+  const ctx = req.namespaceContext;
+  if (!ctx) return; // No namespace context = auth disabled or no grants (handled elsewhere)
+  if (ctx.isM2M) return; // M2M tokens bypass role checks
+
+  const userRole = ctx.roles[namespace];
+  if (!userRole) {
+    throw new RoleError('No access to namespace');
+  }
+
+  const userLevel = ROLE_HIERARCHY.indexOf(userRole);
+  const requiredLevel = ROLE_HIERARCHY.indexOf(minRole);
+  if (userLevel < requiredLevel) {
+    throw new RoleError(
+      `Requires ${minRole} role or higher (current: ${userRole})`,
+    );
+  }
+}
+
+/**
+ * Custom error for insufficient role. Route handlers catch this to return 403.
+ */
+export class RoleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoleError';
+  }
 }
 
 /**
@@ -168,7 +218,7 @@ export async function resolveNamespaces(
     // Without this guard, every test request gets namespace filtering
     // which breaks test isolation (all test data has namespace='default').
     if (!requested) return null;
-    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: false };
+    return { storeNamespace: requested, queryNamespaces: [requested], isM2M: false, roles: {} };
   }
 
   const identity = await getAuthIdentity(req);
@@ -178,7 +228,7 @@ export async function resolveNamespaces(
 
   if (identity.type === 'm2m') {
     const ns = requested || 'default';
-    return { storeNamespace: ns, queryNamespaces: [ns], isM2M: true };
+    return { storeNamespace: ns, queryNamespaces: [ns], isM2M: true, roles: {} };
   }
 
   // User token: load grants
@@ -201,6 +251,12 @@ export async function resolveNamespaces(
   const allNamespaces = grants.rows.map((r) => r.namespace);
   const defaultGrant = grants.rows.find((r) => r.is_default);
 
+  // Build namespace → role map
+  const roles: Record<string, NamespaceRole> = {};
+  for (const row of grants.rows) {
+    roles[row.namespace] = row.role as NamespaceRole;
+  }
+
   // If a specific namespace was requested, verify user has access
   if (requested) {
     if (!allNamespaces.includes(requested)) {
@@ -210,6 +266,7 @@ export async function resolveNamespaces(
       storeNamespace: requested,
       queryNamespaces: [requested],
       isM2M: false,
+      roles,
     };
   }
 
@@ -219,5 +276,6 @@ export async function resolveNamespaces(
     storeNamespace,
     queryNamespaces: allNamespaces,
     isM2M: false,
+    roles,
   };
 }
