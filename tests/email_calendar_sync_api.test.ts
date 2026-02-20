@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Pool } from 'pg';
-import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import type { Pool } from 'pg';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildServer } from '../src/api/server.ts';
+import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { runMigrate } from './helpers/migrate.ts';
 
 /**
  * Tests for Email & Calendar Sync API endpoints (issue #184).
@@ -119,7 +119,7 @@ describe('Email & Calendar Sync API', () => {
 
         expect(response.statusCode).toBe(204);
 
-        const checkRes = await pool.query(`SELECT id FROM oauth_connection WHERE id = $1`, [connection_id]);
+        const checkRes = await pool.query('SELECT id FROM oauth_connection WHERE id = $1', [connection_id]);
         expect(checkRes.rows).toHaveLength(0);
       });
 
@@ -310,10 +310,34 @@ describe('Email & Calendar Sync API', () => {
 
   describe('Calendar Sync', () => {
     describe('POST /api/sync/calendar', () => {
-      it('returns 501 not implemented', async () => {
+      it('returns 400 when connection_id is missing', async () => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/sync/calendar',
+          payload: {},
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = response.json();
+        expect(body.error).toBe('connection_id is required');
+      });
+
+      it('returns 404 for non-existent connection', async () => {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/sync/calendar',
+          payload: {
+            connection_id: '00000000-0000-0000-0000-000000000000',
+          },
+        });
+
+        expect(response.statusCode).toBe(404);
+      });
+
+      it('returns 400 when calendar feature is not enabled', async () => {
         const connResult = await pool.query(
-          `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
-           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')
+          `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, enabled_features)
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour', ARRAY['email'])
            RETURNING id::text`,
         );
         const connection_id = connResult.rows[0].id;
@@ -321,15 +345,52 @@ describe('Email & Calendar Sync API', () => {
         const response = await app.inject({
           method: 'POST',
           url: '/api/sync/calendar',
-          payload: {
-            connection_id,
-          },
+          payload: { connection_id },
         });
 
-        expect(response.statusCode).toBe(501);
+        expect(response.statusCode).toBe(400);
         const body = response.json();
-        expect(body.error).toBe('Calendar sync is not yet implemented');
-        expect(body.status).toBe('not_implemented');
+        expect(body.code).toBe('CALENDAR_NOT_ENABLED');
+      });
+    });
+
+    describe('GET /api/calendar/events/live', () => {
+      it('returns 400 when connection_id is missing', async () => {
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/calendar/events/live',
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = response.json();
+        expect(body.error).toBe('connection_id is required');
+      });
+
+      it('returns 404 for non-existent connection', async () => {
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/calendar/events/live?connection_id=00000000-0000-0000-0000-000000000000',
+        });
+
+        expect(response.statusCode).toBe(404);
+      });
+
+      it('returns 400 when calendar feature is not enabled', async () => {
+        const connResult = await pool.query(
+          `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, enabled_features)
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour', ARRAY['contacts'])
+           RETURNING id::text`,
+        );
+        const connection_id = connResult.rows[0].id;
+
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/calendar/events/live?connection_id=${connection_id}`,
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = response.json();
+        expect(body.code).toBe('CALENDAR_NOT_ENABLED');
       });
     });
 
@@ -374,7 +435,7 @@ describe('Email & Calendar Sync API', () => {
     });
 
     describe('POST /api/calendar/events', () => {
-      it('creates a calendar event', async () => {
+      it('creates a local-only calendar event (legacy path)', async () => {
         await pool.query(
           `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at)
            VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour')`,
@@ -399,6 +460,65 @@ describe('Email & Calendar Sync API', () => {
         const body = response.json();
         expect(body.event).toBeDefined();
         expect(body.event.title).toBe('New Meeting');
+        expect(body.event.synced).toBe(false);
+      });
+
+      it('returns 400 for connection_id with calendar feature not enabled', async () => {
+        const connResult = await pool.query(
+          `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, enabled_features)
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['email'], now() + interval '1 hour', ARRAY['email'])
+           RETURNING id::text`,
+        );
+        const connection_id = connResult.rows[0].id;
+
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/calendar/events',
+          payload: {
+            connection_id,
+            user_email: 'user@example.com',
+            provider: 'google',
+            title: 'Should Fail',
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+          },
+        });
+
+        expect(response.statusCode).toBe(400);
+        const body = response.json();
+        expect(body.code).toBe('CALENDAR_NOT_ENABLED');
+      });
+
+      it('returns 403 for connection_id without write permission', async () => {
+        const connResult = await pool.query(
+          `INSERT INTO oauth_connection (user_email, provider, access_token, refresh_token, scopes, expires_at, enabled_features, permission_level)
+           VALUES ('user@example.com', 'google', 'test-token', 'refresh', ARRAY['calendar'], now() + interval '1 hour', ARRAY['calendar'], 'read')
+           RETURNING id::text`,
+        );
+        const connection_id = connResult.rows[0].id;
+
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/calendar/events',
+          payload: {
+            connection_id,
+            user_email: 'user@example.com',
+            provider: 'google',
+            title: 'Should Fail',
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+          },
+        });
+
+        expect(response.statusCode).toBe(403);
+        const body = response.json();
+        expect(body.code).toBe('INSUFFICIENT_PERMISSIONS');
       });
     });
 
@@ -481,10 +601,39 @@ describe('Email & Calendar Sync API', () => {
     });
 
     describe('DELETE /api/calendar/events/:id', () => {
-      it('deletes a calendar event', async () => {
+      it('deletes a local-only calendar event', async () => {
         const insertRes = await pool.query(
           `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
-           VALUES ('user@example.com', 'google', 'evt-del', 'Delete Me', now(), now() + interval '1 hour')
+           VALUES ('user@example.com', 'google', 'local-12345-abcdef', 'Delete Me', now(), now() + interval '1 hour')
+           RETURNING id`,
+        );
+        const eventId = insertRes.rows[0].id;
+
+        const response = await app.inject({
+          method: 'DELETE',
+          url: `/api/calendar/events/${eventId}`,
+        });
+
+        expect(response.statusCode).toBe(204);
+
+        // Verify it's actually gone
+        const check = await pool.query('SELECT id FROM calendar_event WHERE id = $1', [eventId]);
+        expect(check.rows).toHaveLength(0);
+      });
+
+      it('returns 404 for non-existent event', async () => {
+        const response = await app.inject({
+          method: 'DELETE',
+          url: '/api/calendar/events/00000000-0000-0000-0000-000000000000',
+        });
+
+        expect(response.statusCode).toBe(404);
+      });
+
+      it('deletes a workitem-linked event without provider call', async () => {
+        const insertRes = await pool.query(
+          `INSERT INTO calendar_event (user_email, provider, external_event_id, title, start_time, end_time)
+           VALUES ('user@example.com', 'google', 'workitem-abc-12345', 'Deadline event', now(), now() + interval '1 hour')
            RETURNING id`,
         );
         const eventId = insertRes.rows[0].id;
