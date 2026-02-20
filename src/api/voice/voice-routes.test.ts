@@ -10,11 +10,11 @@ import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 
 import { voiceRoutesPlugin } from './routes.ts';
-import { validateServiceCalls, isValidServiceCall } from './service-calls.ts';
+import { validateServiceCalls, isValidServiceCall, formatEntityContext, isValidEntityContext } from './service-calls.ts';
 import { resolveAgent } from './routing.ts';
 import { isSessionExpired, findActiveSession, cleanupExpiredSessions } from './sessions.ts';
 import { DEFAULT_SAFE_DOMAINS, BLOCKED_SERVICES } from './types.ts';
-import type { VoiceConversationRow } from './types.ts';
+import type { VoiceConversationRow, EntityInfo, AreaInfo } from './types.ts';
 
 // ---------- helpers ----------
 
@@ -660,5 +660,75 @@ describe('cleanupExpiredSessions', () => {
 
     const count = await cleanupExpiredSessions(pool);
     expect(count).toBe(2);
+  });
+});
+
+// ── Entity Context ──────────────────────────────────────────
+
+describe('formatEntityContext', () => {
+  it('formats entities grouped by domain', () => {
+    const entities: EntityInfo[] = [
+      { entity_id: 'light.living_room', domain: 'light', state: 'on', friendly_name: 'Living Room Light', area_id: 'living_room' },
+      { entity_id: 'light.bedroom', domain: 'light', state: 'off', friendly_name: 'Bedroom Light', area_id: 'bedroom' },
+      { entity_id: 'switch.fan', domain: 'switch', state: 'on', area_id: 'living_room' },
+    ];
+    const areas: AreaInfo[] = [
+      { area_id: 'living_room', name: 'Living Room' },
+      { area_id: 'bedroom', name: 'Bedroom' },
+    ];
+
+    const result = formatEntityContext(entities, areas);
+    expect(result.entity_count).toBe(3);
+    expect(result.area_count).toBe(2);
+
+    const domains = result.domains as Record<string, unknown[]>;
+    expect(domains.light).toHaveLength(2);
+    expect(domains.switch).toHaveLength(1);
+  });
+
+  it('handles entities without areas', () => {
+    const entities: EntityInfo[] = [
+      { entity_id: 'light.room', domain: 'light', state: 'on' },
+    ];
+
+    const result = formatEntityContext(entities);
+    expect(result.entity_count).toBe(1);
+    expect(result.area_count).toBe(0);
+  });
+
+  it('handles empty entities', () => {
+    const result = formatEntityContext([]);
+    expect(result.entity_count).toBe(0);
+  });
+});
+
+describe('isValidEntityContext', () => {
+  it('validates valid entity array', () => {
+    const entities = [
+      { entity_id: 'light.room', domain: 'light', state: 'on' },
+      { entity_id: 'switch.fan', domain: 'switch', state: 'off' },
+    ];
+    expect(isValidEntityContext(entities)).toBe(true);
+  });
+
+  it('rejects non-array', () => {
+    expect(isValidEntityContext('not-array')).toBe(false);
+    expect(isValidEntityContext(null)).toBe(false);
+    expect(isValidEntityContext({})).toBe(false);
+  });
+
+  it('rejects entities missing required fields', () => {
+    expect(isValidEntityContext([{ entity_id: 'x', domain: 'y' }])).toBe(false); // missing state
+    expect(isValidEntityContext([{ entity_id: 'x', state: 'on' }])).toBe(false); // missing domain
+    expect(isValidEntityContext([{ domain: 'y', state: 'on' }])).toBe(false); // missing entity_id
+  });
+
+  it('rejects entities with wrong types', () => {
+    expect(isValidEntityContext([{ entity_id: 123, domain: 'light', state: 'on' }])).toBe(false);
+    expect(isValidEntityContext([null])).toBe(false);
+  });
+
+  it('validates empty array', () => {
+    expect(isValidEntityContext([])).toBe(true);
   });
 });

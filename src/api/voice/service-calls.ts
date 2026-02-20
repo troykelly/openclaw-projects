@@ -7,7 +7,7 @@
  */
 
 import type { Pool } from 'pg';
-import type { ServiceCall, VoiceAgentConfigRow } from './types.ts';
+import type { ServiceCall, VoiceAgentConfigRow, EntityInfo, AreaInfo } from './types.ts';
 import { DEFAULT_SAFE_DOMAINS, BLOCKED_SERVICES } from './types.ts';
 
 /**
@@ -72,4 +72,62 @@ export function isValidServiceCall(call: unknown): call is ServiceCall {
   if (obj.target !== undefined && (typeof obj.target !== 'object' || obj.target === null)) return false;
   if (obj.data !== undefined && (typeof obj.data !== 'object' || obj.data === null)) return false;
   return true;
+}
+
+/**
+ * Format entity context for agent consumption.
+ * Produces a compact summary of entity states for inclusion in agent prompts.
+ */
+export function formatEntityContext(
+  entities: EntityInfo[],
+  areas?: AreaInfo[],
+): Record<string, unknown> {
+  const areaMap = new Map<string, string>();
+  if (areas) {
+    for (const area of areas) {
+      areaMap.set(area.area_id, area.name);
+    }
+  }
+
+  // Group entities by domain for compact representation
+  const byDomain: Record<string, Array<{
+    entity_id: string;
+    state: string;
+    name?: string;
+    area?: string;
+  }>> = {};
+
+  for (const entity of entities) {
+    if (!byDomain[entity.domain]) {
+      byDomain[entity.domain] = [];
+    }
+    byDomain[entity.domain].push({
+      entity_id: entity.entity_id,
+      state: entity.state,
+      name: entity.friendly_name,
+      area: entity.area_id ? areaMap.get(entity.area_id) ?? entity.area_id : undefined,
+    });
+  }
+
+  return {
+    entity_count: entities.length,
+    area_count: areas?.length ?? 0,
+    domains: byDomain,
+  };
+}
+
+/**
+ * Validate entity context message structure.
+ */
+export function isValidEntityContext(entities: unknown): entities is EntityInfo[] {
+  if (!Array.isArray(entities)) return false;
+  return entities.every((e) => {
+    if (typeof e !== 'object' || e === null) return false;
+    const obj = e as Record<string, unknown>;
+    return (
+      typeof obj.entity_id === 'string' &&
+      typeof obj.domain === 'string' &&
+      typeof obj.state === 'string'
+    );
+  });
 }
