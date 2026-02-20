@@ -103,14 +103,22 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
         for (const m of migrations) {
           if (appliedSet.has(m.version)) continue;
 
-          await pool.query('BEGIN');
-          try {
+          const upSql = readFileSync(m.upPath, 'utf-8');
+          const noTxUp = upSql.trimStart().startsWith('-- no-transaction');
+
+          if (noTxUp) {
             await applySql(pool, m.upPath);
             await pool.query('INSERT INTO schema_migrations(version, dirty) VALUES ($1, false) ON CONFLICT (version) DO NOTHING', [m.version]);
-            await pool.query('COMMIT');
-          } catch (e) {
-            await pool.query('ROLLBACK');
-            throw e;
+          } else {
+            await pool.query('BEGIN');
+            try {
+              await applySql(pool, m.upPath);
+              await pool.query('INSERT INTO schema_migrations(version, dirty) VALUES ($1, false) ON CONFLICT (version) DO NOTHING', [m.version]);
+              await pool.query('COMMIT');
+            } catch (e) {
+              await pool.query('ROLLBACK');
+              throw e;
+            }
           }
 
           count += 1;
@@ -132,14 +140,22 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
           continue;
         }
 
-        await pool.query('BEGIN');
-        try {
+        const downSql = readFileSync(m.downPath, 'utf-8');
+        const noTxDown = downSql.trimStart().startsWith('-- no-transaction');
+
+        if (noTxDown) {
           await applySql(pool, m.downPath);
           await pool.query('DELETE FROM schema_migrations WHERE version = $1', [r.version]);
-          await pool.query('COMMIT');
-        } catch (e) {
-          await pool.query('ROLLBACK');
-          throw e;
+        } else {
+          await pool.query('BEGIN');
+          try {
+            await applySql(pool, m.downPath);
+            await pool.query('DELETE FROM schema_migrations WHERE version = $1', [r.version]);
+            await pool.query('COMMIT');
+          } catch (e) {
+            await pool.query('ROLLBACK');
+            throw e;
+          }
         }
 
         count += 1;
