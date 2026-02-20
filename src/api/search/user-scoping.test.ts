@@ -1,10 +1,8 @@
 /**
  * Tests for namespace scoping in unified search.
- * Verifies that search results are returned regardless of user_email
- * (user_email scoping removed in Epic #1418 Phase 4; namespace scoping
- * is handled at the route level, not the service level).
+ * Verifies that search results are scoped by namespace (Epic #1418 Phase 4).
  *
- * Originally part of Issue #1216 review fix, updated for #1418.
+ * Originally part of Issue #1216 review fix, updated for #1418, cleaned up in #1525.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -18,7 +16,6 @@ describe('Search scoping (Epic #1418)', () => {
 
   // Use unique tokens per test run to avoid cross-test interference
   const testToken = randomUUID().slice(0, 8);
-  const aliceEmail = `alice-${testToken}@example.com`;
   const aliceNs = `alice-${testToken}`;
   const bobNs = `bob-${testToken}`;
   const uniqueWord = `xyzscoping${testToken.replace(/-/g, '')}`;
@@ -28,7 +25,6 @@ describe('Search scoping (Epic #1418)', () => {
     await truncateAllTables(pool);
 
     // Insert work items for two different namespaces using a unique word for reliable text search
-    // (user_email dropped from work_item in Epic #1418 migration 091; namespace scoping used instead)
     await pool.query(
       `INSERT INTO work_item (title, description, kind, work_item_kind, namespace, status)
        VALUES
@@ -51,18 +47,15 @@ describe('Search scoping (Epic #1418)', () => {
     await pool.end();
   });
 
-  it('should return all matching work items regardless of user_email (scoping removed in Phase 4)', async () => {
-    // user_email is accepted but no longer used for filtering at the service level
+  it('should return work items from all queried namespaces', async () => {
     const result = await unifiedSearch(pool, {
       query: uniqueWord,
       types: ['work_item'],
-      user_email: aliceEmail,
       queryNamespaces: [aliceNs, bobNs],
       semantic: false,
     });
 
     const titles = result.results.map((r) => r.title);
-    // Should find items from BOTH users since user_email scoping is removed
     expect(titles.length).toBeGreaterThanOrEqual(2);
     const hasAlice = titles.some((t) => t.includes('Alice'));
     const hasBob = titles.some((t) => t.includes('Bob'));
@@ -70,32 +63,18 @@ describe('Search scoping (Epic #1418)', () => {
     expect(hasBob).toBe(true);
   });
 
-  it('should return all work items when user_email is not specified', async () => {
+  it('should scope results to a single namespace when only one is queried', async () => {
     const result = await unifiedSearch(pool, {
       query: uniqueWord,
       types: ['work_item'],
-      queryNamespaces: [aliceNs, bobNs],
+      queryNamespaces: [aliceNs],
       semantic: false,
     });
 
-    // Should find items from both users
     const titles = result.results.map((r) => r.title);
     const hasAlice = titles.some((t) => t.includes('Alice'));
     const hasBob = titles.some((t) => t.includes('Bob'));
     expect(hasAlice).toBe(true);
-    expect(hasBob).toBe(true);
-  });
-
-  it('should return matching results even for unknown user_email', async () => {
-    // Since user_email is no longer used for filtering, unknown emails return all results
-    const result = await unifiedSearch(pool, {
-      query: uniqueWord,
-      types: ['work_item'],
-      user_email: `nobody-${testToken}@example.com`,
-      queryNamespaces: [aliceNs, bobNs],
-      semantic: false,
-    });
-
-    expect(result.results.length).toBeGreaterThanOrEqual(1);
+    expect(hasBob).toBe(false);
   });
 });

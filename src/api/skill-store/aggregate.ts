@@ -16,8 +16,6 @@ export interface AggregateParams {
   collection?: string;
   since?: string;
   until?: string;
-  /** @deprecated user_email column dropped from skill_store_item table in Phase 4 (Epic #1418) */
-  user_email?: string;
   /** Epic #1418: namespace-based scoping */
   namespace?: string;
 }
