@@ -83,6 +83,41 @@ async function applySql(pool: Pool, file: string): Promise<void> {
 }
 
 /**
+ * Execute a SQL file statement-by-statement outside any transaction.
+ *
+ * When node-postgres receives a multi-statement string via pool.query(), the
+ * extended query protocol wraps the batch in an implicit transaction.  Some DDL
+ * (e.g. TimescaleDB continuous aggregates) cannot run inside a transaction, so
+ * we split the file on top-level semicolons and run each statement individually.
+ */
+async function applySqlNoTx(pool: Pool, file: string): Promise<void> {
+  const sql = readFileSync(file, 'utf-8');
+  const statements = splitStatements(sql);
+  for (const stmt of statements) {
+    await pool.query(stmt);
+  }
+}
+
+/**
+ * Split a SQL string into individual top-level statements.
+ *
+ * This is intentionally simple: split on semicolons, strip comments/blanks,
+ * and skip empty fragments.  It does NOT handle semicolons inside string
+ * literals or dollar-quoted blocks — migrations that need those should avoid
+ * the `-- no-transaction` marker and use a single-statement file per command.
+ */
+function splitStatements(sql: string): string[] {
+  return sql
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => {
+      // Remove pure-comment or blank fragments
+      const stripped = s.replace(/--[^\n]*/g, '').trim();
+      return stripped.length > 0;
+    });
+}
+
+/**
  * Apply or rollback migrations without depending on the external `migrate` binary.
  *
  * Uses `schema_migrations` as the source of truth.
@@ -103,14 +138,22 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
         for (const m of migrations) {
           if (appliedSet.has(m.version)) continue;
 
-          await pool.query('BEGIN');
-          try {
-            await applySql(pool, m.upPath);
+          const upSql = readFileSync(m.upPath, 'utf-8');
+          const noTxUp = upSql.trimStart().startsWith('-- no-transaction');
+
+          if (noTxUp) {
+            await applySqlNoTx(pool, m.upPath);
             await pool.query('INSERT INTO schema_migrations(version, dirty) VALUES ($1, false) ON CONFLICT (version) DO NOTHING', [m.version]);
-            await pool.query('COMMIT');
-          } catch (e) {
-            await pool.query('ROLLBACK');
-            throw e;
+          } else {
+            await pool.query('BEGIN');
+            try {
+              await applySql(pool, m.upPath);
+              await pool.query('INSERT INTO schema_migrations(version, dirty) VALUES ($1, false) ON CONFLICT (version) DO NOTHING', [m.version]);
+              await pool.query('COMMIT');
+            } catch (e) {
+              await pool.query('ROLLBACK');
+              throw e;
+            }
           }
 
           count += 1;
@@ -132,14 +175,22 @@ export async function runMigrate(direction: 'up' | 'down', steps?: number): Prom
           continue;
         }
 
-        await pool.query('BEGIN');
-        try {
-          await applySql(pool, m.downPath);
+        const downSql = readFileSync(m.downPath, 'utf-8');
+        const noTxDown = downSql.trimStart().startsWith('-- no-transaction');
+
+        if (noTxDown) {
+          await applySqlNoTx(pool, m.downPath);
           await pool.query('DELETE FROM schema_migrations WHERE version = $1', [r.version]);
-          await pool.query('COMMIT');
-        } catch (e) {
-          await pool.query('ROLLBACK');
-          throw e;
+        } else {
+          await pool.query('BEGIN');
+          try {
+            await applySql(pool, m.downPath);
+            await pool.query('DELETE FROM schema_migrations WHERE version = $1', [r.version]);
+            await pool.query('COMMIT');
+          } catch (e) {
+            await pool.query('ROLLBACK');
+            throw e;
+          }
         }
 
         count += 1;
