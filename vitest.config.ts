@@ -1,7 +1,8 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
-const hasGateway = fs.existsSync('.local/openclaw-gateway');
+const hasGateway = fs.existsSync(path.resolve(__dirname, '.local/openclaw-gateway'));
 
 /**
  * Root vitest config — splits the test suite into projects:
