@@ -725,8 +725,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(403).send({ error: error.message });
     }
     // Fastify errors (validation, etc.) have statusCode set
-    if (error.statusCode) {
-      return reply.code(error.statusCode).send({ error: error.message });
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    if (statusCode) {
+      return reply.code(statusCode).send({ error: (error as Error).message });
     }
     req.log.error(error, 'Unhandled error');
     reply.code(500).send({ error: 'Internal Server Error' });
@@ -13774,12 +13775,79 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // POST /api/sync/calendar - Calendar sync (stub — not yet implemented)
-  app.post('/api/sync/calendar', async (_req, reply) => {
-    return reply.code(501).send({
-      error: 'Calendar sync is not yet implemented',
-      status: 'not_implemented',
-    });
+  // POST /api/sync/calendar - Sync calendar events from provider (Issue #1362)
+  app.post('/api/sync/calendar', async (req, reply) => {
+    const { syncCalendarEvents } = await import('./oauth/calendar.ts');
+    const body = req.body as {
+      connection_id: string;
+      time_min?: string;
+      time_max?: string;
+      max_results?: number;
+    };
+
+    if (!body.connection_id) {
+      return reply.code(400).send({ error: 'connection_id is required' });
+    }
+
+    try {
+      const result = await syncCalendarEvents(createPool(), body.connection_id, {
+        timeMin: body.time_min,
+        timeMax: body.time_max,
+        maxResults: body.max_results,
+      });
+
+      return reply.send({
+        status: 'completed',
+        connection_id: result.connection_id,
+        provider: result.provider,
+        synced: result.synced,
+        created: result.created,
+        updated: result.updated,
+      });
+    } catch (error) {
+      const { OAuthError } = await import('./oauth/types.ts');
+      if (error instanceof OAuthError) {
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    }
+  });
+
+  // GET /api/calendar/events/live - List events directly from provider (live API access, Issue #1362)
+  app.get('/api/calendar/events/live', async (req, reply) => {
+    const { listProviderCalendarEvents } = await import('./oauth/calendar.ts');
+    const query = req.query as {
+      connection_id?: string;
+      time_min?: string;
+      time_max?: string;
+      max_results?: string;
+      page_token?: string;
+    };
+
+    if (!query.connection_id) {
+      return reply.code(400).send({ error: 'connection_id is required' });
+    }
+
+    try {
+      const result = await listProviderCalendarEvents(createPool(), query.connection_id, {
+        timeMin: query.time_min,
+        timeMax: query.time_max,
+        maxResults: query.max_results ? parseInt(query.max_results, 10) : undefined,
+        pageToken: query.page_token,
+      });
+
+      return reply.send({
+        events: result.events,
+        provider: result.provider,
+        next_page_token: result.nextPageToken,
+      });
+    } catch (error) {
+      const { OAuthError } = await import('./oauth/types.ts');
+      if (error instanceof OAuthError) {
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
+      }
+      throw error;
+    }
   });
 
   // GET /api/calendar/events - Get calendar events
@@ -13846,7 +13914,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // POST /api/calendar/events - Create calendar event
+  // POST /api/calendar/events - Create calendar event (Issue #1362: push to provider when connection_id given)
   app.post('/api/calendar/events', async (req, reply) => {
     const body = req.body as {
       user_email: string;
@@ -13857,10 +13925,51 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       end_time: string;
       location?: string;
       attendees?: Array<{ email: string; name?: string }>;
+      connection_id?: string;
+      all_day?: boolean;
     };
     const pool = createPool();
 
-    // Verify OAuth connection
+    // If connection_id provided, push to provider via calendar service
+    if (body.connection_id) {
+      try {
+        const { createProviderCalendarEvent } = await import('./oauth/calendar.ts');
+        const result = await createProviderCalendarEvent(pool, body.connection_id, {
+          title: body.title,
+          description: body.description,
+          start_time: body.start_time,
+          end_time: body.end_time,
+          location: body.location,
+          attendees: body.attendees,
+          all_day: body.all_day,
+        });
+        await pool.end();
+
+        return reply.code(201).send({
+          event: {
+            id: result.localId,
+            external_event_id: result.providerEvent.id,
+            title: result.providerEvent.title,
+            description: result.providerEvent.description,
+            start_time: result.providerEvent.start_time,
+            end_time: result.providerEvent.end_time,
+            location: result.providerEvent.location,
+            attendees: result.providerEvent.attendees,
+            html_link: result.providerEvent.html_link,
+            synced: true,
+          },
+        });
+      } catch (error) {
+        await pool.end();
+        const { OAuthError } = await import('./oauth/types.ts');
+        if (error instanceof OAuthError) {
+          return reply.code(error.status_code).send({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
+    }
+
+    // Legacy local-only path: verify OAuth connection exists
     const connResult = await pool.query(
       `SELECT id FROM oauth_connection
        WHERE user_email = $1 AND provider = $2`,
@@ -13872,8 +13981,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'No OAuth connection found' });
     }
 
-    // Local-only: events are stored in our DB but not synced to the external provider.
-    // See follow-up issue for actual calendar sync implementation.
     const externalEventId = `local-${Date.now()}-${randomBytes(8).toString('hex')}`;
 
     const result = await pool.query(
@@ -13905,6 +14012,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         end_time: result.rows[0].end_time,
         location: result.rows[0].location,
         attendees: result.rows[0].attendees,
+        synced: false,
       },
     });
   });
@@ -13987,19 +14095,25 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     });
   });
 
-  // DELETE /api/calendar/events/:id - Delete calendar event
+  // DELETE /api/calendar/events/:id - Delete calendar event (Issue #1362: also delete from provider)
   app.delete('/api/calendar/events/:id', async (req, reply) => {
     const params = req.params as { id: string };
+    const query = req.query as { connection_id?: string };
     const pool = createPool();
 
-    const result = await pool.query('DELETE FROM calendar_event WHERE id = $1 RETURNING id', [params.id]);
-    await pool.end();
-
-    if (result.rowCount === 0) {
-      return reply.code(404).send({ error: 'Calendar event not found' });
+    try {
+      const { deleteProviderCalendarEvent } = await import('./oauth/calendar.ts');
+      await deleteProviderCalendarEvent(pool, query.connection_id || null, params.id);
+      await pool.end();
+      return reply.code(204).send();
+    } catch (error) {
+      await pool.end();
+      const { OAuthError } = await import('./oauth/types.ts');
+      if (error instanceof OAuthError) {
+        return reply.code(error.status_code).send({ error: error.message, code: error.code });
+      }
+      throw error;
     }
-
-    return reply.code(204).send();
   });
 
   // GET /api/work-items/calendar - Get work items with deadlines as calendar entries
@@ -21186,7 +21300,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // (/ws/conversation) is in authSkipPaths — it handles its own auth.
   // REST routes (/api/voice/*) use the normal auth middleware.
   const voicePool = createPool();
-  await app.register(voiceRoutesPlugin, { pool: voicePool });
+  app.register(voiceRoutesPlugin, { pool: voicePool });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.

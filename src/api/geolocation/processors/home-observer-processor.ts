@@ -151,7 +151,7 @@ export class HomeObserverProcessor implements HaEventProcessor {
     const context = buildObservationContext(referenceTime);
 
     // Step 4: score the batch
-    const batchResult: BatchScoreResult = this.scorer.scoreBatch(meaningful, context, tiers);
+    const batchResult: BatchScoreResult = await this.scorer.scoreBatch(meaningful, context, tiers);
 
     // Step 5: generate batch_id
     const batchId = randomUUID();

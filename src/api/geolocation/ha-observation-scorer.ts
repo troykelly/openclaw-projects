@@ -113,7 +113,7 @@ export interface ObservationScorer {
    * @param tiers - Map of entity_id to resolved tier
    * @returns Batch score result with triage filtering
    */
-  scoreBatch(changes: HaStateChange[], context: ObservationContext, tiers: Map<string, EntityTier>): BatchScoreResult;
+  scoreBatch(changes: HaStateChange[], context: ObservationContext, tiers: Map<string, EntityTier>): BatchScoreResult | Promise<BatchScoreResult>;
 }
 
 // ---------- utility: build context ----------

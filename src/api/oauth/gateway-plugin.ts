@@ -59,10 +59,7 @@ interface PluginApi {
   };
   registerGatewayMethod: (
     method: string,
-    handler: (opts: {
-      params: Record<string, unknown>;
-      respond: (ok: boolean, payload?: unknown) => void;
-    }) => void | Promise<void>,
+    handler: (opts: { params: Record<string, unknown>; respond: (ok: boolean, payload?: unknown) => void }) => void | Promise<void>,
   ) => void;
   [key: string]: unknown;
 }
@@ -87,7 +84,10 @@ function buildAccountActions(conn: BackendConnection): string[] {
     actions.push('list_files', 'search_files', 'get_file');
   }
   if (conn.enabled_features.includes('calendar')) {
-    actions.push('list_events');
+    actions.push('list_events', 'sync_calendar');
+    if (conn.permission_level === 'read_write') {
+      actions.push('create_event', 'delete_event');
+    }
   }
   return actions;
 }
@@ -106,6 +106,15 @@ function buildFileActions(): string[] {
   return ['list_files', 'search_files', 'get_file'];
 }
 
+/** Build calendar-specific available actions based on permission level. */
+function buildCalendarActions(permission_level: string): string[] {
+  const actions = ['list_events', 'sync_calendar'];
+  if (permission_level === 'read_write') {
+    actions.push('create_event', 'delete_event');
+  }
+  return actions;
+}
+
 /**
  * Make an HTTP request to the backend API.
  * Handles JSON parsing, error responses, and network failures.
@@ -117,7 +126,7 @@ async function backendFetch(
 ): Promise<{ ok: true; data: unknown } | { ok: false; error: string; status?: number }> {
   const url = `${baseUrl.replace(/\/+$/, '')}${path}`;
   const headers: Record<string, string> = {
-    'Accept': 'application/json',
+    Accept: 'application/json',
   };
   if (apiKey) {
     headers['Authorization'] = `Bearer ${apiKey}`;
@@ -148,11 +157,7 @@ async function backendFetch(
 type RespondFn = (ok: boolean, payload?: unknown) => void;
 
 /** Validate that a string param is present; respond with error if not. */
-function requireParam(
-  params: Record<string, unknown>,
-  name: string,
-  respond: RespondFn,
-): string | null {
+function requireParam(params: Record<string, unknown>, name: string, respond: RespondFn): string | null {
   const value = typeof params[name] === 'string' ? (params[name] as string).trim() : '';
   if (!value) {
     respond(false, { error: `${name} is required` });
@@ -165,12 +170,7 @@ function requireParam(
  * Resolve a connection by ID: fetches the connection list from the backend
  * and finds the matching entry. Returns the connection or responds with error.
  */
-async function resolveConnection(
-  baseUrl: string,
-  apiKey: string | undefined,
-  connection_id: string,
-  respond: RespondFn,
-): Promise<BackendConnection | null> {
+async function resolveConnection(baseUrl: string, apiKey: string | undefined, connection_id: string, respond: RespondFn): Promise<BackendConnection | null> {
   // We fetch all connections and filter — this keeps the plugin simple.
   // For large connection counts a dedicated endpoint would be better.
   const result = await backendFetch(baseUrl, '/api/oauth/connections');
@@ -362,11 +362,7 @@ export function createOAuthGatewayPlugin() {
         }
 
         const qs = new URLSearchParams({ connection_id });
-        const result = await backendFetch(
-          backendUrl,
-          `/api/email/messages/${encodeURIComponent(message_id)}?${qs.toString()}`,
-          apiKey,
-        );
+        const result = await backendFetch(backendUrl, `/api/email/messages/${encodeURIComponent(message_id)}?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -478,11 +474,7 @@ export function createOAuthGatewayPlugin() {
         }
 
         const qs = new URLSearchParams({ connection_id });
-        const result = await backendFetch(
-          backendUrl,
-          `/api/drive/files/${encodeURIComponent(fileId)}?${qs.toString()}`,
-          apiKey,
-        );
+        const result = await backendFetch(backendUrl, `/api/drive/files/${encodeURIComponent(fileId)}?${qs.toString()}`, apiKey);
         if (!result.ok) {
           respond(false, { error: result.error });
           return;
@@ -495,6 +487,161 @@ export function createOAuthGatewayPlugin() {
           file: result.data,
           available_actions: buildFileActions(),
         });
+      });
+      // -------------------------------------------------------------------
+      // oauth.calendar.list — List calendar events from a connection (Issue #1362)
+      // -------------------------------------------------------------------
+      api.registerGatewayMethod('oauth.calendar.list', async ({ params, respond }) => {
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
+
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
+        if (!conn) return;
+
+        if (!conn.enabled_features.includes('calendar')) {
+          respond(false, { error: 'Calendar feature is not enabled on this connection' });
+          return;
+        }
+
+        const qs = new URLSearchParams({ connection_id });
+        if (typeof params.time_min === 'string') qs.set('time_min', params.time_min);
+        if (typeof params.time_max === 'string') qs.set('time_max', params.time_max);
+        if (typeof params.max_results === 'number') qs.set('max_results', String(params.max_results));
+        if (typeof params.page_token === 'string') qs.set('page_token', params.page_token);
+
+        const result = await backendFetch(backendUrl, `/api/calendar/events/live?${qs.toString()}`, apiKey);
+        if (!result.ok) {
+          respond(false, { error: result.error });
+          return;
+        }
+
+        const data = result.data as Record<string, unknown>;
+
+        respond(true, {
+          connection_label: conn.label,
+          connection_id: conn.id,
+          provider: conn.provider,
+          events: data.events ?? [],
+          next_page_token: data.next_page_token,
+          available_actions: buildCalendarActions(conn.permission_level),
+        });
+      });
+
+      // -------------------------------------------------------------------
+      // oauth.calendar.sync — Sync calendar events from provider to local DB (Issue #1362)
+      // -------------------------------------------------------------------
+      api.registerGatewayMethod('oauth.calendar.sync', async ({ params, respond }) => {
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
+
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
+        if (!conn) return;
+
+        if (!conn.enabled_features.includes('calendar')) {
+          respond(false, { error: 'Calendar feature is not enabled on this connection' });
+          return;
+        }
+
+        const body: Record<string, unknown> = { connection_id };
+        if (typeof params.time_min === 'string') body.time_min = params.time_min;
+        if (typeof params.time_max === 'string') body.time_max = params.time_max;
+
+        try {
+          const url = `${backendUrl.replace(/\/+$/, '')}/api/sync/calendar`;
+          const headers: Record<string, string> = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          };
+          if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            respond(false, { error: (data as Record<string, unknown>).error || 'Sync failed' });
+            return;
+          }
+
+          respond(true, {
+            connection_label: conn.label,
+            connection_id: conn.id,
+            provider: conn.provider,
+            ...(data as Record<string, unknown>),
+          });
+        } catch (err) {
+          respond(false, { error: err instanceof Error ? err.message : String(err) });
+        }
+      });
+
+      // -------------------------------------------------------------------
+      // oauth.calendar.create — Create a calendar event (Issue #1362)
+      // -------------------------------------------------------------------
+      api.registerGatewayMethod('oauth.calendar.create', async ({ params, respond }) => {
+        const connection_id = requireParam(params, 'connection_id', respond);
+        if (!connection_id) return;
+
+        const title = requireParam(params, 'title', respond);
+        if (!title) return;
+
+        const conn = await resolveConnection(backendUrl, apiKey, connection_id, respond);
+        if (!conn) return;
+
+        if (!conn.enabled_features.includes('calendar')) {
+          respond(false, { error: 'Calendar feature is not enabled on this connection' });
+          return;
+        }
+
+        if (conn.permission_level !== 'read_write') {
+          respond(false, { error: 'Write permission required to create events' });
+          return;
+        }
+
+        const body: Record<string, unknown> = {
+          connection_id,
+          user_email: conn.provider_account_email || '',
+          provider: conn.provider,
+          title,
+          start_time: params.start_time,
+          end_time: params.end_time,
+        };
+        if (typeof params.description === 'string') body.description = params.description;
+        if (typeof params.location === 'string') body.location = params.location;
+        if (typeof params.all_day === 'boolean') body.all_day = params.all_day;
+
+        try {
+          const url = `${backendUrl.replace(/\/+$/, '')}/api/calendar/events`;
+          const headers: Record<string, string> = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          };
+          if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            respond(false, { error: (data as Record<string, unknown>).error || 'Create failed' });
+            return;
+          }
+
+          respond(true, {
+            connection_label: conn.label,
+            connection_id: conn.id,
+            provider: conn.provider,
+            event: (data as Record<string, unknown>).event,
+            available_actions: buildCalendarActions(conn.permission_level),
+          });
+        } catch (err) {
+          respond(false, { error: err instanceof Error ? err.message : String(err) });
+        }
       });
     },
   };
