@@ -6,6 +6,8 @@ import { Input } from '@/ui/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, Plus } from 'lucide-react';
 import { apiClient } from '@/ui/lib/api-client';
+import { NamespacePicker } from '@/ui/components/namespace';
+import { useNamespaceSafe } from '@/ui/contexts/namespace-context';
 import type { QuickAddDialogProps, WorkItemKind, WorkItemCreatePayload, CreatedWorkItem } from './types';
 
 const kindLabels: Record<WorkItemKind, string> = {
@@ -16,16 +18,19 @@ const kindLabels: Record<WorkItemKind, string> = {
 };
 
 export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId, defaultKind = 'issue' }: QuickAddDialogProps) {
+  const ns = useNamespaceSafe();
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<WorkItemKind>(defaultKind);
+  const [selectedNamespace, setSelectedNamespace] = useState<string | undefined>(ns?.activeNamespace);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resetForm = useCallback(() => {
     setTitle('');
     setKind(defaultKind);
+    setSelectedNamespace(ns?.activeNamespace);
     setError(null);
-  }, [defaultKind]);
+  }, [defaultKind, ns?.activeNamespace]);
 
   const handleSubmit = useCallback(async () => {
     if (isLoading) return;
@@ -37,6 +42,7 @@ export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId,
       title: title.trim(),
       kind,
       parent_id: defaultParentId ?? null,
+      namespace: selectedNamespace,
     };
 
     try {
@@ -49,7 +55,7 @@ export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId,
     } finally {
       setIsLoading(false);
     }
-  }, [title, kind, defaultParentId, isLoading, onCreated, onOpenChange, resetForm]);
+  }, [title, kind, defaultParentId, isLoading, onCreated, onOpenChange, resetForm, selectedNamespace]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -102,6 +108,12 @@ export function QuickAddDialog({ open, onOpenChange, onCreated, defaultParentId,
 
             <Input placeholder="Title..." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={handleKeyDown} className="flex-1" autoFocus />
           </div>
+
+          <NamespacePicker
+            value={selectedNamespace}
+            onValueChange={setSelectedNamespace}
+            className="space-y-2"
+          />
 
           {error && (
             <p className="text-sm text-destructive" role="alert">

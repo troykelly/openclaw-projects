@@ -3256,7 +3256,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               created_at,
               updated_at,
               estimate_minutes,
-              actual_minutes
+              actual_minutes,
+              namespace
          FROM work_item
          ${whereClause}
         ORDER BY created_at DESC
@@ -4218,6 +4219,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               wi.estimate_minutes,
               wi.actual_minutes,
               wi.deleted_at,
+              wi.namespace,
               (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id AND c.deleted_at IS NULL) as children_count
          FROM work_item wi
         WHERE wi.id = $1 ${deletedFilter}`,
@@ -11749,6 +11751,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       unread_only?: string;
       limit?: string;
       offset?: string;
+      namespaces?: string;
     };
 
     // Epic #1418: namespace scoping — user_email is still accepted for backward compat
@@ -11765,12 +11768,24 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const conditions: string[] = ['dismissed_at IS NULL'];
     const params: unknown[] = [];
-    // Namespace scoping for notifications
-    const nsCtx = req.namespaceContext;
-    if (nsCtx && nsCtx.queryNamespaces.length > 0) {
-      params.push(nsCtx.queryNamespaces);
+
+    // Issue #1480: explicit namespaces query param takes precedence
+    const namespacesParam = query.namespaces
+      ? query.namespaces.split(',').map((s) => s.trim()).filter(Boolean)
+      : null;
+
+    if (namespacesParam && namespacesParam.length > 0) {
+      params.push(namespacesParam);
       conditions.push(`namespace = ANY($${params.length}::text[])`);
+    } else {
+      // Fall back to namespace middleware context
+      const nsCtx = req.namespaceContext;
+      if (nsCtx && nsCtx.queryNamespaces.length > 0) {
+        params.push(nsCtx.queryNamespaces);
+        conditions.push(`namespace = ANY($${params.length}::text[])`);
+      }
     }
+
     if (query.user_email) {
       params.push(query.user_email);
       conditions.push(`user_email = $${params.length}`);
@@ -11791,7 +11806,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
          actor_email as "actor_email",
          metadata,
          read_at as "read_at",
-         created_at as "created_at"
+         created_at as "created_at",
+         namespace
        FROM notification
        ${whereClause}
        ORDER BY created_at DESC
@@ -11799,9 +11815,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       [...params, limit, offset],
     );
 
-    const countResult = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [
-      query.user_email,
-    ]);
+    // Unread count uses the same conditions (minus pagination) for consistency
+    const countConditions = conditions.slice();
+    countConditions.push('read_at IS NULL');
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM notification WHERE ${countConditions.join(' AND ')}`,
+      params,
+    );
 
     await pool.end();
 
@@ -11813,14 +11833,34 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/notifications/unread-count - Get unread count for a user
   app.get('/api/notifications/unread-count', async (req, reply) => {
-    const query = req.query as { user_email?: string };
+    const query = req.query as { user_email?: string; namespaces?: string };
 
     if (!query.user_email) {
       return reply.code(400).send({ error: 'user_email is required' });
     }
 
     const pool = createPool();
-    const result = await pool.query('SELECT COUNT(*) FROM notification WHERE user_email = $1 AND read_at IS NULL AND dismissed_at IS NULL', [query.user_email]);
+
+    const conditions: string[] = ['read_at IS NULL', 'dismissed_at IS NULL'];
+    const params: unknown[] = [];
+
+    params.push(query.user_email);
+    conditions.push(`user_email = $${params.length}`);
+
+    // Issue #1480: optional namespace filter
+    const namespacesParam = query.namespaces
+      ? query.namespaces.split(',').map((s) => s.trim()).filter(Boolean)
+      : null;
+
+    if (namespacesParam && namespacesParam.length > 0) {
+      params.push(namespacesParam);
+      conditions.push(`namespace = ANY($${params.length}::text[])`);
+    }
+
+    const result = await pool.query(
+      `SELECT COUNT(*) FROM notification WHERE ${conditions.join(' AND ')}`,
+      params,
+    );
     await pool.end();
 
     return reply.send({ unread_count: Number.parseInt(result.rows[0].count, 10) });

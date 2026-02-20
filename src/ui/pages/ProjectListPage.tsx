@@ -23,6 +23,7 @@ import { MoveToDialog, useWorkItemMove, type MoveItem, type PotentialParent } fr
 import { mapApiTreeToTreeItems, findTreeItem, flattenTreeForParents, priorityColors } from '@/ui/lib/work-item-utils';
 import { apiClient } from '@/ui/lib/api-client';
 import { LayoutGrid, Calendar, Network, Clock, AlertCircle, CheckCircle2, Circle, FolderTree, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { NamespaceBadge } from '@/ui/components/namespace';
 
 /** Status icons mapped by status key. */
 const statusIcons: Record<string, React.ReactNode> = {
@@ -256,9 +257,12 @@ export function ProjectListPage(): React.JSX.Element {
                     {items.map((item) => (
                       <tr key={item.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
-                          <Link to={`/work-items/${encodeURIComponent(item.id)}`} className="font-medium text-foreground hover:text-primary transition-colors">
-                            {item.title}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link to={`/work-items/${encodeURIComponent(item.id)}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                              {item.title}
+                            </Link>
+                            <NamespaceBadge namespace={item.namespace} />
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
