@@ -362,6 +362,139 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   }
 
   /**
+   * Issue #1483: Move an entity (and optionally its children) to a different namespace.
+   *
+   * Validates:
+   * - Entity exists in a namespace the user can access (source check)
+   * - User has a grant for the target namespace (or is M2M / auth-disabled)
+   * - Source != target (no-op guard)
+   *
+   * Returns the updated entity row, or null if not found / access denied.
+   */
+  async function moveEntityNamespace(
+    pool: ReturnType<typeof createPool>,
+    table: string,
+    id: string,
+    targetNamespace: string,
+    req: FastifyRequest,
+    childSpecs?: Array<{ table: string; fkColumn: string }>,
+  ): Promise<{ row: Record<string, unknown>; oldNamespace: string } | null> {
+    const isM2M = req.namespaceContext?.isM2M ?? false;
+    const authOff = isAuthDisabled();
+
+    // 1. Load entity and verify source namespace access
+    // We query ALL namespaces the user has access to (not just the middleware-resolved one)
+    // because the middleware may have resolved to the target namespace from body.
+    const sessionEmail = await getSessionEmail(req);
+    let sourceNamespaces: string[];
+    if (authOff || isM2M) {
+      // Unrestricted — match any namespace
+      sourceNamespaces = [];
+    } else if (sessionEmail) {
+      const grants = await pool.query<{ namespace: string }>(
+        'SELECT namespace FROM namespace_grant WHERE email = $1',
+        [sessionEmail],
+      );
+      sourceNamespaces = grants.rows.map((r) => r.namespace);
+      if (sourceNamespaces.length === 0) return null;
+    } else {
+      return null;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Fetch entity with lock
+      const entityQuery = sourceNamespaces.length > 0
+        ? { text: `SELECT * FROM "${table}" WHERE id = $1 AND namespace = ANY($2::text[]) FOR UPDATE`, values: [id, sourceNamespaces] }
+        : { text: `SELECT * FROM "${table}" WHERE id = $1 FOR UPDATE`, values: [id] };
+      const entityResult = await client.query(entityQuery.text, entityQuery.values);
+
+      if (entityResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const row = entityResult.rows[0] as Record<string, unknown>;
+      const oldNamespace = row.namespace as string;
+
+      // 2. No-op if already in target namespace
+      if (oldNamespace === targetNamespace) {
+        await client.query('ROLLBACK');
+        return { row, oldNamespace };
+      }
+
+      // 3. Validate target namespace access
+      if (!authOff && !isM2M) {
+        if (!sourceNamespaces.includes(targetNamespace)) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+      }
+
+      // 4. Move entity
+      const updateResult = await client.query(
+        `UPDATE "${table}" SET namespace = $1, updated_at = now() WHERE id = $2 RETURNING *`,
+        [targetNamespace, id],
+      );
+      const updatedRow = updateResult.rows[0] as Record<string, unknown>;
+
+      // 5. Move children if specified
+      if (childSpecs && childSpecs.length > 0) {
+        for (const spec of childSpecs) {
+          if (spec.table === table && spec.fkColumn === 'parent_work_item_id') {
+            // Recursive: move all descendants via CTE (work_item hierarchy)
+            await client.query(
+              `WITH RECURSIVE descendants AS (
+                 SELECT id FROM "${table}" WHERE "${spec.fkColumn}" = $2
+                 UNION ALL
+                 SELECT c.id FROM "${table}" c JOIN descendants d ON c."${spec.fkColumn}" = d.id
+               )
+               UPDATE "${table}" SET namespace = $1, updated_at = now()
+               WHERE id IN (SELECT id FROM descendants)`,
+              [targetNamespace, id],
+            );
+          } else {
+            await client.query(
+              `UPDATE "${spec.table}" SET namespace = $1, updated_at = now() WHERE "${spec.fkColumn}" = $2`,
+              [targetNamespace, id],
+            );
+          }
+        }
+      }
+
+      // 6. Record audit event (best-effort, uses savepoint so failure doesn't abort txn)
+      try {
+        await client.query('SAVEPOINT audit_sp');
+        await client.query(
+          `INSERT INTO audit_log (actor_type, actor_id, action, entity_type, entity_id, metadata)
+           VALUES ($1, $2, 'namespace_move', $3, $4, $5)`,
+          [
+            isM2M ? 'system' : 'human',
+            sessionEmail ?? 'system',
+            table,
+            id,
+            JSON.stringify({ from: oldNamespace, to: targetNamespace }),
+          ],
+        );
+        await client.query('RELEASE SAVEPOINT audit_sp');
+      } catch {
+        // Best-effort: roll back just the audit insert, not the entire move
+        await client.query('ROLLBACK TO SAVEPOINT audit_sp');
+      }
+
+      await client.query('COMMIT');
+      return { row: updatedRow, oldNamespace };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Issue #1321: Schedule or update reminder/nudge internal_job entries for a work item.
    * Uses idempotency keys matching the pg_cron functions' format for dedup.
    * When a date is null, any existing uncompleted job for that kind is deleted.
@@ -21030,6 +21163,96 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       await pool.end();
     }
   });
+
+  // ── Namespace Move Endpoints (Issue #1483) ──────────────────────────
+  // PATCH /api/<entity>/:id/namespace — Move an entity to a different namespace.
+  //
+  // Body: { target_namespace: "new-ns" }
+  // NOTE: We use "target_namespace" (not "namespace") because the namespace
+  // middleware reads body.namespace to set the request's namespace context,
+  // which would conflict with the move target.
+
+  /** Entity type configuration for namespace move endpoints. */
+  const NAMESPACE_MOVE_ENTITIES: Array<{
+    route: string;
+    table: string;
+    children?: Array<{ table: string; fkColumn: string }>;
+    activityTable?: string;
+  }> = [
+    {
+      route: '/api/work-items/:id/namespace',
+      table: 'work_item',
+      children: [{ table: 'work_item', fkColumn: 'parent_work_item_id' }],
+      activityTable: 'work_item_activity',
+    },
+    { route: '/api/contacts/:id/namespace', table: 'contact' },
+    {
+      route: '/api/notebooks/:id/namespace',
+      table: 'notebook',
+      children: [{ table: 'note', fkColumn: 'notebook_id' }],
+    },
+    { route: '/api/notes/:id/namespace', table: 'note' },
+    { route: '/api/recipes/:id/namespace', table: 'recipe' },
+    { route: '/api/meal-log/:id/namespace', table: 'meal_log' },
+    { route: '/api/pantry/:id/namespace', table: 'pantry_item' },
+    { route: '/api/threads/:id/namespace', table: 'external_thread' },
+    { route: '/api/memories/:id/namespace', table: 'memory' },
+    { route: '/api/entity-links/:id/namespace', table: 'entity_link' },
+    { route: '/api/skill-store/items/:id/namespace', table: 'skill_store_item' },
+  ];
+
+  for (const entityConfig of NAMESPACE_MOVE_ENTITIES) {
+    app.patch(entityConfig.route, async (req, reply) => {
+      const params = req.params as { id: string };
+      if (!isValidUUID(params.id)) {
+        return reply.code(400).send({ error: 'invalid id format' });
+      }
+
+      const body = req.body as { target_namespace?: string } | null | undefined;
+      const targetNamespace = body?.target_namespace?.trim();
+      if (!targetNamespace) {
+        return reply.code(400).send({ error: 'target_namespace is required' });
+      }
+
+      // Validate namespace format (same regex as namespace_grant CHECK constraint)
+      if (!/^[a-z0-9][a-z0-9._-]*$/.test(targetNamespace) || targetNamespace.length > 63) {
+        return reply.code(400).send({ error: 'invalid target_namespace format' });
+      }
+
+      const pool = createPool();
+      try {
+        const result = await moveEntityNamespace(
+          pool,
+          entityConfig.table,
+          params.id,
+          targetNamespace,
+          req,
+          entityConfig.children,
+        );
+
+        if (!result) {
+          return reply.code(404).send({ error: 'not found' });
+        }
+
+        // Record work_item_activity if applicable
+        if (entityConfig.activityTable && result.oldNamespace !== targetNamespace) {
+          try {
+            await pool.query(
+              `INSERT INTO ${entityConfig.activityTable} (work_item_id, activity_type, description)
+               VALUES ($1, 'namespace_move', $2)`,
+              [params.id, `Moved from namespace "${result.oldNamespace}" to "${targetNamespace}"`],
+            );
+          } catch {
+            // Best-effort: activity log failures must not break moves
+          }
+        }
+
+        return reply.send(result.row);
+      } finally {
+        await pool.end();
+      }
+    });
+  }
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.

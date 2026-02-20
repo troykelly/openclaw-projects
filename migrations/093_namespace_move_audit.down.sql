@@ -1,0 +1,3 @@
+-- PostgreSQL does not support removing enum values directly.
+-- The 'namespace_move' value in audit_action_type is left in place on rollback.
+-- This is safe as unused enum values have no side effects.
