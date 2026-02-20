@@ -32,8 +32,6 @@ export interface SkillStoreSearchResult {
   tags: string[];
   status: string;
   priority: number;
-  /** @deprecated user_email column dropped from skill_store_item table in Phase 4 (Epic #1418) */
-  user_email?: string | null;
   /** Epic #1418: namespace scoping */
   namespace?: string;
   created_at: string;
@@ -64,8 +62,6 @@ export interface SkillStoreSearchParams {
   collection?: string;
   tags?: string[];
   status?: string;
-  /** @deprecated user_email column dropped from skill_store_item table in Phase 4 (Epic #1418) */
-  user_email?: string;
   /** Epic #1418: namespace-based scoping */
   namespace?: string;
   limit?: number;

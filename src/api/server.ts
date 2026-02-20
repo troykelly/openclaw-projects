@@ -117,6 +117,7 @@ import {
   verifyTwilioSignature,
   WebhookHealthChecker,
 } from './webhooks/index.ts';
+import { voiceRoutesPlugin } from './voice/routes.ts';
 import { postmarkIPWhitelistMiddleware, twilioIPWhitelistMiddleware } from './webhooks/ip-whitelist.ts';
 import { validateSsrf as ssrfValidateSsrf } from './webhooks/ssrf.ts';
 import { computeNextRunAt } from './skill-store/schedule-next-run.ts';
@@ -189,7 +190,10 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   });
 
   // WebSocket support for real-time updates (Issue #213)
-  app.register(websocket);
+  // maxPayload: 1MB limit to prevent memory exhaustion attacks
+  app.register(websocket, {
+    options: { maxPayload: 1048576 },
+  });
 
   // Rate limiting configuration (Issue #212, enhanced by Issue #323)
   // Skip rate limiting in test environment or when explicitly disabled
@@ -613,6 +617,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     '/api/cloudflare/email',
     // WebSocket endpoint uses its own auth via query params or cookies
     '/api/ws',
+    // Voice WebSocket endpoint handles its own auth via JWT query param
+    '/ws/conversation',
     // OAuth callback comes from external provider redirect
     '/api/oauth/callback',
   ]);
@@ -677,13 +683,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const q = req.query as Record<string, unknown> | undefined;
     if (q) {
       if ('user_email' in q) q.user_email = bound;
-      if ('user_email' in q) q.user_email = bound;
     }
 
     // Override body fields
     const b = req.body as Record<string, unknown> | undefined | null;
     if (b && typeof b === 'object') {
-      if ('user_email' in b) b.user_email = bound;
       if ('user_email' in b) b.user_email = bound;
 
       // Handle arrays that may contain per-element user_email
@@ -15654,7 +15658,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         collection?: string;
         tags?: string[];
         status?: string;
-        user_email?: string;
         limit?: number;
         offset?: number;
       };
@@ -15679,7 +15682,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           collection: body.collection,
           tags: body.tags,
           status: body.status,
-          user_email: body.user_email,
+          namespace: getStoreNamespace(req),
           limit,
           offset,
         });
@@ -15717,7 +15720,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         collection?: string;
         tags?: string[];
         status?: string;
-        user_email?: string;
         min_similarity?: number;
         limit?: number;
         offset?: number;
@@ -15749,7 +15751,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             collection: body.collection,
             tags: body.tags,
             status: body.status,
-            user_email: body.user_email,
+            namespace: getStoreNamespace(req),
             min_similarity: body.min_similarity ?? 0.3,
             limit,
             semantic_weight: semantic_weight,
@@ -15768,7 +15770,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           collection: body.collection,
           tags: body.tags,
           status: body.status,
-          user_email: body.user_email,
+          namespace: getStoreNamespace(req),
           min_similarity: body.min_similarity ?? 0.3,
           limit,
           offset,
@@ -21178,6 +21180,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       }
     });
   }
+
+  // ── Voice Agent Routes (Epic #1431) ──────────────────────────────
+  // Register voice routes plugin with its own pool. WebSocket endpoint
+  // (/ws/conversation) is in authSkipPaths — it handles its own auth.
+  // REST routes (/api/voice/*) use the normal auth middleware.
+  const voicePool = createPool();
+  await app.register(voiceRoutesPlugin, { pool: voicePool });
 
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.

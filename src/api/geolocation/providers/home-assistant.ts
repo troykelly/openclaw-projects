@@ -18,6 +18,9 @@ import type {
 } from '../types.ts';
 import { validateOutboundUrl } from '../network-guard.ts';
 import { registerProvider } from '../registry.ts';
+import type { HaStateChange } from '../ha-event-processor.ts';
+import { HaEventRouter } from '../ha-event-router.ts';
+import { GeoIngestorProcessor } from '../processors/geo-ingestor-processor.ts';
 
 // ---------- entity matching ----------
 
@@ -38,6 +41,7 @@ interface HaState {
   state?: string;
   attributes?: Record<string, unknown>;
   last_changed?: string;
+  last_updated?: string;
 }
 
 // ---------- payload parsing ----------
@@ -164,6 +168,49 @@ interface WsContext {
   msgId: number;
 }
 
+/**
+ * Extract domain from an entity_id (the part before the first dot).
+ */
+function extractDomain(entityId: string): string {
+  const dotIndex = entityId.indexOf('.');
+  return dotIndex > 0 ? entityId.slice(0, dotIndex) : entityId;
+}
+
+/**
+ * Convert a raw HA WebSocket state_changed event into an HaStateChange.
+ * Returns null if the event data is missing required fields.
+ */
+function parseWsEvent(
+  msg: { type: string; [key: string]: unknown },
+): HaStateChange | null {
+  const event = msg.event as {
+    event_type?: string;
+    data?: {
+      entity_id?: string;
+      new_state?: HaState;
+      old_state?: HaState | null;
+    };
+    context?: { id: string; parent_id: string | null; user_id: string | null };
+  } | undefined;
+
+  if (!event?.data?.new_state) return null;
+
+  const entityId = event.data.entity_id ?? event.data.new_state.entity_id;
+  if (!entityId) return null;
+
+  return {
+    entity_id: entityId,
+    domain: extractDomain(entityId),
+    old_state: event.data.old_state?.state ?? null,
+    new_state: event.data.new_state.state ?? '',
+    old_attributes: event.data.old_state?.attributes ?? {},
+    new_attributes: event.data.new_state.attributes ?? {},
+    last_changed: event.data.new_state.last_changed ?? '',
+    last_updated: event.data.new_state.last_updated ?? event.data.new_state.last_changed ?? '',
+    context: event.context ?? { id: '', parent_id: null, user_id: null },
+  };
+}
+
 function connectWs(
   config: ProviderConfig,
   credentials: string,
@@ -171,6 +218,11 @@ function connectWs(
 ): Promise<Connection> {
   const baseUrl = config.url as string;
   const wsUrl = buildWsUrl(baseUrl);
+  const namespace = 'default';
+
+  // Set up event router with geo ingestor processor
+  const router = new HaEventRouter();
+  router.register(new GeoIngestorProcessor(onUpdate));
 
   const ctx: WsContext = {
     ws: null,
@@ -183,19 +235,13 @@ function connectWs(
   };
 
   function handleEvent(msg: { type: string; [key: string]: unknown }) {
-    const event = msg.event as { event_type?: string; data?: { entity_id?: string; new_state?: HaState } } | undefined;
-    if (!event?.data?.new_state) return;
-
-    const entity_id = event.data.entity_id ?? event.data.new_state.entity_id;
-    if (!entity_id) return;
+    const stateChange = parseWsEvent(msg);
+    if (!stateChange) return;
 
     // If we have a tracked entity set, filter to only those
-    if (ctx.trackedEntities.size > 0 && !ctx.trackedEntities.has(entity_id)) return;
+    if (ctx.trackedEntities.size > 0 && !ctx.trackedEntities.has(stateChange.entity_id)) return;
 
-    const update = parseStatePayload(event.data.new_state);
-    if (update) {
-      onUpdate(update);
-    }
+    void router.dispatch(stateChange, namespace);
   }
 
   function setupMessageHandler(ws: WebSocket) {
@@ -270,6 +316,7 @@ function connectWs(
         ctx.ws = null;
       }
       ctx.connected = false;
+      await router.shutdown();
     },
 
     addEntities(entityIds: string[]) {

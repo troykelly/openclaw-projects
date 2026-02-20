@@ -28,7 +28,7 @@ function generateSnippet(text: string, maxLength: number = SNIPPET_LENGTH): stri
 async function searchWorkItemsText(
   pool: Pool,
   query: string,
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string; queryNamespaces?: string[] },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const conditions: string[] = ["search_vector @@ plainto_tsquery('english', $1)"];
   const params: (string | number | Date | string[])[] = [query];
@@ -84,7 +84,7 @@ async function searchWorkItemsText(
 async function searchWorkItemsSemantic(
   pool: Pool,
   queryEmbedding: number[],
-  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; user_email?: string; queryNamespaces?: string[] },
+  options: { limit: number; offset: number; date_from?: Date; date_to?: Date; queryNamespaces?: string[] },
 ): Promise<EntitySearchResult[]> {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
   const conditions: string[] = ['embedding IS NOT NULL', "embedding_status = 'complete'", 'deleted_at IS NULL'];
@@ -458,13 +458,11 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
     date_from,
     date_to,
     semantic_weight = DEFAULT_SEMANTIC_WEIGHT,
-    user_email,
     queryNamespaces,
   } = options;
 
   const effectiveLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
   const searchOpts = { limit: effectiveLimit, offset, date_from, date_to, queryNamespaces };
-  const workItemSearchOpts = { ...searchOpts, user_email };
 
   // Determine search type based on capabilities
   let search_type: SearchType = 'text';
@@ -500,11 +498,11 @@ export async function unifiedSearch(pool: Pool, options: SearchOptions): Promise
 
   // Search work items (hybrid if available, Issue #1216)
   if (types.includes('work_item')) {
-    const textResults = await searchWorkItemsText(pool, query, workItemSearchOpts);
+    const textResults = await searchWorkItemsText(pool, query, searchOpts);
     let workItemResults: EntitySearchResult[];
 
     if (search_type === 'hybrid' && queryEmbedding) {
-      const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, workItemSearchOpts);
+      const semanticResults = await searchWorkItemsSemantic(pool, queryEmbedding, searchOpts);
       workItemResults = combineResults(textResults, semanticResults, semantic_weight);
     } else {
       workItemResults = textResults;
