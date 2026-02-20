@@ -135,8 +135,6 @@ export async function searchMemoriesSemantic(
     contact_id?: string;
     relationship_id?: string;
     project_id?: string;
-    /** @deprecated user_email column dropped from memory table in Phase 4 (Epic #1418) */
-    user_email?: string;
     tags?: string[];
     created_after?: Date;
     created_before?: Date;
@@ -201,9 +199,6 @@ export async function searchMemoriesSemantic(
     params.push(project_id);
     paramIndex++;
   }
-
-  // Epic #1418 Phase 4: user_email column dropped from memory table.
-  // Namespace scoping is handled at the route level.
 
   if (tags && tags.length > 0) {
     conditions.push(`m.tags @> $${paramIndex}`);

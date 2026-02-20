@@ -263,7 +263,7 @@ export async function listRelationships(pool: Pool, options: ListRelationshipsOp
  *    - If type is directional (is_directional = true) -> return inverse type
  * 3. Combine results
  */
-export async function getRelatedContacts(pool: Pool, contact_id: string, user_email?: string): Promise<GraphTraversalResult> {
+export async function getRelatedContacts(pool: Pool, contact_id: string): Promise<GraphTraversalResult> {
   // Get the contact's name first
   const contactResult = await pool.query(`SELECT display_name FROM contact WHERE id = $1`, [contact_id]);
   const contact_name = contactResult.rows.length > 0 ? (contactResult.rows[0] as { display_name: string }).display_name : 'Unknown';
@@ -276,7 +276,6 @@ export async function getRelatedContacts(pool: Pool, contact_id: string, user_em
   const hasContactKind = kindColCheck.rows.length > 0;
   const contactKindSelect = hasContactKind ? `c_ref.contact_kind::text as contact_kind` : `'person' as contact_kind`;
 
-  // Epic #1418 Phase 4: user_email column dropped from relationship table; scoping is now by namespace
   const graphParams: string[] = [contact_id];
 
   // Query 1: Contact is on the A side -> type as-is, related contact is B
@@ -435,8 +434,7 @@ export async function getContactGroups(pool: Pool, contact_id: string): Promise<
  * Resolves a contact identifier (UUID or display name) to a contact ID and name.
  * Returns null if the contact cannot be found.
  */
-async function resolveContact(pool: Pool, identifier: string, _user_email?: string): Promise<{ id: string; display_name: string } | null> {
-  // Epic #1418 Phase 4: user_email column dropped from contact table; scoping is now by namespace
+async function resolveContact(pool: Pool, identifier: string): Promise<{ id: string; display_name: string } | null> {
   const baseParams = [identifier];
 
   // Try as UUID first
@@ -508,13 +506,13 @@ async function resolveRelationshipType(pool: Pool, typeIdentifier: string): Prom
  * @throws Error if relationship type cannot be resolved
  */
 export async function relationshipSet(pool: Pool, input: RelationshipSetInput): Promise<RelationshipSetResult> {
-  // Step 1 & 2: Resolve contacts (Issue #1172: scope by user_email when provided)
-  const contact_a = await resolveContact(pool, input.contact_a, input.user_email);
+  // Step 1 & 2: Resolve contacts
+  const contact_a = await resolveContact(pool, input.contact_a);
   if (!contact_a) {
     throw new Error(`Contact "${input.contact_a}" cannot be resolved. No matching contact found.`);
   }
 
-  const contact_b = await resolveContact(pool, input.contact_b, input.user_email);
+  const contact_b = await resolveContact(pool, input.contact_b);
   if (!contact_b) {
     throw new Error(`Contact "${input.contact_b}" cannot be resolved. No matching contact found.`);
   }
@@ -554,7 +552,6 @@ export async function relationshipSet(pool: Pool, input: RelationshipSetInput): 
     relationship_type_id: relType.id,
     notes: input.notes,
     created_by_agent: input.created_by_agent,
-    user_email: input.user_email,
     namespace: input.namespace,
   });
 

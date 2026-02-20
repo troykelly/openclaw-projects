@@ -16,8 +16,6 @@ export interface SearchOptions {
   date_from?: Date;
   date_to?: Date;
   semantic_weight?: number; // 0-1, weight for semantic vs text search in hybrid mode
-  /** @deprecated user_email column dropped from work_item table in Phase 4 (Epic #1418) */
-  user_email?: string;
   /** Epic #1418: namespace scoping for entity queries */
   queryNamespaces?: string[];
 }
