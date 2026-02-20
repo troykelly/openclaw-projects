@@ -6,7 +6,7 @@
  * vertical list. Changes save immediately with visual confirmation.
  */
 
-import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, Monitor, Moon, Smartphone, Sun, User } from 'lucide-react';
+import { Bell, CheckCircle, Clock, Eye, Info, Keyboard, Layout, Link2, MapPin, Monitor, Moon, Radio, Smartphone, Sun, User } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/ui/components/feedback';
@@ -18,6 +18,7 @@ import { Switch } from '@/ui/components/ui/switch';
 import { cn } from '@/ui/lib/utils';
 import { ConnectedAccountsSection } from './connected-accounts-section';
 import { EmbeddingSettingsSection } from './embedding-settings-section';
+import { InboundRoutingSection } from './inbound-routing-section';
 import { LocationSection } from './location-section';
 import type { DefaultView, EmailDigestFrequency, Theme } from './types';
 import { useSettings } from './use-settings';
@@ -53,6 +54,7 @@ const SECTIONS = [
   { id: 'location', label: 'Location', icon: MapPin },
   { id: 'appearance', label: 'Appearance', icon: Sun },
   { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'routing', label: 'Inbound Routing', icon: Radio },
   { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
   { id: 'about', label: 'About', icon: Info },
 ] as const;
@@ -496,6 +498,7 @@ export function SettingsPage() {
     location: null,
     appearance: null,
     notifications: null,
+    routing: null,
     shortcuts: null,
     about: null,
   });
@@ -725,6 +728,15 @@ export function SettingsPage() {
                 onEmailNotificationsChange={(checked) => handleUpdate({ email_notifications: checked })}
                 onDigestFrequencyChange={handleDigestFrequencyChange}
               />
+            </div>
+
+            {/* Inbound Routing */}
+            <div
+              ref={(el) => {
+                sectionRefs.current.routing = el;
+              }}
+            >
+              <InboundRoutingSection />
             </div>
 
             {/* Keyboard Shortcuts */}

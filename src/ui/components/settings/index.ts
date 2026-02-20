@@ -4,6 +4,7 @@ export { useEmbeddingSettings } from './use-embedding-settings';
 export { EmbeddingSettingsSection } from './embedding-settings-section';
 export { useConnectedAccounts } from './use-connected-accounts';
 export { ConnectedAccountsSection } from './connected-accounts-section';
+export { InboundRoutingSection } from './inbound-routing-section';
 export { LocationSection } from './location-section';
 export { ConnectionManagePanel } from './connection-manage-panel';
 export { FeatureToggle } from './feature-toggle';
