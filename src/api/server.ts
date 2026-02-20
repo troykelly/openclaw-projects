@@ -20858,7 +20858,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     } | null;
 
     const agentId = body?.agent_id?.trim();
-    if (!agentId) {
+    if (!body || !agentId) {
       return reply.code(400).send({ error: 'agent_id is required' });
     }
 
