@@ -4,10 +4,10 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
-import type { OAuthConfig, OAuthTokens, ProviderContact, OAuthAuthorizationUrl } from './types.ts';
-import { OAuthError, TokenRefreshError } from './types.ts';
-import type { DriveFile, DriveListResult } from './files.ts';
 import { requireProviderConfig } from './config.ts';
+import type { DriveFile, DriveListResult } from './files.ts';
+import type { OAuthAuthorizationUrl, OAuthConfig, OAuthTokens, ProviderContact } from './types.ts';
+import { OAuthError, TokenRefreshError } from './types.ts';
 
 // PKCE utilities
 function generateCodeVerifier(): string {
@@ -75,12 +75,7 @@ interface GoogleConnectionsResponse {
   totalPeople?: number;
 }
 
-export function buildAuthorizationUrl(
-  config: OAuthConfig,
-  state: string,
-  scopes?: string[],
-  opts?: { includeGrantedScopes?: boolean },
-): OAuthAuthorizationUrl {
+export function buildAuthorizationUrl(config: OAuthConfig, state: string, scopes?: string[], opts?: { includeGrantedScopes?: boolean }): OAuthAuthorizationUrl {
   const effectiveScopes = scopes || config.scopes;
   const code_verifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(code_verifier);
@@ -352,7 +347,7 @@ function mapGoogleDriveFile(file: GoogleDriveFileResource, connection_id: string
     id: file.id,
     name: file.name,
     mime_type: file.mimeType,
-    size: file.size ? parseInt(file.size, 10) : undefined,
+    size: file.size ? Number.parseInt(file.size, 10) : undefined,
     created_at: file.createdTime ? new Date(file.createdTime) : undefined,
     modified_at: file.modifiedTime ? new Date(file.modifiedTime) : undefined,
     parent_id: file.parents?.[0],
@@ -370,12 +365,7 @@ function mapGoogleDriveFile(file: GoogleDriveFileResource, connection_id: string
  * List files in a Google Drive folder (or root).
  * Uses the Drive API v3 `/files` endpoint with a `parents` query filter.
  */
-export async function listDriveFiles(
-  access_token: string,
-  connection_id: string,
-  folder_id?: string,
-  page_token?: string,
-): Promise<DriveListResult> {
+export async function listDriveFiles(access_token: string, connection_id: string, folder_id?: string, page_token?: string): Promise<DriveListResult> {
   const parent_id = folder_id || 'root';
   // Escape single quotes in folder ID to prevent query injection
   const safeParentId = parent_id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -416,12 +406,7 @@ export async function listDriveFiles(
  * Search files across a Google Drive.
  * Uses the Drive API v3 `/files` endpoint with a `fullText contains` query.
  */
-export async function searchDriveFiles(
-  access_token: string,
-  connection_id: string,
-  query: string,
-  page_token?: string,
-): Promise<DriveListResult> {
+export async function searchDriveFiles(access_token: string, connection_id: string, query: string, page_token?: string): Promise<DriveListResult> {
   // Escape single quotes in the query to prevent query injection
   const safeQuery = query.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const q = `fullText contains '${safeQuery}' and trashed=false`;
@@ -460,11 +445,192 @@ export async function searchDriveFiles(
  * Get metadata for a single Google Drive file, including download/export links.
  * Uses the Drive API v3 `/files/{fileId}` endpoint.
  */
-export async function getDriveFile(
+// ==================== Google Calendar (Issue #1362) ====================
+
+const CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
+
+/** Shape of a Google Calendar API v3 event resource. */
+interface GoogleCalendarEventResource {
+  id: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  start: { dateTime?: string; date?: string; timeZone?: string };
+  end: { dateTime?: string; date?: string; timeZone?: string };
+  attendees?: Array<{ email: string; displayName?: string; responseStatus?: string }>;
+  organizer?: { email: string; displayName?: string };
+  htmlLink?: string;
+  status?: string;
+  created?: string;
+  updated?: string;
+}
+
+interface GoogleCalendarListResponse {
+  items?: GoogleCalendarEventResource[];
+  nextPageToken?: string;
+  nextSyncToken?: string;
+}
+
+/** Normalized calendar event returned by provider functions. */
+export interface ProviderCalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
+  all_day: boolean;
+  attendees: Array<{ email: string; name?: string; status?: string }>;
+  organizer?: { email: string; name?: string };
+  html_link?: string;
+  status?: string;
+}
+
+/** Input for creating/updating a calendar event. */
+export interface CalendarEventInput {
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
+  attendees?: Array<{ email: string; name?: string }>;
+  all_day?: boolean;
+}
+
+function mapGoogleCalendarEvent(event: GoogleCalendarEventResource): ProviderCalendarEvent {
+  const allDay = !event.start.dateTime;
+  return {
+    id: event.id,
+    title: event.summary || '(No title)',
+    description: event.description,
+    start_time: event.start.dateTime || event.start.date || '',
+    end_time: event.end.dateTime || event.end.date || '',
+    location: event.location,
+    all_day: allDay,
+    attendees: (event.attendees || []).map((a) => ({
+      email: a.email,
+      name: a.displayName,
+      status: a.responseStatus,
+    })),
+    organizer: event.organizer ? { email: event.organizer.email, name: event.organizer.displayName } : undefined,
+    html_link: event.htmlLink,
+    status: event.status,
+  };
+}
+
+/**
+ * List calendar events from Google Calendar.
+ * Uses the Calendar API v3 `/calendars/primary/events` endpoint.
+ */
+export async function listCalendarEvents(
   access_token: string,
-  connection_id: string,
-  fileId: string,
-): Promise<DriveFile> {
+  options?: { timeMin?: string; timeMax?: string; maxResults?: number; pageToken?: string; syncToken?: string },
+): Promise<{ events: ProviderCalendarEvent[]; nextPageToken?: string; nextSyncToken?: string }> {
+  const params = new URLSearchParams({
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: String(options?.maxResults || 100),
+  });
+
+  if (options?.timeMin) params.set('timeMin', options.timeMin);
+  if (options?.timeMax) params.set('timeMax', options.timeMax);
+  if (options?.pageToken) params.set('pageToken', options.pageToken);
+  if (options?.syncToken) params.set('syncToken', options.syncToken);
+
+  const url = `${CALENDAR_API_BASE}/calendars/primary/events?${params.toString()}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+
+  if (!response.ok) {
+    if (response.status === 410) {
+      throw new OAuthError('Sync token expired, full sync required', 'SYNC_TOKEN_EXPIRED', 'google', 410);
+    }
+    const errorText = await response.text();
+    console.error('[OAuth] Google Calendar list failed:', { status: response.status, error: errorText });
+    throw new OAuthError('Failed to list calendar events', 'CALENDAR_LIST_FAILED', 'google', response.status);
+  }
+
+  const data = (await response.json()) as GoogleCalendarListResponse;
+
+  return {
+    events: (data.items || []).filter((e) => e.status !== 'cancelled').map(mapGoogleCalendarEvent),
+    nextPageToken: data.nextPageToken,
+    nextSyncToken: data.nextSyncToken,
+  };
+}
+
+/**
+ * Create a calendar event on Google Calendar.
+ * Uses the Calendar API v3 POST `/calendars/primary/events`.
+ */
+export async function createCalendarEvent(access_token: string, event: CalendarEventInput): Promise<ProviderCalendarEvent> {
+  const body: Record<string, unknown> = {
+    summary: event.title,
+    description: event.description,
+    location: event.location,
+  };
+
+  if (event.all_day) {
+    // All-day events use date strings (YYYY-MM-DD)
+    body.start = { date: event.start_time.split('T')[0] };
+    body.end = { date: event.end_time.split('T')[0] };
+  } else {
+    body.start = { dateTime: event.start_time };
+    body.end = { dateTime: event.end_time };
+  }
+
+  if (event.attendees && event.attendees.length > 0) {
+    body.attendees = event.attendees.map((a) => ({ email: a.email, displayName: a.name }));
+  }
+
+  const url = `${CALENDAR_API_BASE}/calendars/primary/events`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] Google Calendar create failed:', { status: response.status, error: errorText });
+    throw new OAuthError('Failed to create calendar event', 'CALENDAR_CREATE_FAILED', 'google', response.status);
+  }
+
+  const data = (await response.json()) as GoogleCalendarEventResource;
+  return mapGoogleCalendarEvent(data);
+}
+
+/**
+ * Delete a calendar event from Google Calendar.
+ * Uses the Calendar API v3 DELETE `/calendars/primary/events/{eventId}`.
+ */
+export async function deleteCalendarEvent(access_token: string, eventId: string): Promise<void> {
+  const url = `${CALENDAR_API_BASE}/calendars/primary/events/${encodeURIComponent(eventId)}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+
+  if (!response.ok && response.status !== 410) {
+    const errorText = await response.text();
+    console.error('[OAuth] Google Calendar delete failed:', { status: response.status, error: errorText });
+
+    if (response.status === 404) {
+      throw new OAuthError('Calendar event not found', 'CALENDAR_EVENT_NOT_FOUND', 'google', 404);
+    }
+
+    throw new OAuthError('Failed to delete calendar event', 'CALENDAR_DELETE_FAILED', 'google', response.status);
+  }
+}
+
+export async function getDriveFile(access_token: string, connection_id: string, fileId: string): Promise<DriveFile> {
   const params = new URLSearchParams({
     fields: DRIVE_FILE_FIELDS,
   });

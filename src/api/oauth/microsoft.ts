@@ -4,10 +4,10 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
-import type { OAuthConfig, OAuthTokens, ProviderContact, OAuthAuthorizationUrl } from './types.ts';
-import { OAuthError, TokenRefreshError } from './types.ts';
-import type { DriveFile, DriveListResult } from './files.ts';
 import { requireProviderConfig } from './config.ts';
+import type { DriveFile, DriveListResult } from './files.ts';
+import type { OAuthAuthorizationUrl, OAuthConfig, OAuthTokens, ProviderContact } from './types.ts';
+import { OAuthError, TokenRefreshError } from './types.ts';
 
 // PKCE utilities
 function generateCodeVerifier(): string {
@@ -340,12 +340,7 @@ const DRIVE_ITEM_SELECT = 'id,name,size,createdDateTime,lastModifiedDateTime,web
  * Uses `/me/drive/root/children` for root, `/me/drive/items/{id}/children` for subfolders.
  * When a page_token (nextLink URL) is provided, it is used directly.
  */
-export async function listDriveItems(
-  access_token: string,
-  connection_id: string,
-  folder_id?: string,
-  page_token?: string,
-): Promise<DriveListResult> {
+export async function listDriveItems(access_token: string, connection_id: string, folder_id?: string, page_token?: string): Promise<DriveListResult> {
   let url: string;
 
   if (page_token) {
@@ -380,12 +375,7 @@ export async function listDriveItems(
  * Uses `/me/drive/root/search(q='{query}')`.
  * When a page_token (nextLink URL) is provided, it is used directly.
  */
-export async function searchDriveItems(
-  access_token: string,
-  connection_id: string,
-  query: string,
-  page_token?: string,
-): Promise<DriveListResult> {
+export async function searchDriveItems(access_token: string, connection_id: string, query: string, page_token?: string): Promise<DriveListResult> {
   let url: string;
 
   if (page_token) {
@@ -419,11 +409,205 @@ export async function searchDriveItems(
  * Get metadata for a single OneDrive item, including download URL.
  * Uses `/me/drive/items/{item_id}`.
  */
-export async function getDriveItem(
+// ==================== Microsoft Calendar (Issue #1362) ====================
+
+/** Shape of a Microsoft Graph calendar event. */
+interface MicrosoftCalendarEvent {
+  id: string;
+  subject?: string;
+  body?: { contentType: string; content: string };
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+  location?: { displayName?: string };
+  attendees?: Array<{
+    emailAddress: { address: string; name?: string };
+    status?: { response: string };
+  }>;
+  organizer?: { emailAddress: { address: string; name?: string } };
+  webLink?: string;
+  isAllDay?: boolean;
+  showAs?: string;
+  createdDateTime?: string;
+  lastModifiedDateTime?: string;
+}
+
+interface MicrosoftCalendarListResponse {
+  value: MicrosoftCalendarEvent[];
+  '@odata.nextLink'?: string;
+  '@odata.deltaLink'?: string;
+}
+
+/** Normalized calendar event returned by provider functions. */
+export interface ProviderCalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
+  all_day: boolean;
+  attendees: Array<{ email: string; name?: string; status?: string }>;
+  organizer?: { email: string; name?: string };
+  html_link?: string;
+  status?: string;
+}
+
+/** Input for creating/updating a calendar event. */
+export interface CalendarEventInput {
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
+  attendees?: Array<{ email: string; name?: string }>;
+  all_day?: boolean;
+}
+
+function mapMicrosoftCalendarEvent(event: MicrosoftCalendarEvent): ProviderCalendarEvent {
+  return {
+    id: event.id,
+    title: event.subject || '(No title)',
+    description: event.body?.contentType === 'text' ? event.body.content : undefined,
+    start_time: event.start.dateTime.endsWith('Z') ? event.start.dateTime : `${event.start.dateTime}Z`,
+    end_time: event.end.dateTime.endsWith('Z') ? event.end.dateTime : `${event.end.dateTime}Z`,
+    location: event.location?.displayName,
+    all_day: event.isAllDay || false,
+    attendees: (event.attendees || []).map((a) => ({
+      email: a.emailAddress.address,
+      name: a.emailAddress.name,
+      status: a.status?.response,
+    })),
+    organizer: event.organizer ? { email: event.organizer.emailAddress.address, name: event.organizer.emailAddress.name } : undefined,
+    html_link: event.webLink,
+    status: event.showAs,
+  };
+}
+
+/**
+ * List calendar events from Microsoft Graph.
+ * Uses `/me/calendarView` for time-bounded queries, `/me/events` otherwise.
+ */
+export async function listCalendarEvents(
   access_token: string,
-  connection_id: string,
-  item_id: string,
-): Promise<DriveFile> {
+  options?: { timeMin?: string; timeMax?: string; maxResults?: number; pageToken?: string },
+): Promise<{ events: ProviderCalendarEvent[]; nextPageToken?: string }> {
+  let url: string;
+
+  if (options?.pageToken) {
+    url = options.pageToken;
+  } else if (options?.timeMin && options?.timeMax) {
+    const params = new URLSearchParams({
+      startDateTime: options.timeMin,
+      endDateTime: options.timeMax,
+      $top: String(options?.maxResults || 100),
+      $orderby: 'start/dateTime',
+      $select: 'id,subject,body,start,end,location,attendees,organizer,webLink,isAllDay,showAs,createdDateTime,lastModifiedDateTime',
+    });
+    url = `${GRAPH_BASE_URL}/me/calendarView?${params.toString()}`;
+  } else {
+    const params = new URLSearchParams({
+      $top: String(options?.maxResults || 100),
+      $orderby: 'start/dateTime',
+      $select: 'id,subject,body,start,end,location,attendees,organizer,webLink,isAllDay,showAs,createdDateTime,lastModifiedDateTime',
+    });
+    if (options?.timeMin) params.set('$filter', `start/dateTime ge '${options.timeMin}'`);
+    url = `${GRAPH_BASE_URL}/me/events?${params.toString()}`;
+  }
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] Microsoft Calendar list failed:', { status: response.status, error: errorText });
+    throw new OAuthError('Failed to list calendar events', 'CALENDAR_LIST_FAILED', 'microsoft', response.status);
+  }
+
+  const data = (await response.json()) as MicrosoftCalendarListResponse;
+
+  return {
+    events: data.value.map(mapMicrosoftCalendarEvent),
+    nextPageToken: data['@odata.nextLink'],
+  };
+}
+
+/**
+ * Create a calendar event via Microsoft Graph.
+ * Uses POST `/me/events`.
+ */
+export async function createCalendarEvent(access_token: string, event: CalendarEventInput): Promise<ProviderCalendarEvent> {
+  const body: Record<string, unknown> = {
+    subject: event.title,
+    body: event.description ? { contentType: 'text', content: event.description } : undefined,
+    isAllDay: event.all_day || false,
+  };
+
+  if (event.all_day) {
+    body.start = { dateTime: `${event.start_time.split('T')[0]}T00:00:00`, timeZone: 'UTC' };
+    body.end = { dateTime: `${event.end_time.split('T')[0]}T00:00:00`, timeZone: 'UTC' };
+  } else {
+    body.start = { dateTime: event.start_time, timeZone: 'UTC' };
+    body.end = { dateTime: event.end_time, timeZone: 'UTC' };
+  }
+
+  if (event.location) {
+    body.location = { displayName: event.location };
+  }
+
+  if (event.attendees && event.attendees.length > 0) {
+    body.attendees = event.attendees.map((a) => ({
+      emailAddress: { address: a.email, name: a.name },
+      type: 'required',
+    }));
+  }
+
+  const url = `${GRAPH_BASE_URL}/me/events`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] Microsoft Calendar create failed:', { status: response.status, error: errorText });
+    throw new OAuthError('Failed to create calendar event', 'CALENDAR_CREATE_FAILED', 'microsoft', response.status);
+  }
+
+  const data = (await response.json()) as MicrosoftCalendarEvent;
+  return mapMicrosoftCalendarEvent(data);
+}
+
+/**
+ * Delete a calendar event via Microsoft Graph.
+ * Uses DELETE `/me/events/{id}`.
+ */
+export async function deleteCalendarEvent(access_token: string, eventId: string): Promise<void> {
+  const url = `${GRAPH_BASE_URL}/me/events/${encodeURIComponent(eventId)}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OAuth] Microsoft Calendar delete failed:', { status: response.status, error: errorText });
+
+    if (response.status === 404) {
+      throw new OAuthError('Calendar event not found', 'CALENDAR_EVENT_NOT_FOUND', 'microsoft', 404);
+    }
+
+    throw new OAuthError('Failed to delete calendar event', 'CALENDAR_DELETE_FAILED', 'microsoft', response.status);
+  }
+}
+
+export async function getDriveItem(access_token: string, connection_id: string, item_id: string): Promise<DriveFile> {
   const url = `${GRAPH_BASE_URL}/me/drive/items/${item_id}?$select=${DRIVE_ITEM_SELECT}`;
 
   const response = await fetch(url, {
