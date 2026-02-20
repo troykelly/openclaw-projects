@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { runMigrate } from './helpers/migrate.ts';
-import { createTestPool, truncateAllTables } from './helpers/db.ts';
+import { createTestPool, ensureTestNamespace, truncateAllTables } from './helpers/db.ts';
 import { buildServer } from '../src/api/server.ts';
 
 /**
@@ -455,6 +455,234 @@ describe('Notifications API', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.unread_count).toBe(2);
+    });
+
+    it('filters unread count by namespaces', async () => {
+      await pool.query(
+        `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+         VALUES ($1, 'assigned', 'Home notif', 'Home message', 'home'),
+                ($1, 'mentioned', 'Work notif', 'Work message', 'work')`,
+        [user_email],
+      );
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/notifications/unread-count?user_email=${encodeURIComponent(user_email)}&namespaces=home`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.unread_count).toBe(1);
+    });
+  });
+
+  // ===== Namespace scoping tests (Issue #1480) =====
+  describe('Namespace scoping (Issue #1480)', () => {
+    it('notification table has namespace column with default value', async () => {
+      const result = await pool.query(
+        `INSERT INTO notification (user_email, notification_type, title, message)
+         VALUES ($1, 'assigned', 'Title', 'Message')
+         RETURNING namespace`,
+        [user_email],
+      );
+
+      expect(result.rows[0].namespace).toBe('default');
+    });
+
+    it('notification table accepts explicit namespace', async () => {
+      const result = await pool.query(
+        `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+         VALUES ($1, 'assigned', 'Title', 'Message', 'household')
+         RETURNING namespace`,
+        [user_email],
+      );
+
+      expect(result.rows[0].namespace).toBe('household');
+    });
+
+    it('enforces namespace naming pattern', async () => {
+      await expect(
+        pool.query(
+          `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+           VALUES ($1, 'assigned', 'Title', 'Message', 'INVALID NAMESPACE!')`,
+          [user_email],
+        ),
+      ).rejects.toThrow();
+    });
+
+    describe('GET /api/notifications with namespaces filter', () => {
+      beforeEach(async () => {
+        // Insert notifications in different namespaces
+        await pool.query(
+          `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+           VALUES ($1, 'assigned', 'Home task', 'Home message', 'home'),
+                  ($1, 'mentioned', 'Work task', 'Work message', 'work'),
+                  ($1, 'comment', 'Default task', 'Default message', 'default')`,
+          [user_email],
+        );
+      });
+
+      it('returns all namespaces when no filter', async () => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.notifications).toHaveLength(3);
+      });
+
+      it('filters by single namespace', async () => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.notifications).toHaveLength(1);
+        expect(body.notifications[0].title).toBe('Home task');
+        expect(body.notifications[0].namespace).toBe('home');
+      });
+
+      it('filters by multiple namespaces (comma-separated)', async () => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home,work`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.notifications).toHaveLength(2);
+        const titles = body.notifications.map((n: { title: string }) => n.title).sort();
+        expect(titles).toEqual(['Home task', 'Work task']);
+      });
+
+      it('returns empty when filtering by non-matching namespace', async () => {
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=nonexistent`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.notifications).toHaveLength(0);
+      });
+
+      it('unread_count respects namespace filter', async () => {
+        // Mark one as read
+        await pool.query(
+          `UPDATE notification SET read_at = now() WHERE user_email = $1 AND namespace = 'home'`,
+          [user_email],
+        );
+
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}&namespaces=home,work`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        // home is read, work is unread — among the filtered set
+        expect(body.unread_count).toBe(1);
+      });
+    });
+
+    describe('namespace field in notification responses', () => {
+      it('includes namespace in GET /api/notifications response', async () => {
+        await pool.query(
+          `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+           VALUES ($1, 'assigned', 'Title', 'Message', 'household')`,
+          [user_email],
+        );
+
+        const response = await app.inject({
+          method: 'GET',
+          url: `/api/notifications?user_email=${encodeURIComponent(user_email)}`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.notifications[0].namespace).toBe('household');
+      });
+    });
+
+    describe('namespace-aware fanout (notification creation)', () => {
+      it('creates notification with explicit namespace', async () => {
+        const result = await pool.query(
+          `INSERT INTO notification (user_email, notification_type, title, message, namespace, work_item_id)
+           VALUES ($1, 'assigned', 'Task assigned', 'You have a new task', 'household', $2)
+           RETURNING *`,
+          [user_email, work_item_id],
+        );
+
+        expect(result.rows[0].namespace).toBe('household');
+        expect(result.rows[0].user_email).toBe(user_email);
+      });
+
+      it('resolves namespace members from namespace_grant for system notifications', async () => {
+        // Set up two users in the same namespace (insert directly to avoid pool deadlock)
+        const user1 = 'user1@example.com';
+        const user2 = 'user2@example.com';
+
+        await pool.query(
+          `INSERT INTO user_setting (email) VALUES ($1), ($2)
+           ON CONFLICT (email) DO NOTHING`,
+          [user1, user2],
+        );
+        await pool.query(
+          `INSERT INTO namespace_grant (email, namespace, role, is_default)
+           VALUES ($1, 'team-ns', 'owner', true), ($2, 'team-ns', 'member', false)
+           ON CONFLICT (email, namespace) DO NOTHING`,
+          [user1, user2],
+        );
+
+        // Verify both users have grants
+        const grants = await pool.query(
+          `SELECT email FROM namespace_grant WHERE namespace = 'team-ns' ORDER BY email`,
+        );
+        expect(grants.rows).toHaveLength(2);
+        expect(grants.rows.map((r: { email: string }) => r.email)).toEqual([user1, user2]);
+      });
+    });
+
+    describe('POST /api/notifications/read-all with namespace filter', () => {
+      it('marks all as read respects user_email scope', async () => {
+        const otherEmail = 'other-user@example.com';
+        // Insert notifications for current user and another user
+        await pool.query(
+          `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+           VALUES ($1, 'assigned', 'Mine', 'My notif', 'home')`,
+          [user_email],
+        );
+        await pool.query(
+          `INSERT INTO notification (user_email, notification_type, title, message, namespace)
+           VALUES ($1, 'assigned', 'Theirs', 'Their notif', 'home')`,
+          [otherEmail],
+        );
+
+        // Verify both exist before read-all
+        const beforeCount = await pool.query(`SELECT COUNT(*) FROM notification`);
+        expect(Number.parseInt(beforeCount.rows[0].count, 10)).toBe(2);
+
+        const response = await app.inject({
+          method: 'POST',
+          url: `/api/notifications/read-all?user_email=${encodeURIComponent(user_email)}`,
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json();
+        expect(body.marked_count).toBe(1);
+
+        // Other user's notification should still be unread
+        const checkRes = await pool.query(
+          `SELECT read_at FROM notification WHERE user_email = $1`,
+          [otherEmail],
+        );
+        expect(checkRes.rows).toHaveLength(1);
+        expect(checkRes.rows[0].read_at).toBeNull();
+      });
     });
   });
 });
