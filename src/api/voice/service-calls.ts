@@ -22,6 +22,12 @@ export function validateServiceCalls(
   allowedDomains: string[],
 ): ServiceCall[] {
   return calls.filter((call) => {
+    // Validate structure first
+    if (!isValidServiceCall(call)) {
+      console.warn('[VoiceServiceCalls] Invalid service call structure');
+      return false;
+    }
+
     // Check if explicitly blocked
     const fullService = `${call.domain}.${call.service}`;
     if (BLOCKED_SERVICES.includes(fullService)) {

@@ -23,7 +23,24 @@ import type {
 } from './types.ts';
 import { WS_HEARTBEAT_INTERVAL_MS, WS_STALE_THRESHOLD_MS } from './types.ts';
 import { resolveAgent, getAgentResponse } from './routing.ts';
-import { validateServiceCalls, getServiceAllowlist } from './service-calls.ts';
+import { validateServiceCalls, getServiceAllowlist, isValidEntityContext } from './service-calls.ts';
+
+/** UUID format validation regex. */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Validate that a string is a valid UUID. */
+function isValidUUID(s: string): boolean {
+  return UUID_REGEX.test(s);
+}
+
+/** Maximum allowed text length for voice messages. */
+const MAX_TEXT_LENGTH = 32768;
+
+/** Maximum allowed entity context entries. */
+const MAX_ENTITY_COUNT = 10000;
+
+/** Maximum allowed area context entries. */
+const MAX_AREA_COUNT = 1000;
 
 /** Internal representation of a connected voice WebSocket client. */
 interface VoiceClient {
@@ -133,10 +150,24 @@ export class VoiceConversationHub {
     return false;
   }
 
+  /** Maximum incoming WebSocket message size (1MB). */
+  private static readonly MAX_MESSAGE_SIZE = 1048576;
+
   /** Handle an incoming WebSocket message. */
   private async handleMessage(client_id: string, raw: Buffer): Promise<void> {
     const client = this.clients.get(client_id);
     if (!client) return;
+
+    // Defense-in-depth: reject oversized messages even if WS maxPayload wasn't set
+    if (raw.length > VoiceConversationHub.MAX_MESSAGE_SIZE) {
+      this.sendToClient(client_id, {
+        type: 'conversation.error',
+        conversation_id: '',
+        error: 'message_too_large',
+        message: 'Message exceeds maximum allowed size',
+      });
+      return;
+    }
 
     let message: ClientMessage;
     try {
@@ -192,9 +223,31 @@ export class VoiceConversationHub {
   ): Promise<void> {
     const { namespace } = client;
 
+    // Validate text length
+    if (!message.text || message.text.length > MAX_TEXT_LENGTH) {
+      this.sendToClient(client_id, {
+        type: 'conversation.error',
+        conversation_id: message.conversation_id ?? '',
+        error: 'invalid_message',
+        message: `Text must be between 1 and ${MAX_TEXT_LENGTH} characters`,
+      });
+      return;
+    }
+
     // Resolve or create conversation
     let conversation_id = message.conversation_id;
     if (conversation_id) {
+      // Validate conversation_id format before querying
+      if (!isValidUUID(conversation_id)) {
+        this.sendToClient(client_id, {
+          type: 'conversation.error',
+          conversation_id,
+          error: 'invalid_message',
+          message: 'Invalid conversation ID format',
+        });
+        return;
+      }
+
       // Verify conversation exists and belongs to this namespace
       const existing = await this.pool.query<VoiceConversationRow>(
         'SELECT id FROM voice_conversation WHERE id = $1 AND namespace = $2',
@@ -279,18 +332,32 @@ export class VoiceConversationHub {
         service_calls: validatedServiceCalls,
       });
     } catch (err) {
+      // Log full error server-side only — do not leak internal details to client
       console.error(`[VoiceHub] Agent routing error for conversation ${conversation_id}:`, err);
       this.sendToClient(client_id, {
         type: 'conversation.error',
         conversation_id,
         error: 'agent_error',
-        message: err instanceof Error ? err.message : 'Failed to get agent response',
+        message: 'Failed to get agent response',
       });
     }
   }
 
   /** Handle entity context sync from client. */
   private handleEntityContext(client: VoiceClient, message: EntityContextMessage): void {
+    // Validate entity context structure
+    if (!isValidEntityContext(message.entities)) {
+      return;
+    }
+
+    // Enforce size limits to prevent memory exhaustion
+    if (message.entities.length > MAX_ENTITY_COUNT) {
+      return;
+    }
+    if (message.areas && message.areas.length > MAX_AREA_COUNT) {
+      return;
+    }
+
     client.entity_context = message.entities;
     if (message.areas) {
       client.area_context = message.areas;
@@ -299,21 +366,38 @@ export class VoiceConversationHub {
 
   /** Handle service call result acknowledgment. */
   private async handleServiceCallResult(
-    _client: VoiceClient,
+    client: VoiceClient,
     message: ServiceCallResultMessage,
   ): Promise<void> {
-    // Verify conversation exists
+    // Validate conversation_id format
+    if (!isValidUUID(message.conversation_id)) {
+      return;
+    }
+
+    // Validate call_index is a non-negative integer
+    if (
+      typeof message.call_index !== 'number' ||
+      !Number.isInteger(message.call_index) ||
+      message.call_index < 0
+    ) {
+      return;
+    }
+
+    // Query with namespace filter to prevent cross-namespace data access
     const result = await this.pool.query<VoiceMessageRow>(
-      `SELECT id, service_calls FROM voice_message
-       WHERE conversation_id = $1 AND role = 'assistant' AND service_calls IS NOT NULL
-       ORDER BY timestamp DESC LIMIT 1`,
-      [message.conversation_id],
+      `SELECT vm.id, vm.service_calls FROM voice_message vm
+       JOIN voice_conversation vc ON vc.id = vm.conversation_id
+       WHERE vm.conversation_id = $1 AND vc.namespace = $2
+         AND vm.role = 'assistant' AND vm.service_calls IS NOT NULL
+       ORDER BY vm.timestamp DESC LIMIT 1`,
+      [message.conversation_id, client.namespace],
     );
 
     if (result.rows.length > 0) {
       const msgRow = result.rows[0];
       const calls = msgRow.service_calls;
-      if (calls?.[message.call_index]) {
+      // Validate call_index is within bounds
+      if (calls && message.call_index < calls.length) {
         // Store result in the service call data
         const updatedCalls = [...calls];
         updatedCalls[message.call_index] = {

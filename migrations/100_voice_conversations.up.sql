@@ -26,7 +26,7 @@ CREATE TABLE voice_message (
   id UUID PRIMARY KEY DEFAULT new_uuid(),
   conversation_id UUID NOT NULL REFERENCES voice_conversation(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  text TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (length(text) <= 32768),
   service_calls JSONB,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

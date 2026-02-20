@@ -21,6 +21,17 @@ const DEFAULT_TIMEOUT_MS = 15000;
 /** Default agent ID if none configured. */
 const DEFAULT_AGENT_ID = 'default';
 
+/** Safe agent_id pattern: alphanumeric, dots, hyphens, underscores only. */
+const SAFE_AGENT_ID_REGEX = /^[a-zA-Z0-9._-]+$/;
+
+/**
+ * Validate that an agent_id is safe for use in URL paths.
+ * Prevents SSRF via path injection (e.g., `../../admin`).
+ */
+function isValidAgentId(agentId: string): boolean {
+  return SAFE_AGENT_ID_REGEX.test(agentId) && agentId.length <= 128;
+}
+
 /**
  * Resolve which agent should handle a conversation.
  *
@@ -38,8 +49,11 @@ export async function resolveAgent(
   deviceId?: string,
   userEmail?: string | null,
 ): Promise<AgentRouting> {
-  // 1. Runtime override
+  // 1. Runtime override — validate format to prevent SSRF via path injection
   if (overrideAgentId) {
+    if (!isValidAgentId(overrideAgentId)) {
+      throw new Error(`Invalid agent_id format: must match ${SAFE_AGENT_ID_REGEX.source}`);
+    }
     const config = await getConfig(pool, namespace);
     return {
       agent_id: overrideAgentId,
@@ -107,35 +121,51 @@ export async function upsertConfig(
     'device_mapping' | 'user_mapping' | 'service_allowlist' | 'metadata'
   >>,
 ): Promise<VoiceAgentConfigRow> {
+  // Validate agent_id formats to prevent SSRF when used in gateway URLs
+  if (updates.default_agent_id && !isValidAgentId(updates.default_agent_id)) {
+    throw new Error(`Invalid default_agent_id format: must match ${SAFE_AGENT_ID_REGEX.source}`);
+  }
+  if (updates.device_mapping) {
+    for (const agentId of Object.values(updates.device_mapping)) {
+      if (!isValidAgentId(agentId)) {
+        throw new Error(`Invalid agent_id in device_mapping: must match ${SAFE_AGENT_ID_REGEX.source}`);
+      }
+    }
+  }
+  if (updates.user_mapping) {
+    for (const agentId of Object.values(updates.user_mapping)) {
+      if (!isValidAgentId(agentId)) {
+        throw new Error(`Invalid agent_id in user_mapping: must match ${SAFE_AGENT_ID_REGEX.source}`);
+      }
+    }
+  }
+
   const result = await pool.query<VoiceAgentConfigRow>(
     `INSERT INTO voice_agent_config (
        namespace, default_agent_id, timeout_ms, idle_timeout_s, retention_days,
        device_mapping, user_mapping, service_allowlist, metadata
      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (namespace) DO UPDATE SET
-       default_agent_id = EXCLUDED.default_agent_id,
-       timeout_ms = EXCLUDED.timeout_ms,
-       idle_timeout_s = EXCLUDED.idle_timeout_s,
-       retention_days = EXCLUDED.retention_days,
-       device_mapping = EXCLUDED.device_mapping,
-       user_mapping = EXCLUDED.user_mapping,
-       service_allowlist = EXCLUDED.service_allowlist,
-       metadata = EXCLUDED.metadata,
+       default_agent_id = COALESCE(EXCLUDED.default_agent_id, voice_agent_config.default_agent_id),
+       timeout_ms = COALESCE(EXCLUDED.timeout_ms, voice_agent_config.timeout_ms),
+       idle_timeout_s = COALESCE(EXCLUDED.idle_timeout_s, voice_agent_config.idle_timeout_s),
+       retention_days = COALESCE(EXCLUDED.retention_days, voice_agent_config.retention_days),
+       device_mapping = COALESCE(EXCLUDED.device_mapping, voice_agent_config.device_mapping),
+       user_mapping = COALESCE(EXCLUDED.user_mapping, voice_agent_config.user_mapping),
+       service_allowlist = COALESCE(EXCLUDED.service_allowlist, voice_agent_config.service_allowlist),
+       metadata = COALESCE(EXCLUDED.metadata, voice_agent_config.metadata),
        updated_at = NOW()
      RETURNING *`,
     [
       namespace,
       updates.default_agent_id ?? null,
-      updates.timeout_ms ?? 15000,
-      updates.idle_timeout_s ?? 300,
-      updates.retention_days ?? 30,
-      JSON.stringify(updates.device_mapping ?? {}),
-      JSON.stringify(updates.user_mapping ?? {}),
-      JSON.stringify(updates.service_allowlist ?? [
-        'light', 'switch', 'cover', 'climate', 'media_player',
-        'scene', 'script', 'input_boolean', 'input_number', 'input_select',
-      ]),
-      JSON.stringify(updates.metadata ?? {}),
+      updates.timeout_ms ?? null,
+      updates.idle_timeout_s ?? null,
+      updates.retention_days ?? null,
+      updates.device_mapping !== undefined ? JSON.stringify(updates.device_mapping) : null,
+      updates.user_mapping !== undefined ? JSON.stringify(updates.user_mapping) : null,
+      updates.service_allowlist !== undefined ? JSON.stringify(updates.service_allowlist) : null,
+      updates.metadata !== undefined ? JSON.stringify(updates.metadata) : null,
     ],
   );
   return result.rows[0];
@@ -170,6 +200,11 @@ export async function getAgentResponse(
   namespace: string,
   options?: AgentRequestOptions,
 ): Promise<AgentResponse> {
+  // Validate agent_id format before constructing URL to prevent SSRF
+  if (!isValidAgentId(routing.agent_id)) {
+    throw new Error(`Invalid agent_id format: must match ${SAFE_AGENT_ID_REGEX.source}`);
+  }
+
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
   if (!gatewayUrl) {
     // No gateway configured — return a stub response for development/testing

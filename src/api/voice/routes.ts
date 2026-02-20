@@ -123,12 +123,30 @@ export async function voiceRoutesPlugin(
       }
     }
 
-    // Resolve namespace from query or context
-    const query = req.query as { namespace?: string };
-    if (query.namespace) {
-      namespace = query.namespace;
-    } else if (req.namespaceContext) {
-      namespace = req.namespaceContext.storeNamespace;
+    // Resolve namespace from context, validating any user-supplied value
+    if (req.namespaceContext) {
+      const query = req.query as { namespace?: string };
+      if (query.namespace) {
+        // User requested a specific namespace — verify it's in their grants
+        if (!req.namespaceContext.queryNamespaces.includes(query.namespace)) {
+          socket.close(4003, 'Namespace access denied');
+          return;
+        }
+        namespace = query.namespace;
+      } else {
+        namespace = req.namespaceContext.storeNamespace;
+      }
+    } else if (isAuthDisabled()) {
+      // Auth disabled: still validate namespace from query, but don't blindly trust
+      const query = req.query as { namespace?: string };
+      if (query.namespace) {
+        // Validate namespace format to prevent injection
+        if (!/^[a-z0-9][a-z0-9._-]*$/.test(query.namespace) || query.namespace.length > 63) {
+          socket.close(4003, 'Invalid namespace');
+          return;
+        }
+        namespace = query.namespace;
+      }
     }
 
     hub.addClient(socket, namespace, user_email);
