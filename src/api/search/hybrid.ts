@@ -15,8 +15,6 @@ import type { MemoryEntry, MemoryType } from '../memory/types.ts';
 
 /** Options for hybrid search */
 export interface HybridSearchOptions {
-  /** @deprecated user_email column dropped from memory table in Phase 4 (Epic #1418) */
-  user_email?: string;
   /** Work item ID to filter by */
   work_item_id?: string;
   /** Contact ID to filter by */
@@ -129,8 +127,6 @@ function buildFilterConditions(options: HybridSearchOptions, startIdx: number): 
   const params: unknown[] = [];
   let idx = startIdx;
 
-  // Epic #1418 Phase 4: user_email column dropped from memory table.
-  // Namespace scoping is handled at the route level.
   if (options.work_item_id !== undefined) {
     conditions.push(`work_item_id = $${idx}`);
     params.push(options.work_item_id);

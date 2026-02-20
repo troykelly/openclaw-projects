@@ -677,13 +677,11 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const q = req.query as Record<string, unknown> | undefined;
     if (q) {
       if ('user_email' in q) q.user_email = bound;
-      if ('user_email' in q) q.user_email = bound;
     }
 
     // Override body fields
     const b = req.body as Record<string, unknown> | undefined | null;
     if (b && typeof b === 'object') {
-      if ('user_email' in b) b.user_email = bound;
       if ('user_email' in b) b.user_email = bound;
 
       // Handle arrays that may contain per-element user_email
@@ -15654,7 +15652,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         collection?: string;
         tags?: string[];
         status?: string;
-        user_email?: string;
         limit?: number;
         offset?: number;
       };
@@ -15679,7 +15676,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           collection: body.collection,
           tags: body.tags,
           status: body.status,
-          user_email: body.user_email,
+          namespace: getStoreNamespace(req),
           limit,
           offset,
         });
@@ -15717,7 +15714,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         collection?: string;
         tags?: string[];
         status?: string;
-        user_email?: string;
         min_similarity?: number;
         limit?: number;
         offset?: number;
@@ -15749,7 +15745,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             collection: body.collection,
             tags: body.tags,
             status: body.status,
-            user_email: body.user_email,
+            namespace: getStoreNamespace(req),
             min_similarity: body.min_similarity ?? 0.3,
             limit,
             semantic_weight: semantic_weight,
@@ -15768,7 +15764,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           collection: body.collection,
           tags: body.tags,
           status: body.status,
-          user_email: body.user_email,
+          namespace: getStoreNamespace(req),
           min_similarity: body.min_similarity ?? 0.3,
           limit,
           offset,
