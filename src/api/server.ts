@@ -433,14 +433,20 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      // 4. Move entity
+      // 4. Enforce role: moving is a write operation — require at least 'member' on both namespaces
+      if (!authOff && !isM2M) {
+        requireMinRole(req, oldNamespace, 'member');
+        requireMinRole(req, targetNamespace, 'member');
+      }
+
+      // 5. Move entity
       const updateResult = await client.query(
         `UPDATE "${table}" SET namespace = $1, updated_at = now() WHERE id = $2 RETURNING *`,
         [targetNamespace, id],
       );
       const updatedRow = updateResult.rows[0] as Record<string, unknown>;
 
-      // 5. Move children if specified
+      // 6. Move children if specified
       if (childSpecs && childSpecs.length > 0) {
         for (const spec of childSpecs) {
           if (spec.table === table && spec.fkColumn === 'parent_work_item_id') {
@@ -464,7 +470,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         }
       }
 
-      // 6. Record audit event (best-effort, uses savepoint so failure doesn't abort txn)
+      // 7. Record audit event (best-effort, uses savepoint so failure doesn't abort txn)
       try {
         await client.query('SAVEPOINT audit_sp');
         await client.query(
