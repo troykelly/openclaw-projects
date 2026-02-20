@@ -44,6 +44,7 @@ export interface WorkItemDetail {
   startDate?: Date;
   created_at: Date;
   updated_at: Date;
+  namespace?: string;
   todos: WorkItemTodo[];
   attachments: WorkItemAttachment[];
   dependencies: WorkItemDependency[];

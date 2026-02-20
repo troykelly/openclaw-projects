@@ -5,6 +5,7 @@
 import * as React from 'react';
 import { CheckSquare } from 'lucide-react';
 import { Badge } from '@/ui/components/ui/badge';
+import { NamespaceBadge } from '@/ui/components/namespace';
 import { cn } from '@/ui/lib/utils';
 
 export interface TaskItem {
@@ -12,6 +13,7 @@ export interface TaskItem {
   title: string;
   status: string;
   priority: string;
+  namespace?: string;
 }
 
 export interface MyTasksWidgetProps {
@@ -71,7 +73,10 @@ export function MyTasksWidget({ tasks, onTaskClick, limit = 5, className }: MyTa
             className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left transition-colors"
           >
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{task.title}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium truncate">{task.title}</span>
+                <NamespaceBadge namespace={task.namespace} />
+              </div>
             </div>
             <Badge variant={getStatusVariant(task.status)} className="text-xs shrink-0">
               {formatStatus(task.status)}

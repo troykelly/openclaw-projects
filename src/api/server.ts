@@ -3256,7 +3256,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               created_at,
               updated_at,
               estimate_minutes,
-              actual_minutes
+              actual_minutes,
+              namespace
          FROM work_item
          ${whereClause}
         ORDER BY created_at DESC
@@ -4218,6 +4219,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               wi.estimate_minutes,
               wi.actual_minutes,
               wi.deleted_at,
+              wi.namespace,
               (SELECT COUNT(*) FROM work_item c WHERE c.parent_work_item_id = wi.id AND c.deleted_at IS NULL) as children_count
          FROM work_item wi
         WHERE wi.id = $1 ${deletedFilter}`,

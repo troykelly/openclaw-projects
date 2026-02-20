@@ -39,6 +39,7 @@ import type { MemoryItem, MemoryFormData } from '@/ui/components/memory/types';
 import { ItemCommunications } from '@/ui/components/communications/item-communications';
 import type { LinkedEmail, LinkedCalendarEvent } from '@/ui/components/communications/types';
 import { DeleteConfirmDialog, UndoToast, useWorkItemDelete } from '@/ui/components/work-item-delete';
+import { NamespaceBadge } from '@/ui/components/namespace';
 import { ChevronRight, Calendar, Network, FileText, CheckSquare, GitBranch, Activity, Brain, Mail, Users, Clock } from 'lucide-react';
 
 /** Format a relative time string from a Date. */
@@ -132,6 +133,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
           startDate: apiDetail.not_before ? new Date(apiDetail.not_before) : undefined,
           created_at: new Date(apiDetail.created_at),
           updated_at: new Date(apiDetail.updated_at),
+          namespace: apiDetail.namespace,
           todos: [],
           attachments: [],
           dependencies: deps,
@@ -364,6 +366,7 @@ export function WorkItemDetailPage(): React.JSX.Element {
               <Clock className="size-3" />
               Updated {formatRelativeTime(workItem.updated_at)}
             </span>
+            <NamespaceBadge namespace={workItem.namespace} />
             {updateMutation.isPending && (
               <Badge variant="outline" className="text-xs animate-pulse">
                 Saving...
