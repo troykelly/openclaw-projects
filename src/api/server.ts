@@ -10338,7 +10338,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               from: payload.From,
               to: payload.To,
               body: payload.Body,
-            });
+            }, { idempotency_key: result.message_id });
           }
         } catch (routeErr) {
           console.warn('[Twilio] Route resolution/webhook enqueue failed:', routeErr);
@@ -10754,7 +10754,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               original_recipient: originalRecipient,
               subject: payload.Subject,
               body_preview: (payload.TextBody || '').substring(0, 500),
-            });
+            }, { idempotency_key: result.message_id });
           }
         } catch (routeErr) {
           console.warn('[Postmark] Route resolution/webhook enqueue failed:', routeErr);
@@ -11017,7 +11017,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
               original_recipient: originalRecipient,
               subject: payload.subject,
               body_preview: (payload.text_body || '').substring(0, 500),
-            });
+            }, { idempotency_key: result.message_id });
           }
         } catch (routeErr) {
           console.warn('[Cloudflare Email] Route resolution/webhook enqueue failed:', routeErr);

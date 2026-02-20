@@ -61,8 +61,8 @@ export async function resolveRoute(
   channelType: ChannelType,
   namespace: string,
 ): Promise<ResolvedRoute | null> {
-  // Step 1: Check inbound_destination
-  const dest = await getDestinationByAddress(pool, recipient, channelType);
+  // Step 1: Check inbound_destination (scoped to namespace)
+  const dest = await getDestinationByAddress(pool, recipient, channelType, [namespace]);
 
   if (dest?.agent_id) {
     const promptContent = dest.prompt_template_id
