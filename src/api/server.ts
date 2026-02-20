@@ -20857,7 +20857,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       context_id?: string | null;
     } | null;
 
-    if (!body?.agent_id) {
+    const agentId = body?.agent_id?.trim();
+    if (!agentId) {
       return reply.code(400).send({ error: 'agent_id is required' });
     }
 
@@ -20873,11 +20874,17 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       const result = await setChannelDefault(pool, {
         namespace: getStoreNamespace(req),
         channel_type: channelType,
-        agent_id: body.agent_id,
+        agent_id: agentId,
         prompt_template_id: body.prompt_template_id,
         context_id: body.context_id,
       });
       return reply.send(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('violates foreign key constraint')) {
+        return reply.code(400).send({ error: 'referenced prompt_template_id or context_id does not exist' });
+      }
+      throw err;
     } finally {
       await pool.end();
     }

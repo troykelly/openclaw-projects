@@ -172,5 +172,25 @@ describe('Channel Default API (Issue #1501)', () => {
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toContain('context_id');
     });
+
+    it('rejects whitespace-only agent_id', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/channel-defaults/sms',
+        payload: { agent_id: '   ' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('agent_id');
+    });
+
+    it('returns 400 for nonexistent prompt_template_id FK', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/channel-defaults/sms',
+        payload: { agent_id: 'agent-1', prompt_template_id: '00000000-0000-0000-0000-000000000000' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('does not exist');
+    });
   });
 });
