@@ -299,7 +299,7 @@ export class VoiceConversationHub {
 
   /** Handle service call result acknowledgment. */
   private async handleServiceCallResult(
-    client: VoiceClient,
+    _client: VoiceClient,
     message: ServiceCallResultMessage,
   ): Promise<void> {
     // Verify conversation exists
@@ -313,7 +313,7 @@ export class VoiceConversationHub {
     if (result.rows.length > 0) {
       const msgRow = result.rows[0];
       const calls = msgRow.service_calls;
-      if (calls && calls[message.call_index]) {
+      if (calls?.[message.call_index]) {
         // Store result in the service call data
         const updatedCalls = [...calls];
         updatedCalls[message.call_index] = {

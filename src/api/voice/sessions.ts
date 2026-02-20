@@ -114,7 +114,7 @@ export async function cleanupExpiredSessions(
 
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
-  let result;
+  let result: { rows: Array<{ id: string }> };
   if (namespace) {
     result = await pool.query(
       `DELETE FROM voice_conversation
