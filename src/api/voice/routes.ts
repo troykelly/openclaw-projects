@@ -40,8 +40,8 @@ const MAX_LIMIT = 500;
 // ---------- helpers ----------
 
 function parsePagination(query: PaginationQuery): { limit: number; offset: number } {
-  const rawLimit = parseInt(query.limit ?? '', 10);
-  const rawOffset = parseInt(query.offset ?? '', 10);
+  const rawLimit = Number.parseInt(query.limit ?? '', 10);
+  const rawOffset = Number.parseInt(query.offset ?? '', 10);
   return {
     limit: Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIMIT) : DEFAULT_LIMIT,
     offset: Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0,
@@ -230,7 +230,7 @@ export async function voiceRoutesPlugin(
 
     return reply.send({
       data: dataResult.rows,
-      total: parseInt(countResult.rows[0]?.total ?? '0', 10),
+      total: Number.parseInt(countResult.rows[0]?.total ?? '0', 10),
       limit,
       offset,
     });
