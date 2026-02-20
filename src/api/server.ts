@@ -20760,6 +20760,14 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(400).send({ error: 'at least one field to update is required' });
     }
 
+    // Validate UUID fields that reference other tables
+    if (body?.prompt_template_id !== undefined && body.prompt_template_id !== null && !isValidUUID(body.prompt_template_id)) {
+      return reply.code(400).send({ error: 'invalid prompt_template_id format' });
+    }
+    if (body?.context_id !== undefined && body.context_id !== null && !isValidUUID(body.context_id)) {
+      return reply.code(400).send({ error: 'invalid context_id format' });
+    }
+
     const pool = createPool();
     try {
       const result = await updateInboundDestination(pool, id, {

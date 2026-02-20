@@ -240,6 +240,28 @@ describe('Inbound Destination API (Issue #1500)', () => {
       });
       expect(res.statusCode).toBe(400);
     });
+
+    it('returns 400 for invalid prompt_template_id format', async () => {
+      const id = await seedDestination();
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/inbound-destinations/${id}`,
+        payload: { prompt_template_id: 'not-a-uuid' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('prompt_template_id');
+    });
+
+    it('returns 400 for invalid context_id format', async () => {
+      const id = await seedDestination();
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/inbound-destinations/${id}`,
+        payload: { context_id: 'not-a-uuid' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toContain('context_id');
+    });
   });
 
   // ── DELETE /api/inbound-destinations/:id ──────────────────
