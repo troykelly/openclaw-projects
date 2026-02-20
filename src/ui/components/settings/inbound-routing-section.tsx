@@ -204,7 +204,7 @@ function ChannelDefaultsSection() {
 function InboundDestinationsSection() {
   const [destinations, setDestinations] = useState<InboundDestination[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('');
+  const [filter, setFilter] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAgent, setEditAgent] = useState('');
   const [saving, setSaving] = useState(false);
@@ -245,7 +245,7 @@ function InboundDestinationsSection() {
   }, [editAgent, fetchDestinations]);
 
   const filtered = destinations.filter(d =>
-    !filter || d.channel_type === filter,
+    filter === 'all' || d.channel_type === filter,
   );
 
   if (loading) {
@@ -276,7 +276,7 @@ function InboundDestinationsSection() {
               <SelectValue placeholder="All channels" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All channels</SelectItem>
+              <SelectItem value="all">All channels</SelectItem>
               <SelectItem value="sms">SMS</SelectItem>
               <SelectItem value="email">Email</SelectItem>
             </SelectContent>
