@@ -1237,6 +1237,38 @@ const promptTemplateDeleteSchema: JSONSchema = {
   required: ['id'],
 };
 
+// ── Inbound Destination schemas (Issue #1500) ──────────────
+
+const inboundDestinationListSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    channel_type: { type: 'string', description: 'Filter by channel type (sms, email)' },
+    search: { type: 'string', description: 'Search by address or display name' },
+    limit: { type: 'number', description: 'Max results (default 50, max 100)' },
+    offset: { type: 'number', description: 'Offset for pagination' },
+  },
+};
+
+const inboundDestinationGetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'ID of the inbound destination' },
+  },
+  required: ['id'],
+};
+
+const inboundDestinationUpdateSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'ID of the inbound destination to update' },
+    display_name: { type: 'string', description: 'Human-readable display name' },
+    agent_id: { type: 'string', description: 'Agent ID for routing (null to clear)' },
+    prompt_template_id: { type: 'string', description: 'Prompt template ID for routing (null to clear)' },
+    context_id: { type: 'string', description: 'Context ID for routing (null to clear)' },
+  },
+  required: ['id'],
+};
+
 /**
  * Create tool execution handlers
  */
@@ -2941,6 +2973,81 @@ function createToolHandlers(state: PluginState) {
         return { success: false, error: 'Failed to delete prompt template' };
       }
     },
+
+    // ── Inbound Destination tools (Issue #1500) ──────────────
+
+    async inbound_destination_list(params: Record<string, unknown>): Promise<ToolResult> {
+      const { channel_type, search, limit, offset } = params as {
+        channel_type?: string;
+        search?: string;
+        limit?: number;
+        offset?: number;
+      };
+      try {
+        const queryParams = new URLSearchParams();
+        if (channel_type) queryParams.set('channel_type', channel_type);
+        if (search) queryParams.set('search', search);
+        if (limit !== undefined) queryParams.set('limit', String(limit));
+        if (offset !== undefined) queryParams.set('offset', String(offset));
+
+        const response = await apiClient.get<{ items: Array<{ id: string; address: string; channel_type: string; display_name?: string; agent_id?: string }>; total: number }>(
+          `/api/inbound-destinations?${queryParams.toString()}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to list inbound destinations' };
+        }
+        const items = response.data.items ?? [];
+        const content = items.length === 0
+          ? 'No inbound destinations found.'
+          : items.map((d) => `- **${d.address}** [${d.channel_type}]${d.display_name ? ` — ${d.display_name}` : ''}${d.agent_id ? ` (agent: ${d.agent_id})` : ''}`).join('\n');
+        return { success: true, data: { content, details: { items, total: response.data.total ?? items.length } } };
+      } catch (error) {
+        logger.error('inbound_destination_list failed', { error });
+        return { success: false, error: 'Failed to list inbound destinations' };
+      }
+    },
+
+    async inbound_destination_get(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id } = params as { id: string };
+      try {
+        const response = await apiClient.get<{ id: string; address: string; channel_type: string; display_name?: string; agent_id?: string; prompt_template_id?: string; context_id?: string }>(
+          `/api/inbound-destinations/${id}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Inbound destination not found' };
+        }
+        const d = response.data;
+        const lines = [`**${d.address}** [${d.channel_type}]`];
+        if (d.display_name) lines.push(`Display: ${d.display_name}`);
+        if (d.agent_id) lines.push(`Agent: ${d.agent_id}`);
+        if (d.prompt_template_id) lines.push(`Prompt Template: ${d.prompt_template_id}`);
+        if (d.context_id) lines.push(`Context: ${d.context_id}`);
+        return { success: true, data: { content: lines.join('\n'), details: d } };
+      } catch (error) {
+        logger.error('inbound_destination_get failed', { error });
+        return { success: false, error: 'Failed to get inbound destination' };
+      }
+    },
+
+    async inbound_destination_update(params: Record<string, unknown>): Promise<ToolResult> {
+      const { id, ...updates } = params as { id: string; display_name?: string; agent_id?: string | null; prompt_template_id?: string | null; context_id?: string | null };
+      try {
+        const response = await apiClient.put<{ id: string; address: string; display_name?: string }>(
+          `/api/inbound-destinations/${id}`,
+          updates,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to update inbound destination' };
+        }
+        return { success: true, data: { content: `Updated inbound destination "${response.data.address}"`, details: response.data } };
+      } catch (error) {
+        logger.error('inbound_destination_update failed', { error });
+        return { success: false, error: 'Failed to update inbound destination' };
+      }
+    },
   };
 }
 
@@ -3359,6 +3466,34 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: promptTemplateDeleteSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.prompt_template_delete(params);
+        return toAgentToolResult(result);
+      },
+    },
+    // ── Inbound Destination tools (Issue #1500) ──────────────
+    {
+      name: 'inbound_destination_list',
+      description: 'List discovered inbound destinations (phone numbers and email addresses). Auto-created when messages arrive.',
+      parameters: inboundDestinationListSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.inbound_destination_list(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'inbound_destination_get',
+      description: 'Get an inbound destination by ID. Returns routing config (agent, prompt template, context).',
+      parameters: inboundDestinationGetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.inbound_destination_get(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'inbound_destination_update',
+      description: 'Update routing overrides for an inbound destination. Set agent, prompt template, or context for routing.',
+      parameters: inboundDestinationUpdateSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.inbound_destination_update(params);
         return toAgentToolResult(result);
       },
     },

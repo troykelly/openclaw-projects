@@ -10305,6 +10305,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
         console.log(`[Twilio] SMS from ${payload.From}: contact_id=${result.contact_id}, ` + `message_id=${result.message_id}, isNew=${result.isNewContact}`);
 
+        // Auto-discover inbound destination (Issue #1500)
+        try {
+          const { upsertInboundDestination } = await import('./inbound-destination/service.ts');
+          await upsertInboundDestination(pool, {
+            address: payload.To,
+            channelType: 'sms',
+            displayName: payload.To,
+          });
+        } catch (upsertErr) {
+          console.warn('[Twilio] Failed to upsert inbound destination:', upsertErr);
+        }
+
         // Enqueue embedding job for semantic search (#1343)
         triggerMessageEmbedding(pool, result.message_id);
 
@@ -10664,6 +10676,21 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           `[Postmark] Email from ${payload.FromFull.Email}: subject="${payload.Subject}", ` +
             `contact_id=${result.contact_id}, message_id=${result.message_id}, isNew=${result.isNewContact}`,
         );
+
+        // Auto-discover inbound destination (Issue #1500)
+        try {
+          const { upsertInboundDestination } = await import('./inbound-destination/service.ts');
+          const toAddress = (payload.ToFull?.[0]?.Email ?? payload.To ?? '').toLowerCase();
+          if (toAddress) {
+            await upsertInboundDestination(pool, {
+              address: toAddress,
+              channelType: 'email',
+              displayName: toAddress,
+            });
+          }
+        } catch (upsertErr) {
+          console.warn('[Postmark] Failed to upsert inbound destination:', upsertErr);
+        }
 
         // Enqueue embedding job for semantic search (#1343)
         triggerMessageEmbedding(pool, result.message_id);
@@ -20643,6 +20670,125 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const pool = createPool();
     try {
       const deleted = await deletePromptTemplate(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!deleted) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.code(204).send();
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // ── Inbound Destinations (Epic #1497, Issue #1500) ─────────────────
+
+  // GET /api/inbound-destinations - List inbound destinations
+  app.get('/api/inbound-destinations', async (req, reply) => {
+    const { listInboundDestinations } = await import('./inbound-destination/service.ts');
+    const query = req.query as {
+      channel_type?: string;
+      search?: string;
+      limit?: string;
+      offset?: string;
+      include_inactive?: string;
+    };
+
+    const limit = parseInt(query.limit || '50', 10);
+    const offset = parseInt(query.offset || '0', 10);
+    if (isNaN(limit) || isNaN(offset) || limit < 1 || offset < 0) {
+      return reply.code(400).send({ error: 'limit must be >= 1 and offset must be >= 0' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await listInboundDestinations(pool, {
+        channel_type: query.channel_type,
+        search: query.search,
+        include_inactive: query.include_inactive === 'true',
+        limit: Math.min(limit, 100),
+        offset,
+        queryNamespaces: req.namespaceContext?.queryNamespaces,
+      });
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/inbound-destinations/:id - Get a single inbound destination
+  app.get('/api/inbound-destinations/:id', async (req, reply) => {
+    const { getInboundDestination } = await import('./inbound-destination/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await getInboundDestination(pool, id, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/inbound-destinations/:id - Update routing overrides
+  app.put('/api/inbound-destinations/:id', async (req, reply) => {
+    const { updateInboundDestination } = await import('./inbound-destination/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+    const body = req.body as {
+      display_name?: string;
+      agent_id?: string | null;
+      prompt_template_id?: string | null;
+      context_id?: string | null;
+      is_active?: boolean;
+    } | null;
+
+    const hasUpdate = body && (
+      body.display_name !== undefined ||
+      body.agent_id !== undefined ||
+      body.prompt_template_id !== undefined ||
+      body.context_id !== undefined ||
+      body.is_active !== undefined
+    );
+    if (!hasUpdate) {
+      return reply.code(400).send({ error: 'at least one field to update is required' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await updateInboundDestination(pool, id, {
+        display_name: body?.display_name,
+        agent_id: body?.agent_id,
+        prompt_template_id: body?.prompt_template_id,
+        context_id: body?.context_id,
+        is_active: body?.is_active,
+      }, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // DELETE /api/inbound-destinations/:id - Soft-delete an inbound destination
+  app.delete('/api/inbound-destinations/:id', async (req, reply) => {
+    const { deleteInboundDestination } = await import('./inbound-destination/service.ts');
+    const { id } = req.params as { id: string };
+    if (!isValidUUID(id)) {
+      return reply.code(400).send({ error: 'invalid id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const deleted = await deleteInboundDestination(pool, id, req.namespaceContext?.queryNamespaces);
       if (!deleted) {
         return reply.code(404).send({ error: 'not found' });
       }
