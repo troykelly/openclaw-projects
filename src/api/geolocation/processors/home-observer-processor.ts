@@ -190,8 +190,9 @@ export class HomeObserverProcessor implements HaEventProcessor {
   // ---------- private ----------
 
   /**
-   * Bulk insert scored observations into ha_observations using a single
-   * parameterized INSERT with multiple value tuples.
+   * Bulk insert scored observations into ha_observations using parameterized
+   * INSERT with multiple value tuples, chunked to stay within PostgreSQL's
+   * ~65535 parameter limit (11 columns per row, max 1000 rows per chunk).
    */
   private async bulkInsert(
     result: BatchScoreResult,
@@ -203,49 +204,51 @@ export class HomeObserverProcessor implements HaEventProcessor {
     const { scored } = result;
     if (scored.length === 0) return;
 
-    // Each row has 10 parameterized values:
-    // namespace, timestamp, batch_id, entity_id, domain, from_state, to_state,
-    // attributes, score, scene_label, context
     const COLS_PER_ROW = 11;
-    const values: unknown[] = [];
-    const tuples: string[] = [];
+    const MAX_ROWS_PER_CHUNK = 1000;
 
-    for (let i = 0; i < scored.length; i++) {
-      const obs = scored[i];
-      const change = obs.change;
-      const offset = i * COLS_PER_ROW;
+    for (let chunkStart = 0; chunkStart < scored.length; chunkStart += MAX_ROWS_PER_CHUNK) {
+      const chunk = scored.slice(chunkStart, chunkStart + MAX_ROWS_PER_CHUNK);
+      const values: unknown[] = [];
+      const tuples: string[] = [];
 
-      // Use per-observation scene_label if assigned, otherwise batch-level primary scene
-      const sceneLabel = obs.scene_label ?? primaryScene;
+      for (let i = 0; i < chunk.length; i++) {
+        const obs = chunk[i];
+        const change = obs.change;
+        const offset = i * COLS_PER_ROW;
 
-      values.push(
-        namespace,                                        // $1
-        new Date(change.last_changed),                    // $2 timestamp
-        batchId,                                          // $3 batch_id
-        change.entity_id,                                 // $4 entity_id
-        change.domain,                                    // $5 domain
-        change.old_state,                                 // $6 from_state
-        change.new_state,                                 // $7 to_state
-        JSON.stringify(change.new_attributes),             // $8 attributes
-        obs.score,                                        // $9 score
-        sceneLabel,                                       // $10 scene_label
-        JSON.stringify(observationContext),                // $11 context
-      );
+        // Use per-observation scene_label if assigned, otherwise batch-level primary scene
+        const sceneLabel = obs.scene_label ?? primaryScene;
 
-      const placeholders = Array.from(
-        { length: COLS_PER_ROW },
-        (_, j) => `$${offset + j + 1}`,
-      ).join(', ');
-      tuples.push(`(${placeholders})`);
+        values.push(
+          namespace,                                        // $1
+          new Date(change.last_changed),                    // $2 timestamp
+          batchId,                                          // $3 batch_id
+          change.entity_id,                                 // $4 entity_id
+          change.domain,                                    // $5 domain
+          change.old_state,                                 // $6 from_state
+          change.new_state,                                 // $7 to_state
+          JSON.stringify(change.new_attributes),             // $8 attributes
+          obs.score,                                        // $9 score
+          sceneLabel,                                       // $10 scene_label
+          JSON.stringify(observationContext),                // $11 context
+        );
+
+        const placeholders = Array.from(
+          { length: COLS_PER_ROW },
+          (_, j) => `$${offset + j + 1}`,
+        ).join(', ');
+        tuples.push(`(${placeholders})`);
+      }
+
+      const sql = `
+        INSERT INTO ha_observations (
+          namespace, timestamp, batch_id, entity_id, domain,
+          from_state, to_state, attributes, score, scene_label, context
+        ) VALUES ${tuples.join(', ')}
+      `;
+
+      await this.pool.query(sql, values);
     }
-
-    const sql = `
-      INSERT INTO ha_observations (
-        namespace, timestamp, batch_id, entity_id, domain,
-        from_state, to_state, attributes, score, scene_label, context
-      ) VALUES ${tuples.join(', ')}
-    `;
-
-    await this.pool.query(sql, values);
   }
 }

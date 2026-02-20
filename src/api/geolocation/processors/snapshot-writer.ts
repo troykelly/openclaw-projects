@@ -233,11 +233,45 @@ export function compressStates(entities: HaEntityState[]): StateSnapshot {
  * @param token - Long-lived access token for HA authentication
  * @returns Array of entity states, or null if HA is unavailable
  */
+/**
+ * Validate that a HA base URL is safe to fetch from.
+ * Restricts to http/https schemes and rejects empty or malformed URLs.
+ */
+function validateHaUrl(haUrl: string): string {
+  const trimmed = haUrl.trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    throw new Error('HA URL is empty');
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`HA URL is malformed: ${trimmed}`);
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(
+      `HA URL has disallowed scheme "${parsed.protocol}" — only http: and https: are permitted`,
+    );
+  }
+
+  return parsed.origin + parsed.pathname.replace(/\/+$/, '');
+}
+
 export async function fetchHaStates(
   haUrl: string,
   token: string,
 ): Promise<HaEntityState[] | null> {
-  const url = `${haUrl.replace(/\/+$/, '')}/api/states`;
+  let sanitizedBase: string;
+  try {
+    sanitizedBase = validateHaUrl(haUrl);
+  } catch (err) {
+    console.error('[snapshot-writer] Invalid HA URL:', err);
+    return null;
+  }
+
+  const url = `${sanitizedBase}/api/states`;
 
   try {
     const response = await fetch(url, {

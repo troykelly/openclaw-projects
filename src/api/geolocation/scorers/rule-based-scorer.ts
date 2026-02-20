@@ -97,8 +97,6 @@ const UNCOMMON_STATES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
  */
 interface SceneIndicator {
   domain: string;
-  /** Entity ID substring patterns to match. */
-  entityPatterns?: string[];
   /** Required new_state values. */
   states?: string[];
   /** Device class for binary_sensors. */

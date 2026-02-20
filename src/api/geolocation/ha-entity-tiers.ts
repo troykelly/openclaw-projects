@@ -169,8 +169,17 @@ export class EntityTierResolver {
 
     // entity_pattern glob match
     for (const rule of rules) {
-      if (rule.entity_pattern !== undefined && picomatch.isMatch(entityId, rule.entity_pattern)) {
-        return { tier: rule.tier, source: 'pattern' };
+      if (rule.entity_pattern !== undefined) {
+        try {
+          if (picomatch.isMatch(entityId, rule.entity_pattern)) {
+            return { tier: rule.tier, source: 'pattern' };
+          }
+        } catch (err) {
+          console.warn(
+            `[entity-tiers] Skipping invalid glob pattern "${rule.entity_pattern}" for namespace "${namespace}":`,
+            err,
+          );
+        }
       }
     }
 
@@ -208,9 +217,18 @@ export class EntityTierResolver {
       // entity_pattern glob match
       if (!resolved) {
         for (const rule of rules) {
-          if (rule.entity_pattern !== undefined && picomatch.isMatch(entityId, rule.entity_pattern)) {
-            resolved = { tier: rule.tier, source: 'pattern' };
-            break;
+          if (rule.entity_pattern !== undefined) {
+            try {
+              if (picomatch.isMatch(entityId, rule.entity_pattern)) {
+                resolved = { tier: rule.tier, source: 'pattern' };
+                break;
+              }
+            } catch (err) {
+              console.warn(
+                `[entity-tiers] Skipping invalid glob pattern "${rule.entity_pattern}" for namespace "${namespace}":`,
+                err,
+              );
+            }
           }
         }
       }

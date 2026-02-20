@@ -46,25 +46,35 @@ BEGIN
       'ha_obs_weekly_stats',
       '0 4 * * 0',
       $cmd$
-        INSERT INTO ha_state_snapshots (namespace, snapshot_date, entity_count, active_count, domain_summary)
-        SELECT
-          namespace,
-          CURRENT_DATE,
-          COUNT(DISTINCT entity_id),
-          COUNT(DISTINCT entity_id) FILTER (WHERE latest_ts > NOW() - INTERVAL '24 hours'),
-          jsonb_object_agg(domain, cnt)
-        FROM (
+        WITH entity_stats AS (
           SELECT
             namespace,
             domain,
             entity_id,
-            MAX(timestamp) AS latest_ts,
-            COUNT(*) AS cnt
+            MAX(timestamp) AS latest_ts
           FROM ha_observations
           WHERE timestamp > NOW() - INTERVAL '7 days'
           GROUP BY namespace, domain, entity_id
-        ) sub
-        GROUP BY namespace
+        ),
+        domain_counts AS (
+          SELECT
+            namespace,
+            domain,
+            COUNT(*) AS domain_entity_count
+          FROM entity_stats
+          GROUP BY namespace, domain
+        )
+        INSERT INTO ha_state_snapshots (namespace, snapshot_date, entity_count, active_count, domain_summary)
+        SELECT
+          e.namespace,
+          CURRENT_DATE,
+          COUNT(DISTINCT e.entity_id),
+          COUNT(DISTINCT e.entity_id) FILTER (WHERE e.latest_ts > NOW() - INTERVAL '24 hours'),
+          (SELECT jsonb_object_agg(d.domain, d.domain_entity_count)
+           FROM domain_counts d
+           WHERE d.namespace = e.namespace)
+        FROM entity_stats e
+        GROUP BY e.namespace
         ON CONFLICT (namespace, snapshot_date) DO UPDATE
           SET entity_count = EXCLUDED.entity_count,
               active_count = EXCLUDED.active_count,
