@@ -15,8 +15,6 @@ export type EmbeddingStatus = 'pending' | 'complete' | 'failed' | 'skipped';
 export interface Note {
   id: string;
   notebook_id: string | null;
-  /** @deprecated user_email column dropped from note table in Phase 4 (Epic #1418) */
-  user_email?: string;
   title: string;
   content: string;
   summary: string | null;
@@ -71,7 +69,7 @@ export interface ListNotesOptions {
   offset?: number;
   sort_by?: 'created_at' | 'updated_at' | 'title';
   sort_order?: 'asc' | 'desc';
-  /** Epic #1418: namespace scoping (preferred over user_email) */
+  /** Epic #1418: namespace scoping */
   queryNamespaces?: string[];
 }
 

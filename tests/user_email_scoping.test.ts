@@ -6,13 +6,13 @@ import { buildServer } from '../src/api/server.ts';
 
 /**
  * Tests for namespace-based scoping on work_item, contact, and relationship tables.
- * Epic #1418 replaced user_email scoping (Issue #1172) with namespace scoping.
+ * Epic #1418 Phase 4: user_email columns dropped, namespace is the sole scoping mechanism.
  *
  * Verifies:
  * 1. Items created via API are assigned a namespace (defaults to 'default')
- * 2. user_email query params are accepted but do NOT affect scoping
+ * 2. user_email columns no longer exist in entity tables
  * 3. All items in the same namespace are visible to all queries in that namespace
- * 4. CRUD operations work regardless of user_email params
+ * 4. CRUD operations work with namespace-only scoping
  */
 describe('Namespace scoping (Epic #1418, replaces user_email scoping #1172)', () => {
   const app = buildServer();

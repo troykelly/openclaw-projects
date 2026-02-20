@@ -488,11 +488,11 @@ export async function listMemories(pool: Pool, options: ListMemoriesOptions = {}
 }
 
 /**
- * Gets global memories for a user (no work_item_id, contact_id, or relationship_id).
+ * Gets global memories (no work_item_id, contact_id, or relationship_id).
+ * Epic #1418 Phase 4: namespace-based scoping (user_email parameter removed).
  */
 export async function getGlobalMemories(
   pool: Pool,
-  _user_email: string,
   options: { memory_type?: MemoryType; limit?: number; offset?: number; queryNamespaces?: string[] } = {},
 ): Promise<ListMemoriesResult> {
   const conditions: string[] = [

@@ -3182,13 +3182,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/activity', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { limit?: string; offset?: string; user_email?: string };
+    const query = req.query as { limit?: string; offset?: string };
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const offset = Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
+    // Epic #1418: namespace scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -3222,7 +3222,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   // GET /api/work-items - List work items (excludes soft-deleted, Issue #225)
   app.get('/api/work-items', async (req, reply) => {
-    const query = req.query as { include_deleted?: string; item_type?: string; user_email?: string };
+    const query = req.query as { include_deleted?: string; item_type?: string };
     const pool = createPool();
 
     // Build WHERE clause
@@ -3285,7 +3285,7 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
 
     // Get all items with their children count using a recursive CTE
-    // Epic #1418: namespace scoping (replaces user_email scoping from Issue #1172)
+    // Epic #1418: namespace scoping
     const treeParams: unknown[] = [];
     const baseConditions: string[] = [];
     if (query.root_id) {
@@ -4107,7 +4107,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.patch('/api/work-items/:id/hierarchy', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { kind?: string; parent_id?: string | null };
 
     if (!body?.kind) {
@@ -4123,7 +4122,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const parent_id = body.parent_id ?? null;
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5051,7 +5049,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/attachments - Attach a file to a work item
   app.post('/api/work-items/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { file_id: string };
 
     if (!body.file_id) {
@@ -5060,7 +5057,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5105,10 +5101,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/attachments - List work item attachments
   app.get('/api/work-items/:id/attachments', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5147,10 +5141,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:work_item_id/attachments/:file_id - Remove attachment from work item
   app.delete('/api/work-items/:work_item_id/attachments/:file_id', async (req, reply) => {
     const params = req.params as { work_item_id: string; file_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.work_item_id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5174,10 +5166,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/recurrence - Get recurrence details (Issue #217)
   app.get('/api/work-items/:id/recurrence', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5210,7 +5200,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PUT /api/work-items/:id/recurrence - Update recurrence rule (Issue #217)
   app.put('/api/work-items/:id/recurrence', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       recurrence_rule?: string;
       recurrence_natural?: string;
@@ -5218,7 +5207,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5292,10 +5280,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id/recurrence - Stop recurring (Issue #217)
   app.delete('/api/work-items/:id/recurrence', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5325,11 +5311,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const query = req.query as {
       limit?: string;
       include_completed?: string;
-      user_email?: string;
     };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5554,10 +5538,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/rollup', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5870,10 +5852,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/timeline', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -5946,10 +5926,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/dependency-graph', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6115,10 +6093,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6142,10 +6118,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.delete('/api/work-items/:id/dependencies/:dependency_id', async (req, reply) => {
     const params = req.params as { id: string; dependency_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6164,10 +6138,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/participants', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6185,7 +6157,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/work-items/:id/participants', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { participant?: string; role?: string };
     if (!body?.participant || body.participant.trim().length === 0) {
       return reply.code(400).send({ error: 'participant is required' });
@@ -6196,7 +6167,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6215,10 +6185,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.delete('/api/work-items/:id/participants/:participant_id', async (req, reply) => {
     const params = req.params as { id: string; participant_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6237,10 +6205,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.get('/api/work-items/:id/links', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6269,7 +6235,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/work-items/:id/links', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       provider?: string;
       url?: string;
@@ -6304,7 +6269,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6344,10 +6308,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.delete('/api/work-items/:id/links/:link_id', async (req, reply) => {
     const params = req.params as { id: string; link_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -6366,7 +6328,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/work-items/:id/dependencies', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { depends_on_work_item_id?: string; kind?: string };
     if (!body?.depends_on_work_item_id) {
       return reply.code(400).send({ error: 'depends_on_work_item_id is required' });
@@ -6388,7 +6349,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7193,10 +7153,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts/:id/work-items - Get work items associated with a contact
   app.get('/api/contacts/:id/work-items', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent contact
     if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7230,10 +7188,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/contacts - List contacts linked to a work item
   app.get('/api/work-items/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7265,7 +7221,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/contacts - Link a contact to a work item
   app.post('/api/work-items/:id/contacts', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { contact_id?: string; relationship?: string };
 
     if (!body?.contact_id) {
@@ -7283,7 +7238,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7331,10 +7285,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id/contacts/:contact_id - Unlink a contact from a work item
   app.delete('/api/work-items/:id/contacts/:contact_id', async (req, reply) => {
     const params = req.params as { id: string; contact_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7358,7 +7310,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   app.post('/api/contacts/:id/endpoints', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       endpoint_type?: string;
       endpoint_value?: string;
@@ -7371,7 +7322,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent contact
     if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -7693,7 +7643,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         contact_id?: string;
         relationship_id?: string;
         project_id?: string;
-        user_email?: string;
         tags?: string;
         since?: string;
         before?: string;
@@ -7751,7 +7700,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
           contact_id: query.contact_id,
           relationship_id: query.relationship_id,
           project_id: query.project_id,
-          user_email: query.user_email,
           tags: searchTags,
           created_after,
           created_before,
@@ -7910,21 +7858,15 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { getGlobalMemories } = await import('./memory/index.ts');
 
     const query = req.query as {
-      user_email?: string;
       memory_type?: string;
       limit?: string;
       offset?: string;
     };
 
-    // user_email required during Phase 3 transition
-    if (!query.user_email) {
-      return reply.code(400).send({ error: 'user_email is required' });
-    }
-
     const pool = createPool();
 
     try {
-      const result = await getGlobalMemories(pool, query.user_email || '', {
+      const result = await getGlobalMemories(pool, {
         memory_type: query.memory_type as any,
         limit: Number.parseInt(query.limit || '50', 10),
         offset: Number.parseInt(query.offset || '0', 10),
@@ -7948,7 +7890,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       title?: string;
       content?: string;
       memory_type?: string;
-      user_email?: string;
       work_item_id?: string;
       contact_id?: string;
       relationship_id?: string;
@@ -7999,7 +7940,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         title: title,
         content: body.content.trim(),
         memory_type: memory_type as any,
-        user_email: body.user_email,
         work_item_id: body.work_item_id,
         contact_id: body.contact_id,
         relationship_id: body.relationship_id,
@@ -8044,7 +7984,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         title: string;
         content: string;
         memory_type?: string;
-        user_email?: string;
         work_item_id?: string;
         contact_id?: string;
         relationship_id?: string;
@@ -8129,7 +8068,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
             title: mem.title.trim(),
             content: mem.content.trim(),
             memory_type: memory_type as any,
-            user_email: mem.user_email,
             work_item_id: mem.work_item_id,
             contact_id: mem.contact_id,
             relationship_id: mem.relationship_id,
@@ -8323,7 +8261,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     const { resolveRelativeTime, resolvePeriod, VALID_PERIODS } = await import('./memory/temporal.ts');
 
     const query = req.query as {
-      user_email?: string;
       work_item_id?: string;
       contact_id?: string;
       relationship_id?: string;
@@ -8369,7 +8306,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     try {
       const result = await listMemories(pool, {
-        user_email: query.user_email,
         work_item_id: query.work_item_id,
         contact_id: query.contact_id,
         relationship_id: query.relationship_id,
@@ -8736,10 +8672,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/memories - List memories for a work item
   app.get('/api/work-items/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -8772,7 +8706,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/memories - Create a new memory
   app.post('/api/work-items/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { title?: string; content?: string; type?: string };
 
     if (!body?.title || body.title.trim().length === 0) {
@@ -8791,7 +8724,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9028,14 +8960,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts/:id/memories - Get memories linked to a contact
   app.get('/api/contacts/:id/memories', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { relationship_type?: string; limit?: string; offset?: string; user_email?: string };
+    const query = req.query as { relationship_type?: string; limit?: string; offset?: string};
 
     const limit = Math.min(Number.parseInt(query.limit || '50', 10), 100);
     const offset = Number.parseInt(query.offset || '0', 10);
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent contact
     if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9308,14 +9239,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/contacts/:id/similar-memories - Find memories semantically related to a contact's context
   app.get('/api/contacts/:id/similar-memories', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { limit?: string; threshold?: string; user_email?: string };
+    const query = req.query as { limit?: string; threshold?: string};
 
     const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
     const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.6')));
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent contact
     if (!(await verifyNamespaceScope(pool, 'contact', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9432,14 +9362,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/related-entities - Discover related contacts and memories
   app.get('/api/work-items/:id/related-entities', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { limit?: string; threshold?: string; user_email?: string };
+    const query = req.query as { limit?: string; threshold?: string};
 
     const limit = Math.min(Number.parseInt(query.limit || '10', 10), 50);
     const threshold = Math.max(0, Math.min(1, Number.parseFloat(query.threshold || '0.6')));
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9550,10 +9479,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/communications - List communications for a work item
   app.get('/api/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9643,10 +9570,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/emails - List linked emails for a work item (issue #124)
   app.get('/api/work-items/:id/emails', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9702,10 +9627,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/calendar - List linked calendar events for a work item (issue #125)
   app.get('/api/work-items/:id/calendar', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9764,7 +9687,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/emails - Link an email to a work item
   app.post('/api/work-items/:id/emails', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { email_id?: string };
 
     if (!body?.email_id) {
@@ -9773,7 +9695,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9814,10 +9735,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id/emails/:email_id - Unlink an email from a work item
   app.delete('/api/work-items/:id/emails/:email_id', async (req, reply) => {
     const params = req.params as { id: string; email_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9851,7 +9770,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/calendar - Link a calendar event to a work item
   app.post('/api/work-items/:id/calendar', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { event_id?: string };
 
     if (!body?.event_id) {
@@ -9860,7 +9778,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9930,7 +9847,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/communications - Link a communication to a work item
   app.post('/api/work-items/:id/communications', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as {
       thread_id?: string;
       message_id?: string | null;
@@ -9943,7 +9859,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -9986,10 +9901,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id/communications/:comm_id - Unlink a communication
   app.delete('/api/work-items/:id/communications/:comm_id', async (req, reply) => {
     const params = req.params as { id: string; comm_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11046,14 +10959,12 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/work-items/:id/reparent - Move work item to a different parent (Issue #1172: scoped)
   app.patch('/api/work-items/:id/reparent', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { new_parent_id?: string | null; after_id?: string | null };
 
     const newParentId = body.new_parent_id ?? null;
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11228,7 +11139,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/work-items/:id/reorder - Reorder work item within siblings
   app.patch('/api/work-items/:id/reorder', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { after_id?: string | null; before_id?: string | null };
 
     // Validate exactly one of after_id or before_id is provided
@@ -11244,7 +11154,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11438,7 +11347,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/work-items/:id/dates - Update work item dates
   app.patch('/api/work-items/:id/dates', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { start_date?: string | null; end_date?: string | null };
 
     // Check at least one field is provided
@@ -11484,7 +11392,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11561,10 +11468,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // GET /api/work-items/:id/todos - List todos for a work item
   app.get('/api/work-items/:id/todos', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11596,7 +11501,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // POST /api/work-items/:id/todos - Create a new todo
   app.post('/api/work-items/:id/todos', async (req, reply) => {
     const params = req.params as { id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { text?: string };
 
     if (!body?.text || body.text.trim().length === 0) {
@@ -11605,7 +11509,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11636,7 +11539,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // PATCH /api/work-items/:id/todos/:todo_id - Update a todo
   app.patch('/api/work-items/:id/todos/:todo_id', async (req, reply) => {
     const params = req.params as { id: string; todo_id: string };
-    const query = req.query as { user_email?: string };
     const body = req.body as { text?: string; completed?: boolean };
 
     // Check at least one field is provided
@@ -11648,7 +11550,6 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });
@@ -11711,10 +11612,8 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
   // DELETE /api/work-items/:id/todos/:todo_id - Delete a todo
   app.delete('/api/work-items/:id/todos/:todo_id', async (req, reply) => {
     const params = req.params as { id: string; todo_id: string };
-    const query = req.query as { user_email?: string };
     const pool = createPool();
 
-    // Issue #1172: optional user_email scoping on parent work_item
     if (!(await verifyNamespaceScope(pool, 'work_item', params.id, req))) {
       await pool.end();
       return reply.code(404).send({ error: 'not found' });

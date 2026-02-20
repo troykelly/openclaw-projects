@@ -130,7 +130,6 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       const { relationship_id } = await createTestRelationship();
 
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Anniversary date',
         content: 'Troy and Alex anniversary is March 15',
         memory_type: 'fact',
@@ -157,7 +156,6 @@ describe('Memory Relationship Scope (Issue #493)', () => {
 
     it('creates a memory without relationship_id (backward compatible)', async () => {
       const memory = await createMemory(pool, {
-        user_email: 'test@example.com',
         title: 'Simple note',
         content: 'No relationship scope',
       });
@@ -227,14 +225,12 @@ describe('Memory Relationship Scope (Issue #493)', () => {
       const { relationship_id } = await createTestRelationship();
 
       await createMemory(pool, {
-        user_email: 'user1@example.com',
         title: 'Preference about relationship',
         content: 'Prefers weekly catch-ups',
         memory_type: 'preference',
         relationship_id,
       });
       await createMemory(pool, {
-        user_email: 'user1@example.com',
         title: 'Fact about relationship',
         content: 'Met in 2020',
         memory_type: 'fact',
@@ -332,7 +328,6 @@ describe('Memory Relationship Scope (Issue #493)', () => {
           title: 'API relationship memory',
           content: 'Created via API with relationship scope',
           memory_type: 'fact',
-          user_email: 'test@example.com',
           relationship_id: relationship_id,
         },
       });
@@ -350,7 +345,6 @@ describe('Memory Relationship Scope (Issue #493)', () => {
           title: 'No relationship scope',
           content: 'Backward compatible',
           memory_type: 'note',
-          user_email: 'test@example.com',
         },
       });
 
