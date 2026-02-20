@@ -134,6 +134,47 @@ describe('HaEventRouter', () => {
       expect(onStateChangeBatch.mock.calls[0][1]).toBe('default');
     });
 
+    it('isolates batches by namespace to prevent cross-namespace leakage', async () => {
+      const onStateChangeBatch = vi.fn().mockResolvedValue(undefined);
+      const proc = makeProcessor(
+        {
+          id: 'batch-proc',
+          filter: { domains: ['sensor'] },
+          mode: 'batched',
+          batchWindowMs: 500,
+        },
+        { onStateChangeBatch },
+      );
+      router.register(proc);
+
+      // Dispatch events for two different namespaces within the same batch window
+      await router.dispatch(makeChange('sensor.temp_1'), 'tenant-a');
+      await router.dispatch(makeChange('sensor.temp_2'), 'tenant-b');
+      await router.dispatch(makeChange('sensor.temp_3'), 'tenant-a');
+
+      // Not yet flushed
+      expect(onStateChangeBatch).not.toHaveBeenCalled();
+
+      // Advance timer past batch window
+      vi.advanceTimersByTime(600);
+      await vi.runAllTimersAsync();
+
+      // Should flush TWO separate batches — one per namespace
+      expect(onStateChangeBatch).toHaveBeenCalledTimes(2);
+
+      // Find which call was for which namespace
+      const calls = onStateChangeBatch.mock.calls as [HaStateChange[], string][];
+      const tenantACalls = calls.filter((c) => c[1] === 'tenant-a');
+      const tenantBCalls = calls.filter((c) => c[1] === 'tenant-b');
+
+      expect(tenantACalls).toHaveLength(1);
+      expect(tenantBCalls).toHaveLength(1);
+
+      // tenant-a got 2 events, tenant-b got 1
+      expect(tenantACalls[0][0]).toHaveLength(2);
+      expect(tenantBCalls[0][0]).toHaveLength(1);
+    });
+
     it('does not flush non-matching events', async () => {
       const onStateChangeBatch = vi.fn().mockResolvedValue(undefined);
       const proc = makeProcessor(

@@ -41,6 +41,7 @@ interface HaState {
   state?: string;
   attributes?: Record<string, unknown>;
   last_changed?: string;
+  last_updated?: string;
 }
 
 // ---------- payload parsing ----------
@@ -205,7 +206,7 @@ function parseWsEvent(
     old_attributes: event.data.old_state?.attributes ?? {},
     new_attributes: event.data.new_state.attributes ?? {},
     last_changed: event.data.new_state.last_changed ?? '',
-    last_updated: event.data.new_state.last_changed ?? '',
+    last_updated: event.data.new_state.last_updated ?? event.data.new_state.last_changed ?? '',
     context: event.context ?? { id: '', parent_id: null, user_id: null },
   };
 }

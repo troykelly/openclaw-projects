@@ -34,6 +34,9 @@ SELECT create_hypertable('ha_observations', 'timestamp',
   chunk_time_interval => INTERVAL '7 days',
   if_not_exists => TRUE);
 
+-- Unique row identity: (id, timestamp) as promised above for the hypertable
+CREATE UNIQUE INDEX idx_ha_obs_id_timestamp ON ha_observations (id, timestamp);
+
 -- Indexes for common query patterns
 CREATE INDEX idx_ha_obs_namespace_time ON ha_observations (namespace, timestamp DESC);
 CREATE INDEX idx_ha_obs_entity_time ON ha_observations (entity_id, timestamp DESC);

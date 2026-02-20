@@ -10,10 +10,15 @@
 import type { HaEventProcessor, HaStateChange } from './ha-event-processor.ts';
 import { matchesFilter } from './ha-event-processor.ts';
 
-/** Pending batch entry keyed by namespace for a single processor. */
-interface BatchEntry {
-  changes: HaStateChange[];
-  namespace: string;
+/** Composite key for batch buffers: (processorId, namespace). */
+function batchKey(processorId: string, namespace: string): string {
+  return `${processorId}\0${namespace}`;
+}
+
+/** Parse a batch key back into its components. */
+function parseBatchKey(key: string): { processorId: string; namespace: string } {
+  const sep = key.indexOf('\0');
+  return { processorId: key.slice(0, sep), namespace: key.slice(sep + 1) };
 }
 
 /**
@@ -28,7 +33,7 @@ interface BatchEntry {
  */
 export class HaEventRouter {
   private processors: Map<string, HaEventProcessor> = new Map();
-  private batchBuffers: Map<string, BatchEntry[]> = new Map();
+  private batchBuffers: Map<string, HaStateChange[]> = new Map();
   private batchTimers: Map<string, NodeJS.Timeout> = new Map();
 
   /** Register a processor. Throws if a processor with the same ID already exists. */
@@ -40,10 +45,15 @@ export class HaEventRouter {
     this.processors.set(config.id, processor);
   }
 
-  /** Unregister a processor by ID. Clears any pending batch and timer. */
+  /** Unregister a processor by ID. Clears any pending batches and timers. */
   unregister(processorId: string): void {
     this.processors.delete(processorId);
-    this.clearBatch(processorId);
+    // Clear all batch keys belonging to this processor (any namespace)
+    for (const key of [...this.batchBuffers.keys()]) {
+      if (parseBatchKey(key).processorId === processorId) {
+        this.clearBatch(key);
+      }
+    }
   }
 
   /**
@@ -117,8 +127,8 @@ export class HaEventRouter {
   async shutdown(): Promise<void> {
     // Flush all pending batches first
     const flushPromises: Promise<void>[] = [];
-    for (const [processorId] of this.batchBuffers) {
-      flushPromises.push(this.flushBatch(processorId));
+    for (const key of this.batchBuffers.keys()) {
+      flushPromises.push(this.flushBatch(key));
     }
     await Promise.allSettled(flushPromises);
 
@@ -142,59 +152,57 @@ export class HaEventRouter {
     namespace: string,
     windowMs: number,
   ): void {
-    let entries = this.batchBuffers.get(processorId);
-    if (!entries) {
-      entries = [];
-      this.batchBuffers.set(processorId, entries);
+    const key = batchKey(processorId, namespace);
+    let changes = this.batchBuffers.get(key);
+    if (!changes) {
+      changes = [];
+      this.batchBuffers.set(key, changes);
     }
 
-    entries.push({ changes: [event], namespace });
+    changes.push(event);
 
-    // Start timer if not already running
-    if (!this.batchTimers.has(processorId)) {
+    // Start timer if not already running for this (processor, namespace) pair
+    if (!this.batchTimers.has(key)) {
       const timer = setTimeout(() => {
-        void this.flushBatch(processorId);
+        void this.flushBatch(key);
       }, windowMs);
-      this.batchTimers.set(processorId, timer);
+      this.batchTimers.set(key, timer);
     }
   }
 
-  private async flushBatch(processorId: string): Promise<void> {
+  private async flushBatch(key: string): Promise<void> {
     // Clear the timer
-    const timer = this.batchTimers.get(processorId);
+    const timer = this.batchTimers.get(key);
     if (timer) {
       clearTimeout(timer);
-      this.batchTimers.delete(processorId);
+      this.batchTimers.delete(key);
     }
 
-    const entries = this.batchBuffers.get(processorId);
-    if (!entries || entries.length === 0) {
-      this.batchBuffers.delete(processorId);
+    const changes = this.batchBuffers.get(key);
+    if (!changes || changes.length === 0) {
+      this.batchBuffers.delete(key);
       return;
     }
 
-    // Collect all changes, grouped by the first entry's namespace
-    // (in practice, all events in a batch share the same namespace context)
-    const allChanges = entries.flatMap((e) => e.changes);
-    const namespace = entries[0].namespace;
-    this.batchBuffers.delete(processorId);
+    const { processorId, namespace } = parseBatchKey(key);
+    this.batchBuffers.delete(key);
 
     const processor = this.processors.get(processorId);
     if (!processor?.onStateChangeBatch) return;
 
     try {
-      await processor.onStateChangeBatch(allChanges, namespace);
+      await processor.onStateChangeBatch(changes, namespace);
     } catch {
       // Error isolation — batch flush failure is logged but does not propagate
     }
   }
 
-  private clearBatch(processorId: string): void {
-    const timer = this.batchTimers.get(processorId);
+  private clearBatch(key: string): void {
+    const timer = this.batchTimers.get(key);
     if (timer) {
       clearTimeout(timer);
-      this.batchTimers.delete(processorId);
+      this.batchTimers.delete(key);
     }
-    this.batchBuffers.delete(processorId);
+    this.batchBuffers.delete(key);
   }
 }
