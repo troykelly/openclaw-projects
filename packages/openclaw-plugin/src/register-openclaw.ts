@@ -1269,6 +1269,32 @@ const inboundDestinationUpdateSchema: JSONSchema = {
   required: ['id'],
 };
 
+// ── Channel Default schemas (Issue #1501) ──────────────────
+
+const channelDefaultListSchema: JSONSchema = {
+  type: 'object',
+  properties: {},
+};
+
+const channelDefaultGetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    channel_type: { type: 'string', description: 'Channel type: sms, email, or ha_observation' },
+  },
+  required: ['channel_type'],
+};
+
+const channelDefaultSetSchema: JSONSchema = {
+  type: 'object',
+  properties: {
+    channel_type: { type: 'string', description: 'Channel type: sms, email, or ha_observation' },
+    agent_id: { type: 'string', description: 'Agent ID for this channel type' },
+    prompt_template_id: { type: 'string', description: 'Prompt template ID (optional)' },
+    context_id: { type: 'string', description: 'Context ID (optional)' },
+  },
+  required: ['channel_type', 'agent_id'],
+};
+
 /**
  * Create tool execution handlers
  */
@@ -3048,6 +3074,72 @@ function createToolHandlers(state: PluginState) {
         return { success: false, error: 'Failed to update inbound destination' };
       }
     },
+
+    // ── Channel Default tools (Issue #1501) ──────────────────
+
+    async channel_default_list(): Promise<ToolResult> {
+      try {
+        const response = await apiClient.get<Array<{ channel_type: string; agent_id: string; prompt_template_id?: string }>>(
+          '/api/channel-defaults',
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to list channel defaults' };
+        }
+        const items = Array.isArray(response.data) ? response.data : [];
+        const content = items.length === 0
+          ? 'No channel defaults configured.'
+          : items.map((d) => `- **${d.channel_type}**: agent=${d.agent_id}${d.prompt_template_id ? ` prompt=${d.prompt_template_id}` : ''}`).join('\n');
+        return { success: true, data: { content, details: { items } } };
+      } catch (error) {
+        logger.error('channel_default_list failed', { error });
+        return { success: false, error: 'Failed to list channel defaults' };
+      }
+    },
+
+    async channel_default_get(params: Record<string, unknown>): Promise<ToolResult> {
+      const { channel_type } = params as { channel_type: string };
+      try {
+        const response = await apiClient.get<{ channel_type: string; agent_id: string; prompt_template_id?: string; context_id?: string }>(
+          `/api/channel-defaults/${channel_type}`,
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Channel default not found' };
+        }
+        const d = response.data;
+        const lines = [`**${d.channel_type}** → agent: ${d.agent_id}`];
+        if (d.prompt_template_id) lines.push(`Prompt Template: ${d.prompt_template_id}`);
+        if (d.context_id) lines.push(`Context: ${d.context_id}`);
+        return { success: true, data: { content: lines.join('\n'), details: d } };
+      } catch (error) {
+        logger.error('channel_default_get failed', { error });
+        return { success: false, error: 'Failed to get channel default' };
+      }
+    },
+
+    async channel_default_set(params: Record<string, unknown>): Promise<ToolResult> {
+      const { channel_type, agent_id, prompt_template_id, context_id } = params as {
+        channel_type: string;
+        agent_id: string;
+        prompt_template_id?: string;
+        context_id?: string;
+      };
+      try {
+        const response = await apiClient.put<{ channel_type: string; agent_id: string }>(
+          `/api/channel-defaults/${channel_type}`,
+          { agent_id, prompt_template_id, context_id },
+          { user_id },
+        );
+        if (!response.success) {
+          return { success: false, error: response.error.message || 'Failed to set channel default' };
+        }
+        return { success: true, data: { content: `Set ${channel_type} default → agent: ${response.data.agent_id}`, details: response.data } };
+      } catch (error) {
+        logger.error('channel_default_set failed', { error });
+        return { success: false, error: 'Failed to set channel default' };
+      }
+    },
   };
 }
 
@@ -3494,6 +3586,34 @@ export const registerOpenClaw: PluginInitializer = (api: OpenClawPluginApi) => {
       parameters: inboundDestinationUpdateSchema,
       execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
         const result = await handlers.inbound_destination_update(params);
+        return toAgentToolResult(result);
+      },
+    },
+    // ── Channel Default tools (Issue #1501) ──────────────────
+    {
+      name: 'channel_default_list',
+      description: 'List all channel defaults (per-channel routing config). Shows which agent handles each channel type.',
+      parameters: channelDefaultListSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.channel_default_list();
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'channel_default_get',
+      description: 'Get the default routing config for a specific channel type (sms, email, ha_observation).',
+      parameters: channelDefaultGetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.channel_default_get(params);
+        return toAgentToolResult(result);
+      },
+    },
+    {
+      name: 'channel_default_set',
+      description: 'Set or update the default routing config for a channel type. Requires agentadmin access.',
+      parameters: channelDefaultSetSchema,
+      execute: async (_toolCallId: string, params: Record<string, unknown>, _signal?: AbortSignal, _onUpdate?: (partial: unknown) => void) => {
+        const result = await handlers.channel_default_set(params);
         return toAgentToolResult(result);
       },
     },
