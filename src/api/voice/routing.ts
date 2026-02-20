@@ -97,6 +97,7 @@ export async function getConfig(
 
 /**
  * Upsert voice agent config for a namespace.
+ * Uses EXCLUDED to apply all supplied values cleanly on conflict.
  */
 export async function upsertConfig(
   pool: Pool,
@@ -112,14 +113,14 @@ export async function upsertConfig(
        device_mapping, user_mapping, service_allowlist, metadata
      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (namespace) DO UPDATE SET
-       default_agent_id = COALESCE($2, voice_agent_config.default_agent_id),
-       timeout_ms = COALESCE($3, voice_agent_config.timeout_ms),
-       idle_timeout_s = COALESCE($4, voice_agent_config.idle_timeout_s),
-       retention_days = COALESCE($5, voice_agent_config.retention_days),
-       device_mapping = COALESCE($6, voice_agent_config.device_mapping),
-       user_mapping = COALESCE($7, voice_agent_config.user_mapping),
-       service_allowlist = COALESCE($8, voice_agent_config.service_allowlist),
-       metadata = COALESCE($9, voice_agent_config.metadata),
+       default_agent_id = EXCLUDED.default_agent_id,
+       timeout_ms = EXCLUDED.timeout_ms,
+       idle_timeout_s = EXCLUDED.idle_timeout_s,
+       retention_days = EXCLUDED.retention_days,
+       device_mapping = EXCLUDED.device_mapping,
+       user_mapping = EXCLUDED.user_mapping,
+       service_allowlist = EXCLUDED.service_allowlist,
+       metadata = EXCLUDED.metadata,
        updated_at = NOW()
      RETURNING *`,
     [
