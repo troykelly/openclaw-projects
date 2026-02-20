@@ -124,7 +124,7 @@ export function createUsersCommand(ctx: CliContext): () => Promise<CommandResult
   return async (): Promise<CommandResult<UsersData>> => {
     logger.info('CLI users command invoked', { user_id });
 
-    const scopingMode = config.userScoping;
+    const scopingMode = config.userScoping ?? 'agent';
     const description = SCOPING_DESCRIPTIONS[scopingMode] ?? 'Unknown scoping mode';
 
     return {

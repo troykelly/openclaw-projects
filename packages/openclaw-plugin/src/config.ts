@@ -11,9 +11,27 @@
 import { z } from 'zod';
 import { resolveSecret, resolveSecretSync, type SecretConfig } from './secrets.js';
 
-/** User scoping strategies for memory isolation */
+/** @deprecated User scoping replaced by namespace config in Issue #1428 */
 export const UserScopingSchema = z.enum(['agent', 'identity', 'session']);
 export type UserScoping = z.infer<typeof UserScopingSchema>;
+
+/** Namespace pattern: lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit */
+const NAMESPACE_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+
+/** Namespace configuration for data scoping (Issue #1428) */
+export const NamespaceConfigSchema = z.object({
+  /** Namespace used for store/create operations when none is specified by the tool call */
+  default: z.string().min(1).max(63).regex(NAMESPACE_PATTERN, {
+    message: 'namespace must be lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit',
+  }).optional().describe('Default namespace for store/create operations'),
+  /** Namespaces to search during recall/list operations when none specified by the tool call */
+  recall: z.array(
+    z.string().min(1).max(63).regex(NAMESPACE_PATTERN, {
+      message: 'namespace must be lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit',
+    }),
+  ).optional().describe('Namespaces to search during recall/list operations'),
+});
+export type NamespaceConfig = z.infer<typeof NamespaceConfigSchema>;
 
 /**
  * Checks if running in production mode.
@@ -121,8 +139,8 @@ export const RawPluginConfigSchema = z
     /** Automatically capture important information as memories */
     autoCapture: z.boolean().default(true).describe('Auto-capture memories'),
 
-    /** How to scope user memories */
-    userScoping: UserScopingSchema.default('agent').describe('User scoping strategy'),
+    /** @deprecated Replaced by namespace config in Issue #1428. Accepted for backward compatibility but ignored. */
+    userScoping: UserScopingSchema.optional().describe('@deprecated — replaced by namespace config'),
 
     /** Maximum memories to inject in auto-recall */
     maxRecallMemories: z
@@ -165,10 +183,14 @@ export const RawPluginConfigSchema = z
     /** PromptGuard-2 classifier URL (e.g., http://prompt-guard:8190) */
     promptGuardUrl: z.string().url().optional().describe('PromptGuard classifier URL'),
 
-    /** Default namespace for data scoping (Issue #1428) */
-    namespace: z.string().min(1).max(63).regex(/^[a-z0-9][a-z0-9._-]*$/, {
-      message: 'namespace must be lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit',
-    }).optional().describe('Default namespace for data scoping'),
+    /** Namespace configuration for data scoping (Issue #1428) */
+    namespace: z.union([
+      NamespaceConfigSchema,
+      // Accept a bare string for backward compat — treated as { default: value }
+      z.string().min(1).max(63).regex(NAMESPACE_PATTERN, {
+        message: 'namespace must be lowercase alphanumeric with dots, hyphens, underscores; must start with letter or digit',
+      }).transform((s: string) => ({ default: s } as NamespaceConfig)),
+    ]).optional().describe('Namespace configuration for data scoping'),
   })
   .strip(); // Remove unknown properties instead of rejecting with error
 
@@ -209,8 +231,8 @@ export const PluginConfigSchema = z.object({
   /** Auto-capture memories */
   autoCapture: z.boolean().default(true),
 
-  /** User scoping strategy */
-  userScoping: UserScopingSchema.default('agent'),
+  /** @deprecated Replaced by namespace config in Issue #1428. Kept for backward compatibility. */
+  userScoping: UserScopingSchema.optional(),
 
   /** Maximum memories to inject */
   maxRecallMemories: z.number().int().default(5),
@@ -236,8 +258,8 @@ export const PluginConfigSchema = z.object({
   /** PromptGuard-2 classifier URL */
   promptGuardUrl: z.string().url().optional(),
 
-  /** Default namespace for data scoping (Issue #1428) */
-  namespace: z.string().min(1).max(63).optional(),
+  /** Namespace configuration for data scoping (Issue #1428) */
+  namespace: NamespaceConfigSchema.optional(),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;
@@ -280,6 +302,38 @@ export function validateConfig(config: unknown): PluginConfig {
  */
 export function safeValidateConfig(config: unknown): { success: true; data: RawPluginConfig } | { success: false; errors: z.ZodIssue[] } {
   return safeValidateRawConfig(config);
+}
+
+/**
+ * Resolves the effective namespace config for an agent.
+ *
+ * Priority:
+ * 1. Explicit namespace config from plugin settings
+ * 2. Agent ID as default namespace (if it matches the naming pattern)
+ * 3. 'default' as fallback
+ *
+ * @param configNamespace - Namespace config from plugin config (may be undefined)
+ * @param agentId - Agent identifier from runtime context
+ * @returns Resolved namespace config with default and recall values
+ */
+export function resolveNamespaceConfig(
+  configNamespace: NamespaceConfig | undefined,
+  agentId: string,
+): { default: string; recall: string[] } {
+  if (configNamespace?.default) {
+    return {
+      default: configNamespace.default,
+      recall: configNamespace.recall ?? [configNamespace.default],
+    };
+  }
+
+  // Fallback: use agent ID as namespace if it matches the naming pattern
+  const fallbackNs = NAMESPACE_PATTERN.test(agentId) ? agentId : 'default';
+
+  return {
+    default: configNamespace?.default ?? fallbackNs,
+    recall: configNamespace?.recall ?? [fallbackNs],
+  };
 }
 
 /** Secret fields that should be redacted in logs */

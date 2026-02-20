@@ -28,8 +28,6 @@ export interface RequestOptions {
   timeout?: number;
   /** Mark request as coming from an agent (adds X-OpenClaw-Agent header) */
   isAgent?: boolean;
-  /** Override namespace for this request (defaults to config.namespace) */
-  namespace?: string;
 }
 
 /** API client options */
@@ -98,8 +96,6 @@ export class ApiClient {
   private readonly logger: Logger;
   private readonly timeout: number;
   private readonly maxRetries: number;
-  private readonly namespace: string | undefined;
-
   constructor(options: ApiClientOptions) {
     // Ensure URL doesn't have trailing slash
     this.baseUrl = options.config.apiUrl.replace(/\/$/, '');
@@ -107,7 +103,6 @@ export class ApiClient {
     this.logger = options.logger ?? createLogger('api-client');
     this.timeout = options.config.timeout;
     this.maxRetries = options.config.maxRetries;
-    this.namespace = options.config.namespace;
   }
 
   /**
@@ -205,12 +200,6 @@ export class ApiClient {
 
       if (options?.user_id) {
         headers['X-Agent-Id'] = options.user_id;
-      }
-
-      // Namespace scoping: per-request override or config default (Issue #1428)
-      const ns = options?.namespace ?? this.namespace;
-      if (ns) {
-        headers['X-Namespace'] = ns;
       }
 
       // Mark request as coming from an agent for privacy filtering

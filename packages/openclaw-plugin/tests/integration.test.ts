@@ -175,7 +175,7 @@ describe('Integration Tests', () => {
 
       expect(instance.config.autoRecall).toBe(true);
       expect(instance.config.autoCapture).toBe(true);
-      expect(instance.config.userScoping).toBe('agent');
+      expect(instance.config.userScoping).toBeUndefined(); // deprecated (Issue #1428)
       expect(instance.config.maxRecallMemories).toBe(5);
       expect(instance.config.minRecallScore).toBe(0.7);
     });

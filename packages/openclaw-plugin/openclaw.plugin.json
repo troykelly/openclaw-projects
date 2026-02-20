@@ -106,7 +106,7 @@
         "type": "string",
         "enum": ["agent", "identity", "session"],
         "default": "agent",
-        "description": "How to scope user memories"
+        "description": "@deprecated — replaced by namespace config. Kept for backward compatibility."
       },
       "maxRecallMemories": {
         "type": "integer",
@@ -157,10 +157,35 @@
         "description": "PromptGuard-2 classifier URL for multilingual injection detection (e.g., http://prompt-guard:8190)"
       },
       "namespace": {
-        "type": "string",
-        "pattern": "^[a-z0-9][a-z0-9._-]*$",
-        "maxLength": 63,
-        "description": "Default namespace for data scoping (e.g., 'personal', 'team-alpha')"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "default": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "maxLength": 63,
+                "description": "Namespace for store/create when none specified"
+              },
+              "recall": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                  "maxLength": 63
+                },
+                "description": "Namespaces to search when none specified"
+              }
+            }
+          },
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$",
+            "maxLength": 63,
+            "description": "Shorthand: string treated as { default: value }"
+          }
+        ],
+        "description": "Namespace configuration for data scoping"
       }
     },
     "additionalProperties": false,
@@ -270,8 +295,8 @@
       "group": "Memory"
     },
     "userScoping": {
-      "label": "User Scoping",
-      "help": "How to isolate memories between users",
+      "label": "User Scoping (deprecated)",
+      "help": "Deprecated — replaced by namespace config",
       "group": "Memory"
     },
     "maxRecallMemories": {
@@ -319,8 +344,7 @@
     },
     "namespace": {
       "label": "Namespace",
-      "placeholder": "default",
-      "help": "Default namespace for data scoping. All data operations will be scoped to this namespace.",
+      "help": "Namespace config for data scoping. Can be a string (shorthand for default) or { default, recall[] }.",
       "group": "Advanced"
     }
   }

@@ -136,7 +136,7 @@ function createPluginInstance(config: PluginConfig, logger: Logger, runtime: unk
       agentId: context.agent.agentId,
       sessionKey: context.session.sessionId,
     },
-    config.userScoping,
+    config.userScoping ?? 'agent',
   );
 
   // Create tools
@@ -308,7 +308,7 @@ export const plugin = {
 };
 
 // Re-export types and utilities
-export type { PluginConfig, RawPluginConfig } from './config.js';
+export type { PluginConfig, RawPluginConfig, NamespaceConfig } from './config.js';
 export {
   validateConfig,
   safeValidateConfig,
@@ -317,6 +317,7 @@ export {
   resolveConfigSecrets,
   resolveConfigSecretsSync,
   redactConfig,
+  resolveNamespaceConfig,
 } from './config.js';
 export type { SecretConfig } from './secrets.js';
 export { resolveSecret, resolveSecretSync, resolveSecrets, clearSecretCache, clearCachedSecret } from './secrets.js';

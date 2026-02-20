@@ -115,12 +115,12 @@ describe('Config Schema', () => {
       expect(config.autoCapture).toBe(true);
     });
 
-    it('should set userScoping to "agent" by default', () => {
+    it('should leave userScoping undefined by default (deprecated, Issue #1428)', () => {
       const config = validateConfig({
         apiUrl: 'https://example.com',
         apiKey: 'test-key',
       });
-      expect(config.userScoping).toBe('agent');
+      expect(config.userScoping).toBeUndefined();
     });
 
     it('should set maxRecallMemories to 5 by default', () => {
