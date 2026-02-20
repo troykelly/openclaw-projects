@@ -19,6 +19,7 @@ export interface WorkItemSummary {
   task_type: string | null;
   created_at: string;
   updated_at: string;
+  namespace?: string;
 }
 
 /** Response from GET /api/work-items */
@@ -42,6 +43,7 @@ export interface WorkItemDetail {
   actual_minutes?: number | null;
   created_at: string;
   updated_at: string;
+  namespace?: string;
   dependencies?: {
     blocks: Array<{ id: string; title: string }>;
     blocked_by: Array<{ id: string; title: string }>;

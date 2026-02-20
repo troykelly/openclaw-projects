@@ -8,6 +8,8 @@ import { Label } from '@/ui/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/components/ui/select';
 import { Loader2, FileText } from 'lucide-react';
 import { apiClient } from '@/ui/lib/api-client';
+import { NamespacePicker } from '@/ui/components/namespace';
+import { useNamespaceSafe } from '@/ui/contexts/namespace-context';
 import type { WorkItemCreateDialogProps, WorkItemKind, WorkItemCreatePayload, CreatedWorkItem, ParentSelectorItem } from './types';
 
 const kindLabels: Record<WorkItemKind, string> = {
@@ -57,11 +59,13 @@ function flattenTree(items: ApiTreeItem[], depth = 0): ParentSelectorItem[] {
 }
 
 export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultParentId, defaultKind = 'issue' }: WorkItemCreateDialogProps) {
+  const ns = useNamespaceSafe();
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<WorkItemKind>(defaultKind);
   const [description, setDescription] = useState('');
   const [parent_id, setParentId] = useState<string | undefined>(defaultParentId);
   const [estimateMinutes, setEstimateMinutes] = useState<string>('');
+  const [selectedNamespace, setSelectedNamespace] = useState<string | undefined>(ns?.activeNamespace);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -95,9 +99,10 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     setDescription('');
     setParentId(defaultParentId);
     setEstimateMinutes('');
+    setSelectedNamespace(ns?.activeNamespace);
     setError(null);
     setValidationErrors({});
-  }, [defaultKind, defaultParentId]);
+  }, [defaultKind, defaultParentId, ns?.activeNamespace]);
 
   const validate = useCallback((): boolean => {
     const errors: Record<string, string> = {};
@@ -146,6 +151,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
       description: description.trim() || undefined,
       parent_id: parent_id ?? null,
       estimateMinutes: estimateMinutes ? parseInt(estimateMinutes, 10) : null,
+      namespace: selectedNamespace,
     };
 
     try {
@@ -158,7 +164,7 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
     } finally {
       setIsLoading(false);
     }
-  }, [title, kind, description, parent_id, estimateMinutes, isLoading, validate, onCreated, onOpenChange, resetForm]);
+  }, [title, kind, description, parent_id, estimateMinutes, isLoading, validate, onCreated, onOpenChange, resetForm, selectedNamespace]);
 
   const handleOpenChange = useCallback(
     (newOpen: boolean) => {
@@ -235,6 +241,13 @@ export function WorkItemCreateDialog({ open, onOpenChange, onCreated, defaultPar
               </SelectContent>
             </Select>
           </div>
+
+          {/* Namespace (Issue #1482) */}
+          <NamespacePicker
+            value={selectedNamespace}
+            onValueChange={setSelectedNamespace}
+            className="space-y-2"
+          />
 
           {/* Parent */}
           {showParentSelector && (

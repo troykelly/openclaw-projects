@@ -5,6 +5,7 @@ import { Sidebar, type NavItem } from './sidebar';
 import { MobileNav } from './mobile-nav';
 import { Breadcrumb, type BreadcrumbItem } from './breadcrumb';
 import { KeyboardShortcutsModal } from '@/ui/components/keyboard-shortcuts-modal';
+import { NamespaceIndicator } from '@/ui/components/namespace';
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
@@ -79,7 +80,10 @@ export function AppShell({
         {/* Header */}
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
           {breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} onHomeClick={onHomeClick} />}
-          {header && <div className="ml-auto flex items-center gap-2">{header}</div>}
+          <div className="ml-auto flex items-center gap-2">
+            <NamespaceIndicator />
+            {header}
+          </div>
         </header>
 
         {/* Content Area */}

@@ -10,6 +10,7 @@ export interface WorkItemCreatePayload {
   description?: string;
   parent_id?: string | null;
   estimateMinutes?: number | null;
+  namespace?: string;
 }
 
 export interface CreatedWorkItem {
