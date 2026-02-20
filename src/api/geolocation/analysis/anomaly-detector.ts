@@ -102,31 +102,34 @@ export class AnomalyDetector {
   /**
    * Evaluate a set of observations against confirmed routines to detect anomalies.
    *
-   * Returns no anomalies if there are no confirmed routines (cold-start protection).
+   * Escalation-tier events (alarm/lock) are ALWAYS checked, even during cold-start.
+   * Other anomaly types require confirmed routines.
    */
   async evaluate(
     observations: ObservationInput[],
     context: ObservationContext,
     namespace: string,
   ): Promise<DetectedAnomaly[]> {
-    const routines = await this.fetchConfirmedRoutines(namespace);
-
-    // Cold-start: no routines → no anomalies
-    if (routines.length === 0) return [];
-
     const anomalies: DetectedAnomaly[] = [];
 
-    // Check for unexpected activity
-    anomalies.push(...this.checkUnexpectedActivity(observations, routines, context));
-
-    // Check for routine deviations
-    anomalies.push(...this.checkRoutineDeviations(observations, routines, context));
-
-    // Check for escalations (critical entity changes)
+    // Always check for escalations (critical entity changes), even with no routines
     anomalies.push(...this.checkEscalations(observations, context));
 
+    const routines = await this.fetchConfirmedRoutines(namespace);
+
+    // Cold-start: no routines → skip routine-dependent anomaly checks
+    if (routines.length > 0) {
+      // Check for unexpected activity
+      anomalies.push(...this.checkUnexpectedActivity(observations, routines, context));
+
+      // Check for routine deviations
+      anomalies.push(...this.checkRoutineDeviations(observations, routines, context));
+    }
+
     // Store detected anomalies
-    await this.storeAnomalies(anomalies, namespace);
+    if (anomalies.length > 0) {
+      await this.storeAnomalies(anomalies, namespace);
+    }
 
     return anomalies;
   }

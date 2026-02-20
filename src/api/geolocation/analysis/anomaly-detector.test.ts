@@ -70,16 +70,45 @@ describe('AnomalyDetector', () => {
   });
 
   describe('cold-start', () => {
-    it('returns no anomalies when no confirmed routines exist', async () => {
+    it('returns no non-escalation anomalies when no confirmed routines exist', async () => {
       queryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
 
       const result = await detector.evaluate(
-        [makeObs()],
+        [makeObs()], // normal observation (light off)
         makeContext(),
         'test-ns',
       );
 
-      expect(result).toEqual([]);
+      // Non-escalation observations should produce no anomalies during cold start
+      const nonEscalation = result.filter((a) => a.type !== 'escalation');
+      expect(nonEscalation).toEqual([]);
+    });
+
+    it('still detects escalation events during cold-start (no routines)', async () => {
+      // Return no confirmed routines
+      queryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Store anomaly
+      queryFn.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      const observations: ObservationInput[] = [
+        makeObs({
+          entity_id: 'alarm_control_panel.home',
+          domain: 'alarm_control_panel',
+          to_state: 'triggered',
+          score: 9,
+        }),
+      ];
+
+      const result = await detector.evaluate(
+        observations,
+        makeContext({ time_bucket: 'night' }),
+        'test-ns',
+      );
+
+      const escalations = result.filter((a) => a.type === 'escalation');
+      expect(escalations.length).toBe(1);
+      expect(escalations[0].score).toBe(10);
+      expect(escalations[0].should_notify).toBe(true);
     });
 
     it('checkMissing returns empty when no confirmed routines exist', async () => {

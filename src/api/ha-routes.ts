@@ -12,6 +12,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Pool } from 'pg';
 
+import { requireMinRole, RoleError } from './auth/middleware.ts';
+
 // ---------- types ----------
 
 /** Pagination query parameters. */
@@ -84,23 +86,24 @@ function isValidUUID(s: string): boolean {
 
 /**
  * Resolve the effective namespace from the request.
- * Returns null if no namespace context is available (responds with 403).
+ * Returns null and sends 403 if no namespace context is available.
  */
 function getNamespace(req: FastifyRequest, reply: FastifyReply): string | null {
   const ctx = req.namespaceContext;
   if (!ctx) {
-    // When namespace context is null, use 'default' for development/testing
-    return 'default';
+    void reply.code(403).send({ error: 'Namespace access denied' });
+    return null;
   }
   return ctx.storeNamespace;
 }
 
 /**
  * Resolve query namespaces for read operations.
+ * Returns null if no namespace context is available (caller should 403).
  */
-function getQueryNamespaces(req: FastifyRequest): string[] {
+function getQueryNamespaces(req: FastifyRequest): string[] | null {
   const ctx = req.namespaceContext;
-  if (!ctx) return ['default'];
+  if (!ctx) return null;
   return ctx.queryNamespaces;
 }
 
@@ -132,6 +135,7 @@ export async function haRoutesPlugin(
   app.get('/api/ha/routines', async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as RoutineListQuery;
     const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
     const { limit, offset } = parsePagination(query);
 
     const conditions: string[] = ['namespace = ANY($1)'];
@@ -188,6 +192,7 @@ export async function haRoutesPlugin(
     }
 
     const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
     const result = await pool.query(
       'SELECT * FROM ha_routines WHERE id = $1 AND namespace = ANY($2)',
       [id, namespaces],
@@ -209,6 +214,13 @@ export async function haRoutesPlugin(
 
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
+
+    try {
+      requireMinRole(req, namespace, 'member');
+    } catch (e) {
+      if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
+      throw e;
+    }
 
     const body = req.body as RoutineUpdateBody | null;
     if (!body || (body.title === undefined && body.description === undefined)) {
@@ -261,6 +273,13 @@ export async function haRoutesPlugin(
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
 
+    try {
+      requireMinRole(req, namespace, 'member');
+    } catch (e) {
+      if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
+      throw e;
+    }
+
     const result = await pool.query(
       `UPDATE ha_routines SET status = 'archived', updated_at = NOW()
        WHERE id = $1 AND namespace = $2
@@ -284,6 +303,13 @@ export async function haRoutesPlugin(
 
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
+
+    try {
+      requireMinRole(req, namespace, 'member');
+    } catch (e) {
+      if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
+      throw e;
+    }
 
     const result = await pool.query(
       `UPDATE ha_routines SET status = 'confirmed', updated_at = NOW()
@@ -309,6 +335,13 @@ export async function haRoutesPlugin(
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
 
+    try {
+      requireMinRole(req, namespace, 'member');
+    } catch (e) {
+      if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
+      throw e;
+    }
+
     const result = await pool.query(
       `UPDATE ha_routines SET status = 'rejected', updated_at = NOW()
        WHERE id = $1 AND namespace = $2 AND status != 'archived'
@@ -331,6 +364,7 @@ export async function haRoutesPlugin(
     }
 
     const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
     const query = req.query as PaginationQuery;
     const { limit, offset } = parsePagination(query);
 
@@ -345,6 +379,7 @@ export async function haRoutesPlugin(
     }
 
     const routine = routineResult.rows[0];
+    const routineNamespace = routine.namespace as string;
     const sequence = routine.sequence as Array<{ entity_id: string }>;
     const entityIds = sequence.map((s) => s.entity_id);
 
@@ -352,18 +387,19 @@ export async function haRoutesPlugin(
       return reply.send({ data: [], total: 0, limit, offset });
     }
 
+    // Use the routine's own namespace for observation filtering (namespace isolation)
     const [dataResult, countResult] = await Promise.all([
       pool.query(
         `SELECT * FROM ha_observations
-         WHERE namespace = ANY($1) AND entity_id = ANY($2)
+         WHERE namespace = $1 AND entity_id = ANY($2)
          ORDER BY timestamp DESC
          LIMIT $3 OFFSET $4`,
-        [namespaces, entityIds, limit, offset],
+        [routineNamespace, entityIds, limit, offset],
       ),
       pool.query(
         `SELECT COUNT(*) AS total FROM ha_observations
-         WHERE namespace = ANY($1) AND entity_id = ANY($2)`,
-        [namespaces, entityIds],
+         WHERE namespace = $1 AND entity_id = ANY($2)`,
+        [routineNamespace, entityIds],
       ),
     ]);
 
@@ -383,6 +419,7 @@ export async function haRoutesPlugin(
   app.get('/api/ha/anomalies', async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as AnomalyListQuery;
     const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
     const { limit, offset } = parsePagination(query);
 
     const conditions: string[] = ['namespace = ANY($1)'];
@@ -390,6 +427,9 @@ export async function haRoutesPlugin(
     let paramIdx = 2;
 
     if (query.resolved !== undefined) {
+      if (query.resolved !== 'true' && query.resolved !== 'false') {
+        return reply.code(400).send({ error: "resolved must be 'true' or 'false'" });
+      }
       const resolved = query.resolved === 'true';
       conditions.push(`resolved = $${paramIdx}`);
       params.push(resolved);
@@ -438,6 +478,13 @@ export async function haRoutesPlugin(
 
     const namespace = getNamespace(req, reply);
     if (!namespace) return;
+
+    try {
+      requireMinRole(req, namespace, 'member');
+    } catch (e) {
+      if (e instanceof RoleError) return reply.code(403).send({ error: e.message });
+      throw e;
+    }
 
     const body = req.body as AnomalyUpdateBody | null;
     if (!body) {
@@ -493,6 +540,7 @@ export async function haRoutesPlugin(
   app.get('/api/ha/observations', async (req: FastifyRequest, reply: FastifyReply) => {
     const query = req.query as ObservationListQuery;
     const namespaces = getQueryNamespaces(req);
+    if (!namespaces) return reply.code(403).send({ error: 'Namespace access denied' });
     const { limit, offset } = parsePagination(query);
 
     const conditions: string[] = ['namespace = ANY($1)'];

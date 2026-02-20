@@ -18,7 +18,8 @@ SELECT
   COUNT(*) AS change_count,
   AVG(score) AS avg_score
 FROM ha_observations
-GROUP BY namespace, entity_id, domain, day_of_week, hour_of_day, day_bucket;
+GROUP BY namespace, entity_id, domain, day_of_week, hour_of_day, day_bucket
+WITH NO DATA;
 
 SELECT add_continuous_aggregate_policy('ha_entity_time_patterns',
   start_offset => INTERVAL '3 days',

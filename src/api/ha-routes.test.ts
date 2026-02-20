@@ -67,10 +67,37 @@ async function buildApp(queryFn: ReturnType<typeof vi.fn>): Promise<FastifyInsta
       storeNamespace: 'default',
       queryNamespaces: ['default'],
       isM2M: false,
-      roles: {},
+      roles: { default: 'member' },
     };
   });
 
+  await app.register(haRoutesPlugin, { pool: mockPool(queryFn) });
+  await app.ready();
+  return app;
+}
+
+/** Build an app with no namespace context (simulates unauthenticated/no-grants user). */
+async function buildAppNoContext(queryFn: ReturnType<typeof vi.fn>): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
+  app.decorateRequest('namespaceContext', null);
+  // No preHandler → namespaceContext stays null
+  await app.register(haRoutesPlugin, { pool: mockPool(queryFn) });
+  await app.ready();
+  return app;
+}
+
+/** Build an app with observer role (read-only, should be denied writes). */
+async function buildAppObserver(queryFn: ReturnType<typeof vi.fn>): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
+  app.decorateRequest('namespaceContext', null);
+  app.addHook('preHandler', async (req) => {
+    req.namespaceContext = {
+      storeNamespace: 'default',
+      queryNamespaces: ['default'],
+      isM2M: false,
+      roles: { default: 'observer' },
+    };
+  });
   await app.register(haRoutesPlugin, { pool: mockPool(queryFn) });
   await app.ready();
   return app;
@@ -572,6 +599,160 @@ describe('haRoutesPlugin', () => {
 
       const sql = queryFn.mock.calls[0][0] as string;
       expect(sql).toContain('score >= $');
+    });
+  });
+
+  // ── Namespace auth denial ──────────────────────────────────
+
+  describe('namespace auth denial (no namespace context)', () => {
+    it('returns 403 on GET /api/ha/routines without namespace context', async () => {
+      const noCtxApp = await buildAppNoContext(queryFn);
+      const res = await noCtxApp.inject({ method: 'GET', url: '/api/ha/routines' });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on PATCH /api/ha/routines/:id without namespace context', async () => {
+      const noCtxApp = await buildAppNoContext(queryFn);
+      const res = await noCtxApp.inject({
+        method: 'PATCH',
+        url: `/api/ha/routines/${VALID_UUID}`,
+        payload: { title: 'Test' },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on DELETE /api/ha/routines/:id without namespace context', async () => {
+      const noCtxApp = await buildAppNoContext(queryFn);
+      const res = await noCtxApp.inject({
+        method: 'DELETE',
+        url: `/api/ha/routines/${VALID_UUID}`,
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on GET /api/ha/anomalies without namespace context', async () => {
+      const noCtxApp = await buildAppNoContext(queryFn);
+      const res = await noCtxApp.inject({ method: 'GET', url: '/api/ha/anomalies' });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on GET /api/ha/observations without namespace context', async () => {
+      const noCtxApp = await buildAppNoContext(queryFn);
+      const res = await noCtxApp.inject({ method: 'GET', url: '/api/ha/observations' });
+      expect(res.statusCode).toBe(403);
+    });
+  });
+
+  // ── Role enforcement ───────────────────────────────────────
+
+  describe('role enforcement (observer cannot write)', () => {
+    it('returns 403 on PATCH /api/ha/routines/:id for observer', async () => {
+      const obsApp = await buildAppObserver(queryFn);
+      const res = await obsApp.inject({
+        method: 'PATCH',
+        url: `/api/ha/routines/${VALID_UUID}`,
+        payload: { title: 'Test' },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on DELETE /api/ha/routines/:id for observer', async () => {
+      const obsApp = await buildAppObserver(queryFn);
+      const res = await obsApp.inject({
+        method: 'DELETE',
+        url: `/api/ha/routines/${VALID_UUID}`,
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on POST /api/ha/routines/:id/confirm for observer', async () => {
+      const obsApp = await buildAppObserver(queryFn);
+      const res = await obsApp.inject({
+        method: 'POST',
+        url: `/api/ha/routines/${VALID_UUID}/confirm`,
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on POST /api/ha/routines/:id/reject for observer', async () => {
+      const obsApp = await buildAppObserver(queryFn);
+      const res = await obsApp.inject({
+        method: 'POST',
+        url: `/api/ha/routines/${VALID_UUID}/reject`,
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns 403 on PATCH /api/ha/anomalies/:id for observer', async () => {
+      const obsApp = await buildAppObserver(queryFn);
+      const res = await obsApp.inject({
+        method: 'PATCH',
+        url: `/api/ha/anomalies/${OTHER_UUID}`,
+        payload: { resolved: true },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+  });
+
+  // ── Boolean resolved query validation ──────────────────────
+
+  describe('GET /api/ha/anomalies resolved param validation', () => {
+    it('rejects invalid resolved value', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/ha/anomalies?resolved=yes',
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('accepts resolved=true', async () => {
+      queryFn
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({ rows: [{ total: '0' }], rowCount: 1 });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/ha/anomalies?resolved=true',
+      });
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('accepts resolved=false', async () => {
+      queryFn
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({ rows: [{ total: '0' }], rowCount: 1 });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/ha/anomalies?resolved=false',
+      });
+      expect(res.statusCode).toBe(200);
+    });
+  });
+
+  // ── Routine observation namespace isolation ────────────────
+
+  describe('GET /api/ha/routines/:id/observations namespace isolation', () => {
+    it('uses the routine namespace for observation queries, not user queryNamespaces', async () => {
+      const routine = makeRoutineRow({ namespace: 'tenant-a' });
+      queryFn
+        .mockResolvedValueOnce({ rows: [routine], rowCount: 1 }) // routine lookup
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // observations
+        .mockResolvedValueOnce({ rows: [{ total: '0' }], rowCount: 1 }); // count
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/ha/routines/${VALID_UUID}/observations`,
+      });
+      expect(res.statusCode).toBe(200);
+
+      // The observation queries should use the routine's namespace ('tenant-a') with $1, not ANY($1)
+      const obsSql = queryFn.mock.calls[1][0] as string;
+      expect(obsSql).toContain('namespace = $1');
+      // Namespace filter should NOT use ANY (single namespace, not array)
+      expect(obsSql).not.toContain('namespace = ANY');
+      const obsParams = queryFn.mock.calls[1][1] as unknown[];
+      expect(obsParams[0]).toBe('tenant-a');
     });
   });
 });
