@@ -20806,6 +20806,90 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     }
   });
 
+  // ── Channel Defaults (Epic #1497, Issue #1501) ─────────────────────
+
+  // GET /api/channel-defaults - List all channel defaults
+  app.get('/api/channel-defaults', async (req, reply) => {
+    const { listChannelDefaults } = await import('./channel-default/service.ts');
+
+    const pool = createPool();
+    try {
+      const result = await listChannelDefaults(pool, req.namespaceContext?.queryNamespaces);
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // GET /api/channel-defaults/:channelType - Get default for a channel type
+  app.get('/api/channel-defaults/:channelType', async (req, reply) => {
+    const { getChannelDefault, isValidChannelType } = await import('./channel-default/service.ts');
+    const { channelType } = req.params as { channelType: string };
+
+    if (!isValidChannelType(channelType)) {
+      return reply.code(400).send({ error: 'channel_type must be one of: sms, email, ha_observation' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await getChannelDefault(pool, channelType, req.namespaceContext?.queryNamespaces);
+      if (!result) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      return reply.send(result);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  // PUT /api/channel-defaults/:channelType - Set/update a channel default
+  app.put('/api/channel-defaults/:channelType', async (req, reply) => {
+    const { setChannelDefault, isValidChannelType } = await import('./channel-default/service.ts');
+    const { channelType } = req.params as { channelType: string };
+
+    if (!isValidChannelType(channelType)) {
+      return reply.code(400).send({ error: 'channel_type must be one of: sms, email, ha_observation' });
+    }
+
+    const body = req.body as {
+      agent_id?: string;
+      prompt_template_id?: string | null;
+      context_id?: string | null;
+    } | null;
+
+    const agentId = body?.agent_id?.trim();
+    if (!body || !agentId) {
+      return reply.code(400).send({ error: 'agent_id is required' });
+    }
+
+    if (body.prompt_template_id !== undefined && body.prompt_template_id !== null && !isValidUUID(body.prompt_template_id)) {
+      return reply.code(400).send({ error: 'invalid prompt_template_id format' });
+    }
+    if (body.context_id !== undefined && body.context_id !== null && !isValidUUID(body.context_id)) {
+      return reply.code(400).send({ error: 'invalid context_id format' });
+    }
+
+    const pool = createPool();
+    try {
+      const result = await setChannelDefault(pool, {
+        namespace: getStoreNamespace(req),
+        channel_type: channelType,
+        agent_id: agentId,
+        prompt_template_id: body.prompt_template_id,
+        context_id: body.context_id,
+      });
+      return reply.send(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('violates foreign key constraint')) {
+        return reply.code(400).send({ error: 'referenced prompt_template_id or context_id does not exist' });
+      }
+      throw err;
+    } finally {
+      await pool.end();
+    }
+  });
+
   // ── SPA fallback for client-side routing (Issue #481) ──────────────
   // Serve index.html for /static/app/* paths that don't match a real file.
   // This enables deep linking: e.g. /static/app/projects/123 loads the SPA
