@@ -725,8 +725,9 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
       return reply.code(403).send({ error: error.message });
     }
     // Fastify errors (validation, etc.) have statusCode set
-    if (error.statusCode) {
-      return reply.code(error.statusCode).send({ error: error.message });
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    if (statusCode) {
+      return reply.code(statusCode).send({ error: (error as Error).message });
     }
     req.log.error(error, 'Unhandled error');
     reply.code(500).send({ error: 'Internal Server Error' });
