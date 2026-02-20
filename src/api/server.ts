@@ -10320,7 +10320,29 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Enqueue embedding job for semantic search (#1343)
         triggerMessageEmbedding(pool, result.message_id);
 
-        // TODO: Queue webhook to notify OpenClaw of new inbound message (#201)
+        // Resolve route and enqueue webhook (Issue #1504)
+        try {
+          const { resolveRoute } = await import('./route-resolver/service.ts');
+          const { enqueueWebhook } = await import('./webhooks/dispatcher.ts');
+          const route = await resolveRoute(pool, payload.To, 'sms', getStoreNamespace(req));
+          if (route) {
+            await enqueueWebhook(pool, 'sms_received', '/hooks/agent', {
+              event_type: 'sms_received',
+              agent_id: route.agentId,
+              prompt_content: route.promptContent,
+              context_id: route.contextId,
+              route_source: route.source,
+              contact_id: result.contact_id,
+              thread_id: result.thread_id,
+              message_id: result.message_id,
+              from: payload.From,
+              to: payload.To,
+              body: payload.Body,
+            }, { idempotency_key: result.message_id });
+          }
+        } catch (routeErr) {
+          console.warn('[Twilio] Route resolution/webhook enqueue failed:', routeErr);
+        }
 
         // Return TwiML response (empty means no auto-reply)
         reply.header('Content-Type', 'application/xml');
@@ -10695,7 +10717,48 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Enqueue embedding job for semantic search (#1343)
         triggerMessageEmbedding(pool, result.message_id);
 
-        // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
+        // Extract original recipient for forwarded emails (Issue #1503)
+        // and resolve route + enqueue webhook (Issue #1505)
+        try {
+          const { extractOriginalRecipient } = await import('./email-forward/extract.ts');
+          const { resolveRoute } = await import('./route-resolver/service.ts');
+          const { enqueueWebhook } = await import('./webhooks/dispatcher.ts');
+
+          // Convert Postmark headers array to Record<string, string>
+          const headerMap: Record<string, string> = {};
+          for (const h of payload.Headers ?? []) {
+            headerMap[h.Name] = h.Value;
+          }
+
+          const toAddress = (payload.ToFull?.[0]?.Email ?? payload.To ?? '').toLowerCase();
+          const originalRecipient = extractOriginalRecipient(
+            headerMap,
+            payload.TextBody || payload.HtmlBody || '',
+            toAddress,
+          );
+          const routingAddress = originalRecipient || toAddress;
+
+          const route = await resolveRoute(pool, routingAddress, 'email', getStoreNamespace(req));
+          if (route) {
+            await enqueueWebhook(pool, 'email_received', '/hooks/agent', {
+              event_type: 'email_received',
+              agent_id: route.agentId,
+              prompt_content: route.promptContent,
+              context_id: route.contextId,
+              route_source: route.source,
+              contact_id: result.contact_id,
+              thread_id: result.thread_id,
+              message_id: result.message_id,
+              from: payload.FromFull?.Email ?? payload.From,
+              to: toAddress,
+              original_recipient: originalRecipient,
+              subject: payload.Subject,
+              body_preview: (payload.TextBody || '').substring(0, 500),
+            }, { idempotency_key: result.message_id });
+          }
+        } catch (routeErr) {
+          console.warn('[Postmark] Route resolution/webhook enqueue failed:', routeErr);
+        }
 
         // Return success
         return reply.code(200).send({
@@ -10920,7 +10983,45 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
         // Enqueue embedding job for semantic search (#1343)
         triggerMessageEmbedding(pool, result.message_id);
 
-        // TODO: Queue webhook to notify OpenClaw of new inbound email (#201)
+        // Extract original recipient and resolve route (Issues #1503, #1505)
+        try {
+          const { extractOriginalRecipient } = await import('./email-forward/extract.ts');
+          const { resolveRoute } = await import('./route-resolver/service.ts');
+          const { enqueueWebhook } = await import('./webhooks/dispatcher.ts');
+
+          const headerMap: Record<string, string> = {};
+          for (const [k, v] of Object.entries(payload.headers)) {
+            if (v) headerMap[k] = v;
+          }
+
+          const originalRecipient = extractOriginalRecipient(
+            headerMap,
+            payload.text_body || payload.html_body || '',
+            payload.to.toLowerCase(),
+          );
+          const routingAddress = originalRecipient || payload.to.toLowerCase();
+
+          const route = await resolveRoute(pool, routingAddress, 'email', getStoreNamespace(req));
+          if (route) {
+            await enqueueWebhook(pool, 'email_received', '/hooks/agent', {
+              event_type: 'email_received',
+              agent_id: route.agentId,
+              prompt_content: route.promptContent,
+              context_id: route.contextId,
+              route_source: route.source,
+              contact_id: result.contact_id,
+              thread_id: result.thread_id,
+              message_id: result.message_id,
+              from: payload.from,
+              to: payload.to,
+              original_recipient: originalRecipient,
+              subject: payload.subject,
+              body_preview: (payload.text_body || '').substring(0, 500),
+            }, { idempotency_key: result.message_id });
+          }
+        } catch (routeErr) {
+          console.warn('[Cloudflare Email] Route resolution/webhook enqueue failed:', routeErr);
+        }
 
         // Return success with receipt ID
         return reply.code(200).send({
