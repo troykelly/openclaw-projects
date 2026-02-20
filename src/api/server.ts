@@ -12,7 +12,7 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { createPool } from '../db.ts';
 import { sendMagicLinkEmail } from '../email/magicLink.ts';
-import { getAuthIdentity, getSessionEmail, resolveNamespaces } from './auth/middleware.ts';
+import { getAuthIdentity, getSessionEmail, resolveNamespaces, requireMinRole, RoleError } from './auth/middleware.ts';
 import { isAuthDisabled, verifyAccessToken, signAccessToken } from './auth/jwt.ts';
 import { createRefreshToken, consumeRefreshToken, revokeTokenFamily } from './auth/refresh-tokens.ts';
 import { logAuthEvent } from './auth/audit.ts';
@@ -706,6 +706,18 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
     req.namespaceContext = await resolveNamespaces(req, nsPool);
   });
 
+  // Global error handler: convert RoleError to 403 (#1485)
+  app.setErrorHandler((error, _req, reply) => {
+    if (error instanceof RoleError) {
+      return reply.code(403).send({ error: error.message });
+    }
+    // Default Fastify error handling
+    if (error.statusCode) {
+      return reply.code(error.statusCode).send({ error: error.message });
+    }
+    reply.code(500).send({ error: 'Internal Server Error' });
+  });
+
   app.get('/health', async () => ({ ok: true }));
 
   // Health check endpoints (Kubernetes-compatible)
@@ -1355,9 +1367,13 @@ export function buildServer(options: ProjectsApiOptions = {}): FastifyInstance {
 
   /**
    * Gets the store namespace for write operations.
+   * Throws RoleError if the user has observer role (read-only).
    */
   function getStoreNamespace(req: FastifyRequest): string {
-    return req.namespaceContext?.storeNamespace ?? 'default';
+    const ns = req.namespaceContext?.storeNamespace ?? 'default';
+    // Enforce: observers cannot write (#1485)
+    requireMinRole(req, ns, 'member');
+    return ns;
   }
 
   // Real-time WebSocket endpoint (Issue #213)
