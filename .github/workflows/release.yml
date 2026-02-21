@@ -107,7 +107,9 @@ jobs:
             echo "docker_latest=false" >> "${GITHUB_OUTPUT}"
 
             # Channel-aware npm dist-tag: v1.0.0-beta.1 → beta, v1.0.0-rc.1 → rc
-            PRERELEASE_ID="${RELEASE_VERSION#*-}"
+            # Strip build metadata first (v1.2.3-alpha.1+build → alpha.1)
+            VERSION_NO_BUILD="${RELEASE_VERSION%%+*}"
+            PRERELEASE_ID="${VERSION_NO_BUILD#*-}"
             CHANNEL="${PRERELEASE_ID%%.*}"
             case "${CHANNEL}" in
               alpha|beta|rc|canary)
