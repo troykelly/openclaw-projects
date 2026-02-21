@@ -108,6 +108,14 @@ describe('release.yml workflow', () => {
       expect(checkout?.with?.ref).toBe('main');
     });
 
+    it('should use REPO_PAT for checkout to bypass branch protection on push', () => {
+      const checkout = workflow.jobs.validate.steps.find((s) =>
+        s.uses?.includes('actions/checkout')
+      );
+      const token = String(checkout?.with?.token ?? '');
+      expect(token).toContain('REPO_PAT');
+    });
+
     it('should extract version from tag', () => {
       const step = workflow.jobs.validate.steps.find((s) =>
         s.name?.toLowerCase().includes('extract')
